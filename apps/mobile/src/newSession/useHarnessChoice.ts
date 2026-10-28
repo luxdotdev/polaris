@@ -27,6 +27,7 @@ export const useHarnessChoice = (api: NewSessionApi, host: SheetHost | null): Ha
   const [models, setModels] = useState<ReadonlyArray<Model>>([]);
   const [model, setModel] = useState<Model | null>(null);
   const hostId = host?.hostId ?? null;
+  const connected = host?.connected ?? false;
   // The Host's identity, not each feed update, decides when to ask again.
   const latestHost = useRef(host);
 
@@ -35,7 +36,7 @@ export const useHarnessChoice = (api: NewSessionApi, host: SheetHost | null): Ha
   useEffect(() => {
     const host = latestHost.current;
 
-    if (host === null) return;
+    if (host === null || !connected) return;
     let live = true;
 
     setLoad({ kind: "loading" });
@@ -61,7 +62,7 @@ export const useHarnessChoice = (api: NewSessionApi, host: SheetHost | null): Ha
     return () => {
       live = false;
     };
-  }, [api, hostId]);
+  }, [api, hostId, connected]);
 
   useEffect(() => {
     if (hostId === null || harness === null) return;

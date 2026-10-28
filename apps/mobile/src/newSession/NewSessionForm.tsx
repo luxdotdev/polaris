@@ -5,7 +5,15 @@
 import { type SessionId, type Workspace, WorkspaceId } from "@polaris/protocol";
 import { midnight, mobileType } from "@polaris/ui/tokens";
 import { type ReactNode, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import type { NewSessionApi } from "./api.ts";
 import { type Draft, type DraftStore, useDraft } from "./draft.ts";
 import { modelLabel } from "./harness.ts";
@@ -263,43 +271,52 @@ export const NewSessionForm = ({
   return (
     <Sheet>
       {header}
-      <Prompt draft={draft} />
-      <PickerRow label="Workspace" onPress={() => setPane("workspace")}>
-        <WorkspaceValue
-          host={host}
-          workspace={workspace}
-          lastUsed={
-            last !== null && last.workspaceId === workspace?.id && last.hostId === host?.hostId
-          }
-        />
-      </PickerRow>
-      <PickerRow label="Harness">
-        <HarnessValue choice={choice} onOpen={() => setPane("harness")} />
-      </PickerRow>
-      {host === null ? null : (
-        <SwitchRow
-          title="Plan first"
-          caption={planCaption(host)}
-          value={planFirst || !planMode}
-          onValueChange={setPlanFirst}
-          disabled={!planMode}
-        />
-      )}
-      {workspace === null ? null : (
-        <SwitchRow
-          title="New worktree"
-          caption={worktreeCaption(
-            newWorktree,
-            workspace,
-            host?.homeDir ?? null,
-            branchFromPrompt(draft.text, sessionId)
+      <ScrollView
+        style={styles.body}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+      >
+        <Prompt draft={draft} />
+        <PickerRow label="Workspace" onPress={() => setPane("workspace")}>
+          <WorkspaceValue
+            host={host}
+            workspace={workspace}
+            lastUsed={
+              last !== null && last.workspaceId === workspace?.id && last.hostId === host?.hostId
+            }
+          />
+        </PickerRow>
+        <PickerRow label="Harness">
+          {host === null ? (
+            <Text style={rowStyles.caption}>Choose a workspace first</Text>
+          ) : (
+            <HarnessValue choice={choice} onOpen={() => setPane("harness")} />
           )}
-          value={newWorktree}
-          onValueChange={setNewWorktree}
-          disabled={!workspace.isGitRepo}
-        />
-      )}
-      <View style={styles.spacer} />
+        </PickerRow>
+        {host === null ? null : (
+          <SwitchRow
+            title="Plan first"
+            caption={planCaption(host)}
+            value={planFirst || !planMode}
+            onValueChange={setPlanFirst}
+            disabled={!planMode}
+          />
+        )}
+        {workspace === null ? null : (
+          <SwitchRow
+            title="New worktree"
+            caption={worktreeCaption(
+              newWorktree,
+              workspace,
+              host?.homeDir ?? null,
+              branchFromPrompt(draft.text, sessionId)
+            )}
+            value={newWorktree}
+            onValueChange={setNewWorktree}
+            disabled={!workspace.isGitRepo}
+          />
+        )}
+      </ScrollView>
       <StartFooter host={host} error={error} why={why} busy={busy} onStart={() => void start()} />
     </Sheet>
   );
@@ -341,8 +358,8 @@ const styles = StyleSheet.create({
   },
   promptBar: { flexDirection: "row", alignItems: "center", minHeight: 32 },
   draft: { ...mobileType.footnote, color: midnight.textFaint },
-  spacer: { flex: 1 },
-  footer: { gap: 12 },
+  body: { flex: 1 },
+  footer: { gap: 12, paddingTop: 12 },
   route: { ...mobileType.footnote, lineHeight: 17, color: midnight.textFaint, textAlign: "center" },
   error: { ...mobileType.footnote, color: midnight.failedText, textAlign: "center" },
   start: {

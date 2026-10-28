@@ -41,6 +41,17 @@ EXPO_PUBLIC_POLARIS_DEV_BRIDGE='polaris-dev-bridge:v1:…' bun run --cwd apps/mo
 
 Only `__DEV__` builds read the variable; the bridge itself is a script and never bundled.
 
+## New agent session (M6)
+
+`src/newSession/` is the sheet that starts an agent session: `NewSessionSheet({ onClose,
+workspaceId?, onStarted? })` under a `NewSessionDataProvider` that takes the home feed's
+workspaces and sessions per Host (`feeds`). It follows the Desktop App's new-session rules: the
+last used workspace with its Host, the most recently used ready Harness, the Models' shortlist,
+in place unless New worktree is on (branch from the prompt and the session's id). The prompt
+draft stays on the phone until Start. Plan first sends `supervised` and says "Asks before every
+edit" until a Host announces `session.plan-mode` (ENG-466). `scripts/newSession.test.ts` starts a
+real session on a test Daemon through the dev bridge.
+
 ## The Hermes check
 
 `src/runtime/selfCheck.ts` exercises Effect 4, the frame codec and pairing strings, the

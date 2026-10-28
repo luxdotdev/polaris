@@ -1,0 +1,49 @@
+/** The sheet's calls and Hosts over the app's HostConnections (src/runtime/hostConnection.ts). */
+import { CommandId, type Workspace } from "@polaris/protocol";
+import type { HostConnection } from "../runtime/hostConnection.ts";
+import type { NewSessionApi } from "./api.ts";
+import { newSessionId, type SessionUse, type SheetHost } from "./model.ts";
+
+/** One Host's workspaces and sessions, as the home feed has them. */
+export interface HostFeed {
+  readonly workspaces: ReadonlyArray<Workspace>;
+  readonly sessions: ReadonlyArray<SessionUse>;
+}
+
+const connectionOf = (hosts: ReadonlyArray<HostConnection>, hostId: string): HostConnection => {
+  const connection = hosts.find((h) => h.hostId === hostId);
+
+  if (connection === undefined) throw new Error(`No connection to ${hostId}`);
+
+  return connection;
+};
+
+export const newSessionApi = (hosts: ReadonlyArray<HostConnection>): NewSessionApi => ({
+  availability: (hostId) =>
+    connectionOf(hosts, hostId).run((client) => client["harness.availability"]({ refresh: false })),
+  models: (hostId, harness) =>
+    connectionOf(hosts, hostId).run((client) =>
+      client["harness.models"]({ harness, refresh: false })
+    ),
+  dispatch: async (hostId, command) => {
+    const commandId = CommandId.make(newSessionId());
+
+    await connectionOf(hosts, hostId).run((client) => client.dispatch({ commandId, command }));
+  },
+});
+
+/** A Host as the sheet sees it: the name the user gave it, its route and its feed. */
+export const sheetHost = (connection: HostConnection, feed: HostFeed | null): SheetHost => {
+  const status = connection.status();
+
+  return {
+    hostId: connection.hostId,
+    hostName: connection.name,
+    connected: status.state === "connected",
+    route: connection.route === "relay" ? "relay" : "network",
+    homeDir: status.host?.homeDir ?? null,
+    workspaces: feed?.workspaces ?? [],
+    sessions: feed?.sessions ?? [],
+    capabilities: status.capabilities,
+  };
+};
