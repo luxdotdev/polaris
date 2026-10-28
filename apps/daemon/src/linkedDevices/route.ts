@@ -370,10 +370,10 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
           current.wake({ peer: device.relayAddress, token, environment, ticket, payload })
         );
 
-        // APNs no longer knows the token: wait for the device to register again.
+        // APNs no longer knows the token; a registration made since then stays (RV4).
         if (outcome === "unregistered")
           yield* store
-            .clearPush(device.id)
+            .clearPush(device.id, registration)
             .pipe(Effect.ignore, Effect.andThen(Effect.sync(pushChanged)));
 
         return outcome;

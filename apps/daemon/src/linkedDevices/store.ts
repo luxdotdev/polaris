@@ -81,7 +81,11 @@ export class LinkedDevices extends Context.Service<
       id: LinkedDeviceId,
       registration: PushRegistration
     ) => Effect.Effect<void, LinkedDeviceStoreError>;
-    readonly clearPush: (id: LinkedDeviceId) => Effect.Effect<void, LinkedDeviceStoreError>;
+    /** Removes the device's registration; with `only`, just when it is still that one. */
+    readonly clearPush: (
+      id: LinkedDeviceId,
+      only?: PushRegistration
+    ) => Effect.Effect<void, LinkedDeviceStoreError>;
     /** Every linked device with a push registration, read synchronously. */
     readonly pushTargets: () => ReadonlyArray<PushTarget>;
   }
@@ -187,9 +191,14 @@ export class LinkedDevices extends Context.Service<
                  updated_at = excluded.updated_at`
               ).run(id, encodeRegistration(registration), new Date().toISOString());
             }),
-          clearPush: (id) =>
+          clearPush: (id, only) =>
             run(() => {
-              db.query("DELETE FROM push_registrations WHERE device_id = ?").run(id);
+              if (only === undefined)
+                db.query("DELETE FROM push_registrations WHERE device_id = ?").run(id);
+              else
+                db.query(
+                  "DELETE FROM push_registrations WHERE device_id = ? AND registration = ?"
+                ).run(id, encodeRegistration(only));
             }),
           pushTargets: () => {
             const devices = new Map(linked().map((device) => [device.id, device]));
