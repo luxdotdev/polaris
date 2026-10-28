@@ -108,6 +108,15 @@ devDependency, its config plugin only) adds to the Xcode project at prebuild.
   it the app's real snapshot, so the Swift reader, its merge of pushes, its ages and its links
   can't drift from the TypeScript (skipped where there is no `swiftc`).
 
+## Markdown
+
+`src/markdown/` draws agent messages as Markdown, as the Desktop App does with Streamdown: marked's
+lexer (GFM), with remend closing what a stream left open (`**bol`, an unterminated fence), mapped to
+`Text` and `View` in Midnight. Text only grows at its end, so the blocks before the last are kept and
+only the open block is lexed again; a parse is cached by its text, so a finished message scrolled
+back into view isn't parsed again. `MarkdownLine` is the few-line form (the lead's note). Links open
+only for `http`, `https` and `mailto`; images show their alt text; HTML shows as written.
+
 ## Review
 
 `src/review/` is Paper M5: `ReviewScreen({ hostId, sessionId, turnId?, colourblind?, onBack? })` reviews one agent session's Turn. It reads the Turn's diff (`git.diff`, as a blob), runs or reads its Risk Summary (`review.runRiskSummary`, then `review.watchRiskSummary`), and shows the Polaris summary with its tally, the files ordered by risk (or by path under Files), and findings inline under the line they flag. Accept sends `AcceptTurns` and is paused while a Critical finding is open. Send back sends the user's reply as a feedback Turn, and "Ask {harness} to fix" quotes the flagged lines. A Critical finding can't be hidden: a dismissed one stays listed, and its card stays visible when its file is closed.
@@ -198,7 +207,7 @@ extension: seal a PushMessage to the key `pushKey()` returns (`sealPush` in
 ## The Hermes check
 
 `src/runtime/selfCheck.ts` exercises Effect 4, the frame codec and pairing strings, the
-Connection State machine and the resumable feed. The app runs it at startup in development, and
+Connection State machine, the resumable feed and the Markdown parser. The app runs it at startup in development, and
 `bun run test` runs it on Hermes:
 
 - `hermesc` (the `hermes-compiler` React Native ships) must compile the bundled check, always;
