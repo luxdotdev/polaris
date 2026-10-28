@@ -4,7 +4,6 @@ import {
   branchFromPrompt,
   defaultTarget,
   newSessionId,
-  permissionModeFor,
   planCaption,
   routeLine,
   type SheetHost,
@@ -92,7 +91,7 @@ test.each([
   expect(routeLine({ ...studio, route })).toBe(line);
 });
 
-const planning = { ...studio, capabilities: ["session.plan-mode"] };
+const planning: SheetHost = { ...studio, capabilities: ["session.plan-mode"] };
 
 test.each([
   [studio, true, "Asks before every edit"],
@@ -131,13 +130,9 @@ describe("startCommand", () => {
     [true, ["session.plan-mode"], "plan"],
     [true, [], "supervised"],
     [false, ["session.plan-mode"], "supervised"],
-  ] as const)("Plan first %p on a host with %p asks for %p", (planFirst, capabilities, mode) => {
-    expect(permissionModeFor(planFirst ? "plan" : "supervised", capabilities)).toBe(mode);
-  });
-
-  test("Plan first on a host without plan mode starts supervised", () => {
-    expect(startCommand({ ...base, newWorktree: false })).toMatchObject({
-      permissionMode: "supervised",
+  ] as const)("Plan first %p on a host with %p starts %p", (planFirst, capabilities, mode) => {
+    expect(startCommand({ ...base, planFirst, capabilities, newWorktree: false })).toMatchObject({
+      permissionMode: mode,
     });
   });
 

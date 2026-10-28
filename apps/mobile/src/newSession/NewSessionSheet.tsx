@@ -2,6 +2,7 @@
 import { midnight } from "@polaris/ui/tokens";
 import { KeyboardAvoidingView, Modal, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useHosts } from "../runtime/hosts.tsx";
 import { NewSessionForm } from "./NewSessionForm.tsx";
 import { useSheetData } from "./useSheetData.ts";
 
@@ -14,6 +15,7 @@ export interface NewSessionSheetProps {
 
 export const NewSessionSheet = ({ onClose, workspaceId, onStarted }: NewSessionSheetProps) => {
   const { hosts, api } = useSheetData();
+  const connections = useHosts();
   // A page sheet starts one top inset down the window; the keyboard is measured from the window.
   const { top } = useSafeAreaInsets();
 
@@ -24,6 +26,7 @@ export const NewSessionSheet = ({ onClose, workspaceId, onStarted }: NewSessionS
           hosts={hosts}
           api={api}
           onClose={onClose}
+          connectionFor={(hostId) => connections.find((c) => c.hostId === hostId) ?? null}
           {...(workspaceId === undefined ? {} : { workspaceId })}
           {...(onStarted === undefined ? {} : { onStarted })}
         />

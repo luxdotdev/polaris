@@ -4,7 +4,7 @@
  */
 import { type SessionId, type Workspace, WorkspaceId } from "@polaris/protocol";
 import { midnight, mobileType } from "@polaris/ui/tokens";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -14,6 +14,16 @@ import {
   TextInput,
   View,
 } from "react-native";
+import {
+  AttachButton,
+  type AttachInput,
+  AttachmentChips,
+  MicButton,
+  type VoiceInput,
+} from "../composer/controls.tsx";
+import { useAttachments } from "../composer/useAttachments.ts";
+import { useVoiceInput } from "../composer/useVoiceInput.ts";
+import type { HostConnection } from "../runtime/hostConnection.ts";
 import type { NewSessionApi } from "./api.ts";
 import { type Draft, type DraftStore, useDraft } from "./draft.ts";
 import { modelLabel } from "./harness.ts";
@@ -45,6 +55,8 @@ export interface NewSessionFormProps {
   readonly onClose: () => void;
   readonly onStarted?: (hostId: string, sessionId: string) => void;
   readonly draftStore?: DraftStore;
+  /** The Host's connection, for Attach and the mic; without it neither is offered. */
+  readonly connectionFor?: (hostId: string) => HostConnection | null;
 }
 
 type Pane = "form" | "workspace" | "harness";
@@ -87,24 +99,42 @@ const Header = ({ pane, onLeave }: { readonly pane: Pane; readonly onLeave: () =
   </View>
 );
 
-const Prompt = ({ draft }: { readonly draft: Draft }) => (
-  <View style={styles.prompt}>
-    <TextInput
-      style={styles.promptInput}
-      value={draft.text}
-      onChangeText={draft.setText}
-      placeholder="What should happen next?"
-      placeholderTextColor={midnight.textFaint}
-      multiline
-      autoFocus
-      selectionColor={midnight.textSubtle}
-      accessibilityLabel="Prompt"
-    />
-    <View style={styles.promptBar}>
-      <Text style={styles.draft}>{draft.status === "saved" ? "Draft saved" : ""}</Text>
+const Prompt = ({
+  draft,
+  attach,
+  voice,
+}: {
+  readonly draft: Draft;
+  readonly attach: AttachInput | null;
+  readonly voice: VoiceInput | null;
+}) => {
+  const notice = voice?.failure ?? attach?.caption ?? null;
+
+  return (
+    <View style={styles.prompt}>
+      <TextInput
+        style={styles.promptInput}
+        value={draft.text}
+        onChangeText={draft.setText}
+        placeholder="What should happen next?"
+        placeholderTextColor={midnight.textFaint}
+        multiline
+        autoFocus
+        selectionColor={midnight.textSubtle}
+        accessibilityLabel="Prompt"
+      />
+      {attach === null ? null : <AttachmentChips attach={attach} />}
+      <View style={styles.promptBar}>
+        {attach === null ? null : <AttachButton onPress={attach.pick} />}
+        <Text style={styles.draft}>{draft.status === "saved" ? "Draft saved" : ""}</Text>
+        {voice === null ? null : <MicButton voice={voice} />}
+      </View>
+      {notice === null ? null : (
+        <Text style={[styles.draft, voice?.failure ? styles.noticeFailed : null]}>{notice}</Text>
+      )}
     </View>
-  </View>
-);
+  );
+};
 
 const WorkspaceValue = ({
   host,
@@ -221,6 +251,7 @@ export const NewSessionForm = ({
   onClose,
   onStarted,
   draftStore,
+  connectionFor,
 }: NewSessionFormProps) => {
   const [picked, setPicked] = useState<Target | null>(null);
   const target = picked ?? defaultTarget(hosts, workspaceId);
@@ -237,7 +268,22 @@ export const NewSessionForm = ({
   const [pane, setPane] = useState<Pane>("form");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const why = startBlocker(host, draft.text, choice);
+  const connection = target === null ? null : (connectionFor?.(target.hostId) ?? null);
+
+  const stageTarget = useMemo(
+    () =>
+      connection === null || target === null
+        ? null
+        : { connection, workspaceId: WorkspaceId.make(target.workspaceId), sessionId: null },
+    [connection, target?.workspaceId]
+  );
+
+  const attachments = useAttachments(stageTarget);
+
+  const voice = useVoiceInput({ connection, text: draft.text, onText: draft.setText });
+  const staging = attachments.staging ? "Attaching files…" : null;
+  const why = startBlocker(host, draft.text, choice) ?? staging;
+
   const planMode = host !== null && hasPlanMode(host);
   const header = <Header pane={pane} onLeave={pane === "form" ? onClose : () => setPane("form")} />;
 
@@ -253,6 +299,7 @@ export const NewSessionForm = ({
       newWorktree,
       planFirst,
       capabilities: host?.capabilities ?? [],
+      attachments: attachments.ids,
     };
 
     try {
@@ -263,6 +310,7 @@ export const NewSessionForm = ({
       });
 
       if (!sent) return;
+      attachments.clear();
       await draft.clear();
       onStarted?.(target.hostId, sessionId);
       onClose();
@@ -313,7 +361,7 @@ export const NewSessionForm = ({
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
       >
-        <Prompt draft={draft} />
+        <Prompt draft={draft} attach={attachments.input} voice={voice} />
         <PickerRow label="Workspace" onPress={() => setPane("workspace")}>
           <WorkspaceValue
             host={host}
@@ -387,8 +435,9 @@ const styles = StyleSheet.create({
     padding: 0,
     textAlignVertical: "top",
   },
-  promptBar: { flexDirection: "row", alignItems: "center", minHeight: 32 },
-  draft: { ...mobileType.footnote, color: midnight.textFaint },
+  promptBar: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 32 },
+  draft: { ...mobileType.footnote, color: midnight.textFaint, flex: 1 },
+  noticeFailed: { color: midnight.failedText },
   body: { flex: 1 },
   footer: { gap: 12, paddingTop: 12 },
   route: { ...mobileType.footnote, lineHeight: 17, color: midnight.textFaint, textAlign: "center" },

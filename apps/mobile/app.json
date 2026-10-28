@@ -30,6 +30,21 @@
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Polaris listens while you dictate a prompt; your host turns it into text.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Polaris attaches the photos you choose to an agent session.",
+          "cameraPermission": "Polaris uses the camera to scan the link code the Desktop App shows.",
+          "microphonePermission": "Polaris listens while you dictate a prompt; your host turns it into text."
+        }
       ]
     ]
   }

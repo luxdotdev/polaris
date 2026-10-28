@@ -8,6 +8,13 @@ import type { HarnessKind } from "@polaris/protocol";
 import { midnight, mobileType } from "@polaris/ui/tokens";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  AttachButton,
+  type AttachInput,
+  AttachmentChips,
+  MicButton,
+  type VoiceInput,
+} from "../composer/controls.tsx";
 import { type ComposerMode, placeholderFor } from "./composer.ts";
 import { elapsed, harnessHue, harnessName } from "./labels.ts";
 import { Diamond } from "./Row.tsx";
@@ -105,6 +112,12 @@ export interface ComposerProps {
   readonly workingSince: string | null;
   readonly draftStatus: DraftStatus | null;
   readonly error: string | null;
+  /** Attach, where the Host stages attachments; null hides it. */
+  readonly attach?: AttachInput | null;
+  /** Attachments are still on their way: Send waits for them. */
+  readonly attaching?: boolean;
+  /** The mic, where the Host transcribes voice; null hides it. */
+  readonly voice?: VoiceInput | null;
   readonly onChange: (text: string) => void;
   readonly onSend: () => void;
   readonly onQueue: () => void;
@@ -132,10 +145,12 @@ const ModelChip = ({
 };
 
 export const Composer = (props: ComposerProps) => {
-  const { mode, text, harness, workingSince } = props;
+  const { mode, text, harness, workingSince, attach = null, voice = null } = props;
   const blocked = mode.kind === "blocked";
-  const empty = text.trim() === "";
+  const empty = text.trim() === "" || props.attaching === true;
   const hue = harnessHue(harness);
+  // Voice and attach say what's happening on a line of their own: a missing key's message is long.
+  const notice = voice?.failure ?? attach?.caption ?? null;
 
   const footnote =
     props.error ?? (props.draftStatus === null ? "" : DRAFT_WORDS[props.draftStatus]);
@@ -146,6 +161,12 @@ export const Composer = (props: ComposerProps) => {
         <WorkingStrip harness={harness} since={workingSince} onStop={props.onStop} />
       )}
       <View style={styles.body}>
+        {attach === null ? null : <AttachmentChips attach={attach} />}
+        {notice === null ? null : (
+          <Text style={[styles.notice, voice?.failure ? styles.footnoteError : null]}>
+            {notice}
+          </Text>
+        )}
         <TextInput
           style={styles.input}
           value={text}
@@ -157,6 +178,7 @@ export const Composer = (props: ComposerProps) => {
           accessibilityLabel="Message"
         />
         <View style={styles.footer}>
+          {attach === null || blocked ? null : <AttachButton onPress={attach.pick} compact />}
           <ModelChip harness={harness} model={props.model} />
           <Text
             style={[styles.footnote, props.error === null ? null : styles.footnoteError]}
@@ -164,6 +186,7 @@ export const Composer = (props: ComposerProps) => {
           >
             {footnote}
           </Text>
+          {voice === null || blocked ? null : <MicButton voice={voice} />}
           {mode.kind === "steer" ? (
             <Pressable
               onPress={props.onQueue}
@@ -266,6 +289,7 @@ const styles = StyleSheet.create({
   modelName: { ...mobileType.footnote, color: midnight.textSubtle, flexShrink: 1 },
   footnote: { ...mobileType.footnote, color: midnight.textFaint, flex: 1 },
   footnoteError: { color: midnight.failedText },
+  notice: { ...mobileType.footnote, color: midnight.textSubtle },
   queue: { ...mobileType.footnote, fontWeight: "500", color: midnight.textDefault },
   send: {
     width: 34,

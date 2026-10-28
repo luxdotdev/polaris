@@ -6,6 +6,7 @@
 import {
   type ApprovalRequest,
   ApprovalDecision,
+  type AttachmentId,
   Command,
   type RequestId,
   type SessionId,
@@ -74,15 +75,20 @@ export const placeholderFor = (mode: ComposerMode): string =>
 /** While a Turn runs, the text can wait for it as a follow-up. */
 export const canQueue = (mode: ComposerMode) => mode.kind === "steer" || mode.kind === "queue";
 
+/** A steer carries text only: a draft with attachments waits for the next Turn instead. */
+export const sendQueues = (mode: ComposerMode, attachments: ReadonlyArray<AttachmentId>) =>
+  mode.kind === "queue" || (mode.kind === "steer" && attachments.length > 0);
+
 /** The command Send makes of the text; null when it queues instead or there's nothing to send. */
 export const submitCommand = (
   mode: ComposerMode,
   sessionId: SessionId,
-  draft: string
+  draft: string,
+  attachments: ReadonlyArray<AttachmentId> = []
 ): Command | null => {
   const text = draft.trim();
 
-  if (text === "" || mode.kind === "blocked" || mode.kind === "queue") return null;
+  if (text === "" || mode.kind === "blocked" || sendQueues(mode, attachments)) return null;
 
   if (mode.kind === "steer") return Command.cases.Steer.make({ sessionId, text });
 
@@ -93,9 +99,19 @@ export const submitCommand = (
       decision: ApprovalDecision.cases.Answer.make({ text }),
     });
 
-  return Command.cases.SendTurn.make({ sessionId, prompt: text, attachments: [] });
+  return Command.cases.SendTurn.make({ sessionId, prompt: text, attachments: [...attachments] });
 };
 
-/** A follow-up the composer holds until the Turn in flight ends, then sends as a Turn. */
-export const followUpCommand = (sessionId: SessionId, text: string): Command =>
-  Command.cases.SendTurn.make({ sessionId, prompt: text.trim(), attachments: [] });
+/** A follow-up the composer holds until the Turn in flight ends. */
+export interface FollowUp {
+  readonly text: string;
+  readonly attachments: ReadonlyArray<AttachmentId>;
+}
+
+/** A held follow-up, sent as a Turn once the one in flight ends. */
+export const followUpCommand = (sessionId: SessionId, followUp: FollowUp): Command =>
+  Command.cases.SendTurn.make({
+    sessionId,
+    prompt: followUp.text.trim(),
+    attachments: [...followUp.attachments],
+  });
