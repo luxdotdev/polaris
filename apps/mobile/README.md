@@ -151,7 +151,7 @@ folding never navigates and the focus stays put. `arrangement.ts` decides what i
 
 ## Push
 
-Needs You and finished Turns arrive as notifications (apps/daemon/src/push/README.md). The Daemon
+Needs You, finished Turns, agents' `notify` and a constellation needing you arrive as notifications (apps/daemon/src/push/README.md). The Daemon
 seals each one to this device's push key with HPKE; the relay and the push service carry it
 opaquely; the Notification Service Extension opens it.
 
@@ -167,7 +167,13 @@ opaquely; the Notification Service Extension opens it.
   Host as its connection comes live (`devices.registerPush`, again after a reconnect), and answers.
   The `approval` category has Approve, Always here and Deny; each needs Face ID or the passcode and
   doesn't open the app. The answer is a RespondToApproval with a command id per request, sent
-  once the Host's connection is live, within a background task (about 30 s).
+  once the Host's connection is live, within a background task (about 30 s). `usePushLinks`
+  (in `Shell`) opens what a tap points at: the constellation for one about a constellation
+  (`constellationId` in `userInfo.polaris`), else the session.
+- This iPhone's switch, Hosts → Notifications on this iPhone (`src/push/constellations.ts`,
+  SecureStore `polaris.push.constellations`, on by default), rides on the registration as
+  `automatic`; turning it off registers again, and each Host stops sending Polaris's own
+  constellation notifications here. Approvals and agents' `notify` still arrive.
 
 Unlinking this iPhone asks each Host to drop its registration (`devices.unregisterPush`, up to
 3 s) before the connections close, and rotates the push key, so a Host that missed it can't be

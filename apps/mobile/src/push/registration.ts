@@ -13,23 +13,29 @@ export interface PushDevice {
   readonly identity: RelayIdentity;
 }
 
+/** `automatic`: this iPhone's switch for notifications when a constellation needs you. */
 export const pushRegistration = (
   device: PushDevice,
-  hostAddress: RelayAddress
+  hostAddress: RelayAddress,
+  automatic: boolean
 ): PushRegistration => ({
   token: device.token,
   environment: device.environment,
   pushKey: device.pushKey,
   ticket: signPushTicket(device.identity, hostAddress, device.environment, device.token),
+  automatic,
 });
 
-/** Re-registering replaces the Host's registration for this device (a new token or key). */
+/** Re-registering replaces the Host's registration for this device (a new token, key or switch). */
 export const registerPush = (
   host: HostConnection,
   device: PushDevice,
-  hostAddress: RelayAddress
+  hostAddress: RelayAddress,
+  automatic: boolean
 ): Promise<void> =>
-  host.run((client) => client["devices.registerPush"](pushRegistration(device, hostAddress)));
+  host.run((client) =>
+    client["devices.registerPush"](pushRegistration(device, hostAddress, automatic))
+  );
 
 /** How long an unlink waits for each Host to drop this device's registration. */
 export const UNREGISTER_WAIT_MS = 3_000;

@@ -9,6 +9,7 @@ struct PushMessage: Decodable {
   let hostId: String
   let hostName: String
   let sessionId: String
+  let constellationId: String?
   let requestId: String?
   let category: String?
   let title: String
