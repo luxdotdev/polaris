@@ -3,17 +3,24 @@
  * serve.ts", the file's diff with its finding inline and "Ask {harness} to fix", then "Also in
  * turn 24". It follows what the first half focuses; it is never a second app.
  */
-import { harnessEntry, type RiskFinding, type VerdictReason } from "@polaris/protocol";
+import {
+  type Command,
+  harnessEntry,
+  type RiskFinding,
+  type VerdictReason,
+} from "@polaris/protocol";
 import { midnight, mobileType } from "@polaris/ui/tokens";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { askToFix, flaggedCode, recordVerdict } from "../review/actions.ts";
+import { askToFixCommand, flaggedCode, verdictCommand } from "../review/actions.ts";
 import { DiffList } from "../review/DiffList.tsx";
 import { diffRows, fileLines } from "../review/diffRows.ts";
 import type { FindingActions } from "../review/FindingCard.tsx";
 import { diffPalette } from "../review/palette.ts";
 import { SeverityGlyph, severityLabel, severityText } from "../review/severity.tsx";
-import { useHost } from "../runtime/hosts.tsx";
+import { reviewSlot } from "../review/submissions.ts";
+import { useReviewSubmissions } from "../review/useSubmissions.ts";
+import { useHost, useLiveHost } from "../runtime/hosts.tsx";
 import type { ThreadFocus } from "../thread/Row.tsx";
 import { contextOf, type OtherFile, type TurnContext } from "./context.ts";
 import { type TurnFiles, useSessionContext, useTurnFiles } from "./useSessionContext.ts";
@@ -133,7 +140,8 @@ export const ContextPane = ({
   const data = useSessionContext(connection, sessionId);
   const turns = data.fold?.turns ?? [];
   const [opened, setOpened] = useState<ReadonlySet<string>>(NOTHING);
-  const [sent, setSent] = useState<ReadonlySet<string>>(NOTHING);
+  const submissions = useReviewSubmissions(useLiveHost(connection));
+  const [failure, setFailure] = useState<string | null>(null);
 
   const turn = useMemo(() => {
     const context0 = contextOf(turns, data.findings, focus);
@@ -166,25 +174,40 @@ export const ContextPane = ({
 
   const harness = data.fold?.session.harness ?? null;
 
-  const actions = useMemo<FindingActions>(
-    () => ({
+  const { submit, state, version } = submissions;
+
+  const actions = useMemo<FindingActions>(() => {
+    const send = (slot: string, payload: string, build: (itemId: string) => Command) => {
+      setFailure(null);
+      void submit(slot, payload, build).then(setFailure);
+    };
+
+    return {
       harnessName: harness === null ? "the agent" : (harnessEntry(harness)?.name ?? harness),
       askToFix: (finding: RiskFinding) => {
         const lines = files.kind === "ready" ? fileLines(files.files, finding.path) : [];
-        void connection
-          ?.run((client) => askToFix(client, sessionId, finding, flaggedCode(finding, lines)))
-          .then(() => setSent((s) => new Set(s).add(finding.id)));
+        const code = flaggedCode(finding, lines);
+
+        send(reviewSlot.fix(sessionId, finding.id), code, (commentId) =>
+          askToFixCommand(sessionId, finding, code, commentId)
+        );
       },
       verdict: (finding: RiskFinding, reason: VerdictReason | null) => {
         if (summary === null) return;
-        void connection
-          ?.run((client) => recordVerdict(client, summary.id, finding, reason))
-          .then(() => setSent((s) => new Set(s).add(finding.id)));
+        send(
+          reviewSlot.verdict(summary.id, finding.id),
+          reason === null ? "up" : `down:${reason}`,
+          (verdictId) => verdictCommand(summary.id, finding, reason, verdictId)
+        );
       },
-      sent,
-    }),
-    [connection, files, harness, sent, sessionId, summary]
-  );
+      sent: new Set(
+        findings
+          .filter((f) => state(reviewSlot.fix(sessionId, f.id))?.kind === "sent")
+          .map((f) => f.id)
+      ),
+    };
+    // `version` re-reads `state` as submissions move.
+  }, [files, findings, harness, sessionId, state, submit, summary, version]);
 
   const pick = useCallback(
     (file: OtherFile) => {
@@ -214,6 +237,7 @@ export const ContextPane = ({
   return (
     <View style={styles.pane}>
       <Header context={context} onOpenReview={() => onOpenReview(context.turnId)} />
+      {failure === null ? null : <Text style={styles.failure}>{failure}</Text>}
       <View style={styles.diff}>
         {problem === null ? (
           <DiffList
@@ -265,6 +289,7 @@ const styles = StyleSheet.create({
   open: { ...mobileType.footnote, color: midnight.textSubtle },
   diff: { flex: 1, paddingHorizontal: 12 },
   empty: { ...mobileType.footnote, color: midnight.textSubtle, padding: 24 },
+  failure: { ...mobileType.footnote, color: midnight.failedText, paddingHorizontal: 24 },
   also: { paddingHorizontal: 24, paddingBottom: 16 },
   alsoTitle: { ...mobileType.footnote, color: midnight.textFaint, paddingBottom: 8 },
   alsoRow: {
