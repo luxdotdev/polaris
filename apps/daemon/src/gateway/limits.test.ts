@@ -86,8 +86,8 @@ test.each(["message", "bytes"] as const)(
 
           const code = yield* Effect.promise(() => closed).pipe(Effect.timeout("2 seconds"));
 
-          // Bun enforces the frame limit itself; 1.4.3 drops the connection (1006), 1.4.4 sends 1009.
-          expect(kind === "message" ? [1006, 1009] : [1009]).toContain(code);
+          // Bun enforces the frame limit itself and closes with 1009.
+          expect(code).toBe(1009);
         })
       )
     )
