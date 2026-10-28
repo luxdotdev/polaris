@@ -10,6 +10,7 @@ import {
   crypto_sign_keypair,
   crypto_sign_PUBLICKEYBYTES,
   crypto_sign_SECRETKEYBYTES,
+  crypto_sign_seed_keypair,
 } from "sodium-universal";
 import { authMessage, relayAddress, type RelayAddress, type RelayRole } from "../wire.ts";
 
@@ -23,6 +24,15 @@ export const generateRelayIdentity = (): RelayIdentity => {
   const publicKey = new Uint8Array(crypto_sign_PUBLICKEYBYTES);
   const secretKey = new Uint8Array(crypto_sign_SECRETKEYBYTES);
   crypto_sign_keypair(publicKey, secretKey);
+
+  return { publicKey, secretKey };
+};
+
+/** The relay identity a 32-byte seed always gives: both sides of a link derive the same one. */
+export const relayIdentityFromSeed = (seed: Uint8Array): RelayIdentity => {
+  const publicKey = new Uint8Array(crypto_sign_PUBLICKEYBYTES);
+  const secretKey = new Uint8Array(crypto_sign_SECRETKEYBYTES);
+  crypto_sign_seed_keypair(publicKey, secretKey, seed);
 
   return { publicKey, secretKey };
 };

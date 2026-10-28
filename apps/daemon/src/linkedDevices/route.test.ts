@@ -1,0 +1,280 @@
+/**
+ * The Relay route through a real relay process (ADR 0082): a device links with a link
+ * string, reaches the Daemon with Client power and is recorded as the actor; unlinked
+ * keys, other keys and other addresses are refused; unlinking ends the open connection;
+ * and after the relay restarts the Daemon declares its peers again.
+ */
+import { afterAll, beforeAll, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { connectRpcWith, socketTransport } from "@polaris/client";
+import {
+  Actor,
+  CommandId,
+  CommandRejected,
+  Command,
+  DaemonRpcs,
+  type LinkedDevice,
+  type RelayRouteStatus,
+  SessionId,
+} from "@polaris/protocol";
+import { fromBase64Url } from "@polaris/protocol/relay";
+import { Context, Effect, Exit, Option, Scope } from "effect";
+import { DeviceLabel } from "../engine/rpc.ts";
+import { actorOf } from "../extensions/connection.ts";
+import { shortTemp } from "../platform/testing.ts";
+import { HostSecrets } from "../secrets/index.ts";
+import { ServerRpcs } from "../transport/rpcs.ts";
+import { startServer } from "../transport/server.ts";
+import {
+  DeviceSocket,
+  handshake,
+  link,
+  makeDevice,
+  sessionTransport,
+  startRelay,
+  type TestDevice,
+} from "./device.testing.ts";
+
+/** `dispatch` answers with who asked: the label and the Actor the Engine would record. */
+const handlers = ServerRpcs.toLayerHandler("dispatch", ({ commandId }, { client }) =>
+  Effect.fail(
+    new CommandRejected({
+      commandId,
+      reason: `${Context.getOrUndefined(client.annotations, DeviceLabel)}|${JSON.stringify(actorOf(client))}`,
+    })
+  )
+);
+
+const sendTurn = Command.cases.SendTurn.make({
+  sessionId: SessionId.make("s1"),
+  prompt: "hi",
+  attachments: [],
+});
+
+const hello = {
+  clientName: "test",
+  clientVersion: "0",
+  deviceLabel: "Claimed label",
+  capabilities: [],
+};
+
+let relay: Awaited<ReturnType<typeof startRelay>>;
+
+beforeAll(async () => {
+  relay = await startRelay();
+});
+
+afterAll(async () => {
+  await relay.stop();
+});
+
+const key = (text: string) => Option.getOrThrow(fromBase64Url(text));
+
+/** A started Daemon with the route on, and its Desktop App connection. */
+const daemon = (scope: Scope.Scope) =>
+  Effect.gen(function* () {
+    const root = mkdtempSync(shortTemp("pl-relay-"));
+    yield* Scope.addFinalizer(
+      scope,
+      Effect.sync(() => rmSync(root, { recursive: true, force: true }))
+    );
+
+    const server = yield* startServer({
+      root,
+      socketPath: join(root, "d.sock"),
+      lockPath: join(root, "d.lock"),
+      handlers,
+      secrets: HostSecrets.memory(),
+    }).pipe(Scope.provide(scope));
+
+    const desktop = yield* connectRpcWith(
+      DaemonRpcs,
+      yield* socketTransport(server.socketPath)
+    ).pipe(Scope.provide(scope));
+
+    yield* desktop.client.hello(hello);
+
+    return desktop.client;
+  });
+
+type Desktop = Effect.Success<ReturnType<typeof daemon>>;
+
+const waitConnected = (desktop: Desktop, connected = true) =>
+  Effect.gen(function* () {
+    for (let i = 0; i < 600; i++) {
+      const status: RelayRouteStatus = yield* desktop["relayRoute.status"]();
+
+      if (status.connected === connected) return status;
+      yield* Effect.sleep("25 millis");
+    }
+
+    throw new Error(`the route never became ${connected ? "connected" : "disconnected"}`);
+  });
+
+const linkDevice = (desktop: Desktop, device: TestDevice, name: string) =>
+  Effect.gen(function* () {
+    const offer = yield* desktop["devices.link"]();
+    const linked = yield* Effect.promise(() => link(offer.linkString, device, name));
+    expect(linked.linked).toBe(true);
+
+    return yield* desktop["devices.awaitLink"]({ linkId: offer.linkId });
+  });
+
+/** Opens a device session to the host and an RPC client over it; null when refused. */
+const openSession = (
+  status: RelayRouteStatus,
+  device: TestDevice,
+  noise = device.noise,
+  tries = 4
+) =>
+  Effect.gen(function* () {
+    const socket = yield* Effect.promise(() => DeviceSocket.connect(relay.url, device.identity));
+    const host = { address: status.hostAddress, noiseKey: key(status.hostNoiseKey) };
+    const session = yield* Effect.promise(() => handshake(socket, host, noise, undefined, tries));
+
+    if (session === null) {
+      socket.close();
+
+      return null;
+    }
+
+    const connection = yield* connectRpcWith(
+      DaemonRpcs,
+      sessionTransport(socket, status.hostAddress, session)
+    );
+
+    yield* connection.client.hello(hello);
+
+    return { socket, client: connection.client };
+  });
+
+const actorReason = (client: Desktop) =>
+  Effect.flip(client.dispatch({ commandId: CommandId.make("c1"), command: sendTurn })).pipe(
+    Effect.map((error) => (error instanceof CommandRejected ? error.reason : String(error)))
+  );
+
+test("a linked device reaches the Daemon with Client power and is recorded as the actor; unlink ends it", async () => {
+  await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const scope = yield* Effect.scope;
+        const desktop = yield* daemon(scope);
+
+        // The route is off until turned on, and linking needs it on.
+        expect((yield* desktop["relayRoute.status"]()).state).toBe("off");
+        expect((yield* Effect.flip(desktop["devices.link"]())).reason).toBe("route-off");
+
+        yield* desktop["relayRoute.enable"]({ url: relay.url });
+        const status = yield* waitConnected(desktop);
+
+        const phone = yield* Effect.promise(makeDevice);
+        const device: LinkedDevice = yield* linkDevice(desktop, phone, "Test iPhone");
+        expect(device.relayAddress).toBe(phone.address);
+        expect(device.name).toBe("Test iPhone");
+
+        const open = yield* openSession(status, phone);
+
+        if (open === null) throw new Error("the linked device was refused");
+
+        // Client power: a Client-only RPC answers, and dispatch records the device.
+        expect((yield* open.client["devices.list"]()).map((d) => d.id)).toEqual([device.id]);
+        expect(yield* actorReason(open.client)).toBe(
+          `Test iPhone|${JSON.stringify(Actor.cases.LinkedDevice.make({ deviceId: device.id, name: "Test iPhone" }))}`
+        );
+
+        // Unlink takes effect on the open connection: the session ends at once.
+        yield* desktop["devices.unlink"]({ id: device.id });
+
+        const after = yield* Effect.exit(
+          open.client["devices.list"]().pipe(Effect.timeout("3 seconds"))
+        );
+
+        expect(Exit.isFailure(after)).toBe(true);
+
+        // And the key no longer opens a session.
+        expect(yield* openSession(status, phone, phone.noise, 1)).toBeNull();
+        open.socket.close();
+      })
+    )
+  );
+}, 30_000);
+
+test("unknown keys, someone else's key and a used or wrong link are refused", async () => {
+  await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const scope = yield* Effect.scope;
+        const desktop = yield* daemon(scope);
+        yield* desktop["relayRoute.enable"]({ url: relay.url });
+        const status = yield* waitConnected(desktop);
+
+        const phone = yield* Effect.promise(makeDevice);
+        const stranger = yield* Effect.promise(makeDevice);
+        yield* linkDevice(desktop, phone, "Phone");
+
+        // A device the Host never linked can't even reach it through the relay.
+        expect(yield* openSession(status, stranger, stranger.noise, 1)).toBeNull();
+
+        // The linked address with a Noise key that isn't the one stored with it.
+        expect(yield* openSession(status, phone, stranger.noise, 1)).toBeNull();
+
+        // The linked Noise key from another relay address.
+        yield* desktop["devices.add"]({
+          name: "Stranger",
+          relayAddress: stranger.address,
+          noiseKey: "A".repeat(43),
+        });
+        expect(yield* openSession(status, stranger, phone.noise, 1)).toBeNull();
+
+        // A proof made with another secret is refused, even from the link's own address.
+        const offer = yield* desktop["devices.link"]();
+
+        const forged = yield* Effect.promise(() =>
+          link(offer.linkString, stranger, "Forged", new Uint8Array(32).fill(7))
+        );
+
+        expect(forged.linked).toBe(false);
+
+        // A link string works once.
+        const late = yield* Effect.promise(makeDevice);
+        expect((yield* Effect.promise(() => link(offer.linkString, late, "Late"))).linked).toBe(
+          true
+        );
+        const reused = yield* Effect.promise(() => link(offer.linkString, stranger, "Reuse"));
+        expect(reused.linked).toBe(false);
+
+        const names = (yield* desktop["devices.list"]()).map((d) => d.name);
+        expect(names).toEqual(["Phone", "Stranger", "Late"]);
+      })
+    )
+  );
+}, 40_000);
+
+test("the Daemon declares its peers again after the relay restarts", async () => {
+  await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const scope = yield* Effect.scope;
+        const desktop = yield* daemon(scope);
+        yield* desktop["relayRoute.enable"]({ url: relay.url });
+        const status = yield* waitConnected(desktop);
+        const phone = yield* Effect.promise(makeDevice);
+        yield* linkDevice(desktop, phone, "Phone");
+
+        yield* Effect.promise(() => relay.stop());
+        yield* waitConnected(desktop, false);
+        relay = yield* Effect.promise(() => startRelay(relay.port));
+        yield* waitConnected(desktop);
+
+        const open = yield* openSession(status, phone);
+        expect(open).not.toBeNull();
+        open?.socket.close();
+
+        // Off closes the socket.
+        yield* desktop["relayRoute.disable"]();
+        expect((yield* waitConnected(desktop, false)).state).toBe("off");
+      })
+    )
+  );
+}, 40_000);

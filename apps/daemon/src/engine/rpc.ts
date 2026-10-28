@@ -19,6 +19,7 @@ import { Context, Effect, Layer, Stream } from "effect";
 import { actorOf, pairingOf } from "../extensions/connection.ts";
 import { Engine } from "./Engine.ts";
 import { hostItemsFor, sessionItemsFor } from "./limitedCompat.ts";
+import { actorHostItemsFor, actorSessionItemsFor } from "./actorCompat.ts";
 
 /** Per-connection annotation set by the `hello` handler. */
 export class DeviceLabel extends Context.Service<DeviceLabel, string>()(
@@ -40,6 +41,10 @@ const announcedAll = (annotations: Context.Context<never>): ReadonlyArray<Capabi
 /** Whether the Client announced `capability` in its `hello`. */
 const announced = (annotations: Context.Context<never>, capability: Capability) =>
   announcedAll(annotations).includes(capability);
+
+/** Both rewrites in order; null when neither applies. */
+const composeCompat = <A>(first: ((a: A) => A) | null, second: ((a: A) => A) | null) =>
+  first === null ? second : second === null ? first : (a: A) => second(first(a));
 
 const DispatchHandler = ExtensionDaemonRpcs.toLayerHandler(
   "dispatch",
@@ -64,7 +69,7 @@ const SubscribeHostHandler = DaemonRpcs.toLayerHandler(
 
     return ({ afterSequence }, { client }) => {
       const capabilities = announcedAll(client.annotations);
-      const compat = hostItemsFor(capabilities);
+      const compat = composeCompat(hostItemsFor(capabilities), actorHostItemsFor(capabilities));
 
       const items = engine.subscribeHost(afterSequence, {
         subagents: announced(client.annotations, "session.subagents"),
@@ -83,7 +88,11 @@ const SubscribeSessionHandler = DaemonRpcs.toLayerHandler(
 
     return ({ sessionId, afterSequence, turnLimit }, { client }) => {
       const capabilities = announcedAll(client.annotations);
-      const compat = sessionItemsFor(capabilities);
+
+      const compat = composeCompat(
+        sessionItemsFor(capabilities),
+        actorSessionItemsFor(capabilities)
+      );
 
       const items = engine.subscribeSession({
         sessionId,

@@ -17,6 +17,7 @@ import { Context, Effect, Exit, Match, Option, Predicate, Redacted, Schema } fro
 import type { Rpc } from "effect/rpc";
 import { Pairings } from "./pairings.ts";
 import { admissionOf, rejectConnection, reserveConnection } from "./admission.ts";
+import { deviceOf } from "../linkedDevices/connection.ts";
 
 /** Per-connection annotation set by `hello`: the Pairing the connection acts as. */
 export class ConnectionPairing extends Context.Service<ConnectionPairing, Pairing>()(
@@ -30,9 +31,13 @@ export const pairingOf = (client: Rpc.ServerClient): Pairing | null =>
 export const actorOf = (client: Rpc.ServerClient): Actor => {
   const pairing = pairingOf(client);
 
-  return pairing === null
+  if (pairing !== null)
+    return Actor.cases.Extension.make({ pairingId: pairing.id, name: pairing.name });
+  const device = deviceOf(client);
+
+  return device === null
     ? Actor.cases.Client.make({})
-    : Actor.cases.Extension.make({ pairingId: pairing.id, name: pairing.name });
+    : Actor.cases.LinkedDevice.make({ deviceId: device.id, name: device.name });
 };
 
 /** The live connections of each Pairing, so that revoking it closes them. */

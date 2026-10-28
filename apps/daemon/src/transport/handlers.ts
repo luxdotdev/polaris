@@ -37,6 +37,8 @@ import { Pairings } from "../extensions/pairings.ts";
 import { RemoteAccessControl } from "../remoteAccess/index.ts";
 import { RemoteAccess } from "../extensions/remoteAccess.ts";
 import { admissionOf } from "../extensions/admission.ts";
+import { deviceOf } from "../linkedDevices/connection.ts";
+import { RelayRoute } from "../linkedDevices/route.ts";
 
 const constellationUnavailable = () =>
   new ConstellationRejected({
@@ -318,7 +320,7 @@ export const defaultHandlers = (options: {
         // hello on a scoped connection cannot relabel it.
         const pairing = pairingOf(client);
 
-        client.annotate(DeviceLabel, pairing === null ? deviceLabel : pairing.name);
+        client.annotate(DeviceLabel, pairing?.name ?? deviceOf(client)?.name ?? deviceLabel);
         client.annotate(ClientCapabilities, capabilities);
         admissionOf(client).protocolReady = true;
 
@@ -353,6 +355,17 @@ export const defaultHandlers = (options: {
     "remoteAccess.status": () => Effect.flatMap(RemoteAccessControl, (control) => control.status),
     "remoteAccess.enable": () => Effect.flatMap(RemoteAccessControl, (control) => control.enable),
     "remoteAccess.disable": () => Effect.flatMap(RemoteAccessControl, (control) => control.disable),
+
+    // Token-less Clients only: the Relay route and Linked Devices (ADR 0082).
+    "relayRoute.status": () => Effect.flatMap(RelayRoute, (route) => route.status),
+    "relayRoute.enable": ({ url }) => Effect.flatMap(RelayRoute, (route) => route.enable(url)),
+    "relayRoute.disable": () => Effect.flatMap(RelayRoute, (route) => route.disable),
+    "devices.link": () => Effect.flatMap(RelayRoute, (route) => route.startLink),
+    "devices.awaitLink": ({ linkId }) =>
+      Effect.flatMap(RelayRoute, (route) => route.awaitLink(linkId)),
+    "devices.add": (device) => Effect.flatMap(RelayRoute, (route) => route.add(device)),
+    "devices.list": () => Effect.flatMap(RelayRoute, (route) => route.list),
+    "devices.unlink": ({ id }) => Effect.flatMap(RelayRoute, (route) => route.unlink(id)),
 
     dispatch: ({ commandId }) =>
       Effect.fail(new CommandRejected({ commandId, reason: notYet("the event store") })),

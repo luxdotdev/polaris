@@ -47,6 +47,10 @@ export class RelayChannelError extends Schema.TaggedError<RelayChannelError>()(
 /** A fresh X25519 static key pair for Noise. The private half never leaves its party. */
 export const generateStaticKeyPair = (): StaticKeyPair => generateKeyPair();
 
+/** The static key pair of a stored 32-byte X25519 secret key. */
+export const staticKeyPairFromSecret = (secretKey: Uint8Array): StaticKeyPair =>
+  generateKeyPair(secretKey);
+
 export interface RecordHeader {
   readonly type: number;
   readonly tag: Uint8Array;
@@ -159,11 +163,12 @@ export class RelayInitiator {
   readonly init: Uint8Array;
   private readonly noise: Noise;
 
-  constructor(local: StaticKeyPair, hostStatic: Uint8Array) {
+  /** `payload` travels encrypted to the host inside the init (a link request, ADR 0082). */
+  constructor(local: StaticKeyPair, hostStatic: Uint8Array, payload?: Uint8Array) {
     randombytes_buf(this.tag);
     this.noise = new Noise("IK", true, local);
     this.noise.initialise(PROLOGUE, hostStatic);
-    this.init = writeRecord(RecordType.Init, this.tag, this.noise.send());
+    this.init = writeRecord(RecordType.Init, this.tag, this.noise.send(payload));
   }
 
   finish(reply: Uint8Array): RelaySession {
@@ -195,10 +200,14 @@ export interface AcceptedHandshake {
   readonly reply: Uint8Array;
 }
 
+/**
+ * `isLinked` also gets the init's decrypted payload (empty unless the device sent one),
+ * so a host can accept a device it is linking from what the payload proves.
+ */
 export const acceptHandshake = (
   local: StaticKeyPair,
   init: Uint8Array,
-  isLinked: (deviceStatic: Uint8Array) => boolean
+  isLinked: (deviceStatic: Uint8Array, payload: Uint8Array) => boolean
 ): AcceptedHandshake => {
   const { type, tag, body } = readRecord(init);
 
@@ -206,9 +215,9 @@ export const acceptHandshake = (
     throw new RelayChannelError({ reason: "malformed", message: "not a handshake init" });
   const noise = new Noise("IK", false, local);
   noise.initialise(PROLOGUE);
-  attempt("decrypt-failed", "handshake init failed", () => noise.recv(body));
+  const payload = attempt("decrypt-failed", "handshake init failed", () => noise.recv(body));
 
-  if (noise.rs === null || !isLinked(noise.rs))
+  if (noise.rs === null || !isLinked(noise.rs, payload))
     throw new RelayChannelError({ reason: "not-linked", message: "device is not linked" });
   const reply = writeRecord(RecordType.Reply, tag, noise.send());
 

@@ -7,7 +7,7 @@
 import { Schema } from "effect";
 import { Rpc, RpcGroup, RpcMiddleware } from "effect/rpc";
 import { NotFound } from "./errors.ts";
-import { PairingId, Timestamp } from "./ids.ts";
+import { LinkedDeviceId, PairingId, Timestamp } from "./ids.ts";
 
 /** One thing a Pairing allows: the Grant literal names are a contract with Extensions. */
 export const GrantKind = Schema.Literals(["read", "approve", "turn", "start", "voice"]);
@@ -33,10 +33,14 @@ export class Pairing extends Schema.Class<Pairing>("Pairing")({
   revokedAt: Schema.NullOr(Timestamp),
 }) {}
 
-/** Who sent a command: a token-less Client (the Desktop App) or a paired Extension. */
+/**
+ * Who sent a command: a token-less Client (the Desktop App), a paired Extension, or a
+ * Linked Device over the Polaris Relay. Clients without `actor.linked-device` read it as Client.
+ */
 export const Actor = Schema.TaggedUnion({
   Client: {},
   Extension: { pairingId: PairingId, name: Schema.String },
+  LinkedDevice: { deviceId: LinkedDeviceId, name: Schema.String },
 });
 
 export type Actor = typeof Actor.Type;
