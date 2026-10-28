@@ -59,7 +59,7 @@ export const useAttachments = (target: StageTarget | null): Attachments => {
     () =>
       store === null || !able
         ? null
-        : { chips, caption: attachCaption(chips), pick, remove: store.remove },
+        : { chips, caption: attachCaption(chips), pick, add: store.add, remove: store.remove },
     [store, able, chips, pick]
   );
 

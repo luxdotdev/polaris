@@ -27,6 +27,7 @@ import {
   type VoiceInput,
 } from "../composer/controls.tsx";
 import { useAttachments } from "../composer/useAttachments.ts";
+import { usePastedImages } from "../composer/usePastedImages.ts";
 import { useVoiceInput } from "../composer/useVoiceInput.ts";
 import type { HostConnection } from "../runtime/hostConnection.ts";
 import type { NewSessionApi } from "./api.ts";
@@ -133,6 +134,7 @@ const Prompt = ({
   readonly voice: VoiceInput | null;
 }) => {
   const notice = voice?.failure ?? attach?.caption ?? null;
+  const fieldId = usePastedImages(attach);
 
   return (
     <View style={styles.prompt}>
@@ -146,6 +148,7 @@ const Prompt = ({
         autoFocus
         selectionColor={midnight.textSubtle}
         accessibilityLabel="Prompt"
+        nativeID={fieldId}
       />
       {attach === null ? null : <AttachmentChips attach={attach} />}
       <View style={styles.promptBar}>

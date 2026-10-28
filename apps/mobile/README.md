@@ -72,7 +72,11 @@ renders Attach and the mic only when given them, and they are given only where t
 `attachments.stage` and `voice`. `useAttachments` picks a photo or file (expo-image-picker,
 expo-document-picker), stages it at once with `attachments.stage`, the bytes sent as a Wire blob,
 and shows a chip; Send and Start carry the staged ids. A steer is text only, so a draft with
-attachments during a Turn waits as a follow-up. `useVoiceInput` records 16 kHz s16le mono PCM
+attachments during a Turn waits as a follow-up. Pasting images into either composer's field
+(the edit menu's Paste, or ⌘V) stages them the same way: `modules/polaris-paste` extends React
+Native's text views so Paste is offered for an image alone in a field `usePastedImages` watches
+(its `nativeID`), writes each as PNG or JPEG to the caches directory and reports them; any text
+pastes as before. `useVoiceInput` records 16 kHz s16le mono PCM
 (expo-audio's `useAudioStream`; `pcm.ts` mixes down and resamples when the phone gives another
 format), streams it to `voice.transcribe`, and writes what the Host hears after what was typed. A
 Host without a key says so in the composer with its own message. These are native modules: after
