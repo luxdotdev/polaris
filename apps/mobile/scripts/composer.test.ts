@@ -12,6 +12,7 @@ import { startDictation } from "../src/composer/voice.ts";
 import { devBridgeTransport } from "../src/runtime/devBridge.ts";
 import { type HostConnection, openHostConnection } from "../src/runtime/hostConnection.ts";
 import { newSessionApi } from "../src/newSession/connect.ts";
+import { newCommandId } from "../src/newSession/latch.ts";
 import { defaultHarness, harnessOptions } from "../src/newSession/harness.ts";
 import { newSessionId, startCommand } from "../src/newSession/model.ts";
 
@@ -110,6 +111,7 @@ test("a picked file stages on the Host and Start carries it into the first Turn"
 
   await api.dispatch(
     daemon.hostId,
+    newCommandId(),
     startCommand({
       sessionId,
       workspaceId,

@@ -11,6 +11,7 @@ import { devBridgeTransport } from "../src/runtime/devBridge.ts";
 import { type HostConnection, openHostConnection } from "../src/runtime/hostConnection.ts";
 import { newSessionApi, sheetHost } from "../src/newSession/connect.ts";
 import { defaultHarness, harnessOptions } from "../src/newSession/harness.ts";
+import { newCommandId } from "../src/newSession/latch.ts";
 import {
   branchFromPrompt,
   newSessionId,
@@ -98,6 +99,7 @@ test("Start makes a real agent session on a new worktree with the chosen harness
 
   await api.dispatch(
     daemon.hostId,
+    newCommandId(),
     startCommand({
       sessionId,
       workspaceId: WorkspaceId.make(workspaceId),
