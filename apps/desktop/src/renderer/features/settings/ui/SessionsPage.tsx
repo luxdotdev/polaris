@@ -99,6 +99,17 @@ export const SessionsPage = () => {
             onCheckedChange={(on) => setSessionPrefs({ notifyNeedsYou: on })}
           />
         </SettingRow>
+        <SettingRow
+          title="Notify when a constellation needs you"
+          caption="A question to you or a claim the lead hands up, even when no agent calls notify. Once per question; your phone has its own switch."
+          htmlFor="notify-constellations"
+        >
+          <Switch
+            id="notify-constellations"
+            checked={prefs.notifyConstellations}
+            onCheckedChange={(on) => setSessionPrefs({ notifyConstellations: on })}
+          />
+        </SettingRow>
         <TurnNotifications />
         <SettingRow
           title="Notify when your review is requested"

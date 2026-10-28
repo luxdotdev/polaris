@@ -8,6 +8,12 @@ import { notificationKey } from "./plan.ts";
 /** Owner decision: agent banners always show, with no setting of their own. */
 export const agentBannersOn = () => true;
 
+/** Whether a notification shows: Polaris's own (`automatic`) follow their setting (ENG-462). */
+export const bannerOn = (
+  notification: Pick<NeedsYouNotification, "automatic">,
+  constellationsOn: boolean
+) => (notification.automatic === true ? constellationsOn : agentBannersOn());
+
 export interface NotifyState {
   /** Session key → the last notification id seen; null until the first summary (history). */
   readonly seen: ReadonlyMap<string, string> | null;

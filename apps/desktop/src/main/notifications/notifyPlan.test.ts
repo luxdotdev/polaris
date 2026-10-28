@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { NeedsYouNotification, NeedsYouSummary } from "../../shared/needsYou.ts";
 import {
   agentKey,
+  bannerOn,
   emptyNotifyState,
   type NotifyState,
   planAgentNotifications,
@@ -95,5 +96,16 @@ describe("planAgentNotifications", () => {
     expect(
       planAgentNotifications({ state: plan.state, summary: next, windowFocused: true }).held
     ).toEqual([]);
+  });
+});
+
+describe("bannerOn", () => {
+  test.each([
+    [false, false, true],
+    [false, true, true],
+    [true, true, true],
+    [true, false, false],
+  ])("automatic %p with the constellation setting %p shows: %p", (automatic, on, shown) => {
+    expect(bannerOn({ ...note("n1"), automatic }, on)).toBe(shown);
   });
 });

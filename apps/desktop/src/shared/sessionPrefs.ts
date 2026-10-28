@@ -15,6 +15,7 @@ export const DEFAULT_SESSION_PREFS: SessionPrefs = {
   notifyLongTurnsOnly: false,
   longTurnMinutes: 5,
   notifyReviewRequests: true,
+  notifyConstellations: true,
   deleteMergedBranch: false,
   spinnerVerbs: null,
   acceptBranch: "auto",
