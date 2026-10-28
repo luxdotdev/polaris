@@ -23,7 +23,7 @@ const ws1 = WorkspaceId.make("ws1");
 
 const ws2 = WorkspaceId.make("ws2");
 
-const stage = (workspaceId: WorkspaceId, text: string) =>
+const stage = (workspaceId: WorkspaceId, text: string, mimeType = "text/plain") =>
   Effect.gen(function* () {
     const store = yield* AttachmentStore;
 
@@ -31,7 +31,7 @@ const stage = (workspaceId: WorkspaceId, text: string) =>
       sessionId: SessionId.make(`s-${workspaceId}`),
       workspaceId,
       name: "a.txt",
-      mimeType: "text/plain",
+      mimeType,
       bytes: new TextEncoder().encode(text),
     });
   });
@@ -85,7 +85,7 @@ describe("attachment cleanup RPCs", () => {
 });
 
 describe("attachments.read", () => {
-  test("answers a staged attachment's bytes by id, and a cleaned-up one as gone", async () => {
+  test("answers a staged image's bytes by id; refuses other files, and a cleaned-up one is gone", async () => {
     const home = tempDir("polaris-home-");
 
     cleanup.push(home);
@@ -101,23 +101,30 @@ describe("attachments.read", () => {
     const result = await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
-          const staged = yield* stage(ws1, "pixels");
+          const staged = yield* stage(ws1, "pixels", "image/png");
+          const notes = yield* stage(ws1, "secrets");
           const client = yield* RpcTest.makeClient(AttachmentRpcs);
           const read = yield* client["attachments.read"]({ attachmentId: staged.id });
           const bytes = blobs.blobs.get(read.blobId) ?? new Uint8Array();
+
+          const refused = yield* client["attachments.read"]({ attachmentId: notes.id }).pipe(
+            Effect.flip
+          );
+
           yield* client["attachments.clear"]({ workspaceId: null });
 
           const gone = yield* client["attachments.read"]({ attachmentId: staged.id }).pipe(
             Effect.flip
           );
 
-          return { staged, read, text: new TextDecoder().decode(bytes), gone };
+          return { staged, read, text: new TextDecoder().decode(bytes), refused, gone };
         }).pipe(Effect.provide(layer))
       )
     );
 
     expect(result.read.attachment.id).toBe(result.staged.id);
     expect(result.text).toBe("pixels");
+    expect(result.refused.code).toBe("EPERM");
     expect(result.gone.code).toBe("ENOENT");
   });
 });

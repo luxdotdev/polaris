@@ -60,6 +60,14 @@ export const handleReadAttachment = Effect.fn("attachments.read")(function* ({
       message: "This attachment was cleaned up",
     });
 
+  // Read back for previews only: other files stay on the Host.
+  if (!attachment.mimeType.startsWith("image/"))
+    return yield* new FileError({
+      path: attachmentId,
+      code: "EPERM",
+      message: "Only images are read back",
+    });
+
   if (attachment.size > ATTACHMENT_READ_MAX_BYTES)
     return yield* new FileError({
       path: attachmentId,
