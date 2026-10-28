@@ -211,13 +211,18 @@ const Target = ({
           {[harnessName(row.session.harness), row.hostName, age(row.since, now)].join(" · ")}
         </Text>
       </View>
-      <Text style={styles.ask} numberOfLines={2}>
-        <Text style={{ color: midnight.needsYouText }}>{askLine(approval)}</Text>
-        {"  "}
-        <Text style={approval.kind === "question" ? styles.askText : styles.command}>
-          {approval.kind === "question" ? (quick?.text ?? approval.title) : (detail?.text ?? "")}
+      {approval.kind === "question" ? (
+        <Text style={styles.ask}>
+          <Text style={{ color: midnight.needsYouText }}>{askLine(approval)} </Text>
+          <Text style={styles.askText}>{quick?.text ?? approval.title}</Text>
         </Text>
-      </Text>
+      ) : (
+        <View style={styles.permission}>
+          <Text style={[styles.ask, { color: midnight.needsYouText }]}>{askLine(approval)}</Text>
+          {/* Never clipped: what Approve allows is shown whole; a longer one goes to Reply…. */}
+          {detail === null ? null : <Text style={styles.command}>{detail.text}</Text>}
+        </View>
+      )}
       <Buttons row={row} approval={approval} send={send} onReply={() => onReply(row)} />
     </View>
   );
@@ -311,7 +316,8 @@ const styles = StyleSheet.create({
   meta: { ...mobileType.footnote, color: midnight.textFaint },
   ask: { ...mobileType.callout, paddingLeft: 34 },
   askText: { color: midnight.textDefault },
-  command: { ...mobileType.command, color: midnight.textDefault },
+  permission: { gap: 4 },
+  command: { ...mobileType.command, color: midnight.textDefault, paddingLeft: 34 },
   targets: { flexDirection: "row", gap: 10, paddingLeft: 34 },
   waiting: { opacity: 0.55 },
   target: {

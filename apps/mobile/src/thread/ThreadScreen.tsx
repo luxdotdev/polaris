@@ -16,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation } from "../app/navigation.tsx";
 import type { HostConnection } from "../runtime/hostConnection.ts";
 import { useHost, useLiveHost } from "../runtime/hosts.tsx";
 import { composerMode } from "./composer.ts";
@@ -23,15 +24,17 @@ import { Composer, Suggestions } from "./Composer.tsx";
 import { openThread, type ThreadController } from "./controller.ts";
 import { hostThreadSource } from "./hostSource.ts";
 import { harnessName, subtitle } from "./labels.ts";
+import { PendingRequests } from "./PendingRequests.tsx";
 import { Diamond, Row, type ThreadFocus } from "./Row.tsx";
 import { threadRows, type ThreadRow } from "./rows.ts";
-import { fixPrompt, openCritical, type Suggestion, suggestions } from "./suggestions.ts";
+import { chipAction, openCritical, type Suggestion, suggestions } from "./suggestions.ts";
+import { threadKey, threads } from "./threads.ts";
 
 export interface ThreadScreenProps {
   readonly hostId: string;
   readonly sessionId: SessionId;
   readonly onBack: () => void;
-  /** Opens the session in Review (M5); the chip shows only when this is given. */
+  /** Opens the session in Review (M5); its Review route otherwise. */
   readonly onOpenReview?: () => void;
   /** The iPhone Duo (D6): tapping a step or the finding focuses it; `focusedKey` marks it. */
   readonly onFocus?: (focus: ThreadFocus) => void;
@@ -40,29 +43,41 @@ export interface ThreadScreenProps {
   readonly composerSlot?: "inline" | { readonly minHeight: number };
 }
 
-/** One controller per open thread, made once the Host is first live. */
-const useController = (
-  connection: HostConnection | null,
-  sessionId: SessionId
-): ThreadController | null => {
+interface HeldThread {
+  readonly controller: ThreadController | null;
+  /** False while the Host reconnects; the controller and its transcript stay. */
+  readonly live: boolean;
+}
+
+/**
+ * The Host and session's thread, opened once the Host is first live and kept
+ * through reconnects (`threads.ts`); `live` is false while it reconnects.
+ */
+const useController = (connection: HostConnection | null, sessionId: SessionId): HeldThread => {
   const live = useLiveHost(connection);
-  const ready = connection !== null && live !== null;
   const [controller, setController] = useState<ThreadController | null>(null);
   const liveRef = useRef(live);
   liveRef.current = live;
+  const opened = connection !== null && (live !== null || controller !== null);
 
   useEffect(() => {
     const first = liveRef.current;
 
-    if (!ready || connection === null || first === null) return;
-    const made = openThread(hostThreadSource(connection, first), sessionId);
-    setController(made);
+    if (!opened || connection === null) return;
+
+    const lease = threads.acquire(
+      threadKey(connection.hostId, sessionId),
+      first === null ? null : () => openThread(hostThreadSource(connection, first), sessionId)
+    );
+
+    if (lease === null) return;
+    setController(lease.controller);
 
     return () => {
-      made.dispose();
+      lease.release();
       setController(null);
     };
-  }, [ready, connection, sessionId]);
+  }, [opened, connection, sessionId]);
 
   // A new epoch is a new connection: writes that failed while it was down go again.
   const epoch = live?.epoch ?? null;
@@ -71,7 +86,7 @@ const useController = (
     if (epoch !== null) controller?.reconnected();
   }, [controller, epoch]);
 
-  return controller;
+  return { controller, live: live !== null };
 };
 
 const noSubscribe = () => () => {};
@@ -167,7 +182,8 @@ export const ThreadScreen = ({
   composerSlot = "inline",
 }: ThreadScreenProps) => {
   const connection = useHost(hostId);
-  const controller = useController(connection, sessionId);
+  const navigation = useNavigation();
+  const { controller, live } = useController(connection, sessionId);
   const state = useThreadState(controller);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const visible = useRef<ReadonlyArray<string>>([]);
@@ -257,11 +273,14 @@ export const ThreadScreen = ({
     state: session.state,
     lastTurn: last?.status ?? null,
     findings,
-  }).filter((chip) => chip.kind !== "review" || onOpenReview !== undefined);
+  });
 
   const pick = (chip: Suggestion) => {
-    if (chip.kind === "review") onOpenReview?.();
-    else controller?.type(fixPrompt(chip.finding));
+    const action = chipAction(chip, hostId, sessionId);
+
+    if (action.kind === "fill") controller?.type(action.text);
+    else if (onOpenReview === undefined) navigation.push(action.route);
+    else onOpenReview();
   };
 
   return (
@@ -274,7 +293,7 @@ export const ThreadScreen = ({
           onBack={onBack}
         />
         <FlatList
-          style={styles.list}
+          style={[styles.list, live ? null : styles.offline]}
           contentContainerStyle={styles.listContent}
           data={rows}
           inverted
@@ -290,23 +309,32 @@ export const ThreadScreen = ({
             />
           )}
           ListHeaderComponent={
-            critical === null ? undefined : (
-              <FindingRow
-                finding={critical}
-                onPress={
-                  onFocus === undefined || last === null
-                    ? undefined
-                    : () =>
-                        onFocus({
-                          key: `finding:${critical.id}`,
-                          turnId: last.id,
-                          kind: "finding",
-                          label: critical.title,
-                          paths: [critical.path],
-                        })
-                }
+            <>
+              <PendingRequests
+                requests={fold.pendingApprovals}
+                answering={state.answering}
+                errors={state.requestErrors}
+                enabled={live}
+                onRespond={(requestId, decision) => void controller?.respond(requestId, decision)}
               />
-            )
+              {critical === null ? null : (
+                <FindingRow
+                  finding={critical}
+                  onPress={
+                    onFocus === undefined || last === null
+                      ? undefined
+                      : () =>
+                          onFocus({
+                            key: `finding:${critical.id}`,
+                            turnId: last.id,
+                            kind: "finding",
+                            label: critical.title,
+                            paths: [critical.path],
+                          })
+                  }
+                />
+              )}
+            </>
           }
           initialNumToRender={16}
           maxToRenderPerBatch={12}
@@ -324,6 +352,7 @@ export const ThreadScreen = ({
               : { minHeight: composerSlot.minHeight, justifyContent: "flex-end" },
           ]}
         >
+          {live ? null : <Text style={styles.queued}>Reconnecting to {connection.name}…</Text>}
           <Suggestions items={chips} onPick={pick} />
           {state.queued.map((text, index) => (
             <Text key={`${index}:${text}`} style={styles.queued} numberOfLines={1}>
@@ -392,6 +421,7 @@ const styles = StyleSheet.create({
   },
   pillLabel: { ...mobileType.footnote, color: midnight.textDefault },
   list: { flex: 1 },
+  offline: { opacity: 0.55 },
   listContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 },
   finding: {
     flexDirection: "row",

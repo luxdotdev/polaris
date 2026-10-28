@@ -1,8 +1,8 @@
 /** The sheet's calls and Hosts over the app's HostConnections (src/runtime/hostConnection.ts). */
-import { CommandId, type Workspace } from "@polaris/protocol";
+import type { Workspace } from "@polaris/protocol";
 import type { HostConnection } from "../runtime/hostConnection.ts";
 import type { NewSessionApi } from "./api.ts";
-import { newSessionId, type SessionUse, type SheetHost } from "./model.ts";
+import type { SessionUse, SheetHost } from "./model.ts";
 
 /** One Host's workspaces and sessions, as the home feed has them. */
 export interface HostFeed {
@@ -19,15 +19,13 @@ const connectionOf = (hosts: ReadonlyArray<HostConnection>, hostId: string): Hos
 };
 
 export const newSessionApi = (hosts: ReadonlyArray<HostConnection>): NewSessionApi => ({
-  availability: (hostId) =>
-    connectionOf(hosts, hostId).run((client) => client["harness.availability"]({ refresh: false })),
+  availability: (hostId, refresh = false) =>
+    connectionOf(hosts, hostId).run((client) => client["harness.availability"]({ refresh })),
   models: (hostId, harness) =>
     connectionOf(hosts, hostId).run((client) =>
       client["harness.models"]({ harness, refresh: false })
     ),
-  dispatch: async (hostId, command) => {
-    const commandId = CommandId.make(newSessionId());
-
+  dispatch: async (hostId, commandId, command) => {
     await connectionOf(hosts, hostId).run((client) => client.dispatch({ commandId, command }));
   },
 });

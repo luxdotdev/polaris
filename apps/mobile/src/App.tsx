@@ -25,6 +25,7 @@ import { LinkScreen } from "./link/LinkScreen.tsx";
 import { RelayProvider, useRelay } from "./relay/RelayProvider.tsx";
 import { runSelfCheck } from "./runtime/selfCheck.ts";
 import { HostsProvider } from "./runtime/hosts.tsx";
+import { useReadyToReview } from "./review/index.ts";
 import { useWidgetLinks } from "./widgets/useWidgetLinks.ts";
 import { WidgetSync } from "./widgets/WidgetSync.ts";
 
@@ -34,6 +35,7 @@ const Tabs = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const bottom = Math.max(insets.bottom, 20);
+  const readyCount = useReadyToReview().rows.length;
 
   return (
     <View style={styles.fill}>
@@ -52,11 +54,18 @@ const Tabs = () => {
           }}
         />
       ) : (
-        <ReviewTab />
+        <ReviewTab
+          tabBarHeight={TAB_BAR + bottom}
+          onOpen={(hostId, sessionId) =>
+            navigation.push({ screen: "review", hostId, sessionId, turnId: null })
+          }
+          onLink={() => navigation.push({ screen: "link" })}
+          onHosts={() => navigation.push({ screen: "hosts" })}
+        />
       )}
       <TabBar
         active={navigation.tab}
-        reviewCount={0}
+        reviewCount={readyCount}
         bottom={bottom}
         onSelect={(next) =>
           next === "hosts" ? navigation.push({ screen: "hosts" }) : navigation.selectTab(next)

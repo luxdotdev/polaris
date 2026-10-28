@@ -3,14 +3,21 @@
  * approvals answered in place and the horizon at the foot.
  */
 import { midnight, mobileType } from "@polaris/ui/tokens";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { SectionList, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { HostConnection } from "../runtime/hostConnection.ts";
 import { homeHostsOf, useFollowedHosts } from "./feed/useFollowedHosts.ts";
 import { buildHome, type HomeRow, type SessionRow } from "./model/home.ts";
-import { hasUnreviewedTurns } from "./model/lines.ts";
+import { rowDestination } from "./model/lines.ts";
 import { type Reply, respond } from "./model/respond.ts";
+import {
+  constellationsOnScreen,
+  type HomeSection,
+  homeSections,
+  type SectionKind,
+  type SeenRow,
+} from "./model/sections.ts";
 import { EmptyHome } from "./ui/EmptyHome.tsx";
 import { NeedsYouMark, WorkingMark } from "./ui/glyphs.tsx";
 import { Header } from "./ui/Header.tsx";
@@ -40,45 +47,41 @@ const useNow = () => {
   return now;
 };
 
-const Section = ({
-  mark,
-  label,
-  color,
-  count,
-  children,
-}: {
-  readonly mark: ReactNode;
-  readonly label: string;
-  readonly color: string;
-  readonly count: number | null;
-  readonly children: ReactNode;
-}) => (
-  <View style={styles.section}>
-    <View style={styles.sectionHead}>
-      {mark}
-      <Text style={[styles.sectionLabel, { color }]} accessibilityRole="header">
-        {label}
-      </Text>
-      {count === null ? null : <Text style={styles.sectionCount}>{count}</Text>}
-    </View>
-    {children}
+const MARKS: Readonly<Record<SectionKind, ReactNode>> = {
+  "needs-you": <NeedsYouMark />,
+  working: <WorkingMark />,
+  recent: null,
+};
+
+const SectionHead = ({ section }: { readonly section: HomeSection }) => (
+  <View style={styles.sectionHead}>
+    {MARKS[section.kind]}
+    <Text
+      style={[styles.sectionLabel, section.kind === "needs-you" ? styles.needsYouLabel : null]}
+      accessibilityRole="header"
+    >
+      {section.label}
+    </Text>
+    {section.count === null ? null : <Text style={styles.sectionCount}>{section.count}</Text>}
   </View>
 );
 
 const ConstellationRowWithProgress = ({
   row,
   now,
+  onScreen,
   onOpen,
 }: {
   readonly row: Extract<HomeRow, { kind: "constellation" }>;
   readonly now: number;
+  readonly onScreen: boolean;
   readonly onOpen: () => void;
 }) => (
   <ConstellationListRow
     row={row}
     now={now}
     onOpen={onOpen}
-    progress={useConstellationProgress(row.hostId, row.constellation.id)}
+    progress={useConstellationProgress(row.hostId, row.constellation.id, onScreen)}
   />
 );
 
@@ -86,17 +89,20 @@ const ListRow = ({
   row,
   now,
   withHost,
+  onScreen,
   actions,
 }: {
   readonly row: HomeRow;
   readonly now: number;
   readonly withHost: boolean;
+  readonly onScreen: boolean;
   readonly actions: HomeActions;
 }) =>
   row.kind === "constellation" ? (
     <ConstellationRowWithProgress
       row={row}
       now={now}
+      onScreen={onScreen}
       onOpen={() => actions.openConstellation(row.hostId, row.constellation.id)}
     />
   ) : (
@@ -105,12 +111,14 @@ const ListRow = ({
       now={now}
       withHost={withHost}
       onOpen={() =>
-        hasUnreviewedTurns(row.session)
+        rowDestination(row.session) === "review"
           ? actions.openReview(row.hostId, row.session.id)
           : actions.openSession(row.hostId, row.session.id)
       }
     />
   );
+
+const VIEWABILITY = { itemVisiblePercentThreshold: 1 } as const;
 
 const replyThrough =
   (connections: ReadonlyMap<string, HostConnection>) =>
@@ -144,7 +152,14 @@ export const HomeScreen = ({
   );
 
   const withHost = hosts.length > 1;
-  const { needsYou, working, recent } = home.sections;
+  const sections = useMemo(() => homeSections(home), [home]);
+  const [onScreen, setOnScreen] = useState<ReadonlySet<string>>(() => new Set());
+
+  const onViewable = useCallback(
+    ({ viewableItems }: { readonly viewableItems: ReadonlyArray<SeenRow> }) =>
+      setOnScreen(constellationsOnScreen(viewableItems)),
+    []
+  );
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -155,50 +170,39 @@ export const HomeScreen = ({
         onHosts={actions.openHosts}
       />
       {home.empty === null ? (
-        <ScrollView
+        <SectionList<HomeRow, HomeSection>
           style={styles.list}
           contentContainerStyle={{ paddingBottom: HORIZON_HEIGHT - 40 + tabBarHeight }}
-        >
-          {needsYou.length > 0 ? (
-            <Section
-              mark={<NeedsYouMark />}
-              label="Needs you"
-              color={midnight.needsYouText}
-              count={needsYou.length}
-            >
-              {needsYou.map((row, index) => (
-                <NeedsYouRow
-                  key={row.key}
-                  row={row}
-                  position={index}
-                  first={index === 0}
-                  now={now}
-                  onOpen={() => actions.openSession(row.hostId, row.session.id)}
-                  onReply={reply(row)}
-                />
-              ))}
-            </Section>
-          ) : null}
-          {working.length > 0 ? (
-            <Section
-              mark={<WorkingMark />}
-              label="Working"
-              color={midnight.starlight}
-              count={working.length}
-            >
-              {working.map((row) => (
-                <ListRow key={row.key} row={row} now={now} withHost={withHost} actions={actions} />
-              ))}
-            </Section>
-          ) : null}
-          {recent.length > 0 ? (
-            <Section mark={null} label="Recent" color={midnight.textSubtle} count={null}>
-              {recent.map((row) => (
-                <ListRow key={row.key} row={row} now={now} withHost={withHost} actions={actions} />
-              ))}
-            </Section>
-          ) : null}
-        </ScrollView>
+          sections={sections}
+          keyExtractor={(row) => row.key}
+          stickySectionHeadersEnabled={false}
+          initialNumToRender={12}
+          windowSize={5}
+          viewabilityConfig={VIEWABILITY}
+          onViewableItemsChanged={onViewable}
+          renderSectionHeader={({ section }) => <SectionHead section={section} />}
+          renderItem={({ item, index, section }) =>
+            section.kind === "needs-you" && item.kind === "session" ? (
+              <NeedsYouRow
+                row={item}
+                position={index}
+                first={index === 0}
+                now={now}
+                onOpen={() => actions.openSession(item.hostId, item.session.id)}
+                onReply={reply(item)}
+              />
+            ) : (
+              <ListRow
+                row={item}
+                now={now}
+                withHost={withHost}
+                onScreen={onScreen.has(item.key)}
+                actions={actions}
+              />
+            )
+          }
+          renderSectionFooter={() => <View style={styles.sectionFoot} />}
+        />
       ) : (
         <EmptyHome
           empty={home.empty}
@@ -216,13 +220,17 @@ export const HomeScreen = ({
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: midnight.bg },
   list: { flex: 1, paddingHorizontal: 20 },
-  section: {
+  sectionHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     borderTopWidth: 1,
     borderTopColor: midnight.hairline,
     paddingTop: 12,
-    paddingBottom: 4,
+    paddingBottom: 6,
   },
-  sectionHead: { flexDirection: "row", alignItems: "center", gap: 8, paddingBottom: 6 },
-  sectionLabel: { ...mobileType.section },
+  sectionFoot: { height: 4 },
+  sectionLabel: { ...mobileType.section, color: midnight.textSubtle },
+  needsYouLabel: { color: midnight.needsYouText },
   sectionCount: { ...mobileType.footnote, lineHeight: 16, color: midnight.textFaint },
 });

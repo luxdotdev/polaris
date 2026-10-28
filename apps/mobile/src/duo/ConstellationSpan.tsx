@@ -7,12 +7,13 @@ import type { Constellation, TaskProjection } from "@polaris/protocol";
 import { midnight, mobileType } from "@polaris/ui/tokens";
 import { useEffect, useMemo, useState } from "react";
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { HandedClaimActions, type SendVerdict } from "../constellation/claim.tsx";
+import { HandedClaimActions } from "../constellation/claim.tsx";
 import { LeadComposer } from "../constellation/composer.tsx";
 import { TaskGlyph, segmentColour } from "../constellation/glyphs.tsx";
 import { taskBar, taskRow, type TaskRow } from "../constellation/model.ts";
 import { useConstellation } from "../constellation/useConstellation.ts";
-import { messageLead, sendVerdict } from "../constellation/verdict.ts";
+import { useVerdicts } from "../constellation/useVerdicts.ts";
+import { messageLead } from "../constellation/verdict.ts";
 import type { HostConnection } from "../runtime/hostConnection.ts";
 import { useHost } from "../runtime/hosts.tsx";
 import { type Edge, graphLayout, NODE_HEIGHT, NODE_WIDTH, type Span } from "./graph.ts";
@@ -163,6 +164,7 @@ const Live = ({
   readonly onBack: (() => void) | undefined;
 }) => {
   const feed = useConstellation(connection, constellationId);
+  const verdicts = useVerdicts(connection, constellationId);
   const now = useNow();
   const source = feed.kind === "live" ? feed.source : null;
 
@@ -186,26 +188,10 @@ const Live = ({
   if (source === null) return <Text style={styles.note}>Loading the constellation…</Text>;
 
   const rows = placed.map((p) => p.row);
-  const handed = rows.find((r) => r.handed !== null) ?? null;
+  const handed = rows.find((r) => r.handed !== null || verdicts.find(r) !== null) ?? null;
+  const delivery = handed === null ? null : verdicts.find(handed);
   const handedAt = layout.nodes.find((n) => n.id === handed?.id);
   const at = new Map(layout.nodes.map((n) => [n.id, n]));
-
-  const onVerdict =
-    (row: TaskRow): SendVerdict =>
-    (verdict, reply) =>
-      row.handed === null
-        ? Promise.resolve()
-        : connection.run((client) =>
-            sendVerdict(client, {
-              verdict,
-              constellationId,
-              taskId: row.id,
-              attemptId: row.handed?.attemptId ?? "",
-              revision: row.handed?.revision ?? 0,
-              head: row.handed?.head ?? "",
-              reply,
-            })
-          );
 
   const claimLeft =
     handedAt === undefined
@@ -232,13 +218,18 @@ const Live = ({
 
           return node === undefined ? null : <Node key={row.id} row={row} x={node.x} y={node.y} />;
         })}
-        {handed?.handed == null ? null : (
+        {handed === null ? null : (
           <View style={[styles.claim, { left: claimLeft, top: layout.height + 8 }]}>
             <Text style={styles.claimTitle}>
               <Text style={{ color: midnight.needsYouText }}>{handed.id}</Text> Claim · handed to
               you
             </Text>
-            <HandedClaimActions claim={handed.handed} onVerdict={onVerdict(handed)} />
+            <HandedClaimActions
+              claim={handed.handed}
+              delivery={delivery}
+              onVerdict={verdicts.send(handed)}
+              onCancel={() => verdicts.cancel(handed)}
+            />
           </View>
         )}
       </ScrollView>

@@ -27,11 +27,14 @@ import {
   planCaption,
   routeLine,
   type SheetHost,
+  type StartChoices,
   startCommand,
   type Target,
   worktreeCaption,
 } from "./model.ts";
+import { startLatch } from "./latch.ts";
 import { HarnessChip, PickerRow, SwitchRow, styles as rowStyles } from "./parts.tsx";
+import { NotReadyPanel } from "./NotReadyPanel.tsx";
 import { HarnessPicker, WorkspacePicker } from "./pickers.tsx";
 import { type HarnessChoice, useHarnessChoice } from "./useHarnessChoice.ts";
 
@@ -142,6 +145,34 @@ const HarnessValue = ({
     />
   );
 
+/** The Harness row, and with none ready, each Harness's reason and fix under it. */
+const HarnessRows = ({
+  host,
+  choice,
+  onOpen,
+}: {
+  readonly host: SheetHost | null;
+  readonly choice: HarnessChoice;
+  readonly onOpen: () => void;
+}) => (
+  <>
+    <PickerRow label="Harness">
+      {host === null ? (
+        <Text style={rowStyles.caption}>Choose a workspace first</Text>
+      ) : (
+        <HarnessValue choice={choice} onOpen={onOpen} />
+      )}
+    </PickerRow>
+    {host !== null && choice.load.kind === "loaded" && choice.harness === null ? (
+      <NotReadyPanel
+        hostName={host.hostName}
+        harnesses={choice.load.notReady}
+        onCheckAgain={choice.refresh}
+      />
+    ) : null}
+  </>
+);
+
 const StartFooter = ({
   host,
   error,
@@ -202,6 +233,7 @@ export const NewSessionForm = ({
   const [newWorktree, setNewWorktree] = useState(false);
   // Chosen up front so the branch the caption shows is the one the session gets.
   const [sessionId] = useState<SessionId>(newSessionId);
+  const [latch] = useState(() => startLatch());
   const [pane, setPane] = useState<Pane>("form");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -211,23 +243,26 @@ export const NewSessionForm = ({
 
   const start = async () => {
     if (why !== null || target === null || choice.harness === null) return;
-    setBusy(true);
-    setError(null);
+
+    const choices: StartChoices = {
+      sessionId,
+      workspaceId: WorkspaceId.make(target.workspaceId),
+      harness: choice.harness,
+      model: choice.model?.id ?? null,
+      prompt: draft.text,
+      newWorktree,
+      planFirst,
+      capabilities: host?.capabilities ?? [],
+    };
 
     try {
-      await api.dispatch(
-        target.hostId,
-        startCommand({
-          sessionId,
-          workspaceId: WorkspaceId.make(target.workspaceId),
-          harness: choice.harness,
-          model: choice.model?.id ?? null,
-          prompt: draft.text,
-          newWorktree,
-          planFirst,
-          capabilities: host?.capabilities ?? [],
-        })
-      );
+      const sent = await latch(JSON.stringify(choices), async (commandId) => {
+        setBusy(true);
+        setError(null);
+        await api.dispatch(target.hostId, commandId, startCommand(choices));
+      });
+
+      if (!sent) return;
       await draft.clear();
       onStarted?.(target.hostId, sessionId);
       onClose();
@@ -288,13 +323,7 @@ export const NewSessionForm = ({
             }
           />
         </PickerRow>
-        <PickerRow label="Harness">
-          {host === null ? (
-            <Text style={rowStyles.caption}>Choose a workspace first</Text>
-          ) : (
-            <HarnessValue choice={choice} onOpen={() => setPane("harness")} />
-          )}
-        </PickerRow>
+        <HarnessRows host={host} choice={choice} onOpen={() => setPane("harness")} />
         {host === null ? null : (
           <SwitchRow
             title="Plan first"

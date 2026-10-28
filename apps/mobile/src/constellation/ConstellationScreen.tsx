@@ -9,14 +9,14 @@ import { useEffect, useMemo, useState } from "react";
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { HostConnection, HostStatus } from "../runtime/hostConnection.ts";
 import { useHost, useHostStatus } from "../runtime/hosts.tsx";
-import type { SendVerdict } from "./claim.tsx";
 import { LeadComposer } from "./composer.tsx";
 import { age } from "./copy.ts";
 import { harnessHue, segmentColour } from "./glyphs.tsx";
-import { type ConstellationView, constellationView, type TaskRow } from "./model.ts";
+import { type ConstellationView, constellationView } from "./model.ts";
 import { GroupHeader, TaskRowView } from "./rows.tsx";
 import { type LeadSession, useConstellation } from "./useConstellation.ts";
-import { messageLead, sendVerdict } from "./verdict.ts";
+import { messageLead } from "./verdict.ts";
+import { useVerdicts, type Verdicts } from "./useVerdicts.ts";
 
 /** Re-render elapsed times while the screen is open; nothing runs on the Host for it. */
 const useNow = (everyMs: number) => {
@@ -154,11 +154,11 @@ const LeadNote = ({ lead, now }: { readonly lead: LeadSession; readonly now: num
 const Rail = ({
   view,
   onToggle,
-  onVerdict,
+  verdicts,
 }: {
   readonly view: ConstellationView;
   readonly onToggle: (group: string, open: boolean) => void;
-  readonly onVerdict: (row: TaskRow) => SendVerdict;
+  readonly verdicts: Verdicts;
 }) => (
   <View style={styles.rail}>
     {view.rows.map((row, i) => {
@@ -179,7 +179,9 @@ const Rail = ({
           row={row}
           first={previous === undefined || previous.kind === "group"}
           last={i === view.rows.length - 1}
-          onVerdict={onVerdict(row)}
+          delivery={verdicts.find(row)}
+          onVerdict={verdicts.send(row)}
+          onCancel={() => verdicts.cancel(row)}
         />
       );
     })}
@@ -197,6 +199,7 @@ const Live = ({
 }) => {
   const status = useHostStatus(connection);
   const feed = useConstellation(connection, constellationId);
+  const verdicts = useVerdicts(connection, constellationId);
   const now = useNow(30_000);
   const [opened, setOpened] = useState<ReadonlyMap<string, boolean>>(new Map());
 
@@ -213,23 +216,6 @@ const Live = ({
         {awayLine(status) ?? "Loading the constellation…"}
       </Text>
     );
-
-  const onVerdict =
-    ({ id, handed }: TaskRow): SendVerdict =>
-    (verdict, reply) =>
-      handed === null
-        ? Promise.resolve()
-        : connection.run((client) =>
-            sendVerdict(client, {
-              verdict,
-              constellationId,
-              taskId: id,
-              attemptId: handed.attemptId,
-              revision: handed.revision,
-              head: handed.head,
-              reply,
-            })
-          );
 
   return (
     <KeyboardAvoidingView style={styles.fill} behavior="padding">
@@ -248,7 +234,7 @@ const Live = ({
         <Rail
           view={view}
           onToggle={(group, open) => setOpened((m) => new Map(m).set(group, open))}
-          onVerdict={onVerdict}
+          verdicts={verdicts}
         />
         {feed.lead === null ? null : <LeadNote lead={feed.lead} now={now} />}
       </ScrollView>

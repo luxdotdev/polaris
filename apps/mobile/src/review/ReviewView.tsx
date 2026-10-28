@@ -26,11 +26,10 @@ import {
   defaultOpen,
   type DiffFileInput,
   type DiffRow,
-  diffRows,
   type FileOrder,
   fileLines,
   type LineRow,
-  orderFiles,
+  reviewRows,
 } from "./diffRows.ts";
 import type { FindingActions } from "./FindingCard.tsx";
 import { type AcceptState, tally } from "./model.ts";
@@ -162,9 +161,11 @@ export const ReviewView = (props: ReviewViewProps) => {
     return new Set(files.map((f) => f.diff.name).filter((p) => initial.has(p) !== toggled.has(p)));
   }, [files, findings, toggled, props.openAll]);
 
+  const problem = props.diffProblem;
+
   const rows = useMemo(
-    () => diffRows(orderFiles(files, findings, order), findings, open),
-    [files, findings, order, open]
+    () => reviewRows({ files, problem, findings, open, order }),
+    [files, problem, findings, order, open]
   );
 
   const flip = (set: ReadonlySet<string>, key: string) => {
@@ -193,21 +194,17 @@ export const ReviewView = (props: ReviewViewProps) => {
     <KeyboardAvoidingView behavior="padding" style={[styles.screen, { paddingTop: insets.top }]}>
       <Header props={props} order={order} onOrder={setOrder} />
       <Summary props={props} />
-      {props.diffProblem === null ? (
-        <DiffList
-          ref={props.listRef}
-          rows={rows}
-          palette={diffPalette(props.colourblind)}
-          expanded={expanded}
-          actions={actions}
-          onToggleFile={onToggleFile}
-          onToggleFinding={onToggleFinding}
-          bottomInset={140}
-          onScroll={props.onScroll}
-        />
-      ) : (
-        <Text style={[styles.meta, styles.problem]}>{props.diffProblem}</Text>
-      )}
+      <DiffList
+        ref={props.listRef}
+        rows={rows}
+        palette={diffPalette(props.colourblind)}
+        expanded={expanded}
+        actions={actions}
+        onToggleFile={onToggleFile}
+        onToggleFinding={onToggleFinding}
+        bottomInset={140}
+        onScroll={props.onScroll}
+      />
       <ActionBar
         accept={props.accept}
         turnNumber={props.turnNumber}
@@ -281,5 +278,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   mark: { width: 16, height: 16 },
-  problem: { padding: 20 },
 });

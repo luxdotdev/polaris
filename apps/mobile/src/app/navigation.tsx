@@ -4,12 +4,18 @@
  */
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
 
+import {
+  type HomeTab,
+  initialNavigation,
+  type NavigationState,
+  opened,
+  pushed,
+  topOf,
+  wentBack,
+} from "./navigationState.ts";
 import type { Route } from "./route.ts";
 
-export type { Route };
-
-/** The tabs under the stack; Hosts is a pushed screen, not one of them. */
-export type HomeTab = "sessions" | "review";
+export type { HomeTab, Route };
 
 export interface Navigation {
   readonly top: Route;
@@ -28,36 +34,28 @@ export interface Navigation {
 const NavigationContext = createContext<Navigation | null>(null);
 
 export const NavigationProvider = ({ children }: { readonly children: ReactNode }) => {
-  const [stack, setStack] = useState<ReadonlyArray<Route>>([{ screen: "tabs" }]);
+  const [state, setState] = useState<NavigationState>(initialNavigation);
 
-  const [newSession, setNewSession] = useState<Navigation["newSession"]>({
-    open: false,
-    workspaceId: null,
-  });
-
-  const [tab, selectTab] = useState<HomeTab>("sessions");
-
-  const open = useCallback((route: Route) => {
-    setNewSession({ open: false, workspaceId: null });
-
-    if (route.screen === "tabs") selectTab("sessions");
-    setStack(route.screen === "tabs" ? [route] : [{ screen: "tabs" }, route]);
-  }, []);
+  const open = useCallback((route: Route) => setState((current) => opened(current, route)), []);
 
   const navigation = useMemo<Navigation>(
     () => ({
-      top: stack.at(-1) ?? { screen: "tabs" },
-      tab,
-      selectTab,
-      push: (route) => setStack((current) => [...current, route]),
-      back: () => setStack((current) => (current.length > 1 ? current.slice(0, -1) : current)),
+      top: topOf(state),
+      tab: state.tab,
+      selectTab: (tab) => setState((current) => ({ ...current, tab })),
+      push: (route) => setState((current) => pushed(current, route)),
+      back: () => setState(wentBack),
       open,
-      newSession,
+      newSession: state.newSession,
       openNewSession: (workspaceId) =>
-        setNewSession({ open: true, workspaceId: workspaceId ?? null }),
-      closeNewSession: () => setNewSession({ open: false, workspaceId: null }),
+        setState((current) => ({
+          ...current,
+          newSession: { open: true, workspaceId: workspaceId ?? null },
+        })),
+      closeNewSession: () =>
+        setState((current) => ({ ...current, newSession: initialNavigation.newSession })),
     }),
-    [stack, newSession, tab, open]
+    [state, open]
   );
 
   return <NavigationContext.Provider value={navigation}>{children}</NavigationContext.Provider>;

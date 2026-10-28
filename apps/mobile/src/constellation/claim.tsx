@@ -6,14 +6,12 @@ import { midnight, mobileType } from "@polaris/ui/tokens";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { Check, HandedClaim } from "./model.ts";
+import { cancellable, type Delivery, deliveryLine, editable } from "./outbox.ts";
 import { canSend, type Verdict } from "./verdict.ts";
 
-export type SendVerdict = (verdict: Verdict, reply: string) => Promise<void>;
+export type SendVerdict = (verdict: Verdict, reply: string) => void;
 
-type Step =
-  | { readonly kind: "choose" }
-  | { readonly kind: "reply"; readonly verdict: Verdict; readonly error: string | null }
-  | { readonly kind: "sending"; readonly verdict: Verdict };
+type Step = { readonly kind: "choose" } | { readonly kind: "reply"; readonly verdict: Verdict };
 
 const PLACEHOLDER: Readonly<Record<Verdict, string>> = {
   accept: "Your answer for the lead",
@@ -21,6 +19,11 @@ const PLACEHOLDER: Readonly<Record<Verdict, string>> = {
 };
 
 const SEND: Readonly<Record<Verdict, string>> = { accept: "Accept", "send-back": "Send back" };
+
+const HINT: Readonly<Record<Verdict, string>> = {
+  accept: "Approves the claim and tells the lead to merge it.",
+  "send-back": "Tells the lead to send it back with your answer.",
+};
 
 const MARK: Readonly<Record<Check["result"], string>> = { passed: "✓", failed: "✗", reported: "·" };
 
@@ -66,19 +69,23 @@ const Choose = ({ onChoose }: { readonly onChoose: (verdict: Verdict) => void })
 
 const Reply = ({
   verdict,
-  error,
-  sending,
+  delivery,
   onSend,
   onCancel,
 }: {
   readonly verdict: Verdict;
-  readonly error: string | null;
-  readonly sending: boolean;
+  readonly delivery: Delivery | null;
   readonly onSend: (reply: string) => void;
   readonly onCancel: () => void;
 }) => {
-  const [text, setText] = useState("");
-  const ready = canSend(verdict, text) && !sending;
+  const [draft, setDraft] = useState(delivery?.input.reply ?? "");
+  const open = editable(delivery);
+  const sending = delivery?.state === "sending";
+  // A lost step is retried as it was sent, so its answer stays as the Host may have it.
+  const text = open ? draft : (delivery?.input.reply ?? draft);
+  const ready = !sending && canSend(verdict, text);
+  const failed = delivery?.state === "failed";
+  const label = failed && !open ? "Retry" : SEND[verdict];
 
   return (
     <View style={styles.reply}>
@@ -86,18 +93,18 @@ const Reply = ({
         <TextInput
           style={styles.input}
           value={text}
-          onChangeText={setText}
+          onChangeText={setDraft}
           placeholder={PLACEHOLDER[verdict]}
           placeholderTextColor={midnight.textFaint}
-          autoFocus
-          editable={!sending}
+          autoFocus={delivery === null}
+          editable={open}
           returnKeyType="send"
           submitBehavior="blurAndSubmit"
           onSubmitEditing={() => ready && onSend(text)}
         />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={SEND[verdict]}
+          accessibilityLabel={label}
           disabled={!ready}
           style={[styles.send, ready ? styles.primary : styles.sendOff]}
           onPress={() => onSend(text)}
@@ -106,64 +113,67 @@ const Reply = ({
             <ActivityIndicator size="small" color={midnight.bg} />
           ) : (
             <Text style={[styles.label, { color: ready ? midnight.bg : midnight.textFaint }]}>
-              {SEND[verdict]}
+              {label}
             </Text>
           )}
         </Pressable>
       </View>
       <View style={styles.replyFoot}>
-        <Text style={[styles.caption, error !== null && { color: midnight.failedText }]}>
-          {error ??
-            (verdict === "accept"
-              ? "Approves the claim and tells the lead to merge it."
-              : "Tells the lead to send it back with your answer.")}
+        <Text style={[styles.caption, failed && { color: midnight.failedText }]}>
+          {delivery === null ? HINT[verdict] : deliveryLine(delivery)}
         </Text>
-        {sending ? null : (
+        {cancellable(delivery) ? (
           <Pressable accessibilityRole="button" onPress={onCancel} hitSlop={8}>
             <Text style={styles.caption}>Cancel</Text>
           </Pressable>
-        )}
+        ) : null}
       </View>
     </View>
   );
 };
 
+/**
+ * The claim's verdict: choose, answer, then its delivery from the outbox. A delivery stays
+ * here after the claim leaves the user (Accept approved it), until the lead has the answer.
+ */
 export const HandedClaimActions = ({
   claim,
+  delivery,
   onVerdict,
+  onCancel,
 }: {
-  readonly claim: HandedClaim;
+  readonly claim: HandedClaim | null;
+  readonly delivery: Delivery | null;
   readonly onVerdict: SendVerdict;
+  readonly onCancel: () => void;
 }) => {
   const [step, setStep] = useState<Step>({ kind: "choose" });
-
-  const send = (verdict: Verdict, reply: string) => {
-    setStep({ kind: "sending", verdict });
-    onVerdict(verdict, reply).then(
-      () => setStep({ kind: "choose" }),
-      (error: Error) =>
-        setStep({ kind: "reply", verdict, error: `Couldn't send: ${error.message}` })
-    );
-  };
+  const verdict = delivery?.input.verdict ?? (step.kind === "reply" ? step.verdict : null);
 
   return (
     <View style={styles.claim}>
-      <Checks head={claim.head} checks={claim.checks} />
-      {claim.question === null ? null : (
+      {claim === null ? null : <Checks head={claim.head} checks={claim.checks} />}
+      {claim?.question == null ? null : (
         <Text style={styles.question}>
           <Text style={{ color: midnight.needsYouText }}>Asks · </Text>
           {claim.question}
         </Text>
       )}
-      {step.kind === "choose" ? (
-        <Choose onChoose={(verdict) => setStep({ kind: "reply", verdict, error: null })} />
+      {delivery?.state === "delivered" ? (
+        <Text style={[styles.caption, { color: midnight.acceptedText }]}>
+          {deliveryLine(delivery)}
+        </Text>
+      ) : verdict === null ? (
+        <Choose onChoose={(chosen) => setStep({ kind: "reply", verdict: chosen })} />
       ) : (
         <Reply
-          verdict={step.verdict}
-          error={step.kind === "reply" ? step.error : null}
-          sending={step.kind === "sending"}
-          onSend={(reply) => send(step.verdict, reply)}
-          onCancel={() => setStep({ kind: "choose" })}
+          verdict={verdict}
+          delivery={delivery}
+          onSend={(reply) => onVerdict(verdict, reply)}
+          onCancel={() => {
+            onCancel();
+            setStep({ kind: "choose" });
+          }}
         />
       )}
     </View>

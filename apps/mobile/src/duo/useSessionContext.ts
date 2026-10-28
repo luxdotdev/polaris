@@ -1,6 +1,6 @@
 /**
  * The data the unfolded Duo's second half reads for one agent session (D6): the thread's fold
- * and cached findings (its own controller on the Host's shared connection), and, for the
+ * and cached findings (the thread the first half leases), and, for the
  * focused Turn, its diff and the Risk Summary already on the Host. It never starts a review.
  */
 import {
@@ -21,26 +21,35 @@ import { useLiveHost } from "../runtime/hosts.tsx";
 import { openThread, type ThreadController } from "../thread/controller.ts";
 import type { SessionFold } from "../thread/fold.ts";
 import { hostThreadSource } from "../thread/hostSource.ts";
+import { threadKey, threads } from "../thread/threads.ts";
 
+/** The session's thread from the app's registry: the same one the first half's thread leases. */
 const useController = (connection: HostConnection | null, sessionId: string) => {
   const live = useLiveHost(connection);
   const [controller, setController] = useState<ThreadController | null>(null);
   const liveRef = useRef(live);
   liveRef.current = live;
-  const ready = connection !== null && live !== null;
+  const opened = connection !== null && (live !== null || controller !== null);
 
   useEffect(() => {
     const first = liveRef.current;
 
-    if (!ready || connection === null || first === null) return;
-    const made = openThread(hostThreadSource(connection, first), SessionId.make(sessionId));
-    setController(made);
+    if (!opened || connection === null) return;
+    const id = SessionId.make(sessionId);
+
+    const lease = threads.acquire(
+      threadKey(connection.hostId, id),
+      first === null ? null : () => openThread(hostThreadSource(connection, first), id)
+    );
+
+    if (lease === null) return;
+    setController(lease.controller);
 
     return () => {
-      made.dispose();
+      lease.release();
       setController(null);
     };
-  }, [ready, connection, sessionId]);
+  }, [opened, connection, sessionId]);
 
   return { live, controller };
 };
