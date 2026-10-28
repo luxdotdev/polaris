@@ -11,9 +11,25 @@
       "bundleIdentifier": "dev.lux.polaris.mobile",
       "supportsTablet": false,
       "infoPlist": {
-        "NSAppTransportSecurity": { "NSAllowsLocalNetworking": true }
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
+      },
+      "appleTeamId": "HWD6374DUX",
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.dev.lux.polaris"],
+        "keychain-access-groups": ["$(AppIdentifierPrefix)dev.lux.polaris.shared"]
       }
     },
-    "plugins": ["expo-secure-store"]
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "mode": "development"
+        }
+      ],
+      "@bacons/apple-targets"
+    ]
   }
 }

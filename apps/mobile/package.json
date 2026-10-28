@@ -21,6 +21,7 @@
     "@polaris/ui": "workspace:*",
     "effect": "4.0.0-rc.118",
     "expo": "58.0.20",
+    "expo-notifications": "58.1.6",
     "expo-secure-store": "58.0.2",
     "expo-status-bar": "58.0.4",
     "react": "19.3.0",
@@ -29,6 +30,7 @@
     "xstate": "6.0.0-alpha.61"
   },
   "devDependencies": {
+    "@bacons/apple-targets": "5.0.0",
     "@types/react": "19.3.0",
     "hermes-compiler": "260318099.0.4"
   }

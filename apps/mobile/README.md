@@ -41,6 +41,41 @@ EXPO_PUBLIC_POLARIS_DEV_BRIDGE='polaris-dev-bridge:v1:…' bun run --cwd apps/mo
 
 Only `__DEV__` builds read the variable; the bridge itself is a script and never bundled.
 
+## Push
+
+Needs You and finished Turns arrive as notifications (apps/daemon/src/push/README.md). The Daemon
+seals each one to this device's push key with HPKE; the relay and the push service carry it
+opaquely; the Notification Service Extension opens it.
+
+- `modules/polaris-push`: a local Expo module. `pushKey()` makes the P-256 push key on first use
+  and keeps it in the Keychain group `HWD6374DUX.dev.lux.polaris.shared`, which the extension
+  shares (accessible after first unlock, this device only). `rotatePushKey()` replaces it;
+  re-register afterwards. `apnsEnvironment()` reads the provisioning profile: sandbox for
+  development builds and the simulator, production otherwise.
+- `targets/notification-service`: the extension (@bacons/apple-targets). It opens the payload
+  with CryptoKit (`P256_SHA256_AES_GCM_256`), sets title, subtitle, body, thread and category, and
+  keeps the routing ids in `userInfo.polaris`. If it can't open it, the generic alert stays.
+- `src/push`: `usePush(identity, linkedHosts)` sets the categories, registers with each linked
+  Host as its connection comes live (`devices.registerPush`, again after a reconnect), and answers.
+  The `approval` category has Approve, Always here and Deny; each needs Face ID or the passcode and
+  doesn't open the app. The answer is a RespondToApproval with a command id per request, sent
+  once the Host's connection is live, within a background task (about 30 s).
+
+### The widget hook
+
+Each push the extension opens is added to the App Group `group.dev.lux.polaris`, UserDefaults
+key `polaris.push.recent`: a JSON array, newest first, at most 20, of `{ kind, hostId, hostName,
+sessionId, requestId, subtitle, at }` (no bodies). Then it calls
+`WidgetCenter.shared.reloadAllTimelines()`. Widgets read the array in their timeline provider.
+
+### Try it in the simulator
+
+`app.json` sets `aps-environment` to development; Xcode switches it to production when exporting
+for TestFlight or the App Store. The simulator has no APNs token, but `xcrun simctl push` runs the
+extension: seal a PushMessage to the key `pushKey()` returns (`sealPush` in
+`apps/daemon/src/push/seal.ts`) and send
+`{"aps":{"alert":{"title":"Polaris","body":"Open Polaris to see what changed."},"mutable-content":1},"p":"<sealed>"}`.
+
 ## The Hermes check
 
 `src/runtime/selfCheck.ts` exercises Effect 4, the frame codec and pairing strings, the
