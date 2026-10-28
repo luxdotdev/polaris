@@ -468,11 +468,9 @@ jobs:
         with:
           node-version: 24
       - run: bun install --frozen-lockfile
-      - name: Write the standalone project and build it from npm, as a user would
+      - name: Build the standalone project from npm, as a user would, and pair it with a Daemon
         run: |
-          bun extensions/raycast/scripts/standalone.ts "$RUNNER_TEMP/polaris-raycast"
-          (cd "$RUNNER_TEMP/polaris-raycast" && npm install --no-audit --no-fund && npm run build)
-          node extensions/raycast/scripts/checkShared.mjs "$RUNNER_TEMP/polaris-raycast/dist"
+          bun extensions/raycast/scripts/e2e.ts "$RUNNER_TEMP/polaris-raycast"
           rm -rf "$RUNNER_TEMP/polaris-raycast/node_modules" "$RUNNER_TEMP/polaris-raycast/dist" \
             "$RUNNER_TEMP/polaris-raycast/raycast-env.d.ts"
       - name: Hand off the ZIP with its digest

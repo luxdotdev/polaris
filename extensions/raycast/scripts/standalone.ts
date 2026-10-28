@@ -87,15 +87,8 @@ const isShipped = (path: string) => !path.endsWith(".test.ts") && !path.endsWith
 const readManifest = (path: string) =>
   Schema.decodeUnknownSync(Schema.fromJsonString(Schema.JsonObject))(readFileSync(path, "utf8"));
 
-if (import.meta.main) {
-  const out = process.argv[2];
-
-  if (out === undefined) {
-    console.error("usage: bun scripts/standalone.ts <out dir>");
-    process.exit(1);
-  }
-
-  const target = resolve(out);
+/** Writes the standalone project into `target`, replacing what is there. */
+export const writeStandalone = (target: string) => {
   const manifest = readManifest(join(EXTENSION, "package.json"));
 
   const sdk = Schema.decodeUnknownSync(Schema.Struct({ version: Schema.String }))(
@@ -116,5 +109,16 @@ if (import.meta.main) {
     `${JSON.stringify(standaloneManifest(manifest, sdk.version), null, 2)}\n`
   );
   writeFileSync(join(target, "tsconfig.json"), `${JSON.stringify(TSCONFIG, null, 2)}\n`);
-  console.log(target);
+};
+
+if (import.meta.main) {
+  const out = process.argv[2];
+
+  if (out === undefined) {
+    console.error("usage: bun scripts/standalone.ts <out dir>");
+    process.exit(1);
+  }
+
+  writeStandalone(resolve(out));
+  console.log(resolve(out));
 }
