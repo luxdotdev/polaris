@@ -5,7 +5,7 @@
 import { midnight } from "@polaris/ui/tokens";
 import { Match } from "effect";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { NavigationProvider, useNavigation } from "./app/navigation.tsx";
@@ -16,23 +16,25 @@ import {
   ReviewTab,
   ThreadRoute,
 } from "./app/routes.tsx";
-import { type Tab, TabBar } from "./app/TabBar.tsx";
+import { TabBar } from "./app/TabBar.tsx";
+import { FollowedHostsProvider } from "./home/feed/useFollowedHosts.ts";
 import { HomeScreen } from "./home/HomeScreen.tsx";
 import { HostsScreen } from "./hosts/HostsScreen.tsx";
 import { runSelfCheck } from "./runtime/selfCheck.ts";
 import { HostsProvider } from "./runtime/hosts.tsx";
+import { useWidgetLinks } from "./widgets/useWidgetLinks.ts";
+import { WidgetSync } from "./widgets/WidgetSync.ts";
 
 const TAB_BAR = 58;
 
 const Tabs = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const [tab, setTab] = useState<Exclude<Tab, "hosts">>("sessions");
   const bottom = Math.max(insets.bottom, 20);
 
   return (
     <View style={styles.fill}>
-      {tab === "sessions" ? (
+      {navigation.tab === "sessions" ? (
         <HomeScreen
           tabBarHeight={TAB_BAR + bottom}
           actions={{
@@ -48,11 +50,11 @@ const Tabs = () => {
         <ReviewTab />
       )}
       <TabBar
-        active={tab}
+        active={navigation.tab}
         reviewCount={0}
         bottom={bottom}
         onSelect={(next) =>
-          next === "hosts" ? navigation.push({ screen: "hosts" }) : setTab(next)
+          next === "hosts" ? navigation.push({ screen: "hosts" }) : navigation.selectTab(next)
         }
         onNew={() => navigation.openNewSession()}
       />
@@ -87,6 +89,8 @@ const Screen = () => {
 const Shell = () => {
   const navigation = useNavigation();
 
+  useWidgetLinks(navigation.open);
+
   return (
     <View style={styles.fill}>
       <Screen />
@@ -113,9 +117,12 @@ export const App = () => {
     <SafeAreaProvider>
       <StatusBar style="light" />
       <HostsProvider>
-        <NavigationProvider>
-          <Shell />
-        </NavigationProvider>
+        <FollowedHostsProvider>
+          <WidgetSync />
+          <NavigationProvider>
+            <Shell />
+          </NavigationProvider>
+        </FollowedHostsProvider>
       </HostsProvider>
     </SafeAreaProvider>
   );

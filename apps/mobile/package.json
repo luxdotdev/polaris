@@ -29,6 +29,7 @@
     "xstate": "6.0.0-alpha.61"
   },
   "devDependencies": {
+    "@bacons/apple-targets": "5.0.0",
     "@types/react": "19.3.0",
     "hermes-compiler": "260318099.0.4"
   }
