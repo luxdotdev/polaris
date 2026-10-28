@@ -322,6 +322,37 @@ test("a cancelled, replaced or abandoned link no longer links (RX1-2)", async ()
   );
 }, 40_000);
 
+test("a phone that unlinks itself is refused from then on (RX1-3)", async () => {
+  await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const scope = yield* Effect.scope;
+        const desktop = yield* daemon(scope);
+        yield* desktop["relayRoute.enable"]({ url: relay.url });
+        const status = yield* waitConnected(desktop);
+        const phone = yield* Effect.promise(makeDevice);
+        const device = yield* linkDevice(desktop, phone, "Phone");
+        const open = yield* openSession(status, phone);
+
+        if (open === null) throw new Error("the linked device was refused");
+
+        // The Desktop App's own connection is not a Linked Device.
+        expect((yield* Effect.flip(desktop["devices.unlinkSelf"]()))._tag).toBe("NotFound");
+
+        const unlinked = yield* open.client["devices.unlinkSelf"]();
+
+        expect(unlinked.id).toBe(device.id);
+        expect((yield* desktop["devices.list"]()).map((d) => d.unlinkedAt === null)).toEqual([
+          false,
+        ]);
+        yield* Effect.sleep("500 millis");
+        expect(yield* openSession(status, phone, phone.noise, 1)).toBeNull();
+        open.socket.close();
+      })
+    )
+  );
+}, 30_000);
+
 test("the Daemon declares its peers again after the relay restarts", async () => {
   await Effect.runPromise(
     Effect.scoped(

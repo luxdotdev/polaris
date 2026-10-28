@@ -24,6 +24,7 @@ import {
   type TestRelay,
 } from "./relay.testing.ts";
 import { relayTransport } from "../src/relay/transport.ts";
+import { revokeOnHosts } from "../src/relay/unlink.ts";
 
 let relay: TestRelay;
 
@@ -173,3 +174,45 @@ test("a linked device connects with Client power, and its feed resumes across a 
     device.close();
   }
 }, 120_000);
+
+// RX1-3: Unlink on the phone revokes its key on the Host, not only in the Keychain.
+test("after Unlink on the phone, the Host refuses its old key", async () => {
+  const { device, hosts } = await linkFresh();
+  const [linked] = hosts;
+
+  if (linked === undefined) throw new Error("the link named no Host");
+
+  const open = (relayDevice: RelayDevice) =>
+    openHostConnection({
+      hostId: linked.hostId,
+      name: linked.hostName,
+      transport: relayTransport(relayDevice, linked),
+      policy: { initialDelayMs: 100, maxDelayMs: 1_000 },
+    });
+
+  const connection = open(device);
+
+  try {
+    await until("the first connection", () => connection.live() !== null);
+    expect([...(await revokeOnHosts([connection]))]).toEqual([linked.hostId]);
+
+    const listed = await Effect.runPromise(host.client["devices.list"]());
+    const row = listed.find((d) => d.relayAddress === device.keys.address);
+    expect(row?.unlinkedAt).not.toBeNull();
+  } finally {
+    await connection.close();
+    device.close();
+  }
+
+  // Someone who copied the keys can't come back with them.
+  const stolen = makeRelayDevice(device.keys, { backoff: () => 100 });
+  const again = open(stolen);
+
+  try {
+    await Bun.sleep(2_000);
+    expect(again.live()).toBeNull();
+  } finally {
+    await again.close();
+    stolen.close();
+  }
+}, 60_000);

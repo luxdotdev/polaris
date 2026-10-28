@@ -128,3 +128,11 @@ export const buildHosts = (hosts: ReadonlyArray<HostInput>, now: number): HostsM
     rows,
   };
 };
+
+/** What to say when Unlink left this iPhone trusted somewhere (RX1-3); null when it didn't. */
+export const unlinkNote = (kept: ReadonlyArray<string>): string | null => {
+  if (kept.length === 0) return null;
+  const one = kept.length === 1;
+
+  return `Still linked to ${kept.join(", ")}: ${one ? "it" : "they"} didn't answer. Unlink again when ${one ? "it's" : "they're"} online, or unlink this iPhone on your Mac in Settings → Devices.`;
+};

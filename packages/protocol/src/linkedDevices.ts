@@ -110,6 +110,15 @@ export const UnlinkDevice = Rpc.make("devices.unlink", {
   error: NotFound,
 });
 
+/**
+ * The calling Linked Device unlinks itself (Unlink on the phone, RX1-3): its key stops
+ * working here. NotFound on a connection that isn't a Linked Device's.
+ */
+export const UnlinkSelf = Rpc.make("devices.unlinkSelf", {
+  success: LinkedDevice,
+  error: NotFound,
+});
+
 export class PushRegistrationError extends Schema.TaggedError<PushRegistrationError>()(
   "PushRegistrationError",
   {
@@ -143,6 +152,7 @@ export class LinkedDeviceRpcs extends RpcGroup.make(
   AddLinkedDevice,
   ListLinkedDevices,
   UnlinkDevice,
+  UnlinkSelf,
   RegisterPush,
   UnregisterPush
 ) {}

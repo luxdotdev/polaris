@@ -37,6 +37,9 @@ import { isRelayUrl, readSetting, writeSetting } from "./settings.ts";
 import { pushSuite, sealPush } from "../push/seal.ts";
 import { LinkedDevices, type PushTarget } from "./store.ts";
 
+/** How long a self-unlinking device's session outlives the answer to it. */
+const SELF_UNLINK_DROP = "300 millis";
+
 /** How long a link string can be used. */
 export const LINK_TTL_MS = 5 * 60 * 1000;
 
@@ -77,6 +80,8 @@ export class RelayRoute extends Context.Service<
     }) => Effect.Effect<LinkedDevice>;
     readonly list: Effect.Effect<ReadonlyArray<LinkedDevice>>;
     readonly unlink: (id: LinkedDeviceId) => Effect.Effect<LinkedDevice, NotFound>;
+    /** Unlinks the device whose own session asks; that session ends once its answer is out. */
+    readonly unlinkSelf: (id: LinkedDeviceId) => Effect.Effect<LinkedDevice, NotFound>;
     /** Stores `device`'s push registration once its ticket signs this Host's relay address. */
     readonly registerPush: (
       device: LinkedDevice,
@@ -338,6 +343,24 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
       link?.peersChanged();
       link?.drop(device.relayAddress);
       pushChanged();
+
+      return device;
+    }, Effect.uninterruptible),
+    unlinkSelf: Effect.fn("RelayRoute.unlinkSelf")(function* (id: LinkedDeviceId) {
+      const device = yield* Effect.orDie(store.unlink(id));
+
+      if (device === null) return yield* new NotFound({ what: "linked device", id });
+      pushChanged();
+      // The key is refused from now; the open session closes after its answer is sent.
+      runFork(
+        Effect.delay(
+          Effect.sync(() => {
+            link?.peersChanged();
+            link?.drop(device.relayAddress);
+          }),
+          SELF_UNLINK_DROP
+        )
+      );
 
       return device;
     }, Effect.uninterruptible),

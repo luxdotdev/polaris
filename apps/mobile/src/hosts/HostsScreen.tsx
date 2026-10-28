@@ -14,7 +14,7 @@ import {
   constellationNotifications,
   useConstellationNotifications,
 } from "../push/constellations.ts";
-import { buildHosts, type HostRowModel } from "./model.ts";
+import { buildHosts, type HostRowModel, unlinkNote } from "./model.ts";
 
 /** Re-renders each second while a Host reconnects, so "42s" counts. */
 const useTicking = (active: boolean) => {
@@ -89,7 +89,8 @@ const Notifications = () => {
 /** The Mac this iPhone is linked to (R4's Linked Devices), with Unlink. */
 export interface LinkedTo {
   readonly name: string;
-  readonly onUnlink: () => void;
+  /** Resolves with the names of the hosts that didn't revoke this iPhone. */
+  readonly onUnlink: () => Promise<ReadonlyArray<string>>;
 }
 
 const FooterRow = ({
@@ -122,6 +123,7 @@ export const HostsScreen = ({
 }) => {
   const insets = useSafeAreaInsets();
   const hosts = useFollowedHosts();
+  const [unlinkLeft, setUnlinkLeft] = useState<string | null>(null);
   const now = useTicking(hosts.some(({ status }) => status.state === "reconnecting"));
 
   const model = buildHosts(
@@ -171,9 +173,10 @@ export const HostsScreen = ({
           <FooterRow
             label={`Linked to ${linkedTo.name}`}
             action="Unlink"
-            onPress={linkedTo.onUnlink}
+            onPress={() => void linkedTo.onUnlink().then((kept) => setUnlinkLeft(unlinkNote(kept)))}
           />
         )}
+        {unlinkLeft === null ? null : <Text style={styles.footerNote}>{unlinkLeft}</Text>}
         <Text style={styles.footerNote}>
           Hosts you add on your Mac appear here. Each host's route is set in Polaris on the Mac,
           under Remote Access.

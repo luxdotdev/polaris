@@ -27,8 +27,16 @@ import {
 } from "react";
 import { unregisterPush } from "../push/registration.ts";
 import { type HostRegistry, useHostRegistry } from "../runtime/hosts.tsx";
-import { forgetLink, loadHosts, loadSecrets, saveLink, secretsForLinking } from "./store.ts";
+import {
+  forgetLink,
+  keepHosts,
+  loadHosts,
+  loadSecrets,
+  saveLink,
+  secretsForLinking,
+} from "./store.ts";
 import { relayTransport } from "./transport.ts";
+import { revokeOnHosts } from "./unlink.ts";
 
 /** Shown to the Host in its Linked Devices; iOS gives apps no user-set device name. */
 const DEVICE_NAME = "iPhone";
@@ -46,8 +54,11 @@ export interface Relay {
   readonly hosts: ReadonlyArray<LinkedHost>;
   readonly routeOf: (hostId: string) => "relay" | null;
   readonly link: (text: string) => Promise<LinkOutcome>;
-  /** Forgets every linked Host and this device's keys; a new link starts over. */
-  readonly unlink: () => void;
+  /**
+   * Revokes this device on every linked Host, then forgets them and its keys. Resolves
+   * with the Hosts that didn't answer: they still trust the keys, which are kept for a retry.
+   */
+  readonly unlink: () => Promise<ReadonlyArray<LinkedHost>>;
 }
 
 const RelayContext = createContext<Relay | null>(null);
@@ -126,24 +137,37 @@ export const RelayProvider = ({ children }: { readonly children: ReactNode }) =>
     return outcome;
   }, []);
 
-  const unlink = useCallback(() => {
+  const unlink = useCallback(async () => {
     const open = device.current;
 
     const linked = registryRef.current.hosts.filter((h) =>
       hosts.some((l) => l.hostId === h.hostId)
     );
 
+    // Each Host drops the push registration, then revokes the key, before anything is forgotten.
+    await unregisterPush(linked);
+    const revoked = await revokeOnHosts(linked);
+    const kept = hosts.filter((host) => !revoked.has(host.hostId));
+
+    // Only these connections: a Host linked again meanwhile has a new one.
+    for (const host of linked)
+      if (revoked.has(host.hostId) && registryRef.current.hosts.includes(host))
+        registryRef.current.removeHost(host.hostId);
+
+    if (kept.length > 0) {
+      await keepHosts(kept);
+      setHosts(kept);
+
+      return kept;
+    }
+
     device.current = null;
     setKeys(null);
     setHosts([]);
-    void forgetLink();
-    // Each Host drops this device's push registration before its connection closes.
-    void unregisterPush(linked).then(() => {
-      // Only these connections: a Host linked again meanwhile has a new one.
-      for (const host of linked)
-        if (registryRef.current.hosts.includes(host)) registryRef.current.removeHost(host.hostId);
-      open?.close();
-    });
+    await forgetLink();
+    open?.close();
+
+    return kept;
   }, [hosts]);
 
   const value = useMemo<Relay>(

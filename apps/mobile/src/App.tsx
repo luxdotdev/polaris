@@ -81,7 +81,14 @@ const Screen = () => {
   const navigation = useNavigation();
   const relay = useRelay();
   const [first] = relay.hosts;
-  const linkedTo = first === undefined ? null : { name: first.hostName, onUnlink: relay.unlink };
+
+  const linkedTo =
+    first === undefined
+      ? null
+      : {
+          name: first.hostName,
+          onUnlink: () => relay.unlink().then((kept) => kept.map((host) => host.hostName)),
+        };
 
   // A release build has no other route to a Host, so a fresh phone links first.
   if (!__DEV__ && relay.loaded && first === undefined)

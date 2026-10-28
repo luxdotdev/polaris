@@ -375,6 +375,13 @@ export const defaultHandlers = (options: {
     "devices.add": (device) => Effect.flatMap(RelayRoute, (route) => route.add(device)),
     "devices.list": () => Effect.flatMap(RelayRoute, (route) => route.list),
     "devices.unlink": ({ id }) => Effect.flatMap(RelayRoute, (route) => route.unlink(id)),
+    "devices.unlinkSelf": (_, { client }) => {
+      const device = deviceOf(client);
+
+      return device === null
+        ? Effect.fail(new NotFound({ what: "linked device", id: "this connection" }))
+        : Effect.flatMap(RelayRoute, (route) => route.unlinkSelf(device.id));
+    },
     // A Linked Device's own connection only: the device registers itself (ADR 0083).
     "devices.registerPush": (registration, { client }) => {
       const device = deviceOf(client);

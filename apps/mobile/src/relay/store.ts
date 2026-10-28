@@ -61,6 +61,11 @@ export const saveLink = async (
   return all;
 };
 
+/** Keeps only `hosts` linked: those that haven't revoked this device yet (RX1-3). */
+export const keepHosts = async (hosts: ReadonlyArray<LinkedHost>): Promise<void> => {
+  await SecureStore.setItemAsync(HOSTS, JSON.stringify(hosts), options);
+};
+
 /** Forgets every linked Host and the keys, so the next link starts as a new device. */
 export const forgetLink = async (): Promise<void> => {
   await Promise.all(
