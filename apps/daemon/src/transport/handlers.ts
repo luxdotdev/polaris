@@ -41,10 +41,10 @@ import { admissionOf } from "../extensions/admission.ts";
 import { deviceOf } from "../linkedDevices/connection.ts";
 import { RelayRoute } from "../linkedDevices/route.ts";
 
-const pushUnavailable = () =>
+const notADevice = () =>
   new PushRegistrationError({
-    reason: "failed",
-    message: "Push is not available on this Daemon yet",
+    reason: "not-a-device",
+    message: "Only a Linked Device registers for push, over the Relay route",
   });
 
 const constellationUnavailable = () =>
@@ -373,8 +373,21 @@ export const defaultHandlers = (options: {
     "devices.add": (device) => Effect.flatMap(RelayRoute, (route) => route.add(device)),
     "devices.list": () => Effect.flatMap(RelayRoute, (route) => route.list),
     "devices.unlink": ({ id }) => Effect.flatMap(RelayRoute, (route) => route.unlink(id)),
-    "devices.registerPush": () => Effect.fail(pushUnavailable()),
-    "devices.unregisterPush": () => Effect.fail(pushUnavailable()),
+    // A Linked Device's own connection only: the device registers itself (ADR 0083).
+    "devices.registerPush": (registration, { client }) => {
+      const device = deviceOf(client);
+
+      return device === null
+        ? Effect.fail(notADevice())
+        : Effect.flatMap(RelayRoute, (route) => route.registerPush(device, registration));
+    },
+    "devices.unregisterPush": (_, { client }) => {
+      const device = deviceOf(client);
+
+      return device === null
+        ? Effect.fail(notADevice())
+        : Effect.flatMap(RelayRoute, (route) => route.unregisterPush(device));
+    },
 
     dispatch: ({ commandId }) =>
       Effect.fail(new CommandRejected({ commandId, reason: notYet("the event store") })),

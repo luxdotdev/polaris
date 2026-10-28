@@ -241,7 +241,7 @@ export const freePort = (): number => {
 };
 
 /** Runs the real relay (`bun apps/relay/src/main.ts`) on `port` until `stop`. */
-export const startRelay = async (port = freePort()) => {
+export const startRelay = async (port = freePort(), env: Readonly<Record<string, string>> = {}) => {
   const child = Bun.spawn(["bun", "src/main.ts"], {
     cwd: join(import.meta.dir, "../../../relay"),
     env: {
@@ -249,6 +249,7 @@ export const startRelay = async (port = freePort()) => {
       PORT: String(port),
       POLARIS_RELAY_HOSTNAME: "127.0.0.1",
       POLARIS_RELAY_CONNECT_BURST_PER_IP: "200",
+      ...env,
     },
     stdout: "pipe",
     stderr: "inherit",
@@ -266,13 +267,20 @@ export const startRelay = async (port = freePort()) => {
     text += new TextDecoder().decode(value);
   }
 
-  // Keep draining its log so the pipe never fills.
+  // Keep draining its log so the pipe never fills, and keep it for tests that read it.
   void (async () => {
-    for (;;) if ((await reader.read()).done) break;
+    for (;;) {
+      const { value, done } = await reader.read();
+
+      if (done) break;
+      text += new TextDecoder().decode(value);
+    }
   })();
 
   return {
     port,
+    /** Everything the relay logged so far. */
+    log: () => text,
     url: `ws://127.0.0.1:${port}/v1`,
     stop: async () => {
       child.kill("SIGTERM");
