@@ -1,0 +1,21 @@
+/* The Stats popover's cells light up left to right once on open (ENG-470); Reduce Motion stills it. */
+@keyframes polaris-stats-cell {
+  from {
+    opacity: 0;
+  }
+}
+
+.polaris-stats-cell {
+  animation: polaris-stats-cell var(--duration-reveal) var(--ease-out) both;
+  animation-delay: var(--cell-delay, 0ms);
+}
+
+[data-reduce-motion="true"] .polaris-stats-cell {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-reduce-motion="false"]) .polaris-stats-cell {
+    animation: none;
+  }
+}

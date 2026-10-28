@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { statsFixture } from "../preview/stats.ts";
-import { completionFacts, duration, statsCoverage, statsGroups, tokens, usd } from "./stats.ts";
+import { completionFacts, duration, statsCoverage, tokens, usd } from "./stats.ts";
+import { MAX_COLUMNS, statsPanel } from "./statsPanel.ts";
 
 const view = statsFixture(37);
 
-const group = (title: string) =>
-  statsGroups(view, (id) => `Task ${id}`).find((g) => g.title === title);
+const panel = statsPanel(view, (id) => `Task ${id}`);
 
 describe("stats", () => {
   test("durations, money and tokens read short", () => {
@@ -20,39 +20,98 @@ describe("stats", () => {
     expect(tokens(1_400_000)).toBe("1.4M");
   });
 
-  test("an unrecorded metric says so with the Daemon's reason, never zero", () => {
-    const offline = group("Workers")?.lines.find((l) => l.label === "Host offline");
+  test("an unrecorded time says so with the Daemon's reason and takes no share of the bar", () => {
+    const offline = panel.workers.segments.find((s) => s.key === "offline");
 
-    expect(offline).toMatchObject({ value: "not recorded", missing: true });
+    expect(offline).toMatchObject({ ms: null, text: "not recorded", share: 0 });
     expect(offline?.note).toContain("L stale/fresh");
+
+    const shares = panel.workers.segments.reduce((sum, s) => sum + s.share, 0);
+
+    expect(shares).toBeCloseTo(1);
   });
 
   test("cost is priced in main; unpriced tokens are called out", () => {
-    const cost = group("Constellation")?.lines.find((l) => l.label === "Cost");
+    expect(panel.headline).toMatchObject({
+      primary: "$3.33",
+      caption: "Cost · some tokens have no price",
+    });
 
-    expect(cost).toMatchObject({ value: "$3.33", note: "some tokens have no price" });
+    const unpriced = statsPanel({ ...view, pricesFetchedAt: null }, String);
 
-    const unpriced = statsGroups({ ...view, pricesFetchedAt: null }, String).find(
-      (g) => g.title === "Constellation"
-    );
-
-    expect(unpriced?.lines.find((l) => l.label === "Cost")?.note).toContain("reported cost only");
+    expect(unpriced.headline.caption).toContain("reported cost only");
   });
 
-  test("review: first-time acceptance and send-backs by cause", () => {
-    const lines = group("Review")?.lines ?? [];
-
-    expect(lines.find((l) => l.label === "Accepted first time")?.value).toBe("3 of 4 · 75%");
-    expect(lines.find((l) => l.label === "Sent back")?.value).toBe(
-      "1 sent back · 1 merge conflict"
-    );
+  test("the role split shares the cost and carries each role's Harness", () => {
+    expect(panel.roles.map((r) => [r.label, r.harness, Math.round(r.share * 100)])).toEqual([
+      ["Lead", "claude", 18],
+      ["Workers", "codex", 82],
+    ]);
   });
 
-  test("the costliest tasks come first", () => {
-    expect(group("Costliest tasks")?.lines.map((l) => l.label)).toEqual([
-      "B2 · Task B2",
-      "B1 · Task B1",
-      "A2 · Task A2",
+  test("review: a cell per first Claim, accepted ones first; causes read as words", () => {
+    expect(panel.review.cells.map((c) => c.accepted)).toEqual([true, true, true, false]);
+    expect(panel.review.summary).toBe("3 of 4 accepted first time");
+    expect(panel.review.sentBack).toBe("1 sent back · 1 merge conflict");
+  });
+
+  test("a column per update turn, the tallest full height", () => {
+    const { columns, measure } = panel.lead;
+
+    expect(measure).toBe("cost");
+    expect(columns).toHaveLength(view.stats.lead.digests.length);
+    expect(Math.max(...columns.map((c) => c.height))).toBe(1);
+    expect(columns[0]?.label).toBe("Update turn 1 · 3 updates · 288k tokens · $0.37");
+  });
+
+  test("past the column limit, update turns are summed into runs", () => {
+    const digests = Array.from({ length: 33 }, () => view.stats.lead.digests).flat();
+    const perDigest = Array.from({ length: 33 }, () => view.usage.perDigest).flat();
+
+    const big = statsPanel(
+      {
+        ...view,
+        stats: { ...view.stats, lead: { ...view.stats.lead, digests } },
+        usage: { ...view.usage, perDigest },
+      },
+      String
+    );
+
+    expect(big.lead.columns.length).toBeLessThanOrEqual(MAX_COLUMNS);
+    expect(big.lead.columns[0]?.label).toStartWith("Update turns 1–7 · ");
+  });
+
+  test("in tokens, every chart is re-measured and money moves to the second line", () => {
+    const counted = statsPanel(view, (id) => `Task ${id}`, "tokens");
+
+    expect(counted.headline).toMatchObject({ primary: "1.4M", unit: "tokens" });
+    expect(counted.headline.secondary).toStartWith("$3.33 · ");
+    expect(counted.roles.map((r) => [r.value, r.detail])).toEqual([
+      ["485k tokens", "$0.61"],
+      ["922k tokens", "$2.72"],
+    ]);
+    expect(counted.lead.measure).toBe("tokens");
+    expect(counted.tasks[0]).toMatchObject({ taskId: "B2", value: "279k", share: 1 });
+  });
+
+  test("with nothing priced, cost can't be shown and tokens stand in", () => {
+    const zero = {
+      ...view.usage.total,
+      estimates: view.usage.total.estimates.map(() => ({ estimatedUsd: 0, unpricedTokens: 0 })),
+    };
+
+    const free = statsPanel({ ...view, usage: { ...view.usage, total: zero } }, String, "cost");
+
+    expect(free).toMatchObject({ priced: false, measure: "tokens" });
+  });
+
+  test("the costliest tasks come first, bars relative to the top one", () => {
+    expect(panel.tasks.map((t) => [t.taskId, t.title, Math.round(t.share * 100)])).toEqual([
+      ["B2", "Task B2", 100],
+      ["B1", "Task B1", 87],
+      ["A2", "Task A2", 61],
+      ["A1", "Task A1", 50],
+      ["B3", "Task B3", 26],
     ]);
   });
 

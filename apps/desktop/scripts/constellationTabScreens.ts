@@ -134,6 +134,17 @@ try {
 
         await page.screenshot({ path });
         console.log(`screens: ${path}`);
+
+        if (scene === "stats") {
+          const end = join(out, `${scene}-end-${theme}-${density}.png`);
+
+          const popover = `document.querySelector('[data-testid="stats-popover"]')`;
+
+          await page.evaluate(`${popover}.scrollTo(0, ${popover}.scrollHeight)`);
+          await page.screenshot({ path: end });
+          await page.evaluate(`${popover}.scrollTo(0, 0)`);
+          console.log(`screens: ${end}`);
+        }
       }
     }
 
