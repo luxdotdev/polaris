@@ -9,7 +9,8 @@
     "backgroundColor": "#000000",
     "ios": {
       "bundleIdentifier": "dev.lux.polaris.mobile",
-      "buildNumber": "1",
+      "buildNumber": "2",
+      "icon": "./assets/icon.png",
       "supportsTablet": false,
       "infoPlist": {
         "NSAppTransportSecurity": {
