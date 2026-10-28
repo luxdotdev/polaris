@@ -59,9 +59,20 @@ test("a failed agent session's line is in the failed colour", () => {
 });
 
 test("a command reads as a shell line", () => {
-  expect(approvalDetail(commandApproval("s", "r", "cargo build --release"))).toBe(
-    "$ cargo build --release"
-  );
+  expect(approvalDetail(commandApproval("s", "r", "cargo build --release"))).toEqual({
+    text: "$ cargo build --release",
+    tooLong: false,
+  });
+});
+
+test.each([
+  ["a command of many lines", "echo ok\nrm -rf ~/a\nrm -rf ~/b\nrm -rf ~/c\nrm -rf ~/d"],
+  ["a very long command", `curl ${"x".repeat(400)}`],
+])("%s is never approved from its first line", (_, command) => {
+  const detail = approvalDetail(commandApproval("s", "r", command));
+
+  expect(detail?.text).toBe(`$ ${command}`);
+  expect(detail?.tooLong).toBe(true);
 });
 
 test("only a single single-choice question is answered with chips", () => {
