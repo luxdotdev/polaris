@@ -4,6 +4,7 @@ import {
   type Cause,
   Effect,
   Exit,
+  Option,
   Fiber,
   Predicate,
   Queue,
@@ -28,30 +29,31 @@ type Pipe = Queue.Queue<Uint8Array, TransportError | Cause.Done>;
  * A Client connection to a silent peer: the peer's Wire records every message
  * the Client sends and answers only when told to.
  */
-const silentPeer = Effect.gen(function* () {
-  const toPeer: Pipe = yield* Queue.unbounded<Uint8Array, TransportError | Cause.Done>();
-  const toClient: Pipe = yield* Queue.unbounded<Uint8Array, TransportError | Cause.Done>();
+const silentPeer = (options: { readonly keepAliveStreams?: boolean } = {}) =>
+  Effect.gen(function* () {
+    const toPeer: Pipe = yield* Queue.unbounded<Uint8Array, TransportError | Cause.Done>();
+    const toClient: Pipe = yield* Queue.unbounded<Uint8Array, TransportError | Cause.Done>();
 
-  const side = (inbox: Pipe, outbox: Pipe): ByteTransport => ({
-    incoming: Stream.fromQueue(inbox),
-    write: (bytes) => Effect.sync(() => Queue.offerUnsafe(outbox, bytes)),
-    close: Effect.sync(() => Queue.endUnsafe(outbox)),
+    const side = (inbox: Pipe, outbox: Pipe): ByteTransport => ({
+      incoming: Stream.fromQueue(inbox),
+      write: (bytes) => Effect.sync(() => Queue.offerUnsafe(outbox, bytes)),
+      close: Effect.sync(() => Queue.endUnsafe(outbox)),
+    });
+
+    const received: Array<typeof Sent.Type> = [];
+
+    const peer = yield* makeWire(side(toPeer, toClient), (text) =>
+      Effect.sync(() => {
+        received.push(decodeSent(text));
+      })
+    );
+
+    const transport = { ...side(toClient, toPeer), diagnose: Effect.die("unused") };
+    const connection = yield* connectRpc(transport, { pingIntervalMs: 20, ...options });
+    const pings = () => received.filter(Predicate.isTagged("Ping")).length;
+
+    return { connection, peer, received, pings };
   });
-
-  const received: Array<typeof Sent.Type> = [];
-
-  const peer = yield* makeWire(side(toPeer, toClient), (text) =>
-    Effect.sync(() => {
-      received.push(decodeSent(text));
-    })
-  );
-
-  const transport = { ...side(toClient, toPeer), diagnose: Effect.die("unused") };
-  const connection = yield* connectRpc(transport, { pingIntervalMs: 20 });
-  const pings = () => received.filter(Predicate.isTagged("Ping")).length;
-
-  return { connection, peer, received, pings };
-});
 
 const run = <A, E>(effect: Effect.Effect<A, E, Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(effect));
@@ -60,7 +62,7 @@ describe("keepalive", () => {
   test("a Client with only a subscription open sends no pings", async () => {
     const pings = await run(
       Effect.gen(function* () {
-        const { connection, pings } = yield* silentPeer;
+        const { connection, pings } = yield* silentPeer();
         yield* Stream.runDrain(connection.client.subscribeHost({ afterSequence: null })).pipe(
           Effect.forkScoped
         );
@@ -73,10 +75,25 @@ describe("keepalive", () => {
     expect(pings).toBe(0);
   });
 
+  test("with keepAliveStreams, a Client with only a subscription open loses a silent peer", async () => {
+    const lost = await run(
+      Effect.gen(function* () {
+        const { connection } = yield* silentPeer({ keepAliveStreams: true });
+        yield* Stream.runDrain(connection.client.subscribeHost({ afterSequence: null })).pipe(
+          Effect.forkScoped
+        );
+
+        return yield* connection.lost.pipe(Effect.exit, Effect.timeout(1000), Effect.option);
+      })
+    );
+
+    expect(Option.isSome(lost) && Exit.isFailure(lost.value)).toBe(true);
+  });
+
   test("pings while a reply is due, stop once it came, and a silent peer is lost", async () => {
     const result = await run(
       Effect.gen(function* () {
-        const { connection, peer, received, pings } = yield* silentPeer;
+        const { connection, peer, received, pings } = yield* silentPeer();
 
         const hello = yield* connection.client
           .hello({ clientName: "t", clientVersion: "0", deviceLabel: "t", capabilities: [] })
@@ -119,7 +136,7 @@ describe("keepalive", () => {
   test("a late wake of the Client's own timer pings before declaring the peer lost", async () => {
     const result = await run(
       Effect.gen(function* () {
-        const { connection, received, pings } = yield* silentPeer;
+        const { connection, received, pings } = yield* silentPeer();
 
         yield* connection.client
           .hello({ clientName: "t", clientVersion: "0", deviceLabel: "t", capabilities: [] })

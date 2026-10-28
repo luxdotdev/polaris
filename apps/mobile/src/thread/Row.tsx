@@ -1,4 +1,4 @@
-/** One row of the thread (M4): a collapsed earlier Turn, a message, or a numbered tool step. */
+/** One row of the thread (M4): a collapsed earlier Turn, a message, a numbered tool step, or a run. */
 import { midnight, mobileType } from "@polaris/ui/tokens";
 import { memo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -31,6 +31,29 @@ const Earlier = ({
     {row.status === "failed" || row.status === "interrupted" ? (
       <Text style={styles.turnStatus}>{row.status}</Text>
     ) : null}
+  </Pressable>
+);
+
+/** Finished calls folded into one line (DESIGN.md, Tool runs): a faint check, the summary, a chevron. */
+const Run = ({
+  row,
+  onToggle,
+}: {
+  readonly row: Extract<ThreadRow, { kind: "run" }>;
+  readonly onToggle: (key: string) => void;
+}) => (
+  <Pressable
+    style={[styles.step, row.last && !row.open ? styles.stepLast : null]}
+    onPress={() => onToggle(row.key)}
+    accessibilityRole="button"
+    accessibilityState={{ expanded: row.open }}
+    accessibilityLabel={row.summary}
+  >
+    <Text style={styles.runCheck}>✓</Text>
+    <Text style={styles.runSummary} numberOfLines={1}>
+      {row.summary}
+    </Text>
+    <Text style={[styles.runChevron, row.open ? styles.runChevronOpen : null]}>›</Text>
   </Pressable>
 );
 
@@ -90,7 +113,8 @@ export interface RowProps {
   readonly open: boolean;
   /** Paths an open Critical finding is in. */
   readonly criticalPaths: ReadonlySet<string>;
-  readonly onToggle: (turnId: string) => void;
+  /** Opens or folds an earlier Turn (by its id) or a run (by its key). */
+  readonly onToggle: (key: string) => void;
   /** Makes step rows pressable; the iPhone Duo's second half follows them. */
   readonly onFocus?: ((focus: ThreadFocus) => void) | undefined;
   readonly focused?: boolean;
@@ -114,6 +138,8 @@ const RowView = ({ row, open, criticalPaths, onToggle, onFocus, focused = false 
       return <Markdown text={row.text} style={styles.reply} />;
     case "error":
       return <Text style={[styles.message, styles.error]}>{row.text}</Text>;
+    case "run":
+      return <Run row={row} onToggle={onToggle} />;
     case "step":
       return (
         <Step
@@ -184,4 +210,8 @@ const styles = StyleSheet.create({
   stepActive: { color: midnight.textDefault, fontWeight: "500" },
   stepDetail: { ...mobileType.footnote, color: midnight.textFaint },
   stepFailed: { ...mobileType.footnote, color: midnight.failedText },
+  runCheck: { ...mobileType.index, color: midnight.textFaint, width: 20 },
+  runSummary: { ...mobileType.footnote, color: midnight.textSubtle, flex: 1 },
+  runChevron: { ...mobileType.subhead, color: midnight.textFaint },
+  runChevronOpen: { transform: [{ rotate: "90deg" }] },
 });

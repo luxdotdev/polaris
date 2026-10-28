@@ -128,3 +128,75 @@ export const launchRelayDaemon = async (relayUrl: string): Promise<RelayDaemon> 
     },
   };
 };
+
+/** The phone's TCP path to the relay: what goes through it, until `cut` kills it silently. */
+export interface SilentPath {
+  /** The relay URL through the path. */
+  readonly url: string;
+  /**
+   * Cuts every open connection the way a network change does: the relay's side
+   * closes, the phone's stays open and hears nothing. Later connections go through.
+   */
+  readonly cut: () => void;
+  readonly stop: () => void;
+}
+
+interface Pipe {
+  relay: Bun.Socket<undefined> | null;
+  cut: boolean;
+  held: Array<Uint8Array>;
+}
+
+export const silentPath = (relayUrl: string): SilentPath => {
+  const target = new URL(relayUrl);
+  const pipes = new Set<Pipe>();
+
+  const listener = Bun.listen<Pipe>({
+    hostname: "127.0.0.1",
+    port: 0,
+    socket: {
+      open(phone) {
+        const pipe: Pipe = { relay: null, cut: false, held: [] };
+        phone.data = pipe;
+        pipes.add(pipe);
+        void Bun.connect({
+          hostname: target.hostname,
+          port: Number(target.port),
+          socket: {
+            data: (_relay, bytes) => {
+              if (!pipe.cut) phone.write(bytes);
+            },
+            close: () => {
+              if (!pipe.cut) phone.end();
+            },
+          },
+        }).then((relay) => {
+          pipe.relay = relay;
+          pipe.held.forEach((bytes) => relay.write(bytes));
+        });
+      },
+      data(phone, bytes) {
+        const pipe = phone.data;
+
+        if (pipe.cut) return;
+
+        if (pipe.relay === null) pipe.held.push(bytes.slice());
+        else pipe.relay.write(bytes);
+      },
+      close(phone) {
+        if (!phone.data.cut) phone.data.relay?.end();
+      },
+    },
+  });
+
+  return {
+    url: `ws://127.0.0.1:${listener.port}${target.pathname}`,
+    cut: () => {
+      for (const pipe of pipes) {
+        pipe.cut = true;
+        pipe.relay?.end();
+      }
+    },
+    stop: () => listener.stop(true),
+  };
+};

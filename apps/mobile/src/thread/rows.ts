@@ -1,12 +1,14 @@
 /**
  * The thread as flat rows for a virtualized list (M4): each earlier Turn is
  * one collapsed row until opened, the latest Turn shows its prompt, replies
- * and numbered tool steps. A Turn's rows are cached on its entry, so text
- * streaming into the latest Turn rebuilds only that Turn's rows.
+ * and numbered tool steps; finished calls in a row fold into a run until opened
+ * (`steps.ts`). A Turn's rows are cached on its entry, so text streaming into the
+ * latest Turn rebuilds only that Turn's rows.
  */
 import type { TurnItem, TurnStatus } from "@polaris/protocol";
 import { Match } from "effect";
 import type { TurnEntry } from "./fold.ts";
+import { runKind, runSummary, toolLabel } from "./steps.ts";
 
 export type StepTone = "done" | "active" | "failed";
 
@@ -36,6 +38,14 @@ export type ThreadRow = RowBase &
         /** Files it touched, to mark the one a Critical finding is in. */
         readonly paths: ReadonlyArray<string>;
         /** The last step of a run of steps, which closes its group with a hairline. */
+        readonly last: boolean;
+      }
+    | {
+        readonly kind: "run";
+        /** "Read 3 files, ran 4 commands", as the Desktop App says it. */
+        readonly summary: string;
+        readonly open: boolean;
+        /** As a step's: the last of a group closes it with a hairline. */
         readonly last: boolean;
       }
     | { readonly kind: "error"; readonly text: string }
@@ -100,7 +110,7 @@ const commandStep = (item: Extract<TurnItem, { _tag: "CommandExecution" }>): Ste
 
 const toolStep = (item: Extract<TurnItem, { _tag: "ToolCall" }>): Step => ({
   kind: "step",
-  label: item.title ?? item.mcp?.tool ?? item.name,
+  label: toolLabel(item),
   detail: failedDetail(item.status),
   tone: toneOf(item.status),
   paths: [],
@@ -140,8 +150,65 @@ const pieceOf = (item: TurnItem): Piece =>
 
 const pad = (n: number) => n.toString().padStart(2, "0");
 
-/** The rows of one opened Turn: its prompt, then its items in order, then what is still live. */
-const openRows = (entry: TurnEntry): ReadonlyArray<ThreadRow> => {
+interface Placed {
+  readonly id: string;
+  readonly item: TurnItem | null;
+  readonly piece: Exclude<Piece, null>;
+}
+
+/** Its items in order, then what is still live, then text streaming into no item yet. */
+const placedOf = (entry: TurnEntry): ReadonlyArray<Placed> => {
+  const live = new Set(entry.live.map((item) => item.id));
+  const items = [...entry.items, ...entry.live];
+
+  const streamingOnly = entry.streaming
+    .filter((text) => !items.some((item) => item.id === text.itemId))
+    .map((text) => ({
+      id: text.itemId,
+      item: null,
+      piece: { kind: "text", row: "reply", text: text.text } as const,
+    }));
+
+  return [
+    ...items.flatMap((item) => {
+      const piece = pieceOf(item);
+
+      // A live item is still running whatever its status says: never folded.
+      return piece === null ? [] : [{ id: item.id, item: live.has(item.id) ? null : item, piece }];
+    }),
+    ...streamingOnly,
+  ];
+};
+
+/** Consecutive finished calls as runs; a lone call stays a step. */
+const segments = (placed: ReadonlyArray<Placed>) => {
+  const out: Array<{ readonly run: ReadonlyArray<Placed> } | { readonly one: Placed }> = [];
+  let pending: Array<Placed> = [];
+
+  const flush = () => {
+    if (pending.length > 1) out.push({ run: pending });
+    else pending.forEach((one) => out.push({ one }));
+    pending = [];
+  };
+
+  for (const one of placed) {
+    if (one.item !== null && runKind(one.item) !== null) pending.push(one);
+    else {
+      flush();
+      out.push({ one });
+    }
+  }
+
+  flush();
+
+  return out;
+};
+
+/** The rows of one opened Turn: its prompt, then its items, each run folded unless `isOpen`. */
+const openRows = (
+  entry: TurnEntry,
+  isOpen: (runKey: string) => boolean
+): ReadonlyArray<ThreadRow> => {
   const { turn } = entry;
   const rows: Array<ThreadRow> = [];
   let step = 0;
@@ -150,45 +217,54 @@ const openRows = (entry: TurnEntry): ReadonlyArray<ThreadRow> => {
     rows.push({ kind: "prompt", key: `${turn.id}:p`, turnId: turn.id, text: turn.prompt });
 
   const streamed = new Map(entry.streaming.map((live) => [live.itemId, live.text]));
-  const items = [...entry.items, ...entry.live];
 
-  const streamingOnly = entry.streaming
-    .filter((live) => !items.some((item) => item.id === live.itemId))
-    .map((live) => ({
-      id: live.itemId,
-      piece: { kind: "text", row: "reply", text: live.text } as const,
-    }));
-
-  const pieces = [
-    ...items.map((item) => ({ id: item.id, piece: pieceOf(item) })),
-    ...streamingOnly,
-  ];
-
-  for (const { id, piece } of pieces) {
-    if (piece === null) continue;
-
+  const place = ({ id, piece }: Placed, shown: boolean) => {
     if (piece.kind === "step") {
       step++;
-      rows.push({
-        ...piece,
-        key: `${turn.id}:${id}`,
-        turnId: turn.id,
-        index: pad(step),
-        last: false,
-      });
-      continue;
+
+      if (shown)
+        rows.push({
+          ...piece,
+          key: `${turn.id}:${id}`,
+          turnId: turn.id,
+          index: pad(step),
+          last: false,
+        });
+
+      return;
     }
 
     const text = streamed.get(id) ?? piece.text;
 
     if (text.trim() !== "")
       rows.push({ kind: piece.row, key: `${turn.id}:${id}`, turnId: turn.id, text });
+  };
+
+  for (const segment of segments(placedOf(entry))) {
+    if ("one" in segment) {
+      place(segment.one, true);
+      continue;
+    }
+
+    const key = `${turn.id}:run:${segment.run[0]?.id ?? ""}`;
+    const open = isOpen(key);
+    const summary = runSummary(segment.run.flatMap(({ item }) => (item === null ? [] : [item])));
+    rows.push({ kind: "run", key, turnId: turn.id, summary, open, last: false });
+    segment.run.forEach((one) => place(one, open));
   }
 
+  const grouped = (row: ThreadRow | undefined) => row?.kind === "step" || row?.kind === "run";
+
   return rows.map((row, index) =>
-    row.kind === "step" && rows[index + 1]?.kind !== "step" ? { ...row, last: true } : row
+    grouped(row) && !grouped(rows[index + 1]) ? { ...row, last: true } : row
   );
 };
+
+export type StepRow = Extract<ThreadRow, { kind: "step" }>;
+
+/** Every step of a Turn, folded or not, numbered as the thread numbers them. */
+export const turnSteps = (entry: TurnEntry): ReadonlyArray<StepRow> =>
+  openRows(entry, () => true).filter((row): row is StepRow => row.kind === "step");
 
 const earlierRow = (entry: TurnEntry): ThreadRow => ({
   kind: "earlier",
@@ -199,16 +275,27 @@ const earlierRow = (entry: TurnEntry): ThreadRow => ({
   status: entry.turn.status,
 });
 
-const opened = new WeakMap<TurnEntry, ReadonlyArray<ThreadRow>>();
+const opened = new WeakMap<
+  TurnEntry,
+  { readonly runs: string; readonly rows: ReadonlyArray<ThreadRow> }
+>();
 
 const collapsed = new WeakMap<TurnEntry, ThreadRow>();
 
-const cachedOpen = (entry: TurnEntry) => {
+/** Which of the Turn's runs are open, as a cache key. */
+const openRuns = (entry: TurnEntry, expanded: ReadonlySet<string>) => {
+  const prefix = `${entry.turn.id}:run:`;
+
+  return [...expanded].filter((key) => key.startsWith(prefix)).join("\n");
+};
+
+const cachedOpen = (entry: TurnEntry, expanded: ReadonlySet<string>) => {
+  const runs = openRuns(entry, expanded);
   const held = opened.get(entry);
 
-  if (held !== undefined) return held;
-  const rows = openRows(entry);
-  opened.set(entry, rows);
+  if (held !== undefined && held.runs === runs) return held.rows;
+  const rows = openRows(entry, (key) => expanded.has(key));
+  opened.set(entry, { runs, rows });
 
   return rows;
 };
@@ -226,6 +313,7 @@ const cachedEarlier = (entry: TurnEntry) => {
 /**
  * Oldest first. Every Turn but the latest is collapsed to one row unless its
  * id is in `expanded`; an opened earlier Turn keeps its collapsed row as a header.
+ * A run opens when its row's key is in `expanded`.
  */
 export const threadRows = (
   turns: ReadonlyArray<TurnEntry>,
@@ -234,11 +322,11 @@ export const threadRows = (
   const last = turns.length - 1;
 
   return turns.flatMap((entry, index) => {
-    if (index === last) return cachedOpen(entry);
+    if (index === last) return cachedOpen(entry, expanded);
 
     const header = cachedEarlier(entry);
 
-    return expanded.has(entry.turn.id) ? [header, ...cachedOpen(entry)] : [header];
+    return expanded.has(entry.turn.id) ? [header, ...cachedOpen(entry, expanded)] : [header];
   });
 };
 

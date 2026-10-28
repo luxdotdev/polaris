@@ -227,11 +227,11 @@ export const ThreadScreen = ({
   const criticalPaths = useMemo(() => new Set(criticals.map((f) => f.path)), [criticals]);
 
   const toggle = useCallback(
-    (turnId: string) =>
+    (key: string) =>
       setExpanded((open) => {
         const next = new Set(open);
 
-        if (!next.delete(turnId)) next.add(turnId);
+        if (!next.delete(key)) next.add(key);
 
         return next;
       }),

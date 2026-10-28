@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { TurnItem } from "@polaris/protocol";
+import { DomainEvent, SessionId, TurnItem } from "@polaris/protocol";
 import { applySessionItem, type SessionFold } from "./fold.ts";
 import { newestEndedOnScreen, threadRows, type ThreadRow } from "./rows.ts";
-import { snapshot, turn } from "./daemon.testing.ts";
+import { event, snapshot, turn } from "./daemon.testing.ts";
 import { SessionStreamItem, TurnId } from "@polaris/protocol";
 
 const edit = (id: string, path: string, status: "running" | "completed" = "completed") =>
@@ -20,6 +20,51 @@ const read = (id: string, title: string) =>
     status: "completed",
   });
 
+type Status = "running" | "completed" | "failed" | "declined";
+
+type ToolInput = Extract<TurnItem, { _tag: "ToolCall" }>["input"];
+
+const KINDS = new Map<string, "read" | "search">([
+  ["Read", "read"],
+  ["Grep", "search"],
+]);
+
+/** A Claude Code call as its driver classifies it. */
+const call = (id: string, name: string, input: ToolInput, status: Status = "completed") =>
+  TurnItem.cases.ToolCall.make({
+    id,
+    name,
+    kind: KINDS.get(name) ?? null,
+    input,
+    output: null,
+    status,
+  });
+
+const paper = (id: string) =>
+  TurnItem.cases.ToolCall.make({
+    id,
+    name: "mcp__paper__write_html",
+    kind: "mcp",
+    mcp: { server: "paper", tool: "write_html" },
+    input: {},
+    output: null,
+    status: "completed",
+  });
+
+const command = (id: string, line: string, exitCode: number, status: Status = "completed") =>
+  TurnItem.cases.CommandExecution.make({
+    id,
+    command: line,
+    cwd: "/repo",
+    output: "",
+    exitCode,
+    status,
+  });
+
+/** The latest Turn, working, with `items`. */
+const working = (items: ReadonlyArray<TurnItem>) =>
+  snapshot([{ turn: turn(0, { prompt: "", status: "working", endedAt: null }), items }]);
+
 /** A row as a line: steps with their index, active mark and group end ("|"). */
 const line = (row: ThreadRow): string => {
   switch (row.kind) {
@@ -27,6 +72,8 @@ const line = (row: ThreadRow): string => {
       return `${row.index} ${row.label}${row.tone === "active" ? " (active)" : ""}${row.last ? " |" : ""}`;
     case "earlier":
       return `Turn ${row.number}: ${row.title}`;
+    case "run":
+      return `run: ${row.summary}${row.open ? " (open)" : ""}${row.last ? " |" : ""}`;
     default:
       return `${row.kind}: ${row.text}`;
   }
@@ -62,8 +109,7 @@ describe("thread rows", () => {
       "Turn 1: Recorded the Review decision",
       "prompt: Prototype the layouts",
       "reply: I'll build four variants.",
-      "01 Read the Orchestrator notes",
-      "02 Edited index.html",
+      "run: Read 1 file, edited 1 file",
       "03 Writing serve.ts (active) |",
       "reply: Variant 3 is the dense table.",
     ]);
@@ -88,8 +134,8 @@ describe("thread rows", () => {
     const before = foldOf([snapshot(turns)]);
     const rowsBefore = threadRows(before?.turns ?? [], new Set());
 
-    // 999 collapsed Turns, then the latest's prompt and 30 steps.
-    expect(rowsBefore.length).toBe(999 + 1 + 30);
+    // 999 collapsed Turns, then the latest's prompt and its 30 edits as one run.
+    expect(rowsBefore.length).toBe(999 + 1 + 1);
 
     const after = applySessionItem(
       before,
@@ -107,6 +153,99 @@ describe("thread rows", () => {
     expect(rowsAfter.at(-1)).toMatchObject({ kind: "reply", text: "Still going" });
     expect(rowsAfter[0]).toBe(rowsBefore[0]);
     expect(rowsAfter[998]).toBe(rowsBefore[998]);
+  });
+});
+
+describe("tool runs, as the Desktop App folds them", () => {
+  test("finished calls in a row fold into one run in its words, and open to their numbered steps", () => {
+    const fold = foldOf([
+      working([
+        call("a", "Read", { file_path: "/repo/src/serve.ts" }),
+        call("b", "Grep", { pattern: "subscribeSession" }),
+        command("c", "bun test", 0),
+        edit("d", "src/a.ts"),
+        edit("e", "src/a.ts"),
+        paper("f"),
+        paper("g"),
+        reply("h", "Done."),
+      ]),
+    ]);
+
+    const folded = threadRows(fold?.turns ?? [], new Set()).map(line);
+
+    expect(folded).toEqual([
+      "run: Read 1 file, searched for 1 pattern, edited 1 file, ran 1 command, called Paper 2 times |",
+      "reply: Done.",
+    ]);
+
+    const opened = threadRows(fold?.turns ?? [], new Set(["t-0:run:a"])).map(line);
+
+    expect(opened).toEqual([
+      "run: Read 1 file, searched for 1 pattern, edited 1 file, ran 1 command, called Paper 2 times (open)",
+      "01 Read serve.ts",
+      "02 Searched subscribeSession",
+      "03 bun test",
+      "04 Edited a.ts",
+      "05 Edited a.ts",
+      "06 Called Paper write html",
+      "07 Called Paper write html |",
+      "reply: Done.",
+    ]);
+  });
+
+  test("a running, failed or declined call, or any other kind, keeps its row; a lone call is never folded", () => {
+    const fold = foldOf([
+      working([
+        call("a", "Read", { file_path: "a.ts" }),
+        command("b", "bun test", 1, "failed"),
+        call("c", "Read", { file_path: "b.ts" }),
+        call("d", "TodoWrite", {}),
+        call("e", "Read", { file_path: "c.ts" }, "declined"),
+        call("f", "Read", { file_path: "d.ts" }, "running"),
+      ]),
+    ]);
+
+    expect(threadRows(fold?.turns ?? [], new Set()).map(line)).toEqual([
+      "01 Read a.ts",
+      "02 bun test",
+      "03 Read b.ts",
+      "04 TodoWrite",
+      "05 Read c.ts",
+      "06 Reading d.ts (active) |",
+    ]);
+  });
+
+  test("a call in flight shows as it runs, then folds into the run once it finishes", () => {
+    const turnId = TurnId.make("t-0");
+    const running = call("b", "Grep", { pattern: "TODO" }, "running");
+    const start = foldOf([working([call("a", "Read", { file_path: "a.ts" })])]);
+
+    const inFlight = applySessionItem(
+      start,
+      SessionStreamItem.cases.ItemProgress.make({ turnId, item: running, subagentId: null })
+    );
+
+    expect(threadRows(inFlight?.turns ?? [], new Set()).map(line)).toEqual([
+      "01 Read a.ts",
+      "02 Searching TODO (active) |",
+    ]);
+
+    const done = applySessionItem(
+      inFlight,
+      event(
+        2,
+        DomainEvent.cases.TurnItemCompleted.make({
+          sessionId: SessionId.make("s-1"),
+          turnId,
+          item: call("b", "Grep", { pattern: "TODO" }),
+          subagentId: null,
+        })
+      )
+    );
+
+    expect(threadRows(done?.turns ?? [], new Set()).map(line)).toEqual([
+      "run: Read 1 file, searched for 1 pattern |",
+    ]);
   });
 });
 
