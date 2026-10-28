@@ -14,6 +14,7 @@ import {
   CommandRejected,
   Command,
   DaemonRpcs,
+  ExtensionDaemonRpcs,
   type LinkedDevice,
   type RelayRouteStatus,
   SessionId,
@@ -139,8 +140,9 @@ const openSession = (
       return null;
     }
 
+    // The Extensions' group, so a device's `NotGranted` decodes.
     const connection = yield* connectRpcWith(
-      DaemonRpcs,
+      ExtensionDaemonRpcs,
       sessionTransport(socket, status.hostAddress, session)
     );
 
@@ -149,7 +151,9 @@ const openSession = (
     return { socket, client: connection.client };
   });
 
-const actorReason = (client: Desktop) =>
+type DeviceClient = Effect.Success<ReturnType<typeof openSession>>;
+
+const actorReason = (client: NonNullable<DeviceClient>["client"]) =>
   Effect.flip(client.dispatch({ commandId: CommandId.make("c1"), command: sendTurn })).pipe(
     Effect.map((error) => (error instanceof CommandRejected ? error.reason : String(error)))
   );
@@ -182,6 +186,26 @@ test("a linked device reaches the Daemon with Client power and is recorded as th
         expect(yield* actorReason(open.client)).toBe(
           `Test iPhone|${JSON.stringify(Actor.cases.LinkedDevice.make({ deviceId: device.id, name: "Test iPhone" }))}`
         );
+
+        // RX1-1: a device can't plant another key, mint a link or a Pairing, or move the route.
+        const planted = yield* Effect.promise(makeDevice);
+
+        const refusals = yield* Effect.all([
+          Effect.flip(
+            open.client["devices.add"]({
+              name: "Planted",
+              relayAddress: planted.address,
+              noiseKey: "A".repeat(43),
+            })
+          ),
+          Effect.flip(open.client["devices.link"]()),
+          Effect.flip(open.client["devices.unlink"]({ id: device.id })),
+          Effect.flip(open.client["extensions.pair"]({ name: "x", grant: ["read"] })),
+          Effect.flip(open.client["relayRoute.disable"]()),
+        ]);
+
+        expect(new Set(refusals.map((error) => error._tag))).toEqual(new Set(["NotGranted"]));
+        expect((yield* desktop["devices.list"]()).map((d) => d.name)).toEqual(["Test iPhone"]);
 
         // Unlink takes effect on the open connection: the session ends at once.
         yield* desktop["devices.unlink"]({ id: device.id });

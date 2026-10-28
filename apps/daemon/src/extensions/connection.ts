@@ -6,7 +6,9 @@
 import {
   Actor,
   decideAccess,
+  decideDeviceAccess,
   ExtensionTokenRejected,
+  type LinkedDevice,
   GrantGate,
   NotGranted,
   NotFound,
@@ -174,6 +176,8 @@ const tokenHello = Schema.is(Schema.Struct({ extensionToken: Schema.Redacted(Sch
  */
 export const grantGateFor = (options: {
   readonly tokenRequired: (client: Rpc.ServerClient) => boolean;
+  /** The Linked Device a connection came in as, from the transport rather than annotations. */
+  readonly deviceOf?: (client: Rpc.ServerClient) => LinkedDevice | null;
 }) =>
   GrantGate.of((effect, { client, rpc, payload }) => {
     // RpcServer builds middleware before forking handlers: reserve authority at receipt.
@@ -200,6 +204,11 @@ export const grantGateFor = (options: {
       ) {
         return Effect.fail(new NotGranted({ what: rpc._tag, needed: null }));
       }
+
+      const device = options.deviceOf?.(client) ?? deviceOf(client);
+      const deviceRefusal = device === null ? null : decideDeviceAccess(rpc._tag);
+
+      if (deviceRefusal !== null) return Effect.fail(deviceRefusal);
 
       const refusal = decideAccess(
         pairing,

@@ -415,6 +415,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
         grantGateFor({
           tokenRequired: (client) =>
             connections.get(client.id)?.tokenRequired ?? options.extensionTokenRequired ?? false,
+          deviceOf: (client) => connections.get(client.id)?.device ?? null,
         })
       ),
       Effect.provideContext(handlers),
