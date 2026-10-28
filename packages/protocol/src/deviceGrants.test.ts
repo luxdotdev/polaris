@@ -49,19 +49,19 @@ const newWorktree = SessionPlacement.cases.NewWorktree.make({
   baseRef: null,
 });
 
-// RX3-1: a phone starts what the Mobile App starts, and auto; full access stays local.
+// RX3-1, ENG-458: a phone starts a session in any mode the Mobile App offers.
 test.each<[string, Partial<StartSession>]>([
   ["plan, in place", {}],
   ["supervised, in a new worktree", { permissionMode: "supervised", placement: newWorktree }],
   ["auto-edits", { permissionMode: "auto-edits" }],
   ["auto", { permissionMode: "auto" }],
+  ["full-access", { permissionMode: "full-access" }],
   ["a null tier and origin", { serviceTier: null, origin: null }],
 ])("a Linked Device may start a session: %s", (_, fields) => {
   expect(start(fields)).toBe("allowed");
 });
 
 test.each<[string, Partial<StartSession>]>([
-  ["full-access", { permissionMode: "full-access" }],
   ["a reviewer origin", { origin: "reviewer" }],
   ["a walkthrough origin", { origin: "walkthrough" }],
   ["an effort", { effort: "high" }],

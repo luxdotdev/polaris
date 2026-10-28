@@ -8,6 +8,7 @@ import { Schema } from "effect";
 import { Command } from "./commands.ts";
 import { NotGranted } from "./extensions.ts";
 import type { DaemonRpcTag } from "./grants.ts";
+import { PermissionMode } from "./domain.ts";
 import { HarnessKind } from "./harnesses.ts";
 import { AttachmentId, SessionId, WorkspaceId } from "./ids.ts";
 import { ModelId } from "./models.ts";
@@ -21,8 +22,8 @@ export type DeviceCommandAccess = DeviceAccess | ((command: Command) => boolean)
 const absentOrNull = Schema.optionalKey(Schema.Null);
 
 /**
- * StartSession as the Mobile App sends it, up to `auto` (RX3-1): exhaustive over the Command's
- * fields, so a new field fails typecheck until someone decides what a phone may put in it.
+ * StartSession as the Mobile App sends it, in any PermissionMode (RX3-1, ENG-458): exhaustive over
+ * the Command's fields, so a new field fails typecheck until someone decides what a phone may put in it.
  */
 const DEVICE_START_SESSION = {
   _tag: Schema.tag("StartSession"),
@@ -33,7 +34,7 @@ const DEVICE_START_SESSION = {
     Schema.Struct({ _tag: Schema.tag("InPlace") }),
     Schema.Struct({ _tag: Schema.tag("NewWorktree"), branch: Schema.String, baseRef: Schema.Null }),
   ]),
-  permissionMode: Schema.Literals(["plan", "supervised", "auto-edits", "auto"]),
+  permissionMode: PermissionMode,
   model: Schema.NullOr(ModelId),
   effort: absentOrNull,
   serviceTier: absentOrNull,

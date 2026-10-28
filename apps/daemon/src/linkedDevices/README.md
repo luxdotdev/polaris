@@ -28,8 +28,8 @@ Client power, once its Noise key is linked here (ADR 0083). The relay's contract
 - What that connection may call is an allowlist, `DEVICE_RPCS` and `DEVICE_COMMANDS` in
   `@polaris/protocol` (`deviceGrants.ts`): the Mobile App's own surface, exhaustive over the
   RPCs and Commands so a new one is refused until it is added. Unknown tags are refused.
-  `StartSession` is also decided on its decoded payload (RX3-1): `plan`, `supervised`,
-  `auto-edits` or `auto` (never `full-access`), no `origin`, effort or service tier, in place
+  `StartSession` is also decided on its decoded payload (RX3-1): any PermissionMode, including
+  `full-access` (ENG-458), no `origin`, effort or service tier, in place
   or a new Worktree off the default base. The check names every field, so a new one fails
   typecheck until it is decided; a payload that doesn't decode as a Command is refused.
 - `devices.unlink` marks the device unlinked, sends `peers` without it and ends its session:

@@ -245,7 +245,7 @@ test("a linked device reaches the Daemon with Client power and is recorded as th
 
         expect(new Set(refusals.map((error) => error._tag))).toEqual(new Set(["NotGranted"]));
 
-        // RX3-1: a phone starts sessions up to auto; full access and a hidden origin are refused.
+        // RX3-1, ENG-458: a phone starts sessions in any mode; a hidden origin is refused.
         const start = (command: Command) =>
           Effect.flip(open.client.dispatch({ commandId: CommandId.make("c3"), command })).pipe(
             Effect.map((error) => error._tag)
@@ -273,7 +273,7 @@ test("a linked device reaches the Daemon with Client power and is recorded as th
           "CommandRejected",
           "CommandRejected",
           "CommandRejected",
-          "NotGranted",
+          "CommandRejected",
           "NotGranted",
         ]);
         expect((yield* desktop["devices.list"]()).map((d) => d.name)).toEqual(["Test iPhone"]);
