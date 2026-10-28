@@ -64,3 +64,20 @@ test("on, it counts the devices still linked and turns off at once", async () =>
   );
   expect(fake.sent("relayRoute.disable")).toEqual([{ hostKey: "studio" }]);
 });
+
+test("turned on before the host reaches the relay, it shows Connected once the host does", async () => {
+  const off = await route("off");
+  let reached = false;
+  fake.answer("relayRoute.status", () => ({
+    ok: true,
+    value: { ...off, state: "on", url: "wss://relay.lucas.dev/v1", connected: reached },
+  }));
+  fake.answerOk("devices.list", []);
+  render(<RelayRoute hostKey="studio" hostLabel="Mac Studio" pollMs={10} />);
+  const view = within(document.body);
+
+  await view.findByText("Connecting…");
+  reached = true;
+
+  await view.findByText("Connected · 0 devices");
+});

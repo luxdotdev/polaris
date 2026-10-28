@@ -79,13 +79,18 @@ export const RelayRouteRow = ({
   );
 };
 
+/** How often a route that's on but not yet connected is read again. */
+const connectingPollMs = 2_000;
+
 /** Read when shown; turning it on sends the URL in the field, and a refusal toasts. */
 export const RelayRoute = ({
   hostKey,
   hostLabel,
+  pollMs = connectingPollMs,
 }: {
   readonly hostKey: string;
   readonly hostLabel: string;
+  readonly pollMs?: number;
 }) => {
   const [route, setRoute] = useState<RelayRouteView | null>(null);
   const [linked, setLinked] = useState(0);
@@ -114,6 +119,28 @@ export const RelayRoute = ({
       active = false;
     };
   }, [hostKey]);
+
+  const connecting = route?.state === "on" && !route.connected;
+
+  // The Daemon dials the relay after it answers, so "Connecting…" is read again until it connects.
+  useEffect(() => {
+    if (!connecting) return;
+
+    let active = true;
+
+    const timer = setInterval(() => {
+      void polaris()
+        .request("relayRoute.status", { hostKey })
+        .then((status) => {
+          if (active && status.ok) setRoute(status.value);
+        });
+    }, pollMs);
+
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [connecting, hostKey, pollMs]);
 
   const change = async (on: boolean) => {
     setBusy(true);
