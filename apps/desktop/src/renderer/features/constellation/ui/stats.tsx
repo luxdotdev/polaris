@@ -1,6 +1,6 @@
 /**
- * The header's Stats popover and the completion summary card, both from `constellation.stats`
- * (spec §9). Asked when shown; "not recorded" values say why.
+ * The header's Stats popover (charts, ENG-470) and the completion summary card, both from
+ * `constellation.stats` (spec §9). Asked when shown; "not recorded" values say why.
  */
 import {
   Button,
@@ -8,14 +8,20 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  SegmentedControl,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@polaris/ui";
-import { completionFacts, type StatLine, statsCoverage, statsGroups } from "../model/stats.ts";
+import { completionFacts, type StatLine, statsCoverage } from "../model/stats.ts";
+import { type Measure, statsPanel } from "../model/statsPanel.ts";
+import { clock } from "../model/copy.ts";
+import type { ConstellationStatsView } from "../../../../shared/api.ts";
 import type { ConstellationRecord } from "../model/index.ts";
 import { type StatsState, useConstellationStats } from "../useStats.ts";
 import { ConstellationMark } from "./glyphs.tsx";
+import { SpendWell, WorkWell } from "./statsCharts.tsx";
+import { useState } from "react";
 
 const Value = ({ line }: { readonly line: StatLine }) => {
   const text = (
@@ -70,6 +76,56 @@ const Waiting = ({ state }: { readonly state: StatsState }) => {
 const titleOf = (record: ConstellationRecord) => (taskId: string) =>
   record.constellation.tasks.find((t) => t.id === taskId)?.title ?? taskId;
 
+const MEASURES = [
+  { value: "cost", label: "Cost" },
+  { value: "tokens", label: "Tokens" },
+] as const;
+
+const StatsCharts = ({
+  view,
+  record,
+}: {
+  readonly view: ConstellationStatsView;
+  readonly record: ConstellationRecord;
+}) => {
+  const [asked, setAsked] = useState<Measure>("cost");
+  const panel = statsPanel(view, titleOf(record), asked);
+  const notes = statsCoverage(view);
+
+  return (
+    <div className="flex flex-col gap-2 p-2">
+      <header className="flex items-center gap-2 py-0.5 pr-0.5 pl-1.5">
+        <ConstellationMark size={14} />
+        <span className="text-label text-text-strong min-w-0 flex-1 truncate">
+          {record.constellation.name}
+        </span>
+        <SegmentedControl
+          variant="well"
+          aria-label="Measure spend in"
+          value={panel.measure}
+          onValueChange={setAsked}
+          options={MEASURES.map((m) => ({
+            ...m,
+            disabled: m.value === "cost" && !panel.priced,
+          }))}
+        />
+      </header>
+      <SpendWell panel={panel} />
+      <WorkWell panel={panel} />
+      <footer className="flex flex-col gap-1 px-1.5 pt-0.5 pb-1">
+        {notes.map((note) => (
+          <p key={note} className="text-caption text-text-subtle">
+            {note}
+          </p>
+        ))}
+        <span className="text-text-faint tabular font-mono text-[11px] leading-4">
+          As of {clock(view.stats.asOf)} · revision {view.stats.revision}
+        </span>
+      </footer>
+    </div>
+  );
+};
+
 export const StatsPopover = ({
   hostKey,
   record,
@@ -93,27 +149,13 @@ export const StatsPopover = ({
       </PopoverTrigger>
       <PopoverContent
         align="end"
-        className="max-h-[70vh] w-80 overflow-y-auto p-3"
+        className="max-h-[80vh] w-[400px] overflow-y-auto p-0"
         data-testid="stats-popover"
       >
         {state.kind !== "ready" ? (
           <Waiting state={state} />
         ) : (
-          <div className="flex flex-col gap-3">
-            {statsGroups(state.view, titleOf(record)).map((group) => (
-              <section key={group.title} className="flex flex-col">
-                <h3 className="text-caption text-text-subtle pb-0.5">{group.title}</h3>
-                {group.lines.map((line) => (
-                  <Line key={line.label} line={line} />
-                ))}
-              </section>
-            ))}
-            {statsCoverage(state.view).map((note) => (
-              <p key={note} className="text-caption text-text-subtle">
-                {note}
-              </p>
-            ))}
-          </div>
+          <StatsCharts view={state.view} record={record} />
         )}
       </PopoverContent>
     </Popover>
