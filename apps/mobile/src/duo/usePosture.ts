@@ -26,6 +26,8 @@ export const usePosture = (): Posture => {
     let gone = false;
 
     const take = (json: string) => {
+      if (__DEV__) console.log(`POLARIS_POSTURE ${json}`);
+
       if (!gone) setPosture(postureOf(readReport(json)));
     };
 

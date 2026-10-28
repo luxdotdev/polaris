@@ -109,6 +109,32 @@ EXPO_PUBLIC_POLARIS_DIFF_BENCH=manual:2000 …                                  
 
 Home opens Review (the `review` route) from a session row that reads "Ready to review"; the bench replaces the app's root in `index.ts`.
 
+## iPhone Duo
+
+`modules/polaris-hinge` is a Swift Expo module over iOS 27.1's hinge API. It adds a
+`UIHingeInteraction` to the key window (status and angle) and reads the window's `division`
+reserved regions (the 40pt fold). It reports both as JSON, and `src/duo/posture.ts` parses that
+into a posture:
+
+- **Folded:** a closed hinge, no division, or before iOS 27.1. The iPhone app is unchanged.
+- **Unfolded:** two halves either side of the division.
+- **Half-folded:** partly open over a horizontal fold, a top half and a bottom half.
+
+`DuoShell` (`src/duo/`) keeps the screen on top mounted in one place and only moves it, so
+folding never navigates and the focus stays put. `arrangement.ts` decides what it draws:
+
+- **D6:** an unfolded thread. The second half (`ContextPane`) follows the step, file or finding
+  tapped in the first half, through the thread's optional `onFocus`/`focusedKey`. It reads the
+  Turn's diff and the Risk Summary already on the Host, and never starts a review.
+- **D9:** an unfolded constellation. The graph (`graph.ts`) spans both halves with no node on the
+  division, and the lead sheet sits across the foot.
+- **D7:** a half-folded thread is the laptop. `composerSlot` keeps the chips and composer below
+  the fold.
+- **D8:** half-folded Home is the monitor: sky, time and stars above the fold, and needs you as
+  56pt targets below it, dimmed from 22:00 to 6:00. "Reply…" opens that session as the laptop.
+
+`__DEV__` builds log each report as `POLARIS_POSTURE {json}`.
+
 ## The Hermes check
 
 `src/runtime/selfCheck.ts` exercises Effect 4, the frame codec and pairing strings, the
