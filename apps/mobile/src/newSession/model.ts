@@ -1,6 +1,7 @@
 /**
  * The new agent session sheet's decisions (Paper M6; DESIGN.md, New session): where it runs by
- * default, the lines that say so, the branch a new Worktree takes, and the command Start sends.
+ * default, the lines that say so, the permission modes, the branch a new Worktree takes, and the
+ * command Start sends.
  */
 import {
   type AttachmentId,
@@ -8,13 +9,14 @@ import {
   Command,
   type HarnessKind,
   ModelId,
+  PermissionMode,
   permissionModeFor,
   SessionId,
   SessionPlacement,
   type Workspace,
   type WorkspaceId,
 } from "@polaris/protocol";
-import { Predicate } from "effect";
+import { Option, Predicate, Schema } from "effect";
 
 /** How this phone reaches a Host (DESIGN.md, Mobile App: Hosts). */
 export type Route = "relay" | "network";
@@ -122,14 +124,53 @@ export const displayPath = (path: string, homeDir: string | null): string => {
 export const hasPlanMode = (host: SheetHost): boolean =>
   host.capabilities.includes("session.plan-mode");
 
-/** The Plan first row's caption: what the session will actually do on this Host. */
-export const planCaption = (host: SheetHost, planFirst: boolean): string => {
-  if (!hasPlanMode(host)) return "Asks before every edit";
+export interface PermissionOption {
+  readonly mode: PermissionMode;
+  readonly label: string;
+  readonly detail: string;
+}
 
-  return planFirst
-    ? "Reads and plans; asks before it edits anything"
-    : "Off: asks before every edit";
+const WORDS: Readonly<Record<PermissionMode, Omit<PermissionOption, "mode">>> = {
+  plan: { label: "Plan", detail: "Reads and plans, asks before any edit" },
+  supervised: { label: "Supervised", detail: "Asks before edits and commands" },
+  "auto-edits": { label: "Auto edits", detail: "Edits freely, asks before commands" },
+  auto: { label: "Auto", detail: "Asks only for risky actions" },
+  "full-access": { label: "Full access", detail: "Never asks" },
 };
+
+export const permissionOption = (mode: PermissionMode): PermissionOption => ({
+  mode,
+  ...WORDS[mode],
+});
+
+/** The Desktop App's start flow, in its order and words (`features/session/model/intent.ts`). */
+export const PERMISSION_MODES: ReadonlyArray<PermissionOption> = (
+  ["plan", "supervised", "auto-edits", "auto", "full-access"] as const
+).map(permissionOption);
+
+/** The modes the Host offers: Plan needs `session.plan-mode`. */
+export const permissionModesOn = (host: SheetHost): ReadonlyArray<PermissionOption> =>
+  hasPlanMode(host) ? PERMISSION_MODES : PERMISSION_MODES.filter((p) => p.mode !== "plan");
+
+/**
+ * The mode the sheet shows for the Host: the last one started there, else Plan; a Host without
+ * plan mode gets Supervised instead.
+ */
+export const permissionModeOn = (
+  host: SheetHost,
+  remembered: PermissionMode | undefined
+): PermissionMode => permissionModeFor(remembered ?? "plan", host.capabilities);
+
+/** The mode each Host last started a session in, by Host id. */
+export type PermissionModes = Readonly<Record<string, PermissionMode>>;
+
+const decodeModes = Schema.decodeUnknownOption(
+  Schema.fromJsonString(Schema.Record(Schema.String, PermissionMode))
+);
+
+/** The saved modes; nothing for text that isn't them (a mode a newer build wrote). */
+export const parsePermissionModes = (text: string | null): PermissionModes =>
+  text === null ? {} : Option.getOrElse(decodeModes(text), () => ({}));
 
 /** Settings → Sessions' default branch prefix on the Desktop App. */
 export const BRANCH_PREFIX = "polaris/";
@@ -184,7 +225,7 @@ export interface StartChoices {
   readonly model: string | null;
   readonly prompt: string;
   readonly newWorktree: boolean;
-  readonly planFirst: boolean;
+  readonly permissionMode: PermissionMode;
   /** The Host's capabilities: `plan` falls back to `supervised` without `session.plan-mode`. */
   readonly capabilities: ReadonlyArray<Capability>;
   /** Staged on the Host before Start, in the order attached. */
@@ -203,10 +244,7 @@ export const startCommand = (choices: StartChoices): Command =>
           baseRef: null,
         })
       : SessionPlacement.cases.InPlace.make({}),
-    permissionMode: permissionModeFor(
-      choices.planFirst ? "plan" : "supervised",
-      choices.capabilities
-    ),
+    permissionMode: permissionModeFor(choices.permissionMode, choices.capabilities),
     model: choices.model === null ? null : ModelId.make(choices.model),
     effort: null,
     prompt: choices.prompt.trim(),

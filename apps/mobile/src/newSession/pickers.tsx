@@ -1,13 +1,13 @@
 /**
- * The sheet's two inner lists: every Host's workspaces (only connected Hosts can be chosen,
- * as on the Desktop App) and the Harness choice with its Models.
+ * The sheet's inner lists: every Host's workspaces (only connected Hosts can be chosen, as on
+ * the Desktop App), the Harness choice with its Models, and the Host's permission modes.
  */
-import type { HarnessKind, Model } from "@polaris/protocol";
+import type { HarnessKind, Model, PermissionMode } from "@polaris/protocol";
 import { midnight, mobileType } from "@polaris/ui/tokens";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { type HarnessOption, shortlist } from "./harness.ts";
-import { displayPath, type SheetHost, type Target } from "./model.ts";
+import { displayPath, type PermissionOption, type SheetHost, type Target } from "./model.ts";
 import { HarnessTile } from "./parts.tsx";
 
 const Check = ({ on }: { readonly on: boolean }) => (
@@ -148,6 +148,36 @@ export const HarnessPicker = ({
     </ScrollView>
   );
 };
+
+export const PermissionPicker = ({
+  options,
+  mode,
+  onPick,
+}: {
+  readonly options: ReadonlyArray<PermissionOption>;
+  readonly mode: PermissionMode;
+  readonly onPick: (mode: PermissionMode) => void;
+}) => (
+  <ScrollView contentContainerStyle={styles.list}>
+    <View style={styles.group}>
+      {options.map((p) => (
+        <Pressable
+          key={p.mode}
+          style={styles.row}
+          onPress={() => onPick(p.mode)}
+          accessibilityRole="button"
+          accessibilityState={{ selected: p.mode === mode }}
+        >
+          <View style={styles.rowText}>
+            <Text style={styles.title}>{p.label}</Text>
+            <Text style={styles.faint}>{p.detail}</Text>
+          </View>
+          <Check on={p.mode === mode} />
+        </Pressable>
+      ))}
+    </View>
+  </ScrollView>
+);
 
 const styles = StyleSheet.create({
   list: { gap: 20, paddingBottom: 24 },

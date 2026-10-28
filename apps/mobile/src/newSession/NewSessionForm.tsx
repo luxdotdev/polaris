@@ -1,8 +1,13 @@
 /**
  * The new agent session sheet's content (Paper M6): the typed prompt first, then where it runs,
- * the Harness and Model, Plan first, New worktree, the route line and one Start.
+ * the Harness and Model, Permissions, New worktree, the route line and one Start.
  */
-import { type SessionId, type Workspace, WorkspaceId } from "@polaris/protocol";
+import {
+  type PermissionMode,
+  type SessionId,
+  type Workspace,
+  WorkspaceId,
+} from "@polaris/protocol";
 import { midnight, mobileType } from "@polaris/ui/tokens";
 import { type ReactNode, useMemo, useState } from "react";
 import {
@@ -31,10 +36,10 @@ import {
   branchFromPrompt,
   defaultTarget,
   failureText,
-  hasPlanMode,
   lastUsedTarget,
   newSessionId,
-  planCaption,
+  permissionModesOn,
+  permissionOption,
   routeLine,
   type SheetHost,
   type StartChoices,
@@ -45,7 +50,8 @@ import {
 import { startLatch, takePrompt } from "./latch.ts";
 import { HarnessChip, PickerRow, SwitchRow, styles as rowStyles } from "./parts.tsx";
 import { NotReadyPanel } from "./NotReadyPanel.tsx";
-import { HarnessPicker, WorkspacePicker } from "./pickers.tsx";
+import { type PermissionModeStore, usePermissionChoice } from "./permissionModes.ts";
+import { HarnessPicker, PermissionPicker, WorkspacePicker } from "./pickers.tsx";
 import { type HarnessChoice, useHarnessChoice } from "./useHarnessChoice.ts";
 
 export interface NewSessionFormProps {
@@ -55,16 +61,34 @@ export interface NewSessionFormProps {
   readonly onClose: () => void;
   readonly onStarted?: (hostId: string, sessionId: string) => void;
   readonly draftStore?: DraftStore;
+  readonly permissionModeStore?: PermissionModeStore;
   /** The Host's connection, for Attach and the mic; without it neither is offered. */
   readonly connectionFor?: (hostId: string) => HostConnection | null;
 }
 
-type Pane = "form" | "workspace" | "harness";
+type Pane = "form" | "workspace" | "harness" | "permissions";
 
 const TITLES: Readonly<Record<Pane, string>> = {
   form: "New agent session",
   workspace: "Workspace",
   harness: "Harness",
+  permissions: "Permissions",
+};
+
+/** The Permissions row: the mode and what it means. */
+const PermissionValue = ({ mode }: { readonly mode: PermissionMode }) => {
+  const option = permissionOption(mode);
+
+  return (
+    <>
+      <Text style={rowStyles.value} numberOfLines={1}>
+        {option.label}
+      </Text>
+      <Text style={rowStyles.caption} numberOfLines={1}>
+        {option.detail}
+      </Text>
+    </>
+  );
 };
 
 /** The Harness row's sentence while nothing can start; null once one can. */
@@ -251,6 +275,7 @@ export const NewSessionForm = ({
   onClose,
   onStarted,
   draftStore,
+  permissionModeStore,
   connectionFor,
 }: NewSessionFormProps) => {
   const [picked, setPicked] = useState<Target | null>(null);
@@ -260,7 +285,7 @@ export const NewSessionForm = ({
   const last = lastUsedTarget(hosts);
   const draft = useDraft(draftStore);
   const choice = useHarnessChoice(api, host);
-  const [planFirst, setPlanFirst] = useState(true);
+  const permission = usePermissionChoice(host, permissionModeStore);
   const [newWorktree, setNewWorktree] = useState(false);
   // Chosen up front so the branch the caption shows is the one the session gets.
   const [sessionId] = useState<SessionId>(newSessionId);
@@ -284,7 +309,6 @@ export const NewSessionForm = ({
   const staging = attachments.staging ? "Attaching files…" : null;
   const why = startBlocker(host, draft.text, choice) ?? staging;
 
-  const planMode = host !== null && hasPlanMode(host);
   const header = <Header pane={pane} onLeave={pane === "form" ? onClose : () => setPane("form")} />;
 
   const start = async () => {
@@ -297,7 +321,7 @@ export const NewSessionForm = ({
       model: choice.model?.id ?? null,
       prompt: takePrompt(voice, () => draft.text),
       newWorktree,
-      planFirst,
+      permissionMode: permission.mode,
       capabilities: host?.capabilities ?? [],
       attachments: attachments.ids,
     };
@@ -310,6 +334,7 @@ export const NewSessionForm = ({
       });
 
       if (!sent) return;
+      permission.keep();
       attachments.clear();
       await draft.clear();
       onStarted?.(target.hostId, sessionId);
@@ -353,6 +378,21 @@ export const NewSessionForm = ({
       </Sheet>
     );
 
+  if (pane === "permissions" && host !== null)
+    return (
+      <Sheet>
+        {header}
+        <PermissionPicker
+          options={permissionModesOn(host)}
+          mode={permission.mode}
+          onPick={(mode) => {
+            permission.pick(mode);
+            setPane("form");
+          }}
+        />
+      </Sheet>
+    );
+
   return (
     <Sheet>
       {header}
@@ -373,13 +413,9 @@ export const NewSessionForm = ({
         </PickerRow>
         <HarnessRows host={host} choice={choice} onOpen={() => setPane("harness")} />
         {host === null ? null : (
-          <SwitchRow
-            title="Plan first"
-            caption={planCaption(host, planFirst)}
-            value={planFirst || !planMode}
-            onValueChange={setPlanFirst}
-            disabled={!planMode}
-          />
+          <PickerRow label="Permissions" onPress={() => setPane("permissions")}>
+            <PermissionValue mode={permission.mode} />
+          </PickerRow>
         )}
         {workspace === null ? null : (
           <SwitchRow

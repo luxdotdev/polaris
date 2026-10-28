@@ -119,7 +119,7 @@ test("a picked file stages on the Host and Start carries it into the first Turn"
       model: null,
       prompt: "Summarise the attached notes",
       newWorktree: false,
-      planFirst: false,
+      permissionMode: "supervised",
       capabilities: connection.status().capabilities,
       attachments: stagedIds(store.chips()),
     })

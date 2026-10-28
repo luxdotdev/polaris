@@ -16,7 +16,7 @@ import {
   branchFromPrompt,
   newSessionId,
   hasPlanMode,
-  planCaption,
+  permissionModeOn,
   routeLine,
   startCommand,
 } from "../src/newSession/model.ts";
@@ -83,7 +83,7 @@ test("the Host reads as its own name on this network", () => {
   const host = sheetHost(connection, null);
 
   expect(routeLine(host)).toBe("Runs on Mac Studio · on this network");
-  expect(planCaption(host, true)).toBe("Reads and plans; asks before it edits anything");
+  expect(permissionModeOn(host, undefined)).toBe("plan");
   expect(host.homeDir).not.toBeNull();
 });
 
@@ -107,7 +107,7 @@ test("Start makes a real agent session on a new worktree with the chosen harness
       model: model?.id ?? null,
       prompt,
       newWorktree: true,
-      planFirst: true,
+      permissionMode: "plan",
       capabilities: connection.status().capabilities,
     })
   );

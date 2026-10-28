@@ -10,7 +10,10 @@ import {
   branchFromPrompt,
   defaultTarget,
   newSessionId,
-  planCaption,
+  parsePermissionModes,
+  permissionModeOn,
+  permissionModesOn,
+  type PermissionModes,
   routeLine,
   type SheetHost,
   startCommand,
@@ -99,12 +102,39 @@ test.each([
 
 const planning: SheetHost = { ...studio, capabilities: ["session.plan-mode"] };
 
+test("the sheet offers the Desktop App's five modes, without Plan on a host that lacks it", () => {
+  expect(permissionModesOn(planning).map((p) => [p.label, p.detail])).toEqual([
+    ["Plan", "Reads and plans, asks before any edit"],
+    ["Supervised", "Asks before edits and commands"],
+    ["Auto edits", "Edits freely, asks before commands"],
+    ["Auto", "Asks only for risky actions"],
+    ["Full access", "Never asks"],
+  ]);
+  expect(permissionModesOn(studio).map((p) => p.mode)).toEqual([
+    "supervised",
+    "auto-edits",
+    "auto",
+    "full-access",
+  ]);
+});
+
 test.each([
-  [studio, true, "Asks before every edit"],
-  [planning, true, "Reads and plans; asks before it edits anything"],
-  [planning, false, "Off: asks before every edit"],
-] as const)("Plan first says what happens (%#)", (host, on, caption) => {
-  expect(planCaption(host, on)).toBe(caption);
+  [planning, undefined, "plan"],
+  [studio, undefined, "supervised"],
+  [planning, "full-access", "full-access"],
+  [studio, "auto", "auto"],
+  [studio, "plan", "supervised"],
+] as const)("a host opens on its last mode or Plan (%#)", (host, remembered, mode) => {
+  expect(permissionModeOn(host, remembered)).toBe(mode);
+});
+
+test.each<[string | null, PermissionModes]>([
+  ['{"studio":"full-access","vm":"plan"}', { studio: "full-access", vm: "plan" }],
+  [null, {}],
+  ["not json", {}],
+  ['{"studio":"yolo"}', {}],
+])("the remembered modes read from %p", (text, modes) => {
+  expect(parsePermissionModes(text)).toEqual(modes);
 });
 
 test("the worktree caption shows the path under home, or the branch it will take", () => {
@@ -128,18 +158,21 @@ describe("startCommand", () => {
     harness: "claude",
     model: "claude-opus-5-5",
     prompt: "  Sketch how the relay could resume a dropped phone connection.  ",
-    planFirst: true,
+    permissionMode: "supervised" as const,
     capabilities: [],
   };
 
   test.each([
-    [true, ["session.plan-mode"], "plan"],
-    [true, [], "supervised"],
-    [false, ["session.plan-mode"], "supervised"],
-  ] as const)("Plan first %p on a host with %p starts %p", (planFirst, capabilities, mode) => {
-    expect(startCommand({ ...base, planFirst, capabilities, newWorktree: false })).toMatchObject({
-      permissionMode: mode,
-    });
+    ["plan", ["session.plan-mode"], "plan"],
+    ["plan", [], "supervised"],
+    ["supervised", ["session.plan-mode"], "supervised"],
+    ["auto-edits", [], "auto-edits"],
+    ["auto", [], "auto"],
+    ["full-access", ["session.plan-mode"], "full-access"],
+  ] as const)("%p on a host with %p starts %p", (permissionMode, capabilities, mode) => {
+    expect(
+      startCommand({ ...base, permissionMode, capabilities, newWorktree: false })
+    ).toMatchObject({ permissionMode: mode });
   });
 
   test("starts in place, supervised, with the trimmed prompt and the picked model", () => {
@@ -163,16 +196,18 @@ describe("startCommand", () => {
     });
   });
 
-  // RX3-1: a Linked Device's gate admits every StartSession the sheet can send.
-  test.each([
-    [true, true],
-    [false, false],
-  ])(
-    "the Host admits Start from a Linked Device: plan first %p, new worktree %p",
-    (planFirst, newWorktree) => {
+  // RX3-1, ENG-458: a Linked Device's gate admits every StartSession the sheet can send.
+  test.each(
+    (["plan", "supervised", "auto-edits", "auto", "full-access"] as const).flatMap((mode) => [
+      [mode, true] as const,
+      [mode, false] as const,
+    ])
+  )(
+    "the Host admits Start from a Linked Device: %p, new worktree %p",
+    (permissionMode, newWorktree) => {
       const command = startCommand({
         ...base,
-        planFirst,
+        permissionMode,
         newWorktree,
         capabilities: ["session.plan-mode"],
       });
