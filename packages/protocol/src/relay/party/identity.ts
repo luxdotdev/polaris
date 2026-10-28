@@ -12,7 +12,16 @@ import {
   crypto_sign_SECRETKEYBYTES,
   crypto_sign_seed_keypair,
 } from "sodium-universal";
-import { authMessage, relayAddress, type RelayAddress, type RelayRole } from "../wire.ts";
+import {
+  authMessage,
+  type PushEnvironment,
+  type PushTicket,
+  pushTicketMessage,
+  relayAddress,
+  type RelayAddress,
+  type RelayRole,
+  toBase64Url,
+} from "../wire.ts";
 
 export interface RelayIdentity {
   readonly publicKey: Uint8Array;
@@ -53,3 +62,14 @@ export const proveRelayKey = (
 
 export const addressOf = (identity: RelayIdentity): Promise<RelayAddress> =>
   relayAddress(identity.publicKey);
+
+/** A device's consent for the Host at `hostAddress` to wake it at `token` (wire.ts: PushTicket). */
+export const signPushTicket = (
+  identity: RelayIdentity,
+  hostAddress: RelayAddress,
+  environment: PushEnvironment,
+  token: string
+): PushTicket => ({
+  key: toBase64Url(identity.publicKey),
+  sig: toBase64Url(signEd25519(identity, pushTicketMessage(hostAddress, environment, token))),
+});

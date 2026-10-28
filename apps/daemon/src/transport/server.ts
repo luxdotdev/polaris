@@ -156,7 +156,14 @@ export const startServer = <ROut = never, E = never, RIn = never>(
   | Scope.Scope
   | Exclude<
       RIn,
-      BlobChannel | CurrentLanguageConnection | HostLanguageEnvironment | LanguageConnectionLifetime
+      | BlobChannel
+      | CurrentLanguageConnection
+      | HostLanguageEnvironment
+      | LanguageConnectionLifetime
+      | RelayRoute
+      | LinkedDevices
+      | HostSecrets
+      | DeviceConnections
     >
 > =>
   Effect.gen(function* () {
@@ -380,6 +387,8 @@ export const startServer = <ROut = never, E = never, RIn = never>(
             Layer.merge(
               BlobChannelOutsideRequest,
               Layer.mergeAll(
+                // The same layer as the transport's, so both share one Relay route (one build).
+                deviceServices,
                 Layer.succeed(HostLanguageEnvironment)({
                   hostId: hostInfo.hostId,
                   root: options.root ?? defaults.root,

@@ -37,7 +37,16 @@ route (Tailscale, the Relay); the Relay is opt-in per Host.
   apply: the Relay route authenticates the device's key before the Daemon grants Client power.
 - The Daemon's outbound Relay connection keeps a keepalive and must justify it in the `idle`
   benchmark.
-- KMS sets its own `kid` header, while APNs needs Apple's key ID; if `signJWT` cannot override
-  it, the function signs the JWT with `signMessage`. KMS is in beta.
+- APNs needs Apple's key ID as the JWT `kid`. Importing the `.p8` with `importKeyId` set to
+  Apple's key ID makes it KMS's `kid` too, so `signJWT` (ttl 3600) gives a token APNs accepts
+  and no `signMessage` fallback is needed (spike ENG-461, 2026-10-27). KMS is in beta.
+- One issuer and Apple key per Vercel environment: production signs with a Sandbox & Production
+  key and sends each device token to the endpoint the app reported; preview signs with a
+  Sandbox-only key and refuses production tokens, so a preview deployment can never reach a
+  production device (`apps/site/app/api/push/README.md`).
+- The provider token is shared by every Function instance through the Upstash store and
+  replaced every 55 minutes, under APNs' limits on token age and on how often it changes.
+- Push payloads are sealed to the device with HPKE; the relay sees each wake's APNs token,
+  size and timing but no content (`apps/relay/README.md`, Push).
 - Extensions move onto the Relay later (Remote Access over the Relay for them too), once the
   pattern has settled.

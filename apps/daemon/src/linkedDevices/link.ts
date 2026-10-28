@@ -15,6 +15,8 @@ import {
   type RelayLimits,
   RelayOp,
   toBase64Url,
+  type Wake,
+  type WakeOutcome,
 } from "@polaris/protocol/relay";
 import {
   acceptHandshake,
@@ -32,6 +34,9 @@ import { DeviceSession } from "./session.ts";
 const BACKOFF_MIN_MS = 500;
 
 const BACKOFF_MAX_MS = 30_000;
+
+/** How long a wake waits for the relay's `woken` before it counts as unavailable. */
+const WAKE_TIMEOUT_MS = 20_000;
 
 /** Bun's WebSocket buffers what the network can't take yet; writers wait above this. */
 const MAX_BUFFERED_BYTES = 1024 * 1024;
@@ -80,6 +85,10 @@ export class RelayLink {
   private timer: ReturnType<typeof setTimeout> | null = null;
   private pacer: Pacer | null = null;
   private readonly sessions = new Map<RelayAddress, DeviceSession>();
+  /** The relay announced a push service in its challenge on this socket. */
+  private push = false;
+  private nextWake = 0;
+  private readonly wakes = new Map<string, (outcome: WakeOutcome) => void>();
 
   constructor(private readonly options: RelayLinkOptions) {
     this.connect();
@@ -92,6 +101,31 @@ export class RelayLink {
   /** Sends the current peers; on a socket not yet ready, `auth` will carry them. */
   peersChanged(): void {
     if (this.ready) this.sendText(encodeControl({ t: "peers", peers: [...this.options.peers()] }));
+  }
+
+  /**
+   * Asks the relay to wake a device through APNs. Nothing is queued: without a ready socket
+   * to a relay with push, or without an answer in time, the wake is `unavailable`.
+   */
+  wake(request: Omit<Wake, "t" | "id">): Promise<WakeOutcome> {
+    if (!this.ready || !this.push) return Promise.resolve("unavailable");
+    const id = `w${(this.nextWake++).toString(36)}`;
+
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => this.settleWake(id, "unavailable"), WAKE_TIMEOUT_MS);
+
+      this.wakes.set(id, (outcome) => {
+        clearTimeout(timer);
+        resolve(outcome);
+      });
+      this.sendText(encodeControl({ t: "wake", id, ...request }));
+    });
+  }
+
+  private settleWake(id: string, outcome: WakeOutcome): void {
+    const settle = this.wakes.get(id);
+    this.wakes.delete(id);
+    settle?.(outcome);
   }
 
   /** Ends the session of the device at `peer`, if it has one (unlink, presence, replace). */
@@ -143,6 +177,9 @@ export class RelayLink {
   private disconnected(): void {
     for (const session of this.sessions.values()) session.end();
 
+    for (const id of this.wakes.keys()) this.settleWake(id, "unavailable");
+    this.push = false;
+
     if (this.ready) {
       this.ready = false;
       this.options.onConnectedChange(false);
@@ -165,7 +202,10 @@ export class RelayLink {
   private onControl(message: RelayControl): void {
     Match.value(message).pipe(
       Match.discriminatorsExhaustive("t")({
-        challenge: (challenge) => this.authenticate(challenge.nonce, challenge.limits),
+        challenge: (challenge) => {
+          this.push = challenge.push === true;
+          this.authenticate(challenge.nonce, challenge.limits);
+        },
         ready: () => {
           this.ready = true;
           this.attempt = 0;
@@ -175,6 +215,7 @@ export class RelayLink {
           if (!online) this.drop(peer);
         },
         unreachable: () => undefined,
+        woken: ({ id, outcome }) => this.settleWake(id, outcome),
       })
     );
   }

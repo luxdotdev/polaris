@@ -18,6 +18,8 @@ export interface ConnectionEvent {
   readonly controlIn: number;
   readonly unreachable: number;
   readonly dropped: number;
+  /** Wakes the host asked for on this socket. */
+  readonly wakes: number;
   readonly closeCode: number;
   /** Why the relay closed it, or "peer" when the other end did. */
   readonly endedBy: string;
@@ -33,7 +35,14 @@ export interface StartEvent {
   readonly port: number;
 }
 
-export type WideEvent = ConnectionEvent | RefusedEvent | StartEvent;
+/** One wake's outcome. Never the token, the payload or which host or device asked. */
+export interface WakeEvent {
+  readonly event: "relay.wake";
+  readonly outcome: string;
+  readonly durationMs: number;
+}
+
+export type WideEvent = ConnectionEvent | RefusedEvent | StartEvent | WakeEvent;
 
 export type EmitWideEvent = (event: WideEvent) => void;
 

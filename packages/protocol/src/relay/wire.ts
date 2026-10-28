@@ -71,6 +71,8 @@ export const Challenge = Schema.Struct({
   v: Schema.Literal(RELAY_WIRE_VERSION),
   nonce: Schema.String,
   limits: RelayLimits,
+  /** The relay forwards `wake` to the push service; absent from relays without push. */
+  push: Schema.optionalKey(Schema.Boolean),
 });
 
 export const Auth = Schema.Struct({
@@ -101,11 +103,101 @@ export const Presence = Schema.Struct({
 /** A forward was dropped: the peer is offline or not linked to the sender. */
 export const Unreachable = Schema.Struct({ t: Schema.Literal("unreachable"), peer: RelayAddress });
 
-export const ClientControl = Schema.Union([Auth, Peers]);
+/** Which APNs endpoint a device token belongs to: development builds use the sandbox. */
+export const PushEnvironment = Schema.Literals(["sandbox", "production"]);
+
+export type PushEnvironment = typeof PushEnvironment.Type;
+
+/** An APNs device token as lowercase hex. */
+export const ApnsToken = Schema.String.check(Schema.isPattern(/^[0-9a-f]{64,200}$/));
+
+/** The largest sealed push payload, base64url: APNs allows 4 KiB for the whole notification. */
+export const MAX_WAKE_PAYLOAD_CHARS = 3000;
+
+/**
+ * The device's consent to be woken by one host: its Ed25519 relay key and a signature over
+ * `pushTicketMessage(hostAddress, environment, token)`. The relay checks both against `peer`.
+ */
+export const PushTicket = Schema.Struct({ key: Schema.String, sig: Schema.String });
+
+export type PushTicket = typeof PushTicket.Type;
+
+const TICKET_CONTEXT = "polaris-push-ticket/1\0";
+
+/** The bytes a device signs to let `hostAddress` wake it at `token` in `environment`. */
+export const pushTicketMessage = (
+  hostAddress: string,
+  environment: PushEnvironment,
+  token: string
+): Uint8Array =>
+  new TextEncoder().encode(`${TICKET_CONTEXT}${hostAddress}\0${environment}\0${token}`);
+
+/** Whether `ticket` is `peer`'s consent for `hostAddress` to wake it at this token. */
+export const verifyPushTicket = async (
+  ticket: PushTicket,
+  peer: RelayAddress,
+  hostAddress: RelayAddress,
+  environment: PushEnvironment,
+  token: string
+): Promise<boolean> => {
+  const key = fromBase64Url(ticket.key);
+  const sig = fromBase64Url(ticket.sig);
+
+  if (Option.isNone(key) || Option.isNone(sig) || key.value.byteLength !== 32) return false;
+
+  if ((await relayAddress(key.value)) !== peer) return false;
+
+  return verifyEd25519(key.value, pushTicketMessage(hostAddress, environment, token), sig.value);
+};
+
+export const WakeId = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{1,32}$/));
+
+/**
+ * A host asks the relay to wake one of its linked devices, online or not. `payload` is
+ * sealed to the device (`relay/push.ts`); the relay and the push service see only the token.
+ */
+export const Wake = Schema.Struct({
+  t: Schema.Literal("wake"),
+  id: WakeId,
+  peer: RelayAddress,
+  token: ApnsToken,
+  environment: PushEnvironment,
+  ticket: PushTicket,
+  payload: Schema.String.check(
+    Schema.isPattern(/^[A-Za-z0-9_-]+$/),
+    Schema.isMaxLength(MAX_WAKE_PAYLOAD_CHARS)
+  ),
+});
+
+export type Wake = typeof Wake.Type;
+
+/**
+ * What became of a wake. `unlinked`: no valid ticket from `peer` for this host. `unregistered`: APNs no longer knows the token, so drop it.
+ * `refused`: the push service refused it
+ * (a production token on a preview deployment, a bad request). `unavailable`: try later.
+ */
+export const WakeOutcome = Schema.Literals([
+  "sent",
+  "unlinked",
+  "rate-limited",
+  "unregistered",
+  "refused",
+  "unavailable",
+]);
+
+export type WakeOutcome = typeof WakeOutcome.Type;
+
+export const Woken = Schema.Struct({
+  t: Schema.Literal("woken"),
+  id: WakeId,
+  outcome: WakeOutcome,
+});
+
+export const ClientControl = Schema.Union([Auth, Peers, Wake]);
 
 export type ClientControl = typeof ClientControl.Type;
 
-export const RelayControl = Schema.Union([Challenge, Ready, Presence, Unreachable]);
+export const RelayControl = Schema.Union([Challenge, Ready, Presence, Unreachable, Woken]);
 
 export type RelayControl = typeof RelayControl.Type;
 

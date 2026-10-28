@@ -13,10 +13,19 @@ import {
   type LinkedDevice,
   type LinkedDeviceId,
   NotFound,
+  PushRegistrationError,
   RelayRouteError,
   RelayRouteStatus,
 } from "@polaris/protocol";
-import { type RelayAddress, relayAddress, toBase64Url } from "@polaris/protocol/relay";
+import {
+  type PushMessage,
+  type PushRegistration,
+  type RelayAddress,
+  relayAddress,
+  toBase64Url,
+  verifyPushTicket,
+  type WakeOutcome,
+} from "@polaris/protocol/relay";
 import { linkIdentity, linkProof, sameProof } from "@polaris/protocol/relay/party";
 import { Context, Deferred, Effect, Layer, Option } from "effect";
 import { HostSecrets } from "../secrets/index.ts";
@@ -24,7 +33,8 @@ import { type HostRelayKeys, loadHostRelayKeys } from "./keys.ts";
 import { type Admission, RelayLink } from "./link.ts";
 import type { DeviceSession } from "./session.ts";
 import { isRelayUrl, readSetting, writeSetting } from "./settings.ts";
-import { LinkedDevices } from "./store.ts";
+import { pushSuite, sealPush } from "../push/seal.ts";
+import { LinkedDevices, type PushTarget } from "./store.ts";
 
 /** How long a link string can be used. */
 export const LINK_TTL_MS = 5 * 60 * 1000;
@@ -64,6 +74,20 @@ export class RelayRoute extends Context.Service<
     }) => Effect.Effect<LinkedDevice>;
     readonly list: Effect.Effect<ReadonlyArray<LinkedDevice>>;
     readonly unlink: (id: LinkedDeviceId) => Effect.Effect<LinkedDevice, NotFound>;
+    /** Stores `device`'s push registration once its ticket signs this Host's relay address. */
+    readonly registerPush: (
+      device: LinkedDevice,
+      registration: PushRegistration
+    ) => Effect.Effect<void, PushRegistrationError>;
+    readonly unregisterPush: (device: LinkedDevice) => Effect.Effect<void>;
+    /** Every device registered for push; read synchronously. */
+    readonly pushTargets: () => ReadonlyArray<PushTarget>;
+    /** Calls `listener` whenever the registrations change; returns the unsubscribe. */
+    readonly watchPush: (listener: () => void) => () => void;
+    /** This Host, as pushes name it. */
+    readonly host: { readonly hostId: string; readonly hostName: string };
+    /** Seals `message` to the device and wakes it; an `unregistered` token is dropped. */
+    readonly wake: (target: PushTarget, message: PushMessage) => Effect.Effect<WakeOutcome>;
   }
 >()("polaris/daemon/linkedDevices/RelayRoute") {
   static layer(options: { readonly root: string; readonly hostInfo: HostInfo }) {
@@ -86,6 +110,17 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
   let setting = readSetting(options.root);
   let link: RelayLink | null = null;
   let cachedKeys: HostRelayKeys | null = null;
+  const pushListeners = new Set<() => void>();
+  const pushChanged = () => pushListeners.forEach((listener) => listener());
+
+  const refusePush = (message: string) => new PushRegistrationError({ reason: "failed", message });
+
+  const validPushKey = (pushKey: string) =>
+    Effect.tryPromise({
+      try: () =>
+        pushSuite.kem.deserializePublicKey(new Uint8Array(Buffer.from(pushKey, "base64url"))),
+      catch: () => refusePush("The push key is not a P-256 public key"),
+    });
 
   const keys = Effect.suspend(() =>
     cachedKeys === null
@@ -295,8 +330,53 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
       if (device === null) return yield* new NotFound({ what: "linked device", id });
       link?.peersChanged();
       link?.drop(device.relayAddress);
+      pushChanged();
 
       return device;
     }, Effect.uninterruptible),
+    registerPush: Effect.fn("RelayRoute.registerPush")(function* (device, registration) {
+      const loaded = yield* Effect.mapError(keys, (error) => refusePush(error.message));
+      const { ticket, environment, token } = registration;
+
+      const signed = yield* Effect.promise(() =>
+        verifyPushTicket(ticket, device.relayAddress, loaded.address, environment, token)
+      );
+
+      if (!signed) return yield* refusePush("The push ticket doesn't sign this Host's address");
+      yield* validPushKey(registration.pushKey);
+      yield* Effect.mapError(store.setPush(device.id, registration), (error) =>
+        refusePush(error.message)
+      );
+      pushChanged();
+    }),
+    unregisterPush: (device) =>
+      store.clearPush(device.id).pipe(Effect.orDie, Effect.andThen(Effect.sync(pushChanged))),
+    host: { hostId: options.hostInfo.hostId, hostName: options.hostInfo.hostname },
+    pushTargets: store.pushTargets,
+    watchPush: (listener) => {
+      pushListeners.add(listener);
+
+      return () => pushListeners.delete(listener);
+    },
+    wake: ({ device, registration }, message) =>
+      Effect.gen(function* () {
+        const current = link;
+
+        if (current === null) return "unavailable" as const;
+        const payload = yield* Effect.promise(() => sealPush(registration.pushKey, message));
+        const { token, environment, ticket } = registration;
+
+        const outcome = yield* Effect.promise(() =>
+          current.wake({ peer: device.relayAddress, token, environment, ticket, payload })
+        );
+
+        // APNs no longer knows the token: wait for the device to register again.
+        if (outcome === "unregistered")
+          yield* store
+            .clearPush(device.id)
+            .pipe(Effect.ignore, Effect.andThen(Effect.sync(pushChanged)));
+
+        return outcome;
+      }),
   });
 });

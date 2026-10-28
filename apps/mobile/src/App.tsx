@@ -22,6 +22,7 @@ import { FollowedHostsProvider } from "./home/feed/useFollowedHosts.ts";
 import { HomeScreen } from "./home/HomeScreen.tsx";
 import { HostsScreen } from "./hosts/HostsScreen.tsx";
 import { LinkScreen } from "./link/LinkScreen.tsx";
+import { usePush } from "./push/usePush.ts";
 import { RelayProvider, useRelay } from "./relay/RelayProvider.tsx";
 import { runSelfCheck } from "./runtime/selfCheck.ts";
 import { HostsProvider } from "./runtime/hosts.tsx";
@@ -119,6 +120,14 @@ const Screen = () => {
   );
 };
 
+/** Registers for push with each linked Host and answers approval notifications. */
+const Push = () => {
+  const relay = useRelay();
+  usePush(relay.keys?.identity ?? null, relay.hosts);
+
+  return null;
+};
+
 const Shell = () => {
   const navigation = useNavigation();
 
@@ -155,6 +164,7 @@ export const App = () => {
         <RelayProvider>
           <FollowedHostsProvider>
             <WidgetSync />
+            <Push />
             <NavigationProvider>
               <Shell />
             </NavigationProvider>

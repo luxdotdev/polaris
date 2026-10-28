@@ -25,6 +25,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { unregisterPush } from "../push/registration.ts";
 import { type HostRegistry, useHostRegistry } from "../runtime/hosts.tsx";
 import { forgetLink, loadHosts, loadSecrets, saveLink, secretsForLinking } from "./store.ts";
 import { relayTransport } from "./transport.ts";
@@ -126,12 +127,23 @@ export const RelayProvider = ({ children }: { readonly children: ReactNode }) =>
   }, []);
 
   const unlink = useCallback(() => {
-    for (const host of hosts) registryRef.current.removeHost(host.hostId);
-    device.current?.close();
+    const open = device.current;
+
+    const linked = registryRef.current.hosts.filter((h) =>
+      hosts.some((l) => l.hostId === h.hostId)
+    );
+
     device.current = null;
     setKeys(null);
     setHosts([]);
     void forgetLink();
+    // Each Host drops this device's push registration before its connection closes.
+    void unregisterPush(linked).then(() => {
+      // Only these connections: a Host linked again meanwhile has a new one.
+      for (const host of linked)
+        if (registryRef.current.hosts.includes(host)) registryRef.current.removeHost(host.hostId);
+      open?.close();
+    });
   }, [hosts]);
 
   const value = useMemo<Relay>(

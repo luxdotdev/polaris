@@ -1,0 +1,11 @@
+{
+  "type": "notification-service",
+  "name": "PolarisNotificationService",
+  "bundleIdentifier": ".notification-service",
+  "deploymentTarget": "17.0",
+  "frameworks": ["WidgetKit"],
+  "entitlements": {
+    "com.apple.security.application-groups": ["group.dev.lux.polaris"],
+    "keychain-access-groups": ["$(AppIdentifierPrefix)dev.lux.polaris.shared"]
+  }
+}

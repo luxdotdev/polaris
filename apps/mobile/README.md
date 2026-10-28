@@ -149,6 +149,46 @@ folding never navigates and the focus stays put. `arrangement.ts` decides what i
 
 `__DEV__` builds log each report as `POLARIS_POSTURE {json}`.
 
+## Push
+
+Needs You and finished Turns arrive as notifications (apps/daemon/src/push/README.md). The Daemon
+seals each one to this device's push key with HPKE; the relay and the push service carry it
+opaquely; the Notification Service Extension opens it.
+
+- `modules/polaris-push`: a local Expo module. `pushKey()` makes the P-256 push key on first use
+  and keeps it in the Keychain group `HWD6374DUX.dev.lux.polaris.shared`, which the extension
+  shares (accessible after first unlock, this device only). `rotatePushKey()` replaces it;
+  re-register afterwards. `apnsEnvironment()` reads the provisioning profile: sandbox for
+  development builds and the simulator, production otherwise.
+- `targets/notification-service`: the extension (@bacons/apple-targets). It opens the payload
+  with CryptoKit (`P256_SHA256_AES_GCM_256`), sets title, subtitle, body, thread and category, and
+  keeps the routing ids in `userInfo.polaris`. If it can't open it, the generic alert stays.
+- `src/push`: `usePush(identity, linkedHosts)`, mounted in `App.tsx` with `useRelay()`'s keys and linked Hosts, sets the categories, registers with each linked
+  Host as its connection comes live (`devices.registerPush`, again after a reconnect), and answers.
+  The `approval` category has Approve, Always here and Deny; each needs Face ID or the passcode and
+  doesn't open the app. The answer is a RespondToApproval with a command id per request, sent
+  once the Host's connection is live, within a background task (about 30 s).
+
+Unlinking this iPhone asks each Host to drop its registration (`devices.unregisterPush`, up to
+3 s) before the connections close, and rotates the push key, so a Host that missed it can't be
+read here.
+
+### The widget hook
+
+Each push the extension opens is added to the App Group `group.dev.lux.polaris`, UserDefaults
+key `polaris.push.recent`: a JSON array, newest first, at most 20, of `{ kind, hostId, hostName,
+sessionId, requestId, subtitle, at }` (no bodies). Then it calls
+`WidgetCenter.shared.reloadAllTimelines()`; S7's `targets/widgets/Snapshot.swift` reads it (see
+Widgets). After an answer from a notification is sent, the app calls `refreshWidgets()`.
+
+### Try it in the simulator
+
+`app.json` sets `aps-environment` to development; Xcode switches it to production when exporting
+for TestFlight or the App Store. The simulator has no APNs token, but `xcrun simctl push` runs the
+extension: seal a PushMessage to the key `pushKey()` returns (`sealPush` in
+`apps/daemon/src/push/seal.ts`) and send
+`{"aps":{"alert":{"title":"Polaris","body":"Open Polaris to see what changed."},"mutable-content":1},"p":"<sealed>"}`.
+
 ## The Hermes check
 
 `src/runtime/selfCheck.ts` exercises Effect 4, the frame codec and pairing strings, the

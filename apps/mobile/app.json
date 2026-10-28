@@ -17,7 +17,8 @@
       },
       "appleTeamId": "HWD6374DUX",
       "entitlements": {
-        "com.apple.security.application-groups": ["group.dev.lux.polaris"]
+        "com.apple.security.application-groups": ["group.dev.lux.polaris"],
+        "keychain-access-groups": ["$(AppIdentifierPrefix)dev.lux.polaris.shared"]
       }
     },
     "plugins": [
@@ -44,6 +45,12 @@
           "photosPermission": "Polaris attaches the photos you choose to an agent session.",
           "cameraPermission": "Polaris uses the camera to scan the link code the Desktop App shows.",
           "microphonePermission": "Polaris listens while you dictate a prompt; your host turns it into text."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "mode": "development"
         }
       ]
     ]

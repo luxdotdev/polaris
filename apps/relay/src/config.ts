@@ -1,5 +1,5 @@
 /** The relay's settings, from the environment (README: Configuration). */
-import { Config } from "effect";
+import { Config, ConfigProvider, Effect, Option, Redacted } from "effect";
 import type { GateLimits } from "./limits.ts";
 
 export interface RelayConfig extends GateLimits {
@@ -15,6 +15,13 @@ export interface RelayConfig extends GateLimits {
   readonly idleTimeoutSeconds: number;
   /** Bytes queued to a slow receiver before the relay closes it. */
   readonly backpressureLimitBytes: number;
+  /** The push service and its shared secret; without both the relay forwards no wakes. */
+  readonly push: { readonly url: string; readonly secret: string } | null;
+  /** Wakes a host may ask for, per minute, with a burst of `wakeBurst`. */
+  readonly wakesPerMinute: number;
+  readonly wakeBurst: number;
+  /** Wakes waiting on the push service at once, across all hosts. */
+  readonly maxWakesInFlight: number;
 }
 
 export const defaultRelayConfig: RelayConfig = {
@@ -31,11 +38,36 @@ export const defaultRelayConfig: RelayConfig = {
   authTimeoutMs: 10_000,
   idleTimeoutSeconds: 60,
   backpressureLimitBytes: 16 * 1024 * 1024,
+  push: null,
+  wakesPerMinute: 60,
+  wakeBurst: 20,
+  maxWakesInFlight: 256,
 };
 
 const int = (name: string, fallback: number) => Config.Int(name).pipe(Config.withDefault(fallback));
 
 const d = defaultRelayConfig;
+
+/** Both variables or neither: a URL without its secret, or the reverse, is a misconfiguration. */
+const pushConfig = Config.all({
+  url: Config.option(Config.URL("POLARIS_RELAY_PUSH_URL")),
+  secret: Config.option(Config.Redacted("POLARIS_RELAY_PUSH_SECRET")),
+}).pipe(
+  Config.mapEffect(({ url, secret }) => {
+    if (Option.isNone(url) && Option.isNone(secret)) return Effect.succeed(null);
+
+    if (Option.isNone(url) || Option.isNone(secret))
+      return Effect.fail(
+        new Config.ConfigError(
+          new ConfigProvider.SourceError({
+            message: "Set both POLARIS_RELAY_PUSH_URL and POLARIS_RELAY_PUSH_SECRET, or neither",
+          })
+        )
+      );
+
+    return Effect.succeed({ url: url.value.href, secret: Redacted.value(secret.value) });
+  })
+);
 
 export const relayConfig: Config.Config<RelayConfig> = Config.all({
   port: Config.Port("PORT").pipe(Config.withDefault(d.port)),
@@ -51,4 +83,8 @@ export const relayConfig: Config.Config<RelayConfig> = Config.all({
   authTimeoutMs: int("POLARIS_RELAY_AUTH_TIMEOUT_MS", d.authTimeoutMs),
   idleTimeoutSeconds: int("POLARIS_RELAY_IDLE_TIMEOUT_SECONDS", d.idleTimeoutSeconds),
   backpressureLimitBytes: int("POLARIS_RELAY_BACKPRESSURE_LIMIT_BYTES", d.backpressureLimitBytes),
+  push: pushConfig,
+  wakesPerMinute: int("POLARIS_RELAY_WAKES_PER_MINUTE", d.wakesPerMinute),
+  wakeBurst: int("POLARIS_RELAY_WAKE_BURST", d.wakeBurst),
+  maxWakesInFlight: int("POLARIS_RELAY_MAX_WAKES_IN_FLIGHT", d.maxWakesInFlight),
 });

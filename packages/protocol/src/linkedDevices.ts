@@ -9,6 +9,7 @@ import { Rpc, RpcGroup } from "effect/rpc";
 import { NotFound } from "./errors.ts";
 import { HostId, LinkedDeviceId, Timestamp } from "./ids.ts";
 import { packEnvelope, unpackEnvelope } from "./linkBody.ts";
+import { PushRegistration } from "./relay/push.ts";
 import { RelayAddress } from "./relay/wire.ts";
 
 /** A key or secret as base64url without padding. */
@@ -104,6 +105,29 @@ export const UnlinkDevice = Rpc.make("devices.unlink", {
   error: NotFound,
 });
 
+export class PushRegistrationError extends Schema.TaggedError<PushRegistrationError>()(
+  "PushRegistrationError",
+  {
+    /** `not-a-device`: only a Linked Device's own connection registers for push. */
+    reason: Schema.Literals(["not-a-device", "failed"]),
+    message: Schema.String,
+  }
+) {}
+
+/**
+ * The calling Linked Device's APNs token, environment and push key; a new registration
+ * replaces the last. Needs Needs You and finished-Turn pushes sealed to `pushKey`.
+ */
+export const RegisterPush = Rpc.make("devices.registerPush", {
+  payload: PushRegistration,
+  error: PushRegistrationError,
+});
+
+/** Stops pushes to the calling Linked Device; unlinking a device also drops its registration. */
+export const UnregisterPush = Rpc.make("devices.unregisterPush", {
+  error: PushRegistrationError,
+});
+
 export class LinkedDeviceRpcs extends RpcGroup.make(
   GetRelayRoute,
   EnableRelayRoute,
@@ -112,7 +136,9 @@ export class LinkedDeviceRpcs extends RpcGroup.make(
   AwaitLink,
   AddLinkedDevice,
   ListLinkedDevices,
-  UnlinkDevice
+  UnlinkDevice,
+  RegisterPush,
+  UnregisterPush
 ) {}
 
 export const LINK_STRING_PREFIX = "polaris-link:v1:";

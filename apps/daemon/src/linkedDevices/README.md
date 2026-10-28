@@ -10,7 +10,7 @@ Client power, once its Noise key is linked here (ADR 0083). The relay's contract
 | `link.ts` | `RelayLink`: the socket to the relay. Key proof, `peers` on every connect and change, handshakes, reconnect with backoff and full jitter. |
 | `session.ts` | `DeviceSession`: one device's Noise session as the ByteTransport the server's Wire runs over. |
 | `pacer.ts` | Keeps sends under the rates the relay announced, so a large reply is slowed, not closed with 4429. |
-| `store.ts` | `LinkedDevices`: `~/.polaris/linked-devices.sqlite` (0600), public keys only; unlinking keeps the row. |
+| `store.ts` | `LinkedDevices`: `~/.polaris/linked-devices.sqlite` (0600), public keys only; unlinking keeps the row and deletes its push registration. |
 | `keys.ts` | The Host's Ed25519 relay identity and X25519 Noise static key, in HostSecrets. |
 | `settings.ts` | `~/.polaris/relay-route.json` (0600): on or off and the relay URL. No file is off. |
 | `connection.ts` | `ConnectionDevice`: the server annotates a relay connection with its device; `actorOf` and `hello` read it. |
@@ -27,6 +27,8 @@ Client power, once its Noise key is linked here (ADR 0083). The relay's contract
   anything on this route by itself.
 - `devices.unlink` marks the device unlinked, sends `peers` without it and ends its session:
   the Wire's input ends and the connection's finalizers run.
+
+Push to Linked Devices (`devices.registerPush`, `wake`) is in `../push/README.md`.
 
 ## Linking
 

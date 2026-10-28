@@ -7,7 +7,7 @@ const root = join(import.meta.dirname, "../..");
 
 const config: NextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@polaris/ui"],
+  transpilePackages: ["@polaris/ui", "@polaris/protocol"],
   turbopack: { root },
   outputFileTracingRoot: root,
   images: { formats: ["image/avif", "image/webp"], qualities: [75, 85] },
