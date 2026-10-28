@@ -6,18 +6,28 @@ import {
   ModelId,
   type HarnessStatus,
 } from "@polaris/protocol";
-import { defaultHarness, harnessOptions, modelLabel, shortlist } from "./harness.ts";
+import {
+  defaultHarness,
+  harnessOptions,
+  modelLabel,
+  notReadyHarnesses,
+  shortlist,
+} from "./harness.ts";
 
-const availability = (harness: string, status: HarnessStatus) =>
+const availability = (
+  harness: string,
+  status: HarnessStatus,
+  more: Partial<Pick<HarnessAvailability, "version" | "minVersion" | "signInArgv">> = {}
+) =>
   HarnessAvailability.make({
     harness,
     status,
-    version: null,
-    minVersion: "1.0.0",
+    version: more.version ?? null,
+    minVersion: more.minVersion ?? "1.0.0",
     olderThanTested: null,
     signInKind: null,
     detail: null,
-    signInArgv: null,
+    signInArgv: more.signInArgv ?? null,
   });
 
 const report = (...entries: ReadonlyArray<HarnessAvailability>) =>
@@ -114,5 +124,46 @@ describe("the model shortlist", () => {
     expect(modelLabel("codex", codex, model("x", "GPT-6-Luna"))).toBe("GPT-6-Luna");
     expect(modelLabel("codex", codex, null)).toBe("GPT-6.1-Sol");
     expect(modelLabel("claude", claude, null)).toBe("Default");
+  });
+});
+
+describe("notReadyHarnesses", () => {
+  test("with none ready, every harness says why and what to do on the host, missing ones too", () => {
+    const signIn = availability("claude", "needs-sign-in", {
+      version: "2.1.283",
+      signInArgv: ["/opt/homebrew/bin/claude", "auth", "login"],
+    });
+
+    const old = availability("codex", "outdated", { version: "0.100.0", minVersion: "0.150.0" });
+
+    expect(
+      notReadyHarnesses(
+        report(signIn, old, availability("opencode", "not-installed")),
+        "Mac Studio"
+      )
+    ).toEqual([
+      {
+        kind: "claude",
+        reason: "Claude Code 2.1.283 · needs sign-in",
+        remedy: "Run /opt/homebrew/bin/claude auth login in a terminal on Mac Studio.",
+        docsUrl: null,
+      },
+      {
+        kind: "codex",
+        reason: "Codex 0.100.0 · needs 0.150.0 or newer",
+        remedy: "Update Codex on Mac Studio, then check again.",
+        docsUrl: "https://developers.openai.com/codex/cli",
+      },
+      {
+        kind: "opencode",
+        reason: "OpenCode · not installed",
+        remedy: "Install OpenCode on Mac Studio, then check again.",
+        docsUrl: "https://opencode.ai/docs",
+      },
+    ]);
+  });
+
+  test("a ready harness has no reason to show", () => {
+    expect(notReadyHarnesses(report(availability("claude", "ready")), "Mac Studio")).toEqual([]);
   });
 });

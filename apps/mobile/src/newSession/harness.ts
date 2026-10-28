@@ -3,12 +3,14 @@
  * picker): which Harnesses are offered, which one is chosen first, and the Models' shortlist.
  */
 import {
+  type HarnessAvailability,
   harnessEntry,
   type HarnessKind,
   type HarnessStatus,
   type HostHarnesses,
   type Model,
 } from "@polaris/protocol";
+import { Match } from "effect";
 
 export interface HarnessOption {
   readonly kind: HarnessKind;
@@ -32,6 +34,65 @@ export const harnessOptions = (report: HostHarnesses): ReadonlyArray<HarnessOpti
       status: h.status,
       startable: STARTABLE.has(h.status),
     }));
+
+/** A Harness that can't start a session yet: why, and what to do on the Host. */
+export interface NotReadyHarness {
+  readonly kind: HarnessKind;
+  /** "Claude Code 2.0.9 · needs 2.1.0 or newer". */
+  readonly reason: string;
+  /** The fix, done on the Host: Polaris never signs in or installs from the phone (ADR 0001). */
+  readonly remedy: string;
+  /** Its setup guide, for a Harness that is missing or too old; null otherwise. */
+  readonly docsUrl: string | null;
+}
+
+const named = (h: HarnessAvailability, name: string) =>
+  h.version === null ? name : `${name} ${h.version}`;
+
+const reasonOf = (h: HarnessAvailability, name: string): string =>
+  Match.value(h.status).pipe(
+    Match.when("outdated", () => `${named(h, name)} · needs ${h.minVersion} or newer`),
+    Match.when("not-installed", () => `${name} · not installed`),
+    Match.when("needs-sign-in", () => `${named(h, name)} · needs sign-in`),
+    Match.when("unknown", () => `${named(h, name)} · couldn't check`),
+    Match.when("ready", () => `${named(h, name)} · ready`),
+    Match.exhaustive
+  );
+
+const remedyOf = (h: HarnessAvailability, name: string, hostName: string): string =>
+  Match.value(h.status).pipe(
+    Match.when("needs-sign-in", () =>
+      h.signInArgv === null
+        ? `Sign in to ${name} in a terminal on ${hostName}.`
+        : `Run ${h.signInArgv.join(" ")} in a terminal on ${hostName}.`
+    ),
+    Match.when("not-installed", () => `Install ${name} on ${hostName}, then check again.`),
+    Match.when("outdated", () => `Update ${name} on ${hostName}, then check again.`),
+    Match.orElse(() => "Check again in a moment.")
+  );
+
+/**
+ * Every Harness the Host reports that isn't ready, with its reason and its fix on the Host
+ * (DESIGN.md, New session: with none ready, each Harness says why). Missing ones included.
+ */
+export const notReadyHarnesses = (
+  report: HostHarnesses,
+  hostName: string
+): ReadonlyArray<NotReadyHarness> =>
+  report.harnesses
+    .filter((h) => h.status !== "ready")
+    .map((h) => {
+      const entry = harnessEntry(h.harness);
+      const name = entry?.name ?? h.harness;
+      const guide = h.status === "not-installed" || h.status === "outdated";
+
+      return {
+        kind: h.harness,
+        reason: reasonOf(h, name),
+        remedy: remedyOf(h, name, hostName),
+        docsUrl: guide ? (entry?.setup.docsUrl ?? null) : null,
+      };
+    });
 
 /** When each Harness last ran a session on the Host (its newest session's last update). */
 export type LastUsed = ReadonlyMap<string, string>;
