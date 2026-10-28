@@ -36,12 +36,16 @@ private let hand = [
   stroke(7, 3, 10, 3), stroke(4, 10, 4, 16), stroke(6, 18, 6, 18), stroke(8, 20, 8, 21),
 ]
 
-/// Paper W2's 12-point dither, still: widgets don't animate.
+/// The 12-point Working dither's first frame (@polaris/ui/dither), still: widgets don't animate.
+/// src/dither/strip.test.ts checks it against ditherFrameAt.
 private let dither: [(CGFloat, CGFloat, CGFloat, CGFloat, Double)] = [
-  (0, 0, 2, 2, 1), (4, 0, 2, 2, 0.5), (8, 0, 2, 2, 1), (2, 2, 2, 2, 0.6), (6, 2, 2, 2, 1),
-  (10, 2, 2, 2, 0.4), (0, 4, 2, 2, 0.5), (4, 4, 2, 2, 1), (8, 4, 2, 2, 0.7), (2, 6, 2, 2, 1),
-  (6, 6, 2, 2, 0.5), (10, 6, 2, 2, 1), (0, 8, 2, 2, 0.7), (4, 8, 2, 2, 0.4), (8, 8, 2, 2, 1),
-  (2, 10, 2, 2, 0.5), (6, 10, 2, 2, 1), (10, 10, 2, 2, 0.6),
+  (0, 0, 2, 2, 0.70), (2, 0, 2, 2, 0.77), (4, 0, 2, 2, 0.83), (6, 0, 2, 2, 0.87),
+  (8, 0, 2, 2, 0.88), (10, 0, 2, 2, 0.86), (2, 2, 2, 2, 0.81), (6, 2, 2, 2, 0.88),
+  (8, 2, 2, 2, 0.87), (10, 2, 2, 2, 0.83), (0, 4, 2, 2, 0.79), (2, 4, 2, 2, 0.85),
+  (4, 4, 2, 2, 0.88), (6, 4, 2, 2, 0.88), (8, 4, 2, 2, 0.85), (2, 6, 2, 2, 0.87),
+  (6, 6, 2, 2, 0.86), (10, 6, 2, 2, 0.75), (0, 8, 2, 2, 0.86), (2, 8, 2, 2, 0.88),
+  (4, 8, 2, 2, 0.87), (6, 8, 2, 2, 0.83), (8, 8, 2, 2, 0.77), (0, 10, 2, 2, 0.88),
+  (2, 10, 2, 2, 0.88), (6, 10, 2, 2, 0.79), (10, 10, 2, 2, 0.65),
 ]
 
 struct Glyph: View {
@@ -54,7 +58,7 @@ struct Glyph: View {
     case "working", "starting":
       Pixels(size: 12, rects: dither, color: Palette.harness(row.harness))
         .frame(width: 12, height: 12)
-        .opacity(row.glyph == "starting" ? 0.6 : 1)
+        .opacity(row.glyph == "starting" ? 0.5 : 1)
     case "failed":
       Circle().fill(Palette.failed).frame(width: 6, height: 6)
     default:

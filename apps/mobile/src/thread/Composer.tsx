@@ -15,6 +15,7 @@ import {
   MicButton,
   type VoiceInput,
 } from "../composer/controls.tsx";
+import { Dither } from "../dither/index.ts";
 import { type ComposerMode, placeholderFor } from "./composer.ts";
 import { elapsed, harnessHue, harnessName } from "./labels.ts";
 import { Diamond } from "./Row.tsx";
@@ -40,18 +41,6 @@ const useElapsed = (since: string | null): string | null => {
   return since === null ? null : elapsed(now - Date.parse(since));
 };
 
-/** A still dither tile in the Harness hue; the Working strip's mark. */
-const DitherMark = ({ hue }: { readonly hue: string }) => (
-  <View style={styles.dither}>
-    {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((cell) => (
-      <View
-        key={cell}
-        style={[styles.ditherCell, cell % 2 === 0 ? { backgroundColor: hue } : null]}
-      />
-    ))}
-  </View>
-);
-
 const WorkingStrip = ({
   harness,
   since,
@@ -66,7 +55,7 @@ const WorkingStrip = ({
 
   return (
     <View style={styles.strip}>
-      <DitherMark hue={hue} />
+      <Dither color={hue} size={14} moving />
       <Text style={[styles.stripLabel, { color: hue }]}>{harnessName(harness)} is working</Text>
       <Text style={styles.stripTime}>· {time}</Text>
       <Pressable style={styles.stop} onPress={onStop} accessibilityRole="button" hitSlop={8}>
@@ -249,8 +238,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: midnight.hairline,
   },
-  dither: { width: 12, height: 12, flexDirection: "row", flexWrap: "wrap" },
-  ditherCell: { width: 4, height: 4 },
   stripLabel: { ...mobileType.footnote, fontWeight: "500" },
   stripTime: { ...mobileType.footnote, color: midnight.textFaint, flex: 1 },
   stop: {

@@ -8,13 +8,14 @@ import { midnight, mobileType } from "@polaris/ui/tokens";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { harnessHue } from "../constellation/glyphs.tsx";
+import { Dither } from "../dither/index.ts";
 import { homeHostsOf, useFollowedHosts } from "../home/feed/useFollowedHosts.ts";
 import { buildHome, type SessionRow } from "../home/model/home.ts";
 import { age, harnessName, rowIndex } from "../home/model/format.ts";
 import { approvalDetail, askLine, quickQuestion } from "../home/model/lines.ts";
 import { type Reply, respond } from "../home/model/respond.ts";
 import { Horizon } from "../home/ui/Horizon.tsx";
-import { NeedsYouMark, WorkingDither } from "../home/ui/glyphs.tsx";
+import { NeedsYouMark } from "../home/ui/glyphs.tsx";
 import { useHosts } from "../runtime/hosts.tsx";
 import { isNight, skyLine, type Star, starsOf, targetsOf } from "./monitor.ts";
 import type { Rect } from "./posture.ts";
@@ -52,7 +53,7 @@ const StarView = ({ star, sky }: { readonly star: Star; readonly sky: Rect }) =>
       <NeedsYouMark />
     ) : (
       <View style={styles.halo}>
-        <WorkingDither color={harnessHue(star.harness)} size={22} />
+        <Dither color={harnessHue(star.harness)} size={22} moving />
         <View style={[styles.core, { backgroundColor: harnessHue(star.harness) }]} />
       </View>
     )}

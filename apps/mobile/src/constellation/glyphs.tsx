@@ -6,7 +6,11 @@ import type { HarnessKind } from "@polaris/protocol";
 import { midnight } from "@polaris/ui/tokens";
 import type { ReactElement } from "react";
 import { StyleSheet, View } from "react-native";
+import { Dither } from "../dither/index.ts";
 import type { Tone } from "./model.ts";
+
+/** A 10pt field needs a denser dither than a session tile to read as working (Paper C1). */
+const RAIL_DITHER = 0.9;
 
 export const harnessHue = (harness: HarnessKind | null): string => {
   if (harness === "claude") return midnight.harnessClaudeCode;
@@ -31,31 +35,6 @@ export const segmentColour = (tone: Tone, harness: HarnessKind | null = null): s
 
   return colours[tone];
 };
-
-// A fixed 6×6 dither, as Paper C2's B1 glyph: each cell's opacity.
-const DITHER = [
-  [1, 0, 0.5, 0, 1, 0],
-  [0, 0.6, 0, 1, 0, 0.4],
-  [0.5, 0, 1, 0, 0.7, 0],
-  [0, 1, 0, 0.5, 0, 1],
-  [0.7, 0, 0.4, 0, 1, 0],
-  [0, 0.5, 0, 1, 0, 0.6],
-];
-
-const Dither = ({ colour }: { readonly colour: string }) => (
-  <View style={styles.dither}>
-    {DITHER.flatMap((row, y) =>
-      row.map((opacity, x) =>
-        opacity === 0 ? null : (
-          <View
-            key={`${x}.${y}`}
-            style={[styles.cell, { left: x * 2, top: y * 2, opacity, backgroundColor: colour }]}
-          />
-        )
-      )
-    )}
-  </View>
-);
 
 const Ring = ({ colour, dot, bar }: { colour: string; dot?: boolean; bar?: boolean }) => (
   <View style={[styles.ring, { borderColor: colour }]}>
@@ -101,7 +80,12 @@ export const TaskGlyph = ({ tone, harness, gate }: GlyphProps) => {
       );
 
     const glyphs: Readonly<Record<Tone, ReactElement>> = {
-      working: <Dither colour={harnessHue(harness)} />,
+      working:
+        harness === null ? (
+          <Ring colour={midnight.textSubtle} />
+        ) : (
+          <Dither color={harnessHue(harness)} size={10} moving intensity={RAIL_DITHER} />
+        ),
       review: <Ring colour={midnight.textDefault} dot />,
       blocked: <Ring colour={midnight.textSubtle} bar />,
       done: <Dot colour={midnight.accepted} />,
@@ -162,8 +146,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: midnight.bg,
   },
-  dither: { width: 12, height: 12 },
-  cell: { position: "absolute", width: 2, height: 2 },
   ring: {
     width: 12,
     height: 12,
