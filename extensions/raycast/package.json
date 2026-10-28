@@ -60,20 +60,21 @@
   ],
   "dependencies": {
     "@polaris/sdk": "workspace:*",
-    "@raycast/api": "2.9.0",
+    "@raycast/api": "2.10.0",
     "@raycast/utils": "2.3.3",
     "effect": "4.0.0-rc.118"
   },
   "devDependencies": {
     "@polaris/protocol": "workspace:*",
     "@types/bun": "1.4.4",
-    "@types/react": "19.0.10",
+    "@types/react": "19.3.0",
     "typescript": "7.0.2"
   },
   "scripts": {
     "typecheck": "tsc -p .",
     "test": "bun ../../tooling/test/watchdog.ts",
     "dev": "ray develop",
-    "ray:build": "ray build -e dist -o dist"
+    "ray:build": "ray build -e dist -o dist",
+    "e2e": "bun scripts/e2e.ts"
   }
 }
