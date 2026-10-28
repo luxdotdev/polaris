@@ -46,6 +46,8 @@ describe("decideAccess", () => {
 
   test("starting a session that is not supervised also needs approve", () => {
     expect(decideAccess(pairing(["start"]), "dispatch", "StartSession", "supervised")).toBeNull();
+    // A planning session asks before every edit, so it approves nothing for itself.
+    expect(decideAccess(pairing(["start"]), "dispatch", "StartSession", "plan")).toBeNull();
     expect(decideAccess(pairing(["start"]), "dispatch", "StartSession", "auto")).toEqual(
       new NotGranted({ what: "dispatch:StartSession", needed: "approve" })
     );
