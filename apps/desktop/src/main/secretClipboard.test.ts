@@ -1,28 +1,39 @@
 import { expect, test } from "bun:test";
-import { SECRET_CLIPBOARD_MS, type SystemClipboard, writeSecret } from "./secretClipboard.ts";
+import {
+  SECRET_CLIPBOARD_MS,
+  SECRET_MARKERS,
+  type SystemClipboard,
+  writeSecret,
+} from "./secretClipboard.ts";
 
+/** A pasteboard: the current entry's formats, and the history a clipboard manager would keep. */
 const fake = () => {
-  let text = "";
+  let entry: Readonly<Record<string, string>> = {};
+  const history: Array<string> = [];
 
   const clipboard: SystemClipboard = {
-    readText: () => text,
-    writeText: (next) => {
-      text = next;
+    readText: () => entry["text/plain"] ?? "",
+    write: async (next) => {
+      entry = next;
+
+      // What Maccy, Raycast and Alfred do: concealed or transient entries aren't kept.
+      if (!SECRET_MARKERS.some((format) => format in next)) history.push(next["text/plain"] ?? "");
     },
     clear: () => {
-      text = "";
+      entry = {};
     },
   };
 
-  return { clipboard, read: () => text };
+  return { clipboard, read: () => entry["text/plain"] ?? "", history };
 };
 
-test("a copied secret is cleared after a minute", async () => {
-  const { clipboard, read } = fake();
+test("a copied secret is cleared after a minute and never enters clipboard history (RV5)", async () => {
+  const { clipboard, read, history } = fake();
   const timers: Array<{ run: () => Promise<void>; ms: number }> = [];
 
-  writeSecret(clipboard, "polaris-link:v2:abc", (run, ms) => timers.push({ run, ms }));
+  await writeSecret(clipboard, "polaris-link:v2:abc", (run, ms) => timers.push({ run, ms }));
   expect(read()).toBe("polaris-link:v2:abc");
+  expect(history).toEqual([]);
 
   await timers[0]?.run();
   expect(timers[0]?.ms).toBe(SECRET_CLIPBOARD_MS);
@@ -33,8 +44,8 @@ test("something the user copied since is left alone", async () => {
   const { clipboard, read } = fake();
   const timers: Array<() => Promise<void>> = [];
 
-  writeSecret(clipboard, "polaris-link:v2:abc", (run) => timers.push(run));
-  clipboard.writeText("git status");
+  await writeSecret(clipboard, "polaris-link:v2:abc", (run) => timers.push(run));
+  await clipboard.write({ "text/plain": "git status" });
   await timers[0]?.();
 
   expect(read()).toBe("git status");

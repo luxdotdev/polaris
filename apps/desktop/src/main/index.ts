@@ -24,6 +24,7 @@ import {
   autoUpdater,
   BrowserWindow,
   clipboard,
+  ClipboardItem,
   dialog,
   nativeTheme,
   ipcMain,
@@ -456,7 +457,15 @@ const start = async () => {
           ? mkdtempSync(join(tmpdir(), "polaris-proof-"))
           : null,
       writeClipboard: async (text) => clipboard.writeText(text),
-      writeSecretClipboard: (text) => writeSecret(clipboard, text),
+      writeSecretClipboard: (text) =>
+        writeSecret(
+          {
+            readText: () => clipboard.readText(),
+            write: (entry) => clipboard.write([new ClipboardItem(entry)]),
+            clear: () => clipboard.clear(),
+          },
+          text
+        ),
       // The one main window; a hidden one (smoke runs) has no focus to find it by.
       editAction: (action) =>
         (BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0])?.webContents[
