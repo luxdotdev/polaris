@@ -46,6 +46,7 @@ export interface SessionInput {
   readonly turnCount?: number;
   readonly lastError?: string | null;
   readonly acceptedThroughIndex?: number | null;
+  readonly pinnedAt?: string | null;
 }
 
 export const session = (input: SessionInput) =>
@@ -67,6 +68,7 @@ export const session = (input: SessionInput) =>
     contextUsage: null,
     lastError: input.lastError ?? null,
     acceptedThroughIndex: input.acceptedThroughIndex ?? null,
+    pinnedAt: input.pinnedAt ?? null,
     createdAt: AT,
     updatedAt: input.updatedAt ?? AT,
   });
@@ -111,14 +113,19 @@ export const summary = (s: AgentSession, pending: ReadonlyArray<ApprovalRequest>
     subagents: [],
   });
 
-export const constellation = (id: string, leadSessionId: string, workspaceId = "w1") =>
+export const constellation = (
+  id: string,
+  leadSessionId: string,
+  workspaceId = "w1",
+  state: ConstellationSummary["state"] = "running"
+) =>
   new ConstellationSummary({
     id: ConstellationId.make(id),
     workspaceId: WorkspaceId.make(workspaceId),
     hostId: HostId.make("h1"),
     leadSessionId: SessionId.make(leadSessionId),
     name: id,
-    state: "running",
+    state,
     createdAt: AT,
   });
 

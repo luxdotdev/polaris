@@ -28,12 +28,15 @@ const row = (
   stale,
 });
 
-const constellationRow = (lead: ReturnType<typeof session> | null): ConstellationRow => ({
+const constellationRow = (
+  lead: ReturnType<typeof session> | null,
+  state: ConstellationRow["constellation"]["state"] = "running"
+): ConstellationRow => ({
   kind: "constellation",
   key: "mac/c1",
   hostId: "mac",
   hostName: "Mac Studio",
-  constellation: constellation("c1", "lead"),
+  constellation: constellation("c1", "lead", "w1", state),
   lead,
   since: 0,
   stale: false,
@@ -47,8 +50,35 @@ describe("an agent session's menu", () => {
   test("a session with turns opens either way and copies its ID", () => {
     expect(titles(sessionMenu(row({ id: "s1", turnCount: 3 })))).toEqual([
       ["Open agent session", "Open review"],
+      ["Pin to top", "Rename…", "Archive"],
       ["Copy agent session ID"],
     ]);
+  });
+
+  // ENG-491: the phone's Archive keeps the branch, so Unarchive undoes it.
+  test("pins, unpins, archives without deleting the branch, and unarchives", () => {
+    const commands = (input: Parameters<typeof session>[0]) =>
+      sessionMenu(row(input))
+        .flat()
+        .flatMap((item) => {
+          const command = commandOf(item.action);
+
+          return command === null ? [] : [command];
+        });
+
+    expect(commands({ id: "s1" })).toEqual([
+      Command.cases.PinSession.make({ sessionId: SessionId.make("s1"), pinned: true }),
+      Command.cases.ArchiveSession.make({
+        sessionId: SessionId.make("s1"),
+        deleteMergedBranch: false,
+      }),
+    ]);
+    expect(commands({ id: "s1", state: "archived", pinnedAt: "2026-10-28T00:00:00.000Z" })).toEqual(
+      [
+        Command.cases.PinSession.make({ sessionId: SessionId.make("s1"), pinned: false }),
+        Command.cases.UnarchiveSession.make({ sessionId: SessionId.make("s1") }),
+      ]
+    );
   });
 
   test.each([
@@ -103,13 +133,25 @@ describe("a constellation's menu", () => {
 
     expect(titles(menu)).toEqual([
       ["Open constellation", "Open review"],
+      ["Pause", "Complete"],
       ["Copy agent session ID"],
     ]);
-    expect(menu[1]?.[0]?.action).toEqual({ kind: "copy", text: "lead" });
+    expect(menu[2]?.[0]?.action).toEqual({ kind: "copy", text: "lead" });
   });
 
-  test("without its lead on the feed, it only opens", () => {
-    expect(titles(constellationMenu(constellationRow(null)))).toEqual([["Open constellation"]]);
+  // The Daemon's lifecycle: archive only once completed, nothing once archived.
+  test.each<[ConstellationRow["constellation"]["state"], ReadonlyArray<string>]>([
+    ["planning", []],
+    ["running", ["Pause", "Complete"]],
+    ["paused", ["Resume", "Complete"]],
+    ["completed", ["Archive"]],
+    ["archived", []],
+  ])("a %s constellation offers %p", (state, offered) => {
+    const items = constellationMenu(constellationRow(null, state)).flat();
+
+    expect(
+      items.filter((item) => item.action.kind === "set-state").map((item) => item.title)
+    ).toEqual([...offered]);
   });
 });
 

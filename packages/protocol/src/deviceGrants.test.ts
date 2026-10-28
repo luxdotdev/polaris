@@ -91,3 +91,25 @@ test.each<[string, Partial<StartSession>]>([
 test("a StartSession the gate couldn't decode is refused", () => {
   expect(outcome("dispatch", "StartSession", null)).toBe("dispatch:StartSession");
 });
+
+// ENG-491: a phone manages agent sessions and constellations, but never deletes a branch.
+test.each([
+  ["dispatch", "RenameSession"],
+  ["dispatch", "PinSession"],
+  ["dispatch", "UnarchiveSession"],
+  ["constellation.set_state", null],
+])("a Linked Device may send %s %s", (rpc, tag) => {
+  expect(outcome(rpc, tag)).toBe("allowed");
+});
+
+test.each([
+  [false, "allowed"],
+  [true, "dispatch:ArchiveSession"],
+])("a Linked Device archiving with deleteMergedBranch %p is %s", (deleteMergedBranch, expected) => {
+  const archive = Command.cases.ArchiveSession.make({
+    sessionId: SessionId.make("s1"),
+    deleteMergedBranch,
+  });
+
+  expect(outcome("dispatch", "ArchiveSession", archive)).toBe(expected);
+});

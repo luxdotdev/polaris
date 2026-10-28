@@ -2,9 +2,16 @@
  * The long-press menus (ENG-490): the Desktop App's right-click menus for the same items, cut to
  * what a Linked Device may send (`DEVICE_COMMANDS`) and what means something on a phone.
  */
-import type { ApprovalRequest, Command, ConnectionState } from "@polaris/protocol";
+import {
+  type ApprovalRequest,
+  Command,
+  type ConnectionState,
+  ConstellationId,
+  SetConstellationStateAction,
+} from "@polaris/protocol";
 import type { Session } from "../home/feed/fold.ts";
 import type { ConstellationRow, SessionRow } from "../home/model/home.ts";
+import { Match } from "effect";
 import { approvalDetail } from "../home/model/lines.ts";
 import { type Reply, respondCommand } from "../home/model/respond.ts";
 
@@ -23,6 +30,28 @@ export type MenuAction =
       readonly reply: Reply;
     }
   | { readonly kind: "copy"; readonly text: string }
+  /** A Command for the Host; a refusal alerts with `failure` as its title. */
+  | {
+      readonly kind: "send";
+      readonly hostId: string;
+      readonly command: Command;
+      readonly failure: string;
+    }
+  /** Ask for a new title, then send RenameSession. */
+  | {
+      readonly kind: "rename";
+      readonly hostId: string;
+      readonly sessionId: string;
+      readonly title: string;
+    }
+  /** A constellation's lifecycle action, sent as `constellation.set_state`. */
+  | {
+      readonly kind: "set-state";
+      readonly hostId: string;
+      readonly constellationId: ConstellationId;
+      readonly action: SetConstellationStateAction;
+      readonly failure: string;
+    }
   | { readonly kind: "retry-host"; readonly hostId: string };
 
 export interface MenuItem {
@@ -98,10 +127,74 @@ const answers = (row: SessionRow): ReadonlyArray<MenuItem> => {
   }));
 };
 
+/**
+ * The Desktop App's Pin, Rename and Archive. A phone's Archive keeps the branch
+ * (`DEVICE_COMMANDS`), so Unarchive always undoes it.
+ */
+const manages = (hostId: string, session: Session): ReadonlyArray<MenuItem> => {
+  const pinned = session.pinnedAt != null;
+  const archived = session.state === "archived";
+  const sessionId = session.id;
+
+  return [
+    item("pin", pinned ? "Unpin" : "Pin to top", {
+      kind: "send",
+      hostId,
+      command: Command.cases.PinSession.make({ sessionId, pinned: !pinned }),
+      failure: pinned ? "Couldn't unpin" : "Couldn't pin",
+    }),
+    item("rename", "Rename…", { kind: "rename", hostId, sessionId, title: session.title }),
+    item("archive", archived ? "Unarchive" : "Archive", {
+      kind: "send",
+      hostId,
+      command: archived
+        ? Command.cases.UnarchiveSession.make({ sessionId })
+        : Command.cases.ArchiveSession.make({ sessionId, deleteMergedBranch: false }),
+      failure: archived ? "Couldn't unarchive" : "Couldn't archive",
+    }),
+  ];
+};
+
 /** An agent session's row on Home or in the Review tab. */
 export const sessionMenu = (row: SessionRow): Menu =>
-  [opens(row.hostId, row.session), answers(row), [copyId(row.session)]].filter(
-    (group) => group.length > 0
+  [
+    opens(row.hostId, row.session),
+    answers(row),
+    manages(row.hostId, row.session),
+    [copyId(row.session)],
+  ].filter((group) => group.length > 0);
+
+const A = SetConstellationStateAction.cases;
+
+/** The lifecycle actions the Daemon takes in each state, as the Desktop App names them. */
+const LIFECYCLE: Readonly<
+  Record<
+    ConstellationRow["constellation"]["state"],
+    ReadonlyArray<readonly [string, string, SetConstellationStateAction]>
+  >
+> = {
+  planning: [],
+  running: [
+    ["pause", "Pause", A.Pause.make({})],
+    ["complete", "Complete", A.Complete.make({})],
+  ],
+  paused: [
+    ["resume", "Resume", A.Resume.make({})],
+    ["complete", "Complete", A.Complete.make({})],
+  ],
+  completed: [["archive", "Archive", A.Archive.make({})]],
+  archived: [],
+};
+
+const lifecycle = (row: ConstellationRow): ReadonlyArray<MenuItem> =>
+  LIFECYCLE[row.constellation.state].map(([id, title, action]) =>
+    item(id, title, {
+      kind: "set-state",
+      hostId: row.hostId,
+      constellationId: ConstellationId.make(row.constellation.id),
+      action,
+      failure: `Couldn't ${title.toLowerCase()}`,
+    })
   );
 
 /** A constellation's row: the constellation, then its lead's own items. */
@@ -114,7 +207,9 @@ export const constellationMenu = (row: ConstellationRow): Menu => {
 
   const { lead } = row;
 
-  if (lead === null) return [[open]];
+  const states = lifecycle(row);
+
+  if (lead === null) return [[open], states].filter((group) => group.length > 0);
 
   return [
     [
@@ -129,8 +224,9 @@ export const constellationMenu = (row: ConstellationRow): Menu => {
           ]
         : []),
     ],
+    states,
     [copyId(lead)],
-  ];
+  ].filter((group) => group.length > 0);
 };
 
 /** A Host's row: Retry now while it isn't connected; nothing to offer otherwise. */
@@ -144,7 +240,11 @@ export const hostMenu = (host: {
 
 /** The Daemon command an action sends, or null for one that stays on the phone. */
 export const commandOf = (action: MenuAction): Command | null =>
-  action.kind === "reply" ? replyCommand(action) : null;
+  Match.value(action).pipe(
+    Match.when({ kind: "reply" }, replyCommand),
+    Match.when({ kind: "send" }, ({ command }) => command),
+    Match.orElse(() => null)
+  );
 
 export const replyCommand = (action: Extract<MenuAction, { readonly kind: "reply" }>): Command =>
   respondCommand(action.approval, action.reply);

@@ -45,6 +45,10 @@ const DEVICE_START_SESSION = {
 
 const isDeviceStartSession = Schema.is(Schema.Struct(DEVICE_START_SESSION));
 
+/** A phone archives a session but never deletes its branch, so Unarchive undoes it (ENG-491). */
+const isDeviceArchive = (command: Command) =>
+  Command.guards.ArchiveSession(command) && !command.deleteMergedBranch;
+
 /** `dispatch` itself is decided per Command (`DEVICE_COMMANDS`). */
 export const DEVICE_RPCS = {
   hello: "device",
@@ -166,7 +170,7 @@ export const DEVICE_RPCS = {
   "constellation.plan": "local",
   "constellation.repository.prepare": "local",
   "constellation.review": "device",
-  "constellation.set_state": "local",
+  "constellation.set_state": "device",
   "constellation.stats": "local",
   "constellation.status": "device",
   "constellation.subscribe": "device",
@@ -245,14 +249,14 @@ export const DEVICE_COMMANDS = {
   Continue: "local",
   Retry: "local",
   RespondToApproval: "device",
-  RenameSession: "local",
-  PinSession: "local",
+  RenameSession: "device",
+  PinSession: "device",
   SetResumeAtReset: "local",
   SetPermissionMode: "local",
   SetModel: "local",
   ForkSession: "local",
-  ArchiveSession: "local",
-  UnarchiveSession: "local",
+  ArchiveSession: isDeviceArchive,
+  UnarchiveSession: "device",
   OpenInTerminal: "local",
   ReturnFromTerminal: "local",
   SendFeedback: "device",
