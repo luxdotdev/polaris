@@ -46,7 +46,7 @@ export interface Written<A> {
 
 export interface ContinuityStore {
   readonly reads: Effect.Effect<ReadonlyArray<ReadPosition>>;
-  /** Non-empty drafts only. */
+  /** Emptied drafts too, so a Client that missed the clear learns of it by its revision. */
   readonly drafts: Effect.Effect<ReadonlyArray<ComposerDraft>>;
   /** Null when the session has no such Turn. */
   readonly markRead: (options: {
@@ -74,7 +74,7 @@ export const continuityStore = (sql: SqlClient.SqlClient): ContinuityStore => {
       Effect.mapError(storeError("read read positions")),
       Effect.orDie
     ),
-    drafts: sql<DraftRow>`SELECT * FROM session_drafts WHERE text != ''`.pipe(
+    drafts: sql<DraftRow>`SELECT * FROM session_drafts`.pipe(
       Effect.map((rows) => rows.map(toDraft)),
       Effect.mapError(storeError("read drafts")),
       Effect.orDie
