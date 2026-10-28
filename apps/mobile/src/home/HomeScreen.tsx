@@ -15,6 +15,7 @@ import {
 } from "../menus/index.ts";
 import type { HostConnection } from "../runtime/hostConnection.ts";
 import { homeHostsOf, useFollowedHosts } from "./feed/useFollowedHosts.ts";
+import { useSettledHosts } from "./feed/settled.ts";
 import { buildHome, type HomeRow, type SessionRow } from "./model/home.ts";
 import { rowDestination } from "./model/lines.ts";
 import { type Reply, respond } from "./model/respond.ts";
@@ -159,7 +160,8 @@ export const HomeScreen = ({
   const now = useNow();
   const onMenu = useMenuActions();
 
-  const home = useMemo(() => buildHome(homeHostsOf(hosts), workspace), [hosts, workspace]);
+  const shownHosts = useSettledHosts(useMemo(() => homeHostsOf(hosts), [hosts]));
+  const home = useMemo(() => buildHome(shownHosts, workspace), [shownHosts, workspace]);
 
   const reply = replyThrough(
     new Map(hosts.map(({ connection }) => [connection.hostId, connection]))

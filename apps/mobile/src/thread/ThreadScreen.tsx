@@ -31,6 +31,7 @@ import { Diamond, Row, type ThreadFocus } from "./Row.tsx";
 import { threadRows, type ThreadRow } from "./rows.ts";
 import { chipAction, openCritical, type Suggestion, suggestions } from "./suggestions.ts";
 import { threadKey, threads } from "./threads.ts";
+import { useAfter } from "../runtime/useAfter.ts";
 
 export interface ThreadScreenProps {
   readonly hostId: string;
@@ -263,6 +264,10 @@ export const ThreadScreen = ({
     }
   );
 
+  // Brief reconnects (the app coming back, a network change) stay quiet.
+  const away = useAfter(!live);
+  const slowToOpen = useAfter(state === null || fold === null);
+
   // A new Turn ending on screen, or coming back to the app, moves the read position.
   useEffect(report, [report, fold?.turns]);
   useEffect(() => {
@@ -275,7 +280,7 @@ export const ThreadScreen = ({
     return <Missing onBack={onBack} text="This host isn't linked to this iPhone" />;
 
   if (state === null || fold === null)
-    return <Missing onBack={onBack} text={state?.failure ?? "Connecting…"} />;
+    return <Missing onBack={onBack} text={state?.failure ?? (slowToOpen ? "Connecting…" : "")} />;
 
   const { session } = fold;
   const last = fold.turns.at(-1)?.turn ?? null;
@@ -311,7 +316,7 @@ export const ThreadScreen = ({
           onBack={onBack}
         />
         <FlatList
-          style={[styles.list, live ? null : styles.offline]}
+          style={[styles.list, away ? styles.offline : null]}
           contentContainerStyle={styles.listContent}
           data={rows}
           inverted
@@ -370,7 +375,7 @@ export const ThreadScreen = ({
               : { minHeight: composerSlot.minHeight, justifyContent: "flex-end" },
           ]}
         >
-          {live ? null : <Text style={styles.queued}>Reconnecting to {connection.name}…</Text>}
+          {away ? <Text style={styles.queued}>Reconnecting to {connection.name}…</Text> : null}
           <Suggestions items={chips} onPick={pick} />
           {state.queued.map(({ text, attachments: held }, index) => (
             <Text key={`${index}:${text}`} style={styles.queued} numberOfLines={1}>

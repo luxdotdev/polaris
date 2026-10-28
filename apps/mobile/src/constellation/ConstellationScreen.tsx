@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { HostConnection, HostStatus } from "../runtime/hostConnection.ts";
 import { claimChoices, constellationKey, taskKey, useKept, useLeadInput } from "../duo/kept.ts";
 import { useNavigation } from "../app/navigation.tsx";
+import { useAfter } from "../runtime/useAfter.ts";
 import { MarkdownLine } from "../markdown/index.ts";
 import { useHost, useHostStatus } from "../runtime/hosts.tsx";
 import { LeadComposer } from "./composer.tsx";
@@ -232,6 +233,9 @@ const Live = ({
   const [opened, setOpened] = useState<ReadonlyMap<string, boolean>>(new Map());
   const lead = useLeadInput(constellationKey(connection.hostId, constellationId));
   const navigation = useNavigation();
+  // Brief reconnects (the app coming back, a network change) stay quiet.
+  const away = useAfter(status.state !== "connected");
+  const shown: HostStatus = away ? status : { ...status, state: "connected" };
 
   const view = useMemo(
     () => (feed.kind === "live" ? constellationView(feed.source, now, opened) : null),
@@ -243,7 +247,7 @@ const Live = ({
   if (view === null || feed.kind !== "live")
     return (
       <Text style={[styles.meta, styles.pad]}>
-        {awayLine(status) ?? "Loading the constellation…"}
+        {awayLine(shown) ?? "Loading the constellation…"}
       </Text>
     );
 
@@ -259,7 +263,7 @@ const Live = ({
       <Header
         view={view}
         lead={feed.lead}
-        status={status}
+        status={shown}
         hostName={connection.name}
         onBack={onBack}
         onOpenLead={openLead}
@@ -284,7 +288,7 @@ const Live = ({
           <LeadComposer
             harness={feed.lead?.harness ?? null}
             model={feed.lead?.model ?? null}
-            disabled={awayLine(status)}
+            disabled={awayLine(shown)}
             input={lead}
             onSend={(text) =>
               connection

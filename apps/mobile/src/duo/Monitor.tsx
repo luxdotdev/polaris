@@ -10,6 +10,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { harnessHue } from "../constellation/glyphs.tsx";
 import { Dither } from "../dither/index.ts";
 import { homeHostsOf, useFollowedHosts } from "../home/feed/useFollowedHosts.ts";
+import { useSettledHosts } from "../home/feed/settled.ts";
 import { buildHome, type SessionRow } from "../home/model/home.ts";
 import { age, harnessName, rowIndex } from "../home/model/format.ts";
 import { approvalDetail, askLine, quickQuestion } from "../home/model/lines.ts";
@@ -240,7 +241,8 @@ export const Monitor = ({ top, bottom, division, onReply }: MonitorProps) => {
   const hosts = useFollowedHosts();
   const connections = useHosts();
   const now = useMinute();
-  const home = useMemo(() => buildHome(homeHostsOf(hosts), null), [hosts]);
+  const shownHosts = useSettledHosts(useMemo(() => homeHostsOf(hosts), [hosts]));
+  const home = useMemo(() => buildHome(shownHosts, null), [shownHosts]);
   const stars = useMemo(() => starsOf(home), [home]);
   const targets = targetsOf(home, 4);
   const night = isNight(now.getHours());

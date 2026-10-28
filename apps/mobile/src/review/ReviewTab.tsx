@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { homeHostsOf, useFollowedHosts } from "../home/feed/useFollowedHosts.ts";
+import { useSettledHosts } from "../home/feed/settled.ts";
 import { SessionListRow } from "../home/ui/rows.tsx";
 import { LongPressMenu, sessionMenu, useMenuActions } from "../menus/index.ts";
 import { type ReadyEmpty, type ReadyToReview, readyToReview } from "./ready.ts";
@@ -16,7 +17,9 @@ import { type ReadyEmpty, type ReadyToReview, readyToReview } from "./ready.ts";
 export const useReadyToReview = (): ReadyToReview => {
   const hosts = useFollowedHosts();
 
-  return useMemo(() => readyToReview(homeHostsOf(hosts)), [hosts]);
+  const shownHosts = useSettledHosts(useMemo(() => homeHostsOf(hosts), [hosts]));
+
+  return useMemo(() => readyToReview(shownHosts), [shownHosts]);
 };
 
 /** Re-renders each minute so ages ("42m") stay true. */
