@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
     paddingRight: 10,
     borderRadius: 999,
     borderWidth: 1,
-    maxWidth: 200,
+    flexShrink: 1,
   },
   harnessTile: { width: 18, height: 18, borderRadius: 5, opacity: 0.6 },
   harnessName: { ...mobileType.footnote, fontWeight: "500" },
