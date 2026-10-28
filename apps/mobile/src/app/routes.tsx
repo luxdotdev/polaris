@@ -1,45 +1,31 @@
 /**
- * The screens each route draws. Thread (S2) replaces its stand-in here when it lands; New agent
- * session is S5's sheet and Link this iPhone is `link/LinkScreen.tsx`.
+ * The screens each route draws. The thread is S2's, New agent session is S5's sheet, and
+ * Link this iPhone is `link/LinkScreen.tsx`.
  */
+import { SessionId } from "@polaris/protocol";
 import { midnight, mobileType } from "@polaris/ui/tokens";
 import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NewSessionSheet as NewAgentSessionSheet } from "../newSession/index.ts";
-import { BackBar } from "./BackBar.tsx";
+import { ThreadScreen } from "../thread/index.ts";
 import { useNavigation } from "./navigation.tsx";
-
-const StandIn = ({
-  title,
-  detail,
-  onBack,
-}: {
-  readonly title: string;
-  readonly detail: string;
-  readonly onBack: () => void;
-}) => {
-  const insets = useSafeAreaInsets();
-
-  return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <BackBar label="Sessions" onBack={onBack} />
-      <View style={styles.body}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.detail} selectable>
-          {detail}
-        </Text>
-      </View>
-    </View>
-  );
-};
 
 export const ThreadRoute = (props: {
   readonly hostId: string;
   readonly sessionId: string;
   readonly onBack: () => void;
-}) => <StandIn title="Agent session" detail={props.sessionId} onBack={props.onBack} />;
+}) => (
+  <ThreadScreen
+    hostId={props.hostId}
+    sessionId={SessionId.make(props.sessionId)}
+    onBack={props.onBack}
+  />
+);
 
 export { ConstellationScreen as ConstellationRoute } from "../constellation/index.ts";
+
+/** Review (M5) of a Turn; a null `turnId` reviews the latest one that ended. */
+export { ReviewScreen as ReviewRoute } from "../review/index.ts";
 
 export const ReviewTab = () => {
   const insets = useSafeAreaInsets();

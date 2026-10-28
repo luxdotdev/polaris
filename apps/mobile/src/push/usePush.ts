@@ -8,6 +8,7 @@ import * as Notifications from "expo-notifications";
 import { useEffect, useRef, useState } from "react";
 import { PolarisPush } from "../../modules/polaris-push/index.ts";
 import { useHosts } from "../runtime/hosts.tsx";
+import { refreshWidgets } from "../widgets/WidgetSync.ts";
 import { answerOf, PUSH_CATEGORIES } from "./answer.ts";
 import { answerHost, sendAnswer } from "./deliver.ts";
 import { type PushDevice, registerPush } from "./registration.ts";
@@ -65,7 +66,8 @@ const useAnswers = () => {
       await PolarisPush.beginAnswer(id);
 
       try {
-        await sendAnswer(current.current.map(answerHost), found);
+        // An answered approval leaves the widgets' needs you count once the feeds catch up.
+        if ((await sendAnswer(current.current.map(answerHost), found)) === "sent") refreshWidgets();
       } finally {
         await PolarisPush.endAnswer(id);
         Notifications.clearLastNotificationResponse();

@@ -17,6 +17,7 @@
     "test": "bun ../../tooling/test/watchdog.ts"
   },
   "dependencies": {
+    "@pierre/diffs": "1.5.1",
     "@polaris/client": "workspace:*",
     "@polaris/protocol": "workspace:*",
     "@polaris/sdk": "workspace:*",

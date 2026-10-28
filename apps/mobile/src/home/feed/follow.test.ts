@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import type { DaemonClient } from "@polaris/client/rpc";
+import type { ClientBlobs, DaemonClient } from "@polaris/client/rpc";
 import { HostId, HostInfo, type HostStreamItem } from "@polaris/protocol";
-import { Stream } from "effect";
+import { Effect, Stream } from "effect";
 import { session, snapshot, summary, synchronized } from "../fixtures.testing.ts";
 import { type FollowedHost, followHost } from "./follow.ts";
 import type { HostStatus, LiveHost } from "../../runtime/hostConnection.ts";
@@ -53,13 +53,20 @@ const fakeLink = () => {
     // SAFETY: the host feed calls only subscribeHost; nothing else on the client is touched.
     const client = feedOnly as DaemonClient;
 
-    live = { epoch, client, host: hostInfo, capabilities: [] };
+    live = { epoch, client, blobs, host: hostInfo, capabilities: [] };
     status = { ...status, state: "connected", epoch };
 
     for (const listener of listeners) listener();
   };
 
   return { link, connect };
+};
+
+// The host feed reads no blobs.
+const blobs: ClientBlobs = {
+  offer: () => Effect.die("no blobs"),
+  take: () => Effect.die("no blobs"),
+  takeStream: () => Stream.die("no blobs"),
 };
 
 const until = async (check: () => boolean) => {

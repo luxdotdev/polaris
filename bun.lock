@@ -132,6 +132,7 @@
       "name": "@polaris/mobile",
       "version": "0.0.0",
       "dependencies": {
+        "@pierre/diffs": "1.5.1",
         "@polaris/client": "workspace:*",
         "@polaris/protocol": "workspace:*",
         "@polaris/sdk": "workspace:*",

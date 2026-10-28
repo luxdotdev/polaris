@@ -23,6 +23,7 @@
     },
     "plugins": [
       "expo-secure-store",
+      "@bacons/apple-targets",
       [
         "expo-camera",
         {
@@ -36,8 +37,7 @@
         {
           "mode": "development"
         }
-      ],
-      "@bacons/apple-targets"
+      ]
     ]
   }
 }
