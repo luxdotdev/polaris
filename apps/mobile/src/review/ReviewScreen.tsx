@@ -46,7 +46,7 @@ export const ReviewScreen = ({
   const review = useReview(connection, sessionId, turnId);
   const [notice, setNotice] = useState<string | null>(null);
   const { live, turn } = review;
-  const submissions = useReviewSubmissions(live);
+  const submissions = useReviewSubmissions(hostId, live);
   const session = review.session.kind === "ready" ? review.session.value.session : null;
   const summary = review.risk.kind === "ready" ? review.risk.value : null;
 

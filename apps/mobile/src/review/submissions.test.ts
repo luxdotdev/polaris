@@ -3,7 +3,12 @@ import { Command, type CommandId } from "@polaris/protocol";
 import { Effect } from "effect";
 import { askToFixCommand, ReviewRefused } from "./actions.ts";
 import { finding } from "./review.testing.ts";
-import { reviewSubmissions, type ReviewDispatch, reviewSlot } from "./submissions.ts";
+import {
+  hostSubmissions,
+  reviewSubmissions,
+  type ReviewDispatch,
+  reviewSlot,
+} from "./submissions.ts";
 
 type Answer = "ok" | "lost" | "refused";
 
@@ -115,5 +120,29 @@ describe("Review's submission slots", () => {
 
     expect(await submissions.submit(slot, "x()", build, host.dispatch)).toBeNull();
     expect(host.sent).toHaveLength(1);
+  });
+});
+
+describe("slots shared across Review and the context pane", () => {
+  test("Ask to fix in the pane, answer lost, retry from Review: the same command and comment ids", async () => {
+    const slotsFor = hostSubmissions();
+    const host = heldHost();
+    const pane = slotsFor("h").submit(slot, "x()", build, host.dispatch);
+
+    // Review opens (or the pane remounts) while the first Ask to fix is on its way.
+    expect(slotsFor("h").state(slot)).toEqual({ kind: "sending" });
+    await host.answer("lost");
+    await pane;
+
+    const review = slotsFor("h").submit(slot, "x()", build, host.dispatch);
+
+    await host.answer("ok");
+    expect(await review).toBeNull();
+
+    const [before, after] = host.sent;
+
+    expect(after?.id).toBe(before?.id);
+    expect(commentIdOf(after!.command)).toBe(commentIdOf(before!.command));
+    expect(slotsFor("other").state(slot)).toBeNull();
   });
 });

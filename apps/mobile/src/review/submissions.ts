@@ -119,3 +119,19 @@ export const reviewSubmissions = (): ReviewSubmissions => {
     version: () => version,
   };
 };
+
+/** Slots per Host, above the screens: Review and the Duo context pane share them across remounts. */
+export const hostSubmissions = () => {
+  const byHost = new Map<string, ReviewSubmissions>();
+
+  return (hostId: string) => {
+    const kept = byHost.get(hostId) ?? reviewSubmissions();
+
+    byHost.set(hostId, kept);
+
+    return kept;
+  };
+};
+
+/** The running app's slots. */
+export const submissionsFor = hostSubmissions();

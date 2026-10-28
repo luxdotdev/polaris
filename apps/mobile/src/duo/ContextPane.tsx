@@ -124,7 +124,7 @@ export const ContextPane = ({
   const data = useSessionContext(connection, sessionId);
   const turns = data.fold?.turns ?? [];
   const [opened, setOpened] = useState<ReadonlySet<string>>(NOTHING);
-  const submissions = useReviewSubmissions(useLiveHost(connection));
+  const submissions = useReviewSubmissions(hostId, useLiveHost(connection));
   const [failure, setFailure] = useState<string | null>(null);
 
   const turn = useMemo(() => {

@@ -1,9 +1,9 @@
-/** Review's submission slots as React state, sending through the Host's live connection. */
+/** Review's submission slots in React, sending through the Host's live connection. */
 import type { Command } from "@polaris/protocol";
-import { useCallback, useState, useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import type { LiveHost } from "../runtime/hostConnection.ts";
 import { dispatchReview } from "./actions.ts";
-import { reviewSubmissions, type SubmissionState } from "./submissions.ts";
+import { type SubmissionState, submissionsFor } from "./submissions.ts";
 
 export interface ReviewSubmit {
   /** Answers why it failed, or null; "The host isn't connected" when there's no connection. */
@@ -17,8 +17,9 @@ export interface ReviewSubmit {
   readonly version: number;
 }
 
-export const useReviewSubmissions = (live: LiveHost | null): ReviewSubmit => {
-  const [submissions] = useState(reviewSubmissions);
+/** The Host's slots, shared by every view that submits for it and kept across their remounts. */
+export const useReviewSubmissions = (hostId: string, live: LiveHost | null): ReviewSubmit => {
+  const submissions = submissionsFor(hostId);
   const version = useSyncExternalStore(submissions.subscribe, submissions.version);
 
   const submit = useCallback<ReviewSubmit["submit"]>(
