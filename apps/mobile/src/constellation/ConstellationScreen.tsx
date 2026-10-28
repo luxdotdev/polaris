@@ -8,6 +8,7 @@ import { midnight, mobileType } from "@polaris/ui/tokens";
 import { useEffect, useMemo, useState } from "react";
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { HostConnection, HostStatus } from "../runtime/hostConnection.ts";
+import { claimChoices, constellationKey, leadDrafts, taskKey, useKept } from "../duo/kept.ts";
 import { useHost, useHostStatus } from "../runtime/hosts.tsx";
 import { LeadComposer } from "./composer.tsx";
 import { age } from "./copy.ts";
@@ -155,38 +156,46 @@ const Rail = ({
   view,
   onToggle,
   verdicts,
+  keyOf,
 }: {
   readonly view: ConstellationView;
   readonly onToggle: (group: string, open: boolean) => void;
   readonly verdicts: Verdicts;
-}) => (
-  <View style={styles.rail}>
-    {view.rows.map((row, i) => {
-      if (row.kind === "group")
+  readonly keyOf: (taskId: string) => string;
+}) => {
+  const [choices, setChoice] = useKept(claimChoices);
+
+  return (
+    <View style={styles.rail}>
+      {view.rows.map((row, i) => {
+        if (row.kind === "group")
+          return (
+            <GroupHeader
+              key={`group:${row.name}`}
+              group={row}
+              onToggle={() => onToggle(row.name, !row.open)}
+            />
+          );
+
+        const previous = view.rows[i - 1];
+
         return (
-          <GroupHeader
-            key={`group:${row.name}`}
-            group={row}
-            onToggle={() => onToggle(row.name, !row.open)}
+          <TaskRowView
+            key={row.id}
+            row={row}
+            first={previous === undefined || previous.kind === "group"}
+            last={i === view.rows.length - 1}
+            delivery={verdicts.find(row)}
+            onVerdict={verdicts.send(row)}
+            onCancel={() => verdicts.cancel(row)}
+            unsent={choices.get(keyOf(row.id)) ?? null}
+            onUnsent={(next) => setChoice(keyOf(row.id), next)}
           />
         );
-
-      const previous = view.rows[i - 1];
-
-      return (
-        <TaskRowView
-          key={row.id}
-          row={row}
-          first={previous === undefined || previous.kind === "group"}
-          last={i === view.rows.length - 1}
-          delivery={verdicts.find(row)}
-          onVerdict={verdicts.send(row)}
-          onCancel={() => verdicts.cancel(row)}
-        />
-      );
-    })}
-  </View>
-);
+      })}
+    </View>
+  );
+};
 
 const Live = ({
   connection,
@@ -202,6 +211,8 @@ const Live = ({
   const verdicts = useVerdicts(connection, constellationId);
   const now = useNow(30_000);
   const [opened, setOpened] = useState<ReadonlyMap<string, boolean>>(new Map());
+  const [drafts, setDraft] = useKept(leadDrafts);
+  const kept = constellationKey(connection.hostId, constellationId);
 
   const view = useMemo(
     () => (feed.kind === "live" ? constellationView(feed.source, now, opened) : null),
@@ -235,6 +246,7 @@ const Live = ({
           view={view}
           onToggle={(group, open) => setOpened((m) => new Map(m).set(group, open))}
           verdicts={verdicts}
+          keyOf={(taskId) => taskKey(connection.hostId, constellationId, taskId)}
         />
         {feed.lead === null ? null : <LeadNote lead={feed.lead} now={now} />}
       </ScrollView>
@@ -243,6 +255,7 @@ const Live = ({
           harness={feed.lead?.harness ?? null}
           model={feed.lead?.model ?? null}
           disabled={awayLine(status)}
+          draft={{ text: drafts.get(kept) ?? "", onText: (text) => setDraft(kept, text) }}
           onSend={(text) =>
             connection
               .run((client) => messageLead(client, constellationId, text))

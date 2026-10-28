@@ -16,6 +16,7 @@ import { useVerdicts } from "../constellation/useVerdicts.ts";
 import { messageLead } from "../constellation/verdict.ts";
 import type { HostConnection } from "../runtime/hostConnection.ts";
 import { useHost } from "../runtime/hosts.tsx";
+import { claimChoices, constellationKey, leadDrafts, taskKey, useKept } from "./kept.ts";
 import { claimLeft, type Edge, foldOf, graphLayout, NODE_HEIGHT, NODE_WIDTH } from "./graph.ts";
 import type { Rect } from "./posture.ts";
 
@@ -167,6 +168,9 @@ const Live = ({
   const feed = useConstellation(connection, constellationId);
   const verdicts = useVerdicts(connection, constellationId);
   const now = useNow();
+  const [drafts, setDraft] = useKept(leadDrafts);
+  const [choices, setChoice] = useKept(claimChoices);
+  const kept = constellationKey(connection.hostId, constellationId);
   const source = feed.kind === "live" ? feed.source : null;
 
   const placed = useMemo(
@@ -235,6 +239,10 @@ const Live = ({
                 delivery={delivery}
                 onVerdict={verdicts.send(handed)}
                 onCancel={() => verdicts.cancel(handed)}
+                unsent={choices.get(taskKey(connection.hostId, constellationId, handed.id)) ?? null}
+                onUnsent={(next) =>
+                  setChoice(taskKey(connection.hostId, constellationId, handed.id), next)
+                }
               />
             </View>
           )}
@@ -258,6 +266,7 @@ const Live = ({
           harness={feed.kind === "live" ? (feed.lead?.harness ?? null) : null}
           model={feed.kind === "live" ? (feed.lead?.model ?? null) : null}
           disabled={null}
+          draft={{ text: drafts.get(kept) ?? "", onText: (text) => setDraft(kept, text) }}
           onSend={(text) =>
             connection
               .run((client) => messageLead(client, constellationId, text))

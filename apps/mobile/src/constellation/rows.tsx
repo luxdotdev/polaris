@@ -6,6 +6,7 @@ import { midnight, mobileType } from "@polaris/ui/tokens";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { HandedClaimActions, Checks, type SendVerdict } from "./claim.tsx";
 import type { Delivery } from "./outbox.ts";
+import type { Unsent } from "./unsent.ts";
 import { GateDeps, GroupGlyph, TaskGlyph } from "./glyphs.tsx";
 import type { GroupRow, SecondLine, TaskRow, Tone } from "./model.ts";
 
@@ -131,6 +132,8 @@ export const TaskRowView = ({
   delivery,
   onVerdict,
   onCancel,
+  unsent,
+  onUnsent,
 }: {
   readonly row: TaskRow;
   readonly first: boolean;
@@ -139,6 +142,9 @@ export const TaskRowView = ({
   readonly delivery: Delivery | null;
   readonly onVerdict: SendVerdict;
   readonly onCancel: () => void;
+  /** The claim's unsent choice and answer, kept by the caller (see `HandedClaimActions`). */
+  readonly unsent: Unsent | null;
+  readonly onUnsent: (next: Unsent) => void;
 }) => (
   <View style={[styles.task, !first && styles.divided]}>
     <View style={[styles.rail, last && styles.railEnd]} />
@@ -163,6 +169,8 @@ export const TaskRowView = ({
           delivery={delivery}
           onVerdict={onVerdict}
           onCancel={onCancel}
+          unsent={unsent}
+          onUnsent={onUnsent}
         />
       )}
     </View>
