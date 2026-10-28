@@ -14,6 +14,8 @@
  * Linux builds need `--define FFF_LIBC="gnu"` (or `"musl"`) to pick the library.
  * ast-grep's addon and grammars (the Rules, `apps/daemon/src/rules/`) are
  * embedded the same way, from `@ast-grep/napi-<platform>` and `@ast-grep/lang-*`.
+ * libsodium (sodium-native, the Relay route's crypto) is embedded the same way:
+ * `patches/sodium-native@5.2.0.patch` gives it literal per-platform requires.
  * Betterleaks is a Go binary that can't run from inside `polaris`: it is
  * downloaded at its pinned version (`apps/daemon/src/rules/secrets/pin.ts`),
  * checked against its SHA-256, and listed in the manifest as an executable.

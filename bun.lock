@@ -310,6 +310,9 @@
   "trustedDependencies": [
     "electron",
   ],
+  "patchedDependencies": {
+    "sodium-native@5.2.0": "patches/sodium-native@5.2.0.patch",
+  },
   "overrides": {
     "@types/node": "26.6.3",
   },

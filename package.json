@@ -43,5 +43,8 @@
   ],
   "overrides": {
     "@types/node": "26.6.3"
+  },
+  "patchedDependencies": {
+    "sodium-native@5.2.0": "patches/sodium-native@5.2.0.patch"
   }
 }
