@@ -1,5 +1,5 @@
 Pod::Spec.new do |s|
-  s.name           = 'PolarisWidgets'
+  s.name           = 'PolarisWidgetsBridge'
   s.version        = '1.0.0'
   s.summary        = 'Hands the widget snapshot to the WidgetKit extension'
   s.description    = 'Writes the widget snapshot to the App Group and reloads the timelines'
