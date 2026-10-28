@@ -42,7 +42,11 @@ export const arrangementOf = (posture: Posture, top: Route): Arrangement => {
   if (top.screen === "thread")
     return { kind: "context", first: posture.first, second: posture.second };
 
-  if (top.screen === "constellation") return { kind: "span", division: posture.division };
+  // The graph runs left to right across a vertical fold; across a horizontal one the rail stays.
+  if (top.screen === "constellation")
+    return posture.division.height >= posture.division.width
+      ? { kind: "span", division: posture.division }
+      : SINGLE;
 
   return { kind: "aside", first: posture.first, second: posture.second };
 };
