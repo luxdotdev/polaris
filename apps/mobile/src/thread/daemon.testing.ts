@@ -30,6 +30,8 @@ import {
   TurnDetail,
   TurnId,
   type TurnItem,
+  HostStreamItem,
+  Workspace,
   WorkspaceId,
 } from "@polaris/protocol";
 import { Deferred, Effect, PubSub, Queue, Stream } from "effect";
@@ -187,6 +189,25 @@ export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOption
   };
 
   const handlers = ThreadRpcs.toLayer({
+    subscribeHost: () =>
+      Stream.make(
+        HostStreamItem.cases.Snapshot.make({
+          sequence: Sequence.make(1),
+          workspaces: [
+            new Workspace({
+              id: workspaceId,
+              path: "/repo",
+              name: "polaris",
+              isGitRepo: true,
+              worktreeRoot: "/repo.worktrees",
+              hidden: false,
+              registeredAt: at,
+            }),
+          ],
+          worktrees: [],
+          sessions: [],
+        })
+      ),
     subscribeSession: () => Stream.fromQueue(feed),
     dispatch: ({ command }) =>
       Effect.sync(() => {

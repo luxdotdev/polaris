@@ -13,7 +13,13 @@ import {
   emptyContinuity,
   makeDraftSync,
 } from "@polaris/client/continuity";
-import { Command, type RiskFinding, type SessionId } from "@polaris/protocol";
+import {
+  Command,
+  type RiskFinding,
+  type SessionId,
+  type Workspace,
+  type WorkspaceId,
+} from "@polaris/protocol";
 import { Effect, Exit, Fiber, Stream } from "effect";
 import { composerMode, followUpCommand, submitCommand } from "./composer.ts";
 import { applySessionItem, type SessionFold, summaryHead } from "./fold.ts";
@@ -36,6 +42,10 @@ export interface ThreadState {
 
 export interface ThreadController {
   readonly get: () => ThreadState;
+  /** The Host can steer a Turn in flight. */
+  readonly canSteer: boolean;
+  /** A Workspace's name and path; null when unknown or it couldn't be read. */
+  readonly workspace: (workspaceId: WorkspaceId) => Promise<Workspace | null>;
   readonly subscribe: (listener: () => void) => () => void;
   readonly type: (text: string) => void;
   readonly submit: () => Promise<void>;
@@ -70,7 +80,7 @@ export interface ThreadControllerOptions {
   readonly draftDelayMs?: number;
 }
 
-export const makeThreadController = (
+export const openThread = (
   source: ThreadSource,
   sessionId: SessionId,
   options: ThreadControllerOptions = {}
@@ -231,6 +241,8 @@ export const makeThreadController = (
 
   return {
     get: () => state,
+    canSteer: source.canSteer,
+    workspace: (workspaceId) => run(source.workspace(workspaceId)).catch(() => null),
     subscribe: (listener) => {
       listeners.add(listener);
 

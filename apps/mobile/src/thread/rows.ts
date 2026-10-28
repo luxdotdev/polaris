@@ -35,8 +35,8 @@ export type ThreadRow = RowBase &
         readonly tone: StepTone;
         /** Files it touched, to mark the one a Critical finding is in. */
         readonly paths: ReadonlyArray<string>;
-        /** The first step after a reply or prompt draws no top hairline above its group. */
-        readonly first: boolean;
+        /** The last step of a run of steps, which closes its group with a hairline. */
+        readonly last: boolean;
       }
     | { readonly kind: "error"; readonly text: string }
   );
@@ -59,7 +59,7 @@ const toneOf = (status: "running" | "completed" | "failed" | "declined"): StepTo
 
 const VERBS = { add: "Created", modify: "Edited", delete: "Deleted" } as const;
 
-type Step = Omit<Extract<ThreadRow, { kind: "step" }>, "key" | "turnId" | "index" | "first">;
+type Step = Omit<Extract<ThreadRow, { kind: "step" }>, "key" | "turnId" | "index" | "last">;
 
 const fileStep = (item: Extract<TurnItem, { _tag: "FileChange" }>): Step => {
   const paths = item.changes.map((change) => change.path);
@@ -145,7 +145,6 @@ const openRows = (entry: TurnEntry): ReadonlyArray<ThreadRow> => {
   const { turn } = entry;
   const rows: Array<ThreadRow> = [];
   let step = 0;
-  let afterStep = false;
 
   if (turn.prompt.trim() !== "")
     rows.push({ kind: "prompt", key: `${turn.id}:p`, turnId: turn.id, text: turn.prompt });
@@ -175,20 +174,20 @@ const openRows = (entry: TurnEntry): ReadonlyArray<ThreadRow> => {
         key: `${turn.id}:${id}`,
         turnId: turn.id,
         index: pad(step),
-        first: !afterStep,
+        last: false,
       });
-      afterStep = true;
       continue;
     }
 
-    afterStep = false;
     const text = streamed.get(id) ?? piece.text;
 
     if (text.trim() !== "")
       rows.push({ kind: piece.row, key: `${turn.id}:${id}`, turnId: turn.id, text });
   }
 
-  return rows;
+  return rows.map((row, index) =>
+    row.kind === "step" && rows[index + 1]?.kind !== "step" ? { ...row, last: true } : row
+  );
 };
 
 const earlierRow = (entry: TurnEntry): ThreadRow => ({

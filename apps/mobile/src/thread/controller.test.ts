@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Effect, Predicate } from "effect";
-import { type ThreadController, type ThreadState, makeThreadController } from "./controller.ts";
+import { type ThreadController, type ThreadState, openThread } from "./controller.ts";
 import {
   checkpoint,
   ended,
@@ -13,7 +13,6 @@ import {
   stateChanged,
   summaryAt,
   turn,
-  workspaceId,
 } from "./daemon.testing.ts";
 import { daemonThreadSource } from "./source.ts";
 
@@ -44,10 +43,9 @@ const withThread = (
         const source = daemonThreadSource({
           live: host.live,
           capabilities: options.capabilities ?? ALL,
-          workspacePath: (id) => (id === workspaceId ? "/repo" : null),
         });
 
-        const thread = makeThreadController(source, sessionId, { draftDelayMs: 10 });
+        const thread = openThread(source, sessionId, { draftDelayMs: 10 });
 
         yield* Effect.ensuring(
           run(host, thread),

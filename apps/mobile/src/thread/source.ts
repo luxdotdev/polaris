@@ -13,10 +13,13 @@ import {
   GetRiskSummary,
   MarkRead,
   SaveDraft,
+  HostStreamItem,
   type Sequence,
   SessionStreamItem,
+  SubscribeHost,
   SubscribeSession,
   WatchContinuity,
+  type Workspace,
   WatchRiskSummary,
   type ReadPosition,
   type RiskFinding,
@@ -27,7 +30,7 @@ import {
   RiskSummaryRef,
 } from "@polaris/protocol";
 import { type LiveSource, makeFeed, type SequenceMark } from "@polaris/client/resume";
-import { Data, Effect, Predicate, Stream } from "effect";
+import { Data, Effect, Option, Predicate, Stream } from "effect";
 import { type RpcClient, RpcGroup } from "effect/rpc";
 import type { RpcClientError } from "effect/rpc/RpcClientError";
 
@@ -57,6 +60,8 @@ export interface ThreadSource {
   readonly findings: (
     query: FindingsQuery
   ) => Stream.Stream<ReadonlyArray<RiskFinding>, ThreadFailure>;
+  /** A Workspace's name and path on the Host, read once from the Host's Snapshot. */
+  readonly workspace: (workspaceId: WorkspaceId) => Effect.Effect<Workspace | null, ThreadFailure>;
   /** The Daemon has `session.steer`. */
   readonly canSteer: boolean;
 }
@@ -95,6 +100,7 @@ const isDisconnect = (error: Failed) => Predicate.isTagged(error, "RpcClientErro
 
 /** The RPCs the thread calls; a full `DaemonClient` is one of these. */
 export const ThreadRpcs = RpcGroup.make(
+  SubscribeHost,
   SubscribeSession,
   Dispatch,
   WatchContinuity,
@@ -124,8 +130,6 @@ const markContinuity = ContinuityItem.match<SequenceMark>({
 export interface DaemonThreadOptions {
   readonly live: LiveSource<ThreadClient>;
   readonly capabilities: ReadonlySet<string>;
-  /** A Workspace's path on the Host: a session summary's `repo`. */
-  readonly workspacePath: (workspaceId: WorkspaceId) => string | null;
   /** The summary Review last opened for the session, when the head isn't known. */
   readonly summaryOf?: (sessionId: SessionId) => RiskSummaryId | null;
 }
@@ -136,14 +140,31 @@ const withClient = <A, E extends Failed>(
   use: (client: ThreadClient) => Effect.Effect<A, E>
 ) => Effect.flatMap(live.next(0), ({ client }) => use(client)).pipe(Effect.mapError(failure));
 
+/** The Host's Workspaces from its Snapshot, the first item of its stream. */
+const readWorkspaces = (client: ThreadClient) =>
+  client.subscribeHost({ afterSequence: null }).pipe(
+    Stream.runHead,
+    Effect.map((first) =>
+      Option.match(first, {
+        onNone: (): ReadonlyArray<Workspace> => [],
+        onSome: (item) =>
+          HostStreamItem.match(item, {
+            Snapshot: (snap): ReadonlyArray<Workspace> => snap.workspaces,
+            Event: (): ReadonlyArray<Workspace> => [],
+            Synchronized: (): ReadonlyArray<Workspace> => [],
+          }),
+      })
+    )
+  );
+
 /** The summary already on the Host for the query's head, else the one Review recorded. */
 const cachedSummary = (
   client: ThreadClient,
   options: DaemonThreadOptions,
-  query: FindingsQuery
+  query: FindingsQuery,
+  repo: string | null
 ): Effect.Effect<RiskSummaryId | null, Failed> => {
   const recorded = options.summaryOf?.(query.sessionId) ?? null;
-  const repo = options.workspacePath(query.workspaceId);
 
   if (query.head === null || repo === null) return Effect.succeed(recorded);
 
@@ -158,8 +179,25 @@ const cachedSummary = (
 export const daemonThreadSource = (options: DaemonThreadOptions): ThreadSource => {
   const { live, capabilities } = options;
   const has = (capability: string) => capabilities.has(capability);
+  let workspaces: Promise<ReadonlyArray<Workspace>> | null = null;
+
+  const workspace = (workspaceId: WorkspaceId) =>
+    Effect.gen(function* () {
+      workspaces ??= Effect.runPromise(withClient(live, readWorkspaces)).catch((error) => {
+        workspaces = null;
+        throw error;
+      });
+
+      const all = yield* Effect.tryPromise({
+        try: () => workspaces ?? Promise.resolve([]),
+        catch: () => new ThreadFailure({ message: "The host's workspaces didn't load" }),
+      });
+
+      return all.find((w) => w.id === workspaceId) ?? null;
+    });
 
   return {
+    workspace,
     canSteer: has("session.steer"),
     session: (sessionId) =>
       Stream.unwrap(
@@ -205,13 +243,17 @@ export const daemonThreadSource = (options: DaemonThreadOptions): ThreadSource =
     findings: (query) =>
       has("review.risk-summary")
         ? Stream.unwrap(
-            withClient(live, (client) =>
-              Effect.map(cachedSummary(client, options, query), (summaryId) =>
-                summaryId === null
-                  ? Stream.empty
-                  : client["review.watchRiskSummary"]({ summaryId }).pipe(
-                      Stream.map((summary) => summary.findings)
-                    )
+            Effect.flatMap(workspace(query.workspaceId), (found) =>
+              withClient(live, (client) =>
+                Effect.map(
+                  cachedSummary(client, options, query, found?.path ?? null),
+                  (summaryId) =>
+                    summaryId === null
+                      ? Stream.empty
+                      : client["review.watchRiskSummary"]({ summaryId }).pipe(
+                          Stream.map((summary) => summary.findings)
+                        )
+                )
               )
             )
           ).pipe(Stream.mapError(failure))
