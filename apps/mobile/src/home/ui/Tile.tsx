@@ -3,11 +3,14 @@
  * doing on it, the raised hand when it needs you, the dither while it works, a dot when done.
  */
 import type { SessionState } from "@polaris/protocol";
+import { DITHER_EXIT_MS } from "@polaris/ui/dither";
+import { useExitPresence } from "@polaris/ui/presence";
 import { midnight } from "@polaris/ui/tokens";
 import { Image, type ImageSourcePropType, StyleSheet, View } from "react-native";
 import claudeWash from "../../../assets/tiles/claude.png";
 import codexWash from "../../../assets/tiles/codex.png";
-import { ConstellationGlyph, NeedsYouGlyph, WorkingDither } from "./glyphs.tsx";
+import { Dither } from "../../dither/index.ts";
+import { ConstellationGlyph, NeedsYouGlyph } from "./glyphs.tsx";
 
 interface Hue {
   readonly color: string;
@@ -27,6 +30,9 @@ const hueOf = (harness: string): Hue =>
 
 const WORKING: ReadonlySet<SessionState> = new Set(["starting", "working"]);
 
+/** As the Desktop App's glyph in a tile over 28px (HarnessMark). */
+const GLYPH = 16;
+
 export const SessionTile = ({
   harness,
   state,
@@ -38,6 +44,9 @@ export const SessionTile = ({
 }) => {
   const hue = hueOf(harness);
   const done = !needsYou && !WORKING.has(state);
+  const working = !needsYou && state === "working";
+  // One dither through Working and its 200ms exit, so a quick return resumes rather than replays.
+  const leaving = useExitPresence(working, DITHER_EXIT_MS);
 
   return (
     <View
@@ -51,9 +60,7 @@ export const SessionTile = ({
         <Image source={hue.wash} style={StyleSheet.absoluteFill} resizeMode="cover" />
       )}
       {needsYou ? <NeedsYouGlyph /> : null}
-      {!needsYou && WORKING.has(state) ? (
-        <WorkingDither color={hue.color} still={state === "starting"} />
-      ) : null}
+      {!needsYou && state === "starting" ? <Dither color={hue.color} size={GLYPH} dim /> : null}
       {done ? (
         <View
           style={[
@@ -61,6 +68,11 @@ export const SessionTile = ({
             { backgroundColor: state === "failed" ? midnight.failed : midnight.textDefault },
           ]}
         />
+      ) : null}
+      {working || leaving ? (
+        <View style={styles.overlay}>
+          <Dither color={hue.color} size={GLYPH} moving leaving={!working} />
+        </View>
       ) : null}
     </View>
   );
@@ -84,4 +96,5 @@ const styles = StyleSheet.create({
   },
   constellation: { backgroundColor: midnight.surfaceSunken, borderColor: midnight.hairline },
   dot: { width: 7, height: 7, borderRadius: 999 },
+  overlay: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center" },
 });

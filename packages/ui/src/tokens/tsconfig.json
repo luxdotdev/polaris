@@ -4,5 +4,5 @@
     "lib": ["ES2024"],
     "types": []
   },
-  "include": ["index.ts", "midnight.ts", "mobile-type.ts"]
+  "include": ["index.ts", "midnight.ts", "mobile-type.ts", "../components/polaris/dither/cells.ts"]
 }

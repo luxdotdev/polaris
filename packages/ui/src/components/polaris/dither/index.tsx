@@ -3,11 +3,12 @@ import type { HTMLAttributes } from "react";
 import { cn } from "../../../lib/cn";
 import type { CssVars } from "../../../lib/css";
 import { hueVar, type TintHue } from "../../../lib/hue";
-import { DITHER_FRAMES, ditherStillMask, ditherStripMask } from "./frames";
+import { DITHER_FRAMES } from "./cells";
+import { ditherStillMask, ditherStripMask } from "./frames";
 
 export { DitherField, type DitherFieldProps } from "./field";
 
-export { DITHER_CELL, DITHER_EXIT_MS, DITHER_FRAME_MS, DITHER_FRAMES, ditherFrame } from "./frames";
+export { DITHER_CELL, DITHER_EXIT_MS, DITHER_FRAME_MS, DITHER_FRAMES, ditherFrame } from "./cells";
 
 export interface DitherProps extends HTMLAttributes<HTMLSpanElement> {
   /** The hue it shimmers in: the Harness's, or Starlight for Polaris's own work. */

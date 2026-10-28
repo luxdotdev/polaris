@@ -1,12 +1,9 @@
 /**
- * Home's pixel glyphs drawn with Views (no SVG on React Native here): the needs you hand, the
- * Working dither, section marks and the constellation mark, from Paper H4's vectors.
+ * Home's pixel glyphs drawn with Views: the needs you hand, section marks and the constellation
+ * mark, from Paper H4's vectors. The Working dither is src/dither.
  */
 import { midnight } from "@polaris/ui/tokens";
-import { memo } from "react";
 import { View } from "react-native";
-import { ditherFrame } from "./dither.ts";
-import { useDitherFrame, useReduceMotion } from "./motion.ts";
 
 type Rect = readonly [x: number, y: number, width: number, height: number, alpha?: number];
 
@@ -66,30 +63,6 @@ const HAND: ReadonlyArray<Rect> = [
 export const NeedsYouGlyph = () => (
   <Pixels rects={HAND} size={18} unit={18 / 24} color={midnight.needsYou} />
 );
-
-/** The Working dither in the Harness's hue; still under Reduce Motion or when `still`. */
-export const WorkingDither = memo(function WorkingDither({
-  color,
-  size = 20,
-  still = false,
-}: {
-  readonly color: string;
-  readonly size?: number;
-  readonly still?: boolean;
-}) {
-  const reduce = useReduceMotion();
-  const frame = useDitherFrame(still || reduce);
-  const cells = ditherFrame(size, frame);
-
-  return (
-    <Pixels
-      rects={cells.map((cell) => [cell.x, cell.y, 2, 2, cell.alpha] as const)}
-      size={size}
-      unit={1}
-      color={color}
-    />
-  );
-});
 
 const NEEDS_YOU_MARK: ReadonlyArray<Rect> = [
   [4, 0, 2, 10, 0.7],
