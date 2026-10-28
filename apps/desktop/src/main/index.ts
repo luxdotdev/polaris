@@ -1,3 +1,4 @@
+import { writeSecret } from "./secretClipboard.ts";
 import { createMainPredictionPlacement } from "./prediction/placement.ts";
 import { PredictionSettings } from "./prediction/preferences.ts";
 import { PredictionOutcomes, outcomeLogPath } from "./prediction/outcomes.ts";
@@ -455,6 +456,7 @@ const start = async () => {
           ? mkdtempSync(join(tmpdir(), "polaris-proof-"))
           : null,
       writeClipboard: async (text) => clipboard.writeText(text),
+      writeSecretClipboard: (text) => writeSecret(clipboard, text),
       // The one main window; a hidden one (smoke runs) has no focus to find it by.
       editAction: (action) =>
         (BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0])?.webContents[

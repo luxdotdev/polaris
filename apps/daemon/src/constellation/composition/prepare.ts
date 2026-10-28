@@ -18,7 +18,7 @@ import { selectWorker } from "../../harness/constellation/index.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { HarnessRegistry } from "../../services.ts";
 import { finding, refusal } from "../decision.ts";
-import { exceedsCeiling } from "../permissionCeiling.ts";
+import { exceedsCeiling, workerMode } from "../permissionCeiling.ts";
 import { WorktreeSetupService, type WorktreeSetupUntrusted } from "../setup/index.ts";
 import { startupSetupIntent } from "./startupSetup.ts";
 import type { WorkerPreparation } from "../transfers/prepareWorkers.ts";
@@ -101,7 +101,7 @@ export const prepareSession = Effect.fn("Constellation.prepareSession")(function
       worktreeId: null,
       title: `${input.task.id} · ${input.task.title}`,
       state: "dormant",
-      permissionMode: ceiling ?? "supervised",
+      permissionMode: workerMode(ceiling),
       parentSessionId: null,
       forkedFromTurnId: null,
       harnessCursor: null,

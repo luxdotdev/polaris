@@ -14,10 +14,15 @@
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         }
+      },
+      "appleTeamId": "HWD6374DUX",
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.dev.lux.polaris"]
       }
     },
     "plugins": [
       "expo-secure-store",
+      "@bacons/apple-targets",
       [
         "expo-camera",
         {

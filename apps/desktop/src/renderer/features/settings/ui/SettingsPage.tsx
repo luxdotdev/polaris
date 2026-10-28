@@ -13,6 +13,7 @@ import {
   ContrastIcon,
   GridIcon,
   MicrophoneIcon,
+  MobileIcon,
   Kbd,
   PaperclipIcon,
   PixelPolarisIcon,
@@ -27,6 +28,7 @@ import { useShellActions } from "../../../shell/hooks.ts";
 import { SECTION_GROUPS, sectionInfo } from "../model/sections.ts";
 import { useSettings } from "../store.ts";
 import { AttachmentsPage } from "../../attachments/index.ts";
+import { DevicesPage } from "../../devices/index.ts";
 import { ExtensionsPage } from "../../extensions/index.ts";
 import { useUpdates } from "../updates/store.ts";
 import { AboutPage } from "./AboutPage.tsx";
@@ -51,6 +53,7 @@ const ICONS: Readonly<Record<SettingsSection, ReactNode>> = {
   hosts: <ServerIcon />,
   attachments: <PaperclipIcon />,
   extensions: <PlugIcon />,
+  devices: <MobileIcon />,
   voice: <MicrophoneIcon />,
   reviewer: <AsteriskIcon />,
   github: <UsersIcon />,
@@ -178,6 +181,8 @@ const Page = ({ route }: { readonly route: SettingsRoute }) => {
       return <AttachmentsPage />;
     case "extensions":
       return <ExtensionsPage />;
+    case "devices":
+      return <DevicesPage />;
     case "voice":
       return <VoicePage />;
     case "reviewer":

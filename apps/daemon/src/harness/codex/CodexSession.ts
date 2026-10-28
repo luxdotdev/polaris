@@ -57,6 +57,7 @@ import { CodexProcesses, terminateProcess } from "./processes.ts";
 import { CodexSteers } from "./steers.ts";
 import { CodexSubagents } from "./subagents.ts";
 import { requestCompat } from "./compat.ts";
+import { collaborationFor, setCollaboration } from "./collaboration.ts";
 import { threadSandboxing } from "./confinement.ts";
 import { polarisInstructions } from "../../constellation/skills/preamble.ts";
 import { type HarnessCall, harnessCallOf } from "./slash.ts";
@@ -248,6 +249,9 @@ export const openSession = (
 
     if (thread === null) return yield* codexError("Unexpected thread/start response from Codex");
     const threadId = thread.thread.id;
+    const threadModel = thread.model ?? null;
+    /** The collaboration mode the thread was last left in. */
+    let collaboration = thread.collaborationMode?.mode ?? "default";
     yield* logStart(
       options.sessionId,
       `Codex thread ${threadId} ${options.resumeCursor === null ? "started" : "resumed"}; ready`
@@ -669,6 +673,27 @@ export const openSession = (
       serviceTier: options.serviceTier ?? null,
     };
 
+    /** Plan mode (or leaving it) before a Turn; failing leaves the Turn supervised, which still asks. */
+    const applyCollaboration = Effect.suspend(() => {
+      const mode = collaborationFor(permissionMode, options.readOnly);
+      const model = chosen.model ?? threadModel;
+
+      if ((mode === "default" && collaboration === "default") || model === null) return Effect.void;
+
+      return setCollaboration(config.appServer, config.clientVersion, {
+        threadId,
+        collaborationMode: {
+          mode,
+          settings: { model, reasoning_effort: chosen.effort, developer_instructions: null },
+        },
+      }).pipe(
+        Effect.andThen(Effect.sync(() => (collaboration = mode))),
+        Effect.catch((error) =>
+          Effect.logWarning(`codex: couldn't set the ${mode} collaboration mode`, error.message)
+        )
+      );
+    });
+
     /** Binds the Codex turn a request started to the Polaris Turn, and announces it. */
     const bindStarted = (codexTurnId: string, turnId: TurnId, prompt: string) => {
       if (!turns.has(codexTurnId)) turns.set(codexTurnId, turnId);
@@ -705,6 +730,7 @@ export const openSession = (
           return yield* codexError("A Turn is already in progress; steer or interrupt it");
         const policy = policyFor(permissionMode, options.readOnly);
         pendingLocalTurn = { turnId, prompt };
+        yield* applyCollaboration;
         const call = harnessCallOf(prompt, threadId);
 
         if (call !== null) return yield* startHarnessCall(turnId, prompt, call);

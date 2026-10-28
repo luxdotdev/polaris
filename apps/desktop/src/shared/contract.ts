@@ -47,6 +47,7 @@ import {
 } from "./constellationContract.ts";
 import { ResourceRequestInputs } from "./resourcesContract.ts";
 import { RemoteAccessRequestInputs } from "./remoteAccessContract.ts";
+import { LinkedDevicesRequestInputs } from "./linkedDevicesContract.ts";
 import { VoiceRequestInputs } from "./voiceContract.ts";
 import { GitHubRequestInputs, GitHubSubscriptionInputs } from "./githubContract.ts";
 import { GitRequestInputs, GitSubscriptionInputs } from "./gitContract.ts";
@@ -443,6 +444,8 @@ export const RequestInputs = {
    */
   "machines.openSsh": onHost({}),
   "clipboard.write": Schema.Struct({ text: Schema.String }),
+  /** A secret (a link string): cleared after a minute if it is still on the clipboard. */
+  "clipboard.writeSecret": Schema.Struct({ text: Schema.String }),
   /** The Edit menu's own action on the focused field (a context menu's Cut, Copy, Paste). */
   "edit.run": Schema.Struct({ action: Schema.Literals(["cut", "copy", "paste", "selectAll"]) }),
   /** Windows: the app menu, dropped from the title bar's lockup. */
@@ -533,6 +536,7 @@ export const RequestInputs = {
   ...ConstellationStatsInputs,
   ...ResourceRequestInputs,
   ...RemoteAccessRequestInputs,
+  ...LinkedDevicesRequestInputs,
   ...VoiceRequestInputs,
 } as const;
 

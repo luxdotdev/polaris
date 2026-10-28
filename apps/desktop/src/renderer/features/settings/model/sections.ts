@@ -148,6 +148,13 @@ const GROUPS: ReadonlyArray<GroupSource> = [
         ],
       },
       {
+        id: "devices",
+        title: "Devices",
+        blurb:
+          "Your phone, linked once, reaches every host below through the Polaris Relay. The relay carries only encrypted traffic; unlinking a device cuts it off at once.",
+        keywords: ["phone", "mobile", "link", "qr", "relay", "remote", "unlink", "iphone"],
+      },
+      {
         id: "voice",
         title: "Voice",
         blurb:

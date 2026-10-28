@@ -27,17 +27,20 @@ export interface CodexPolicy {
  *
  * | mode        | approvalPolicy | approvalsReviewer | sandbox            |
  * |-------------|----------------|-------------------|--------------------|
+ * | plan        | untrusted      | user              | read-only          |
  * | supervised  | untrusted      | user              | read-only          |
  * | auto-edits  | on-request     | user              | workspace-write    |
  * | auto        | on-request     | auto_review       | workspace-write    |
  * | full-access | never          | user              | danger-full-access |
  *
- * Same table as T3 Code's runtime modes (design followed, no code copied).
+ * Same table as T3 Code's runtime modes (design followed, no code copied). `plan` also sets
+ * Codex's plan collaboration mode (`collaboration.ts`).
  */
 export const policyFor = (mode: PermissionMode, readOnly = false): CodexPolicy => {
   if (readOnly) return { approvalPolicy: "never", approvalsReviewer: "user", sandbox: "read-only" };
 
   switch (mode) {
+    case "plan":
     case "supervised":
       return { approvalPolicy: "untrusted", approvalsReviewer: "user", sandbox: "read-only" };
     case "auto-edits":

@@ -109,7 +109,10 @@ try {
     const { value, done } = await reader.read();
 
     if (done) throw new Error("Metro exited");
-    text += new TextDecoder().decode(value);
+    const chunk = new TextDecoder().decode(value);
+
+    process.stderr.write(chunk);
+    text += chunk;
     line = text.split("\n").find((l) => l.includes(MARKER));
   }
 

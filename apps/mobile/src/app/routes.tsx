@@ -1,43 +1,31 @@
 /**
- * The screens each route draws. Thread (S2) and New agent session (S5) replace their
- * stand-ins here when they land; Link this iPhone is `link/LinkScreen.tsx`.
+ * The screens each route draws. The thread is S2's, New agent session is S5's sheet, and
+ * Link this iPhone is `link/LinkScreen.tsx`.
  */
+import { SessionId } from "@polaris/protocol";
 import { midnight, mobileType } from "@polaris/ui/tokens";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BackBar } from "./BackBar.tsx";
-
-const StandIn = ({
-  title,
-  detail,
-  onBack,
-}: {
-  readonly title: string;
-  readonly detail: string;
-  readonly onBack: () => void;
-}) => {
-  const insets = useSafeAreaInsets();
-
-  return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <BackBar label="Sessions" onBack={onBack} />
-      <View style={styles.body}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.detail} selectable>
-          {detail}
-        </Text>
-      </View>
-    </View>
-  );
-};
+import { NewSessionSheet as NewAgentSessionSheet } from "../newSession/index.ts";
+import { ThreadScreen } from "../thread/index.ts";
+import { useNavigation } from "./navigation.tsx";
 
 export const ThreadRoute = (props: {
   readonly hostId: string;
   readonly sessionId: string;
   readonly onBack: () => void;
-}) => <StandIn title="Agent session" detail={props.sessionId} onBack={props.onBack} />;
+}) => (
+  <ThreadScreen
+    hostId={props.hostId}
+    sessionId={SessionId.make(props.sessionId)}
+    onBack={props.onBack}
+  />
+);
 
 export { ConstellationScreen as ConstellationRoute } from "../constellation/index.ts";
+
+/** Review (M5) of a Turn; a null `turnId` reviews the latest one that ended. */
+export { ReviewScreen as ReviewRoute } from "../review/index.ts";
 
 export const ReviewTab = () => {
   const insets = useSafeAreaInsets();
@@ -51,16 +39,17 @@ export const ReviewTab = () => {
   );
 };
 
+/** The New agent session sheet; a started session opens its thread. */
 export const NewSessionSheet = (props: { readonly onClose: () => void }) => {
-  const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
+  const { workspaceId } = navigation.newSession;
 
   return (
-    <View style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]}>
-      <Text style={styles.title}>New agent session</Text>
-      <Pressable accessibilityRole="button" onPress={props.onClose}>
-        <Text style={styles.detail}>Close</Text>
-      </Pressable>
-    </View>
+    <NewAgentSessionSheet
+      onClose={props.onClose}
+      {...(workspaceId === null ? {} : { workspaceId })}
+      onStarted={(hostId, sessionId) => navigation.push({ screen: "thread", hostId, sessionId })}
+    />
   );
 };
 
@@ -70,15 +59,4 @@ const styles = StyleSheet.create({
   large: { ...mobileType.largeTitle, color: midnight.textStrong },
   title: { ...mobileType.title, color: midnight.textStrong },
   detail: { ...mobileType.footnote, color: midnight.textSubtle },
-  sheet: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    padding: 20,
-    gap: 12,
-    backgroundColor: midnight.surfaceRaised,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-  },
 });

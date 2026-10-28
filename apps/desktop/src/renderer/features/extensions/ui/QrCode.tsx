@@ -9,7 +9,18 @@ import { encode } from "uqr";
 const pathOf = (data: ReadonlyArray<ReadonlyArray<boolean>>) =>
   data.flatMap((row, y) => row.flatMap((dark, x) => (dark ? [`M${x} ${y}h1v1h-1z`] : []))).join("");
 
-export const QrCode = ({ text, size }: { readonly text: string; readonly size: number }) => {
+export const QrCode = ({
+  text,
+  size,
+  label = "Pairing QR code",
+  fallback = "Copy the pairing string instead.",
+}: {
+  readonly text: string;
+  readonly size: number;
+  readonly label?: string;
+  /** Said when `text` is too long for a QR code. */
+  readonly fallback?: string;
+}) => {
   const encoded = useMemo(() => {
     try {
       const qr = encode(text, { border: 0 });
@@ -23,7 +34,7 @@ export const QrCode = ({ text, size }: { readonly text: string; readonly size: n
   if (encoded === null)
     return (
       <p className="text-caption text-text-subtle shrink-0" style={{ width: size }}>
-        Too long for a QR code. Copy the pairing string instead.
+        Too long for a QR code. {fallback}
       </p>
     );
   const { path, modules } = encoded;
@@ -32,7 +43,7 @@ export const QrCode = ({ text, size }: { readonly text: string; readonly size: n
     <div className="rounded-row shrink-0 bg-white p-2 shadow-[inset_0_0_0_1px_#0000000f]">
       <svg
         role="img"
-        aria-label="Pairing QR code"
+        aria-label={label}
         width={size}
         height={size}
         viewBox={`0 0 ${modules} ${modules}`}

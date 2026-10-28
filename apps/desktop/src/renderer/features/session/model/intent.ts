@@ -6,6 +6,7 @@
 import type {
   ApprovalRequest,
   AttachmentId,
+  Capability,
   Command,
   PermissionMode,
   RequestId,
@@ -184,11 +185,18 @@ export const PERMISSION_MODES: ReadonlyArray<{
   readonly label: string;
   readonly detail: string;
 }> = [
+  { mode: "plan", label: "Plan", detail: "Reads and plans, asks before any edit" },
   { mode: "supervised", label: "Supervised", detail: "Asks before edits and commands" },
   { mode: "auto-edits", label: "Auto edits", detail: "Edits freely, asks before commands" },
   { mode: "auto", label: "Auto", detail: "Asks only for risky actions" },
   { mode: "full-access", label: "Full access", detail: "Never asks" },
 ];
+
+/** The modes a Host offers: Plan needs `session.plan-mode`. */
+export const permissionModesOn = (capabilities: ReadonlyArray<Capability>) =>
+  capabilities.includes("session.plan-mode")
+    ? PERMISSION_MODES
+    : PERMISSION_MODES.filter((p) => p.mode !== "plan");
 
 export const permissionLabel = (mode: PermissionMode): string =>
   PERMISSION_MODES.find((p) => p.mode === mode)?.label ?? mode;

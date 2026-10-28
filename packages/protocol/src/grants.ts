@@ -254,12 +254,16 @@ export const accessFor = (rpc: string, command: string | null) =>
     ? { what: `dispatch:${command ?? ""}`, access: commandAccess(command ?? "") }
     : { what: rpc, access: rpcAccess(rpc) };
 
+/** A `supervised` or `plan` session asks before every action; the others approve some themselves. */
+const asksForEverything = (permissionMode: string | null) =>
+  permissionMode === "supervised" || permissionMode === "plan";
+
 /**
  * A session that is not supervised approves for itself, so starting one is also
  * approving: an Extension needs `approve` on top of `start` (ADR 0075).
  */
 const alsoApproves = (rpc: string, command: string | null, permissionMode: string | null) =>
-  rpc === "dispatch" && command === "StartSession" && permissionMode !== "supervised";
+  rpc === "dispatch" && command === "StartSession" && !asksForEverything(permissionMode);
 
 /** Apply inside the commit decision, using the session's current permission mode. */
 export const decideTurnAccess = (
@@ -267,7 +271,7 @@ export const decideTurnAccess = (
   command: Command,
   permissionMode: string | null
 ): NotGranted | null => {
-  if (grant === null || permissionMode === null || permissionMode === "supervised") return null;
+  if (grant === null || permissionMode === null || asksForEverything(permissionMode)) return null;
 
   if (!Command.isAnyOf(["SendTurn", "Steer", "Continue", "Retry"])(command)) return null;
 

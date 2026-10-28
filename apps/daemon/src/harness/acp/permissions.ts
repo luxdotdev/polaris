@@ -8,6 +8,7 @@ import * as P from "./protocol.ts";
 
 /** Tool kinds each permission mode lets through without asking. */
 const AUTO_ALLOWED: Record<PermissionMode, ReadonlySet<P.ToolKind>> = {
+  plan: new Set(["read", "search", "think"]),
   supervised: new Set(["read", "search", "think"]),
   "auto-edits": new Set(["read", "search", "think", "edit", "move"]),
   auto: new Set(["read", "search", "think", "edit", "move", "execute", "fetch"]),

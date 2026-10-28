@@ -5,10 +5,10 @@
  *   POLARIS_E2E_CODEX=1 bun test apps/daemon/src/harness/codex/e2e.test.ts
  */
 import { expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SessionId, TurnId, TurnItem } from "@polaris/protocol";
+import { ApprovalDecision, SessionId, TurnId, TurnItem } from "@polaris/protocol";
 import { Effect, Stream } from "effect";
 import { HarnessEvent } from "../HarnessDriver.ts";
 import { defaultStateFile, stopAppServer } from "./AppServer.ts";
@@ -88,4 +88,68 @@ test.skipIf(!enabled)(
     }
   },
   180_000
+);
+
+test.skipIf(!enabled)(
+  "a real Codex session in plan mode plans without editing",
+  async () => {
+    const repo = mkdtempSync(join(tmpdir(), "polaris-codex-plan-e2e-"));
+    const socketDir = mkdtempSync(shortTemp("pcx-"));
+    await Bun.$`git init -q && git commit -q --allow-empty -m init`.cwd(repo);
+    await Bun.write(join(repo, "README.md"), "# Greeter\n\nPrints a greeting.\n");
+
+    try {
+      const program = Effect.gen(function* () {
+        const driver = yield* makeCodexDriver({ socketPath: join(socketDir, "s.sock") });
+
+        const session = yield* driver.open({
+          sessionId: SessionId.make("e2e-plan"),
+          cwd: repo,
+          permissionMode: "plan",
+          model: null,
+          effort: null,
+          resumeCursor: null,
+        });
+
+        yield* session.sendTurn({
+          turnId: TurnId.make("turn-plan"),
+          prompt: "Create greeting.txt containing the word hello.",
+          attachments: [],
+          model: null,
+          effort: "low",
+        });
+
+        const events = yield* session.events.pipe(
+          Stream.tap((e) =>
+            HarnessEvent.$is("ApprovalRequested")(e)
+              ? session.respond(e.requestId, ApprovalDecision.cases.Deny.make({ reason: null }))
+              : Effect.void
+          ),
+          Stream.takeUntil(HarnessEvent.$is("TurnEnded")),
+          Stream.runCollect
+        );
+
+        return Array.from(events);
+      });
+
+      const events = await Effect.runPromise(Effect.scoped(program));
+
+      const reply = events
+        .filter(HarnessEvent.$is("ItemCompleted"))
+        .flatMap(({ item }) => (TurnItem.guards.AssistantMessage(item) ? [item.text] : []));
+
+      expect(events.find(HarnessEvent.$is("TurnEnded"))).toMatchObject({ status: "completed" });
+      expect(existsSync(join(repo, "greeting.txt"))).toBe(false);
+      // Codex's plan collaboration mode, not only the read-only sandbox, kept it from editing.
+      expect(reply.join("\n")).toMatch(/plan mode/i);
+    } finally {
+      const socketPath = join(socketDir, "s.sock");
+      await Effect.runPromise(
+        stopAppServer({ stateFile: defaultStateFile(socketPath), socketPath })
+      );
+      rmSync(repo, { recursive: true, force: true });
+      rmSync(socketDir, { recursive: true, force: true });
+    }
+  },
+  240_000
 );
