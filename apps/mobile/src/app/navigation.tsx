@@ -4,12 +4,9 @@
  */
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
 
-export type Route =
-  | { readonly screen: "tabs" }
-  | { readonly screen: "hosts" }
-  | { readonly screen: "thread"; readonly hostId: string; readonly sessionId: string }
-  | { readonly screen: "constellation"; readonly hostId: string; readonly constellationId: string }
-  | { readonly screen: "link" };
+import type { Route } from "./route.ts";
+
+export type { Route };
 
 /** The tabs under the stack; Hosts is a pushed screen, not one of them. */
 export type HomeTab = "sessions" | "review";

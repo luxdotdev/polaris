@@ -2,7 +2,7 @@
  * The app's deep links (scheme `polaris`, app.json): what the widgets open. `polaris://home`
  * opens Home; `polaris://session/<hostId>/<sessionId>` opens that agent session.
  */
-import type { Route } from "../app/navigation.tsx";
+import type { Route } from "../app/route.ts";
 
 export const HOME_LINK = "polaris://home";
 
