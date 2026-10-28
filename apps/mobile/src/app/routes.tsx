@@ -1,6 +1,6 @@
 /**
- * The screens each route draws. Link this iPhone (R4) replaces its stand-in here when it lands;
- * the thread is S2's and New agent session is S5's sheet.
+ * The screens each route draws. The thread is S2's, New agent session is S5's sheet, and
+ * Link this iPhone is `link/LinkScreen.tsx`.
  */
 import { SessionId } from "@polaris/protocol";
 import { midnight, mobileType } from "@polaris/ui/tokens";
@@ -8,32 +8,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NewSessionSheet as NewAgentSessionSheet } from "../newSession/index.ts";
 import { ThreadScreen } from "../thread/index.ts";
-import { BackBar } from "./BackBar.tsx";
 import { useNavigation } from "./navigation.tsx";
-
-const StandIn = ({
-  title,
-  detail,
-  onBack,
-}: {
-  readonly title: string;
-  readonly detail: string;
-  readonly onBack: () => void;
-}) => {
-  const insets = useSafeAreaInsets();
-
-  return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <BackBar label="Sessions" onBack={onBack} />
-      <View style={styles.body}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.detail} selectable>
-          {detail}
-        </Text>
-      </View>
-    </View>
-  );
-};
 
 export const ThreadRoute = (props: {
   readonly hostId: string;
@@ -51,14 +26,6 @@ export { ConstellationScreen as ConstellationRoute } from "../constellation/inde
 
 /** Review (M5) of a Turn; a null `turnId` reviews the latest one that ended. */
 export { ReviewScreen as ReviewRoute } from "../review/index.ts";
-
-export const LinkRoute = (props: { readonly onDone: () => void }) => (
-  <StandIn
-    title="Link this iPhone"
-    detail="Open Polaris on your Mac, then Settings → Devices."
-    onBack={props.onDone}
-  />
-);
 
 export const ReviewTab = () => {
   const insets = useSafeAreaInsets();

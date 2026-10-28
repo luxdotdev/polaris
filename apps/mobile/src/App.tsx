@@ -11,7 +11,6 @@ import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-cont
 import { NavigationProvider, useNavigation } from "./app/navigation.tsx";
 import {
   ConstellationRoute,
-  LinkRoute,
   NewSessionSheet,
   ReviewRoute,
   ReviewTab,
@@ -21,6 +20,8 @@ import { TabBar } from "./app/TabBar.tsx";
 import { FollowedHostsProvider } from "./home/feed/useFollowedHosts.ts";
 import { HomeScreen } from "./home/HomeScreen.tsx";
 import { HostsScreen } from "./hosts/HostsScreen.tsx";
+import { LinkScreen } from "./link/LinkScreen.tsx";
+import { RelayProvider, useRelay } from "./relay/RelayProvider.tsx";
 import { runSelfCheck } from "./runtime/selfCheck.ts";
 import { HostsProvider } from "./runtime/hosts.tsx";
 import { useWidgetLinks } from "./widgets/useWidgetLinks.ts";
@@ -67,12 +68,23 @@ const Tabs = () => {
 
 const Screen = () => {
   const navigation = useNavigation();
+  const relay = useRelay();
+  const [first] = relay.hosts;
+  const linkedTo = first === undefined ? null : { name: first.hostName, onUnlink: relay.unlink };
+
+  // A release build has no other route to a Host, so a fresh phone links first.
+  if (!__DEV__ && relay.loaded && first === undefined)
+    return <LinkScreen onLinked={() => undefined} />;
 
   return Match.value(navigation.top).pipe(
     Match.discriminatorsExhaustive("screen")({
       tabs: () => <Tabs />,
       hosts: () => (
-        <HostsScreen onBack={navigation.back} onLink={() => navigation.push({ screen: "link" })} />
+        <HostsScreen
+          onBack={navigation.back}
+          onLink={() => navigation.push({ screen: "link" })}
+          linkedTo={linkedTo}
+        />
       ),
       thread: ({ hostId, sessionId }) => (
         <ThreadRoute hostId={hostId} sessionId={sessionId} onBack={navigation.back} />
@@ -92,7 +104,7 @@ const Screen = () => {
           onBack={navigation.back}
         />
       ),
-      link: () => <LinkRoute onDone={navigation.back} />,
+      link: () => <LinkScreen onLinked={navigation.back} onCancel={navigation.back} />,
     })
   );
 };
@@ -128,12 +140,14 @@ export const App = () => {
     <SafeAreaProvider>
       <StatusBar style="light" />
       <HostsProvider>
-        <FollowedHostsProvider>
-          <WidgetSync />
-          <NavigationProvider>
-            <Shell />
-          </NavigationProvider>
-        </FollowedHostsProvider>
+        <RelayProvider>
+          <FollowedHostsProvider>
+            <WidgetSync />
+            <NavigationProvider>
+              <Shell />
+            </NavigationProvider>
+          </FollowedHostsProvider>
+        </RelayProvider>
       </HostsProvider>
     </SafeAreaProvider>
   );

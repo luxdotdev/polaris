@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { Effect, Layer, Option, Redacted } from "effect";
 import { shortTemp } from "../platform/testing.ts";
 import { CommandRunner } from "../service/CommandRunner.ts";
-import { fileSecrets, keychainSecrets } from "./index.ts";
+import { fileSecrets, HostSecrets, keychainSecrets } from "./index.ts";
 
 const dirs: Array<string> = [];
 
@@ -135,3 +135,23 @@ test.skipIf(process.platform !== "darwin")(
     }
   }
 );
+
+// Test Daemons (the Mobile App's relay tests) must never write to the user's Keychain.
+test("POLARIS_SECRETS=file keeps HostSecrets in a file, on macOS too", async () => {
+  const before = process.env.POLARIS_SECRETS;
+  process.env.POLARIS_SECRETS = "file";
+
+  try {
+    const store = await Effect.runPromise(
+      Effect.provide(
+        Effect.map(HostSecrets, (secrets) => secrets.store),
+        HostSecrets.layer
+      )
+    );
+
+    expect(store).toBe("file");
+  } finally {
+    if (before === undefined) delete process.env.POLARIS_SECRETS;
+    else process.env.POLARIS_SECRETS = before;
+  }
+});

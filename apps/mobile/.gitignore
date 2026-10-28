@@ -2,3 +2,5 @@
 /ios/
 /android/
 .expo/
+# Built by scripts/buildSodium.ts
+modules/polaris-sodium/ios/vendor/
