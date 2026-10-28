@@ -214,7 +214,30 @@ Smallest fix: use a virtualized section list and separate task-count summaries f
 per-row full constellation following; measure a large active Home on Hermes. Source:
 AGENTS.md Performance; PRODUCT.md's several-Host supervision requirement.
 
-### 12. P2/P3: state colours and one type weight violate the canonical rules
+### 12. P2: session widget links retain the Review tab underneath the thread
+
+Location: `apps/mobile/src/app/navigation.tsx:43`;
+coverage at `apps/mobile/src/widgets/links.test.ts:5` and
+`apps/mobile/src/widgets/useWidgetLinks.ts:16`.
+Verified by code inspection; native taps are deferred, not claimed as passed.
+
+Both Home and session URLs are parsed by `links.ts` and tested, including escaped
+Host/session IDs. The hook sends cold-launch `Linking.getInitialURL()` and warm
+`Linking` URL events through that same parser. However, the tests call only the
+parser: they exercise neither lifecycle path nor navigation, sheet closure or Back.
+A concrete warm-path bug escapes that coverage: select Review, receive a session
+widget link, then go Back. `open()` resets the stack but selects Sessions only for
+a Home link, so Back reveals Review rather than Home. This contradicts the
+Home-anchored session destination S7 describes. Cold launch starts on Sessions and
+therefore masks this particular error.
+
+Smallest fix: select Sessions for every external widget destination. Add tests for
+both URLs through initial-URL and URL-event delivery into navigation, starting warm
+from Review with New open, and verify sheet closure, Back and subscription cleanup.
+Parser round-trips alone cannot establish either cold or warm integration. Source:
+S7's Home/session deep-link contract and `rule/design-reachable-states`.
+
+### 13. P2/P3: state colours and one type weight violate the canonical rules
 
 Locations: `apps/mobile/src/home/HomeScreen.tsx:186`,
 `apps/mobile/src/home/ui/rows.tsx:97`,
@@ -240,6 +263,15 @@ Typography and Do's and Don'ts; CONTEXT.md, Linked Device and Pairing.
   from these findings. The skip is the unbuilt standalone Hermes VM. No repo-wide
   suites were run. The initial verdict invocation was blocked by sandbox loopback
   access; the native retry passed **3/3**.
+- Mobile typecheck passed (`tsc -p . && tsc -p scripts`). The final link parser
+  rerun passed **8/8**. The report's `bun run quality --check` passed and commit
+  hooks passed. These are Reported receipts; no Daemon command-item references
+  are invented for shell tool outputs.
+- Cleanup: Metro :8096 and both test-Daemon scripts exited. The seeded Daemon's
+  temporary home was removed by its stop handler; process inspection found no
+  surviving review Metro/script processes. The generated `apps/mobile/ios`
+  directory (about 1.4 GB) and bridge environment file were deleted. The review
+  app was already stopped; no simulator was created, deleted or shut down.
 - Successful Accept: seeded a handed-up review Claim with real Constellation decider
   events committed through EventStore in a disposable test Daemon, then used the
   real dev bridge and `sendVerdict`. The RPC approved the correct Attempt and sent
@@ -261,11 +293,14 @@ Typography and Do's and Don'ts; CONTEXT.md, Linked Device and Pairing.
   dev bridge: populated Home, 12 workspace chips, a two-line title, short permission
   actions and the long-command redirect were observed. Screenshots were compared
   with Paper H4/M4/M5/C2/W2; no pixel-perfect parity claim is made.
-- Deep-link verification is pending the iOS system Open confirmation. `simctl openurl`
-  reached "Open in Polaris?", not the destination. The available CUA app surface could
-  not access Simulator, and no simulator tap connector is exposed. Cold and warm
-  route checks, Back to Home, closing New, and resetting the Review tab are not yet
-  claimed as passed.
+- Live widget taps are **not done**, deferred by the Lead to testing on the user's
+  iPhone after the security reviews. `simctl openurl` reached "Open in Polaris?",
+  not the destination. The Lead confirmed this Mac's simulators are headless and
+  Simulator.app is absent, so no further attempt was made to pass the alert.
+  `links.test.ts` covers both URL mappings, not cold or warm integration. The hook
+  handles both paths in code; finding 12 records the warm-path navigation gap.
+  Cold/warm destination checks, Back, sheet closure and real widget placement
+  still require the device test.
 - No physical device, 120 Hz native fling, Home load profile, Reduce Motion toggle,
   light theme/density matrix, or real home/lock-screen widget placement was checked.
   Native diff scroll numbers in S3's Claim remain reported dependency evidence,
