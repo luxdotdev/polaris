@@ -22,6 +22,25 @@ bench Harness (the SDK's test Daemon), registers a Workspace and starts two agen
 use another Daemon, pair an Extension with the `read` Grant on a gateway URL and paste the string
 into the app's "Pairing string (development only)" field; it is kept in the Keychain.
 
+## Hosts and the dev bridge
+
+The app is a Client, not an Extension: every screen shares one `HostConnection` per Host
+(`src/runtime/hostConnection.ts`), a `DaemonRpcs` client over a pluggable byte transport with
+`@polaris/client`'s Connection State machine. `src/runtime/hosts.tsx` provides them to React
+(`HostsProvider`, `useHosts`, `useHost`, `useHostStatus`, `useLiveHost`, `useHostRegistry`).
+Release builds reach Hosts through the Polaris Relay; development builds also have the dev bridge.
+
+`dev:daemon` starts the dev bridge (`scripts/devBridge.ts`): a WebSocket on 127.0.0.1 that
+forwards each connection to the Daemon's Unix socket, so the simulator gets a Client's power. It
+requires the random token the script prints and refuses any request with an Origin header, so a
+web page can't reach it. Start Metro with the line it prints:
+
+```sh
+EXPO_PUBLIC_POLARIS_DEV_BRIDGE='polaris-dev-bridge:v1:…' bun run --cwd apps/mobile start
+```
+
+Only `__DEV__` builds read the variable; the bridge itself is a script and never bundled.
+
 ## The Hermes check
 
 `src/runtime/selfCheck.ts` exercises Effect 4, the frame codec and pairing strings, the
