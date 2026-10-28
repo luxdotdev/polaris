@@ -52,6 +52,8 @@ and add their capabilities with `startServer({ capabilities: [...] })` (the tran
 
 **Remote Access (ENG-400, ADR 0076).** `remoteAccess.status`, `remoteAccess.enable` and `remoteAccess.disable` (Client-only) are served here from `RemoteAccessControl` (`remoteAccess/`): `tailscale serve --bg --https=443 --set-path /polaris http://127.0.0.1:<gateway port>/polaris`, the port from `gateway.json` (`remoteAccess/gateway.ts`). Tailscale holds the state; every call reads it back. `RemoteAccess` (`extensions/remoteAccess.ts`) gives `extensions.pair` the `wss://…/polaris/rpc` URL while it is on.
 
+**The Relay route and Linked Devices (ENG-461, ADR 0080, 0082).** `relayRoute.*` and `devices.*` (Client-only) are served here from `RelayRoute` (`linkedDevices/`). When the route is on, each Linked Device's Noise session becomes a connection on this same server (`serveConnection` with a `LinkedDevice`), annotated with `ConnectionDevice` so `dispatch` records the `LinkedDevice` Actor and `hello` labels it with the device's name. See `linkedDevices/README.md`.
+
 ## Single instance, stale sockets, upgrades
 
 - `~/.polaris/daemon.lock` is created with `O_EXCL` and holds the pid. A lock whose pid is dead is stale and is taken over; a lock with no pid yet is honoured for 2 s (another Daemon mid-start). The lock naming this very process but not held by it was inherited across an execve upgrade and is kept.
