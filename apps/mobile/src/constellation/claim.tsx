@@ -7,11 +7,10 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { Check, HandedClaim } from "./model.ts";
 import { cancellable, type Delivery, deliveryLine, editable } from "./outbox.ts";
+import { chosen, claimKey, fresh, typed, type Unsent, unsentFor } from "./unsent.ts";
 import { canSend, type Verdict } from "./verdict.ts";
 
 export type SendVerdict = (verdict: Verdict, reply: string) => void;
-
-type Step = { readonly kind: "choose" } | { readonly kind: "reply"; readonly verdict: Verdict };
 
 const PLACEHOLDER: Readonly<Record<Verdict, string>> = {
   accept: "Your answer for the lead",
@@ -70,15 +69,19 @@ const Choose = ({ onChoose }: { readonly onChoose: (verdict: Verdict) => void })
 const Reply = ({
   verdict,
   delivery,
+  typedDraft,
+  onDraft,
   onSend,
   onCancel,
 }: {
   readonly verdict: Verdict;
   readonly delivery: Delivery | null;
+  readonly typedDraft: string | null;
+  readonly onDraft: (draft: string) => void;
   readonly onSend: (reply: string) => void;
   readonly onCancel: () => void;
 }) => {
-  const [draft, setDraft] = useState(delivery?.input.reply ?? "");
+  const draft = typedDraft ?? delivery?.input.reply ?? "";
   const open = editable(delivery);
   const sending = delivery?.state === "sending";
   // A lost step is retried as it was sent, so its answer stays as the Host may have it.
@@ -93,7 +96,7 @@ const Reply = ({
         <TextInput
           style={styles.input}
           value={text}
-          onChangeText={setDraft}
+          onChangeText={onDraft}
           placeholder={PLACEHOLDER[verdict]}
           placeholderTextColor={midnight.textFaint}
           autoFocus={delivery === null}
@@ -135,19 +138,29 @@ const Reply = ({
 /**
  * The claim's verdict: choose, answer, then its delivery from the outbox. A delivery stays
  * here after the claim leaves the user (Accept approved it), until the lead has the answer.
+ * The unsent choice and answer belong to one claim; pass `unsent` to keep them outside.
  */
 export const HandedClaimActions = ({
   claim,
   delivery,
   onVerdict,
   onCancel,
+  unsent: controlled,
+  onUnsent,
 }: {
   readonly claim: HandedClaim | null;
   readonly delivery: Delivery | null;
   readonly onVerdict: SendVerdict;
   readonly onCancel: () => void;
+  readonly unsent?: Unsent | null;
+  readonly onUnsent?: (next: Unsent) => void;
 }) => {
-  const [step, setStep] = useState<Step>({ kind: "choose" });
+  const [local, setLocal] = useState<Unsent | null>(null);
+  const ref = claim ?? delivery?.input ?? null;
+  const key = ref === null ? "" : claimKey(ref);
+  const unsent = unsentFor(controlled === undefined ? local : controlled, key);
+  const update = (next: Unsent) => (onUnsent === undefined ? setLocal(next) : onUnsent(next));
+  const step = unsent.step;
   const verdict = delivery?.input.verdict ?? (step.kind === "reply" ? step.verdict : null);
 
   return (
@@ -164,15 +177,17 @@ export const HandedClaimActions = ({
           {deliveryLine(delivery)}
         </Text>
       ) : verdict === null ? (
-        <Choose onChoose={(chosen) => setStep({ kind: "reply", verdict: chosen })} />
+        <Choose onChoose={(choice) => update(chosen(key, choice))} />
       ) : (
         <Reply
           verdict={verdict}
           delivery={delivery}
+          typedDraft={unsent.draft}
+          onDraft={(draft) => update(typed(unsent, draft))}
           onSend={(reply) => onVerdict(verdict, reply)}
           onCancel={() => {
             onCancel();
-            setStep({ kind: "choose" });
+            update(fresh(key));
           }}
         />
       )}
