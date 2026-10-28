@@ -31,7 +31,8 @@ const Summary = ({ home }: { readonly home: Home }) => {
   if (home.needsYou > 0)
     parts.push({ text: `${home.needsYou} need you`, color: midnight.needsYouText });
 
-  if (home.working > 0 || parts.length === 0)
+  // The empty state says it when there is nothing; "0 working" would only repeat it.
+  if (home.working > 0 || (parts.length === 0 && home.empty === null))
     parts.push({ text: `${home.working} working`, color: midnight.textSubtle });
 
   if (home.attention !== null) parts.push({ text: home.attention, color: midnight.textFaint });
