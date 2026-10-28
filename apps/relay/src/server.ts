@@ -6,6 +6,8 @@
 import {
   type Auth,
   decodeClientControl,
+  type Wake,
+  type WakeOutcome,
   decodeDataFrame,
   encodeControl,
   encodeDataFrame,
@@ -27,6 +29,7 @@ import type { Server, ServerWebSocket } from "bun";
 import type { RelayConfig } from "./config.ts";
 import { type Endpoint, Hub } from "./hub.ts";
 import { ConnectionGate, TokenBucket } from "./limits.ts";
+import { type Deliver, pushClient } from "./push.ts";
 import type { EmitWideEvent } from "./wideEvent.ts";
 
 type Phase = "challenged" | "verifying" | "ready";
@@ -38,6 +41,7 @@ interface Connection {
   readonly nonce: Uint8Array;
   readonly messages: TokenBucket;
   readonly bytes: TokenBucket;
+  readonly wakes: TokenBucket;
   phase: Phase;
   endpoint: Endpoint | null;
   authTimer: ReturnType<typeof setTimeout> | null;
@@ -49,6 +53,7 @@ interface Connection {
   controlIn: number;
   unreachable: number;
   dropped: number;
+  wakesIn: number;
 }
 
 type Socket = ServerWebSocket<Connection>;
@@ -77,6 +82,7 @@ const newConnection = (config: RelayConfig, ip: string): Connection => ({
   nonce: crypto.getRandomValues(new Uint8Array(NONCE_BYTES)),
   messages: new TokenBucket(config.messagesPerSecond, config.messagesPerSecond * 2),
   bytes: new TokenBucket(config.bytesPerSecond, config.bytesPerSecond * 2),
+  wakes: new TokenBucket(config.wakesPerMinute / 60, config.wakeBurst),
   phase: "challenged",
   endpoint: null,
   authTimer: null,
@@ -88,6 +94,7 @@ const newConnection = (config: RelayConfig, ip: string): Connection => ({
   controlIn: 0,
   unreachable: 0,
   dropped: 0,
+  wakesIn: 0,
 });
 
 /** Closes `ws` from the relay's side, recording why for its wide event. */
@@ -122,9 +129,15 @@ const endpointFor = (
   replace: () => end(ws, RelayClose.Replaced, "replaced"),
 });
 
-export const startRelay = (config: RelayConfig, emit: EmitWideEvent): RelayHandle => {
+export const startRelay = (
+  config: RelayConfig,
+  emit: EmitWideEvent,
+  /** For tests: the push service; by default the one `config.push` names, if any. */
+  deliver: Deliver | null = config.push === null ? null : pushClient(config.push)
+): RelayHandle => {
   const hub = new Hub();
   const gate = new ConnectionGate(config);
+  let wakesInFlight = 0;
 
   const limits = {
     maxMessageBytes: MAX_RELAY_MESSAGE_BYTES,
@@ -161,6 +174,32 @@ export const startRelay = (config: RelayConfig, emit: EmitWideEvent): RelayHandl
     hub.attach(ws.data.endpoint, peers);
   };
 
+  const answerWake = (ws: Socket, wake: Wake, outcome: WakeOutcome, started: number) => {
+    emit({ event: "relay.wake", outcome, durationMs: Math.round(performance.now() - started) });
+
+    if (ws.readyState === WebSocket.OPEN)
+      ws.send(encodeControl({ t: "woken", id: wake.id, outcome }));
+  };
+
+  /** Forwards a host's wake for a device it lists, online or not; never logs what it carries. */
+  const onWake = (ws: Socket, endpoint: Endpoint, wake: Wake) => {
+    const started = performance.now();
+    ws.data.wakesIn++;
+
+    if (!hub.lists(endpoint, wake.peer)) return answerWake(ws, wake, "unlinked", started);
+
+    if (!ws.data.wakes.take()) return answerWake(ws, wake, "rate-limited", started);
+
+    if (deliver === null || wakesInFlight >= config.maxWakesInFlight)
+      return answerWake(ws, wake, "unavailable", started);
+    wakesInFlight++;
+    const { token, environment, payload } = wake;
+
+    void deliver({ token, environment, payload })
+      .then((outcome) => answerWake(ws, wake, outcome, started))
+      .finally(() => wakesInFlight--);
+  };
+
   const onControl = (ws: Socket, text: string) => {
     ws.data.controlIn++;
     const message = decodeClientControl(text);
@@ -182,7 +221,10 @@ export const startRelay = (config: RelayConfig, emit: EmitWideEvent): RelayHandl
             return end(ws, RelayClose.BadMessage, "too-many-peers");
           hub.setPeers(endpoint, peers);
         },
-        wake: () => end(ws, RelayClose.BadMessage, "push-unavailable"),
+        wake: (wake) => {
+          if (endpoint?.role !== "host") return end(ws, RelayClose.BadMessage, "wake-not-host");
+          onWake(ws, endpoint, wake);
+        },
       })
     );
   };
@@ -249,7 +291,15 @@ export const startRelay = (config: RelayConfig, emit: EmitWideEvent): RelayHandl
           () => end(ws, RelayClose.AuthTimeout, "auth-timeout"),
           config.authTimeoutMs
         );
-        ws.send(encodeControl({ t: "challenge", v: 1, nonce: toBase64Url(ws.data.nonce), limits }));
+        ws.send(
+          encodeControl({
+            t: "challenge",
+            v: 1,
+            nonce: toBase64Url(ws.data.nonce),
+            limits,
+            push: deliver !== null,
+          })
+        );
       },
       message(ws, message) {
         const size = Predicate.isString(message) ? Buffer.byteLength(message) : message.byteLength;
@@ -284,6 +334,7 @@ export const startRelay = (config: RelayConfig, emit: EmitWideEvent): RelayHandl
           controlIn: data.controlIn,
           unreachable: data.unreachable,
           dropped: data.dropped,
+          wakes: data.wakesIn,
           closeCode: code,
           endedBy: data.endedBy,
         });

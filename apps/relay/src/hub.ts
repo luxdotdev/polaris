@@ -87,6 +87,15 @@ export class Hub {
     return this.devicesOf.get(host)?.has(device) === true ? target : undefined;
   }
 
+  /** Whether `host` is online and lists `device`, whether or not the device is online. */
+  lists(host: Endpoint, device: RelayAddress): boolean {
+    return (
+      host.role === "host" &&
+      this.online.get(host.address) === host &&
+      this.devicesOf.get(host.address)?.has(device) === true
+    );
+  }
+
   get size(): number {
     return this.online.size;
   }

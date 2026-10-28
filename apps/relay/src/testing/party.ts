@@ -40,6 +40,8 @@ const WAIT_MS = 3_000;
 
 export class TestParty {
   readonly sent: Array<string | Uint8Array> = [];
+  /** Every control message received, including those a wait already took. */
+  readonly received: Array<RelayControl> = [];
   readonly closed: Promise<Closed>;
   private readonly inbox: Array<Inbound> = [];
   private waiter: (() => void) | null = null;
@@ -54,7 +56,10 @@ export class TestParty {
       ws.addEventListener("close", (event) => resolve({ code: event.code, reason: event.reason }))
     );
     ws.addEventListener("message", (event) => {
-      this.inbox.push(TestParty.parse(decodeMessageData(event.data)));
+      const inbound = TestParty.parse(decodeMessageData(event.data));
+
+      if (inbound.kind === "control") this.received.push(inbound.message);
+      this.inbox.push(inbound);
       this.waiter?.();
     });
   }

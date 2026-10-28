@@ -4,8 +4,9 @@
  * `wake`; the relay and the push service carry it opaquely; the app's Notification Service
  * Extension opens it. Schemas and constants only: sealing lives in the Daemon, opening in Swift.
  */
-import { Schema } from "effect";
-import { ApnsToken, PushEnvironment } from "./wire.ts";
+import { Option, Schema } from "effect";
+import { Base64Url } from "effect/encoding";
+import { ApnsToken, MAX_WAKE_PAYLOAD_CHARS, PushEnvironment } from "./wire.ts";
 
 /** HPKE suite: DHKEM(P-256, HKDF-SHA256), HKDF-SHA256, AES-256-GCM (CryptoKit's `P256_SHA256_AES_GCM_256`). */
 export const PUSH_HPKE_SUITE = { kem: 0x0010, kdf: 0x0001, aead: 0x0002 } as const;
@@ -55,3 +56,90 @@ export const PushRegistration = Schema.Struct({
 });
 
 export type PushRegistration = typeof PushRegistration.Type;
+
+/** The push service's route, which the relay signs requests to. */
+export const PUSH_SERVICE_PATH = "/api/push";
+
+/** How far a signed request's timestamp may be from the service's clock. */
+export const PUSH_CLOCK_SKEW_S = 60;
+
+/** Headers of a signed relay → push service request. */
+export const PushHeaders = {
+  timestamp: "x-polaris-timestamp",
+  nonce: "x-polaris-nonce",
+  signature: "x-polaris-signature",
+} as const;
+
+/** What the relay asks the push service to deliver. No relay address, no content. */
+export const PushRequest = Schema.Struct({
+  token: ApnsToken,
+  environment: PushEnvironment,
+  payload: Schema.String.check(
+    Schema.isPattern(/^[A-Za-z0-9_-]+$/),
+    Schema.isMaxLength(MAX_WAKE_PAYLOAD_CHARS)
+  ),
+});
+
+export type PushRequest = typeof PushRequest.Type;
+
+const encoder = new TextEncoder();
+
+const hex = (bytes: ArrayBuffer) =>
+  Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
+
+export interface SignedRequestParts {
+  readonly method: string;
+  readonly path: string;
+  readonly timestamp: string;
+  readonly nonce: string;
+  readonly body: string;
+}
+
+/** The bytes the relay signs: method, path, timestamp, nonce and the body's SHA-256. */
+export const pushSigningInput = async (
+  parts: SignedRequestParts
+): Promise<Uint8Array<ArrayBuffer>> => {
+  const bodyHash = hex(await crypto.subtle.digest("SHA-256", encoder.encode(parts.body)));
+
+  return encoder.encode(
+    ["polaris-push/1", parts.method, parts.path, parts.timestamp, parts.nonce, bodyHash].join("\n")
+  );
+};
+
+const hmacKey = (secret: string) =>
+  crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, [
+    "sign",
+    "verify",
+  ]);
+
+/** HMAC-SHA256 of the signing input under the shared secret, base64url. */
+export const signPushRequest = async (
+  secret: string,
+  parts: SignedRequestParts
+): Promise<string> => {
+  const mac = await crypto.subtle.sign(
+    "HMAC",
+    await hmacKey(secret),
+    await pushSigningInput(parts)
+  );
+
+  return Base64Url.encode(new Uint8Array(mac));
+};
+
+/** Whether `signature` is the request's HMAC; WebCrypto's verify compares in constant time. */
+export const verifyPushRequest = async (
+  secret: string,
+  parts: SignedRequestParts,
+  signature: string
+): Promise<boolean> => {
+  const mac = Option.getOrNull(Option.getSuccess(Base64Url.decode(signature)));
+
+  if (mac === null || mac.byteLength !== 32) return false;
+
+  return crypto.subtle.verify(
+    "HMAC",
+    await hmacKey(secret),
+    new Uint8Array(mac),
+    await pushSigningInput(parts)
+  );
+};

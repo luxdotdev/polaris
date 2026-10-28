@@ -66,6 +66,8 @@ Text WebSocket messages of JSON. Schemas: `ClientControl` and `RelayControl` in
 | `peers {peers}` | host → relay | Replaces the host's linked devices. Devices may not send it. |
 | `presence {peer, online}` | relay → party | A linked peer came online, went offline, or was unlinked. |
 | `unreachable {peer}` | relay → party | A forward to `peer` was dropped: it is offline, or it and the sender are not linked. The relay does not say which. |
+| `wake {id, peer, token, environment, payload}` | host → relay | Wake a device the host lists, online or not (see Push). Devices may not send it. |
+| `woken {id, outcome}` | relay → host | What became of that wake. |
 
 A host and a device can reach each other only while the host lists the device and both are
 online. Two hosts, or two devices, never can. The relay keeps the lists in memory only, and a
@@ -140,6 +142,46 @@ Relay sockets drop: networks change, the relay redeploys, phones sleep. Parties 
 A newer socket that proves the same key replaces the older one, which is closed with `4409`.
 So a Daemon that restarts before its old socket times out takes over at once.
 
+## Push
+
+A phone that is asleep has no socket, so a host wakes it through APNs: it sends `wake` with
+the device's APNs token and environment (`sandbox` for development builds, `production` for
+TestFlight and the App Store) and a payload sealed to the device (HPKE, `relay/push.ts`). The
+relay checks that the host lists `peer`, rate-limits the host, and asks the push service
+(`apps/site`'s `/api/push`) to deliver `{token, environment, payload}`. It answers `woken`:
+
+| Outcome | Meaning |
+|---|---|
+| `sent` | APNs accepted it. |
+| `unlinked` | The host doesn't list `peer`; nothing was sent. |
+| `rate-limited` | Over the host's wake rate, or APNs throttled it. |
+| `unregistered` | APNs no longer knows the token: the host drops it until the device registers again. |
+| `refused` | The push service refused it, e.g. a production token on a preview deployment. |
+| `unavailable` | No push service configured, it is busy or down: try later. |
+
+The relay sends `challenge {push: true}` only when a push service is configured.
+
+**Requests to the push service** are `POST` with JSON `{token, environment, payload}` and three
+headers: `x-polaris-timestamp` (Unix seconds), `x-polaris-nonce` (16 random bytes, base64url)
+and `x-polaris-signature`, base64url HMAC-SHA256 under the shared secret over
+`"polaris-push/1" \n method \n path \n timestamp \n nonce \n hex(SHA-256(body))`
+(`signPushRequest` in `@polaris/protocol/relay`). The service refuses timestamps more than 60 s
+off and nonces it has seen.
+
+**What it sees.** The relay sees the APNs token, the environment, the payload's size and when
+wakes happen, and which host asked for which device. It cannot read the payload; it logs only
+each wake's outcome and duration (`relay.wake`), never the token, payload or addresses. The push
+service sees the token, environment and sealed payload, not who sent it.
+
+| Variable | Value |
+|---|---|
+| `POLARIS_RELAY_PUSH_URL` | The push service, e.g. `https://polaris.lux.dev/api/push` |
+| `POLARIS_RELAY_PUSH_SECRET` | The shared secret, the same value as the site's `POLARIS_PUSH_SECRET` for that environment: `openssl rand -base64 32` |
+| `POLARIS_RELAY_WAKES_PER_MINUTE`, `POLARIS_RELAY_WAKE_BURST` | Per host socket: 60 a minute, burst 20 |
+| `POLARIS_RELAY_MAX_WAKES_IN_FLIGHT` | Wakes waiting on the service at once: 256 |
+
+Set both push variables or neither; one without the other stops the relay at start.
+
 ## Limits and close codes
 
 | Limit | Default | Env |
@@ -202,6 +244,8 @@ built). `railway.json` builds the Dockerfile and health-checks `/healthz`.
   socket, with checks that nothing they handed the relay and nothing it logged holds the
   plaintext or an identifier. Also linking, unlinking, presence, device and host reconnects,
   and replacement.
+- `push.test.ts`: wakes reach a fake push service signed, only for listed devices and within
+  the rate, and nothing a wake carries is logged.
 - `abuse.test.ts`: key proof failures, auth and idle timeouts, malformed messages, size,
   message and byte rates, per-address socket caps.
 - `process.test.ts`: the same exchange against the `bun src/main.ts` process, including a
