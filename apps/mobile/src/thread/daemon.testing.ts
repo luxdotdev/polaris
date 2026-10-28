@@ -30,6 +30,7 @@ import {
   TurnDetail,
   TurnId,
   type TurnItem,
+  Unsupported,
   HostStreamItem,
   Workspace,
   WorkspaceId,
@@ -161,6 +162,8 @@ export interface FakeHost {
   readonly summariesAsked: ReadonlyArray<string>;
   /** Holds saveDraft's answers until `release` (the phone waits for the Host's ack). */
   readonly holdSaves: () => void;
+  /** The next saveDraft fails, as when the connection drops mid-write. */
+  readonly failNextSave: () => void;
   readonly release: () => Effect.Effect<void>;
 }
 
@@ -179,6 +182,7 @@ export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOption
   let readPosition: ReadPosition | null = null;
   let revision = 0;
   let gate: Deferred.Deferred<void> | null = null;
+  let failNext = false;
 
   const save = (text: string) => {
     revision++;
@@ -235,8 +239,15 @@ export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOption
 
         return readPosition;
       }),
-    "continuity.saveDraft": ({ text }) =>
-      Effect.flatMap(gate === null ? Effect.void : Deferred.await(gate), () => save(text)),
+    "continuity.saveDraft": ({ text }) => {
+      if (failNext) {
+        failNext = false;
+
+        return Effect.fail(new Unsupported({ capability: "session.continuity" }));
+      }
+
+      return Effect.flatMap(gate === null ? Effect.void : Deferred.await(gate), () => save(text));
+    },
     "review.riskSummary": ({ ref }) =>
       Effect.sync(() =>
         RiskSummaryRef.match(ref, {
@@ -264,6 +275,9 @@ export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOption
     commands,
     reads,
     summariesAsked,
+    failNextSave: () => {
+      failNext = true;
+    },
     holdSaves: () => {
       gate = Deferred.makeUnsafe<void>();
     },

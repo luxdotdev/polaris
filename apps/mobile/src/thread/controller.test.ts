@@ -84,6 +84,20 @@ describe("drafts follow the session", () => {
       })
     ));
 
+  test("a draft that failed to save is written again when the Host reconnects", () =>
+    withThread((host, thread) =>
+      Effect.gen(function* () {
+        yield* host.push(snapshot([{ turn: turn(0) }]));
+        yield* settle;
+        host.failNextSave();
+        thread.type("written offline");
+        yield* until(thread, (s) => s.draftStatus === "unsaved");
+
+        thread.reconnected();
+        yield* until(thread, (s) => s.draftStatus === "saved");
+      })
+    ));
+
   test("a Host without continuity never claims a draft is saved", () =>
     withThread(
       (host, thread) =>

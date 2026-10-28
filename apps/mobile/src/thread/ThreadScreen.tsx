@@ -59,6 +59,13 @@ const useController = (
     };
   }, [ready, connection, sessionId]);
 
+  // A new epoch is a new connection: writes that failed while it was down go again.
+  const epoch = live?.epoch ?? null;
+
+  useEffect(() => {
+    if (epoch !== null) controller?.reconnected();
+  }, [controller, epoch]);
+
   return controller;
 };
 

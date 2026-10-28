@@ -51,6 +51,8 @@ export interface ThreadController {
   readonly submit: () => Promise<void>;
   readonly queue: () => void;
   readonly interrupt: () => Promise<void>;
+  /** The Host's connection came back: drafts that failed to save are written again. */
+  readonly reconnected: () => void;
   /** The Turns with rows on screen while the app is in front. */
   readonly seen: (turnIds: ReadonlyArray<string>) => void;
   readonly dispose: () => void;
@@ -253,6 +255,7 @@ export const openThread = (
     queue,
     interrupt,
     seen,
+    reconnected: () => void drafts.retry(),
     dispose: () => {
       void drafts.flush(sessionId).finally(() => drafts.dispose());
       [...fibers, ...(findingsFiber === null ? [] : [findingsFiber])].forEach((fiber) =>
