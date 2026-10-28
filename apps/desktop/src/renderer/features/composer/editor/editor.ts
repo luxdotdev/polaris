@@ -80,7 +80,8 @@ export interface PromptEditor {
   readonly insertChip: (option: CommandOption) => void;
   readonly removeTypedWord: () => void;
   readonly retokenize: () => void;
-  readonly focus: () => void;
+  /** Focuses now with the caret after the draft, typing `text` there first. */
+  readonly focusEnd: (text?: string) => void;
   /** The word under the caret and the draft, as the editor stands now. */
   readonly read: () => { readonly typed: TypedWord | null; readonly draft: Draft };
 }
@@ -289,12 +290,17 @@ export const createPromptEditor = (hooks: () => EditorHooks, label: string): Pro
     retokenize: () => editor.update(() => $retokenize()),
     read: () =>
       editor.getEditorState().read(() => ({ typed: $readTypedWord(), draft: $readDraft() })),
-    focus: () =>
-      editor.focus(undefined, {
-        defaultSelection:
-          editor.getEditorState().read(() => $getRoot().getTextContentSize()) > 0
-            ? "rootEnd"
-            : "rootStart",
-      }),
+    focusEnd: (text = "") => {
+      // DOM focus first and synchronously: a keystroke the browser still delivers lands here.
+      editor.getRootElement()?.focus({ preventScroll: true });
+      editor.update(
+        () => {
+          const end = $getRoot().selectEnd();
+
+          if (text !== "") end.insertText(text);
+        },
+        { discrete: true }
+      );
+    },
   };
 };

@@ -287,6 +287,7 @@ export const SessionComposer = (props: SessionComposerProps) => {
     <DraftComposer
       className="px-panel pb-panel"
       harness={harness}
+      typeToFocus
       picker={
         <>
           <HarnessChip

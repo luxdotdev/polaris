@@ -77,6 +77,10 @@ export interface DraftComposerProps {
   readonly prominentSend?: boolean;
   readonly disabled?: boolean;
   readonly autoFocus?: boolean;
+  /** Each new value focuses the prompt again (another ⌘N on an open new-session page). */
+  readonly focusKey?: number;
+  /** Stray typing on the screen goes to this prompt. */
+  readonly typeToFocus?: boolean;
   readonly className?: string;
   readonly commands?: ComposerCommands;
   /** What the user sent in this session, oldest first, for ↑/↓. */
@@ -115,6 +119,8 @@ export const DraftComposer = ({
   prominentSend = false,
   disabled = false,
   autoFocus = false,
+  focusKey,
+  typeToFocus = false,
   className,
   commands = NO_COMMANDS,
   history,
@@ -175,6 +181,8 @@ export const DraftComposer = ({
                   placeholder={placeholder}
                   disabled={disabled}
                   autoFocus={autoFocus}
+                  focusKey={focusKey}
+                  typeToFocus={typeToFocus}
                   options={commands.options}
                   loading={commands.loading}
                   onSubmit={submit}

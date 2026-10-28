@@ -233,6 +233,7 @@ export const createNavigation = ({
       hostKey,
       workspaceId: shown ? workspaceId : null,
       sessionId: null,
+      newSessionAsks: store.getState().newSessionAsks + 1,
     });
 
     if (shown || ensureWorkspace === undefined) return;

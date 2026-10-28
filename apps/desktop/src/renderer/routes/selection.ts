@@ -88,6 +88,8 @@ export interface NavState {
   readonly lastSession: Readonly<Record<string, SessionId>>;
   /** Machine-mode Workspace groups the user folded or unfolded (`workspaceKey`). */
   readonly folded: Readonly<Record<string, boolean>>;
+  /** Counts New session requests, so a page already open focuses its prompt again. */
+  readonly newSessionAsks: number;
 }
 
 export const initialNav: NavState = {
@@ -106,6 +108,7 @@ export const initialNav: NavState = {
   recent: [],
   lastSession: {},
   folded: {},
+  newSessionAsks: 0,
 };
 
 export const workspaceKey = (hostKey: string, workspaceId: string) =>

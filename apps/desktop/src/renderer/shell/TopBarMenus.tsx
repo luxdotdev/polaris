@@ -15,6 +15,7 @@ import type { HostView } from "../../shared/api.ts";
 import { polaris } from "../features/bridge.ts";
 import { send } from "../features/session/dispatch.ts";
 import { slots } from "../app/slots.tsx";
+import { isTyping } from "../routes/keyboard.ts";
 import { type BarWorkspace, hiddenWorkspaces, LOCAL_HOST } from "../routes/topBar.ts";
 import {
   useApp,
@@ -44,7 +45,13 @@ const Menu = ({
     <ContextMenuTrigger asChild {...slot}>
       {children}
     </ContextMenuTrigger>
-    <ContextMenuContent data-testid={testId}>
+    <ContextMenuContent
+      data-testid={testId}
+      // New session focused its prompt; closing must not hand focus back to the chip.
+      onCloseAutoFocus={(event) => {
+        if (isTyping(document.activeElement)) event.preventDefault();
+      }}
+    >
       <ContextMenuEntries entries={entries} />
     </ContextMenuContent>
   </ContextMenu>

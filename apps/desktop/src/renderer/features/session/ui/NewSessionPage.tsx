@@ -16,7 +16,7 @@ import { Clearing, type Harness, Scene } from "@polaris/ui";
 import { useState } from "react";
 import { newSessionId } from "../../../commands.ts";
 import { emptyHostModel, type HostModel } from "../../../store/hostModel.ts";
-import { useApp } from "../../../shell/hooks.ts";
+import { useApp, useNav } from "../../../shell/hooks.ts";
 import { useUploads } from "../../attachments/index.ts";
 import { useSettings, withSavedModels } from "../../settings/index.ts";
 import { send } from "../dispatch.ts";
@@ -180,6 +180,8 @@ export const NewSessionPage = ({
   const workspace = hostModel.workspaces.get(workspaceId);
   const key = uiKey(hostKey, `new:${workspaceId}`);
   const ui = useSessionUi(key);
+  // Another New session while this page is open focuses the prompt again.
+  const asked = useNav((s) => s.newSessionAsks);
   const [picked, setPicked] = useState<HarnessChoice | null>(null);
   const [models, setModels] = useState<Models>({});
   const { options, loading } = useAvailability(hostKey);
@@ -317,6 +319,7 @@ export const NewSessionPage = ({
           className="rounded-card"
           harness={hue ?? ""}
           autoFocus
+          focusKey={asked}
           picker={
             hue === null ? (
               <NoHarnessChip loading={loading} />

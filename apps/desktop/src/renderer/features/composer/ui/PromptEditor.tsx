@@ -21,6 +21,7 @@ import type { FrecencyTable } from "../model/frecency.ts";
 import { AT_DRAFT, type HistoryCursor, stepHistory } from "../model/history.ts";
 import { type CommandNotice, noticeOpens } from "../model/notice.ts";
 import { CommandMenu } from "./CommandMenu.tsx";
+import { useTypeToFocus } from "./typeToFocus.ts";
 import "./composer.css";
 
 export interface PromptEditorProps {
@@ -29,6 +30,10 @@ export interface PromptEditorProps {
   readonly placeholder: string;
   readonly disabled: boolean;
   readonly autoFocus: boolean;
+  /** Each new value focuses the prompt again, the caret after the draft. */
+  readonly focusKey?: number | undefined;
+  /** Stray typing on the screen (nothing editable focused) goes here (`./typeToFocus.ts`). */
+  readonly typeToFocus?: boolean | undefined;
   readonly options: ReadonlyArray<CommandOption>;
   /** The list is still being read from the Host. */
   readonly loading: boolean;
@@ -209,7 +214,7 @@ export default function PromptEditor(props: PromptEditorProps) {
     if (element === null) return undefined;
     const unmount = handle.mount(element);
 
-    if (latest.current.props.autoFocus) handle.focus();
+    if (latest.current.props.autoFocus) handle.focusEnd();
 
     return unmount;
   }, [handle]);
@@ -222,6 +227,18 @@ export default function PromptEditor(props: PromptEditorProps) {
   }, [handle, props.value]);
 
   useEffect(() => handle.editor.setEditable(!props.disabled), [handle, props.disabled]);
+
+  useEffect(() => {
+    if (props.focusKey !== undefined) handle.focusEnd();
+  }, [handle, props.focusKey]);
+
+  useTypeToFocus(
+    {
+      ready: () => handle.editor.isEditable() && root.current?.isConnected === true,
+      focusEnd: handle.focusEnd,
+    },
+    props.typeToFocus === true
+  );
 
   const key = optionsKey(props.options);
 
