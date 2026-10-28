@@ -83,7 +83,7 @@ opaquely; the Notification Service Extension opens it.
 - `targets/notification-service`: the extension (@bacons/apple-targets). It opens the payload
   with CryptoKit (`P256_SHA256_AES_GCM_256`), sets title, subtitle, body, thread and category, and
   keeps the routing ids in `userInfo.polaris`. If it can't open it, the generic alert stays.
-- `src/push`: `usePush(identity, linkedHosts)` sets the categories, registers with each linked
+- `src/push`: `usePush(identity, linkedHosts)`, mounted in `App.tsx` with `useRelay()`'s keys and linked Hosts, sets the categories, registers with each linked
   Host as its connection comes live (`devices.registerPush`, again after a reconnect), and answers.
   The `approval` category has Approve, Always here and Deny; each needs Face ID or the passcode and
   doesn't open the app. The answer is a RespondToApproval with a command id per request, sent
