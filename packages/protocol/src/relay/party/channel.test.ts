@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import Noise from "noise-handshake";
+import CipherState from "noise-handshake/cipher";
 import { encodeBlob, encodeJsonFrame, FrameDecoder } from "../../frame.ts";
 import {
   acceptHandshake,
@@ -122,5 +124,26 @@ describe("relay channel", () => {
     expect(reason(() => a.hostSession.open(b.deviceSession.seal(new Uint8Array(4))[0]!))).toBe(
       "malformed"
     );
+  });
+
+  // RV6 / RX1-9: an independent IK initiator keys transport as Noise's Split says.
+  test("a plain Noise IK initiator talks to the host with the specification's key directions", () => {
+    const host = generateStaticKeyPair();
+    const device = generateStaticKeyPair();
+    const initiator = new Noise("IK", true, device);
+    initiator.initialise(new TextEncoder().encode("polaris-relay-e2e/2"), host.publicKey);
+    const tag = new Uint8Array(8).fill(9);
+    const record = (type: number, body: Uint8Array) => Uint8Array.from([type, ...tag, ...body]);
+    const accepted = acceptHandshake(host, record(1, initiator.send()), sameKey(device.publicKey));
+    initiator.recv(accepted.reply.subarray(9));
+    const ad = record(3, new Uint8Array(0));
+
+    // Split's first key, initiator → responder; the second, responder → initiator.
+    const toHost = new CipherState(initiator.tx).encrypt(new TextEncoder().encode("hi"), ad);
+    expect(new TextDecoder().decode(accepted.session.open(record(3, toHost)))).toBe("hi");
+
+    const [fromHost] = accepted.session.seal(new TextEncoder().encode("hello"));
+    const body = (fromHost ?? new Uint8Array()).subarray(9);
+    expect(new TextDecoder().decode(new CipherState(initiator.rx).decrypt(body, ad))).toBe("hello");
   });
 });

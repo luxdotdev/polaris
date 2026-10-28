@@ -29,7 +29,8 @@ export const MAX_PLAINTEXT_CHUNK = 65_535 - 16;
 /** Sessions stop before Noise's 32-bit nonce wraps; the device then handshakes again. */
 const MAX_MESSAGES = 2 ** 32 - 1;
 
-const PROLOGUE = new TextEncoder().encode("polaris-relay-e2e/1");
+/** `/2`: Split's first key carries device → host (RV6); a `/1` party fails the handshake. */
+const PROLOGUE = new TextEncoder().encode("polaris-relay-e2e/2");
 
 export interface StaticKeyPair {
   readonly publicKey: Uint8Array;
@@ -186,8 +187,8 @@ const sessionOf = (noise: Noise, tag: Uint8Array): RelaySession => {
   if (!noise.complete || noise.rs === null)
     throw new RelayChannelError({ reason: "malformed", message: "handshake incomplete" });
 
-  // noise-handshake: `rx` encrypts to the peer and `tx` decrypts from it.
-  return new RelaySession(tag, noise.rs, noise.hash, noise.rx, noise.tx);
+  // Noise's Split: `tx` encrypts to the peer and `rx` decrypts from it (the README says otherwise).
+  return new RelaySession(tag, noise.rs, noise.hash, noise.tx, noise.rx);
 };
 
 /**

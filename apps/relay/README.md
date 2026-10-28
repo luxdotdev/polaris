@@ -104,9 +104,12 @@ type 2 = handshake reply  body = Noise IK message 2            host → device
 type 3 = data             body = one Noise transport message, AD = type ‖ tag
 ```
 
-- **Construction**: `Noise_IK_25519_ChaChaPoly_BLAKE2b`, prologue `polaris-relay-e2e/1`,
+- **Construction**: `Noise_IK_25519_ChaChaPoly_BLAKE2b`, prologue `polaris-relay-e2e/2`,
   implemented by [noise-handshake](https://github.com/holepunchto/noise-handshake) (Holepunch's
   handshake for Hyperswarm, Apache-2.0) over libsodium. We wrote no cryptographic primitives.
+- **Directions**: Split's first key encrypts device → host, as the Noise specification says.
+  Prologue `/1` had them reversed; a `/1` party and a `/2` party fail at the handshake, and
+  both must update. Keys are unchanged, so links made under `/1` keep working without re-pairing.
 - **Who starts**: the device always starts, with the Host's Noise static key from the QR code.
   IK hides the device's static key from everyone but the Host, and the Host proves its own
   key in the reply.
