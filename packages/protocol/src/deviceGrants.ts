@@ -4,12 +4,45 @@
  * fails typecheck until someone decides whether a phone may use it. Unknown tags are
  * refused. `local` is the Desktop App's alone: credentials, links, routes, shells.
  */
-import type { Command } from "./commands.ts";
+import { Schema } from "effect";
+import { Command } from "./commands.ts";
 import { NotGranted } from "./extensions.ts";
 import type { DaemonRpcTag } from "./grants.ts";
+import { HarnessKind } from "./harnesses.ts";
+import { AttachmentId, SessionId, WorkspaceId } from "./ids.ts";
+import { ModelId } from "./models.ts";
 
 /** `device`: a Linked Device may call it. `local`: only a Client on this Host. */
 export type DeviceAccess = "device" | "local";
+
+/** A Command's access: by tag, or `device` only for payloads its check admits. */
+export type DeviceCommandAccess = DeviceAccess | ((command: Command) => boolean);
+
+const absentOrNull = Schema.optionalKey(Schema.Null);
+
+/**
+ * StartSession as the Mobile App sends it, up to `auto` (RX3-1): exhaustive over the Command's
+ * fields, so a new field fails typecheck until someone decides what a phone may put in it.
+ */
+const DEVICE_START_SESSION = {
+  _tag: Schema.tag("StartSession"),
+  sessionId: SessionId,
+  workspaceId: WorkspaceId,
+  harness: HarnessKind,
+  placement: Schema.Union([
+    Schema.Struct({ _tag: Schema.tag("InPlace") }),
+    Schema.Struct({ _tag: Schema.tag("NewWorktree"), branch: Schema.String, baseRef: Schema.Null }),
+  ]),
+  permissionMode: Schema.Literals(["plan", "supervised", "auto-edits", "auto"]),
+  model: Schema.NullOr(ModelId),
+  effort: absentOrNull,
+  serviceTier: absentOrNull,
+  prompt: Schema.String,
+  attachments: Schema.Array(AttachmentId),
+  origin: absentOrNull,
+} satisfies Record<keyof typeof Command.cases.StartSession.fields, Schema.Top>;
+
+const isDeviceStartSession = Schema.is(Schema.Struct(DEVICE_START_SESSION));
 
 /** `dispatch` itself is decided per Command (`DEVICE_COMMANDS`). */
 export const DEVICE_RPCS = {
@@ -201,7 +234,7 @@ export const DEVICE_COMMANDS = {
   SetWorktreeSetup: "local",
   SetWorkspaceHidden: "local",
   RemoveWorkspace: "local",
-  StartSession: "device",
+  StartSession: isDeviceStartSession,
   SendTurn: "device",
   RunShellCommand: "local",
   Steer: "device",
@@ -229,21 +262,36 @@ export const DEVICE_COMMANDS = {
   UpdateReviewCheckout: "local",
   RemoveReviewCheckout: "local",
   RecordVerdict: "device",
-} as const satisfies Record<Command["_tag"], DeviceAccess>;
+} as const satisfies Record<Command["_tag"], DeviceCommandAccess>;
 
 const allowed = (table: Readonly<Record<string, DeviceAccess>>, tag: string) =>
   Object.hasOwn(table, tag) && table[tag] === "device";
 
+const commandAllowed = (tag: string, command: Command | null) => {
+  if (!Object.hasOwn(DEVICE_COMMANDS, tag)) return false;
+  // SAFETY: `hasOwn` just proved `tag` is one of DEVICE_COMMANDS' keys.
+  const access: DeviceCommandAccess = DEVICE_COMMANDS[tag as Command["_tag"]];
+
+  if (access === "device") return true;
+
+  return access !== "local" && command !== null && access(command);
+};
+
 /**
  * The refusal for a request on a Linked Device's connection, or null. For `dispatch`,
- * `command` is its Command's tag, null when the payload names none.
+ * `tag` is its Command's tag (null when the payload names none) and `command` the
+ * decoded Command, null when it isn't one; a payload check refuses without it.
  */
-export const decideDeviceAccess = (rpc: string, command: string | null): NotGranted | null => {
+export const decideDeviceAccess = (
+  rpc: string,
+  tag: string | null,
+  command: Command | null = null
+): NotGranted | null => {
   if (!allowed(DEVICE_RPCS, rpc)) return new NotGranted({ what: rpc, needed: null });
 
   if (rpc !== "dispatch") return null;
 
-  return command !== null && allowed(DEVICE_COMMANDS, command)
+  return tag !== null && commandAllowed(tag, command)
     ? null
-    : new NotGranted({ what: `dispatch:${command ?? ""}`, needed: null });
+    : new NotGranted({ what: `dispatch:${tag ?? ""}`, needed: null });
 };

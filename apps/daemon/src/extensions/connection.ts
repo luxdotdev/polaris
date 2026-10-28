@@ -5,6 +5,7 @@
  */
 import {
   Actor,
+  Command,
   decideAccess,
   decideDeviceAccess,
   ExtensionTokenRejected,
@@ -167,6 +168,9 @@ const dispatchCommand = Schema.decodeUnknownOption(
   })
 );
 
+/** A device's `dispatch` is also decided on its whole Command (RX3-1). */
+const deviceCommand = Schema.decodeUnknownOption(Schema.Struct({ command: Command }));
+
 const tokenHello = Schema.is(Schema.Struct({ extensionToken: Schema.Redacted(Schema.String) }));
 
 /**
@@ -208,7 +212,13 @@ export const grantGateFor = (options: {
       const device = options.deviceOf?.(client) ?? deviceOf(client);
 
       const deviceRefusal =
-        device === null ? null : decideDeviceAccess(rpc._tag, command?._tag ?? null);
+        device === null
+          ? null
+          : decideDeviceAccess(
+              rpc._tag,
+              command?._tag ?? null,
+              Option.getOrNull(Option.map(deviceCommand(payload), (p) => p.command))
+            );
 
       if (deviceRefusal !== null) return Effect.fail(deviceRefusal);
 

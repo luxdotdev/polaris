@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { SessionPlacement, Timestamp, Workspace, WorkspaceId } from "@polaris/protocol";
+import {
+  decideDeviceAccess,
+  SessionPlacement,
+  Timestamp,
+  Workspace,
+  WorkspaceId,
+} from "@polaris/protocol";
 import {
   branchFromPrompt,
   defaultTarget,
@@ -156,6 +162,24 @@ describe("startCommand", () => {
       }),
     });
   });
+
+  // RX3-1: a Linked Device's gate admits every StartSession the sheet can send.
+  test.each([
+    [true, true],
+    [false, false],
+  ])(
+    "the Host admits Start from a Linked Device: plan first %p, new worktree %p",
+    (planFirst, newWorktree) => {
+      const command = startCommand({
+        ...base,
+        planFirst,
+        newWorktree,
+        capabilities: ["session.plan-mode"],
+      });
+
+      expect(decideDeviceAccess("dispatch", command._tag, command)).toBeNull();
+    }
+  );
 
   test("two sessions with the same prompt never share a branch", () => {
     expect(branchFromPrompt(base.prompt, newSessionId())).not.toBe(

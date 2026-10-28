@@ -18,6 +18,8 @@ import {
   type LinkedDevice,
   type RelayRouteStatus,
   SessionId,
+  SessionPlacement,
+  WorkspaceId,
 } from "@polaris/protocol";
 import { fromBase64Url } from "@polaris/protocol/relay";
 import { Context, Deferred, Effect, Exit, Fiber, Option, Redacted, Scope } from "effect";
@@ -53,6 +55,21 @@ const sendTurn = Command.cases.SendTurn.make({
   prompt: "hi",
   attachments: [],
 });
+
+/** StartSession as the Mobile App sends it, with `fields` changed. */
+const startSession = (fields: Partial<typeof Command.cases.StartSession.Type> = {}) =>
+  Command.cases.StartSession.make({
+    sessionId: SessionId.make("s2"),
+    workspaceId: WorkspaceId.make("w1"),
+    harness: "claude",
+    placement: SessionPlacement.cases.InPlace.make({}),
+    permissionMode: "plan",
+    model: null,
+    effort: null,
+    prompt: "hi",
+    attachments: [],
+    ...fields,
+  });
 
 const hello = {
   clientName: "test",
@@ -227,6 +244,38 @@ test("a linked device reaches the Daemon with Client power and is recorded as th
         ]);
 
         expect(new Set(refusals.map((error) => error._tag))).toEqual(new Set(["NotGranted"]));
+
+        // RX3-1: a phone starts sessions up to auto; full access and a hidden origin are refused.
+        const start = (command: Command) =>
+          Effect.flip(open.client.dispatch({ commandId: CommandId.make("c3"), command })).pipe(
+            Effect.map((error) => error._tag)
+          );
+
+        const starts = yield* Effect.all([
+          start(startSession()),
+          start(
+            startSession({
+              permissionMode: "supervised",
+              placement: SessionPlacement.cases.NewWorktree.make({
+                branch: "polaris/hi-s2",
+                baseRef: null,
+              }),
+            })
+          ),
+          start(startSession({ permissionMode: "auto-edits" })),
+          start(startSession({ permissionMode: "auto" })),
+          start(startSession({ permissionMode: "full-access" })),
+          start(startSession({ origin: "reviewer" })),
+        ]);
+
+        expect(starts).toEqual([
+          "CommandRejected",
+          "CommandRejected",
+          "CommandRejected",
+          "CommandRejected",
+          "NotGranted",
+          "NotGranted",
+        ]);
         expect((yield* desktop["devices.list"]()).map((d) => d.name)).toEqual(["Test iPhone"]);
 
         // Unlink takes effect on the open connection: the session ends at once.
