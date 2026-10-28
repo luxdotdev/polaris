@@ -45,7 +45,7 @@ import { Pairings } from "../extensions/pairings.ts";
 import { RemoteAccessLive } from "../extensions/remoteAccess.ts";
 import { RemoteAccessControl } from "../remoteAccess/index.ts";
 import { ConnectionDevice, deviceOf } from "../linkedDevices/connection.ts";
-import { DeviceConnections, RelayRoute } from "../linkedDevices/route.ts";
+import { DeviceConnections, type LinkTiming, RelayRoute } from "../linkedDevices/route.ts";
 import type { DeviceSession } from "../linkedDevices/session.ts";
 import { LinkedDevices } from "../linkedDevices/store.ts";
 import { HostSecrets } from "../secrets/index.ts";
@@ -103,6 +103,8 @@ export interface ServeOptions<ROut, E, RIn> {
   readonly onPhase?: (phase: string) => void;
   /** Where the Host's relay keys live; defaults to `HostSecrets.layer` (tests use memory). */
   readonly secrets?: Layer.Layer<HostSecrets>;
+  /** For tests: link lifetime and a hold on link completion (`RelayRoute`). */
+  readonly relayLinks?: LinkTiming | undefined;
 }
 
 export interface RunningServer {
@@ -233,7 +235,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       | ((session: DeviceSession, device: LinkedDevice) => Effect.Effect<void>)
       | null = null;
 
-    const deviceServices = RelayRoute.layer({ root, hostInfo }).pipe(
+    const deviceServices = RelayRoute.layer({ root, hostInfo, links: options.relayLinks }).pipe(
       Layer.provideMerge(
         Layer.mergeAll(
           LinkedDevices.layer(join(root, "linked-devices.sqlite")).pipe(

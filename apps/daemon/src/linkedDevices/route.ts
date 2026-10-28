@@ -28,7 +28,7 @@ import {
   type WakeOutcome,
 } from "@polaris/protocol/relay";
 import { linkIdentity, linkProof, sameProof } from "@polaris/protocol/relay/party";
-import { Context, Deferred, Effect, Layer, Option } from "effect";
+import { Context, Deferred, Effect, Layer, Option, Semaphore } from "effect";
 import { HostSecrets } from "../secrets/index.ts";
 import { type HostRelayKeys, loadHostRelayKeys } from "./keys.ts";
 import { type Admission, RelayLink } from "./link.ts";
@@ -42,6 +42,13 @@ const SELF_UNLINK_DROP = "300 millis";
 
 /** How long a link string can be used. */
 export const LINK_TTL_MS = 5 * 60 * 1000;
+
+/** For tests: a shorter link lifetime, and a hold on a used link's completion. */
+export interface LinkTiming {
+  readonly ttlMs?: number;
+  /** Runs `completion` (the link's commit) when it chooses; it runs at once by default. */
+  readonly completeWith?: (completion: Effect.Effect<void>) => Effect.Effect<void>;
+}
 
 interface OpenLink {
   readonly id: string;
@@ -98,7 +105,11 @@ export class RelayRoute extends Context.Service<
     readonly wake: (target: PushTarget, message: PushMessage) => Effect.Effect<WakeOutcome>;
   }
 >()("polaris/daemon/linkedDevices/RelayRoute") {
-  static layer(options: { readonly root: string; readonly hostInfo: HostInfo }) {
+  static layer(options: {
+    readonly root: string;
+    readonly hostInfo: HostInfo;
+    readonly links?: LinkTiming | undefined;
+  }) {
     return Layer.effect(RelayRoute, makeRelayRoute(options));
   }
 }
@@ -108,6 +119,7 @@ const failed = (message: string) => new RelayRouteError({ reason: "failed", mess
 const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
   readonly root: string;
   readonly hostInfo: HostInfo;
+  readonly links?: LinkTiming | undefined;
 }) {
   const store = yield* LinkedDevices;
   const secrets = yield* HostSecrets;
@@ -115,6 +127,10 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
   const context = yield* Effect.context<never>();
   const runFork = Effect.runForkWith(context);
   const links = new Map<string, OpenLink>();
+  // Completing a used link and closing it are one transition each: whichever runs first wins (RX2-2).
+  const linkLock = Semaphore.makeUnsafe(1);
+  const ttlMs = options.links?.ttlMs ?? LINK_TTL_MS;
+  const completeWith = options.links?.completeWith ?? ((completion) => completion);
   let setting = readSetting(options.root);
   let link: RelayLink | null = null;
   let cachedKeys: HostRelayKeys | null = null;
@@ -151,20 +167,25 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
 
   const log = (message: string) => runFork(Effect.logInfo(`relay route: ${message}`));
 
+  /** Stores the device only while `open` is still the live link: a cancelled or expired one is inert. */
   const completeLink = (
     open: OpenLink,
     request: { name: string; address: RelayAddress },
     key: Uint8Array
   ) =>
-    store
-      .add({ name: request.name, relayAddress: request.address, noiseKey: toBase64Url(key) })
-      .pipe(
-        Effect.tap((device) => Deferred.succeed(open.done, device)),
-        Effect.tap(() => Effect.sync(() => link?.peersChanged())),
-        Effect.catch((error) =>
-          Effect.sync(() => log(`a link could not be stored: ${error.message}`))
-        )
-      );
+    Effect.suspend(() =>
+      links.get(open.id) === open
+        ? store
+            .add({ name: request.name, relayAddress: request.address, noiseKey: toBase64Url(key) })
+            .pipe(Effect.flatMap((device) => Deferred.succeed(open.done, device)))
+        : Effect.sync(() => void log("a link ended before its device could be stored"))
+    ).pipe(
+      (effect) => linkLock.withPermit(effect),
+      Effect.tap(() => Effect.sync(() => link?.peersChanged())),
+      Effect.catch((error) =>
+        Effect.sync(() => log(`a link could not be stored: ${error.message}`))
+      )
+    );
 
   const admitLink = (open: OpenLink, deviceKey: Uint8Array, payload: Uint8Array): Admission => {
     const request = Option.getOrNull(decodeLinkRequest(new TextDecoder().decode(payload)));
@@ -181,7 +202,7 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
       kind: "link",
       complete: () => {
         open.listed = false;
-        runFork(completeLink(open, request, deviceKey));
+        runFork(completeWith(completeLink(open, request, deviceKey)));
       },
     };
   };
@@ -271,7 +292,7 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
       clearTimeout(open.timer);
       yield* Deferred.fail(open.done, new NotFound({ what: "link", id }));
       link?.peersChanged();
-    });
+    }).pipe((effect) => linkLock.withPermit(effect));
 
   return RelayRoute.of({
     status,
@@ -301,9 +322,9 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
       const secret = new Uint8Array(randomBytes(32));
       const address = yield* Effect.promise(() => relayAddress(linkIdentity(secret).publicKey));
       const id = `link_${crypto.randomUUID()}`;
-      const expiresAt = Date.now() + LINK_TTL_MS;
+      const expiresAt = Date.now() + ttlMs;
       const done = yield* Deferred.make<LinkedDevice, NotFound>();
-      const timer = setTimeout(() => runFork(closeLink(id)), LINK_TTL_MS);
+      const timer = setTimeout(() => runFork(closeLink(id)), ttlMs);
       links.set(id, { id, secret, address, expiresAt, done, used: false, listed: true, timer });
       link?.peersChanged();
       const expires = new Date(expiresAt).toISOString();

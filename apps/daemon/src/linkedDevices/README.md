@@ -38,7 +38,9 @@ Push to Linked Devices (`devices.registerPush`, `wake`) is in `../push/README.md
    and starts a handshake to `hostNoiseKey` whose init payload is `encodeLinkRequest({ v: 1,
    address, name, proof: linkProof(secret, deviceNoiseKey, address) })`.
 3. The Daemon checks the proof, replies, then stores the device and swaps the link's address
-   for the device's in `peers`. `devices.awaitLink` returns the device.
+   for the device's in `peers`. `devices.awaitLink` returns the device. Storing it and
+   closing the link (cancel, expiry, a newer link) take one lock, and storing happens only
+   while the link is still open: a link that ends first links nothing.
 4. The device closes that socket and dials as itself; from then on it handshakes normally.
 
 A link is used once and expires after five minutes (`LINK_TTL_MS`). `devices.add` links a

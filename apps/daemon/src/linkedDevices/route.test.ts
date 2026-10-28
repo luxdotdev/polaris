@@ -20,11 +20,12 @@ import {
   SessionId,
 } from "@polaris/protocol";
 import { fromBase64Url } from "@polaris/protocol/relay";
-import { Context, Effect, Exit, Fiber, Option, Scope } from "effect";
+import { Context, Deferred, Effect, Exit, Fiber, Option, Scope } from "effect";
 import { DeviceLabel } from "../engine/rpc.ts";
 import { actorOf } from "../extensions/connection.ts";
 import { shortTemp } from "../platform/testing.ts";
 import { HostSecrets } from "../secrets/index.ts";
+import type { LinkTiming } from "./route.ts";
 import { ServerRpcs } from "../transport/rpcs.ts";
 import { startServer } from "../transport/server.ts";
 import {
@@ -73,7 +74,7 @@ afterAll(async () => {
 const key = (text: string) => Option.getOrThrow(fromBase64Url(text));
 
 /** A started Daemon with the route on, and its Desktop App connection. */
-const daemon = (scope: Scope.Scope) =>
+const daemon = (scope: Scope.Scope, relayLinks?: LinkTiming) =>
   Effect.gen(function* () {
     const root = mkdtempSync(shortTemp("pl-relay-"));
     yield* Scope.addFinalizer(
@@ -87,6 +88,7 @@ const daemon = (scope: Scope.Scope) =>
       lockPath: join(root, "d.lock"),
       handlers,
       secrets: HostSecrets.memory(),
+      relayLinks,
     }).pipe(Scope.provide(scope));
 
     const desktop = yield* connectRpcWith(
@@ -380,3 +382,58 @@ test("the Daemon declares its peers again after the relay restarts", async () =>
     )
   );
 }, 40_000);
+
+test.each(["cancelled", "expired"] as const)(
+  "a link %s after the device proved it, before it completed, links nothing (RX2-2)",
+  async (ending) => {
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const scope = yield* Effect.scope;
+          const admitted = yield* Deferred.make<void>();
+          const release = yield* Deferred.make<void>();
+          const completed = yield* Deferred.make<void>();
+
+          // Holds the commit between admission and completion, as a slow relay socket would.
+          const desktop = yield* daemon(scope, {
+            ttlMs: ending === "expired" ? 3_000 : 60_000,
+            completeWith: (completion) =>
+              Deferred.succeed(admitted, undefined).pipe(
+                Effect.andThen(Deferred.await(release)),
+                Effect.andThen(completion),
+                Effect.ensuring(Deferred.succeed(completed, undefined))
+              ),
+          });
+
+          yield* desktop["relayRoute.enable"]({ url: relay.url });
+          const status = yield* waitConnected(desktop);
+          const offer = yield* desktop["devices.link"]();
+
+          const waiting = yield* Effect.forkChild(
+            desktop["devices.awaitLink"]({ linkId: offer.linkId })
+          );
+
+          const phone = yield* Effect.promise(makeDevice);
+
+          expect((yield* Effect.promise(() => link(offer.linkString, phone, "Late"))).linked).toBe(
+            true
+          );
+          yield* Deferred.await(admitted);
+
+          if (ending === "cancelled")
+            yield* desktop["devices.cancelLink"]({ linkId: offer.linkId });
+
+          // The Desktop App is told the link ended, whichever way.
+          expect((yield* Effect.flip(Fiber.join(waiting)))._tag).toBe("NotFound");
+
+          yield* Deferred.succeed(release, undefined);
+          yield* Deferred.await(completed);
+
+          expect(yield* desktop["devices.list"]()).toEqual([]);
+          expect(yield* openSession(status, phone, phone.noise, 1)).toBeNull();
+        })
+      )
+    );
+  },
+  40_000
+);
