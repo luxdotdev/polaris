@@ -7,6 +7,7 @@ import { type HarnessKind, harnessEntry } from "@polaris/protocol";
 import { midnight, mobileType } from "@polaris/ui/tokens";
 import { useEffect, useMemo, useState } from "react";
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import type { HostConnection, HostStatus } from "../runtime/hostConnection.ts";
 import { claimChoices, constellationKey, taskKey, useKept, useLeadInput } from "../duo/kept.ts";
 import { useHost, useHostStatus } from "../runtime/hosts.tsx";
@@ -280,13 +281,13 @@ export const ConstellationScreen = ({
   const connection = useHost(hostId);
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
       {connection === null ? (
         <Text style={[styles.meta, styles.pad]}>This host isn't linked to this iPhone.</Text>
       ) : (
         <Live connection={connection} constellationId={constellationId} onBack={onBack} />
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 

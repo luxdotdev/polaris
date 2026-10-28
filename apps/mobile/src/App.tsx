@@ -16,6 +16,7 @@ import {
   ReviewTab,
   ThreadRoute,
 } from "./app/routes.tsx";
+import { SwipeBack } from "./app/SwipeBack.tsx";
 import { TabBar } from "./app/TabBar.tsx";
 import { DuoShell } from "./duo/DuoShell.tsx";
 import { FollowedHostsProvider } from "./home/feed/useFollowedHosts.ts";
@@ -94,7 +95,7 @@ const Screen = () => {
   if (!__DEV__ && relay.loaded && first === undefined)
     return <LinkScreen onLinked={() => undefined} />;
 
-  return Match.value(navigation.top).pipe(
+  const screen = Match.value(navigation.top).pipe(
     Match.discriminatorsExhaustive("screen")({
       tabs: () => <Tabs />,
       hosts: () => (
@@ -124,6 +125,12 @@ const Screen = () => {
       ),
       link: () => <LinkScreen onLinked={navigation.back} onCancel={navigation.back} />,
     })
+  );
+
+  return navigation.top.screen === "tabs" ? (
+    screen
+  ) : (
+    <SwipeBack onBack={navigation.back}>{screen}</SwipeBack>
   );
 };
 
