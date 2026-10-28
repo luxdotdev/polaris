@@ -1,16 +1,16 @@
 # apps/mobile
 
 The Mobile App (`@polaris/mobile`): Expo React Native on Hermes, sharing `@polaris/protocol`,
-`@polaris/client` and `@polaris/sdk` with the other Clients (ADR 0081). This is the scaffold: one
-plain list of a Host's agent sessions over the gateway. The product screens come later.
+`@polaris/client` and `@polaris/sdk` with the other Clients (ADR 0081): Home, Hosts and the
+constellation view, in midnight, over one `HostConnection` per Host.
 
 ## Run it in the iOS simulator
 
 Needs Xcode with an iOS simulator runtime (`xcodebuild -downloadPlatform iOS`) and CocoaPods.
 
 ```sh
-bun run --cwd apps/mobile dev:daemon   # a dev Daemon; prints a read-only gateway pairing
-EXPO_PUBLIC_POLARIS_PAIRING='polaris-pair:v1:…' bun run --cwd apps/mobile ios
+bun run --cwd apps/mobile dev:daemon   # a dev Daemon; prints the dev bridge line
+EXPO_PUBLIC_POLARIS_DEV_BRIDGE='polaris-dev-bridge:v1:…' bun run --cwd apps/mobile ios
 ```
 
 `ios` is `expo run:ios`: it writes `ios/` from `app.json` (Continuous Native Generation, not
@@ -18,9 +18,9 @@ committed), builds, installs, starts Metro and opens the app. CocoaPods needs a 
 (`export LANG=en_US.UTF-8`). Later runs only need `bun run --cwd apps/mobile start`.
 
 `dev:daemon` runs `polaris serve` from source on a throwaway `POLARIS_HOME` with the scripted
-bench Harness (the SDK's test Daemon), registers a Workspace and starts two agent sessions. To
-use another Daemon, pair an Extension with the `read` Grant on a gateway URL and paste the string
-into the app's "Pairing string (development only)" field; it is kept in the Keychain.
+bench Harness (the SDK's test Daemon), registers a Workspace and starts two agent sessions. A
+prompt such as `bench:{"approvalEvery":1,"approvalQuestion":{"question":"…","choices":["A","B"]}}`
+makes a session ask for approval or answer, to try Home's inline replies.
 
 ## Hosts and the dev bridge
 
@@ -40,6 +40,18 @@ EXPO_PUBLIC_POLARIS_DEV_BRIDGE='polaris-dev-bridge:v1:…' bun run --cwd apps/mo
 ```
 
 Only `__DEV__` builds read the variable; the bridge itself is a script and never bundled.
+
+## Home and Hosts
+
+`src/home/` is Paper H4. `feed/` follows each Host's feed (`openHostFeed` over its
+`HostConnection`, so a Host offline at launch is followed once it connects) and folds it
+(`fold.ts`); `model/` turns the folded Hosts into Home's sections, lines and replies; `ui/` draws
+them. An approval whose command runs past four lines is answered in the agent session, never
+inline. `scripts/home.daemon.test.ts` approves, denies and answers against a real Daemon.
+`src/hosts/` is Paper M7: each Host's Connection State and route, read only.
+
+The shell is `src/App.tsx` with `src/app/` (navigation, tab bar, back bar). `src/app/routes.tsx`
+holds the stand-ins for the thread, New agent session and Link screens.
 
 ## The constellation view
 
