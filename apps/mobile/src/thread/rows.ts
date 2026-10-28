@@ -8,6 +8,7 @@
 import type { TurnItem, TurnStatus } from "@polaris/protocol";
 import { Match } from "effect";
 import type { TurnEntry } from "./fold.ts";
+import type { OutgoingSteer } from "./outbox.ts";
 import { runKind, runSummary, toolLabel } from "./steps.ts";
 
 export type StepTone = "done" | "active" | "failed";
@@ -27,6 +28,16 @@ export type ThreadRow = RowBase &
         readonly status: TurnStatus;
       }
     | { readonly kind: "prompt"; readonly text: string }
+    /** A steer the Harness took, where it landed in the Turn. */
+    | { readonly kind: "steered"; readonly text: string }
+    /** A steer still on its way, or why it didn't land. */
+    | {
+        readonly kind: "outgoing";
+        readonly id: string;
+        readonly text: string;
+        readonly failed: boolean;
+        readonly note: string;
+      }
     | { readonly kind: "reply"; readonly text: string }
     | {
         readonly kind: "step";
@@ -129,7 +140,11 @@ const planStep = (item: Extract<TurnItem, { _tag: "Plan" }>): Step => {
 };
 
 type Piece =
-  | { readonly kind: "text"; readonly row: "reply" | "prompt" | "error"; readonly text: string }
+  | {
+      readonly kind: "text";
+      readonly row: "reply" | "steered" | "error";
+      readonly text: string;
+    }
   | Step
   | null;
 
@@ -137,7 +152,7 @@ const pieceOf = (item: TurnItem): Piece =>
   Match.value(item).pipe(
     Match.tagsExhaustive({
       AssistantMessage: ({ text }): Piece => ({ kind: "text", row: "reply", text }),
-      UserMessage: ({ text }): Piece => ({ kind: "text", row: "prompt", text }),
+      UserMessage: ({ text }): Piece => ({ kind: "text", row: "steered", text }),
       Error: ({ message }): Piece => ({ kind: "text", row: "error", text: message }),
       // Thinking stays out of the phone's thread.
       Reasoning: (): Piece => null,
@@ -329,6 +344,18 @@ export const threadRows = (
     return expanded.has(entry.turn.id) ? [header, ...cachedOpen(entry, expanded)] : [header];
   });
 };
+
+/** Steers still on their way, oldest first, for the bottom of the thread. */
+export const outgoingRows = (steers: ReadonlyArray<OutgoingSteer>): ReadonlyArray<ThreadRow> =>
+  steers.map((entry) => ({
+    kind: "outgoing",
+    key: `out:${entry.id}`,
+    turnId: entry.turnId,
+    id: entry.id,
+    text: entry.text,
+    failed: entry.status === "failed",
+    note: entry.status === "failed" ? `${entry.error ?? "Didn't send"} · Tap to edit` : "Steering…",
+  }));
 
 /** The newest ended Turn among those whose rows are on screen, for the read position. */
 export const newestEndedOnScreen = (

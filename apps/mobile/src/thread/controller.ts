@@ -33,6 +33,7 @@ import {
   submitCommand,
 } from "./composer.ts";
 import { applySessionItem, type SessionFold, summaryHead } from "./fold.ts";
+import { type OutgoingSteer, outgoingSteer, settleSteers } from "./outbox.ts";
 import { newestEndedOnScreen } from "./rows.ts";
 import { newCommandId, type ThreadFailure, type ThreadSource } from "./source.ts";
 
@@ -46,6 +47,8 @@ export interface ThreadState {
   readonly draftStatus: DraftStatus | null;
   /** Follow-ups waiting for the Turn in flight, oldest first. */
   readonly queued: ReadonlyArray<FollowUp>;
+  /** Steers sent into the Turn in flight that the thread doesn't show yet, oldest first. */
+  readonly steers: ReadonlyArray<OutgoingSteer>;
   /** Why the last send or stop failed. */
   readonly error: string | null;
   /** Pending requests whose answer is on its way to the Host. */
@@ -65,6 +68,8 @@ export interface ThreadController {
   /** Sends or holds the draft with `attachments`; true when it was taken, so the chips can go. */
   readonly submit: (attachments?: ReadonlyArray<AttachmentId>) => Promise<boolean>;
   readonly queue: (attachments?: ReadonlyArray<AttachmentId>) => boolean;
+  /** Takes a steer that didn't land back into the composer, to send again. */
+  readonly editSteer: (id: string) => void;
   readonly interrupt: () => Promise<void>;
   /** Answers a pending request; a second tap while the first is on its way does nothing. */
   readonly respond: (requestId: RequestId, decision: ApprovalDecision) => Promise<void>;
@@ -84,6 +89,7 @@ const initial: ThreadState = {
   text: "",
   draftStatus: null,
   queued: [],
+  steers: [],
   error: null,
   answering: [],
   requestErrors: new Map(),
@@ -224,7 +230,7 @@ export const openThread = (
       const fold = applySessionItem(state.fold, item);
 
       if (fold === state.fold || fold === null) return;
-      set({ fold });
+      set({ fold, steers: settleSteers(state.steers, fold.turns) });
       followFindings(fold);
       sendFollowUp(fold);
     })
@@ -265,6 +271,33 @@ export const openThread = (
     return true;
   };
 
+  /** Shows the steer in the thread at once; it stays there until it lands or fails. */
+  const steer = async (fold: SessionFold, command: Command) => {
+    const turnId = lastTurnOf(fold)?.id;
+
+    if (turnId === undefined) return false;
+    const entry = outgoingSteer(fold.turns, turnId, state.text);
+    set({ steers: [...state.steers, entry] });
+    clearSent();
+    const error = await send(`steer:${entry.id}`, command);
+
+    const steers = state.steers.map((held): OutgoingSteer =>
+      held.id === entry.id ? { ...held, status: error === null ? "sent" : "failed", error } : held
+    );
+
+    set({ steers: settleSteers(steers, state.fold?.turns ?? []) });
+
+    return true;
+  };
+
+  const editSteer = (id: string) => {
+    const held = state.steers.find((entry) => entry.id === id);
+
+    if (held === undefined || held.status !== "failed") return;
+    set({ steers: state.steers.filter((entry) => entry !== held) });
+    type(state.text.trim() === "" ? held.text : `${state.text.trimEnd()}\n${held.text}`);
+  };
+
   const submit = async (attachments: ReadonlyArray<AttachmentId> = []) => {
     const fold = state.fold;
 
@@ -282,6 +315,8 @@ export const openThread = (
 
     // A Send already on its way carries its own attachments, not chips added since.
     if (command === null || inFlight.has("composer")) return false;
+
+    if (mode.kind === "steer") return steer(fold, command);
 
     const sentAt = generation;
     const error = await send("composer", command);
@@ -344,9 +379,14 @@ export const openThread = (
     type,
     submit,
     queue,
+    editSteer,
     interrupt,
     respond,
-    busy: () => followingUp || state.queued.length > 0 || inFlight.size > 0,
+    busy: () =>
+      followingUp ||
+      state.queued.length > 0 ||
+      inFlight.size > 0 ||
+      state.steers.some((entry) => entry.status !== "failed"),
     seen,
     reconnected: () => void drafts.retry(),
     dispose: () => {

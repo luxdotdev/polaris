@@ -1,10 +1,19 @@
 import { describe, expect, test } from "bun:test";
-import { ApprovalDecision, AttachmentId, Command } from "@polaris/protocol";
+import {
+  ApprovalDecision,
+  AttachmentId,
+  Command,
+  DomainEvent,
+  TurnId,
+  TurnItem,
+} from "@polaris/protocol";
 import { Effect, Predicate } from "effect";
 import { type ThreadController, type ThreadState, openThread } from "./controller.ts";
 import {
+  at,
   checkpoint,
   ended,
+  event,
   type FakeHost,
   type FakeHostOptions,
   finding,
@@ -187,6 +196,62 @@ describe("send, steer, queue", () => {
             attachments: [shot],
           })
         );
+      })
+    ));
+});
+
+describe("a steer shows until it lands", () => {
+  const landed = (sequence: number, text: string) =>
+    event(
+      sequence,
+      DomainEvent.cases.TurnItemCompleted.make({
+        sessionId,
+        turnId: TurnId.make("t-1"),
+        item: TurnItem.cases.UserMessage.make({ id: `u-${sequence}`, text, startedAt: at }),
+        subagentId: null,
+      })
+    );
+
+  const steering = (thread: ThreadController) =>
+    thread.get().steers.map((entry) => `${entry.status}: ${entry.text}`);
+
+  test("in the thread at once, then gone once the Harness takes it in", () =>
+    withThread((host, thread) =>
+      Effect.gen(function* () {
+        yield* host.push(snapshot([{ turn: working }], { state: "working" }));
+        yield* until(thread, (s) => s.fold !== null);
+        host.holdDispatches();
+        thread.type("use the env var");
+        const taken = thread.submit();
+        yield* settle;
+        expect(steering(thread)).toEqual(["sending: use the env var"]);
+        expect(thread.get().text).toBe("");
+
+        yield* host.releaseDispatches();
+        yield* Effect.promise(() => taken);
+        expect(steering(thread)).toEqual(["sent: use the env var"]);
+        expect(thread.busy()).toBe(true);
+
+        yield* host.push(landed(2, "use the env var"));
+        yield* until(thread, (s) => s.steers.length === 0);
+      })
+    ));
+
+  test("fails when the Turn ends first, and goes back to the composer to send again", () =>
+    withThread((host, thread) =>
+      Effect.gen(function* () {
+        yield* host.push(snapshot([{ turn: working }], { state: "working" }));
+        yield* until(thread, (s) => s.fold !== null);
+        thread.type("also run lint");
+        yield* Effect.promise(() => thread.submit());
+
+        yield* host.push(ended(2, turn(1)));
+        const failed = yield* until(thread, (s) => s.steers[0]?.status === "failed");
+        expect(failed.steers[0]?.error).toBe("The turn ended before it landed");
+
+        thread.editSteer(failed.steers[0]?.id ?? "");
+        expect(thread.get().steers).toEqual([]);
+        expect(thread.get().text).toBe("also run lint");
       })
     ));
 });

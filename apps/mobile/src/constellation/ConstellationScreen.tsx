@@ -1,26 +1,22 @@
 /**
- * The constellation view on iPhone (Paper C2; DESIGN.md Mobile App, Constellation): the lead
- * with the task bar, tasks as a vertical rail, the claim handed to the user, and a composer
- * addressed to the lead.
+ * The constellation view on iPhone (Paper C2; DESIGN.md Mobile App, Constellation): the lead's
+ * thread, under a panel with the task bar that opens to the tasks as a vertical rail and the
+ * claim handed to the user. The thread's composer messages the lead, whatever the state.
  */
-import { type HarnessKind, harnessEntry } from "@polaris/protocol";
+import { type HarnessKind, harnessEntry, SessionId } from "@polaris/protocol";
 import { midnight, mobileType } from "@polaris/ui/tokens";
 import { useEffect, useMemo, useState } from "react";
-import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { HostConnection, HostStatus } from "../runtime/hostConnection.ts";
-import { claimChoices, constellationKey, taskKey, useKept, useLeadInput } from "../duo/kept.ts";
-import { useNavigation } from "../app/navigation.tsx";
+import { claimChoices, taskKey, useKept } from "../duo/kept.ts";
 import { useAfter } from "../runtime/useAfter.ts";
-import { MarkdownLine } from "../markdown/index.ts";
 import { useHost, useHostStatus } from "../runtime/hosts.tsx";
-import { LeadComposer } from "./composer.tsx";
-import { age } from "./copy.ts";
+import { ThreadScreen } from "../thread/index.ts";
 import { harnessHue, segmentColour } from "./glyphs.tsx";
 import { type ConstellationView, constellationView } from "./model.ts";
 import { GroupHeader, TaskRowView } from "./rows.tsx";
 import { type LeadSession, useConstellation } from "./useConstellation.ts";
-import { messageLead } from "./verdict.ts";
 import { useVerdicts, type Verdicts } from "./useVerdicts.ts";
 
 /** Re-render elapsed times while the screen is open; nothing runs on the Host for it. */
@@ -104,14 +100,16 @@ const Header = ({
   status,
   hostName,
   onBack,
-  onOpenLead,
+  open,
+  onToggle,
 }: {
   readonly view: ConstellationView;
   readonly lead: LeadSession | null;
   readonly status: HostStatus;
   readonly hostName: string;
   readonly onBack: (() => void) | undefined;
-  readonly onOpenLead: () => void;
+  readonly open: boolean;
+  readonly onToggle: () => void;
 }) => (
   <View style={styles.header}>
     <View style={styles.titleRow}>
@@ -128,8 +126,9 @@ const Header = ({
     </View>
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Open the lead's thread"
-      onPress={onOpenLead}
+      accessibilityLabel={open ? "Hide the tasks" : "Show the tasks"}
+      accessibilityState={{ expanded: open }}
+      onPress={onToggle}
       style={styles.leadRow}
     >
       <View style={[styles.avatar, { borderColor: harnessHue(lead?.harness ?? null) }]}>
@@ -144,33 +143,10 @@ const Header = ({
         </Text>
       </View>
       <Bar view={view} />
+      <Text style={[styles.chevron, open && styles.chevronOpen]}>›</Text>
     </Pressable>
   </View>
 );
-
-/** A finished constellation takes no messages; the lead's own thread still does. */
-const finished = (view: ConstellationView) =>
-  view.state === "completed" || view.state === "archived";
-
-const FinishedComposer = ({ onOpenLead }: { readonly onOpenLead: () => void }) => (
-  <Pressable accessibilityRole="button" onPress={onOpenLead} style={styles.finished}>
-    <Text style={styles.meta}>This constellation is finished.</Text>
-    <Text style={styles.finishedAction}>Message the lead in its thread</Text>
-  </Pressable>
-);
-
-const LeadNote = ({ lead, now }: { readonly lead: LeadSession; readonly now: number }) =>
-  lead.lastMessage === null ? null : (
-    <View style={styles.note}>
-      <View style={[styles.noteAvatar, { backgroundColor: harnessHue(lead.harness) }]} />
-      <View style={styles.leadText}>
-        <Text style={styles.meta}>
-          Lead{lead.lastMessage.at === null ? "" : ` · ${age(lead.lastMessage.at, now)} ago`}
-        </Text>
-        <MarkdownLine text={lead.lastMessage.text} style={styles.noteText} numberOfLines={4} />
-      </View>
-    </View>
-  );
 
 const Rail = ({
   view,
@@ -217,6 +193,14 @@ const Rail = ({
   );
 };
 
+/** Open by default while a claim waits on the user; then as the user leaves it. */
+const usePanel = (view: ConstellationView | null) => {
+  const [chosen, setChosen] = useState<boolean | null>(null);
+  const open = chosen ?? view?.bar.segments.includes("needs-you") ?? false;
+
+  return [open, () => setChosen(!open)] as const;
+};
+
 const Live = ({
   connection,
   constellationId,
@@ -231,8 +215,7 @@ const Live = ({
   const verdicts = useVerdicts(connection, constellationId);
   const now = useNow(30_000);
   const [opened, setOpened] = useState<ReadonlyMap<string, boolean>>(new Map());
-  const lead = useLeadInput(constellationKey(connection.hostId, constellationId));
-  const navigation = useNavigation();
+  const { height } = useWindowDimensions();
   // Brief reconnects (the app coming back, a network change) stay quiet.
   const away = useAfter(status.state !== "connected");
   const shown: HostStatus = away ? status : { ...status, state: "connected" };
@@ -242,65 +225,56 @@ const Live = ({
     [feed, now, opened]
   );
 
-  if (feed.kind === "failed") return <Text style={[styles.meta, styles.pad]}>{feed.message}</Text>;
+  const [open, toggle] = usePanel(view);
+
+  if (feed.kind === "failed") return <Waiting text={feed.message} />;
 
   if (view === null || feed.kind !== "live")
-    return (
-      <Text style={[styles.meta, styles.pad]}>
-        {awayLine(shown) ?? "Loading the constellation…"}
-      </Text>
-    );
+    return <Waiting text={awayLine(shown) ?? "Loading the constellation…"} />;
 
-  const openLead = () =>
-    navigation.push({
-      screen: "thread",
-      hostId: connection.hostId,
-      sessionId: view.leadSessionId,
-    });
-
-  return (
-    <KeyboardAvoidingView style={styles.fill} behavior="padding">
+  const header = (
+    <View>
       <Header
         view={view}
         lead={feed.lead}
         status={shown}
         hostName={connection.name}
         onBack={onBack}
-        onOpenLead={openLead}
+        open={open}
+        onToggle={toggle}
       />
-      <ScrollView
-        style={styles.fill}
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Rail
-          view={view}
-          onToggle={(group, open) => setOpened((m) => new Map(m).set(group, open))}
-          verdicts={verdicts}
-          keyOf={(taskId) => taskKey(connection.hostId, constellationId, taskId)}
-        />
-        {feed.lead === null ? null : <LeadNote lead={feed.lead} now={now} />}
-      </ScrollView>
-      <View style={styles.composer}>
-        {finished(view) ? (
-          <FinishedComposer onOpenLead={openLead} />
-        ) : (
-          <LeadComposer
-            harness={feed.lead?.harness ?? null}
-            model={feed.lead?.model ?? null}
-            disabled={awayLine(shown)}
-            input={lead}
-            onSend={(text) =>
-              connection
-                .run((client) => messageLead(client, constellationId, text))
-                .then(() => undefined)
-            }
+      {open ? (
+        <ScrollView
+          style={[styles.panel, { maxHeight: height * 0.5 }]}
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Rail
+            view={view}
+            onToggle={(group, next) => setOpened((m) => new Map(m).set(group, next))}
+            verdicts={verdicts}
+            keyOf={(taskId) => taskKey(connection.hostId, constellationId, taskId)}
           />
-        )}
-      </View>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      ) : null}
+    </View>
+  );
+
+  return (
+    <ThreadScreen
+      hostId={connection.hostId}
+      sessionId={SessionId.make(view.leadSessionId)}
+      onBack={onBack ?? (() => undefined)}
+      header={header}
+    />
   );
 };
+
+const Waiting = ({ text }: { readonly text: string }) => (
+  <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
+    <Text style={[styles.meta, styles.pad]}>{text}</Text>
+  </SafeAreaView>
+);
 
 export interface ConstellationScreenProps {
   readonly hostId: string;
@@ -315,20 +289,15 @@ export const ConstellationScreen = ({
 }: ConstellationScreenProps) => {
   const connection = useHost(hostId);
 
-  return (
-    <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
-      {connection === null ? (
-        <Text style={[styles.meta, styles.pad]}>This host isn't linked to this iPhone.</Text>
-      ) : (
-        <Live connection={connection} constellationId={constellationId} onBack={onBack} />
-      )}
-    </SafeAreaView>
+  return connection === null ? (
+    <Waiting text="This host isn't linked to this iPhone." />
+  ) : (
+    <Live connection={connection} constellationId={constellationId} onBack={onBack} />
   );
 };
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: midnight.bg },
-  fill: { flex: 1 },
   pad: { padding: 20 },
   header: {
     gap: 14,
@@ -374,25 +343,13 @@ const styles = StyleSheet.create({
   packed: { width: 104, gap: 1 },
   segment: { width: 10, height: 4 },
   slice: { flex: 1, height: 4 },
-  scroll: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 24 },
+  chevron: { ...mobileType.subhead, color: midnight.textFaint },
+  chevronOpen: { transform: [{ rotate: "90deg" }] },
+  panel: {
+    flexGrow: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: midnight.hairline,
+  },
+  scroll: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 16 },
   rail: {},
-  note: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 16,
-    paddingTop: 14,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: midnight.hairline,
-  },
-  noteAvatar: { width: 22, height: 22, borderRadius: 6, opacity: 0.6 },
-  noteText: { ...mobileType.callout, color: midnight.textDefault },
-  composer: { paddingHorizontal: 16, paddingBottom: 8, paddingTop: 8 },
-  finished: {
-    gap: 2,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 14,
-    backgroundColor: midnight.surfaceRaised,
-  },
-  finishedAction: { ...mobileType.callout, color: midnight.textDefault },
 });

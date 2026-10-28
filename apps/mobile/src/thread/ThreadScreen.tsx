@@ -5,7 +5,15 @@
  */
 import type { RiskFinding, SessionId, Workspace, WorkspaceId } from "@polaris/protocol";
 import { midnight, mobileType } from "@polaris/ui/tokens";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   AppState,
   FlatList,
@@ -28,7 +36,7 @@ import { hostThreadSource } from "./hostSource.ts";
 import { harnessName, subtitle } from "./labels.ts";
 import { PendingRequests } from "./PendingRequests.tsx";
 import { Diamond, Row, type ThreadFocus } from "./Row.tsx";
-import { threadRows, type ThreadRow } from "./rows.ts";
+import { outgoingRows, threadRows, type ThreadRow } from "./rows.ts";
 import { chipAction, openCritical, type Suggestion, suggestions } from "./suggestions.ts";
 import { threadKey, threads } from "./threads.ts";
 import { useAfter } from "../runtime/useAfter.ts";
@@ -44,6 +52,8 @@ export interface ThreadScreenProps {
   readonly focusedKey?: string | null;
   /** The iPhone Duo (D7): a minimum height that keeps the chips and composer below the fold. */
   readonly composerSlot?: "inline" | { readonly minHeight: number };
+  /** Takes the place of the session's header: a constellation's status above its lead's thread. */
+  readonly header?: ReactNode;
 }
 
 interface HeldThread {
@@ -183,6 +193,7 @@ export const ThreadScreen = ({
   onFocus,
   focusedKey = null,
   composerSlot = "inline",
+  header,
 }: ThreadScreenProps) => {
   const connection = useHost(hostId);
   const navigation = useNavigation();
@@ -208,11 +219,15 @@ export const ThreadScreen = ({
     onText: (text) => controller?.type(text),
   });
 
+  const steers = state?.steers;
+
   const rows = useMemo(
     // The list is inverted: the newest row first, at the bottom of the screen.
-    () => [...threadRows(fold?.turns ?? [], expanded)].reverse(),
-    [fold?.turns, expanded]
+    () => [...threadRows(fold?.turns ?? [], expanded), ...outgoingRows(steers ?? [])].reverse(),
+    [fold?.turns, expanded, steers]
   );
+
+  const editSteer = useCallback((id: string) => controller?.editSteer(id), [controller]);
 
   const rowsRef = useRef<ReadonlyArray<ThreadRow>>(rows);
   rowsRef.current = rows;
@@ -277,10 +292,16 @@ export const ThreadScreen = ({
   }, []);
 
   if (connection === null)
-    return <Missing onBack={onBack} text="This host isn't linked to this iPhone" />;
+    return <Missing onBack={onBack} header={header} text="This host isn't linked to this iPhone" />;
 
   if (state === null || fold === null)
-    return <Missing onBack={onBack} text={state?.failure ?? (slowToOpen ? "Connecting…" : "")} />;
+    return (
+      <Missing
+        onBack={onBack}
+        header={header}
+        text={state?.failure ?? (slowToOpen ? "Connecting…" : "")}
+      />
+    );
 
   const { session } = fold;
   const last = fold.turns.at(-1)?.turn ?? null;
@@ -309,12 +330,18 @@ export const ThreadScreen = ({
   return (
     <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
       <KeyboardAvoidingView style={styles.screen} behavior="padding">
-        <Header
-          title={session.title === "" ? "Untitled" : session.title}
-          line={subtitle([harnessName(session.harness), connection.name, workspace?.name ?? null])}
-          criticals={criticals.length}
-          onBack={onBack}
-        />
+        {header ?? (
+          <Header
+            title={session.title === "" ? "Untitled" : session.title}
+            line={subtitle([
+              harnessName(session.harness),
+              connection.name,
+              workspace?.name ?? null,
+            ])}
+            criticals={criticals.length}
+            onBack={onBack}
+          />
+        )}
         <FlatList
           style={[styles.list, away ? styles.offline : null]}
           contentContainerStyle={styles.listContent}
@@ -329,6 +356,7 @@ export const ThreadScreen = ({
               onToggle={toggle}
               onFocus={onFocus}
               focused={item.key === focusedKey}
+              onEditSteer={editSteer}
             />
           )}
           ListHeaderComponent={
@@ -416,9 +444,17 @@ export const ThreadScreen = ({
   );
 };
 
-const Missing = ({ text, onBack }: { readonly text: string; readonly onBack: () => void }) => (
+const Missing = ({
+  text,
+  onBack,
+  header,
+}: {
+  readonly text: string;
+  readonly onBack: () => void;
+  readonly header: ReactNode;
+}) => (
   <SafeAreaView style={styles.screen}>
-    <Header title="" line="" criticals={0} onBack={onBack} />
+    {header ?? <Header title="" line="" criticals={0} onBack={onBack} />}
     <Text style={styles.missing}>{text}</Text>
   </SafeAreaView>
 );

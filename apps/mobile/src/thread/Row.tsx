@@ -118,21 +118,60 @@ export interface RowProps {
   /** Makes step rows pressable; the iPhone Duo's second half follows them. */
   readonly onFocus?: ((focus: ThreadFocus) => void) | undefined;
   readonly focused?: boolean;
+  /** Takes a steer that didn't land back into the composer, by its id. */
+  readonly onEditSteer?: ((id: string) => void) | undefined;
 }
 
-const RowView = ({ row, open, criticalPaths, onToggle, onFocus, focused = false }: RowProps) => {
+const Bubble = ({
+  text,
+  note,
+  faded = false,
+  failed = false,
+}: {
+  readonly text: string;
+  readonly note: string | null;
+  readonly faded?: boolean;
+  readonly failed?: boolean;
+}) => (
+  <View style={styles.promptLine}>
+    <View style={[styles.prompt, faded ? styles.faded : null]}>
+      <Text style={styles.message} selectable>
+        {text}
+      </Text>
+    </View>
+    {note === null ? null : (
+      <Text style={[styles.note, failed ? styles.noteFailed : null]}>{note}</Text>
+    )}
+  </View>
+);
+
+const RowView = ({
+  row,
+  open,
+  criticalPaths,
+  onToggle,
+  onFocus,
+  focused = false,
+  onEditSteer,
+}: RowProps) => {
   switch (row.kind) {
     case "earlier":
       return <Earlier row={row} open={open} onToggle={onToggle} />;
     case "prompt":
-      return (
-        <View style={styles.promptLine}>
-          <View style={styles.prompt}>
-            <Text style={styles.message} selectable>
-              {row.text}
-            </Text>
-          </View>
-        </View>
+      return <Bubble text={row.text} note={null} />;
+    case "steered":
+      return <Bubble text={row.text} note="Steered this turn" />;
+    case "outgoing":
+      return row.failed ? (
+        <Pressable
+          onPress={() => onEditSteer?.(row.id)}
+          accessibilityRole="button"
+          accessibilityHint="Puts the message back in the composer"
+        >
+          <Bubble text={row.text} note={row.note} faded failed />
+        </Pressable>
+      ) : (
+        <Bubble text={row.text} note={row.note} faded />
       );
     case "reply":
       return <Markdown text={row.text} style={styles.reply} />;
@@ -174,7 +213,10 @@ const styles = StyleSheet.create({
   turnNumber: { ...mobileType.footnote, color: midnight.textFaint },
   turnTitle: { ...mobileType.subhead, color: midnight.textSubtle, flex: 1 },
   turnStatus: { ...mobileType.footnote, color: midnight.failedText },
-  promptLine: { flexDirection: "row", justifyContent: "flex-end", marginBottom: 12 },
+  promptLine: { alignItems: "flex-end", gap: 4, marginBottom: 12 },
+  faded: { opacity: 0.6 },
+  note: { ...mobileType.footnote, color: midnight.textSubtle, marginHorizontal: 4 },
+  noteFailed: { color: midnight.failedText },
   prompt: {
     backgroundColor: midnight.surfaceRaised,
     borderRadius: 18,
