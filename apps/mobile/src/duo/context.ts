@@ -7,9 +7,7 @@ import type { RiskFinding, Severity } from "@polaris/protocol";
 import { fileSeverities, highest, listedFindings } from "../review/model.ts";
 import type { TurnEntry } from "../thread/fold.ts";
 import type { ThreadFocus } from "../thread/Row.tsx";
-import { threadRows, type ThreadRow } from "../thread/rows.ts";
-
-type StepRow = Extract<ThreadRow, { kind: "step" }>;
+import { type StepRow, turnSteps } from "../thread/rows.ts";
 
 export interface OtherFile {
   readonly path: string;
@@ -33,9 +31,6 @@ export interface TurnContext {
   readonly also: ReadonlyArray<OtherFile>;
 }
 
-const stepsOf = (entry: TurnEntry): ReadonlyArray<StepRow> =>
-  threadRows([entry], new Set()).filter((row): row is StepRow => row.kind === "step");
-
 const pathsOf = (steps: ReadonlyArray<StepRow>): ReadonlyArray<string> => [
   ...new Set(steps.flatMap((step) => step.paths)),
 ];
@@ -49,7 +44,7 @@ const defaultStep = (
   findings: ReadonlyArray<RiskFinding>
 ): { readonly entry: TurnEntry; readonly step: StepRow } | null => {
   for (const entry of [...turns].reverse()) {
-    const touched = stepsOf(entry).filter((step) => step.paths.length > 0);
+    const touched = turnSteps(entry).filter((step) => step.paths.length > 0);
 
     const step =
       touched.find((s) => s.paths.some((path) => criticalOn(findings, path))) ?? touched.at(-1);
@@ -76,7 +71,7 @@ const contextFor = (
     focusKey: focus.key,
     path,
     finding: path === null ? null : (listed.find((f) => f.path === path) ?? null),
-    also: pathsOf(stepsOf(entry))
+    also: pathsOf(turnSteps(entry))
       .filter((other) => other !== path)
       .map((other) => ({ path: other, severity: highest(fileSeverities(findings, other)) })),
   };
