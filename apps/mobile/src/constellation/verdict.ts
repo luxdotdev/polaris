@@ -53,39 +53,38 @@ export class VerdictRefused extends Error {
 }
 
 // Idempotency keys only need to be unique, not secret.
-const commandId = () =>
+export const newCommandId = () =>
   CommandId.make(`mobile-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`);
 
-/** Approves first on Accept, so a refused approval sends the lead nothing. */
-export const sendVerdict = (client: DaemonClient, input: VerdictInput) =>
-  Effect.gen(function* () {
-    const constellationId = ConstellationId.make(input.constellationId);
+/** Records the user's approval; the same command id makes a retry a no-op on the Host. */
+export const approveClaim = (client: DaemonClient, input: VerdictInput, commandId: CommandId) =>
+  client["constellation.review"]({
+    commandId,
+    constellationId: ConstellationId.make(input.constellationId),
+    attemptId: AttemptId.make(input.attemptId),
+    revision: input.revision,
+    action: ReviewAction.cases.Approve.make({}),
+  }).pipe(
+    Effect.catchTag("ConstellationRejected", (e) => Effect.fail(new VerdictRefused(e.findings))),
+    Effect.asVoid
+  );
 
-    if (input.verdict === "accept")
-      yield* client["constellation.review"]({
-        commandId: commandId(),
-        constellationId,
-        attemptId: AttemptId.make(input.attemptId),
-        revision: input.revision,
-        action: ReviewAction.cases.Approve.make({}),
-      }).pipe(
-        Effect.catchTag("ConstellationRejected", (e) => Effect.fail(new VerdictRefused(e.findings)))
-      );
-
-    yield* client["constellation.message"]({
-      commandId: commandId(),
-      constellationId,
-      target: MessageTarget.cases.Lead.make({}),
-      text: verdictMessage(input),
-    }).pipe(
-      Effect.catchTag("ConstellationRejected", (e) => Effect.fail(new VerdictRefused(e.findings)))
-    );
-  });
+/** Tells the lead the verdict; the same command id queues it once however often it's retried. */
+export const tellLead = (client: DaemonClient, input: VerdictInput, commandId: CommandId) =>
+  client["constellation.message"]({
+    commandId,
+    constellationId: ConstellationId.make(input.constellationId),
+    target: MessageTarget.cases.Lead.make({}),
+    text: verdictMessage(input),
+  }).pipe(
+    Effect.catchTag("ConstellationRejected", (e) => Effect.fail(new VerdictRefused(e.findings))),
+    Effect.asVoid
+  );
 
 /** Messages the lead from the composer. */
 export const messageLead = (client: DaemonClient, constellationId: string, text: string) =>
   client["constellation.message"]({
-    commandId: commandId(),
+    commandId: newCommandId(),
     constellationId: ConstellationId.make(constellationId),
     target: MessageTarget.cases.Lead.make({}),
     text,
