@@ -20,7 +20,7 @@ import {
   SessionId,
 } from "@polaris/protocol";
 import { fromBase64Url } from "@polaris/protocol/relay";
-import { Context, Deferred, Effect, Exit, Fiber, Option, Scope } from "effect";
+import { Context, Deferred, Effect, Exit, Fiber, Option, Redacted, Scope } from "effect";
 import { DeviceLabel } from "../engine/rpc.ts";
 import { actorOf } from "../extensions/connection.ts";
 import { shortTemp } from "../platform/testing.ts";
@@ -211,6 +211,19 @@ test("a linked device reaches the Daemon with Client power and is recorded as th
           Effect.flip(open.client["devices.unlink"]({ id: device.id })),
           Effect.flip(open.client["extensions.pair"]({ name: "x", grant: ["read"] })),
           Effect.flip(open.client["relayRoute.disable"]()),
+          // RX2-1: what Mobile doesn't use is refused too, a stored credential or a shell.
+          Effect.flip(
+            open.client["voice.setKey"]({ provider: "deepgram", key: Redacted.make("planted") })
+          ),
+          Effect.flip(
+            open.client.dispatch({
+              commandId: CommandId.make("c2"),
+              command: Command.cases.RunShellCommand.make({
+                sessionId: SessionId.make("s1"),
+                command: "touch planted",
+              }),
+            })
+          ),
         ]);
 
         expect(new Set(refusals.map((error) => error._tag))).toEqual(new Set(["NotGranted"]));

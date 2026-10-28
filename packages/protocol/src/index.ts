@@ -28,6 +28,8 @@ export * from "./pairingString.ts";
 
 export * from "./grants.ts";
 
+export * from "./deviceGrants.ts";
+
 export * from "./hello.ts";
 
 export * from "./notification.ts";

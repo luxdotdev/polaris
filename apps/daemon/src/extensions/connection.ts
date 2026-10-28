@@ -206,7 +206,9 @@ export const grantGateFor = (options: {
       }
 
       const device = options.deviceOf?.(client) ?? deviceOf(client);
-      const deviceRefusal = device === null ? null : decideDeviceAccess(rpc._tag);
+
+      const deviceRefusal =
+        device === null ? null : decideDeviceAccess(rpc._tag, command?._tag ?? null);
 
       if (deviceRefusal !== null) return Effect.fail(deviceRefusal);
 

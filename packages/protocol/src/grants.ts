@@ -309,28 +309,3 @@ export const decideAccess = (
     ? new NotGranted({ what, needed: "approve" })
     : null;
 };
-
-/**
- * What only the local Desktop App may do, never a Linked Device's connection (RX1-1):
- * a device must not mint another credential or key that outlives its own revocation.
- */
-export const LOCAL_CLIENT_RPCS: ReadonlySet<string> = new Set<DaemonRpcTag>([
-  "extensions.pair",
-  "extensions.list",
-  "extensions.revoke",
-  "remoteAccess.status",
-  "remoteAccess.enable",
-  "remoteAccess.disable",
-  "relayRoute.status",
-  "relayRoute.enable",
-  "relayRoute.disable",
-  "devices.link",
-  "devices.awaitLink",
-  "devices.cancelLink",
-  "devices.add",
-  "devices.unlink",
-]);
-
-/** The refusal for a request on a Linked Device's connection, or null. */
-export const decideDeviceAccess = (rpc: string): NotGranted | null =>
-  LOCAL_CLIENT_RPCS.has(rpc) ? new NotGranted({ what: rpc, needed: null }) : null;

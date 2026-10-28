@@ -25,6 +25,9 @@ Client power, once its Noise key is linked here (ADR 0083). The relay's contract
 - An accepted device gets a new connection on the same RPC server as the Unix socket, as a
   token-less Client annotated with `ConnectionDevice`; ADR 0078's token-less rule never grants
   anything on this route by itself.
+- What that connection may call is an allowlist, `DEVICE_RPCS` and `DEVICE_COMMANDS` in
+  `@polaris/protocol` (`deviceGrants.ts`): the Mobile App's own surface, exhaustive over the
+  RPCs and Commands so a new one is refused until it is added. Unknown tags are refused.
 - `devices.unlink` marks the device unlinked, sends `peers` without it and ends its session:
   the Wire's input ends and the connection's finalizers run.
 
