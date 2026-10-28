@@ -114,6 +114,42 @@ export const ApnsToken = Schema.String.check(Schema.isPattern(/^[0-9a-f]{64,200}
 /** The largest sealed push payload, base64url: APNs allows 4 KiB for the whole notification. */
 export const MAX_WAKE_PAYLOAD_CHARS = 3000;
 
+/**
+ * The device's consent to be woken by one host: its Ed25519 relay key and a signature over
+ * `pushTicketMessage(hostAddress, environment, token)`. The relay checks both against `peer`.
+ */
+export const PushTicket = Schema.Struct({ key: Schema.String, sig: Schema.String });
+
+export type PushTicket = typeof PushTicket.Type;
+
+const TICKET_CONTEXT = "polaris-push-ticket/1\0";
+
+/** The bytes a device signs to let `hostAddress` wake it at `token` in `environment`. */
+export const pushTicketMessage = (
+  hostAddress: string,
+  environment: PushEnvironment,
+  token: string
+): Uint8Array =>
+  new TextEncoder().encode(`${TICKET_CONTEXT}${hostAddress}\0${environment}\0${token}`);
+
+/** Whether `ticket` is `peer`'s consent for `hostAddress` to wake it at this token. */
+export const verifyPushTicket = async (
+  ticket: PushTicket,
+  peer: RelayAddress,
+  hostAddress: RelayAddress,
+  environment: PushEnvironment,
+  token: string
+): Promise<boolean> => {
+  const key = fromBase64Url(ticket.key);
+  const sig = fromBase64Url(ticket.sig);
+
+  if (Option.isNone(key) || Option.isNone(sig) || key.value.byteLength !== 32) return false;
+
+  if ((await relayAddress(key.value)) !== peer) return false;
+
+  return verifyEd25519(key.value, pushTicketMessage(hostAddress, environment, token), sig.value);
+};
+
 export const WakeId = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{1,32}$/));
 
 /**
@@ -126,6 +162,7 @@ export const Wake = Schema.Struct({
   peer: RelayAddress,
   token: ApnsToken,
   environment: PushEnvironment,
+  ticket: PushTicket,
   payload: Schema.String.check(
     Schema.isPattern(/^[A-Za-z0-9_-]+$/),
     Schema.isMaxLength(MAX_WAKE_PAYLOAD_CHARS)
@@ -135,8 +172,8 @@ export const Wake = Schema.Struct({
 export type Wake = typeof Wake.Type;
 
 /**
- * What became of a wake. `unregistered`: APNs no longer knows the token, so drop it.
- * `unlinked`: the host doesn't list the device. `refused`: the push service refused it
+ * What became of a wake. `unlinked`: no valid ticket from `peer` for this host. `unregistered`: APNs no longer knows the token, so drop it.
+ * `refused`: the push service refused it
  * (a production token on a preview deployment, a bad request). `unavailable`: try later.
  */
 export const WakeOutcome = Schema.Literals([

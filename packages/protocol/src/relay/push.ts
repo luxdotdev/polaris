@@ -6,7 +6,7 @@
  */
 import { Option, Schema } from "effect";
 import { Base64Url } from "effect/encoding";
-import { ApnsToken, MAX_WAKE_PAYLOAD_CHARS, PushEnvironment } from "./wire.ts";
+import { ApnsToken, MAX_WAKE_PAYLOAD_CHARS, PushEnvironment, PushTicket } from "./wire.ts";
 
 /** HPKE suite: DHKEM(P-256, HKDF-SHA256), HKDF-SHA256, AES-256-GCM (CryptoKit's `P256_SHA256_AES_GCM_256`). */
 export const PUSH_HPKE_SUITE = { kem: 0x0010, kdf: 0x0001, aead: 0x0002 } as const;
@@ -53,6 +53,8 @@ export const PushRegistration = Schema.Struct({
   token: ApnsToken,
   environment: PushEnvironment,
   pushKey: PushKey,
+  /** Signed for this Host's relay address; the Host sends it with every wake. */
+  ticket: PushTicket,
 });
 
 export type PushRegistration = typeof PushRegistration.Type;

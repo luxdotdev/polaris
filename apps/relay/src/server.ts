@@ -8,6 +8,7 @@ import {
   decodeClientControl,
   type Wake,
   type WakeOutcome,
+  verifyPushTicket,
   decodeDataFrame,
   encodeControl,
   encodeDataFrame,
@@ -28,7 +29,7 @@ import { Match, Option, Predicate, Schema } from "effect";
 import type { Server, ServerWebSocket } from "bun";
 import type { RelayConfig } from "./config.ts";
 import { type Endpoint, Hub } from "./hub.ts";
-import { ConnectionGate, TokenBucket } from "./limits.ts";
+import { ConnectionGate, TokenBucket, WakeLimiter } from "./limits.ts";
 import { type Deliver, pushClient } from "./push.ts";
 import type { EmitWideEvent } from "./wideEvent.ts";
 
@@ -41,7 +42,6 @@ interface Connection {
   readonly nonce: Uint8Array;
   readonly messages: TokenBucket;
   readonly bytes: TokenBucket;
-  readonly wakes: TokenBucket;
   phase: Phase;
   endpoint: Endpoint | null;
   authTimer: ReturnType<typeof setTimeout> | null;
@@ -82,7 +82,6 @@ const newConnection = (config: RelayConfig, ip: string): Connection => ({
   nonce: crypto.getRandomValues(new Uint8Array(NONCE_BYTES)),
   messages: new TokenBucket(config.messagesPerSecond, config.messagesPerSecond * 2),
   bytes: new TokenBucket(config.bytesPerSecond, config.bytesPerSecond * 2),
-  wakes: new TokenBucket(config.wakesPerMinute / 60, config.wakeBurst),
   phase: "challenged",
   endpoint: null,
   authTimer: null,
@@ -138,6 +137,7 @@ export const startRelay = (
   const hub = new Hub();
   const gate = new ConnectionGate(config);
   let wakesInFlight = 0;
+  const wakeLimits = new WakeLimiter(config.wakesPerMinute, config.wakeBurst);
 
   const limits = {
     maxMessageBytes: MAX_RELAY_MESSAGE_BYTES,
@@ -181,23 +181,29 @@ export const startRelay = (
       ws.send(encodeControl({ t: "woken", id: wake.id, outcome }));
   };
 
-  /** Forwards a host's wake for a device it lists, online or not; never logs what it carries. */
-  const onWake = (ws: Socket, endpoint: Endpoint, wake: Wake) => {
+  /**
+   * Forwards a host's wake when the device's ticket lets this host wake it at that token,
+   * online or not. Never logs what it carries.
+   */
+  const onWake = async (ws: Socket, endpoint: Endpoint, wake: Wake) => {
     const started = performance.now();
     ws.data.wakesIn++;
 
-    if (!hub.lists(endpoint, wake.peer)) return answerWake(ws, wake, "unlinked", started);
+    if (!wakeLimits.take(endpoint.address)) return answerWake(ws, wake, "rate-limited", started);
+    const { token, environment, payload, ticket, peer } = wake;
 
-    if (!ws.data.wakes.take()) return answerWake(ws, wake, "rate-limited", started);
+    if (!(await verifyPushTicket(ticket, peer, endpoint.address, environment, token)))
+      return answerWake(ws, wake, "unlinked", started);
 
     if (deliver === null || wakesInFlight >= config.maxWakesInFlight)
       return answerWake(ws, wake, "unavailable", started);
     wakesInFlight++;
-    const { token, environment, payload } = wake;
 
-    void deliver({ token, environment, payload })
-      .then((outcome) => answerWake(ws, wake, outcome, started))
-      .finally(() => wakesInFlight--);
+    try {
+      answerWake(ws, wake, await deliver({ token, environment, payload }), started);
+    } finally {
+      wakesInFlight--;
+    }
   };
 
   const onControl = (ws: Socket, text: string) => {
@@ -223,7 +229,7 @@ export const startRelay = (
         },
         wake: (wake) => {
           if (endpoint?.role !== "host") return end(ws, RelayClose.BadMessage, "wake-not-host");
-          onWake(ws, endpoint, wake);
+          void onWake(ws, endpoint, wake);
         },
       })
     );
@@ -342,7 +348,11 @@ export const startRelay = (
     },
   });
 
-  const sweep = setInterval(() => gate.sweep(), SWEEP_INTERVAL_MS);
+  const sweep = setInterval(() => {
+    gate.sweep();
+    wakeLimits.sweep();
+  }, SWEEP_INTERVAL_MS);
+
   sweep.unref();
   const port = server.port ?? config.port;
   emit({ event: "relay.start", port });

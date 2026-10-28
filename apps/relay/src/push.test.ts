@@ -5,13 +5,14 @@ import {
   PushRequest,
   RelayClose,
   verifyPushRequest,
-  type Wake,
+  Wake,
   type WakeOutcome,
 } from "@polaris/protocol/relay";
 import { Schema } from "effect";
 import { pushClient } from "./push.ts";
 import { TestParty } from "./testing/party.ts";
-import { identify, startTestRelay, type TestRelay } from "./testing/relay.ts";
+import { type Identified, identify, startTestRelay, type TestRelay } from "./testing/relay.ts";
+import { signPushTicket } from "@polaris/protocol/relay/party";
 
 const decodeRequest = Schema.decodeUnknownSync(Schema.fromJsonString(PushRequest));
 
@@ -73,15 +74,24 @@ afterEach(async () => {
   await relay.stop();
 });
 
-const wake = (peer: Wake["peer"], id = "w1"): string =>
+/** A wake from `host` for `device`, carrying the ticket `signer` signed (the device, by default). */
+const wake = (
+  device: Identified,
+  host: TestParty,
+  id = "w1",
+  signer: Identified = device
+): string =>
   encodeControl({
     t: "wake",
     id,
-    peer,
+    peer: device.address,
     token: TOKEN,
     environment: "sandbox",
+    ticket: signPushTicket(signer.identity, host.address ?? device.address, "sandbox", TOKEN),
     payload: PAYLOAD,
   });
+
+const decodeWake = Schema.decodeUnknownSync(Schema.fromJsonString(Wake));
 
 const challengeOf = (party: TestParty) =>
   party.received.find((message) => message.t === "challenge");
@@ -99,7 +109,7 @@ describe("wakes", () => {
     const device = await identify();
     const host = await TestParty.connect(relay.url, "host", { peers: [device.address] });
 
-    host.sendText(wake(device.address));
+    host.sendText(wake(device, host));
     expect(await host.control("woken")).toEqual({ t: "woken", id: "w1", outcome: "sent" });
 
     expect(push.received).toEqual([
@@ -117,14 +127,18 @@ describe("wakes", () => {
     ]);
   });
 
-  test("a wake for a device the host doesn't list never reaches the service", async () => {
+  test("without the device's own ticket for this host, a wake never reaches the service", async () => {
     const push = withService();
-    const listed = await identify();
+    const device = await identify();
     const stranger = await identify();
-    const host = await TestParty.connect(relay.url, "host", { peers: [listed.address] });
+    const host = await TestParty.connect(relay.url, "host", { peers: [device.address] });
+    const otherHost = await TestParty.connect(relay.url, "host", { peers: [device.address] });
 
-    host.sendText(wake(stranger.address));
+    // Signed by another key for the device's address, then a real ticket replayed by another host.
+    host.sendText(wake(device, host, "forged", stranger));
+    otherHost.sendText(encodeControl({ ...decodeWake(wake(device, host, "replayed")) }));
     expect((await host.control("woken")).outcome).toBe("unlinked");
+    expect((await otherHost.control("woken")).outcome).toBe("unlinked");
     expect(push.received).toEqual([]);
   });
 
@@ -133,11 +147,11 @@ describe("wakes", () => {
     const host = await identify();
     const device = await TestParty.connect(relay.url, "device");
 
-    device.sendText(wake(host.address));
+    device.sendText(wake(host, device));
     expect((await device.closed).code).toBe(RelayClose.BadMessage);
   });
 
-  test("a host past its wake burst is answered rate-limited", async () => {
+  test("a host past its wake burst is answered rate-limited, across reconnects", async () => {
     service = fakeService();
     relay = startTestRelay({
       push: { url: service.url, secret: SECRET },
@@ -147,7 +161,7 @@ describe("wakes", () => {
     const device = await identify();
     const host = await TestParty.connect(relay.url, "host", { peers: [device.address] });
 
-    for (const id of ["a", "b", "c"]) host.sendText(wake(device.address, id));
+    for (const id of ["a", "b", "c"]) host.sendText(wake(device, host, id));
     const outcomes = [];
 
     for (let i = 0; i < 3; i++) outcomes.push(await host.control("woken"));
@@ -157,6 +171,17 @@ describe("wakes", () => {
       c: "rate-limited",
     });
     expect(service.received).toHaveLength(2);
+
+    // Reconnecting with the same key doesn't refill the budget.
+    await host.close();
+
+    const again = await TestParty.connect(relay.url, "host", {
+      identity: host.identity,
+      peers: [device.address],
+    });
+
+    again.sendText(wake(device, again, "d"));
+    expect((await again.control("woken")).outcome).toBe("rate-limited");
   });
 
   test("the service's outcome reaches the host: an unregistered token says so", async () => {
@@ -164,7 +189,7 @@ describe("wakes", () => {
     const device = await identify();
     const host = await TestParty.connect(relay.url, "host", { peers: [device.address] });
 
-    host.sendText(wake(device.address));
+    host.sendText(wake(device, host));
     expect((await host.control("woken")).outcome).toBe("unregistered");
   });
 
@@ -175,7 +200,7 @@ describe("wakes", () => {
     // authenticate consumed the challenge; it is kept in what the party received.
     expect(challengeOf(party)?.push).toBe(false);
 
-    party.sendText(wake(device.address));
+    party.sendText(wake(device, party));
     expect((await party.control("woken")).outcome).toBe("unavailable");
   });
 });

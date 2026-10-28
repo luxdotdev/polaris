@@ -94,3 +94,41 @@ export class ConnectionGate {
     return this.open;
   }
 }
+
+/**
+ * Wake budgets per host relay address, so reconnecting doesn't refill them. An entry goes
+ * once it has been idle long enough to have refilled, when it would be new again anyway.
+ */
+export class WakeLimiter {
+  private readonly buckets = new Map<string, { bucket: TokenBucket; last: number }>();
+
+  constructor(
+    private readonly perMinute: number,
+    private readonly burst: number,
+    private readonly now: () => number = performance.now.bind(performance)
+  ) {}
+
+  take(address: string): boolean {
+    const entry = this.buckets.get(address) ?? {
+      bucket: new TokenBucket(this.perMinute / 60, this.burst, this.now),
+      last: 0,
+    };
+
+    entry.last = this.now();
+    this.buckets.set(address, entry);
+
+    return entry.bucket.take();
+  }
+
+  sweep(): void {
+    const refillMs = (this.burst / this.perMinute) * 60_000;
+    const now = this.now();
+
+    for (const [address, entry] of this.buckets)
+      if (now - entry.last > refillMs) this.buckets.delete(address);
+  }
+
+  get size(): number {
+    return this.buckets.size;
+  }
+}

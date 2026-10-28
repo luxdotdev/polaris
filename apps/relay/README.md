@@ -66,7 +66,7 @@ Text WebSocket messages of JSON. Schemas: `ClientControl` and `RelayControl` in
 | `peers {peers}` | host → relay | Replaces the host's linked devices. Devices may not send it. |
 | `presence {peer, online}` | relay → party | A linked peer came online, went offline, or was unlinked. |
 | `unreachable {peer}` | relay → party | A forward to `peer` was dropped: it is offline, or it and the sender are not linked. The relay does not say which. |
-| `wake {id, peer, token, environment, payload}` | host → relay | Wake a device the host lists, online or not (see Push). Devices may not send it. |
+| `wake {id, peer, token, environment, ticket, payload}` | host → relay | Wake a device that gave this host a ticket, online or not (see Push). Devices may not send it. |
 | `woken {id, outcome}` | relay → host | What became of that wake. |
 
 A host and a device can reach each other only while the host lists the device and both are
@@ -146,14 +146,20 @@ So a Daemon that restarts before its old socket times out takes over at once.
 
 A phone that is asleep has no socket, so a host wakes it through APNs: it sends `wake` with
 the device's APNs token and environment (`sandbox` for development builds, `production` for
-TestFlight and the App Store) and a payload sealed to the device (HPKE, `relay/push.ts`). The
-relay checks that the host lists `peer`, rate-limits the host, and asks the push service
+TestFlight and the App Store), the device's **ticket**, and a payload sealed to the device
+(HPKE, `relay/push.ts`). A host declares its own peers, so listing a device proves nothing;
+the ticket does. The device signs it with its relay identity for one host:
+Ed25519 over `"polaris-push-ticket/1\0" ‖ hostAddress ‖ "\0" ‖ environment ‖ "\0" ‖ token`
+(`signPushTicket`), and hands it to that Host with its registration. The relay checks that the
+ticket's key hashes to `peer` and signs this host's address, environment and token, so a
+host can wake only devices that registered with it, at the token they gave it. It rate-limits
+per host relay address (a reconnect doesn't refill the budget) and asks the push service
 (`apps/site`'s `/api/push`) to deliver `{token, environment, payload}`. It answers `woken`:
 
 | Outcome | Meaning |
 |---|---|
 | `sent` | APNs accepted it. |
-| `unlinked` | The host doesn't list `peer`; nothing was sent. |
+| `unlinked` | No valid ticket from `peer` for this host; nothing was sent. |
 | `rate-limited` | Over the host's wake rate, or APNs throttled it. |
 | `unregistered` | APNs no longer knows the token: the host drops it until the device registers again. |
 | `refused` | The push service refused it, e.g. a production token on a preview deployment. |
@@ -177,7 +183,7 @@ service sees the token, environment and sealed payload, not who sent it.
 |---|---|
 | `POLARIS_RELAY_PUSH_URL` | The push service, e.g. `https://polaris.lux.dev/api/push` |
 | `POLARIS_RELAY_PUSH_SECRET` | The shared secret, the same value as the site's `POLARIS_PUSH_SECRET` for that environment: `openssl rand -base64 32` |
-| `POLARIS_RELAY_WAKES_PER_MINUTE`, `POLARIS_RELAY_WAKE_BURST` | Per host socket: 60 a minute, burst 20 |
+| `POLARIS_RELAY_WAKES_PER_MINUTE`, `POLARIS_RELAY_WAKE_BURST` | Per host relay address: 60 a minute, burst 20 |
 | `POLARIS_RELAY_MAX_WAKES_IN_FLIGHT` | Wakes waiting on the service at once: 256 |
 
 Set both push variables or neither; one without the other stops the relay at start.
@@ -244,8 +250,8 @@ built). `railway.json` builds the Dockerfile and health-checks `/healthz`.
   socket, with checks that nothing they handed the relay and nothing it logged holds the
   plaintext or an identifier. Also linking, unlinking, presence, device and host reconnects,
   and replacement.
-- `push.test.ts`: wakes reach a fake push service signed, only for listed devices and within
-  the rate, and nothing a wake carries is logged.
+- `push.test.ts`: wakes reach a fake push service signed, only with the device's ticket for
+  that host and within the rate (across reconnects), and nothing a wake carries is logged.
 - `abuse.test.ts`: key proof failures, auth and idle timeouts, malformed messages, size,
   message and byte rates, per-address socket caps.
 - `process.test.ts`: the same exchange against the `bun src/main.ts` process, including a
