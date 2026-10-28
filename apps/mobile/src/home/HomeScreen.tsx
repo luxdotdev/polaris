@@ -7,7 +7,7 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { HostConnection } from "../runtime/hostConnection.ts";
-import { useFollowedHosts } from "./feed/useFollowedHosts.ts";
+import { homeHostsOf, useFollowedHosts } from "./feed/useFollowedHosts.ts";
 import { buildHome, type HomeRow, type SessionRow } from "./model/home.ts";
 import { type Reply, respond } from "./model/respond.ts";
 import { EmptyHome } from "./ui/EmptyHome.tsx";
@@ -130,19 +130,7 @@ export const HomeScreen = ({
   const [workspace, setWorkspace] = useState<string | null>(null);
   const now = useNow();
 
-  const home = useMemo(
-    () =>
-      buildHome(
-        hosts.map(({ connection, status, followed }) => ({
-          hostId: connection.hostId,
-          name: status.host?.hostname ?? connection.name,
-          connection: status.state,
-          followed,
-        })),
-        workspace
-      ),
-    [hosts, workspace]
-  );
+  const home = useMemo(() => buildHome(homeHostsOf(hosts), workspace), [hosts, workspace]);
 
   const reply = replyThrough(
     new Map(hosts.map(({ connection }) => [connection.hostId, connection]))
