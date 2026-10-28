@@ -6,7 +6,7 @@ import type { CommandId, SessionId } from "@polaris/protocol";
 import { Effect } from "effect";
 import type { EventStore } from "../../store/EventStore.ts";
 import type { ServiceError } from "../../services.ts";
-import { NotifyOutcome, notifier, type NotifyInput } from "./notify.ts";
+import { type Notifier, NotifyOutcome, notifier, type NotifyInput } from "./notify.ts";
 import {
   HistoryOutcome,
   history,
@@ -30,7 +30,14 @@ export {
   type SearchOptions,
 } from "./history.ts";
 
-export { NOTIFY_INTERVAL_MS, NotifyOutcome, type NotifyInput } from "./notify.ts";
+export {
+  type AutomaticInput,
+  NOTIFY_INTERVAL_MS,
+  type Notifier,
+  NotifyOutcome,
+  notifier,
+  type NotifyInput,
+} from "./notify.ts";
 
 export interface TranscriptOptions {
   /** How many of the latest Turns. */
@@ -85,10 +92,13 @@ export const unavailableSessions: SessionTools = {
   readHistory: () => Effect.succeed(HistoryOutcome.NoCaller()),
 };
 
-/** The Daemon's session tools, over its EventStore. */
-export const sessionTools = (store: EventStore["Service"]): SessionTools => ({
+/** The Daemon's session tools, over its EventStore; `notifications` is shared with Polaris's own. */
+export const sessionTools = (
+  store: EventStore["Service"],
+  notifications: Notifier = notifier(store)
+): SessionTools => ({
   ...history(store),
-  notify: notifier(store),
+  notify: notifications.notify,
   transcript: (sessionId, options) => readTranscript(store, sessionId, options),
   waitForCommand: (sessionId, options) => waitForCommand(store, sessionId, options),
 });

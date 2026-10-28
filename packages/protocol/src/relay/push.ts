@@ -28,7 +28,8 @@ export type PushCategory = typeof PushCategory.Type;
 /** The plaintext inside a sealed push: what the notification shows and what its buttons answer. */
 export const PushMessage = Schema.Struct({
   v: Schema.Literal(1),
-  kind: Schema.Literals(["needs-you", "turn-ended"]),
+  /** `notify`: an agent's `notify`, or Polaris's when a Constellation needs the user. */
+  kind: Schema.Literals(["needs-you", "turn-ended", "notify"]),
   hostId: Schema.String,
   hostName: Schema.String,
   sessionId: Schema.String,
@@ -40,6 +41,8 @@ export const PushMessage = Schema.Struct({
   body: Schema.String.check(Schema.isMaxLength(600)),
   /** When the Host decided to send it (ISO 8601). */
   at: Schema.String,
+  /** The Constellation a `notify` is about, so a tap opens it; null or absent otherwise. */
+  constellationId: Schema.optionalKey(Schema.NullOr(Schema.String)),
 });
 
 export type PushMessage = typeof PushMessage.Type;
@@ -55,6 +58,8 @@ export const PushRegistration = Schema.Struct({
   pushKey: PushKey,
   /** Signed for this Host's relay address; the Host sends it with every wake. */
   ticket: PushTicket,
+  /** This device's setting for automatic notifications (Constellations); absent means on. */
+  automatic: Schema.optionalKey(Schema.Boolean),
 });
 
 export type PushRegistration = typeof PushRegistration.Type;
