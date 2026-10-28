@@ -15,6 +15,15 @@ const at = "2026-10-27T00:00:00.000Z";
 const draft = (text: string, revision: number) =>
   new ComposerDraft({ sessionId, text, revision, at });
 
+interface Reply {
+  readonly text: string;
+  readonly resolve: (value: ComposerDraft | null) => void;
+}
+
+const settle = async () => {
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+};
+
 /** A Host that numbers saves like the Daemon, a manual clock, and what the composer shows. */
 const harness = (overrides: Partial<DraftSyncOptions> = {}) => {
   let revision = 0;
@@ -22,13 +31,23 @@ const harness = (overrides: Partial<DraftSyncOptions> = {}) => {
   const saves: Array<string> = [];
   const shown: Array<string> = [];
   const statuses: Array<DraftStatus> = [];
-  const replies: Array<(value: ComposerDraft | null) => void> = [];
+  const replies: Array<Reply> = [];
+  /** What the Host holds: the text of the last save it answered ok. */
+  const host = { text: "" };
+
+  const reply = async (which: "oldest" | "newest", ok: boolean) => {
+    const { text, resolve } = (which === "oldest" ? replies.shift() : replies.pop())!;
+
+    if (ok) host.text = text;
+    resolve(ok ? draft(text, ++revision) : null);
+    await settle();
+  };
 
   const sync = makeDraftSync({
     save: (_, text) => {
       saves.push(text);
 
-      return new Promise((resolve) => replies.push(resolve));
+      return new Promise((resolve) => replies.push({ text, resolve }));
     },
     adopt: (_, text) => void shown.push(text),
     status: (_, status) => void statuses.push(status),
@@ -53,13 +72,12 @@ const harness = (overrides: Partial<DraftSyncOptions> = {}) => {
       timers = [];
       due.forEach((run) => run());
     },
+    host,
     /** The Host answers the oldest save. */
-    answer: async (ok = true) => {
-      const reply = replies.shift()!;
-      reply(ok ? draft(saves.at(-1)!, ++revision) : null);
-      await Promise.resolve();
-      await Promise.resolve();
-    },
+    answer: (ok = true) => reply("oldest", ok),
+    /** The Host answers the newest save waiting, as a replacement connection can. */
+    answerNewest: (ok = true) => reply("newest", ok),
+    outstanding: () => replies.length,
     /** Another Client saved. */
     elsewhere: (text: string) => draft(text, ++revision),
   };
@@ -119,6 +137,56 @@ describe("draft sync", () => {
     await h.answer();
     await flushed;
     expect(h.statuses.at(-1)).toBe("saved");
+  });
+});
+
+describe("overlapping writes", () => {
+  // Each order: which save the Host answers first, then the other; the first one succeeds.
+  test.each(["newest", "oldest"] as const)(
+    "a newer draft that was saved stays saved when %s answers first and the other fails",
+    async (first) => {
+      const h = harness();
+      h.sync.edit(sessionId, "old");
+      h.pause();
+      h.sync.edit(sessionId, "new");
+      h.pause();
+
+      await (first === "newest" ? h.answerNewest(true) : h.answer(true));
+
+      while (h.outstanding() > 0) await h.answer(false);
+      const flushed = h.sync.flush(sessionId);
+
+      while (h.outstanding() > 0) await h.answer(true);
+      await flushed;
+
+      expect(h.host.text).toBe("new");
+      expect(h.statuses.at(-1)).toBe("saved");
+    }
+  );
+
+  test("flush writes the latest typing even while an older write is in flight", async () => {
+    const h = harness();
+    h.sync.edit(sessionId, "old");
+    h.pause();
+    h.sync.edit(sessionId, "new");
+    const flushed = h.sync.flush(sessionId);
+
+    while (h.outstanding() > 0) await h.answer(true);
+    await flushed;
+
+    expect(h.host.text).toBe("new");
+  });
+
+  test("retry writes what failed, once the Host is back", async () => {
+    const h = harness();
+    h.sync.edit(sessionId, "Fix");
+    h.pause();
+    await h.answer(false);
+    const retried = h.sync.retry();
+    await h.answer(true);
+    await retried;
+
+    expect(h.host.text).toBe("Fix");
   });
 });
 
