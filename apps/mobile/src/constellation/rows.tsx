@@ -5,6 +5,7 @@
 import { midnight, mobileType } from "@polaris/ui/tokens";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { HandedClaimActions, Checks, type SendVerdict } from "./claim.tsx";
+import type { Delivery } from "./outbox.ts";
 import { GateDeps, GroupGlyph, TaskGlyph } from "./glyphs.tsx";
 import type { GroupRow, SecondLine, TaskRow, Tone } from "./model.ts";
 
@@ -127,12 +128,17 @@ export const TaskRowView = ({
   row,
   first,
   last,
+  delivery,
   onVerdict,
+  onCancel,
 }: {
   readonly row: TaskRow;
   readonly first: boolean;
   readonly last: boolean;
+  /** The verdict on its way for this task, if any. */
+  readonly delivery: Delivery | null;
   readonly onVerdict: SendVerdict;
+  readonly onCancel: () => void;
 }) => (
   <View style={[styles.task, !first && styles.divided]}>
     <View style={[styles.rail, last && styles.railEnd]} />
@@ -149,10 +155,15 @@ export const TaskRowView = ({
         </Text>
         <Text style={[styles.word, { color: wordColour(row.tone) }]}>{row.word}</Text>
       </View>
-      {row.handed === null ? (
+      {row.handed === null && delivery === null ? (
         <Second second={row.second} worker={row.worker} />
       ) : (
-        <HandedClaimActions claim={row.handed} onVerdict={onVerdict} />
+        <HandedClaimActions
+          claim={row.handed}
+          delivery={delivery}
+          onVerdict={onVerdict}
+          onCancel={onCancel}
+        />
       )}
     </View>
   </View>
