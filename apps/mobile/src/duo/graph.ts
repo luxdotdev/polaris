@@ -2,6 +2,7 @@
  * The unfolded Duo's constellation graph (Paper D9): tasks in columns by dependency depth, left to
  * right across both halves, with no node on the fold's division. Pure; `ConstellationSpan` draws.
  */
+import type { Rect } from "./posture.ts";
 
 export interface GraphTask {
   readonly id: string;
@@ -14,6 +15,16 @@ export interface Span {
   readonly x: number;
   readonly width: number;
 }
+
+/** The fold's division with its axis: a vertical fold splits columns, a horizontal one rows. */
+export type Fold =
+  | { readonly axis: "vertical"; readonly span: Span }
+  | { readonly axis: "horizontal"; readonly span: Span };
+
+export const foldOf = (division: Rect): Fold =>
+  division.height >= division.width
+    ? { axis: "vertical", span: { x: division.x, width: division.width } }
+    : { axis: "horizontal", span: { x: division.y, width: division.height } };
 
 export interface PlacedNode {
   readonly id: string;
@@ -94,32 +105,58 @@ export const columns = (tasks: ReadonlyArray<GraphTask>): ReadonlyMap<string, nu
   return new Map([...raw].map(([id, depth]) => [id, used.indexOf(depth)]));
 };
 
-/** The left edge of each column, pushed past the division when a node would sit on it. */
-export const columnLefts = (count: number, division: Span | null): ReadonlyArray<number> => {
-  const lefts: number[] = [];
-  let x = EDGE;
+/** Starts along one axis at a steady pitch, pushed past the division when a node would sit on it. */
+const starts = (
+  count: number,
+  first: number,
+  size: number,
+  gap: number,
+  division: Span | null
+): ReadonlyArray<number> => {
+  const out: number[] = [];
+  let at = first;
 
-  for (let column = 0; column < count; column++) {
-    const crosses =
-      division !== null && x < division.x + division.width && x + NODE_WIDTH > division.x;
+  for (let i = 0; i < count; i++) {
+    const crosses = division !== null && at < division.x + division.width && at + size > division.x;
 
-    if (crosses) x = division.x + division.width + EDGE;
-    lefts.push(x);
-    x += NODE_WIDTH + COLUMN_GAP;
+    if (crosses) at = division.x + division.width + EDGE;
+    out.push(at);
+    at += size + gap;
   }
 
-  return lefts;
+  return out;
 };
+
+/** The left edge of each column, pushed past a vertical division when a node would sit on it. */
+export const columnLefts = (count: number, division: Span | null): ReadonlyArray<number> =>
+  starts(count, EDGE, NODE_WIDTH, COLUMN_GAP, division);
 
 export const graphLayout = (
   tasks: ReadonlyArray<GraphTask>,
-  division: Span | null,
+  fold: Fold | null,
   top = 0
 ): GraphLayout => {
   const columnOf = columns(tasks);
   const count = Math.max(0, ...columnOf.values()) + (tasks.length === 0 ? 0 : 1);
-  const lefts = columnLefts(count, division);
+  const lefts = columnLefts(count, fold?.axis === "vertical" ? fold.span : null);
   const rowsUsed = Array.from({ length: count }, () => 0);
+
+  for (const task of tasks) {
+    const column = columnOf.get(task.id) ?? 0;
+    rowsUsed[column] = (rowsUsed[column] ?? 0) + 1;
+  }
+
+  const tallest = Math.max(0, ...rowsUsed);
+
+  const tops = starts(
+    tallest,
+    top,
+    NODE_HEIGHT,
+    ROW_GAP,
+    fold?.axis === "horizontal" ? fold.span : null
+  );
+
+  rowsUsed.fill(0);
 
   const nodes = tasks.map((task): PlacedNode => {
     const column = columnOf.get(task.id) ?? 0;
@@ -130,7 +167,7 @@ export const graphLayout = (
       id: task.id,
       column,
       x: lefts[column] ?? EDGE,
-      y: top + row * (NODE_HEIGHT + ROW_GAP),
+      y: tops[row] ?? top,
     };
   });
 
@@ -156,12 +193,27 @@ export const graphLayout = (
     })
   );
 
-  const tallest = Math.max(0, ...rowsUsed);
-
   return {
     nodes,
     edges,
     width: (lefts.at(-1) ?? 0) + NODE_WIDTH + EDGE,
-    height: top + tallest * (NODE_HEIGHT + ROW_GAP),
+    height: tops.length === 0 ? top : (tops.at(-1) ?? top) + NODE_HEIGHT + ROW_GAP,
   };
+};
+
+/**
+ * The handed-up claim's left edge: under its task, clear of a vertical division, inside the graph.
+ * A horizontal division needs no shift sideways.
+ */
+export const claimLeft = (
+  layout: GraphLayout,
+  taskX: number,
+  fold: Fold | null,
+  claimWidth: number
+): number => {
+  const inside = Math.max(EDGE, Math.min(taskX, layout.width - claimWidth));
+
+  return fold?.axis === "vertical"
+    ? Math.max(fold.span.x + fold.span.width + EDGE, inside)
+    : inside;
 };

@@ -16,7 +16,9 @@ import { useVerdicts } from "../constellation/useVerdicts.ts";
 import { messageLead } from "../constellation/verdict.ts";
 import type { HostConnection } from "../runtime/hostConnection.ts";
 import { useHost } from "../runtime/hosts.tsx";
-import { type Edge, graphLayout, NODE_HEIGHT, NODE_WIDTH, type Span } from "./graph.ts";
+import { claimChoices, constellationKey, leadDrafts, taskKey, useKept } from "./kept.ts";
+import { claimLeft, type Edge, foldOf, graphLayout, NODE_HEIGHT, NODE_WIDTH } from "./graph.ts";
+import type { Rect } from "./posture.ts";
 
 const GRAPH_TOP = 126;
 
@@ -160,12 +162,15 @@ const Live = ({
 }: {
   readonly connection: HostConnection;
   readonly constellationId: string;
-  readonly division: Span;
+  readonly division: Rect;
   readonly onBack: (() => void) | undefined;
 }) => {
   const feed = useConstellation(connection, constellationId);
   const verdicts = useVerdicts(connection, constellationId);
   const now = useNow();
+  const [drafts, setDraft] = useKept(leadDrafts);
+  const [choices, setChoice] = useKept(claimChoices);
+  const kept = constellationKey(connection.hostId, constellationId);
   const source = feed.kind === "live" ? feed.source : null;
 
   const placed = useMemo(
@@ -173,14 +178,16 @@ const Live = ({
     [source, now]
   );
 
+  const fold = useMemo(() => foldOf(division), [division]);
+
   const layout = useMemo(
     () =>
       graphLayout(
         placed.map((p) => ({ id: p.row.id, deps: p.deps, group: p.group })),
-        division,
+        fold,
         GRAPH_TOP
       ),
-    [placed, division]
+    [placed, fold]
   );
 
   if (feed.kind === "failed") return <Text style={styles.note}>{feed.message}</Text>;
@@ -193,45 +200,59 @@ const Live = ({
   const handedAt = layout.nodes.find((n) => n.id === handed?.id);
   const at = new Map(layout.nodes.map((n) => [n.id, n]));
 
-  const claimLeft =
-    handedAt === undefined
-      ? 0
-      : Math.max(
-          division.x + division.width + 20,
-          Math.min(handedAt.x, layout.width - CLAIM_WIDTH)
-        );
+  const left = handedAt === undefined ? 0 : claimLeft(layout, handedAt.x, fold, CLAIM_WIDTH);
 
   return (
     <KeyboardAvoidingView style={styles.fill} behavior="padding">
-      <ScrollView style={styles.fill} contentContainerStyle={{ minHeight: layout.height + 360 }}>
+      <ScrollView
+        style={styles.fill}
+        contentContainerStyle={{ minHeight: layout.height + 360 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Deeper columns than the display holds scroll sideways; the header stays put. */}
+        <ScrollView
+          horizontal
+          style={StyleSheet.absoluteFill}
+          contentContainerStyle={{
+            width: Math.max(layout.width, handed === null ? 0 : left + CLAIM_WIDTH + 20),
+          }}
+          keyboardShouldPersistTaps="handled"
+        >
+          {layout.edges.map((edge) => (
+            <Line key={`${edge.from}>${edge.to}`} edge={edge} />
+          ))}
+          {rows.map((row) => {
+            const node = at.get(row.id);
+
+            return node === undefined ? null : (
+              <Node key={row.id} row={row} x={node.x} y={node.y} />
+            );
+          })}
+          {handed === null ? null : (
+            <View style={[styles.claim, { left, top: layout.height + 8 }]}>
+              <Text style={styles.claimTitle}>
+                <Text style={{ color: midnight.needsYouText }}>{handed.id}</Text> Claim · handed to
+                you
+              </Text>
+              <HandedClaimActions
+                claim={handed.handed}
+                delivery={delivery}
+                onVerdict={verdicts.send(handed)}
+                onCancel={() => verdicts.cancel(handed)}
+                unsent={choices.get(taskKey(connection.hostId, constellationId, handed.id)) ?? null}
+                onUnsent={(next) =>
+                  setChoice(taskKey(connection.hostId, constellationId, handed.id), next)
+                }
+              />
+            </View>
+          )}
+        </ScrollView>
         <Header
           name={source.constellation.name}
           state={source.constellation.state}
           rows={rows}
           onBack={onBack}
         />
-        {layout.edges.map((edge) => (
-          <Line key={`${edge.from}>${edge.to}`} edge={edge} />
-        ))}
-        {rows.map((row) => {
-          const node = at.get(row.id);
-
-          return node === undefined ? null : <Node key={row.id} row={row} x={node.x} y={node.y} />;
-        })}
-        {handed === null ? null : (
-          <View style={[styles.claim, { left: claimLeft, top: layout.height + 8 }]}>
-            <Text style={styles.claimTitle}>
-              <Text style={{ color: midnight.needsYouText }}>{handed.id}</Text> Claim · handed to
-              you
-            </Text>
-            <HandedClaimActions
-              claim={handed.handed}
-              delivery={delivery}
-              onVerdict={verdicts.send(handed)}
-              onCancel={() => verdicts.cancel(handed)}
-            />
-          </View>
-        )}
       </ScrollView>
       <View style={styles.sheet}>
         <View style={styles.grabber} />
@@ -245,6 +266,7 @@ const Live = ({
           harness={feed.kind === "live" ? (feed.lead?.harness ?? null) : null}
           model={feed.kind === "live" ? (feed.lead?.model ?? null) : null}
           disabled={null}
+          draft={{ text: drafts.get(kept) ?? "", onText: (text) => setDraft(kept, text) }}
           onSend={(text) =>
             connection
               .run((client) => messageLead(client, constellationId, text))
@@ -259,7 +281,7 @@ const Live = ({
 export interface ConstellationSpanProps {
   readonly hostId: string;
   readonly constellationId: string;
-  readonly division: Span;
+  readonly division: Rect;
   readonly onBack?: () => void;
 }
 

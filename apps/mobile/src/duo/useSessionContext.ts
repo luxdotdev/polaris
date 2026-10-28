@@ -7,12 +7,11 @@ import {
   GitDiffSpec,
   RiskSummaryRef,
   type RiskFinding,
-  type RiskSummary,
   SessionId,
   type Turn,
   TurnId,
 } from "@polaris/protocol";
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { DiffFileInput } from "../review/diffRows.ts";
 import { parsePatch } from "../review/patch.ts";
@@ -22,6 +21,7 @@ import { openThread, type ThreadController } from "../thread/controller.ts";
 import type { SessionFold } from "../thread/fold.ts";
 import { hostThreadSource } from "../thread/hostSource.ts";
 import { threadKey, threads } from "../thread/threads.ts";
+import type { TurnFiles } from "./contextRows.ts";
 
 /** The session's thread from the app's registry: the same one the first half's thread leases. */
 const useController = (connection: HostConnection | null, sessionId: string) => {
@@ -119,16 +119,6 @@ const loadFiles = (live: LiveHost, cwd: string, turn: Turn) =>
 const cachedSummary = (live: LiveHost, repo: string, head: string) =>
   live.client["review.riskSummary"]({ ref: RiskSummaryRef.cases.LatestAt.make({ repo, head }) });
 
-export type TurnFiles =
-  | { readonly kind: "loading" }
-  | { readonly kind: "working" }
-  | {
-      readonly kind: "ready";
-      readonly files: ReadonlyArray<DiffFileInput>;
-      readonly summary: RiskSummary | null;
-    }
-  | { readonly kind: "failed"; readonly message: string };
-
 /** The focused Turn's diff and cached summary, read again when its after-checkpoint moves. */
 export const useTurnFiles = (
   live: LiveHost | null,
@@ -152,17 +142,19 @@ export const useTurnFiles = (
     setFiles({ kind: "loading" });
     const head = turn.checkpointAfter;
 
-    const read = Effect.all({
-      files: loadFiles(live, cwd, turn),
-      summary:
-        repo === null || head === null
-          ? Effect.succeed(null)
-          : Effect.orElseSucceed(cachedSummary(live, repo, head), () => null),
-    }).pipe(
-      Effect.match({
-        onSuccess: (value): TurnFiles => ({ kind: "ready", ...value }),
-        onFailure: (error): TurnFiles => ({ kind: "failed", message: error.message }),
-      })
+    const summary =
+      repo === null || head === null
+        ? Effect.succeed(null)
+        : Effect.orElseSucceed(cachedSummary(live, repo, head), () => null);
+
+    // A failed diff keeps the summary: its findings still show, under the failure.
+    const read = Effect.all([Effect.result(loadFiles(live, cwd, turn)), summary]).pipe(
+      Effect.map(([loaded, found]): TurnFiles =>
+        Result.match(loaded, {
+          onSuccess: (files) => ({ kind: "ready", files, summary: found }),
+          onFailure: (error) => ({ kind: "failed", message: error.message, summary: found }),
+        })
+      )
     );
 
     void Effect.runPromise(read).then((next) => {

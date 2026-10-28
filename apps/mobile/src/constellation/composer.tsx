@@ -10,14 +10,19 @@ export const LeadComposer = ({
   model,
   disabled,
   onSend,
+  draft,
 }: {
   readonly harness: HarnessKind | null;
   readonly model: string | null;
   /** Why it can't send now (the Host is away), or null. */
   readonly disabled: string | null;
   readonly onSend: (text: string) => Promise<void>;
+  /** The draft kept by the caller, so it outlives this composer; else its own. */
+  readonly draft?: { readonly text: string; readonly onText: (text: string) => void };
 }) => {
-  const [text, setText] = useState("");
+  const [own, setOwn] = useState("");
+  const text = draft?.text ?? own;
+  const setText = draft?.onText ?? setOwn;
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ready = text.trim() !== "" && !sending && disabled === null;
