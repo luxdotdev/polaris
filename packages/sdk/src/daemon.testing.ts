@@ -49,8 +49,8 @@ const freePort = () => {
   return port ?? 0;
 };
 
-const spawnDaemon = (home: string, gatewayPort: number) =>
-  Bun.spawn(["bun", DAEMON_MAIN, "serve", "--foreground"], {
+const spawnDaemon = (home: string, gatewayPort: number, main: string) =>
+  Bun.spawn(["bun", main, "serve", "--foreground"], {
     env: {
       ...process.env,
       POLARIS_HOME: home,
@@ -66,13 +66,19 @@ const spawnDaemon = (home: string, gatewayPort: number) =>
 
 const tokenOf = new Map<string, { readonly id: string }>();
 
-export const launchDaemon = async (): Promise<TestDaemon> => {
+export interface LaunchOptions {
+  /** The Daemon's entry point; defaults to `apps/daemon/src/main.ts`. */
+  readonly main?: string;
+}
+
+export const launchDaemon = async (options: LaunchOptions = {}): Promise<TestDaemon> => {
+  const main = options.main ?? DAEMON_MAIN;
   // A Unix socket path must stay short.
   const home = mkdtempSync("/tmp/pl-sdk-");
   const socketPath = join(home, "daemon.sock");
   const gatewayPort = freePort();
   const gatewayUrl = `ws://127.0.0.1:${gatewayPort}/polaris/rpc`;
-  let child = spawnDaemon(home, gatewayPort);
+  let child = spawnDaemon(home, gatewayPort, main);
   const scope = Effect.runSync(Scope.make());
 
   const connectAdmin = Effect.gen(function* () {
@@ -167,7 +173,7 @@ export const launchDaemon = async (): Promise<TestDaemon> => {
       await Effect.runPromise(Scope.close(adminScope, Exit.void));
       child.kill("SIGTERM");
       await child.exited;
-      child = spawnDaemon(home, gatewayPort);
+      child = spawnDaemon(home, gatewayPort, main);
       adminScope = Effect.runSync(Scope.make());
       admin = await connectWithRetry(adminScope);
     },

@@ -10,6 +10,8 @@ import { Effect, Exit, Scope } from "effect";
 
 const RELAY_DIR = new URL("../../relay/", import.meta.url).pathname;
 
+const TEST_DAEMON_MAIN = new URL("../../daemon/src/main.testing.ts", import.meta.url).pathname;
+
 const freePort = (): number => {
   const probe = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => new Response() });
   const port = probe.port ?? 0;
@@ -91,8 +93,7 @@ export interface RelayDaemon {
 
 /** A Daemon with the Relay route on `relayUrl`; HostSecrets in its home, not the Keychain. */
 export const launchRelayDaemon = async (relayUrl: string): Promise<RelayDaemon> => {
-  process.env.POLARIS_SECRETS = "file";
-  const daemon = await launchDaemon();
+  const daemon = await launchDaemon({ main: TEST_DAEMON_MAIN });
   const scope = Effect.runSync(Scope.make());
 
   const client = await Effect.runPromise(

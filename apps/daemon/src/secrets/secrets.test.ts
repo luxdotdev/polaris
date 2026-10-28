@@ -136,22 +136,25 @@ test.skipIf(process.platform !== "darwin")(
   }
 );
 
-// Test Daemons (the Mobile App's relay tests) must never write to the user's Keychain.
-test("POLARIS_SECRETS=file keeps HostSecrets in a file, on macOS too", async () => {
-  const before = process.env.POLARIS_SECRETS;
-  process.env.POLARIS_SECRETS = "file";
+// RV1 / RX1-4: an inherited environment must not move the Host's identity off the Keychain.
+test.if(process.platform === "darwin")(
+  "POLARIS_SECRETS=file no longer selects the file store on macOS",
+  async () => {
+    const before = process.env.POLARIS_SECRETS;
+    process.env.POLARIS_SECRETS = "file";
 
-  try {
-    const store = await Effect.runPromise(
-      Effect.provide(
-        Effect.map(HostSecrets, (secrets) => secrets.store),
-        HostSecrets.layer
-      )
-    );
+    try {
+      const store = await Effect.runPromise(
+        Effect.provide(
+          Effect.map(HostSecrets, (secrets) => secrets.store),
+          HostSecrets.layer
+        )
+      );
 
-    expect(store).toBe("file");
-  } finally {
-    if (before === undefined) delete process.env.POLARIS_SECRETS;
-    else process.env.POLARIS_SECRETS = before;
+      expect(store).toBe("keychain");
+    } finally {
+      if (before === undefined) delete process.env.POLARIS_SECRETS;
+      else process.env.POLARIS_SECRETS = before;
+    }
   }
-});
+);
