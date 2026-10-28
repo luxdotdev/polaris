@@ -44,7 +44,14 @@ export interface FindingRow {
   readonly finding: RiskFinding;
 }
 
-export type DiffRow = FileRow | HunkRow | LineRow | FindingRow;
+/** A line of words in the list: a path the diff doesn't have, or why the diff can't show. */
+export interface NoteRow {
+  readonly kind: "note";
+  readonly key: string;
+  readonly text: string;
+}
+
+export type DiffRow = FileRow | HunkRow | LineRow | FindingRow | NoteRow;
 
 export interface DiffFileInput {
   readonly diff: FileDiffMetadata;
@@ -210,11 +217,46 @@ export const orderFiles = (
   return [...files].sort((a, b) => rank(a) - rank(b));
 };
 
+/** Listed findings on paths the patch doesn't have, under each path: nothing hides a Critical. */
+const absentRows = (
+  files: ReadonlyArray<DiffFileInput>,
+  findings: ReadonlyArray<RiskFinding>
+): ReadonlyArray<DiffRow> => {
+  const present = new Set(files.map((f) => f.diff.name));
+  const absent = listedFindings(findings).filter((f) => !present.has(f.path));
+  const paths = [...new Set(absent.map((f) => f.path))];
+
+  return paths.flatMap((path) => [
+    { kind: "note", key: `n:${path}`, text: path } satisfies NoteRow,
+    ...absent
+      .filter((f) => f.path === path)
+      .map((finding): FindingRow => ({ kind: "finding", key: `r:${finding.id}`, finding })),
+  ]);
+};
+
 export const diffRows = (
   files: ReadonlyArray<DiffFileInput>,
   findings: ReadonlyArray<RiskFinding>,
   open: ReadonlySet<string>
-): ReadonlyArray<DiffRow> => files.flatMap((f) => fileRows(f, findings, open.has(f.diff.name)));
+): ReadonlyArray<DiffRow> => [
+  ...absentRows(files, findings),
+  ...files.flatMap((f) => fileRows(f, findings, open.has(f.diff.name))),
+];
+
+/** Review's list: the diff's rows, or why the diff can't show above every listed finding. */
+export const reviewRows = (input: {
+  readonly files: ReadonlyArray<DiffFileInput>;
+  readonly problem: string | null;
+  readonly findings: ReadonlyArray<RiskFinding>;
+  readonly open: ReadonlySet<string>;
+  readonly order: FileOrder;
+}): ReadonlyArray<DiffRow> =>
+  input.problem === null
+    ? diffRows(orderFiles(input.files, input.findings, input.order), input.findings, input.open)
+    : [
+        { kind: "note", key: "n:problem", text: input.problem },
+        ...diffRows([], input.findings, input.open),
+      ];
 
 /** Every line of one file, open or not: what "Ask to fix" quotes from. */
 export const fileLines = (

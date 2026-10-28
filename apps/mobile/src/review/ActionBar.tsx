@@ -1,6 +1,6 @@
 /**
  * Review's foot (Paper M5): Send back and Accept. Accept shows "Accept paused · 1 critical" and
- * does nothing while a Critical finding is open. Send back opens a one-line reply first, so the
+ * does nothing while a Critical finding is open or the risk summary isn't finished. Send back opens a one-line reply first, so the
  * agent session gets the user's words as its next Turn.
  */
 import { midnight, mobileType } from "@polaris/ui/tokens";

@@ -3,9 +3,6 @@
  * Link this iPhone is `link/LinkScreen.tsx`.
  */
 import { SessionId } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
-import { StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NewSessionSheet as NewAgentSessionSheet } from "../newSession/index.ts";
 import { ThreadScreen } from "../thread/index.ts";
 import { useNavigation } from "./navigation.tsx";
@@ -27,17 +24,8 @@ export { ConstellationScreen as ConstellationRoute } from "../constellation/inde
 /** Review (M5) of a Turn; a null `turnId` reviews the latest one that ended. */
 export { ReviewScreen as ReviewRoute } from "../review/index.ts";
 
-export const ReviewTab = () => {
-  const insets = useSafeAreaInsets();
-
-  return (
-    <View style={[styles.screen, { paddingTop: insets.top + 8, paddingHorizontal: 20 }]}>
-      <Text style={styles.large} accessibilityRole="header">
-        Review
-      </Text>
-    </View>
-  );
-};
+/** The Review tab: agent sessions ready to review across Hosts. */
+export { ReviewTab } from "../review/index.ts";
 
 /** The New agent session sheet; a started session opens its thread. */
 export const NewSessionSheet = (props: { readonly onClose: () => void }) => {
@@ -52,11 +40,3 @@ export const NewSessionSheet = (props: { readonly onClose: () => void }) => {
     />
   );
 };
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: midnight.bg },
-  body: { paddingHorizontal: 20, paddingTop: 10, gap: 6 },
-  large: { ...mobileType.largeTitle, color: midnight.textStrong },
-  title: { ...mobileType.title, color: midnight.textStrong },
-  detail: { ...mobileType.footnote, color: midnight.textSubtle },
-});

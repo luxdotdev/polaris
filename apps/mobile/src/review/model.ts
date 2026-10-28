@@ -2,7 +2,14 @@
  * What Review on iPhone shows of a Risk Summary (Paper M5; DESIGN.md Review): which findings stay
  * listed, the four-cell tally, each file's badges, and whether Accept is paused.
  */
-import { FindingSource, type RiskFinding, SEVERITY_RANK, type Severity } from "@polaris/protocol";
+import {
+  FindingSource,
+  type RiskFinding,
+  type RiskSummary,
+  SEVERITY_RANK,
+  type Severity,
+} from "@polaris/protocol";
+import type { Loaded } from "./useReview.ts";
 
 export const SEVERITIES: ReadonlyArray<Severity> = ["critical", "high", "medium", "low"];
 
@@ -55,27 +62,41 @@ export type AcceptState =
   | { readonly kind: "ready" }
   /** Open Critical findings pause it; a dismissed one doesn't. */
   | { readonly kind: "paused"; readonly critical: number }
+  /** The risk summary is loading or still reading, so a Critical may yet arrive. */
+  | { readonly kind: "checking" }
+  /** No risk summary: it couldn't load, or it failed. */
+  | { readonly kind: "unchecked"; readonly reason: string }
   | { readonly kind: "working" }
   | { readonly kind: "accepted" }
   | { readonly kind: "sending" };
 
 export interface AcceptInput {
-  readonly findings: ReadonlyArray<RiskFinding>;
+  readonly risk: Loaded<RiskSummary>;
   readonly turnEnded: boolean;
   readonly accepted: boolean;
   readonly sending: boolean;
 }
 
+/** Accept waits until the reviewed Turn's risk summary has finished with no open Critical. */
 export const acceptState = (input: AcceptInput): AcceptState => {
   if (input.accepted) return { kind: "accepted" };
+  const { risk } = input;
+  const findings = risk.kind === "ready" ? risk.value.findings : [];
 
-  const critical = input.findings.filter(
-    (f) => f.severity === "critical" && f.status === "open"
-  ).length;
+  const critical = findings.filter((f) => f.severity === "critical" && f.status === "open").length;
 
   if (critical > 0) return { kind: "paused", critical };
 
   if (!input.turnEnded) return { kind: "working" };
+
+  if (risk.kind === "loading") return { kind: "checking" };
+
+  if (risk.kind === "failed") return { kind: "unchecked", reason: risk.message };
+
+  if (risk.value.status === "running") return { kind: "checking" };
+
+  if (risk.value.status === "failed")
+    return { kind: "unchecked", reason: risk.value.note ?? "The risk summary failed" };
 
   return input.sending ? { kind: "sending" } : { kind: "ready" };
 };

@@ -117,6 +117,8 @@ export const DiffList = forwardRef<FlatList<DiffRow>, DiffListProps>(function Di
           );
         case "line":
           return <Line row={item} palette={palette} />;
+        case "note":
+          return <Text style={styles.note}>{item.text}</Text>;
         case "finding":
           return (
             <FindingRowView
@@ -187,4 +189,13 @@ const styles = StyleSheet.create({
   sign: { ...mono, width: 22, textAlign: "center" },
   code: { ...mono, flex: 1, paddingRight: 12, color: midnight.textDefault },
   rule: { position: "absolute", left: 0, top: 0, bottom: 0, width: 2 },
+  note: {
+    ...mobileType.footnote,
+    lineHeight: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    color: midnight.textSubtle,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: midnight.hairline,
+  },
 });

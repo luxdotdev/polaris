@@ -73,7 +73,7 @@ export const ReviewScreen = ({
   );
 
   const accept = acceptState({
-    findings: summary?.findings ?? [],
+    risk: review.risk,
     turnEnded: turn !== null && turn.status !== "working",
     accepted:
       turn !== null && session !== null && (session.acceptedThroughIndex ?? -1) >= turn.index,
