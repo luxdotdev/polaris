@@ -2,6 +2,11 @@ import "../../../test/dom.testing.ts";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "bun:test";
 import { type ReactElement, useState } from "react";
+import { createStore } from "zustand/vanilla";
+import { createCommandRegistry } from "../../../routes/commands.ts";
+import { installKeyboard } from "../../../routes/keyboard.ts";
+import { createNavigation } from "../../../routes/navigation.ts";
+import { type AppState, initialState } from "../../../store/store.ts";
 import type { FrecencyTable } from "../model/frecency.ts";
 import PromptEditor from "./PromptEditor.tsx";
 
@@ -182,5 +187,34 @@ describe("type-to-focus", () => {
 
     expect(composer()?.textContent).toBe("");
     expect(document.activeElement).not.toBe(composer());
+  });
+});
+
+// The bare K opens Jump to…; Shift+K is a capital and starts a draft like any letter.
+describe("with the shell's shortcuts installed", () => {
+  test.each([
+    ["k opens Jump to…", { key: "k", code: "KeyK" }, 1, ""],
+    ["Shift+K types a capital", { key: "K", code: "KeyK", shiftKey: true }, 0, "K"],
+  ])("%s", async (_, init, jumps, typed) => {
+    let jumped = 0;
+    const registry = createCommandRegistry({ platform: "mac" });
+
+    const navigation = createNavigation({
+      app: createStore<AppState>(() => initialState),
+      storage: null,
+    });
+
+    const off = [
+      registry.register({ "jump.open": { run: () => void jumped++ } }),
+      installKeyboard({ actions: navigation.actions, registry }),
+    ];
+
+    await mount(<Screen />);
+    press(init.key, init);
+
+    for (const stop of off) stop();
+
+    expect(jumped).toBe(jumps);
+    expect(composer()?.textContent).toBe(typed);
   });
 });
