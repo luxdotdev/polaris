@@ -83,6 +83,7 @@ import { InstrumentCard, InstrumentPopoverContent, Kicker } from "@polaris/ui";
 
 - `header`: `title`, optional `mark`, optional mono `state` word, at most one `control`.
 - `footer`: a mono `status` line (set as a Kicker) and at most one `action`.
+- Both forms set `data-surface="raised"` on their root, so `bg-well` resolves one step off the raised surface (Moonlit #1A1B1D; on panels #222327; Midnight #0E0F12 in both).
 - `InstrumentCard` takes the same slots for a card in place (Settings' usage); default width 400px, override with `className`.
 - `Kicker`: mono caps, `text-subtle`, `parts` joined with " · " (`<Kicker parts={["Sessions", 4]} />` → SESSIONS · 4). Data labels only; `KICKER` is the class string.
 

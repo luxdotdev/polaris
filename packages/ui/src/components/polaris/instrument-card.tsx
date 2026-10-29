@@ -133,6 +133,7 @@ export function InstrumentCard({
   return (
     <div
       data-slot="instrument-card"
+      data-surface="raised"
       className={cn(CARD, "bg-raised text-text-default", className)}
       {...props}
     >
@@ -157,6 +158,7 @@ export function InstrumentPopoverContent({
   return (
     <PopoverContent
       data-slot="instrument-card"
+      data-surface="raised"
       className={cn(CARD, "bg-raised p-0", className)}
       {...props}
     >
