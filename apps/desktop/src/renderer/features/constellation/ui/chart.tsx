@@ -53,8 +53,8 @@ const waitsOn = (e: ChartEdge): ReadonlyArray<string> =>
 const doneAt = (states: Lookup, e: ChartEdge) =>
   e.from !== null && waitsOn(e).every((id) => toneAt(states, id) === "accepted");
 
-const bundleLabel = (parent: string, bundle: ChartBundle) =>
-  `${parent} · ${bundle.leaves.length} ${bundle.leaves.length === 1 ? "task" : "tasks"}`;
+const bundleLabel = (bundle: ChartBundle) =>
+  `${bundle.badge} · ${bundle.leaves.length} ${bundle.leaves.length === 1 ? "task" : "tasks"}`;
 
 const QUIET: ReadonlySet<StripTone> = new Set(["accepted", "waiting", "blocked"]);
 
@@ -362,7 +362,7 @@ const BundleHits = ({
       const to = at.get(e.to);
 
       if (e.bundle === null || e.from === null || to === undefined) return null;
-      const label = bundleLabel(e.from, e.bundle);
+      const label = bundleLabel(e.bundle);
 
       return (
         <Tooltip key={`${e.from}>${e.to}`}>

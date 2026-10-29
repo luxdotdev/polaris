@@ -38,10 +38,14 @@ export interface ChartStar {
   readonly y: number;
 }
 
-/** A dependency on a parent: one line from its band's edge nearest the dependent. */
+/**
+ * A line that starts on a band's edge nearest the dependent: a dependency on a parent, or two
+ * or more Tasks in one band feeding the same Task.
+ */
 export interface ChartBundle {
-  readonly name: string;
-  /** Every leaf inside the parent: the line is done when they all are. */
+  /** The parent's id or the band's badge or name: "F · 3 tasks". */
+  readonly badge: string;
+  /** The Tasks it stands for: the line is done when they all are. */
   readonly leaves: ReadonlyArray<string>;
   readonly x: number;
   readonly y: number;
@@ -126,9 +130,19 @@ const sinksOf = (
 };
 
 /** A leaf's dependencies as drawn: a leaf on its own line, a parent as one bundled line. */
-export interface Drawn {
+interface Group {
+  /** The parent's id, or the band's key. */
+  readonly from: string;
+  readonly badge: string;
+  /** The band whose edge it starts on; null for a nested parent, drawn around its leaves. */
+  readonly band: string | null;
   readonly leaves: ReadonlyArray<string>;
-  readonly parents: ReadonlyArray<string>;
+  readonly sinks: ReadonlyArray<string>;
+}
+
+interface Drawn {
+  readonly leaves: ReadonlyArray<string>;
+  readonly groups: ReadonlyArray<Group>;
 }
 
 /** Each leaf's upstream leaves: its own and its ancestors' deps, a parent standing for its sinks. */
@@ -165,25 +179,9 @@ const upstreamOf = (tasks: ReadonlyArray<ChartTask>) => {
     leaves.map((t) => [t.id, [...new Set(own(t).flatMap(expand))].filter((d) => d !== t.id)])
   );
 
-  const drawnOf = (t: ChartTask): Drawn => {
-    const deps = [...new Set(own(t))].filter((d) => d !== t.id);
+  const rank = new Map<string, number>(leaves.map((t, n) => [t.id, n]));
 
-    const parents = deps.filter(
-      (d) =>
-        !leafIds.has(d) &&
-        byId.has(d) &&
-        partsOf(d).sinks.length > 0 &&
-        !partsOf(d).inside.includes(t.id)
-    );
-
-    const covered = new Set(parents.flatMap((d) => partsOf(d).inside));
-
-    return { leaves: deps.filter((d) => leafIds.has(d) && !covered.has(d)), parents };
-  };
-
-  const drawn = new Map<string, Drawn>(leaves.map((t) => [t.id, drawnOf(t)]));
-
-  return { byId, leaves, upstream, drawn, inside: (id: string) => partsOf(id) };
+  return { byId, leafIds, own, leaves, upstream, partsOf, rank };
 };
 
 /** Longest path from a root, one-based; an edge that closes a cycle counts for nothing. */
@@ -239,6 +237,56 @@ const bandOf = (byId: ReadonlyMap<string, ChartTask>, task: ChartTask) => {
 
 /** A gate outside every parent floats where its inputs meet; one inside a parent stays in it. */
 const floats = (task: ChartTask) => task.kind === "gate" && (task.parent ?? null) === null;
+
+type Upstream = ReturnType<typeof upstreamOf>;
+
+const parentGroup = (up: Upstream, t: ChartTask, d: string): ReadonlyArray<Group> => {
+  const parent = up.byId.get(d);
+
+  if (parent === undefined || up.leafIds.has(d)) return [];
+  const { inside, sinks } = up.partsOf(d);
+
+  if (sinks.length === 0 || inside.includes(t.id)) return [];
+  const top = (parent.parent ?? null) === null;
+
+  return [{ from: d, badge: d, band: top ? `parent:${d}` : null, leaves: inside, sinks }];
+};
+
+/** A leaf's lines in: a parent as one, two or more Tasks from another band as one, else each. */
+const drawnOf = (up: Upstream, t: ChartTask): Drawn => {
+  const deps = [...new Set(up.own(t))].filter((d) => d !== t.id);
+  const parents = deps.flatMap((d) => parentGroup(up, t, d));
+  const covered = new Set(parents.flatMap((g) => g.leaves));
+  const home = floats(t) ? "" : bandOf(up.byId, t).key;
+  const byBand = new Map<string, Array<string>>();
+  const single: Array<string> = [];
+
+  for (const d of deps) {
+    const dep = up.byId.get(d);
+
+    if (dep === undefined || !up.leafIds.has(d) || covered.has(d)) continue;
+    const band = floats(dep) ? null : bandOf(up.byId, dep);
+
+    if (band === null || band.key === "loose" || band.key === home) single.push(d);
+    else byBand.set(band.key, [...(byBand.get(band.key) ?? []), d]);
+  }
+
+  const merged = [...byBand].flatMap(([key, found]): ReadonlyArray<Group> => {
+    if (found.length < 2) return [];
+    const ids = found.toSorted((a, b) => (up.rank.get(a) ?? 0) - (up.rank.get(b) ?? 0));
+    const first = up.byId.get(ids[0] ?? "");
+    const head = first === undefined ? null : bandOf(up.byId, first);
+
+    return [
+      { from: key, badge: head?.badge ?? head?.name ?? key, band: key, leaves: ids, sinks: ids },
+    ];
+  });
+
+  return {
+    leaves: [...single, ...[...byBand.values()].filter((ids) => ids.length === 1).flat()],
+    groups: [...parents, ...merged],
+  };
+};
 
 const mean = (values: ReadonlyArray<number>, fallback: number) =>
   values.length === 0 ? fallback : values.reduce((a, b) => a + b, 0) / values.length;
@@ -355,8 +403,6 @@ const floatY = (
   return at;
 };
 
-type Upstream = ReturnType<typeof upstreamOf>;
-
 const starsAt = (ids: ReadonlyArray<string>, at: ReadonlyMap<string, ChartStar>) =>
   ids.flatMap((id) => {
     const s = at.get(id);
@@ -366,25 +412,24 @@ const starsAt = (ids: ReadonlyArray<string>, at: ReadonlyMap<string, ChartStar>)
 
 /** Where a parent's line starts: its last sink's column, on its band's edge nearest `to`. */
 const bundleFrom = (
-  parent: ChartTask,
-  parts: Parts,
+  group: Group,
   at: ReadonlyMap<string, ChartStar>,
   bands: ReadonlyArray<ChartBand>,
   to: ChartStar
 ): ChartBundle | null => {
-  const sinks = starsAt(parts.sinks, at);
-  const inside = starsAt(parts.inside, at);
+  const sinks = starsAt(group.sinks, at);
+  const inside = starsAt(group.leaves, at);
 
   if (sinks.length === 0) return null;
-  const band = bands.find((b) => b.key === `parent:${parent.id}`);
+  const band = bands.find((b) => b.key === group.band);
   const top = band?.y ?? Math.min(...inside.map((s) => s.y)) - CHART.row / 2;
 
   const bottom =
     band === undefined ? Math.max(...inside.map((s) => s.y)) + CHART.row / 2 : band.y + band.height;
 
   return {
-    name: parent.title,
-    leaves: parts.inside,
+    badge: group.badge,
+    leaves: group.leaves,
     x: Math.max(...sinks.map((s) => s.x)),
     y: Math.round(Math.min(bottom, Math.max(top, to.y))),
   };
@@ -399,19 +444,17 @@ const edgesOf = (
   const at = new Map(stars.map((s) => [s.id, s]));
 
   const into = (to: ChartStar): ReadonlyArray<ChartEdge> => {
-    const drawn = up.drawn.get(to.id);
+    const task = up.byId.get(to.id);
 
-    if (drawn === undefined) return [];
+    if (task === undefined) return [];
+    const drawn = drawnOf(up, task);
 
     return [
       ...drawn.leaves.map((from) => ({ from, to: to.id, bundle: null })),
-      ...drawn.parents.flatMap((from) => {
-        const parent = up.byId.get(from);
+      ...drawn.groups.flatMap((g) => {
+        const bundle = bundleFrom(g, at, bands, to);
 
-        const bundle =
-          parent === undefined ? null : bundleFrom(parent, up.inside(from), at, bands, to);
-
-        return bundle === null ? [] : [{ from, to: to.id, bundle }];
+        return bundle === null ? [] : [{ from: g.from, to: to.id, bundle }];
       }),
     ];
   };

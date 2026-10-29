@@ -80,6 +80,15 @@ describe("the star chart of the Chrome redesign graph", () => {
     expect(gate.x).toBe(CHART.lastX);
   });
 
+  test("reads as bands feeding Tasks: two or more lines from one band into a Task merge", () => {
+    const into = (id: string) => chart.edges.filter((e) => e.to === id);
+
+    expect(into("V1").map((e) => [e.bundle?.badge, e.bundle?.leaves])).toEqual([
+      ["F", ["F2", "F3", "F4"]],
+    ]);
+    expect(into("Q1").map((e) => e.bundle?.badge ?? e.from)).toEqual(["D1", "V", "B"]);
+  });
+
   test("draws the Lead to every first-wave star and nothing else", () => {
     expect(
       chart.edges
@@ -174,6 +183,19 @@ describe("the layout", () => {
     expect(bundle?.leaves.toSorted()).toEqual(["P1", "P2", "P3"]);
     expect(bundle?.x).toBe(star(chart, "P3").x);
     expect(bundle?.y).toBe((band?.y ?? 0) + (band?.height ?? 0));
+  });
+
+  test("a lone line from a band, and lines inside the dependent's own band, stay Task to Task", () => {
+    const chart = starChart([
+      t("P"),
+      t("P1", { parent: "P" }),
+      t("P2", { parent: "P" }),
+      t("P3", { parent: "P", deps: ["P1", "P2"] }),
+      t("X", { deps: ["P1"] }),
+    ]);
+
+    expect(edgesOf(chart)).toEqual(["P1→P3", "P1→X", "P2→P3", "lead→P1", "lead→P2"]);
+    expect(chart.edges.every((e) => e.bundle === null)).toBe(true);
   });
 
   test("a child inherits its parent's dependencies", () => {
