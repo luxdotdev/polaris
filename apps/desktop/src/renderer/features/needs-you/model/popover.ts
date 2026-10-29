@@ -33,7 +33,8 @@ export const waitingCopy = (item: WaitingSession, now: number): RowCopy | null =
 
   if (request === undefined) return null;
   const question = request.kind === "question";
-  const command = request.kind === "command" ? (request.detail ?? request.title) : null;
+  // The whole request, for every kind: an approval is never answered blind.
+  const shown = question ? null : (request.detail ?? request.title);
 
   return {
     harness: session.harness,
@@ -45,8 +46,8 @@ export const waitingCopy = (item: WaitingSession, now: number): RowCopy | null =
     ],
     text: question
       ? `${titleOf(session.title)} asks: ${request.title}`
-      : `${titleOf(session.title)} ${command === null ? KIND_WANTS[request.kind] : "wants to run"}`,
-    code: command,
+      : `${titleOf(session.title)} ${request.kind === "command" ? "wants to run" : KIND_WANTS[request.kind]}`,
+    code: shown,
   };
 };
 
