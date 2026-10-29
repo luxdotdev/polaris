@@ -7,6 +7,8 @@ import { Predicate } from "effect";
 import { useEffect, useRef, useState } from "react";
 import { ScrollView, type ScrollViewInstance, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { type AppearanceStore, ThemeName, ThemeProvider, useTheme } from "../theme";
+import { serializeAppearance } from "../theme/appearance.ts";
 import { displayBudget, frameStats, statsLine } from "../review/bench/frames.ts";
 import { Celestial } from "./Celestial.tsx";
 
@@ -14,28 +16,38 @@ const BODIES = [...CELESTIAL_PLANETS, ...CELESTIAL_STARS, ...CELESTIAL_MOONS];
 
 const HARNESSES = ["claude", "codex", "opencode", "gemini"] as const;
 
-/** theme.css's dark grounds: Midnight's black and Moonlit's grey. */
-const GROUNDS = [
-  { name: "Midnight", bg: "#000000" },
-  { name: "Moonlit", bg: "#1a1b1d" },
-] as const;
+/** A store that always answers one theme, so each half of the sheet is a real ThemeProvider. */
+const fixed = (theme: ThemeName): AppearanceStore => ({
+  read: () => serializeAppearance({ theme, motion: "full" }),
+  write: async () => undefined,
+});
 
 const label = { color: "#9a9ca4", fontSize: 10, fontFamily: "Menlo" } as const;
 
+const Column = () => {
+  const { name, colours } = useTheme();
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colours.ground, padding: 8, gap: 4 }}>
+      <Text style={label}>{name}</Text>
+      {BODIES.map((body, i) => (
+        <View key={body} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Celestial body={body} harness={HARNESSES[i % 4] ?? "claude"} size={32} />
+          <Celestial body={body} harness={HARNESSES[i % 4] ?? "claude"} size={24} working />
+          <Celestial body={body} harness="claude" size={16} dormant />
+          <Text style={label}>{body}</Text>
+        </View>
+      ))}
+    </View>
+  );
+};
+
 const Sheet = () => (
   <ScrollView contentContainerStyle={{ flexDirection: "row" }}>
-    {GROUNDS.map((ground) => (
-      <View key={ground.name} style={{ flex: 1, backgroundColor: ground.bg, padding: 8, gap: 4 }}>
-        <Text style={label}>{ground.name}</Text>
-        {BODIES.map((body, i) => (
-          <View key={body} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Celestial body={body} harness={HARNESSES[i % 4] ?? "claude"} size={32} />
-            <Celestial body={body} harness={HARNESSES[i % 4] ?? "claude"} size={24} working />
-            <Celestial body={body} harness="claude" size={16} dormant />
-            <Text style={label}>{body}</Text>
-          </View>
-        ))}
-      </View>
+    {(["midnight", "moonlit"] as const).map((theme) => (
+      <ThemeProvider key={theme} store={fixed(theme)}>
+        <Column />
+      </ThemeProvider>
     ))}
   </ScrollView>
 );
