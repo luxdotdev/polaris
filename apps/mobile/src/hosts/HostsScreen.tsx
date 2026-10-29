@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackBar } from "../app/BackBar.tsx";
 import { type FollowedHostState, useFollowedHosts } from "../home/feed/useFollowedHosts.ts";
 import { EdgeFade, HORIZON_CLEAR, HorizonScreen } from "../horizon";
+import { LINK_ANOTHER_COPY, ScanSheet } from "../link/ScanSheet.tsx";
 import { hostMenu, LongPressMenu, useMenuActions } from "../menus/index.ts";
 import { useRelay } from "../relay/RelayProvider.tsx";
 import { Chevron } from "../settings/icons.tsx";
@@ -18,12 +19,14 @@ import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 import { DevSegments } from "../home/ui/DevDataToggle.tsx";
 import {
   chooseDevHosts,
+  DEV_HOST_LINK,
   DEV_HOST_SHEET,
   type DevHostsData,
   useDevHosts,
   useDevHostsData,
 } from "./dev.ts";
 import { HostSheet } from "./HostSheet.tsx";
+import { useLinkAnother } from "./linkAnother.ts";
 import {
   buildHosts,
   hostDetails,
@@ -160,26 +163,49 @@ const Section = ({
   );
 };
 
-const LinkRow = ({ onLink }: { readonly onLink: () => void }) => {
+/** MX-AT: the list's last panel, with where to find the code under it. */
+const LinkAnotherRow = ({ onLink }: { readonly onLink: () => void }) => {
   const styles = useStyles();
   const { colours } = useTheme();
 
   return (
-    <Pressable accessibilityRole="button" onPress={onLink} style={styles.linkRow}>
-      <Svg width={14} height={14} viewBox="0 0 14 14">
-        <Path
-          d="M7 1v12M1 7h12"
-          stroke={colours.textDefault}
-          strokeWidth={1.6}
-          strokeLinecap="round"
-        />
-      </Svg>
-      <Text style={styles.linkText} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
-        Link a host
+    <View style={styles.linkAnother}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${LINK_ANOTHER_COPY.title}, ${LINK_ANOTHER_CAPTION}`}
+        onPress={onLink}
+        style={({ pressed }) => [styles.panel, styles.row, pressed ? styles.pressed : null]}
+      >
+        <View style={styles.plus}>
+          <Svg width={12} height={12} viewBox="0 0 14 14">
+            <Path
+              d="M7 1v12M1 7h12"
+              stroke={colours.textStrong}
+              strokeWidth={1.8}
+              strokeLinecap="round"
+            />
+          </Svg>
+        </View>
+        <View style={styles.text}>
+          <Text style={styles.name} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
+            {LINK_ANOTHER_COPY.title}
+          </Text>
+          <Text style={styles.caption} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
+            {LINK_ANOTHER_CAPTION}
+          </Text>
+        </View>
+        <Chevron color={colours.textFaint} />
+      </Pressable>
+      <Text style={styles.footnote} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
+        {LINK_ANOTHER_FOOTNOTE}
       </Text>
-    </Pressable>
+    </View>
   );
 };
+
+const LINK_ANOTHER_CAPTION = "Its hosts join this list";
+
+const LINK_ANOTHER_FOOTNOTE = "On that Mac, open Polaris → Settings → Devices for the code.";
 
 /** The list ends above the moon (DESIGN.md: no row sits on the horizon); this lifts its last row past the fade. */
 const LIST_FOOT = 40;
@@ -204,13 +230,7 @@ const DevHostsToggle = ({ bottom }: { readonly bottom: number }) => {
   );
 };
 
-export const HostsScreen = ({
-  onBack,
-  onLink,
-}: {
-  readonly onBack: () => void;
-  readonly onLink: () => void;
-}) => {
+export const HostsScreen = ({ onBack }: { readonly onBack: () => void }) => {
   const styles = useStyles();
   const insets = useSafeAreaInsets();
   const relay = useRelay();
@@ -219,6 +239,7 @@ export const HostsScreen = ({
   const hosts = dev ?? followed.map(toInput);
   const [openId, setOpenId] = useState<string | null>(DEV_HOST_SHEET);
   const [unlinkLeft, setUnlinkLeft] = useState<string | null>(null);
+  const linkAnother = useLinkAnother(DEV_HOST_LINK);
   const now = useTicking(hosts.some(({ state }) => state === "reconnecting"));
   const model = buildHosts(hosts, now);
   const open = hosts.find((host) => host.hostId === openId) ?? null;
@@ -267,7 +288,7 @@ export const HostsScreen = ({
                   onOpen={setOpenId}
                 />
               ))}
-              <LinkRow onLink={onLink} />
+              <LinkAnotherRow onLink={linkAnother.open} />
               {unlinkLeft === null ? null : <Text style={styles.note}>{unlinkLeft}</Text>}
             </View>
           </ScrollView>
@@ -278,6 +299,14 @@ export const HostsScreen = ({
         details={open === null ? null : hostDetails(open, now)}
         onClose={() => setOpenId(null)}
         onUnlink={open !== null && relayLinked(open) ? unlink(open.hostId) : null}
+      />
+      <ScanSheet
+        key={linkAnother.sheet.round}
+        open={linkAnother.sheet.open}
+        {...LINK_ANOTHER_COPY}
+        onClose={linkAnother.close}
+        onLink={relay.link}
+        onLinked={linkAnother.close}
       />
       <DevHostsToggle bottom={HORIZON_CLEAR + 4} />
     </HorizonScreen>
@@ -333,13 +362,24 @@ const useStyles = themedStyles((colours) => ({
   },
   faint: { color: colours.textFaint },
   route: { ...mobileType.tab, fontWeight: "400", lineHeight: 15, color: colours.textFaint },
-  linkRow: {
-    flexDirection: "row",
+  linkAnother: { gap: 8, paddingTop: 6 },
+  plus: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: colours.hairline,
+    backgroundColor: colours.raised,
     alignItems: "center",
-    gap: 10,
-    paddingVertical: 12,
+    justifyContent: "center",
+  },
+  caption: { ...mobileType.footnote, color: colours.textSubtle },
+  footnote: {
+    ...mobileType.footnote,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colours.textFaint,
     paddingHorizontal: 14,
   },
-  linkText: { ...mobileType.label, lineHeight: 20, color: colours.textDefault },
   note: { ...mobileType.footnote, color: colours.textFaint, paddingHorizontal: 14 },
 }));
