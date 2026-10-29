@@ -1,12 +1,16 @@
 /**
  * Tool Runs, as Claude Code and ChatDCA show them: consecutive successful Skills, reads,
- * searches, fetches, edits, commands and MCP calls fold into one line ("Loaded grilling, read
- * 3 files, ran 4 commands, called Paper 4 times") that expands to each call; thinking between
- * them folds in. Anything running, failed or declined, and every other kind, keeps its row.
+ * searches, edits, commands, MCP calls and Claude Code's other tools fold into one line
+ * ("Loaded grilling, read 3 files, ran 4 commands, called Paper 4 times, messaged a subagent")
+ * that expands to each call; thinking between them folds in. A Turn's fetches and web searches
+ * gather into one sources pill. Anything running, failed or declined keeps its row.
  */
 import { plural } from "./format.ts";
 import type { ItemView } from "./items.ts";
+import { nativeJoinsRuns, nativePhrases, nativeVerb } from "./nativeTools/index.ts";
+import { type Source, sourceOf } from "./sources/index.ts";
 import type { SubagentCard } from "./subagents.ts";
+import { toolSearchCount } from "./toolCalls/index.ts";
 
 export type RunKind =
   | "skill"
@@ -17,6 +21,7 @@ export type RunKind =
   | "edit"
   | "shell"
   | "mcp"
+  | "native"
   | "plumbing";
 
 /** Older items' tools that join runs, by Claude Code's and Codex's names (compared lowercase). */
@@ -39,6 +44,8 @@ const toolRunKind = (item: ToolItem): RunKind | null => {
   if (item.view !== null || item.polaris) return null;
 
   if (item.plumbing) return "plumbing";
+
+  if (item.native !== null) return nativeJoinsRuns(item.native) ? "native" : null;
 
   if (item.toolKind === null) return TOOL_KINDS.get(item.name.toLowerCase()) ?? null;
 
@@ -65,7 +72,7 @@ const count = plural;
 
 /** Fixed phrase order whatever the call order; edits count distinct files. */
 const PHRASES: ReadonlyArray<
-  readonly [Exclude<RunKind, "skill" | "mcp" | "plumbing">, (n: number) => string]
+  readonly [Exclude<RunKind, "skill" | "mcp" | "native" | "plumbing">, (n: number) => string]
 > = [
   ["read", (n) => `read ${count(n, "file")}`],
   ["search", (n) => `searched for ${count(n, "pattern")}`],
@@ -106,7 +113,23 @@ const mcpPhrases = (items: ReadonlyArray<ItemView>): ReadonlyArray<string> => {
   );
 };
 
-/** "Loaded grilling, read 2 files, ran 3 commands, called Paper 4 times". */
+/** "loaded 3 tools": what ToolSearch loaded by name; a search by keyword is never a phrase. */
+const toolsPhrase = (items: ReadonlyArray<ItemView>): ReadonlyArray<string> => {
+  const n = items.reduce(
+    (sum, i) =>
+      sum + (i.kind === "tool" && runKind(i) === "plumbing" ? toolSearchCount(i.input) : 0),
+    0
+  );
+
+  return n === 0 ? [] : [`loaded ${count(n, "tool")}`];
+};
+
+const nativeCalls = (items: ReadonlyArray<ItemView>) =>
+  items.flatMap((i) =>
+    i.kind === "tool" && i.native !== null && runKind(i) === "native" ? [i.native] : []
+  );
+
+/** "Loaded grilling, read 2 files, ran 3 commands, called Paper 4 times, messaged a subagent". */
 export const runSummary = (items: ReadonlyArray<ItemView>): string => {
   const counts = new Map<RunKind, number>();
 
@@ -125,7 +148,13 @@ export const runSummary = (items: ReadonlyArray<ItemView>): string => {
   });
 
   const text =
-    [...skillPhrase(items), ...builtIn, ...mcpPhrases(items)].join(", ") || "loaded tools";
+    [
+      ...skillPhrase(items),
+      ...toolsPhrase(items),
+      ...builtIn,
+      ...mcpPhrases(items),
+      ...nativePhrases(nativeCalls(items)),
+    ].join(", ") || "loaded tools";
 
   return text.charAt(0).toUpperCase() + text.slice(1);
 };
@@ -140,16 +169,68 @@ export type Entry =
       readonly summary: string;
     }
   /** A Subagent, where the Turn spawned it. */
-  | { readonly kind: "subagent"; readonly card: SubagentCard };
+  | { readonly kind: "subagent"; readonly card: SubagentCard }
+  /** The pages it fetched and the searches it ran, where the first one was. */
+  | {
+      readonly kind: "sources";
+      /** The first source's call id. */
+      readonly id: string;
+      readonly sources: ReadonlyArray<Source>;
+    };
 
 /** Finished thinking: it folds into a run when calls come on both sides of it. */
 const between = (item: ItemView) => item.kind === "reasoning" && !item.live;
 
 /**
  * Items in order, consecutive run calls folded with the thinking between them; a lone call
- * keeps its own row, as does thinking before or after a run.
+ * keeps its own row, as does thinking before or after a run. Fetches and web searches leave
+ * the flow for one sources entry where the first of them was.
  */
 export const groupItems = (items: ReadonlyArray<ItemView>): ReadonlyArray<Entry> => {
+  const sources = items.flatMap((item) => {
+    const source = sourceOf(item);
+
+    return source === null ? [] : [{ item, source }];
+  });
+
+  const first = sources[0];
+
+  if (first === undefined) return groupFlow(items);
+  const taken = new Set(sources.map((s) => s.item));
+  const at = items.indexOf(first.item);
+  const position = new Map(items.map((item, n) => [item, n]));
+  const entries = groupFlow(items.filter((item) => !taken.has(item)));
+
+  const after = entries.findIndex((entry) => {
+    const lead = firstItem(entry);
+
+    return lead !== undefined && (position.get(lead) ?? 0) > at;
+  });
+
+  const pill: Entry = {
+    kind: "sources",
+    id: first.item.id,
+    sources: sources.map((s) => s.source),
+  };
+
+  return after === -1
+    ? [...entries, pill]
+    : [...entries.slice(0, after), pill, ...entries.slice(after)];
+};
+
+/** The item an entry from `groupFlow` starts with. */
+const firstItem = (entry: Entry): ItemView | undefined => {
+  switch (entry.kind) {
+    case "item":
+      return entry.item;
+    case "run":
+      return entry.items[0];
+    default:
+      return undefined;
+  }
+};
+
+const groupFlow = (items: ReadonlyArray<ItemView>): ReadonlyArray<Entry> => {
   const entries: Array<Entry> = [];
   let pending: Array<ItemView> = [];
   let held: Array<ItemView> = [];
@@ -243,6 +324,8 @@ export const toolVerb = (name: string, running: boolean): string => {
 /** A tool row's verb from what the call is: "Called Paper", "Loaded", else `toolVerb`. */
 export const toolLabel = (item: ToolItem): string => {
   const running = item.status === "running";
+
+  if (item.native !== null) return nativeVerb(item.native, running);
 
   if (item.mcp !== null && !item.polaris)
     return `${running ? "Calling" : "Called"} ${item.mcp.server}`;

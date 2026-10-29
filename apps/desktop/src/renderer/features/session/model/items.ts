@@ -5,6 +5,7 @@
 import type { ToolKind, TurnItem } from "@polaris/protocol";
 import { Match, Predicate } from "effect";
 import type { LiveItem } from "../../../store/sessionModel.ts";
+import { type NativeCall, nativeCall, nativeSummary } from "./nativeTools/index.ts";
 import { type PolarisToolView, polarisToolView } from "./polarisTools/index.ts";
 import { polarisTool } from "./runs.ts";
 import {
@@ -77,6 +78,8 @@ export type ItemView =
       readonly toolKind: ToolKind | null;
       /** The MCP server and tool, in words; null for any other tool. */
       readonly mcp: McpName | null;
+      /** A Claude Code tool the registry phrases (`nativeTools`); null for any other. */
+      readonly native: NativeCall | null;
       /** The Skill it loads, for a Skill call. */
       readonly skill: string | null;
       /** Loads other tools (ToolSearch): shown in an open run, never a phrase. */
@@ -223,19 +226,22 @@ const toolCallSummary = (item: ToolCallItem, max = SUMMARY_MAX) => {
 
 const toolView = (i: ToolCallItem, live: boolean): ItemView => {
   const mcp = mcpName(i.mcp, i.name);
+  const native = mcp === null ? nativeCall(i.name, i.input) : null;
+  const subject = native === null ? null : nativeSummary(native);
 
   return {
     kind: "tool",
     id: i.id,
     live,
     name: i.name,
-    summary: toolCallSummary(i),
-    full: mcp === null ? toolCallSummary(i, FULL_MAX) : toolSummary(i.input, FULL_MAX),
+    summary: subject === null ? toolCallSummary(i) : clipTo(SUMMARY_MAX)(subject),
+    full: subject ?? (mcp === null ? toolCallSummary(i, FULL_MAX) : toolSummary(i.input, FULL_MAX)),
     file: toolFile(i.input),
     polaris: polarisTool(i.name) !== null,
     view: polarisToolView(i),
     toolKind: kindOf(i.kind, mcp),
     mcp,
+    native,
     skill: i.kind === "skill" ? skillName(i.input) : null,
     plumbing: isPlumbing(i.name),
     result: i.status === "running" ? null : toolResult(i.output),
@@ -243,6 +249,16 @@ const toolView = (i: ToolCallItem, live: boolean): ItemView => {
     output: i.output,
     status: i.status,
   };
+};
+
+/** A native tool row re-read with its call changed (a Subagent's title for its id). */
+export const withNativeCall = (
+  item: Extract<ItemView, { kind: "tool" }>,
+  native: NativeCall
+): ItemView => {
+  const subject = nativeSummary(native);
+
+  return { ...item, native, summary: clipTo(SUMMARY_MAX)(subject), full: subject };
 };
 
 const fromItem = (item: TurnItem, live: boolean): ItemView =>

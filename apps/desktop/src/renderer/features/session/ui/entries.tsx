@@ -13,6 +13,7 @@ import type { SubagentCard } from "../model/subagents.ts";
 import { useElapsed } from "../hooks.ts";
 import { type Hue, Item, LiveMark, WELL } from "./items.tsx";
 import { Markdown } from "./markdown/index.tsx";
+import { SourcesPill } from "./sources.tsx";
 
 /** Open or closed, remembered per row across the virtualized list's unmounts. */
 const useOpen = (key: string) => {
@@ -222,6 +223,8 @@ const entryId = (entry: Entry) => {
       return `run:${entry.id}`;
     case "subagent":
       return `subagent:${entry.card.id}`;
+    case "sources":
+      return `sources:${entry.id}`;
   }
 };
 
@@ -233,5 +236,7 @@ export const EntryView = ({ entry, ctx }: { readonly entry: Entry; readonly ctx:
       return <Run entry={entry} ctx={ctx} />;
     case "subagent":
       return <Subagent card={entry.card} ctx={ctx} />;
+    case "sources":
+      return <SourcesPill sources={entry.sources} />;
   }
 };

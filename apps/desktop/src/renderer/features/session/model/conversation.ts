@@ -23,6 +23,7 @@ import type { ShellView } from "./items.ts";
 import type { Outgoing } from "./outbox.ts";
 import type { Entry } from "./runs.ts";
 import { groupTurns, lastView, openingView, shownItems, type TurnGroup } from "./turnGroups.ts";
+import { noTitles, type SubagentTitles, subagentTitles } from "./subagentTitles.ts";
 import { partRows } from "./turnRows.ts";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -242,7 +243,8 @@ export const groupRows = (
   group: TurnGroup,
   expanded: boolean,
   latest: boolean,
-  lastTurnId: string | null
+  lastTurnId: string | null,
+  titles: SubagentTitles = noTitles
 ): ReadonlyArray<Row> => {
   if (!expanded) return [summaryRow(group)];
   const { id: turnId, number } = group;
@@ -254,6 +256,7 @@ export const groupRows = (
       opens: n === 0,
       latest,
       isLast: view.turn.id === lastTurnId,
+      titles,
     })
   );
 };
@@ -316,9 +319,10 @@ export const conversationRows = ({
   const lastGroup = groups.length - 1;
   const lastTurnId = turns.at(-1)?.turn.id ?? null;
   const open = openTurns(groups, folds);
+  const titles = subagentTitles(turns);
 
   groups.forEach((group, n) => {
-    rows.push(...groupRows(group, open[n] ?? true, n === lastGroup, lastTurnId));
+    rows.push(...groupRows(group, open[n] ?? true, n === lastGroup, lastTurnId, titles));
     const ids = new Set(group.views.map((v) => v.turn.id));
 
     for (const request of approvals) {

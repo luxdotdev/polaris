@@ -11,6 +11,7 @@ import type { Row } from "./conversation.ts";
 import { completedItemView, isUserShell, liveItemView, type ShellView } from "./items.ts";
 import { type Entry, groupItems } from "./runs.ts";
 import { subagentCard } from "./subagents.ts";
+import { noTitles, type SubagentTitles, withSubagentTitle } from "./subagentTitles.ts";
 
 /** Where a Daemon Turn sits in the Turn the UI shows. */
 export interface Part {
@@ -24,6 +25,8 @@ export interface Part {
   readonly latest: boolean;
   /** This is the session's last Turn: an ending offers Continue or Retry. */
   readonly isLast: boolean;
+  /** The session's Subagents by handle: a message to one reads its title. */
+  readonly titles?: SubagentTitles;
 }
 
 type ToolCallItem = Extract<TurnItem, { readonly _tag: "ToolCall" }>;
@@ -59,7 +62,7 @@ const shellOf = (view: TurnView): ShellView | null => {
 };
 
 /** The Turn's items with each Subagent in place of the call that spawned it (else at the end). */
-const turnEntries = (view: TurnView): ReadonlyArray<Entry> => {
+const turnEntries = (view: TurnView, titles: SubagentTitles): ReadonlyArray<Entry> => {
   const byParent = new Map(
     view.subagents.map((s) => [s.subagent.parentItemId ?? s.subagent.id, s])
   );
@@ -75,7 +78,7 @@ const turnEntries = (view: TurnView): ReadonlyArray<Entry> => {
   // In the order the model started them (H2), so a running command stays where it began.
   const items = entriesInStartOrder(view)
     .filter((entry) => !isUserShell(itemOf(entry)))
-    .map(entryView);
+    .map((entry) => withSubagentTitle(entryView(entry), titles));
 
   const entries = groupItems(items).map((entry): Entry => {
     const sub = entry.kind === "item" ? byParent.get(entry.item.id) : undefined;
@@ -104,6 +107,8 @@ const entryKey = (entry: Entry) => {
       return `run:${entry.id}`;
     case "subagent":
       return `subagent:${entry.card.id}`;
+    case "sources":
+      return `sources:${entry.id}`;
   }
 };
 
@@ -124,7 +129,7 @@ const entryStart = (entry: Entry, starts: ReadonlyMap<string, string | null>) =>
 
 const itemRows = (view: TurnView, part: Part): ReadonlyArray<Row> => {
   const partId = view.turn.id;
-  const entries = turnEntries(view);
+  const entries = turnEntries(view, part.titles ?? noTitles);
   const starts = itemStarts(view);
 
   // The first agent row carries the avatar, and so does the first one after a steer.
@@ -196,7 +201,7 @@ interface Cached {
 const cache = new WeakMap<TurnView, Cached>();
 
 const partKey = (part: Part) =>
-  `${part.turnId}:${part.number}:${part.opens}:${part.latest}:${part.isLast}`;
+  `${part.turnId}:${part.number}:${part.opens}:${part.latest}:${part.isLast}:${part.titles?.key ?? ""}`;
 
 /** One Daemon Turn's rows, open; the same array while its view and place are unchanged. */
 export const partRows = (view: TurnView, part: Part): ReadonlyArray<Row> => {

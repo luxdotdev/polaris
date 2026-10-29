@@ -96,13 +96,22 @@ export const skillName = (input: ToolInput): string | null =>
 /** Claude Code's ToolSearch only loads other tools' schemas: plumbing, never a phrase in a run. */
 export const isPlumbing = (name: string): boolean => name === "ToolSearch";
 
+const selectedTools = (query: string): number | null => {
+  const selected = /^select:(.+)$/.exec(query)?.[1];
+
+  return selected === undefined ? null : selected.split(",").filter((s) => s.trim() !== "").length;
+};
+
+/** How many tools a ToolSearch call loaded by name; 0 for a search by keyword. */
+export const toolSearchCount = (input: ToolInput): number =>
+  selectedTools(stringAt(input, "query") ?? "") ?? 0;
+
 /** ToolSearch's subject: how many tools it loaded by name, else what it searched for. */
 export const toolSearchSubject = (input: ToolInput): string => {
   const query = stringAt(input, "query") ?? "";
-  const selected = /^select:(.+)$/.exec(query)?.[1];
+  const n = selectedTools(query);
 
-  if (selected === undefined) return clip(query, SUBJECT_MAX);
-  const n = selected.split(",").filter((s) => s.trim() !== "").length;
+  if (n === null) return clip(query, SUBJECT_MAX);
 
   return `${n} ${n === 1 ? "tool" : "tools"}`;
 };

@@ -166,12 +166,14 @@ describe("tool runs", () => {
     expect(runSummary([skill("a", "a"), skill("b", "b"), skill("c", "c")])).toBe("Loaded 3 skills");
   });
 
-  test("ToolSearch folds into a run but is never a phrase", () => {
-    const search = tool("t1", "ToolSearch", "completed", { input: { query: "select:a,b" } });
+  test("ToolSearch folds into a run: tools loaded by name are counted, a keyword search isn't", () => {
+    const select = tool("t1", "ToolSearch", "completed", { input: { query: "select:a,b" } });
+    const keyword = tool("t2", "ToolSearch", "completed", { input: { query: "slack send" } });
 
-    expect(groupItems([search, mcp("p1", "paper")])).toEqual([
-      expect.objectContaining({ kind: "run", summary: "Called Paper once" }),
+    expect(groupItems([select, keyword, mcp("p1", "paper")])).toEqual([
+      expect.objectContaining({ kind: "run", summary: "Loaded 2 tools, called Paper once" }),
     ]);
+    expect(runSummary([keyword, mcp("p1", "paper")])).toBe("Called Paper once");
   });
 
   test("thinking between calls folds into the run; thinking around it keeps its row", () => {
