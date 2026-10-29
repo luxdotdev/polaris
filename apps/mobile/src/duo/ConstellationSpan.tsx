@@ -28,6 +28,7 @@ import { ClaimPane, type PaneVerdicts } from "./ClaimPane.tsx";
 import { claimChoices, taskKey, useKept } from "./kept.ts";
 import { paperSpan } from "./paperSpan.testing.ts";
 import type { Rect } from "./posture.ts";
+import { useEdgeInsets } from "./useEdgeInsets.ts";
 import { chartRows, claimPane, firstChosen, spanChart, spanSummary } from "./span.ts";
 
 const DEV_SPAN =
@@ -122,10 +123,18 @@ const SpanView = ({ source, leadHarness, first, second, onBack, verdictsFor }: S
       : claimPane(constellation, source.projections, taskRows, chart, chosen, now);
 
   const row = taskRows.find((r) => r.id === chosen) ?? null;
+  const firstEdges = useEdgeInsets(first);
+  const secondEdges = useEdgeInsets(second);
 
   return (
     <View style={styles.screen}>
-      <View style={[placed(first), styles.first]}>
+      <View
+        style={[
+          placed(first),
+          styles.first,
+          { paddingTop: 20 + firstEdges.top, paddingLeft: 24 + firstEdges.left },
+        ]}
+      >
         <Header name={constellation.name} harness={leadHarness} onBack={onBack} />
         <View style={styles.done}>
           <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.doneCount}>
@@ -144,12 +153,23 @@ const SpanView = ({ source, leadHarness, first, second, onBack, verdictsFor }: S
           />
         </ScrollView>
       </View>
-      <View style={placed(second)}>
+      <View
+        style={[
+          placed(second),
+          styles.second,
+          {
+            paddingTop: secondEdges.top,
+            paddingRight: secondEdges.right,
+            paddingBottom: secondEdges.bottom,
+          },
+        ]}
+      >
         <ClaimPane
           pane={pane}
           row={row}
           verdicts={chosen === null ? null : verdictsFor(chosen)}
           onChoose={setPicked}
+          width={second.width - secondEdges.left - secondEdges.right}
         />
       </View>
     </View>
@@ -261,6 +281,7 @@ const useStyles = themedStyles((c) => ({
     borderRightWidth: 1,
     borderRightColor: c.hairline,
   },
+  second: { backgroundColor: c.panel },
   header: { flexDirection: "row", alignItems: "center", gap: 12 },
   back: {
     width: 36,

@@ -6,8 +6,9 @@
 import type { ApprovalRequest } from "@polaris/protocol";
 import { mobileFont, mobileType, mobileWeight } from "@polaris/ui/tokens";
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
-import { useHomeHosts } from "../home/feed/useHomeHosts.ts";
+import { Platform, Pressable, ScrollView, Settings, Text, View } from "react-native";
+import { devHomeDataOn, useHomeHosts } from "../home/feed/useHomeHosts.ts";
+import { DevDataToggle } from "../home/ui/DevDataToggle.tsx";
 import { buildHome, type SessionRow } from "../home/model/home.ts";
 import { age, harnessName, shortHostName } from "../home/model/format.ts";
 import { approvalDetail, quickQuestion } from "../home/model/lines.ts";
@@ -21,17 +22,30 @@ import {
   skyLine,
   starLimit,
   starsOf,
+  moreLine,
   targetsOf,
   wantsDetail,
   wantsLine,
 } from "./monitor.ts";
 import { MonitorSky, useMinute } from "./MonitorSky.tsx";
 import type { Rect } from "./posture.ts";
+import { useEdgeInsets } from "./useEdgeInsets.ts";
 
 /** MX-AF's hero edge and lift, as Home's (MX-C). */
 const HERO_EDGE = "#ffffff1f";
 
 const HERO_SHADOW = "#000000a0";
+
+/** A development build launched with `-polarisDevNight 1|0` forces the night dimming on or off. */
+const DEV_NIGHT: boolean | null = (() => {
+  if (!__DEV__ || Platform.OS !== "ios") return null;
+  const value: unknown = Settings.get("polarisDevNight");
+
+  return value === "1" || value === "0" ? value === "1" : null;
+})();
+
+/** Room under the last target for the development data toggle, so it never covers a row. */
+const DEV_TOGGLE_ROOM = 48;
 
 type Send = (row: SessionRow, approval: ApprovalRequest, reply: Reply) => Promise<void>;
 
@@ -121,6 +135,8 @@ const Permission = ({
             <Text
               maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
               numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.9}
               style={index === 0 ? styles.approveLabel : styles.buttonLabel}
             >
               {choice.label}
@@ -241,7 +257,7 @@ const Target = ({
         >
           {row.session.title === "" ? "Untitled agent session" : row.session.title}
         </Text>
-        <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.meta}>
+        <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} numberOfLines={1} style={styles.meta}>
           {[
             harnessName(row.session.harness),
             shortHostName(row.hostName),
@@ -268,9 +284,12 @@ export const Monitor = ({ top, bottom, division, onReply }: MonitorProps) => {
   const connections = useHosts();
   const now = useMinute();
   const home = useMemo(() => buildHome(hosts, null), [hosts]);
-  const stars = useMemo(() => starsOf(home, starLimit(top.width)), [home, top.width]);
+  const skyEdges = useEdgeInsets(top);
+  const footEdges = useEdgeInsets(bottom);
+  const skyWidth = top.width - skyEdges.left - skyEdges.right;
+  const stars = useMemo(() => starsOf(home, starLimit(skyWidth)), [home, skyWidth]);
   const targets = targetsOf(home, 4);
-  const night = isNight(now.getHours());
+  const night = DEV_NIGHT ?? isNight(now.getHours());
 
   const send: Send = (row, approval, reply) => {
     const connection = connections.find((c) => c.hostId === row.hostId);
@@ -282,14 +301,23 @@ export const Monitor = ({ top, bottom, division, onReply }: MonitorProps) => {
 
   return (
     <View style={styles.monitor}>
-      <MonitorSky rect={top} stars={stars} now={now} line={skyLine(home)} />
+      <MonitorSky rect={top} stars={stars} now={now} line={skyLine(home)} edges={skyEdges} />
       <View style={{ height: division.height }} />
       <ScrollView
         style={[{ height: bottom.height }, night ? styles.night : null]}
-        contentContainerStyle={styles.bottom}
+        contentContainerStyle={[
+          styles.bottom,
+          {
+            paddingLeft: 24 + footEdges.left,
+            paddingRight: 24 + footEdges.right,
+            paddingBottom: 32 + footEdges.bottom + (devHomeDataOn() ? DEV_TOGGLE_ROOM : 0),
+          },
+        ]}
       >
         {targets.length === 0 ? (
-          <Text style={styles.calm}>Nothing needs you.</Text>
+          home.working === 0 ? null : (
+            <Text style={styles.calm}>Nothing needs you.</Text>
+          )
         ) : (
           <>
             <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.kicker}>
@@ -305,9 +333,15 @@ export const Monitor = ({ top, bottom, division, onReply }: MonitorProps) => {
                 onReply={(r) => onReply(r.hostId, r.session.id)}
               />
             ))}
+            {home.needsYou > targets.length ? (
+              <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.more}>
+                {moreLine(home.needsYou - targets.length)}
+              </Text>
+            ) : null}
           </>
         )}
       </ScrollView>
+      <DevDataToggle bottom={footEdges.bottom + 8} />
     </View>
   );
 };
@@ -354,10 +388,11 @@ const useStyles = themedStyles((c) => ({
     borderColor: c.hairline,
     backgroundColor: c.well,
   },
-  titleLine: { flexDirection: "row", alignItems: "baseline", gap: 10 },
-  title: { ...sans(17, 22, true), flex: 1, color: c.textStrong },
+  titleLine: { flexDirection: "row", flexWrap: "wrap", alignItems: "baseline", columnGap: 10 },
+  title: { ...sans(17, 22, true), flexGrow: 1, flexShrink: 1, flexBasis: 160, color: c.textStrong },
   heroTitle: { fontSize: 19, lineHeight: 24 },
-  meta: { ...sans(13, 18), color: c.textSubtle },
+  meta: { ...sans(13, 18), flexShrink: 1, color: c.textSubtle },
+  more: { ...sans(13, 18), color: c.textSubtle, alignSelf: "center" },
   command: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -371,19 +406,21 @@ const useStyles = themedStyles((c) => ({
   wants: { ...sans(14, 19), color: c.needsYouText },
   commandText: { fontFamily: mobileFont.mono, fontSize: 14, lineHeight: 19, color: c.textDefault },
   ask: { ...sans(14, 20), color: c.textDefault },
-  buttons: { flexDirection: "row", gap: 10 },
+  /** Narrow halves wrap Deny under the two that answer, rather than shrinking their words. */
+  buttons: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   waiting: { opacity: 0.55 },
   button: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 120,
     height: 52,
     borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
   },
-  approve: { flex: 1.2, backgroundColor: c.textStrong },
+  approve: { flexBasis: 112, backgroundColor: c.textStrong },
   outline: { borderWidth: 1, borderColor: HERO_EDGE, backgroundColor: c.well },
-  deny: { flex: 0, width: 96 },
+  deny: { flexBasis: 96 },
   pressed: { opacity: 0.8, transform: [{ scale: 0.97 }] },
   approveLabel: { ...sans(17, 22, true), color: c.panel },
   buttonLabel: { ...sans(17, 22, true), color: c.textDefault },

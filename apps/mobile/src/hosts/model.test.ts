@@ -93,3 +93,32 @@ test("a connected host's details show its round trip and how long it has been up
     "—",
   ]);
 });
+
+test("worst-case hosts read whole: short names, separated counts, seconds and just now (break-ui)", () => {
+  const lukasz = input({
+    name: "Łukasz-Wiśniewski-Mac-Studio.local",
+    state: "connected",
+    latencyMs: 12_345.6,
+    sessions: 1284,
+  });
+
+  const worst = [
+    lukasz,
+    input({ name: "192.168.100.254", state: "offline", lastSeenAt: NOW - 5_000 }),
+  ];
+
+  expect(rows(buildHosts(worst, NOW))).toEqual([
+    [
+      "Needs a look",
+      [["192.168.100.254", "Offline · last seen just now", "—", "via Polaris Relay"]],
+    ],
+    [
+      "Connected",
+      [["Łukasz-Wiśniewski-Mac-Studio", "1,284 agent sessions", "12.3 s", "via Polaris Relay"]],
+    ],
+  ]);
+
+  const sheet = hostDetails(lukasz, NOW);
+
+  expect([sheet.name, sheet.sessions]).toEqual(["Łukasz-Wiśniewski-Mac-Studio.local", "1,284"]);
+});

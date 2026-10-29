@@ -6,6 +6,7 @@
 import type { ApprovalRequest, CelestialBody, HarnessKind } from "@polaris/protocol";
 import { leadStar, sessionCelestial } from "@polaris/ui/celestial";
 import { Match } from "effect";
+import { grouped } from "../home/model/format.ts";
 import type { Home, HomeRow, SessionRow } from "../home/model/home.ts";
 
 export type StarTone = "needs-you" | "working";
@@ -88,6 +89,9 @@ export const isNight = (hour: number): boolean => hour >= 22 || hour < 6;
 /** The targets below the fold: needs you rows that can be answered here. */
 export const targetsOf = (home: Home, limit: number): ReadonlyArray<SessionRow> =>
   home.sections.needsYou.filter((row) => row.approval !== null).slice(0, limit);
+
+/** Under the targets when more need you than fit: the rest wait on Home. */
+export const moreLine = (more: number): string => `${grouped(more)} more on Home`;
 
 /** The verb before a permission's command in its well ("Wants to run cargo build"). */
 export const wantsLine = (kind: Exclude<ApprovalRequest["kind"], "question">): string =>

@@ -5,7 +5,7 @@
 import type { ConnectionState } from "@polaris/protocol";
 import { Match } from "effect";
 import type { HostRoute } from "../runtime/hostConnection.ts";
-import { age, counted } from "../home/model/format.ts";
+import { age, counted, grouped, shortHostName } from "../home/model/format.ts";
 
 export interface HostInput {
   readonly hostId: string;
@@ -58,6 +58,17 @@ const elapsed = (since: number, now: number): string => {
   return seconds < 60 ? `${seconds}s` : age(since, now);
 };
 
+/** "last seen 3h ago", or "last seen just now" inside the minute. */
+const lastSeen = (at: number, now: number): string => {
+  const ago = age(at, now);
+
+  return ago === "now" ? "last seen just now" : `last seen ${ago} ago`;
+};
+
+/** "4 ms", and "12.3 s" once a round trip passes a second. */
+const milliseconds = (ms: number): string =>
+  ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`;
+
 const sessionsLine = (sessions: number | null) =>
   sessions === null ? "Connected" : counted(sessions, "agent session");
 
@@ -69,13 +80,13 @@ const rowLine = (host: HostInput, now: number): string =>
     ),
     Match.when("needs-attention", () => "Needs attention"),
     Match.when("offline", () =>
-      host.lastSeenAt === null ? "Offline" : `Offline · last seen ${age(host.lastSeenAt, now)} ago`
+      host.lastSeenAt === null ? "Offline" : `Offline · ${lastSeen(host.lastSeenAt, now)}`
     ),
     Match.exhaustive
   );
 
 const roundTrip = (host: HostInput): string =>
-  host.state === "connected" && host.latencyMs !== null ? `${Math.round(host.latencyMs)} ms` : "—";
+  host.state === "connected" && host.latencyMs !== null ? milliseconds(host.latencyMs) : "—";
 
 /** Needs attention first: it waits on the user; reconnecting and offline wait on the network. */
 const ORDER: Record<ConnectionState, number> = {
@@ -92,7 +103,7 @@ export const buildHosts = (hosts: ReadonlyArray<HostInput>, now: number): HostsM
     .sort((a, b) => ORDER[a.state] - ORDER[b.state] || a.name.localeCompare(b.name))
     .map((host): HostRowModel => ({
       key: host.hostId,
-      name: host.name,
+      name: shortHostName(host.name),
       state: host.state,
       line: rowLine(host, now),
       roundTrip: roundTrip(host),
@@ -158,7 +169,7 @@ export const hostDetails = (host: HostInput, now: number): HostDetails => ({
   failure: host.failure,
   roundTrip: roundTrip(host),
   route: routeLabel(host.route),
-  sessions: host.sessions === null ? "—" : String(host.sessions),
+  sessions: host.sessions === null ? "—" : grouped(host.sessions),
   sessionsLabel:
     host.state === "connected" || host.sessions === null
       ? "Agent sessions"

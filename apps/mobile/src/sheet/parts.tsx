@@ -16,6 +16,8 @@ const CloseGlyph = ({ color }: { readonly color: string }) => (
 
 export interface SheetHeaderProps {
   readonly title: string;
+  /** Lines the title may wrap to before it truncates; a detail sheet's name reads whole. */
+  readonly titleLines?: number;
   /** One count or state word after the title, in mono ("2"). */
   readonly kicker?: string | number;
   /** A small glyph before the title (the needs you star, a Harness mark). */
@@ -27,7 +29,14 @@ export interface SheetHeaderProps {
 }
 
 /** MX-H's header: mark, title, mono kicker, and close (or one control) at the trailing edge. */
-export const SheetHeader = ({ title, kicker, mark, onClose, control }: SheetHeaderProps) => {
+export const SheetHeader = ({
+  title,
+  titleLines = 1,
+  kicker,
+  mark,
+  onClose,
+  control,
+}: SheetHeaderProps) => {
   const { colours } = useTheme();
 
   return (
@@ -35,7 +44,7 @@ export const SheetHeader = ({ title, kicker, mark, onClose, control }: SheetHead
       {mark === undefined ? null : <View style={styles.mark}>{mark}</View>}
       <Text
         accessibilityRole="header"
-        numberOfLines={1}
+        numberOfLines={titleLines}
         style={[styles.title, { color: colours.textStrong }]}
       >
         {title}

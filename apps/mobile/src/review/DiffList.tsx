@@ -19,6 +19,7 @@ import { CodeText } from "../diff/lines.tsx";
 import { themedStyles, useTheme } from "../theme/index.ts";
 import type { DiffRow, FileRow, LineRow } from "./diffRows.ts";
 import { type FindingActions, FindingRowView } from "./FindingCard.tsx";
+import { grouped } from "../home/model/format.ts";
 import type { DiffPalette } from "./palette.ts";
 import { SeverityBadge, severityColour, SeverityGlyph } from "./severity.tsx";
 
@@ -50,8 +51,8 @@ const FileHeader = memo(function FileHeader({
       <Text style={styles.path} numberOfLines={1} ellipsizeMode="head">
         {row.path}
       </Text>
-      <Text style={[styles.count, { color: palette.addedText }]}>+{row.added}</Text>
-      <Text style={[styles.count, { color: palette.removedText }]}>−{row.removed}</Text>
+      <Text style={[styles.count, { color: palette.addedText }]}>+{grouped(row.added)}</Text>
+      <Text style={[styles.count, { color: palette.removedText }]}>−{grouped(row.removed)}</Text>
       {row.severities.slice(0, 2).map((severity) => (
         <SeverityBadge key={severity} severity={severity} />
       ))}

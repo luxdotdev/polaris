@@ -1,10 +1,17 @@
 /**
- * Paper MX-AD's four Hosts for screenshots, in a development build launched with
- * `-polarisDevHosts paper`; `-polarisDevHostSheet <name>` opens that Host's details sheet.
+ * Fixture Hosts for screenshots and break-ui, in a development build launched with
+ * `-polarisDevHosts paper|worst|offline|one|huge|empty`, switched from the Hosts screen's toggle.
+ * `-polarisDevHostSheet <id>` opens that Host's details sheet.
  */
 import { Schema } from "effect";
+import { useMemo, useSyncExternalStore } from "react";
 import { Platform, Settings } from "react-native";
 import type { HostInput } from "./model.ts";
+import { devHosts, type DevHostsData } from "./worstCase.testing.ts";
+
+export const DevHosts = Schema.Literals(["paper", "worst", "offline", "one", "huge", "empty"]);
+
+export type { DevHostsData };
 
 const launched = (key: string): string | null => {
   if (!__DEV__ || Platform.OS !== "ios") return null;
@@ -15,53 +22,38 @@ const launched = (key: string): string | null => {
 
 const LAUNCHED_AT = Date.now();
 
+const LAUNCHED: DevHostsData | null = (() => {
+  const value = launched("polarisDevHosts");
+
+  return Schema.is(DevHosts)(value) ? value : null;
+})();
+
+let chosen: DevHostsData | null = LAUNCHED;
+
+const listeners = new Set<() => void>();
+
+const subscribe = (listener: () => void) => {
+  listeners.add(listener);
+
+  return () => listeners.delete(listener);
+};
+
+export const chooseDevHosts = (data: DevHostsData) => {
+  chosen = data;
+
+  for (const listener of listeners) listener();
+};
+
+export const useDevHostsData = (): DevHostsData | null =>
+  useSyncExternalStore(subscribe, () => chosen);
+
 /** The fixture Hosts, or null in a release build or a normal launch. */
-export const DEV_HOSTS: ReadonlyArray<HostInput> | null =
-  launched("polarisDevHosts") === "paper"
-    ? [
-        {
-          hostId: "lucas-rpi",
-          name: "lucas-rpi",
-          route: "relay",
-          state: "reconnecting",
-          failure: "relay: tunnel closed by peer (ECONNRESET)",
-          latencyMs: null,
-          lastSeenAt: LAUNCHED_AT - 42_000,
-          sessions: 3,
-        },
-        {
-          hostId: "build-vm",
-          name: "build-vm-ubuntu-2404-arm64",
-          route: "relay",
-          state: "offline",
-          failure: null,
-          latencyMs: null,
-          lastSeenAt: LAUNCHED_AT - 3 * 3600_000,
-          sessions: null,
-        },
-        {
-          hostId: "mac-studio",
-          name: "mac-studio",
-          route: "dev-bridge",
-          state: "connected",
-          failure: null,
-          latencyMs: 4,
-          lastSeenAt: LAUNCHED_AT - 2 * 3600_000,
-          sessions: 6,
-        },
-        {
-          hostId: "gpu-box",
-          name: "gpu-box",
-          route: "relay",
-          state: "connected",
-          failure: null,
-          latencyMs: 182,
-          lastSeenAt: LAUNCHED_AT - 26 * 60_000,
-          sessions: 2,
-        },
-      ]
-    : null;
+export const useDevHosts = (): ReadonlyArray<HostInput> | null => {
+  const data = useDevHostsData();
+
+  return useMemo(() => (data === null ? null : devHosts(data, LAUNCHED_AT)), [data]);
+};
 
 /** The Host whose sheet opens on launch. */
 export const DEV_HOST_SHEET: string | null =
-  DEV_HOSTS === null ? null : launched("polarisDevHostSheet");
+  LAUNCHED === null ? null : launched("polarisDevHostSheet");

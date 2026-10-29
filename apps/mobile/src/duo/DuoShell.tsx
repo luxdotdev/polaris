@@ -13,8 +13,15 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Keyboard, StyleSheet, Text, View, type ViewStyle } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  Keyboard,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+  type ViewStyle,
+} from "react-native";
+import { SafeAreaInsetsContext, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "../app/navigation.tsx";
 import { themedStyles } from "../theme/index.ts";
 import type { ThreadFocus } from "../thread/Row.tsx";
@@ -23,6 +30,8 @@ import { ConstellationSpan } from "./ConstellationSpan.tsx";
 import { ContextPane } from "./ContextPane.tsx";
 import { Monitor } from "./Monitor.tsx";
 import type { Rect } from "./posture.ts";
+import { edgeInsets } from "./edges.ts";
+import { useEdgeInsets } from "./useEdgeInsets.ts";
 import { usePosture } from "./usePosture.ts";
 
 /** What the thread route takes from the Duo; all absent when folded. */
@@ -63,7 +72,29 @@ const placed = (rect: Rect): ViewStyle => ({
   height: rect.height,
 });
 
+/** The second half placed, padded off the window edges it touches, on the panel ground. */
+const SecondHalf = ({ rect, children }: { readonly rect: Rect; readonly children: ReactNode }) => {
+  const styles = useStyles();
+  const edges = useEdgeInsets(rect);
+
+  return (
+    <View
+      style={[
+        placed(rect),
+        styles.second,
+        { paddingTop: edges.top, paddingRight: edges.right, paddingBottom: edges.bottom },
+      ]}
+    >
+      {children}
+    </View>
+  );
+};
+
 const HIDDEN: ViewStyle = { display: "none" };
+
+/** Where the screen on top stands when it shares the window with a second half. */
+const primaryRect = (arrangement: Arrangement): Rect | null =>
+  arrangement.kind === "context" || arrangement.kind === "aside" ? arrangement.first : null;
 
 const primaryStyle = (arrangement: Arrangement): ViewStyle | null => {
   switch (arrangement.kind) {
@@ -115,6 +146,7 @@ export const DuoShell = ({ children }: { readonly children: ReactNode }) => {
   const posture = usePosture();
   const keyboard = useKeyboardHeight();
   const insets = useSafeAreaInsets();
+  const window = useWindowDimensions();
   const focus = useFocus();
   const { top } = navigation;
   const arrangement = arrangementOf(posture, top);
@@ -144,13 +176,20 @@ export const DuoShell = ({ children }: { readonly children: ReactNode }) => {
     return {};
   }, [arrangement, session, focus, keyboard, insets.bottom]);
 
+  const primary = primaryRect(arrangement);
+
   return (
     <View style={styles.fill}>
       <View style={[styles.fill, primaryStyle(arrangement)]}>
-        <DuoThreadContext.Provider value={thread}>{children}</DuoThreadContext.Provider>
+        {/* A half sees only the insets of the window edges it touches, not the other half's cutout. */}
+        <SafeAreaInsetsContext.Provider
+          value={primary === null ? insets : edgeInsets(primary, window, insets)}
+        >
+          <DuoThreadContext.Provider value={thread}>{children}</DuoThreadContext.Provider>
+        </SafeAreaInsetsContext.Provider>
       </View>
       {arrangement.kind === "context" && top.screen === "thread" && session !== null ? (
-        <View style={placed(arrangement.second)}>
+        <SecondHalf rect={arrangement.second}>
           <ContextPane
             hostId={top.hostId}
             sessionId={top.sessionId}
@@ -166,12 +205,12 @@ export const DuoShell = ({ children }: { readonly children: ReactNode }) => {
               })
             }
           />
-        </View>
+        </SecondHalf>
       ) : null}
       {arrangement.kind === "aside" ? (
-        <View style={placed(arrangement.second)}>
+        <SecondHalf rect={arrangement.second}>
           <Aside />
-        </View>
+        </SecondHalf>
       ) : null}
       {arrangement.kind === "span" && top.screen === "constellation" ? (
         <View style={StyleSheet.absoluteFill}>
@@ -202,6 +241,7 @@ export const DuoShell = ({ children }: { readonly children: ReactNode }) => {
 
 const useStyles = themedStyles((colours) => ({
   fill: { flex: 1, backgroundColor: colours.ground },
+  second: { backgroundColor: colours.panel },
   aside: {
     flex: 1,
     justifyContent: "center",
