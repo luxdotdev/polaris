@@ -172,7 +172,14 @@ const Shell = () => {
 
   if (galleryOn()) return <RowGallery />;
 
-  if (threadGalleryOn()) return <ThreadGallery />;
+  if (threadGalleryOn())
+    return (
+      <SheetHost>
+        <InboxProvider>
+          <ThreadGallery />
+        </InboxProvider>
+      </SheetHost>
+    );
 
   if (composerGalleryOn())
     return (

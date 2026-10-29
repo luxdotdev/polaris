@@ -83,8 +83,16 @@ export const galleryHost = async (
 
       return () => listeners.delete(listener);
     },
-    run: (use) =>
-      on ? Effect.runPromise(use(live.client)) : Promise.reject(new NotConnected(hostId)),
+    // The fake answers only ThreadRpcs: a call to any other RPC is refused like a dropped link.
+    run: (use) => {
+      if (!on) return Promise.reject(new NotConnected(hostId));
+
+      try {
+        return Effect.runPromise(use(live.client));
+      } catch {
+        return Promise.reject(new NotConnected(hostId));
+      }
+    },
     retryNow: () => undefined,
     checkAlive: () => undefined,
     close: () => Promise.resolve(),
