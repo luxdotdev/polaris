@@ -12,6 +12,7 @@
     "./styles.css": "./src/styles/index.css",
     "./celestial": "./src/components/polaris/celestial/bodies.ts",
     "./dither": "./src/components/polaris/dither/cells.ts",
+    "./horizon": "./src/components/polaris/horizon/art.ts",
     "./presence": "./src/lib/presence.ts",
     "./star": "./src/icons/star.ts",
     "./tokens": "./src/tokens/index.ts"
