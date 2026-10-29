@@ -194,7 +194,7 @@ export const Conversation = ({ pull, overview, viewer, pending, ...props }: Conv
           <Timeline {...props} items={items} divideAt={divideAt} />
         )}
       </div>
-      <div className="bg-bg sticky bottom-0 mx-auto w-full max-w-[720px] px-5 pb-4">
+      <div className="bg-panel sticky bottom-0 mx-auto w-full max-w-[720px] px-5 pb-4">
         <Composer subjectKey={props.subjectKey} pull={pull} viewer={viewer} pending={pending} />
       </div>
     </div>

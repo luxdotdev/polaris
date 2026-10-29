@@ -108,7 +108,7 @@ const FileRow = ({
         </span>
       </button>
       {open ? (
-        <div className="border-hairline bg-bg flex flex-col overflow-x-auto border-t pt-0.5 pb-2">
+        <div className="border-hairline flex flex-col overflow-x-auto border-t pt-0.5 pb-2">
           {shown.map((hunk) => (
             <HunkView key={hunk.line} hunk={hunk} />
           ))}

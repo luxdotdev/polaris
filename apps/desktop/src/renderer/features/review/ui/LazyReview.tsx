@@ -20,7 +20,7 @@ export const preloadReview = () => {
 };
 
 export const ReviewView = (props: ReviewViewProps) => (
-  <Suspense fallback={<div className="bg-bg flex-1" />}>
+  <Suspense fallback={<div className="bg-panel flex-1" />}>
     <View {...props} />
   </Suspense>
 );

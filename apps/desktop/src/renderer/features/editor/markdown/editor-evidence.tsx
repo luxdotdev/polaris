@@ -257,7 +257,7 @@ if (element === null) throw new Error("Fixture root missing");
 createRoot(element).render(
   <AppProvider value={{ connection, navigation, commands }}>
     <TooltipProvider>
-      <div className="bg-bg text-text-default flex h-screen flex-col">
+      <div className="bg-panel text-text-default flex h-screen flex-col">
         <EditorPane hostKey={hostKey} workspaceId={workspaceId} root={root} />
         <Toaster />
       </div>

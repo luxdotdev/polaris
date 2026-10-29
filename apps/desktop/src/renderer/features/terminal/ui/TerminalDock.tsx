@@ -186,7 +186,7 @@ export const OpenDrawer = ({
       aria-label="Terminal"
       className={cn(
         "relative flex shrink-0 flex-col",
-        variant === "drawer" ? "border-hairline bg-bg border-t" : "bg-panel"
+        variant === "drawer" ? "border-hairline bg-panel border-t" : "bg-panel"
       )}
       style={{ height: clampHeight(drawer.height, available) }}
       data-testid="terminal-drawer"

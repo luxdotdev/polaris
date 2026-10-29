@@ -102,18 +102,52 @@ const THEMES = [
 type Theme = (typeof THEMES)[number];
 
 const appearance = async (page: Page, theme: Theme, density: string, patch = "") => {
+  // The dark theme is saved, not set on the root: a reload re-applies the saved one.
+  const dark = theme.dark ?? "moonlit";
+
   await page.evaluate(
-    `window.polaris.request("settings.setAppearance", { patch: { theme: "${theme.theme}", density: "${density}"${patch} } })`
+    `window.polaris.request("settings.setAppearance", { patch: { theme: "${theme.theme}", darkTheme: "${dark}", density: "${density}"${patch} } })`
   );
   await page
-    .locator(`html[data-theme="${theme.theme}"][data-density="${density}"]`)
+    .locator(
+      `html[data-theme="${theme.theme}"][data-theme-dark="${dark}"][data-density="${density}"]`
+    )
     .waitFor({ state: "attached" });
-  await page.evaluate(
-    theme.dark === null
-      ? `delete document.documentElement.dataset.themeDark`
-      : `document.documentElement.dataset.themeDark = "${theme.dark}"`
-  );
 };
+
+/** One pixel of a saved screenshot, as #rrggbb, decoded by Electron's nativeImage. */
+const pixel = (path: string, point: { readonly x: number; readonly y: number }) =>
+  app.evaluate(
+    ({ nativeImage }, at) => {
+      const image = nativeImage.createFromPath(at.path);
+
+      const [b = 0, g = 0, r = 0] = image
+        .crop({ x: at.x, y: at.y, width: 1, height: 1 })
+        .toBitmap();
+
+      return `#${[r, g, b].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+    },
+    { path, ...point }
+  );
+
+/** Midnight is true black: the ground, a panel and the moon's place (stars only, no moon). */
+const checkMidnight = async (name: string, panelShown: boolean) => {
+  const path = join(out, `${name}.png`);
+  const ground = await pixel(path, { x: 8, y: 400 });
+  const panel = panelShown ? await pixel(path, { x: 304, y: 400 }) : null;
+  const moon = await pixel(path, { x: 105, y: 635 });
+  // Moonlit's moon is #aeb5c4 there; Midnight has only the sky's faint glow.
+  const dark = Math.max(...[1, 3, 5].map((i) => Number.parseInt(moon.slice(i, i + 2), 16))) < 0x20;
+  const ok = ground === "#000000" && (panel === null || panel === "#0a0b0d") && dark;
+
+  console.log(
+    `midnight ${name}: ground ${ground} panel ${panel ?? "-"} moon ${moon} ${ok ? "ok" : "WRONG"}`
+  );
+
+  if (!ok) failures.push(name);
+};
+
+const failures: string[] = [];
 
 const load = async (page: Page, view: View) => {
   await page.evaluate(`location.hash = ${JSON.stringify(view.hash)}; location.reload()`);
@@ -183,6 +217,13 @@ try {
         await appearance(page, theme, density);
         await load(page, view);
         await shoot(page, `${view.name}-${theme.name}-${density}`);
+
+        if (
+          theme.name === "midnight" &&
+          view.group === "orchestrator" &&
+          view.densities !== undefined
+        )
+          await checkMidnight(`${view.name}-${theme.name}-${density}`, view.name === "session");
       }
   }
 
@@ -207,6 +248,8 @@ try {
     await load(page, session);
     await tabOrder(page);
   }
+
+  if (failures.length > 0) process.exitCode = 1;
 } finally {
   await app.close();
   await daemon.stop();

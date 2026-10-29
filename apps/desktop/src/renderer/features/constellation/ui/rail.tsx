@@ -103,7 +103,7 @@ export const Rail = ({
     <span className="relative w-[60px] shrink-0 self-stretch">
       <Lines tree={tree} step={step} accepted={accepted} />
       <span className="absolute grid place-items-center" style={slot}>
-        <span className="bg-bg absolute size-3 rounded-full" />
+        <span className="bg-panel absolute size-3 rounded-full" />
         <span className="relative">{children}</span>
       </span>
       {trail === undefined ? null : (

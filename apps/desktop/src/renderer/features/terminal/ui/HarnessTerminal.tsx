@@ -89,7 +89,7 @@ export const HarnessTerminal = ({ hostKey, argv, onExit, onClose }: HarnessTermi
 
   return (
     <div
-      className="border-hairline bg-bg rounded-row flex h-72 flex-col overflow-hidden border"
+      className="border-hairline bg-panel rounded-row flex h-72 flex-col overflow-hidden border"
       data-testid="harness-terminal"
     >
       <div className="border-hairline flex h-8 shrink-0 items-center gap-2 border-b pr-1 pl-3">

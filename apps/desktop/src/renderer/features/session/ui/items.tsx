@@ -29,7 +29,7 @@ const Message = ({ text, live }: { readonly text: string; readonly live: boolean
         variant="icon"
         label="Copy message"
         text={text}
-        className="bg-bg absolute -top-1 right-0 opacity-0 group-hover/message:opacity-100 focus-visible:opacity-100 data-[copy-state=copied]:opacity-100 data-[copy-state=failed]:opacity-100"
+        className="bg-panel absolute -top-1 right-0 opacity-0 group-hover/message:opacity-100 focus-visible:opacity-100 data-[copy-state=copied]:opacity-100 data-[copy-state=failed]:opacity-100"
       />
     )}
   </div>

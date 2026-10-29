@@ -357,7 +357,7 @@ export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) 
     <EditorPlaceProvider value={place}>
       <section
         aria-label="Output"
-        className="bg-bg flex h-full min-h-0 min-w-0 flex-col"
+        className="bg-panel flex h-full min-h-0 min-w-0 flex-col"
         data-testid="session-output"
       >
         <div className="border-hairline flex h-11 shrink-0 items-center gap-1 border-b px-3">

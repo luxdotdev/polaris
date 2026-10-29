@@ -223,7 +223,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
       <section
         aria-label={session.title}
         data-testid="session-panel"
-        className="bg-bg flex h-full min-h-0 min-w-0 flex-col"
+        className="bg-panel flex h-full min-h-0 min-w-0 flex-col"
       >
         {chrome.header ?? (
           <SessionHeader
