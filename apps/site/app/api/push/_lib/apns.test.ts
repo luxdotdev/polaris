@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { createServer, type IncomingHttpHeaders, type ServerHttp2Stream } from "node:http2";
 import type { AddressInfo } from "node:net";
-import { FALLBACK_ALERT, http2Apns } from "./apns";
+import { apnsBody, FALLBACK_ALERT, http2Apns } from "./apns";
 
 const received: Array<{ headers: IncomingHttpHeaders; body: string }> = [];
 
@@ -40,7 +40,9 @@ describe("http2Apns", () => {
       providerToken: "provider",
       deviceToken: "beef",
       topic: "dev.lux.polaris.mobile",
-      payload: "sealed",
+      pushType: "alert" as const,
+      priority: 10 as const,
+      body: apnsBody("sealed"),
       expiration: 1_800_003_600,
     };
 
@@ -58,6 +60,7 @@ describe("http2Apns", () => {
       authorization: "bearer provider",
       "apns-topic": "dev.lux.polaris.mobile",
       "apns-push-type": "alert",
+      "apns-priority": "10",
       "apns-expiration": "1800003600",
     });
     expect(JSON.parse(first?.body ?? "")).toEqual({

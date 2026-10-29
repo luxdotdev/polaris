@@ -1,7 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { PushHeaders, type PushRequest, signPushRequest } from "@polaris/protocol/relay";
+import {
+  type LivePushRequest,
+  PushHeaders,
+  type PushRequest,
+  signPushRequest,
+} from "@polaris/protocol/relay";
+import { Schema } from "effect";
 import type { WideEvent } from "../../../../lib/log";
-import type { ApnsReply, ApnsRequest } from "./apns";
+import { type ApnsReply, type ApnsRequest, FALLBACK_ALERT } from "./apns";
 import { PREVIEW, PRODUCTION, type PushDeployment } from "./environment";
 import { createPushHandler } from "./index";
 import { memoryStore } from "./store";
@@ -47,7 +53,7 @@ const setup = ({ deployment = PREVIEW, replies = [], secret = SECRET }: Setup = 
 };
 
 const signedRequest = async (
-  body: PushRequest,
+  body: PushRequest | LivePushRequest,
   options: { timestamp?: number; nonce?: string; secret?: string } = {}
 ) => {
   const text = JSON.stringify(body);
@@ -80,6 +86,18 @@ const body = (environment: PushRequest["environment"] = "sandbox"): PushRequest 
   payload: PAYLOAD,
 });
 
+const decodeLiveBody = Schema.decodeUnknownSync(
+  Schema.fromJsonString(
+    Schema.Struct({
+      aps: Schema.Struct({
+        "content-state": Schema.Unknown,
+        "stale-date": Schema.Number,
+        alert: Schema.optionalKey(Schema.Unknown),
+      }),
+    })
+  )
+);
+
 const run = async (handler: ReturnType<typeof setup>["handler"], request: Request) => {
   const event: WideEvent = {};
   const response = await handler(request, event);
@@ -100,7 +118,12 @@ describe("POST /api/push", () => {
         providerToken: "jwt-NU22YH4SRB-1",
         deviceToken: TOKEN,
         topic: "dev.lux.polaris.mobile",
-        payload: PAYLOAD,
+        pushType: "alert",
+        priority: 10,
+        body: JSON.stringify({
+          aps: { alert: FALLBACK_ALERT, "mutable-content": 1, sound: "default" },
+          p: PAYLOAD,
+        }),
         expiration: NOW / 1000 + 3600,
       },
     ]);
@@ -108,6 +131,62 @@ describe("POST /api/push", () => {
     expect(logged).not.toContain(TOKEN);
     expect(logged).not.toContain(PAYLOAD);
     expect(logged).not.toContain("jwt-");
+  });
+
+  test.each([
+    [false, 5, undefined],
+    [true, 10, { title: "Polaris", body: "An agent session needs you." }],
+  ])(
+    "a Live Activity update (alert %p) goes as liveactivity at priority %p",
+    async (alert, priority, shown) => {
+      const { handler, sent } = setup();
+      const state = { v: 1 as const, slices: [PAYLOAD, PAYLOAD] };
+      const timestamp = NOW / 1000;
+
+      const live: LivePushRequest = {
+        token: TOKEN,
+        environment: "sandbox",
+        live: { event: "update", timestamp, state, alert },
+      };
+
+      const { status, event } = await run(handler, await signedRequest(live));
+
+      expect(status).toBe(200);
+      expect(
+        sent.map(({ topic, pushType, priority, expiration }) => [
+          topic,
+          pushType,
+          priority,
+          expiration,
+        ])
+      ).toEqual([
+        [
+          "dev.lux.polaris.mobile.push-type.liveactivity",
+          "liveactivity",
+          priority,
+          timestamp + 900,
+        ],
+      ]);
+      const { aps } = decodeLiveBody(sent[0]?.body ?? "");
+      expect(aps["content-state"]).toEqual(state);
+      expect(aps["stale-date"]).toBe(timestamp + 900);
+      expect(aps.alert).toEqual(shown);
+      expect(JSON.stringify(event)).not.toContain(PAYLOAD);
+    }
+  );
+
+  test("a Live Activity update to an ended activity is unregistered, as for alerts", async () => {
+    const { handler } = setup({ replies: [{ status: 410, reason: "Unregistered" }] });
+
+    const live: LivePushRequest = {
+      token: TOKEN,
+      environment: "sandbox",
+      live: { event: "update", timestamp: NOW / 1000, state: { v: 1, slices: [] }, alert: false },
+    };
+
+    const result = await run(handler, await signedRequest(live));
+
+    expect([result.status, JSON.parse(result.json)]).toEqual([410, { outcome: "unregistered" }]);
   });
 
   test.each([

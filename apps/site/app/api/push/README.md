@@ -18,6 +18,13 @@ nothing sent) when:
 - the nonce was already used within 120 s (`replayed`: `SET NX` in the store, only after the
   signature checked out).
 
+A Live Activity update (ADR 0088) is `{ token, environment, live: { event, timestamp, state,
+alert } }` (`LivePushRequest`), signed the same way. It goes to APNs as
+`apns-push-type: liveactivity` on topic `dev.lux.polaris.mobile.push-type.liveactivity` with
+`liveActivityBody`: priority 5, or 10 with the generic "An agent session needs you." alert for a
+Needs You. `state` holds only slices sealed to the device; `apns-expiration` is its 15-minute
+stale date. Outcomes are mapped as for alerts: an ended activity's token is `unregistered`.
+
 It answers `{ outcome }` with: `sent` 200, `unregistered` 410 (APNs `410`, `BadDeviceToken`,
 `DeviceTokenNotForTopic`), `rate-limited` 429, `refused` 400 (a bad body, a production token
 on a preview deployment, any other APNs 4xx), `unavailable` 503 (no secret, the store or APNs
@@ -65,7 +72,7 @@ policies grant the `polaris` project per environment.
 ## Logging
 
 One wide event per request (`lib/log`): `deployment_kind`, `push_store`, `environment`,
-`push_outcome`, `rejection`, `apns_status`, `apns_reason` (Apple's reason code),
+`push_outcome`, `push_type` (`alert`/`liveactivity`), `rejection`, `apns_status`, `apns_reason` (Apple's reason code),
 `token_source` (`memory`/`store`/`signed`), `token_retried`, `failure` (an error's type). Never
 the device token, the payload, the provider token or any header.
 

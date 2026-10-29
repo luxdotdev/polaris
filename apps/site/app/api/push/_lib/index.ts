@@ -4,6 +4,10 @@
  * holds the device token, its APNs environment and a payload sealed to the device.
  */
 import {
+  LIVE_STALE_S,
+  LIVE_TOPIC_SUFFIX,
+  LivePushRequest,
+  liveActivityBody,
   PUSH_CLOCK_SKEW_S,
   PushHeaders,
   PushRequest,
@@ -12,7 +16,7 @@ import {
 } from "@polaris/protocol/relay";
 import { Option, Schema } from "effect";
 import type { WideEvent } from "../../../../lib/log";
-import type { ApnsReply, SendToApns } from "./apns";
+import { type ApnsReply, apnsBody, type SendToApns } from "./apns";
 import { APNS_HOSTS, APNS_TOPIC, type PushDeployment } from "./environment";
 import type { PushStore } from "./store";
 import type { ProviderTokens } from "./token";
@@ -58,7 +62,31 @@ const unauthorized = (event: WideEvent, rejection: string) => {
   return new Response(null, { status: 401 });
 };
 
-const decodeBody = Schema.decodeUnknownOption(Schema.fromJsonString(PushRequest));
+/** A wake's sealed notification, or a merged Live Activity update (ADR 0088). */
+const decodeBody = Schema.decodeUnknownOption(
+  Schema.fromJsonString(Schema.Union([PushRequest, LivePushRequest]))
+);
+
+type Body = PushRequest | LivePushRequest;
+
+/** What APNs gets for `body`: its push type, topic, priority, JSON and expiry. */
+const apnsPush = (body: Body, nowS: number) =>
+  "live" in body
+    ? {
+        pushType: "liveactivity" as const,
+        topic: `${APNS_TOPIC}${LIVE_TOPIC_SUFFIX}`,
+        // A routine update may wait for the phone's convenience; a Needs You may not.
+        priority: body.live.alert ? (10 as const) : (5 as const),
+        body: liveActivityBody(body.live),
+        expiration: nowS + LIVE_STALE_S,
+      }
+    : {
+        pushType: "alert" as const,
+        topic: APNS_TOPIC,
+        priority: 10 as const,
+        body: apnsBody(body.payload),
+        expiration: nowS + EXPIRY_S,
+      };
 
 const GONE_REASONS = new Set(["BadDeviceToken", "DeviceTokenNotForTopic", "Unregistered"]);
 
@@ -138,15 +166,16 @@ export const createPushHandler = (deps: PushDeps) => {
     return null;
   };
 
-  const deliver = async (body: PushRequest, event: WideEvent): Promise<WakeOutcome> => {
+  const deliver = async (body: Body, event: WideEvent): Promise<WakeOutcome> => {
+    const push = apnsPush(body, Math.floor(now() / 1000));
+    event.push_type = push.pushType;
+
     const send = async (providerToken: string) =>
       deps.send({
         origin: hosts[body.environment],
         providerToken,
         deviceToken: body.token,
-        topic: APNS_TOPIC,
-        payload: body.payload,
-        expiration: Math.floor(now() / 1000) + EXPIRY_S,
+        ...push,
       });
 
     const first = await deps.tokens.get(issuer);

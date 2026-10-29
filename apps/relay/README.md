@@ -182,12 +182,38 @@ wakes happen, and which host asked for which device. It cannot read the payload;
 each wake's outcome and duration (`relay.wake`), never the token, payload or addresses. The push
 service sees the token, environment and sealed payload, not who sent it.
 
+### Live Activities (ADR 0088)
+
+A host sends `live {peer, token, environment, ticket, slice, active, alert}` with its slice of a
+device's Live Activity, sealed to the device; `slice: null` leaves the activity. The ticket is
+the device's live ticket (`signLiveTicket`, context `polaris-live-ticket/1`), checked on every
+frame; a bad one is answered `live-gone {token, outcome: "unlinked"}`. The relay keeps the
+latest slice per (token, host) in memory only and sends the merged ContentState `{v: 1,
+slices}`, ordered by host address, to the push service as `{token, environment, live: {event,
+timestamp, state, alert}}`:
+
+- routine updates at most once every 5 s per token (APNs priority 5);
+- a slice with `alert` (a new Needs You) at once, with the alert, spending the host's wake budget;
+  over it, the slice goes as routine;
+- past six hosts, those with `active` (work or Needs You) are kept;
+- a host's slice goes when it stops listing the device in `peers`, or sends `slice: null`;
+- APNs' `unregistered` ends the activity: every host with a slice in it hears
+  `live-gone {token, outcome: "unregistered"}`.
+
+A host holds slices in at most `POLARIS_RELAY_MAX_PEERS` activities, and the relay in at most
+`POLARIS_RELAY_MAX_LIVE_ACTIVITIES` (10,000). A host that disconnects keeps its slice until the
+activity goes stale (15 minutes) or it reconnects and sends a new one; slices are lost when the
+relay restarts, and every host sends its slice again when it reconnects. The relay reads only
+`active` and `alert`; each push logs `relay.live` with its outcome, host count and whether it
+alerted, never the token or the slices.
+
 | Variable | Value |
 |---|---|
 | `POLARIS_RELAY_PUSH_URL` | The push service, e.g. `https://polaris.lux.dev/api/push` |
 | `POLARIS_RELAY_PUSH_SECRET` | The shared secret, the same value as the site's `POLARIS_PUSH_SECRET` for that environment: `openssl rand -base64 32` |
 | `POLARIS_RELAY_WAKES_PER_MINUTE`, `POLARIS_RELAY_WAKE_BURST` | Per host relay address: 60 a minute, burst 20 |
-| `POLARIS_RELAY_MAX_WAKES_IN_FLIGHT` | Wakes waiting on the service at once: 256 |
+| `POLARIS_RELAY_MAX_WAKES_IN_FLIGHT` | Wakes and Live Activity updates waiting on the service at once: 256 |
+| `POLARIS_RELAY_MAX_LIVE_ACTIVITIES` | Live Activities the relay holds slices for at once: 10000 |
 
 Set both push variables or neither; one without the other stops the relay at start.
 
