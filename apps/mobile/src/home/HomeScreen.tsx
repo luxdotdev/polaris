@@ -1,11 +1,24 @@
 /**
- * Home (Paper H4): every Host's agent sessions ranked needs you, working, recent, with
- * approvals answered in place and the horizon at the foot.
+ * Home (Paper MX-C): every Host's agent sessions, needs you as a raised hero card with a pager,
+ * then working and recent rows as wells on the ground, over the horizon.
  */
-import { midnight, mobileType } from "@polaris/ui/tokens";
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import { SectionList, StyleSheet, Text, View } from "react-native";
+import { mobileFont, mobileType, mobileWeight } from "@polaris/ui/tokens";
+import { type ComponentRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  Pressable,
+  ScrollView,
+  SectionList,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Path } from "react-native-svg";
+import { Celestial, sessionCelestial } from "../celestial";
+import { HORIZON_INSET, HorizonScreen } from "../horizon";
 import {
   constellationMenu,
   LongPressMenu,
@@ -14,8 +27,10 @@ import {
   useMenuActions,
 } from "../menus/index.ts";
 import type { HostConnection } from "../runtime/hostConnection.ts";
+import { type MobileColours, useReducedMotion, useTheme } from "../theme";
 import { homeHostsOf, useFollowedHosts } from "./feed/useFollowedHosts.ts";
 import { useSettledHosts } from "./feed/settled.ts";
+import { type HeroPage, heroKicker, nextUpIndex, nextUpMeta, pageIndex } from "./model/hero.ts";
 import { buildHome, type HomeRow, type SessionRow } from "./model/home.ts";
 import { rowDestination } from "./model/lines.ts";
 import { type Reply, respond } from "./model/respond.ts";
@@ -23,14 +38,11 @@ import {
   constellationsOnScreen,
   type HomeSection,
   homeSections,
-  type SectionKind,
   type SeenRow,
 } from "./model/sections.ts";
-import { EmptyHome } from "./ui/EmptyHome.tsx";
-import { NeedsYouMark, WorkingMark } from "./ui/glyphs.tsx";
-import { Header } from "./ui/Header.tsx";
-import { HORIZON_HEIGHT, Horizon } from "./ui/Horizon.tsx";
 import { useConstellationProgress } from "./ui/constellationProgress.ts";
+import { EmptyHome } from "./ui/EmptyHome.tsx";
+import { Header, Spark } from "./ui/Header.tsx";
 import { ConstellationListRow, NeedsYouRow, SessionListRow } from "./ui/rows.tsx";
 
 export interface HomeActions {
@@ -41,6 +53,87 @@ export interface HomeActions {
   readonly openHosts: () => void;
   readonly link: () => void;
 }
+
+/** MX-C's hero edge and lift, the same in both themes. */
+const HERO_EDGE = "#ffffff1f";
+
+const HERO_SHADOW = "#000000a0";
+
+/** Beyond this many pages the kicker's "3 of 12" carries the place alone. */
+const MAX_DOTS = 7;
+
+const makeStyles = (c: MobileColours) =>
+  StyleSheet.create({
+    screen: { flex: 1 },
+    list: { flex: 1 },
+    content: { paddingHorizontal: 10 },
+    kicker: {
+      fontFamily: mobileFont.mono,
+      fontSize: 11,
+      lineHeight: 14,
+      fontWeight: mobileWeight.medium,
+      letterSpacing: 0.88,
+      textTransform: "uppercase",
+      color: c.textSubtle,
+    },
+    sectionHead: { paddingTop: 16, paddingBottom: 8, paddingHorizontal: 8 },
+    gap: { height: 6 },
+    well: {
+      paddingVertical: 13,
+      paddingHorizontal: 14,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: c.hairline,
+      backgroundColor: c.well,
+    },
+    hero: {
+      paddingTop: 14,
+      paddingBottom: 12,
+      paddingHorizontal: 14,
+      gap: 10,
+      borderRadius: 26,
+      borderWidth: 1,
+      borderColor: HERO_EDGE,
+      backgroundColor: c.raised,
+      shadowColor: HERO_SHADOW,
+      shadowOpacity: 1,
+      shadowRadius: 20,
+      shadowOffset: { width: 0, height: 16 },
+    },
+    heroHead: { flexDirection: "row", alignItems: "center", gap: 7 },
+    heroKicker: { flex: 1, color: c.needsYouText },
+    dots: { flexDirection: "row", alignItems: "center", gap: 5 },
+    dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: c.textFaint, opacity: 0.6 },
+    dotActive: { width: 14, backgroundColor: c.needsYou, opacity: 1 },
+    page: { paddingVertical: 2 },
+    nextUp: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: c.hairline,
+      backgroundColor: c.wellRaised,
+    },
+    nextUpTitle: {
+      ...mobileType.subhead,
+      fontWeight: mobileWeight.medium,
+      color: c.textDefault,
+      flex: 1,
+      minWidth: 0,
+    },
+    nextUpMeta: { ...mobileType.index, color: c.textSubtle },
+  });
+
+type Styles = ReturnType<typeof makeStyles>;
+
+const useStyles = (): Styles => {
+  const { colours } = useTheme();
+
+  return useMemo(() => makeStyles(colours), [colours]);
+};
 
 /** Re-renders each minute so ages ("42m") stay true. */
 const useNow = () => {
@@ -55,24 +148,175 @@ const useNow = () => {
   return now;
 };
 
-const MARKS: Readonly<Record<SectionKind, ReactNode>> = {
-  "needs-you": <NeedsYouMark />,
-  working: <WorkingMark />,
-  recent: null,
+/** S3's `InboxControls` (src/inbox), stubbed here until it merges. */
+interface InboxControls {
+  readonly open: () => void;
+  readonly close: () => void;
+  readonly count: number;
+}
+
+/** Stand-in for S3's `useInbox` until it merges: opens nothing yet. */
+const useInbox = (): InboxControls => ({ open: () => undefined, close: () => undefined, count: 0 });
+
+const replyThrough =
+  (connections: ReadonlyMap<string, HostConnection>) =>
+  (row: SessionRow) =>
+  (reply: Reply): Promise<void> => {
+    const connection = connections.get(row.hostId);
+
+    if (connection === undefined || row.approval === null)
+      return Promise.reject(new Error("host gone"));
+    const approval = row.approval;
+
+    return connection.run((client) => respond(client, approval, reply));
+  };
+
+interface HeroActions {
+  readonly now: number;
+  readonly open: (row: SessionRow) => void;
+  readonly reply: (row: SessionRow) => (reply: Reply) => Promise<void>;
+  readonly onMenu: (action: MenuAction) => void;
+}
+
+/** Placeholder for S6's `NeedsYouCard` (home/ui/NeedsYouCard) until it merges. */
+const NeedsYouCard = ({
+  item,
+  actions,
+}: {
+  readonly item: SessionRow;
+  readonly hostId: string;
+  readonly actions: HeroActions;
+}) => (
+  <NeedsYouRow
+    row={item}
+    position={0}
+    first
+    now={actions.now}
+    onOpen={() => actions.open(item)}
+    onReply={actions.reply(item)}
+    menu={{ menu: sessionMenu(item), onAction: actions.onMenu }}
+  />
+);
+
+const Chevron = ({ color }: { readonly color: string }) => (
+  <Svg width={8} height={12} viewBox="0 0 8 12">
+    <Path d="M2 2l4 4-4 4" fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+  </Svg>
+);
+
+const PageDots = ({ count, index }: { readonly count: number; readonly index: number }) => {
+  const styles = useStyles();
+
+  if (count < 2 || count > MAX_DOTS) return null;
+
+  return (
+    <View style={styles.dots}>
+      {Array.from({ length: count }, (_, n) => (
+        <View key={n} style={[styles.dot, n === index ? styles.dotActive : null]} />
+      ))}
+    </View>
+  );
 };
 
-const SectionHead = ({ section }: { readonly section: HomeSection }) => (
-  <View style={styles.sectionHead}>
-    {MARKS[section.kind]}
-    <Text
-      style={[styles.sectionLabel, section.kind === "needs-you" ? styles.needsYouLabel : null]}
-      accessibilityRole="header"
+const NextUp = ({
+  row,
+  now,
+  onPress,
+}: {
+  readonly row: SessionRow;
+  readonly now: number;
+  readonly onPress: () => void;
+}) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityHint="Shows it in the card"
+      onPress={onPress}
+      style={styles.nextUp}
     >
-      {section.label}
-    </Text>
-    {section.count === null ? null : <Text style={styles.sectionCount}>{section.count}</Text>}
-  </View>
-);
+      <Celestial
+        body={sessionCelestial(row.session.celestial)}
+        harness={row.session.harness}
+        size={16}
+      />
+      <Text style={styles.nextUpTitle} numberOfLines={1}>
+        {row.session.title.trim() === "" ? "Untitled agent session" : row.session.title}
+      </Text>
+      <Text style={styles.nextUpMeta}>{nextUpMeta(row, now)}</Text>
+      <Chevron color={colours.textFaint} />
+    </Pressable>
+  );
+};
+
+/** The raised needs you card: a page per waiting row, swiped or stepped through next up. */
+const NeedsYouHero = ({
+  rows,
+  actions,
+}: {
+  readonly rows: ReadonlyArray<SessionRow>;
+  readonly actions: HeroActions;
+}) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
+  const reduced = useReducedMotion();
+  const pager = useRef<ComponentRef<typeof ScrollView>>(null);
+  const [width, setWidth] = useState(0);
+  const [page, setPage] = useState<HeroPage>({ key: rows[0]?.key ?? null, index: 0 });
+  const index = pageIndex(rows, page);
+  const next = nextUpIndex(index, rows.length);
+  const nextRow = next === null ? undefined : rows[next];
+
+  // Keeps the pager on its row as rows above it are answered.
+  useEffect(() => {
+    pager.current?.scrollTo({ x: index * width, animated: false });
+  }, [index, width]);
+
+  const show = (to: number) => {
+    setPage({ key: rows[to]?.key ?? null, index: to });
+    pager.current?.scrollTo({ x: to * width, animated: !reduced });
+  };
+
+  const onSettle = ({ nativeEvent }: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (width === 0) return;
+    const to = Math.round(nativeEvent.contentOffset.x / width);
+
+    setPage({ key: rows[to]?.key ?? null, index: to });
+  };
+
+  return (
+    <View style={styles.hero}>
+      <View style={styles.heroHead}>
+        <Spark size={10} color={colours.needsYou} />
+        <Text style={[styles.kicker, styles.heroKicker]} accessibilityRole="header">
+          {heroKicker(index, rows.length)}
+        </Text>
+        <PageDots count={rows.length} index={index} />
+      </View>
+      <View onLayout={({ nativeEvent }: LayoutChangeEvent) => setWidth(nativeEvent.layout.width)}>
+        <ScrollView
+          ref={pager}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          scrollEnabled={rows.length > 1}
+          onMomentumScrollEnd={onSettle}
+        >
+          {rows.map((row) => (
+            <View key={row.key} style={[styles.page, { width }]}>
+              <NeedsYouCard item={row} hostId={row.hostId} actions={actions} />
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+      {nextRow === undefined || next === null ? null : (
+        <NextUp row={nextRow} now={actions.now} onPress={() => show(next)} />
+      )}
+    </View>
+  );
+};
 
 const ConstellationRowWithProgress = ({
   row,
@@ -107,45 +351,52 @@ const ListRow = ({
   readonly onScreen: boolean;
   readonly actions: HomeActions;
   readonly onMenu: (action: MenuAction) => void;
-}) =>
-  row.kind === "constellation" ? (
+}) => {
+  const styles = useStyles();
+
+  // Until S6's rows merge, the old rows sit in MX-C's wells.
+  return row.kind === "constellation" ? (
     <LongPressMenu menu={constellationMenu(row)} onAction={onMenu}>
-      <ConstellationRowWithProgress
-        row={row}
-        now={now}
-        onScreen={onScreen}
-        onOpen={() => actions.openConstellation(row.hostId, row.constellation.id)}
-      />
+      <View style={styles.well}>
+        <ConstellationRowWithProgress
+          row={row}
+          now={now}
+          onScreen={onScreen}
+          onOpen={() => actions.openConstellation(row.hostId, row.constellation.id)}
+        />
+      </View>
     </LongPressMenu>
   ) : (
     <LongPressMenu menu={sessionMenu(row)} onAction={onMenu}>
-      <SessionListRow
-        row={row}
-        now={now}
-        withHost={withHost}
-        onOpen={() =>
-          rowDestination(row.session) === "review"
-            ? actions.openReview(row.hostId, row.session.id)
-            : actions.openSession(row.hostId, row.session.id)
-        }
-      />
+      <View style={styles.well}>
+        <SessionListRow
+          row={row}
+          now={now}
+          withHost={withHost}
+          onOpen={() =>
+            rowDestination(row.session) === "review"
+              ? actions.openReview(row.hostId, row.session.id)
+              : actions.openSession(row.hostId, row.session.id)
+          }
+        />
+      </View>
     </LongPressMenu>
   );
+};
+
+const SectionHead = ({ section }: { readonly section: HomeSection }) => {
+  const styles = useStyles();
+
+  return (
+    <View style={styles.sectionHead}>
+      <Text style={styles.kicker} accessibilityRole="header">
+        {section.label}
+      </Text>
+    </View>
+  );
+};
 
 const VIEWABILITY = { itemVisiblePercentThreshold: 1 } as const;
-
-const replyThrough =
-  (connections: ReadonlyMap<string, HostConnection>) =>
-  (row: SessionRow) =>
-  (reply: Reply): Promise<void> => {
-    const connection = connections.get(row.hostId);
-
-    if (connection === undefined || row.approval === null)
-      return Promise.reject(new Error("host gone"));
-    const approval = row.approval;
-
-    return connection.run((client) => respond(client, approval, reply));
-  };
 
 export const HomeScreen = ({
   actions,
@@ -154,11 +405,13 @@ export const HomeScreen = ({
   readonly actions: HomeActions;
   readonly tabBarHeight: number;
 }) => {
+  const styles = useStyles();
   const insets = useSafeAreaInsets();
   const hosts = useFollowedHosts();
   const [workspace, setWorkspace] = useState<string | null>(null);
   const now = useNow();
   const onMenu = useMenuActions();
+  const inbox = useInbox();
 
   const shownHosts = useSettledHosts(useMemo(() => homeHostsOf(hosts), [hosts]));
   const home = useMemo(() => buildHome(shownHosts, workspace), [shownHosts, workspace]);
@@ -166,6 +419,13 @@ export const HomeScreen = ({
   const reply = replyThrough(
     new Map(hosts.map(({ connection }) => [connection.hostId, connection]))
   );
+
+  const hero: HeroActions = {
+    now,
+    open: (row) => actions.openSession(row.hostId, row.session.id),
+    reply,
+    onMenu,
+  };
 
   const withHost = hosts.length > 1;
   const sections = useMemo(() => homeSections(home), [home]);
@@ -178,77 +438,55 @@ export const HomeScreen = ({
   );
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <Header
-        home={home}
-        selected={workspace}
-        onSelect={setWorkspace}
-        onHosts={actions.openHosts}
-      />
-      {home.empty === null ? (
+    <HorizonScreen>
+      <View style={[styles.screen, { paddingTop: insets.top }]}>
+        <Header
+          home={home}
+          selected={workspace}
+          onSelect={setWorkspace}
+          onHosts={actions.openHosts}
+          onInbox={inbox.open}
+        />
         <SectionList<HomeRow, HomeSection>
           style={styles.list}
-          contentContainerStyle={{ paddingBottom: HORIZON_HEIGHT - 40 + tabBarHeight }}
-          sections={sections}
+          contentContainerStyle={[styles.content, { paddingBottom: HORIZON_INSET + tabBarHeight }]}
+          sections={home.empty === null ? sections : []}
           keyExtractor={(row) => row.key}
           stickySectionHeadersEnabled={false}
           initialNumToRender={12}
           windowSize={5}
           viewabilityConfig={VIEWABILITY}
           onViewableItemsChanged={onViewable}
-          renderSectionHeader={({ section }) => <SectionHead section={section} />}
-          renderItem={({ item, index, section }) =>
-            section.kind === "needs-you" && item.kind === "session" ? (
-              <NeedsYouRow
-                row={item}
-                position={index}
-                first={index === 0}
-                now={now}
-                onOpen={() => actions.openSession(item.hostId, item.session.id)}
-                onReply={reply(item)}
-                menu={{ menu: sessionMenu(item), onAction: onMenu }}
-              />
-            ) : (
-              <ListRow
-                row={item}
-                now={now}
-                withHost={withHost}
-                onScreen={onScreen.has(item.key)}
-                actions={actions}
-                onMenu={onMenu}
+          ListHeaderComponent={
+            home.sections.needsYou.length > 0 ? (
+              <NeedsYouHero rows={home.sections.needsYou} actions={hero} />
+            ) : undefined
+          }
+          ListEmptyComponent={
+            home.empty === null ? undefined : (
+              <EmptyHome
+                empty={home.empty}
+                workspace={workspace}
+                onLink={actions.link}
+                onHosts={actions.openHosts}
+                onAll={() => setWorkspace(null)}
               />
             )
           }
-          renderSectionFooter={() => <View style={styles.sectionFoot} />}
+          renderSectionHeader={({ section }) => <SectionHead section={section} />}
+          ItemSeparatorComponent={() => <View style={styles.gap} />}
+          renderItem={({ item }) => (
+            <ListRow
+              row={item}
+              now={now}
+              withHost={withHost}
+              onScreen={onScreen.has(item.key)}
+              actions={actions}
+              onMenu={onMenu}
+            />
+          )}
         />
-      ) : (
-        <EmptyHome
-          empty={home.empty}
-          workspace={workspace}
-          onLink={actions.link}
-          onHosts={actions.openHosts}
-          onAll={() => setWorkspace(null)}
-        />
-      )}
-      <Horizon hour={new Date(now).getHours()} />
-    </View>
+      </View>
+    </HorizonScreen>
   );
 };
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: midnight.bg },
-  list: { flex: 1, paddingHorizontal: 20 },
-  sectionHead: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: midnight.hairline,
-    paddingTop: 12,
-    paddingBottom: 6,
-  },
-  sectionFoot: { height: 4 },
-  sectionLabel: { ...mobileType.section, color: midnight.textSubtle },
-  needsYouLabel: { color: midnight.needsYouText },
-  sectionCount: { ...mobileType.footnote, lineHeight: 16, color: midnight.textFaint },
-});

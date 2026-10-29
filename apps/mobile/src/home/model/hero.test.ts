@@ -13,7 +13,7 @@ import {
 import { heroKicker, nextUpIndex, nextUpMeta, pageIndex } from "./hero.ts";
 import { buildHome, type HomeHost } from "./home.ts";
 
-const hostWith = (sessions: SnapshotInput["sessions"]): HomeHost => ({
+const hostWith = (sessions: NonNullable<SnapshotInput["sessions"]>): HomeHost => ({
   hostId: "h",
   name: "Mac Studio",
   connection: "connected",
