@@ -30,11 +30,13 @@ import { LinkScreen } from "./link/LinkScreen.tsx";
 import { usePush, usePushLinks } from "./push/usePush.ts";
 import { RelayProvider, useRelay } from "./relay/RelayProvider.tsx";
 import { runSelfCheck } from "./runtime/selfCheck.ts";
+import { AcceptDemo } from "./review/accept/index.ts";
 import { SheetDemo, SheetHost } from "./sheet/index.tsx";
 import { CheckAlive } from "./runtime/CheckAlive.tsx";
 import { HostsProvider } from "./runtime/hosts.tsx";
 import { useReadyToReview } from "./review/index.ts";
 import { SettingsScreen } from "./settings/index.ts";
+import { StarChartGallery, starChartGalleryOn } from "./starChart/Gallery.tsx";
 import { ThreadGallery, threadGalleryOn } from "./thread/ThreadGallery.tsx";
 import { useWidgetLinks } from "./widgets/useWidgetLinks.ts";
 import { WidgetSync } from "./widgets/WidgetSync.ts";
@@ -107,14 +109,6 @@ const Screen = () => {
   const relay = useRelay();
   const [first] = relay.hosts;
 
-  const linkedTo =
-    first === undefined
-      ? null
-      : {
-          name: first.hostName,
-          onUnlink: () => relay.unlink().then((kept) => kept.map((host) => host.hostName)),
-        };
-
   // A release build has no other route to a Host, so a fresh phone links first.
   if (!__DEV__ && relay.loaded && first === undefined)
     return <LinkScreen onLinked={() => undefined} />;
@@ -123,11 +117,7 @@ const Screen = () => {
     Match.discriminatorsExhaustive("screen")({
       tabs: () => <Tabs />,
       hosts: () => (
-        <HostsScreen
-          onBack={navigation.back}
-          onLink={() => navigation.push({ screen: "link" })}
-          linkedTo={linkedTo}
-        />
+        <HostsScreen onBack={navigation.back} onLink={() => navigation.push({ screen: "link" })} />
       ),
       thread: ({ hostId, sessionId }) => (
         <ThreadRoute hostId={hostId} sessionId={sessionId} onBack={navigation.back} />
@@ -175,6 +165,8 @@ const Shell = () => {
 
   if (galleryOn()) return <RowGallery />;
 
+  if (starChartGalleryOn()) return <StarChartGallery />;
+
   if (threadGalleryOn())
     return (
       <SheetHost>
@@ -202,6 +194,7 @@ const Shell = () => {
             <NewSessionSheet onClose={navigation.closeNewSession} />
           ) : null}
           {__DEV__ ? <SheetDemo /> : null}
+          {__DEV__ ? <AcceptDemo /> : null}
         </View>
       </InboxProvider>
     </SheetHost>
