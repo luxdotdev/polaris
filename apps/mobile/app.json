@@ -16,7 +16,8 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
-        }
+        },
+        "NSSupportsLiveActivities": true
       },
       "appleTeamId": "HWD6374DUX",
       "entitlements": {

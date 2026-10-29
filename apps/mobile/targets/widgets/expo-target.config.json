@@ -4,8 +4,9 @@
   "displayName": "Polaris",
   "bundleIdentifier": ".widgets",
   "deploymentTarget": "17.0",
-  "frameworks": ["SwiftUI", "WidgetKit"],
+  "frameworks": ["SwiftUI", "WidgetKit", "ActivityKit"],
   "entitlements": {
-    "com.apple.security.application-groups": ["group.dev.lux.polaris"]
+    "com.apple.security.application-groups": ["group.dev.lux.polaris"],
+    "keychain-access-groups": ["$(AppIdentifierPrefix)dev.lux.polaris.shared"]
   }
 }
