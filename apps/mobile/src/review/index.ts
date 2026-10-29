@@ -5,4 +5,4 @@ export { ReviewView, type ReviewViewProps } from "./ReviewView.tsx";
 
 export { type AcceptState, acceptState, listedFindings, tally } from "./model.ts";
 
-export { ReviewTab, useReadyToReview } from "./ReviewTab.tsx";
+export { ReviewTab, useReadyToReview } from "./ReviewTab/index.ts";
