@@ -4,7 +4,7 @@
  * the panel in from the rail on `transform` only; Reduce Motion makes it instant.
  */
 import type { SessionId } from "@polaris/protocol";
-import { cn } from "@polaris/ui";
+import { cn, Panel } from "@polaris/ui";
 import { type KeyboardEvent, type PointerEvent, type RefObject, useRef } from "react";
 import { slots } from "../app/slots.tsx";
 import {
@@ -86,7 +86,7 @@ const ResizeEdge = ({ lane }: { readonly lane: RefObject<HTMLDivElement | null> 
       onPointerDown={onPointerDown}
       onKeyDown={onKeyDown}
       onDoubleClick={() => setOutputWidth(null)}
-      className="absolute inset-y-0 -left-1 z-10 w-2 cursor-col-resize focus-visible:outline-none"
+      className="absolute inset-y-0 -left-2 z-10 w-2 cursor-col-resize focus-visible:outline-none"
       data-testid="output-resize"
     />
   );
@@ -99,25 +99,22 @@ export const OutputLane = ({ hostKey, workspaceId, sessionId, lane }: OutputLane
 
   if (!shown) {
     return (
-      <div className="bg-surface-sunken flex shrink-0 flex-col" style={{ width: RAIL_WIDTH }}>
+      <Panel className="mb-2 shrink-0" style={{ width: RAIL_WIDTH }}>
         <TerminalDock hostKey={hostKey} workspaceId={workspaceId} tuckable>
           <slots.OutputRail hostKey={hostKey} sessionId={sessionId} />
         </TerminalDock>
-      </div>
+      </Panel>
     );
   }
 
   return (
-    <div className="relative flex shrink-0 flex-col" style={{ width: widthCss(width) }}>
+    <div className="relative mb-2 flex shrink-0 flex-col" style={{ width: widthCss(width) }}>
       <ResizeEdge lane={lane} />
-      <div
-        className={cn("flex min-h-0 flex-1 flex-col", slide && "output-slide-in")}
-        data-testid="output-panel"
-      >
+      <Panel className={cn("flex-1", slide && "output-slide-in")} data-testid="output-panel">
         <TerminalDock hostKey={hostKey} workspaceId={workspaceId} tuckable>
           <slots.SessionOutput hostKey={hostKey} sessionId={sessionId} />
         </TerminalDock>
-      </div>
+      </Panel>
     </div>
   );
 };

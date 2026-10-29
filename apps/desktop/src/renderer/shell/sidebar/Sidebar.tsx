@@ -54,6 +54,7 @@ const ViewSwitch = () => {
     <SegmentedControl<SidebarView>
       aria-label="Sidebar view"
       variant="fill"
+      pill
       value={sidebar}
       onValueChange={showSidebar}
       options={[
@@ -249,13 +250,16 @@ const Footer = ({ caption }: { readonly caption: string }) => {
   const { openJump, openSettings } = useShellActions();
 
   return (
-    <div className="border-hairline pl-panel flex h-10 shrink-0 items-center gap-2 border-t pr-2">
+    <div className="pl-panel flex h-12 shrink-0 items-center gap-2 pr-2">
       <button type="button" onClick={openJump} className="flex cursor-default items-center gap-2">
         <Kbd>K</Kbd>
         <span className="text-caption text-text-subtle">Jump</span>
       </button>
       <span className="flex-1" />
-      <span className="text-caption text-text-subtle min-w-0 truncate">{caption}</span>
+      {/* On the dawn ridge the subtle line darkens to stay legible (DESIGN.md, The horizon). */}
+      <span className="text-caption min-w-0 truncate text-[light-dark(#4a4c52,var(--color-text-subtle))]">
+        {caption}
+      </span>
       <IconButton
         label="Settings"
         shortcut={commandShortcut("settings.open")}
@@ -461,12 +465,12 @@ interface FrameProps {
 }
 
 const SidebarFrame = ({ header, footer, children }: FrameProps) => (
-  <aside
-    aria-label="Sessions"
-    className="border-hairline bg-surface-sunken flex w-[264px] shrink-0 flex-col border-r"
-  >
+  <aside aria-label="Sessions" className="flex w-[288px] shrink-0 flex-col pt-2 pr-1 pl-2">
     {header}
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pb-2">{children}</div>
+    {/* The list fades out above the horizon, so no legible row sits on its stars. */}
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto [mask-image:linear-gradient(to_bottom,black_calc(100%-64px),transparent)] pb-16">
+      {children}
+    </div>
     <Footer caption={footer} />
   </aside>
 );

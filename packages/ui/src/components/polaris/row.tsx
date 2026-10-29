@@ -31,10 +31,47 @@ const HEIGHTS = {
   tree: "h-tree-row",
 } as const;
 
+/** Calm's roomier session rows (DESIGN.md, Chrome redesign: Controls): 14px titles over 13px. */
+const CALM_TEXT = {
+  lines: "in-data-[density=calm]:gap-[3px]",
+  title: "in-data-[density=calm]:text-heading-sm in-data-[density=calm]:font-medium",
+  description: "in-data-[density=calm]:text-body",
+} as const;
+
 function titleTone(selected: boolean, tone: RowProps["tone"]): string {
   if (selected || tone === "needs-you") return "text-text-strong";
 
   return tone === "quiet" ? "text-text-subtle" : "text-text-default";
+}
+
+interface RowLinesProps {
+  readonly title: ReactNode;
+  readonly description: ReactNode;
+  readonly session: boolean;
+  readonly titleClass: string;
+  readonly needsYou: boolean;
+}
+
+/** The title and, unless Compact, the second line. */
+function RowLines({ title, description, session, titleClass, needsYou }: RowLinesProps) {
+  return (
+    <span className={cn("flex min-w-0 flex-1 flex-col gap-px", session && CALM_TEXT.lines)}>
+      <span className={cn("truncate text-label", session && CALM_TEXT.title, titleClass)}>
+        {title}
+      </span>
+      {description === undefined ? null : (
+        <span
+          className={cn(
+            "truncate text-caption in-data-[density=compact]:hidden",
+            session && CALM_TEXT.description,
+            needsYou ? "text-needs-you-text" : "text-text-subtle"
+          )}
+        >
+          {description}
+        </span>
+      )}
+    </span>
+  );
 }
 
 /**
@@ -66,8 +103,8 @@ export function Row({
       aria-selected={props.role === "option" ? selected : undefined}
       className={cn(
         "group/row flex w-full shrink-0 cursor-default items-center rounded-row border border-transparent text-left select-none",
-        // Session rows swap the pair (Paper 11U-0: gap 10, padding 8 at Calm).
-        session ? "gap-row-x px-gap" : "gap-gap px-row-x",
+        // Session rows swap the pair (Paper 11U-0: gap 10, padding 8 at Calm); Calm rounds to 14px (X-D).
+        session ? "gap-row-x px-gap in-data-[density=calm]:rounded-card" : "gap-gap px-row-x",
         HEIGHTS[variant],
         "hover:bg-fill-hover",
         selected && !session && "bg-fill-selected hover:bg-fill-selected",
@@ -79,21 +116,20 @@ export function Row({
       {...props}
     >
       {leading === undefined ? null : (
-        <span className="flex min-w-4 shrink-0 items-center justify-center">{leading}</span>
+        <span
+          data-slot={session ? "session-mark" : undefined}
+          className="flex min-w-4 shrink-0 items-center justify-center"
+        >
+          {leading}
+        </span>
       )}
-      <span className="flex min-w-0 flex-1 flex-col gap-px">
-        <span className={cn("truncate text-label", titleTone(selected, tone))}>{title}</span>
-        {description === undefined ? null : (
-          <span
-            className={cn(
-              "truncate text-caption in-data-[density=compact]:hidden",
-              tone === "needs-you" ? "text-needs-you-text" : "text-text-subtle"
-            )}
-          >
-            {description}
-          </span>
-        )}
-      </span>
+      <RowLines
+        title={title}
+        description={description}
+        session={session}
+        titleClass={titleTone(selected, tone)}
+        needsYou={tone === "needs-you"}
+      />
       {meta === undefined ? null : (
         <span
           className={cn(

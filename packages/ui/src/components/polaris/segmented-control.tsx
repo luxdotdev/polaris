@@ -17,6 +17,12 @@ const SEGMENT_SIZE = {
   well: "rounded-[4px] px-2 py-[3px] text-caption font-regular data-[state=on]:font-medium",
 } as const;
 
+const PILL_SIZE = {
+  mode: "h-[30px] gap-2 rounded-full px-3.5",
+  fill: "h-7 rounded-full",
+  well: "",
+} as const;
+
 export interface SegmentedControlProps<Value extends string> {
   readonly options: readonly SegmentedOption<Value>[];
   readonly value: Value;
@@ -26,6 +32,11 @@ export interface SegmentedControlProps<Value extends string> {
    * "well" is the small sunken range control (Settings → Usage: 7 / 30 / 90 days).
    */
   readonly variant?: "mode" | "fill" | "well";
+  /**
+   * Pill tabs on the ground (DESIGN.md, Chrome redesign: Controls): a round track in the panel
+   * fill with round segments, 30px in "mode", 28px in "fill". Not for "well".
+   */
+  readonly pill?: boolean;
   readonly "aria-label": string;
   readonly className?: string;
 }
@@ -39,6 +50,7 @@ export function SegmentedControl<Value extends string>({
   value,
   onValueChange,
   variant = "mode",
+  pill = false,
   className,
   ...props
 }: SegmentedControlProps<Value>) {
@@ -59,6 +71,7 @@ export function SegmentedControl<Value extends string>({
         "flex items-center gap-0.5 rounded-[8px] border border-hairline bg-bg p-0.5",
         variant === "fill" && "w-full",
         variant === "well" && "gap-0 rounded-control bg-surface-sunken",
+        pill && "rounded-full border-0 bg-panel p-[3px]",
         className
       )}
     >
@@ -71,7 +84,8 @@ export function SegmentedControl<Value extends string>({
             "group/segment flex cursor-default items-center justify-center gap-2 rounded-control font-medium text-text-subtle select-none",
             "hover:text-text-default data-[state=on]:bg-fill-selected data-[state=on]:text-text-strong",
             "disabled:opacity-(--opacity-dimmed)",
-            SEGMENT_SIZE[variant]
+            SEGMENT_SIZE[variant],
+            pill && PILL_SIZE[variant]
           )}
         >
           {option.label}

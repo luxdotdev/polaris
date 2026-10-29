@@ -57,7 +57,7 @@ const AddWorkspaceChip = ({ hostKey }: { readonly hostKey: string | null }) => {
       type="button"
       onClick={() => commands.run("workspace.add")}
       data-testid="add-workspace"
-      className="hover:bg-fill-hover rounded-control border-text-subtle/30 ml-1 flex h-7 shrink-0 cursor-default items-center gap-1.5 border border-dashed px-2.5"
+      className="hover:bg-fill-hover border-text-subtle/30 ml-1 flex h-[30px] shrink-0 cursor-default items-center gap-1.5 rounded-full border border-dashed px-3"
     >
       <span className="text-label text-text-subtle">+ Add workspace</span>
       <Kbd variant="plain" className="text-text-subtle">
@@ -99,7 +99,7 @@ const HostLabel = ({ group }: { readonly group: BarHost }) => {
           type="button"
           aria-pressed={host.key === selection.hostKey && selection.workspaceId === null}
           onClick={(event) => open(event.timeStamp)}
-          className="hover:bg-fill-hover rounded-control flex h-7 shrink-0 cursor-default items-center"
+          className="hover:bg-fill-hover flex h-[30px] shrink-0 cursor-default items-center rounded-full"
           data-host={host.key}
           data-connection={host.status.state}
         >
@@ -122,7 +122,7 @@ const WorkspaceBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
   return (
     <nav
       aria-label="Workspaces"
-      className="border-hairline bg-surface-sunken flex h-10 shrink-0 [scrollbar-width:none] items-center gap-1 overflow-x-auto border-b px-3"
+      className="flex h-11 shrink-0 [scrollbar-width:none] items-center gap-1 overflow-x-auto px-4 pb-1"
     >
       {bar.map((group, groupIndex) => (
         <Fragment key={group.host.key}>
@@ -144,7 +144,12 @@ const WorkspaceBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
                 <WorkspaceChipMenu item={item} current={selected}>
                   <Chip
                     title={item.hidden ? hiddenTitle(workspace.path, selected) : workspace.path}
-                    className={cn(dimmed(group.host) && "opacity-(--opacity-dimmed)")}
+                    // Pills on the ground; the open one is raised (DESIGN.md, Chrome redesign).
+                    className={cn(
+                      "h-[30px] rounded-full pr-3 pl-2.5",
+                      selected && "bg-raised hover:bg-raised",
+                      dimmed(group.host) && "opacity-(--opacity-dimmed)"
+                    )}
                     data-hidden={item.hidden ? "" : undefined}
                     selected={selected}
                     needsYou={summary.needsYou}
@@ -191,7 +196,7 @@ const MachineBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
   return (
     <nav
       aria-label="Machines"
-      className="h-session-row border-hairline bg-surface-sunken flex shrink-0 [scrollbar-width:none] items-center gap-1.5 overflow-x-auto border-b px-3"
+      className="flex h-13 shrink-0 [scrollbar-width:none] items-center gap-1.5 overflow-x-auto px-4 pb-1"
     >
       {bar.map((group, index) => {
         const selected = group.host.key === selection.hostKey;
@@ -210,10 +215,8 @@ const MachineBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
                   selectHost(group.host.key, event.timeStamp);
                 }}
                 className={cn(
-                  "gap-gap px-row-x flex h-[34px] shrink-0 cursor-default items-center rounded-[8px] border border-transparent",
-                  selected
-                    ? "border-hairline bg-surface-raised shadow-[0_1px_2px_#0000000a]"
-                    : "hover:bg-fill-hover"
+                  "gap-gap flex h-[38px] shrink-0 cursor-default items-center rounded-full border border-transparent pr-3 pl-3",
+                  selected ? "border-hairline bg-raised" : "hover:bg-fill-hover"
                 )}
               >
                 <SummaryGlyph summary={group.summary} />
@@ -243,7 +246,7 @@ const MachineBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
         type="button"
         onClick={() => openSettings("hosts", { adding: true })}
         data-testid="add-machine"
-        className="px-row-x hover:bg-fill-hover flex h-[34px] shrink-0 cursor-default items-center gap-1.5 rounded-[8px]"
+        className="hover:bg-fill-hover flex h-[38px] shrink-0 cursor-default items-center gap-1.5 rounded-full px-3"
       >
         <PlusIcon size={14} className="text-text-subtle" />
         <span className="text-label font-regular text-text-subtle">Add machine</span>

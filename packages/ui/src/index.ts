@@ -99,9 +99,13 @@ export * from "./components/polaris/git-status-letter";
 
 export * from "./components/polaris/harness-mark";
 
+export * from "./components/polaris/horizon";
+
 export * from "./components/polaris/icon-button";
 
 export * from "./components/polaris/kbd";
+
+export * from "./components/polaris/panel";
 
 export * from "./components/polaris/row";
 

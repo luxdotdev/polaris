@@ -5,20 +5,17 @@
 import type { BrowserWindowConstructorOptions, TitleBarOverlayOptions } from "electron";
 import type { ClientPlatform } from "../shared/platform.ts";
 
-/** The renderer's title bar (shell/TitleBar.tsx, `h-11`), hairline included. */
-export const TITLE_BAR_HEIGHT = 44;
+/** The renderer's title bar (shell/TitleBar.tsx, `h-13`), on the ground with no hairline. */
+export const TITLE_BAR_HEIGHT = 52;
 
 /** The native caption buttons' width at 100% scale: three 46px buttons. */
 export const CAPTION_BUTTONS_WIDTH = 138;
 
-/**
- * Windows' caption buttons in the title bar's own tokens (`surface-sunken`, `text-default`),
- * one pixel short so the bar's hairline runs on beneath them without a seam.
- */
+/** Windows' caption buttons in the title bar's own tokens (Moonlit's `ground`, `text-default`). */
 export const titleBarOverlay = (dark: boolean): TitleBarOverlayOptions => ({
-  color: dark ? "#151618" : "#F3F3F5",
+  color: dark ? "#151618" : "#F1F2F5",
   symbolColor: dark ? "#E3E4E8" : "#333438",
-  height: TITLE_BAR_HEIGHT - 1,
+  height: TITLE_BAR_HEIGHT,
 });
 
 export const chromeOptions = (
@@ -29,8 +26,8 @@ export const chromeOptions = (
     ? { titleBarStyle: "hidden", titleBarOverlay: titleBarOverlay(dark) }
     : {
         titleBarStyle: "hiddenInset",
-        // Centred on the 44px title bar (Paper 1BC-0).
-        trafficLightPosition: { x: 16, y: 15 },
+        // Centred on the 52px title bar (Paper X-D).
+        trafficLightPosition: { x: 16, y: 19 },
       };
 
 /** Where the app menu drops from on Windows: under the lockup (Paper W1). */

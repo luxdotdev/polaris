@@ -10,10 +10,10 @@ import { OfflineIndicator } from "./HostState.tsx";
 import { AppMenuButton, CaptionSpace } from "./windowsChrome.tsx";
 
 /**
- * The title bar (DESIGN.md, Titlebar): on macOS the lockup after the traffic lights; on
- * Windows the lockup as the app menu, with the native caption buttons over the right end.
- * Then the mode switch (⌘1–3), the offline indicator, the jump field (K) and, outside
- * Review, New session (⌘N).
+ * The title bar (DESIGN.md, Titlebar; Chrome redesign): on the ground with no fill. On macOS
+ * the lockup after the traffic lights; on Windows the lockup as the app menu, with the native
+ * caption buttons over the right end. Then the mode pill tabs (⌘1–3), the offline indicator,
+ * the jump pill (K) and, outside Review, New session (⌘N) in Starlight.
  */
 export const TitleBar = () => {
   const windows = isWindows();
@@ -60,7 +60,7 @@ export const TitleBar = () => {
 
   return (
     <header
-      className={`app-drag border-hairline bg-surface-sunken flex h-11 shrink-0 items-center gap-4 border-b ${windows ? "pl-3" : "pr-3 pl-4"}`}
+      className={`app-drag flex h-13 shrink-0 items-center gap-5 ${windows ? "pl-3" : "pr-4 pl-4"}`}
     >
       {windows ? (
         <AppMenuButton />
@@ -73,14 +73,20 @@ export const TitleBar = () => {
       )}
       {/* Reaching for the switch warms Edit mode, so its first open is quick. */}
       <div className="app-no-drag flex" onPointerEnter={preloadEditor} onFocus={preloadEditor}>
-        <SegmentedControl aria-label="Mode" options={modes} value={mode} onValueChange={setMode} />
+        <SegmentedControl
+          aria-label="Mode"
+          pill
+          options={modes}
+          value={mode}
+          onValueChange={setMode}
+        />
       </div>
       <span className="flex-1" />
       <OfflineIndicator />
       <button
         type="button"
         onClick={openJump}
-        className="app-no-drag rounded-control border-hairline bg-bg text-body text-text-faint flex h-7 w-[280px] shrink-0 cursor-default items-center gap-2 border pr-1.5 pl-2.5"
+        className="app-no-drag bg-panel text-body text-text-faint flex h-[34px] w-[300px] shrink-0 cursor-default items-center gap-2.5 rounded-full pr-1.5 pl-3.5"
       >
         <SearchIcon size={14} />
         <span className="flex-1 truncate text-left">{jumpCopy(mode).placeholder}</span>
@@ -88,9 +94,10 @@ export const TitleBar = () => {
       </button>
       {/* Review has no New session (Paper R1); ⌘N still starts one. */}
       {mode !== "review" && (
+        // Starlight fills New session and Send, nothing else (DESIGN.md, Chrome redesign: Controls).
         <Button
-          variant="ghost"
-          className="app-no-drag text-text-default px-2.5"
+          variant="primary"
+          className="app-no-drag bg-starlight hover:bg-starlight/90 h-[34px] gap-2 rounded-full pr-4 pl-[13px] font-medium text-[light-dark(#ffffff,#0d1830)]"
           disabled={hostKey === null}
           onClick={startNewSession}
         >

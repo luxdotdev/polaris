@@ -1,5 +1,5 @@
 /** Layout F: title bar, the adaptive top bar, then Input → Intent → Output (ENG-177). */
-import { cn } from "@polaris/ui";
+import { cn, Horizon } from "@polaris/ui";
 import { useEffect, useState } from "react";
 import { FileFinder, WorkspaceSearch } from "../features/editor-finder/index.ts";
 import { EditorRequests } from "../features/editor-links/index.ts";
@@ -49,14 +49,16 @@ const Body = () => {
 
   if (mode === "edit") return <EditMode />;
 
+  // Panels on a ground, the horizon behind them along the window's foot (DESIGN.md, Chrome redesign).
   return (
-    <>
+    <div className="relative isolate flex min-h-0 flex-1 flex-col">
       <TopBar />
-      <main className="flex min-h-0 flex-1">
+      <main className="flex min-h-0 flex-1 gap-2 pr-2">
         <Sidebar />
         <Columns />
       </main>
-    </>
+      <Horizon />
+    </div>
   );
 };
 
@@ -92,14 +94,14 @@ export const Shell = () => {
   if (welcome === "show" && !justOnboarded) setJustOnboarded(true);
 
   // Until the settings say, a plain frame: the welcome never flashes for a returning user.
-  if (welcome === "unknown") return <div className="bg-bg h-full" />;
+  if (welcome === "unknown") return <div className="bg-ground h-full" />;
 
   if (welcome === "show") return <Welcome />;
 
   return (
     <div
       className={cn(
-        "flex h-full flex-col",
+        "bg-ground flex h-full flex-col",
         justOnboarded && "animate-in fade-in-0 duration-200 ease-out"
       )}
     >

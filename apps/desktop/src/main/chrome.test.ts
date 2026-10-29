@@ -1,14 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromeOptions, menuKeys, TITLE_BAR_HEIGHT, titleBarOverlay } from "./chrome.ts";
 
-const tokens = readFileSync(
-  join(import.meta.dir, "../../../../packages/ui/src/styles/tokens.css"),
-  "utf8"
-);
+const styles = join(import.meta.dir, "../../../../packages/ui/src/styles");
 
-/** A `light-dark(light, dark)` colour token from tokens.css. */
+const tokens = readdirSync(styles)
+  .filter((file) => file.endsWith(".css"))
+  .map((file) => readFileSync(join(styles, file), "utf8"))
+  .join("\n");
+
+/** A `light-dark(light, dark)` colour token from the design system's stylesheets. */
 const token = (name: string, dark: boolean) => {
   const match = new RegExp(`--color-${name}: light-dark\\((#[0-9a-f]+), (#[0-9a-f]+)\\)`).exec(
     tokens
@@ -22,7 +24,7 @@ describe("chromeOptions", () => {
     for (const platform of ["darwin", "linux"] as const) {
       expect(chromeOptions(platform, true)).toEqual({
         titleBarStyle: "hiddenInset",
-        trafficLightPosition: { x: 16, y: 15 },
+        trafficLightPosition: { x: 16, y: 19 },
       });
     }
   });
@@ -40,12 +42,12 @@ describe("titleBarOverlay", () => {
   test.each([true, false])("matches the title bar's tokens exactly (dark: %p)", (dark) => {
     const overlay = titleBarOverlay(dark);
 
-    expect(overlay.color).toBe(token("surface-sunken", dark));
+    expect(overlay.color).toBe(token("ground", dark));
     expect(overlay.symbolColor).toBe(token("text-default", dark));
   });
 
-  test("stops at the hairline, so the bar's border runs under the buttons", () => {
-    expect(titleBarOverlay(true).height).toBe(TITLE_BAR_HEIGHT - 1);
+  test("spans the whole bar, which has no hairline", () => {
+    expect(titleBarOverlay(true).height).toBe(TITLE_BAR_HEIGHT);
   });
 });
 
