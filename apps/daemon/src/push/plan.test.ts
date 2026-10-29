@@ -58,7 +58,7 @@ describe("push plan", () => {
       requestId: "r1",
       category: "approval",
       title: "Claude Code needs you",
-      subtitle: "Fix the flaky test · studio",
+      subtitle: "studio · Fix the flaky test",
       body: "Run bun test\nbun test apps/daemon",
       sentAt: 10,
     });
@@ -86,8 +86,14 @@ describe("push plan", () => {
   test("a finished Turn pushes once its session stays settled for SETTLE_MS", () => {
     const sent = run([...start, [100, turnEnded("t1", "All green")]], 100_000);
 
-    expect(sent.map((m) => [m.kind, m.title, m.body, m.sentAt])).toEqual([
-      ["turn-ended", "Claude Code finished a turn", "All green", 100 + SETTLE_MS],
+    expect(sent.map((m) => [m.kind, m.title, m.subtitle, m.body, m.sentAt])).toEqual([
+      [
+        "turn-ended",
+        "Claude Code finished a turn",
+        "studio · Fix the flaky test",
+        "All green",
+        100 + SETTLE_MS,
+      ],
     ]);
   });
 

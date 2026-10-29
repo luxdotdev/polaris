@@ -103,7 +103,7 @@ const needsYou = (
   requestId: request.id,
   category: request.kind === "question" ? "question" : "approval",
   title: cut(`${session.harness} needs you`, 120),
-  subtitle: cut(`${session.title} · ${context.hostName}`, 160),
+  subtitle: cut(`${context.hostName} · ${session.title}`, 160),
   body: cut(
     request.detail === null || request.detail === request.title
       ? request.title
@@ -127,7 +127,7 @@ const turnEnded = (
   requestId: null,
   category: null,
   title: cut(`${session.harness} finished a turn`, 120),
-  subtitle: cut(`${session.title} · ${context.hostName}`, 160),
+  subtitle: cut(`${context.hostName} · ${session.title}`, 160),
   body: cut(reply ?? NO_REPLY, 600),
   at: new Date(context.now).toISOString(),
 });
