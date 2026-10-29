@@ -186,6 +186,19 @@ export const ComposerGallery = () => {
         }}
         subagents={state === "subagent" ? [helper(0), helper(1), helper(2)] : []}
         contextUsage={new ContextUsage({ usedTokens: 34_000, windowTokens: 200_000 })}
+        attach={{
+          chips: [],
+          caption: null,
+          pick: () => undefined,
+          add: () => undefined,
+          remove: () => undefined,
+        }}
+        voice={{
+          listening: false,
+          failure: null,
+          toggle: () => undefined,
+          release: () => undefined,
+        }}
         onChange={setText}
         onSend={() => undefined}
         onQueue={() => undefined}

@@ -203,10 +203,10 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   chipLabel: { ...mobileType.footnote, lineHeight: 16, fontWeight: "500", flexShrink: 1 },
-  moons: { flexDirection: "row", alignItems: "center", gap: 5, height: 32, paddingHorizontal: 6 },
-  moonRow: { flexDirection: "row", gap: 2 },
+  moons: { flexDirection: "row", alignItems: "center", gap: 4, height: 32, paddingHorizontal: 2 },
+  moonRow: { flexDirection: "row", gap: 0 },
   count: { ...mobileType.index, fontSize: 13, fontWeight: "500" },
-  ring: { flexDirection: "row", alignItems: "center", gap: 5 },
+  ring: { flexDirection: "row", alignItems: "center", gap: 4 },
   ringWords: { ...mobileType.index, fontSize: 11, lineHeight: 14 },
   send: {
     width: 34,
