@@ -15,7 +15,7 @@ import {
 } from "@polaris/protocol";
 import { Match, Schema } from "effect";
 import { useEffect, useState } from "react";
-import { Platform, Settings, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Settings, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ThemeName, useTheme } from "../theme";
 import { Composer } from "../thread/Composer.tsx";
@@ -57,6 +57,7 @@ const GalleryState = Schema.Literals([
   "worst-sheet",
   "worst-zero",
   "worst-full",
+  "sheet-later",
 ]);
 
 type GalleryState = typeof GalleryState.Type;
@@ -69,8 +70,15 @@ const launchArgument = <A,>(key: string, is: (value: unknown) => value is A): A 
 
 const STATE = __DEV__ ? launchArgument("polarisDevComposer", Schema.is(GalleryState)) : null;
 
-/** A narrower column than the phone, e.g. 320 for the narrowest iPhone. */
-const WIDTH = __DEV__ ? launchArgument("polarisDevWidth", Schema.is(Schema.Number)) : null;
+/** "320" for the narrowest iPhone's column. */
+const widthOf = (raw: string | null): number | null => {
+  const width = Number(raw ?? "");
+
+  return width > 0 ? width : null;
+};
+
+/** A narrower column than the phone; iOS hands launch arguments over as strings. */
+const WIDTH = __DEV__ ? widthOf(launchArgument("polarisDevWidth", Schema.is(Schema.String))) : null;
 
 export const composerGalleryOn = (): boolean => STATE !== null;
 
@@ -111,6 +119,7 @@ const REQUESTS: Readonly<Record<GalleryState, ReadonlyArray<ApprovalRequest>>> =
     ask("q", { kind: "question", title: "Which base?", options: ["main", "phase-1 branch"] }),
   ],
   sheet: [],
+  "sheet-later": [],
   worst: WORST_REQUESTS,
   "worst-question": WORST_QUESTION,
   "worst-sheet": [],
@@ -227,6 +236,14 @@ export const ComposerGallery = () => {
   const [text, setText] = useState(scene.text);
 
   useEffect(() => {
+    if (state !== "sheet-later") return;
+    // Time to focus the field first: the sheet then opens over the keyboard.
+    const timer = setTimeout(() => setOpen(true), 8000);
+
+    return () => clearTimeout(timer);
+  }, [state]);
+
+  useEffect(() => {
     const theme = launchArgument("polarisDevTheme", Schema.is(ThemeName));
 
     if (theme !== null) setTheme(theme);
@@ -234,7 +251,8 @@ export const ComposerGallery = () => {
   }, []);
 
   return (
-    <View
+    <KeyboardAvoidingView
+      behavior="padding"
       style={{
         flex: 1,
         justifyContent: "flex-end",
@@ -283,6 +301,6 @@ export const ComposerGallery = () => {
         />
       </View>
       <ModelSheet input={sheetInput(state, open, setOpen)} />
-    </View>
+    </KeyboardAvoidingView>
   );
 };
