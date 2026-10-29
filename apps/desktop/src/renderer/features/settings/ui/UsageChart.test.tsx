@@ -100,6 +100,8 @@ describe("UsageChart tooltip placement", () => {
 
     // Inside the card, its overflow clipped the first seven rows away (ENG-527).
     expect(view.getByTestId("card").contains(tip)).toBe(false);
+    // Today is the right edge: the tooltip opens to its left, over bars, not up over the figures.
+    expect(tip.dataset.side).toBe("left");
     expect([...tip.querySelectorAll("span.truncate")].map((r) => r.textContent)).toEqual(
       NINE.map(([, model]) => model)
     );

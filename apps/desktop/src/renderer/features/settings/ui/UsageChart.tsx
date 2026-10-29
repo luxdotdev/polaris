@@ -140,11 +140,14 @@ const DayTooltip = ({
   day,
   today,
   split,
+  side,
 }: {
   readonly id: string;
   readonly day: Day;
   readonly today: boolean;
   readonly split: boolean;
+  /** Beside the day, toward the chart's middle, so it covers bars and never the figures. */
+  readonly side: "left" | "right";
 }) => {
   const tip = dayTip(day, split);
   const inside = tip.rows.filter((r) => !r.outside);
@@ -155,7 +158,8 @@ const DayTooltip = ({
       id={id}
       role="tooltip"
       data-testid="usage-tooltip"
-      side="top"
+      side={side}
+      align="start"
       sideOffset={8}
       // The chart keeps focus, so ← → and esc still reach it; esc is the chart's to handle.
       onOpenAutoFocus={(event) => event.preventDefault()}
@@ -284,10 +288,16 @@ export const UsageChart = ({
               <PopoverAnchor
                 key={active}
                 aria-hidden
-                className="pointer-events-none absolute inset-y-0 w-px"
+                className="pointer-events-none absolute top-2 bottom-0 w-px"
                 style={{ left: `${((active + 0.5) / days.length) * 100}%` }}
               />
-              <DayTooltip id={tipId} day={shown} today={active === last} split={split} />
+              <DayTooltip
+                id={tipId}
+                day={shown}
+                today={active === last}
+                split={split}
+                side={active * 2 >= days.length ? "left" : "right"}
+              />
             </>
           )}
         </Popover>
