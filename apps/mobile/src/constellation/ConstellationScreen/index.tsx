@@ -55,38 +55,27 @@ const runTime = (source: ConstellationSource, now: number): string => {
   return elapsed(Date.parse(c.createdAt), until);
 };
 
-const Live = ({
-  connection,
-  constellationId,
-  onBack,
-}: {
+export interface ChartedThreadProps {
   readonly connection: HostConnection;
   readonly constellationId: string;
+  readonly source: ConstellationSource;
   readonly onBack: (() => void) | undefined;
-}) => {
-  const status = useHostStatus(connection);
-  const feed = useConstellation(connection, constellationId);
+}
+
+/** The lead's thread under the star chart panel, and the sheets the panel opens. */
+export const ChartedThread = ({
+  connection,
+  constellationId,
+  source,
+  onBack,
+}: ChartedThreadProps) => {
   const verdicts = useVerdicts(connection, constellationId);
   const navigation = useNavigation();
   const now = useNow(30_000);
   const [opened, setOpened] = useState<ReadonlyMap<string, boolean>>(new Map());
   const [sheet, setSheet] = useState<OpenSheet>(null);
-  // Brief reconnects (the app coming back, a network change) stay quiet.
-  const away = useAfter(status.state !== "connected");
-  const shown: HostStatus = away ? status : { ...status, state: "connected" };
-  const source = feed.kind === "live" ? feed.source : null;
-
-  const view = useMemo(
-    () => (source === null ? null : constellationView(source, now, opened)),
-    [source, now, opened]
-  );
-
-  const chart = useMemo(() => (source === null ? null : starChartOf(source)), [source]);
-
-  if (feed.kind === "failed") return <Waiting text={feed.message} />;
-
-  if (source === null || view === null || chart === null)
-    return <Waiting text={awayLine(shown) ?? "Loading the constellation…"} />;
+  const view = useMemo(() => constellationView(source, now, opened), [source, now, opened]);
+  const chart = useMemo(() => starChartOf(source), [source]);
 
   const close = () => setSheet(null);
   const openTask = (taskId: string) => setSheet({ kind: "task", taskId });
@@ -142,6 +131,36 @@ const Live = ({
       {renderClaimSheet(slot)}
       {renderStatsSheet(slot)}
     </>
+  );
+};
+
+const Live = ({
+  connection,
+  constellationId,
+  onBack,
+}: {
+  readonly connection: HostConnection;
+  readonly constellationId: string;
+  readonly onBack: (() => void) | undefined;
+}) => {
+  const status = useHostStatus(connection);
+  const feed = useConstellation(connection, constellationId);
+  // Brief reconnects (the app coming back, a network change) stay quiet.
+  const away = useAfter(status.state !== "connected");
+  const shown: HostStatus = away ? status : { ...status, state: "connected" };
+
+  if (feed.kind === "failed") return <Waiting text={feed.message} />;
+
+  if (feed.kind !== "live")
+    return <Waiting text={awayLine(shown) ?? "Loading the constellation…"} />;
+
+  return (
+    <ChartedThread
+      connection={connection}
+      constellationId={constellationId}
+      source={feed.source}
+      onBack={onBack}
+    />
   );
 };
 
