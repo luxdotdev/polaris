@@ -26,6 +26,7 @@ export const DEFAULT_SESSION_PREFS: SessionPrefs = {
     backend: { harness: "codex", model: "gpt-6.1-sol", effort: "high" },
     ui: { harness: "claude", model: "claude-opus-5-5", effort: null },
   },
+  idleCompaction: { enabled: true, minTokens: 200_000 },
   editorVim: false,
   editorAutosave: false,
   editorInlineDiagnostics: true,

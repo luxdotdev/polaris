@@ -17,8 +17,9 @@ import type {
 } from "@polaris/protocol";
 import { Predicate } from "effect";
 import type { TurnView } from "../../../store/sessionModel.ts";
-import { isWaiting, triggerPhrase, type Waiting } from "./background.ts";
+import { isWaiting, type Waiting } from "./background.ts";
 import { formatElapsed, plural } from "./format.ts";
+import { quietOpening } from "./idleCompaction.ts";
 import type { ShellView } from "./items.ts";
 import type { Outgoing } from "./outbox.ts";
 import type { Entry } from "./runs.ts";
@@ -172,8 +173,7 @@ const isMessage = (item: TurnItem): item is AssistantMessage =>
   Predicate.isTagged(item, "AssistantMessage");
 
 /** What started a Turn, in words: its prompt, or what woke a Turn the Harness started. */
-export const turnOpening = (turn: TurnView["turn"]): string =>
-  turn.trigger === null ? turn.prompt : triggerPhrase(turn.trigger);
+export const turnOpening = (turn: TurnView["turn"]): string => quietOpening(turn) ?? turn.prompt;
 
 export const summarize = (group: TurnGroup): TurnSummary => {
   const items = shownItems(group);

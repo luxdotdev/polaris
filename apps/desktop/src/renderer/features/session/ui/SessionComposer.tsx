@@ -142,7 +142,10 @@ const sentHistory = (turns: SessionModel["turns"], chrome: SessionChrome) =>
       id: turn.id,
       // A shell command comes back in shell mode.
       prompt: turn.shellCommand == null ? turn.prompt : shellDraft(turn.shellCommand),
-      notTyped: (turn.trigger ?? null) !== null || (turn.feedback ?? null) !== null,
+      notTyped:
+        (turn.trigger ?? null) !== null ||
+        (turn.feedback ?? null) !== null ||
+        turn.idleCompaction === true,
       items,
     })),
     (turnId, itemId) => polarisAuthored(chrome, turnId, itemId)

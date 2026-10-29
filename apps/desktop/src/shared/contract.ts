@@ -11,6 +11,8 @@ import {
   addedNullable,
   AttachmentSettings,
   AutoArchiveSettings,
+  IdleCompactionSettings,
+  MIN_IDLE_COMPACTION_TOKENS,
   Command,
   CommandId,
   CommitGranularity,
@@ -152,6 +154,14 @@ export type ConstellationDefaults = typeof ConstellationDefaults.Type;
 /** Whole minutes, 1 to 999: the field's range in Settings → Sessions. */
 export const LongTurnMinutes = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 999 }));
 
+/** Settings → Sessions, idle compaction: one setting the Desktop App writes to every Host. */
+export const IdleCompactionPref = Schema.Struct({
+  enabled: Schema.Boolean,
+  minTokens: Schema.Int.check(Schema.isGreaterThanOrEqualTo(MIN_IDLE_COMPACTION_TOKENS)),
+});
+
+export type IdleCompactionPref = typeof IdleCompactionPref.Type;
+
 /** Settings → Sessions: how every new Agent Session starts and what happens around it. */
 export const SessionPrefs = Schema.Struct({
   /** Start on a new Worktree rather than in the Workspace directory. */
@@ -184,6 +194,8 @@ export const SessionPrefs = Schema.Struct({
   workspaceAcceptBranch: Schema.Record(Schema.String, AcceptBranchMode),
   /** What a new Constellation's workers start on, per role (Settings → Constellations). */
   constellationDefaults: ConstellationDefaults,
+  /** Compact a large session idle for 55 minutes, while its prompt cache is warm (ENG-562). */
+  idleCompaction: IdleCompactionPref,
   /** Settings → Editor: vim keys in the Editor (off by default, spec §4). */
   editorVim: Schema.Boolean,
   /** Settings → Editor: save after a short pause in typing (off by default, spec §3). */
@@ -213,6 +225,7 @@ export const SessionPrefsPatch = Schema.Struct({
   /** Replaces every override. */
   workspaceAcceptBranch: Schema.optionalKey(Schema.Record(Schema.String, AcceptBranchMode)),
   constellationDefaults: Schema.optionalKey(ConstellationDefaults),
+  idleCompaction: Schema.optionalKey(IdleCompactionPref),
   editorVim: Schema.optionalKey(Schema.Boolean),
   editorAutosave: Schema.optionalKey(Schema.Boolean),
   editorInlineDiagnostics: Schema.optionalKey(Schema.Boolean),
@@ -356,6 +369,8 @@ export const RequestInputs = {
   /** When the Host archives Dormant sessions (Settings → Sessions). */
   "sessions.autoArchive": onHost({}),
   "sessions.setAutoArchive": onHost({ settings: AutoArchiveSettings }),
+  "sessions.idleCompaction": onHost({}),
+  "sessions.setIdleCompaction": onHost({ settings: IdleCompactionSettings }),
   /** Continuity (capability `session.continuity`): the last Turn seen, and the composer's draft. */
   "continuity.markRead": onHost({ sessionId: SessionId, turnId: TurnId }),
   "continuity.saveDraft": onHost({

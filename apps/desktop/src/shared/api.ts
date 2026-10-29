@@ -19,6 +19,7 @@ import type {
   Attachment,
   AttachmentSettings,
   AutoArchiveSettings,
+  IdleCompactionSettings,
   AttachmentUsage,
   StagedAmount,
   Capability,
@@ -496,6 +497,8 @@ export interface RequestOutputs
   "extensions.revoke": Plain<Pairing>;
   "sessions.autoArchive": Plain<AutoArchiveSettings>;
   "sessions.setAutoArchive": null;
+  "sessions.idleCompaction": Plain<IdleCompactionSettings>;
+  "sessions.setIdleCompaction": null;
   "continuity.markRead": Plain<ReadPosition>;
   "continuity.saveDraft": Plain<ComposerDraft>;
   "review.runRiskSummary": Rpc.Success<typeof RunRiskSummary>;

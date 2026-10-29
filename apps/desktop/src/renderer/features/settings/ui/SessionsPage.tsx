@@ -1,7 +1,8 @@
 /**
  * Settings → Sessions (DESIGN.md, Settings): where new sessions work, what a new worktree's
  * branch is called, Output on a Turn's first edit, Needs You and Turn notifications, the Working
- * strip's verbs, where accepted work is committed, Archive, and removing hidden workspaces.
+ * strip's verbs, idle compaction, where accepted work is committed, Archive, and removing hidden
+ * workspaces.
  * Each Harness's Model, effort and permissions stay in Settings → Harnesses.
  */
 import { clientCopy } from "../../../../shared/clientCopy.ts";
@@ -15,6 +16,7 @@ import { Column, Group, PageHeader, SettingRow } from "./parts.tsx";
 import { AcceptBranch } from "./AcceptBranch.tsx";
 import { AutoArchiveSettings } from "./AutoArchive.tsx";
 import { HiddenWorkspaces } from "./HiddenWorkspaces.tsx";
+import { IdleCompaction } from "./IdleCompaction.tsx";
 import { WorktreeSetupSettings } from "./WorktreeSetup.tsx";
 import { TurnNotifications } from "./TurnNotifications.tsx";
 import { WorkingVerbs } from "./WorkingVerbs.tsx";
@@ -134,6 +136,7 @@ export const SessionsPage = () => {
             onCheckedChange={(on) => setSessionPrefs({ notifyReviewRequests: on })}
           />
         </SettingRow>
+        <IdleCompaction />
       </Group>
       <WorktreeSetupSettings />
       <WorkingVerbs />
