@@ -30,6 +30,7 @@ import { decisionOf } from "../home/model/respond.ts";
 import { haptics } from "../motion";
 import { type MobileColours, useTheme } from "../theme";
 import { elapsed, harnessHue, harnessName } from "./labels.ts";
+import { CHROME_SCALE as TEXT_SCALE } from "./Row.tsx";
 import { answered, answersDecision, pick, type Picks, requestCard } from "./requests.ts";
 
 export interface PendingRequestsProps {
@@ -161,13 +162,19 @@ const Permission = ({
           accessibilityLabel={`${notice.headline}${notice.detail === null ? "" : `: ${notice.detail}`}`}
           accessibilityHint={whole ? undefined : "Shows the whole request"}
         >
-          <Text style={[styles.headline, { color: colours.needsYouText }]}>{notice.headline}</Text>
+          <Text
+            style={[styles.headline, { color: colours.needsYouText }]}
+            maxFontSizeMultiplier={TEXT_SCALE}
+          >
+            {notice.headline}
+          </Text>
           {notice.detail === null || whole ? null : (
             <Text
               style={[styles.detail, { color: colours.textDefault }]}
               onTextLayout={(event) => {
                 if (event.nativeEvent.lines.length > 1) setWraps(true);
               }}
+              maxFontSizeMultiplier={TEXT_SCALE}
             >
               {notice.detail}
             </Text>
@@ -177,7 +184,11 @@ const Permission = ({
       </View>
       {whole && notice.detail !== null ? (
         <ScrollView style={styles.whole} nestedScrollEnabled>
-          <Text style={[styles.detail, { color: colours.textDefault }]} selectable>
+          <Text
+            style={[styles.detail, { color: colours.textDefault }]}
+            selectable
+            maxFontSizeMultiplier={TEXT_SCALE}
+          >
             {notice.detail}
           </Text>
         </ScrollView>
@@ -212,8 +223,14 @@ const Questions = ({ request, live, onRespond }: CardProps) => {
       >
         {questions.map((question, index) => (
           <View key={`${index}:${question.question}`} style={styles.question}>
-            <Text style={[styles.questionText, { color: colours.textDefault }]}>
-              <Text style={[styles.headline, { color: colours.needsYouText }]}>
+            <Text
+              style={[styles.questionText, { color: colours.textDefault }]}
+              maxFontSizeMultiplier={TEXT_SCALE}
+            >
+              <Text
+                style={[styles.headline, { color: colours.needsYouText }]}
+                maxFontSizeMultiplier={TEXT_SCALE}
+              >
                 {question.header === "" ? "Asks · " : `${question.header} · `}
               </Text>
               {question.question}
@@ -243,6 +260,7 @@ const Questions = ({ request, live, onRespond }: CardProps) => {
                         styles.choiceLabel,
                         { color: chosen ? colours.bg : colours.textDefault },
                       ]}
+                      maxFontSizeMultiplier={TEXT_SCALE}
                     >
                       {option.label}
                     </Text>
@@ -276,8 +294,16 @@ const Working = ({ harness, since }: { readonly harness: HarnessKind; readonly s
   return (
     <View style={styles.row} accessibilityLiveRegion="polite">
       <Dither color={hue} size={14} moving />
-      <Text style={[styles.headline, { color: hue }]}>{harnessName(harness)} is working</Text>
-      <Text style={[styles.time, { color: colours.textFaint }]}>· {time}</Text>
+      <Text
+        style={[styles.headline, styles.working, { color: hue }]}
+        numberOfLines={2}
+        maxFontSizeMultiplier={TEXT_SCALE}
+      >
+        {harnessName(harness)} is working
+      </Text>
+      <Text style={[styles.time, { color: colours.textFaint }]} maxFontSizeMultiplier={TEXT_SCALE}>
+        · {time}
+      </Text>
     </View>
   );
 };
@@ -341,7 +367,10 @@ const Notice = ({
         <Permission notice={notice} card={card} open={open} onToggle={() => setOpen(!open)} />
       )}
       {props.errors.has(request.id) ? (
-        <Text style={[styles.failed, { color: colours.failedText }]}>
+        <Text
+          style={[styles.failed, { color: colours.failedText }]}
+          maxFontSizeMultiplier={TEXT_SCALE}
+        >
           Couldn't send. Try again.
         </Text>
       ) : null}
@@ -419,6 +448,7 @@ const styles = StyleSheet.create({
   headline: { ...mobileType.footnote, fontSize: 12, lineHeight: 16, fontWeight: "500" },
   detail: { ...mobileType.index },
   whole: { maxHeight: 160 },
+  working: { flexShrink: 1 },
   time: { ...mobileType.footnote, fontSize: 12, lineHeight: 16, flex: 1 },
   buttons: { flexDirection: "row", alignItems: "center", gap: 4 },
   answer: {

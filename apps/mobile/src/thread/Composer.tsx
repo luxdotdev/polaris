@@ -32,7 +32,7 @@ import { haptics } from "../motion";
 import { useTheme } from "../theme";
 import { type ComposerMode, placeholderFor } from "./composer.ts";
 import { PendingRequests, type PendingRequestsProps } from "./PendingRequests.tsx";
-import { Diamond } from "./Row.tsx";
+import { CHROME_SCALE as TEXT_SCALE, Diamond } from "./Row.tsx";
 import type { Suggestion } from "./suggestions.ts";
 
 export const Suggestions = ({
@@ -46,7 +46,12 @@ export const Suggestions = ({
 
   return items.length === 0 ? null : (
     <View style={styles.suggested}>
-      <Text style={[styles.suggestedLabel, { color: colours.textFaint }]}>Suggested</Text>
+      <Text
+        style={[styles.suggestedLabel, { color: colours.textFaint }]}
+        maxFontSizeMultiplier={TEXT_SCALE}
+      >
+        Suggested
+      </Text>
       <View style={styles.chips}>
         {items.map((item) => (
           <Pressable
@@ -56,7 +61,12 @@ export const Suggestions = ({
             accessibilityRole="button"
           >
             {item.kind === "fix" ? <Diamond /> : null}
-            <Text style={[styles.chipLabel, { color: colours.textDefault }]}>{item.label}</Text>
+            <Text
+              style={[styles.chipLabel, { color: colours.textDefault }]}
+              maxFontSizeMultiplier={TEXT_SCALE}
+            >
+              {item.label}
+            </Text>
           </Pressable>
         ))}
       </View>
@@ -207,6 +217,7 @@ export const Composer = (props: ComposerProps) => {
               styles.notice,
               { color: notice.failed ? colours.failedText : colours.textSubtle },
             ]}
+            maxFontSizeMultiplier={TEXT_SCALE}
           >
             {notice.text}
           </Text>
@@ -221,6 +232,7 @@ export const Composer = (props: ComposerProps) => {
           multiline
           accessibilityLabel="Message"
           nativeID={fieldId}
+          maxFontSizeMultiplier={TEXT_SCALE}
         />
       </View>
       <View style={styles.row} onLayout={({ nativeEvent }) => measure(nativeEvent.layout.width)}>
