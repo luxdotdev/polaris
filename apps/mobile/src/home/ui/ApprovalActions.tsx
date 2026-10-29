@@ -6,7 +6,6 @@ import type { ApprovalRequest } from "@polaris/protocol";
 import { mobileFont } from "@polaris/ui/tokens";
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { haptics } from "../../motion";
 import { type MobileColours, useTheme } from "../../theme";
 import { approvalDetail, askLine, quickQuestion } from "../model/lines.ts";
 import { haptics } from "../../motion/index.ts";
@@ -111,10 +110,7 @@ const Permission = ({ approval, enabled, onReply, onOpen }: ApprovalActionsProps
             label="Approve"
             kind="filled"
             disabled={!live}
-            onPress={() => {
-              haptics.approve();
-              send({ kind: "approve" });
-            }}
+            onPress={() => send({ kind: "approve" })}
           />
           <Button label="Always here" disabled={!live} onPress={() => send({ kind: "always" })} />
           <Button
