@@ -143,6 +143,8 @@ export const RelayProvider = ({ children }: { readonly children: ReactNode }) =>
 
   const unlinkSome = useCallback(
     async (targets: ReadonlySet<string>) => {
+      // A Host no longer linked has nothing to revoke; never forget the keys over it.
+      if (!hosts.some((host) => targets.has(host.hostId))) return [];
       const open = device.current;
       const linked = registryRef.current.hosts.filter((h) => targets.has(h.hostId));
       const { revoked, kept, stillTrusting } = await unlinkFrom(hosts, linked, targets);

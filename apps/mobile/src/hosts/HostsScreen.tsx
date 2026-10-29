@@ -15,6 +15,7 @@ import { useRelay } from "../relay/RelayProvider.tsx";
 import { Chevron } from "../settings/icons.tsx";
 import { themedStyles, useTheme } from "../theme/index.ts";
 import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
+import { DEV_HOST_SHEET, DEV_HOSTS } from "./dev.ts";
 import { HostSheet } from "./HostSheet.tsx";
 import {
   buildHosts,
@@ -182,15 +183,21 @@ export const HostsScreen = ({
   const styles = useStyles();
   const insets = useSafeAreaInsets();
   const relay = useRelay();
-  const hosts = useFollowedHosts().map(toInput);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const followed = useFollowedHosts();
+  const hosts = DEV_HOSTS ?? followed.map(toInput);
+  const [openId, setOpenId] = useState<string | null>(DEV_HOST_SHEET);
   const [unlinkLeft, setUnlinkLeft] = useState<string | null>(null);
   const now = useTicking(hosts.some(({ state }) => state === "reconnecting"));
   const model = buildHosts(hosts, now);
   const open = hosts.find((host) => host.hostId === openId) ?? null;
 
+  const relayLinked = (host: HostInput) =>
+    DEV_HOSTS === null ? relay.routeOf(host.hostId) === "relay" : host.route === "relay";
+
   const unlink = (hostId: string) => () => {
     setOpenId(null);
+
+    if (DEV_HOSTS !== null) return;
     void relay
       .unlinkHost(hostId)
       .then((kept) => setUnlinkLeft(unlinkNote(kept.map((host) => host.hostName))));
@@ -230,9 +237,7 @@ export const HostsScreen = ({
       <HostSheet
         details={open === null ? null : hostDetails(open, now)}
         onClose={() => setOpenId(null)}
-        onUnlink={
-          open !== null && relay.routeOf(open.hostId) === "relay" ? unlink(open.hostId) : null
-        }
+        onUnlink={open !== null && relayLinked(open) ? unlink(open.hostId) : null}
       />
     </HorizonScreen>
   );
