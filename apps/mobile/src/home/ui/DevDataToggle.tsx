@@ -14,6 +14,8 @@ const CHOICES: ReadonlyArray<readonly [DevHomeData, string]> = [
   ["one", "One"],
   ["huge", "Huge"],
   ["paper", "Paper"],
+  ["none", "None"],
+  ["offline", "Offline"],
 ];
 
 /** A plain segmented control pinned near the foot: development chrome, never product UI. */

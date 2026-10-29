@@ -12,7 +12,14 @@ import {
   synchronized,
   workspace,
 } from "../fixtures.testing.ts";
-import { buildHome, type HomeHost, type HomeRow, RECENT_LIMIT, whereLine } from "./home.ts";
+import {
+  buildHome,
+  unreachableOf,
+  type HomeHost,
+  type HomeRow,
+  RECENT_LIMIT,
+  whereLine,
+} from "./home.ts";
 
 const host = (
   name: string,
@@ -182,5 +189,32 @@ describe("empty", () => {
     ["agent sessions to show", [studio], null, null],
   ] as const)("%s", (_, hosts, filter, empty) => {
     expect(buildHome(hosts, filter).empty).toBe(empty);
+  });
+});
+
+describe("can't reach your hosts", () => {
+  const away = (name: string, failure: string | null, connection: ConnectionState = "offline") => ({
+    ...host(name, null, connection),
+    failure,
+  });
+
+  test("shows the host's own failure line, named by its host only among several", () => {
+    expect(unreachableOf([away("lucas-rpi", "the relay closed the socket (1006)")]).failure).toBe(
+      "the relay closed the socket (1006)"
+    );
+    expect(
+      unreachableOf([away("mac-studio", null), away("lucas-rpi", "ssh: connection refused")])
+        .failure
+    ).toBe("lucas-rpi: ssh: connection refused");
+    expect(unreachableOf([away("lucas-rpi", "")]).failure).toBeNull();
+  });
+
+  test("says Reconnecting only while a host is still being tried", () => {
+    expect(unreachableOf([away("a", null, "offline"), away("b", null, "needs-attention")])).toEqual(
+      { failure: null, reconnecting: false }
+    );
+    expect(
+      unreachableOf([away("a", null, "offline"), away("b", null, "reconnecting")]).reconnecting
+    ).toBe(true);
   });
 });

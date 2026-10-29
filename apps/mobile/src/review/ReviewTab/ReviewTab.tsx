@@ -1,19 +1,21 @@
 /**
  * The Review tab (Paper MX-K, with MX-M's clean lane): every Host's turns ready to review. The
  * turn most in need of you is the hero, Criticals first, with a pager; the rest wait in wells, and
- * turns with no findings are accepted from the clean lane. Empty, it says why.
+ * turns with no findings are accepted from the clean lane. Empty, it says why on MX-AV's raised
+ * horizon, in place of the one at its foot.
  */
-import { mobileType } from "@polaris/ui/tokens";
 import { Match } from "effect";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSettledHosts } from "../../home/feed/settled.ts";
 import { homeHostsOf, useFollowedHosts } from "../../home/feed/useFollowedHosts.ts";
 import { useDevHomeData } from "../../home/feed/useHomeHosts.ts";
-import type { HomeHost } from "../../home/model/home.ts";
-import { HORIZON_INSET } from "../../horizon/index.tsx";
+import { type HomeHost, unreachableOf } from "../../home/model/home.ts";
+import { UnreachablePanel } from "../../home/ui/EmptyHome.tsx";
+import { HORIZON_INSET, HorizonScreen } from "../../horizon/index.tsx";
 import { useMenuActions } from "../../menus/index.ts";
+import { StatePanel } from "../../states/StatePanel.tsx";
 import { themedStyles } from "../../theme/index.ts";
 import { type ReadyEmpty, type ReadyToReview, readyToReview } from "../ready.ts";
 import { QueueHeader } from "./Header.tsx";
@@ -65,48 +67,41 @@ const useNow = () => {
   return now;
 };
 
+/** Why the queue is empty, as MX-AV's raised horizon: only "Nothing to review" has no action. */
 const Empty = ({
   empty,
+  hosts,
   onLink,
   onHosts,
 }: {
   readonly empty: ReadyEmpty;
+  readonly hosts: ReadonlyArray<HomeHost>;
   readonly onLink: () => void;
   readonly onHosts: () => void;
-}) => {
-  const styles = useStyles();
-
-  const copy = Match.value(empty).pipe(
-    Match.when("no-hosts", () => ({
-      title: "No hosts yet",
-      body: "Link this iPhone from Polaris on your Mac. Agent sessions ready to review appear here.",
-      action: { label: "Link this iPhone", run: onLink },
-    })),
-    Match.when("unreachable", () => ({
-      title: "Can't reach your hosts",
-      body: "Agent sessions ready to review appear here as soon as one connects. Polaris keeps trying.",
-      action: { label: "See hosts", run: onHosts },
-    })),
-    Match.when("none", () => ({
-      title: "Nothing to review",
-      body: "An agent session appears here when its turn ends.",
-      action: null,
-    })),
+}) =>
+  Match.value(empty).pipe(
+    Match.when("no-hosts", () => (
+      <StatePanel
+        title="No hosts yet"
+        line="Link this iPhone from Polaris on your Mac. Agent sessions ready to review appear here."
+        action={{ label: "Link this iPhone", onPress: onLink, primary: true }}
+      />
+    )),
+    Match.when("unreachable", () => (
+      <UnreachablePanel
+        unreachable={unreachableOf(hosts)}
+        line="Agent sessions ready to review appear here as soon as one connects."
+        onHosts={onHosts}
+      />
+    )),
+    Match.when("none", () => (
+      <StatePanel
+        title="Nothing to review"
+        line="An agent session appears here when its turn ends."
+      />
+    )),
     Match.exhaustive
   );
-
-  return (
-    <View style={styles.empty}>
-      <Text style={styles.emptyTitle}>{copy.title}</Text>
-      <Text style={styles.body}>{copy.body}</Text>
-      {copy.action === null ? null : (
-        <Pressable accessibilityRole="button" onPress={copy.action.run} style={styles.action}>
-          <Text style={styles.actionLabel}>{copy.action.label}</Text>
-        </Pressable>
-      )}
-    </View>
-  );
-};
 
 export interface ReviewTabProps {
   readonly tabBarHeight: number;
@@ -153,64 +148,45 @@ export const ReviewTab = ({ tabBarHeight, onOpen, onLink, onHosts }: ReviewTabPr
   const waiting = queue.pages.slice(1);
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
-      {dev === null ? read.loaders : null}
-      <QueueHeader
-        queue={ready.empty === null ? queue : null}
-        hostCount={hosts.length}
-        workspaces={workspaces}
-        selected={shown}
-        onSelect={setWorkspace}
-        onHosts={onHosts}
-      />
-      {ready.empty === null ? (
-        <ScrollView
-          style={styles.list}
-          contentContainerStyle={[
-            styles.content,
-            { paddingBottom: Math.max(HORIZON_INSET, tabBarHeight + 16) },
-          ]}
-        >
-          <ReviewHero pages={queue.pages} actions={actions} />
-          {waiting.length === 0 ? null : <LaneHead label={`waiting · ${waiting.length}`} />}
-          {waiting.map((item) => (
-            <QueueWell key={item.row.key} item={item} actions={actions} />
-          ))}
-          {queue.clean.length === 0 ? null : <LaneHead label={`clean · ${queue.clean.length}`} />}
-          {queue.clean.map((item) => (
-            <CleanWell key={item.row.key} item={item} actions={actions} />
-          ))}
-        </ScrollView>
-      ) : (
-        <Empty empty={ready.empty} onLink={onLink} onHosts={onHosts} />
-      )}
-    </View>
+    <HorizonScreen foot={ready.empty === null}>
+      <View style={[styles.screen, { paddingTop: insets.top }]}>
+        {dev === null ? read.loaders : null}
+        <QueueHeader
+          queue={ready.empty === null ? queue : null}
+          hostCount={hosts.length}
+          workspaces={workspaces}
+          selected={shown}
+          onSelect={setWorkspace}
+          onHosts={onHosts}
+        />
+        {ready.empty === null ? (
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: Math.max(HORIZON_INSET, tabBarHeight + 16) },
+            ]}
+          >
+            <ReviewHero pages={queue.pages} actions={actions} />
+            {waiting.length === 0 ? null : <LaneHead label={`waiting · ${waiting.length}`} />}
+            {waiting.map((item) => (
+              <QueueWell key={item.row.key} item={item} actions={actions} />
+            ))}
+            {queue.clean.length === 0 ? null : <LaneHead label={`clean · ${queue.clean.length}`} />}
+            {queue.clean.map((item) => (
+              <CleanWell key={item.row.key} item={item} actions={actions} />
+            ))}
+          </ScrollView>
+        ) : (
+          <Empty empty={ready.empty} hosts={hosts} onLink={onLink} onHosts={onHosts} />
+        )}
+      </View>
+    </HorizonScreen>
   );
 };
 
-const useStyles = themedStyles((colours) => ({
+const useStyles = themedStyles(() => ({
   screen: { flex: 1 },
   list: { flex: 1 },
   content: { paddingHorizontal: 10, gap: 6 },
-  empty: {
-    borderTopWidth: 1,
-    borderTopColor: colours.hairline,
-    marginHorizontal: 20,
-    marginTop: 12,
-    paddingTop: 28,
-    gap: 8,
-  },
-  emptyTitle: { ...mobileType.title, color: colours.textStrong },
-  body: { ...mobileType.callout, color: colours.textSubtle, maxWidth: 320 },
-  action: {
-    alignSelf: "flex-start",
-    marginTop: 8,
-    height: 36,
-    paddingHorizontal: 18,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#ffffff1f",
-    justifyContent: "center",
-  },
-  actionLabel: { ...mobileType.label, color: colours.textDefault },
 }));

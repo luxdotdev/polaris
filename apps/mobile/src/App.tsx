@@ -20,6 +20,7 @@ import { SwipeBack } from "./app/SwipeBack.tsx";
 import { TabBar } from "./app/TabBar.tsx";
 import { DuoShell } from "./duo/DuoShell.tsx";
 import { FollowedHostsProvider } from "./home/feed/useFollowedHosts.ts";
+import { useHomeHosts } from "./home/feed/useHomeHosts.ts";
 import { HomeScreen } from "./home/HomeScreen.tsx";
 import { ComposerGallery, composerGalleryOn } from "./composer/Gallery.tsx";
 import {
@@ -61,6 +62,7 @@ const Tabs = () => {
   const insets = useSafeAreaInsets();
   const bottom = Math.max(insets.bottom - INTO_INSET, 20);
   const readyCount = useReadyToReview().rows.length;
+  const noHosts = useHomeHosts().length === 0;
   const tabBarHeight = TAB_BAR + bottom;
   const openHosts = () => navigation.push({ screen: "hosts" });
 
@@ -83,16 +85,14 @@ const Tabs = () => {
           />
         )),
         Match.when("review", () => (
-          <HorizonScreen>
-            <ReviewTab
-              tabBarHeight={tabBarHeight}
-              onOpen={(hostId, sessionId) =>
-                navigation.push({ screen: "review", hostId, sessionId, turnId: null })
-              }
-              onLink={() => navigation.push({ screen: "link" })}
-              onHosts={openHosts}
-            />
-          </HorizonScreen>
+          <ReviewTab
+            tabBarHeight={tabBarHeight}
+            onOpen={(hostId, sessionId) =>
+              navigation.push({ screen: "review", hostId, sessionId, turnId: null })
+            }
+            onLink={() => navigation.push({ screen: "link" })}
+            onHosts={openHosts}
+          />
         )),
         Match.when("settings", () => (
           <HorizonScreen>
@@ -107,6 +107,7 @@ const Tabs = () => {
         bottom={bottom}
         onSelect={navigation.selectTab}
         onNew={() => navigation.openNewSession()}
+        newDimmed={noHosts}
       />
     </View>
   );

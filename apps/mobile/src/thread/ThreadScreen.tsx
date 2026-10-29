@@ -52,6 +52,7 @@ import { chipAction, openCritical, type Suggestion, suggestions } from "./sugges
 import { threadKey, threads } from "./threads.ts";
 import { useAfter } from "../runtime/useAfter.ts";
 import { InboxBadge } from "../inbox/index.ts";
+import { ReconnectingLine } from "../states/thread.tsx";
 import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 
 export interface ThreadScreenProps {
@@ -101,7 +102,12 @@ const useController = (connection: HostConnection | null, sessionId: SessionId):
 
     const lease = threads.acquire(
       threadKey(connection.hostId, sessionId),
-      first === null ? null : () => openThread(hostThreadSource(connection, first), sessionId)
+      first === null
+        ? null
+        : () =>
+            openThread(hostThreadSource(connection, first), sessionId, {
+              hostName: connection.name,
+            })
     );
 
     if (lease === null) return;
@@ -119,6 +125,10 @@ const useController = (connection: HostConnection | null, sessionId: SessionId):
   useEffect(() => {
     if (epoch !== null) controller?.reconnected();
   }, [controller, epoch]);
+
+  useEffect(() => {
+    controller?.hostLive(live !== null);
+  }, [controller, live]);
 
   return { controller, live: live !== null };
 };
@@ -142,6 +152,7 @@ const Header = ({
   criticals,
   onBack,
   rising = false,
+  away = false,
   onSlot,
 }: {
   readonly title: string;
@@ -151,6 +162,8 @@ const Header = ({
   readonly onBack: () => void;
   /** The celestial is still on its way up (MX-AS): its slot stays empty. */
   readonly rising?: boolean;
+  /** The Host is reconnecting (MX-AV): the celestial dims, nothing else changes. */
+  readonly away?: boolean;
   /** The slot's place in the header, for the rise to land in. */
   readonly onSlot?: (slot: LayoutRectangle) => void;
 }) => {
@@ -171,7 +184,7 @@ const Header = ({
       </Pressable>
       {celestial === null ? null : (
         <View
-          style={rising ? styles.slotEmpty : null}
+          style={rising ? styles.slotEmpty : away ? styles.slotAway : null}
           onLayout={({ nativeEvent }) => onSlot?.(nativeEvent.layout)}
         >
           <Celestial
@@ -290,15 +303,20 @@ export const ThreadScreen = ({
 
   const steers = state?.steers;
   const queued = state?.queued;
+  const sends = state?.sends;
 
   const rows = useMemo(
     // The list is inverted: the newest row first, at the bottom of the screen.
     () =>
-      [...threadRows(fold?.turns ?? [], expanded), ...outgoingRows(steers ?? [], queued)].reverse(),
-    [fold?.turns, expanded, steers, queued]
+      [
+        ...threadRows(fold?.turns ?? [], expanded),
+        ...outgoingRows(steers ?? [], queued, sends),
+      ].reverse(),
+    [fold?.turns, expanded, steers, queued, sends]
   );
 
   const editSteer = useCallback((id: string) => controller?.editSteer(id), [controller]);
+  const sendAgain = useCallback((id: string) => controller?.sendAgain(id), [controller]);
 
   const rowsRef = useRef<ReadonlyArray<ThreadRow>>(rows);
   rowsRef.current = rows;
@@ -429,6 +447,7 @@ export const ThreadScreen = ({
             }}
             criticals={criticals.length}
             onBack={onBack}
+            away={away}
             rising={rise.rising}
             onSlot={rise.onSlot}
           />
@@ -440,7 +459,7 @@ export const ThreadScreen = ({
         >
           <RiseHorizon rise={rise} />
           <FlatList
-            style={[styles.list, away ? styles.offline : null]}
+            style={styles.list}
             contentContainerStyle={styles.listContent}
             data={rows}
             inverted
@@ -453,7 +472,9 @@ export const ThreadScreen = ({
                 onFocus={onFocus}
                 focused={item.key === focusedKey}
                 onEditSteer={editSteer}
+                onSendAgain={sendAgain}
                 hostId={hostId}
+                hostName={connection.name}
                 session={rowSession}
                 onMenuAction={onMenuAction}
               />
@@ -501,7 +522,7 @@ export const ThreadScreen = ({
               : { minHeight: composerSlot.minHeight, justifyContent: "flex-end" },
           ]}
         >
-          {away ? <Text style={styles.queued}>Reconnecting to {connection.name}…</Text> : null}
+          {away ? <ReconnectingLine host={connection.name} onRetry={connection.retryNow} /> : null}
           {aboveComposer}
           <Suggestions items={chips} onPick={pick} />
           <Composer
@@ -607,6 +628,7 @@ const makeStyles = (colours: MobileColours) =>
     },
     back: { width: 20, height: 36, justifyContent: "center" },
     slotEmpty: { opacity: 0 },
+    slotAway: { opacity: 0.35 },
     backGlyph: { fontSize: 32, lineHeight: 34, color: colours.starlight },
     titles: { flex: 1, minWidth: 0, gap: 2 },
     title: { ...mobileType.title, fontWeight: "600", color: colours.textStrong },
@@ -625,7 +647,6 @@ const makeStyles = (colours: MobileColours) =>
     },
     pillLabel: { ...mobileType.footnote, fontWeight: "500", color: colours.textDefault },
     list: { flex: 1 },
-    offline: { opacity: 0.55 },
     listContent: { paddingHorizontal: 12, paddingTop: 16, paddingBottom: 12 },
     finding: {
       flexDirection: "row",
@@ -647,7 +668,6 @@ const makeStyles = (colours: MobileColours) =>
     findingWhere: { ...mobileType.index, color: colours.textFaint },
     // MX-E: the composer's foot sits on the home-indicator inset, with nothing added.
     bottom: { gap: 10, paddingHorizontal: 10, paddingTop: 4 },
-    queued: { ...mobileType.footnote, color: colours.textSubtle, marginHorizontal: 4 },
     older: { ...mobileType.footnote, color: colours.textFaint, textAlign: "center", padding: 12 },
     missing: { ...mobileType.callout, color: colours.textSubtle, padding: 16 },
   }) as const;

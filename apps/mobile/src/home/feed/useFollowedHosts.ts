@@ -50,4 +50,5 @@ export const homeHostsOf = (hosts: ReadonlyArray<FollowedHostState>): ReadonlyAr
     name: status.host?.hostname ?? connection.name,
     connection: status.state,
     followed,
+    failure: status.failure?.detail ?? null,
   }));

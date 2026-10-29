@@ -12,7 +12,29 @@ export interface HomeHost {
   readonly name: string;
   readonly connection: ConnectionState;
   readonly followed: FollowedHost;
+  /** The last failure's own line (the relay or SSH's words); absent or null when there is none. */
+  readonly failure?: string | null;
 }
+
+/** "Can't reach your hosts" (MX-AV): a Host's own failure line, and whether Polaris still tries. */
+export interface Unreachable {
+  /** Named by its Host when there are several; null when no Host has said why. */
+  readonly failure: string | null;
+  readonly reconnecting: boolean;
+}
+
+export const unreachableOf = (hosts: ReadonlyArray<HomeHost>): Unreachable => {
+  const failed = hosts.find((host) => (host.failure ?? "") !== "");
+  const failure = failed?.failure ?? null;
+
+  return {
+    failure:
+      failed === undefined || failure === null || hosts.length === 1
+        ? failure
+        : `${failed.name}: ${failure}`,
+    reconnecting: hosts.some((host) => host.connection === "reconnecting"),
+  };
+};
 
 export interface SessionRow {
   readonly kind: "session";

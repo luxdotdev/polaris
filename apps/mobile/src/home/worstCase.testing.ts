@@ -19,7 +19,7 @@ import {
 import type { HomeHost } from "./model/home.ts";
 import { paperHomeHosts } from "./paperData.testing.ts";
 
-export type DevHomeData = "worst" | "empty" | "one" | "huge" | "paper";
+export type DevHomeData = "worst" | "empty" | "one" | "huge" | "paper" | "none" | "offline";
 
 const host = (
   hostId: string,
@@ -209,10 +209,21 @@ const huge = host("studio", "mac-studio", [
 
 const empty = host("studio", "mac-studio", [snapshot({}), synchronized()]);
 
+/** Never reached this launch, still being tried, with the relay's own words (MX-AV). */
+export const unreachableRpi: HomeHost = {
+  hostId: "rpi",
+  name: "lucas-rpi",
+  connection: "reconnecting",
+  followed: { state: emptyHostFeed, seen: false, error: null },
+  failure: "the relay closed the socket (1006)",
+};
+
 export const devHomeHosts: Record<DevHomeData, ReadonlyArray<HomeHost>> = {
   worst: [studio, rpi, vm],
   empty: [empty],
   one: [one],
   huge: [huge],
   paper: paperHomeHosts,
+  none: [],
+  offline: [unreachableRpi],
 };
