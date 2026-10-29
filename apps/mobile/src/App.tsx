@@ -22,6 +22,10 @@ import { DuoShell } from "./duo/DuoShell.tsx";
 import { FollowedHostsProvider } from "./home/feed/useFollowedHosts.ts";
 import { HomeScreen } from "./home/HomeScreen.tsx";
 import { ComposerGallery, composerGalleryOn } from "./composer/Gallery.tsx";
+import {
+  ConstellationGallery,
+  constellationGalleryOn,
+} from "./constellation/ConstellationScreen/Gallery.tsx";
 import { galleryOn, RowGallery } from "./home/ui/Gallery.tsx";
 import { HorizonScreen } from "./horizon";
 import { InboxProvider } from "./inbox/index.ts";
@@ -30,11 +34,15 @@ import { LinkScreen } from "./link/LinkScreen.tsx";
 import { usePush, usePushLinks } from "./push/usePush.ts";
 import { RelayProvider, useRelay } from "./relay/RelayProvider.tsx";
 import { runSelfCheck } from "./runtime/selfCheck.ts";
+import { AcceptDemo } from "./review/accept/index.ts";
+import { ReviewGallery, reviewGalleryOn } from "./review/gallery/Gallery.tsx";
 import { SheetDemo, SheetHost } from "./sheet/index.tsx";
 import { CheckAlive } from "./runtime/CheckAlive.tsx";
 import { HostsProvider } from "./runtime/hosts.tsx";
 import { useReadyToReview } from "./review/index.ts";
 import { SettingsScreen } from "./settings/index.ts";
+import { ContextGallery, contextGalleryOn } from "./duo/ContextGallery.tsx";
+import { StarChartGallery, starChartGalleryOn } from "./starChart/Gallery.tsx";
 import { ThreadGallery, threadGalleryOn } from "./thread/ThreadGallery.tsx";
 import { useWidgetLinks } from "./widgets/useWidgetLinks.ts";
 import { WidgetSync } from "./widgets/WidgetSync.ts";
@@ -107,14 +115,6 @@ const Screen = () => {
   const relay = useRelay();
   const [first] = relay.hosts;
 
-  const linkedTo =
-    first === undefined
-      ? null
-      : {
-          name: first.hostName,
-          onUnlink: () => relay.unlink().then((kept) => kept.map((host) => host.hostName)),
-        };
-
   // A release build has no other route to a Host, so a fresh phone links first.
   if (!__DEV__ && relay.loaded && first === undefined)
     return <LinkScreen onLinked={() => undefined} />;
@@ -123,11 +123,7 @@ const Screen = () => {
     Match.discriminatorsExhaustive("screen")({
       tabs: () => <Tabs />,
       hosts: () => (
-        <HostsScreen
-          onBack={navigation.back}
-          onLink={() => navigation.push({ screen: "link" })}
-          linkedTo={linkedTo}
-        />
+        <HostsScreen onBack={navigation.back} onLink={() => navigation.push({ screen: "link" })} />
       ),
       thread: ({ hostId, sessionId }) => (
         <ThreadRoute hostId={hostId} sessionId={sessionId} onBack={navigation.back} />
@@ -175,11 +171,33 @@ const Shell = () => {
 
   if (galleryOn()) return <RowGallery />;
 
+  if (starChartGalleryOn()) return <StarChartGallery />;
+
+  if (contextGalleryOn()) return <ContextGallery />;
+
   if (threadGalleryOn())
     return (
       <SheetHost>
         <InboxProvider>
           <ThreadGallery />
+        </InboxProvider>
+      </SheetHost>
+    );
+
+  if (constellationGalleryOn())
+    return (
+      <SheetHost>
+        <InboxProvider>
+          <ConstellationGallery />
+        </InboxProvider>
+      </SheetHost>
+    );
+
+  if (reviewGalleryOn())
+    return (
+      <SheetHost>
+        <InboxProvider>
+          <ReviewGallery />
         </InboxProvider>
       </SheetHost>
     );
@@ -202,6 +220,7 @@ const Shell = () => {
             <NewSessionSheet onClose={navigation.closeNewSession} />
           ) : null}
           {__DEV__ ? <SheetDemo /> : null}
+          {__DEV__ ? <AcceptDemo /> : null}
         </View>
       </InboxProvider>
     </SheetHost>

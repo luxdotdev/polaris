@@ -1,155 +1,48 @@
 /**
- * The constellation on the unfolded Duo (Paper D9): the graph spans both halves left to right,
- * no node on the fold, the claim handed to the user under it, and the lead's conversation as a
- * sheet across the foot. Built from the constellation view's own model and pieces.
+ * The constellation on the unfolded Duo (Paper MX-AG): the star chart across the first half with
+ * the constellation's head, and the chosen task's claim in the second. A development build
+ * launched with `-polarisDevSpan paper` shows MX-AG's own constellation.
  */
-import type { Constellation, TaskProjection } from "@polaris/protocol";
-import { mobileType } from "@polaris/ui/tokens";
+import { mobileFont, mobileType, mobileWeight } from "@polaris/ui/tokens";
+import { Schema } from "effect";
 import { useEffect, useMemo, useState } from "react";
-import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { HandedClaimActions } from "../constellation/claim.tsx";
-import { LeadComposer } from "../constellation/composer.tsx";
-import { TaskGlyph, segmentColour } from "../constellation/glyphs.tsx";
-import { taskBar, taskRow, type TaskRow } from "../constellation/model.ts";
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  Settings,
+  Text,
+  View,
+  type ViewStyle,
+} from "react-native";
+import type { ConstellationSource } from "../constellation/model.ts";
 import { useConstellation } from "../constellation/useConstellation.ts";
 import { useVerdicts } from "../constellation/useVerdicts.ts";
-import { messageLead } from "../constellation/verdict.ts";
+import { harnessName } from "../home/model/format.ts";
 import type { HostConnection } from "../runtime/hostConnection.ts";
 import { useHost } from "../runtime/hosts.tsx";
-import { themedStyles, useTheme } from "../theme/index.ts";
-import { claimChoices, constellationKey, taskKey, useKept, useLeadInput } from "./kept.ts";
-import { claimLeft, type Edge, foldOf, graphLayout, NODE_HEIGHT, NODE_WIDTH } from "./graph.ts";
+import { StarChart } from "../starChart/index.ts";
+import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
+import { themedStyles } from "../theme/index.ts";
+import { ClaimPane, type PaneVerdicts } from "./ClaimPane.tsx";
+import { claimChoices, taskKey, useKept } from "./kept.ts";
+import { paperSpan } from "./paperSpan.testing.ts";
 import type { Rect } from "./posture.ts";
+import { useEdgeInsets } from "./useEdgeInsets.ts";
+import { chartRows, claimPane, firstChosen, spanChart, spanSummary } from "./span.ts";
 
-const GRAPH_TOP = 126;
+const DEV_SPAN =
+  __DEV__ && Platform.OS === "ios"
+    ? Schema.is(Schema.Literal("paper"))(Settings.get("polarisDevSpan"))
+    : false;
 
-const CLAIM_WIDTH = 374;
-
-const rowsOf = (c: Constellation, projections: ReadonlyArray<TaskProjection>, now: number) => {
-  const byTask = new Map(projections.map((p) => [p.taskId, p]));
-  const parents = new Set(c.tasks.flatMap((t) => (t.parent == null ? [] : [t.parent])));
-
-  return c.tasks.flatMap((task) => {
-    if (parents.has(task.id)) return [];
-    const row = taskRow(c, task, byTask, now);
-
-    return row === null || row.tone === "ended"
-      ? []
-      : [{ row, deps: task.deps, group: task.group ?? null }];
-  });
-};
-
-const Line = ({ edge }: { readonly edge: Edge }) => {
-  const styles = useStyles();
-  const dx = edge.x2 - edge.x1;
-  const dy = edge.y2 - edge.y1;
-  const length = Math.hypot(dx, dy);
-
-  return (
-    <View
-      pointerEvents="none"
-      style={[
-        styles.edge,
-        {
-          left: (edge.x1 + edge.x2) / 2 - length / 2,
-          top: (edge.y1 + edge.y2) / 2,
-          width: length,
-          transform: [{ rotate: `${Math.atan2(dy, dx)}rad` }],
-        },
-      ]}
-    />
-  );
-};
-
-const secondOf = (row: TaskRow): string => {
-  if (row.second?.kind === "activity") return `${row.second.command} · ${row.second.elapsed}`;
-
-  return row.second?.kind === "after" ? `${row.word} · after ${row.second.ids}` : row.word;
-};
-
-const Node = ({ row, x, y }: { readonly row: TaskRow; readonly x: number; readonly y: number }) => {
-  const styles = useStyles();
-  const { colours } = useTheme();
-
-  return (
-    <View
-      style={[
-        styles.node,
-        { left: x, top: y },
-        row.tone === "needs-you" ? styles.nodeNeedsYou : null,
-        row.tone === "waiting" ? styles.nodeWaiting : null,
-      ]}
-    >
-      <TaskGlyph tone={row.tone} harness={row.harness} gate={row.gate} />
-      <Text style={[styles.nodeId, row.tone === "needs-you" && { color: colours.needsYouText }]}>
-        {row.id}
-      </Text>
-      <View style={styles.nodeText}>
-        <Text style={styles.nodeTitle} numberOfLines={1}>
-          {row.title}
-        </Text>
-        {row.tone === "done" ? null : (
-          <Text
-            style={[styles.nodeSecond, row.tone === "needs-you" && { color: colours.needsYouText }]}
-            numberOfLines={1}
-          >
-            {secondOf(row)}
-          </Text>
-        )}
-      </View>
-    </View>
-  );
-};
-
-const Header = ({
-  name,
-  state,
-  rows,
-  onBack,
-}: {
-  readonly name: string;
-  readonly state: string;
-  readonly rows: ReadonlyArray<TaskRow>;
-  readonly onBack: (() => void) | undefined;
-}) => {
-  const styles = useStyles();
-  const { colours } = useTheme();
-  const bar = taskBar(rows);
-
-  return (
-    <View style={styles.header}>
-      {onBack === undefined ? null : (
-        <Pressable
-          style={styles.back}
-          onPress={onBack}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-        >
-          <Text style={styles.backGlyph}>‹</Text>
-        </Pressable>
-      )}
-      <View style={styles.titles}>
-        <Text style={styles.name} numberOfLines={1}>
-          {name}
-        </Text>
-        <View style={styles.barLine}>
-          <Text style={styles.meta}>
-            {state} · {bar.done} of {bar.total} tasks
-          </Text>
-          {bar.segments.slice(0, 16).map((tone, i) => (
-            <View
-              key={i}
-              style={[
-                styles.segment,
-                { backgroundColor: segmentColour(colours, tone, bar.harnesses[i] ?? null) },
-              ]}
-            />
-          ))}
-        </View>
-      </View>
-    </View>
-  );
-};
+const placed = (rect: Rect): ViewStyle => ({
+  position: "absolute",
+  left: rect.x,
+  top: rect.y,
+  width: rect.width,
+  height: rect.height,
+});
 
 const useNow = () => {
   const [now, setNow] = useState(Date.now);
@@ -163,232 +56,260 @@ const useNow = () => {
   return now;
 };
 
-const Live = ({
-  connection,
-  constellationId,
-  division,
+const Header = ({
+  name,
+  harness,
   onBack,
 }: {
-  readonly connection: HostConnection;
-  readonly constellationId: string;
-  readonly division: Rect;
+  readonly name: string;
+  readonly harness: string | null;
   readonly onBack: (() => void) | undefined;
 }) => {
   const styles = useStyles();
-  const { colours } = useTheme();
+
+  return (
+    <View style={styles.header}>
+      {onBack === undefined ? null : (
+        <Pressable
+          style={({ pressed }) => [styles.back, pressed ? styles.pressed : null]}
+          onPress={onBack}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+        >
+          <Text style={styles.backGlyph}>‹</Text>
+        </Pressable>
+      )}
+      <View style={styles.titles}>
+        <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.name} numberOfLines={1}>
+          {name}
+        </Text>
+        <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.sub} numberOfLines={1}>
+          {harness === null ? "constellation" : `constellation · ${harnessName(harness)}`}
+        </Text>
+      </View>
+    </View>
+  );
+};
+
+interface SpanViewProps {
+  readonly source: ConstellationSource;
+  readonly leadHarness: string | null;
+  readonly first: Rect;
+  readonly second: Rect;
+  readonly onBack?: (() => void) | undefined;
+  /** The chosen task's verdict controls; null without a Host to send them to. */
+  readonly verdictsFor: (taskId: string) => PaneVerdicts | null;
+}
+
+const SpanView = ({ source, leadHarness, first, second, onBack, verdictsFor }: SpanViewProps) => {
+  const styles = useStyles();
+  const now = useNow();
+  const { constellation } = source;
+  const [picked, setPicked] = useState<string | null>(null);
+
+  const rows = useMemo(
+    () => chartRows(constellation, source.projections, now),
+    [constellation, source.projections, now]
+  );
+
+  const chart = useMemo(() => spanChart(constellation, rows), [constellation, rows]);
+  const taskRows = rows.map((r) => r.row);
+  const summary = spanSummary(taskRows);
+  const chosen = picked ?? firstChosen(taskRows);
+
+  const pane =
+    chosen === null
+      ? null
+      : claimPane(constellation, source.projections, taskRows, chart, chosen, now);
+
+  const row = taskRows.find((r) => r.id === chosen) ?? null;
+  const firstEdges = useEdgeInsets(first);
+  const secondEdges = useEdgeInsets(second);
+
+  return (
+    <View style={styles.screen}>
+      <View
+        style={[
+          placed(first),
+          styles.first,
+          { paddingTop: 20 + firstEdges.top, paddingLeft: 24 + firstEdges.left },
+        ]}
+      >
+        <Header name={constellation.name} harness={leadHarness} onBack={onBack} />
+        <View style={styles.done}>
+          <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.doneCount}>
+            {summary.done}
+          </Text>
+          <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.doneLine}>
+            {summary.line}
+          </Text>
+        </View>
+        <ScrollView style={styles.fill} contentContainerStyle={styles.chart}>
+          <StarChart
+            tasks={chart.tasks}
+            bands={chart.bands}
+            selectedTaskId={chosen}
+            onPressTask={setPicked}
+          />
+        </ScrollView>
+      </View>
+      <View
+        style={[
+          placed(second),
+          styles.second,
+          {
+            paddingTop: secondEdges.top,
+            paddingRight: secondEdges.right,
+            paddingBottom: secondEdges.bottom,
+          },
+        ]}
+      >
+        <ClaimPane
+          pane={pane}
+          row={row}
+          verdicts={chosen === null ? null : verdictsFor(chosen)}
+          onChoose={setPicked}
+          width={second.width - secondEdges.left - secondEdges.right}
+        />
+      </View>
+    </View>
+  );
+};
+
+const Live = ({
+  connection,
+  constellationId,
+  ...view
+}: {
+  readonly connection: HostConnection;
+  readonly constellationId: string;
+} & Pick<SpanViewProps, "first" | "second" | "onBack">) => {
+  const styles = useStyles();
   const feed = useConstellation(connection, constellationId);
   const verdicts = useVerdicts(connection, constellationId);
-  const now = useNow();
   const [choices, setChoice] = useKept(claimChoices);
-  const lead = useLeadInput(constellationKey(connection.hostId, constellationId));
-  const source = feed.kind === "live" ? feed.source : null;
-
-  const placed = useMemo(
-    () => (source === null ? [] : rowsOf(source.constellation, source.projections, now)),
-    [source, now]
-  );
-
-  const fold = useMemo(() => foldOf(division), [division]);
-
-  const layout = useMemo(
-    () =>
-      graphLayout(
-        placed.map((p) => ({ id: p.row.id, deps: p.deps, group: p.group })),
-        fold,
-        GRAPH_TOP
-      ),
-    [placed, fold]
-  );
 
   if (feed.kind === "failed") return <Text style={styles.note}>{feed.message}</Text>;
 
-  if (source === null) return <Text style={styles.note}>Loading the constellation…</Text>;
+  if (feed.kind === "connecting")
+    return <Text style={styles.note}>Loading the constellation…</Text>;
 
-  const rows = placed.map((p) => p.row);
-  const handed = rows.find((r) => r.handed !== null || verdicts.find(r) !== null) ?? null;
-  const delivery = handed === null ? null : verdicts.find(handed);
-  const handedAt = layout.nodes.find((n) => n.id === handed?.id);
-  const at = new Map(layout.nodes.map((n) => [n.id, n]));
+  const { source } = feed;
+  const now = Date.now();
 
-  const left = handedAt === undefined ? 0 : claimLeft(layout, handedAt.x, fold, CLAIM_WIDTH);
+  const verdictsFor = (taskId: string): PaneVerdicts | null => {
+    const row = chartRows(source.constellation, source.projections, now).find(
+      (r) => r.row.id === taskId
+    )?.row;
+
+    if (row === undefined) return null;
+    const key = taskKey(connection.hostId, constellationId, taskId);
+
+    return {
+      delivery: verdicts.find(row),
+      send: verdicts.send(row),
+      cancel: () => verdicts.cancel(row),
+      unsent: choices.get(key) ?? null,
+      onUnsent: (next) => setChoice(key, next),
+    };
+  };
 
   return (
-    <KeyboardAvoidingView style={styles.fill} behavior="padding">
-      <ScrollView
-        style={styles.fill}
-        contentContainerStyle={{ minHeight: layout.height + 360 }}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Deeper columns than the display holds scroll sideways; the header stays put. */}
-        <ScrollView
-          horizontal
-          style={StyleSheet.absoluteFill}
-          contentContainerStyle={{
-            width: Math.max(layout.width, handed === null ? 0 : left + CLAIM_WIDTH + 20),
-          }}
-          keyboardShouldPersistTaps="handled"
-        >
-          {layout.edges.map((edge) => (
-            <Line key={`${edge.from}>${edge.to}`} edge={edge} />
-          ))}
-          {rows.map((row) => {
-            const node = at.get(row.id);
+    <SpanView
+      source={source}
+      leadHarness={feed.lead?.harness ?? null}
+      verdictsFor={verdictsFor}
+      {...view}
+    />
+  );
+};
 
-            return node === undefined ? null : (
-              <Node key={row.id} row={row} x={node.x} y={node.y} />
-            );
-          })}
-          {handed === null ? null : (
-            <View style={[styles.claim, { left, top: layout.height + 8 }]}>
-              <Text style={styles.claimTitle}>
-                <Text style={{ color: colours.needsYouText }}>{handed.id}</Text> Claim · handed to
-                you
-              </Text>
-              <HandedClaimActions
-                claim={handed.handed}
-                delivery={delivery}
-                onVerdict={verdicts.send(handed)}
-                onCancel={() => verdicts.cancel(handed)}
-                unsent={choices.get(taskKey(connection.hostId, constellationId, handed.id)) ?? null}
-                onUnsent={(next) =>
-                  setChoice(taskKey(connection.hostId, constellationId, handed.id), next)
-                }
-              />
-            </View>
-          )}
-        </ScrollView>
-        <Header
-          name={source.constellation.name}
-          state={source.constellation.state}
-          rows={rows}
-          onBack={onBack}
-        />
-      </ScrollView>
-      <View style={styles.sheet}>
-        <View style={styles.grabber} />
-        {feed.kind === "live" && feed.lead?.lastMessage != null ? (
-          <Text style={styles.leadLine} numberOfLines={2}>
-            <Text style={styles.meta}>Lead · </Text>
-            {feed.lead.lastMessage.text}
-          </Text>
-        ) : null}
-        <LeadComposer
-          harness={feed.kind === "live" ? (feed.lead?.harness ?? null) : null}
-          model={feed.kind === "live" ? (feed.lead?.model ?? null) : null}
-          disabled={null}
-          input={lead}
-          onSend={(text) =>
-            connection
-              .run((client) => messageLead(client, constellationId, text))
-              .then(() => undefined)
-          }
-        />
-      </View>
-    </KeyboardAvoidingView>
+/** MX-AG's constellation, answering nowhere: its choices are kept, its verdicts go nowhere. */
+const Paper = (view: Pick<SpanViewProps, "first" | "second" | "onBack">) => {
+  const source = useMemo(() => paperSpan(Date.now()), []);
+  const [choices, setChoice] = useKept(claimChoices);
+
+  return (
+    <SpanView
+      source={source}
+      leadHarness="claude"
+      verdictsFor={(taskId) => ({
+        delivery: null,
+        send: () => undefined,
+        cancel: () => undefined,
+        unsent: choices.get(taskId) ?? null,
+        onUnsent: (next) => setChoice(taskId, next),
+      })}
+      {...view}
+    />
   );
 };
 
 export interface ConstellationSpanProps {
   readonly hostId: string;
   readonly constellationId: string;
-  readonly division: Rect;
+  readonly first: Rect;
+  readonly second: Rect;
   readonly onBack?: () => void;
 }
 
-export const ConstellationSpan = ({
-  hostId,
-  constellationId,
-  division,
-  onBack,
-}: ConstellationSpanProps) => {
+export const ConstellationSpan = ({ hostId, constellationId, ...view }: ConstellationSpanProps) => {
   const styles = useStyles();
   const connection = useHost(hostId);
+
+  if (DEV_SPAN) return <Paper {...view} />;
 
   return (
     <View style={styles.screen}>
       {connection === null ? (
         <Text style={styles.note}>This host isn't linked to this iPhone.</Text>
       ) : (
-        <Live
-          connection={connection}
-          constellationId={constellationId}
-          division={division}
-          onBack={onBack}
-        />
+        <Live connection={connection} constellationId={constellationId} {...view} />
       )}
     </View>
   );
 };
 
-const useStyles = themedStyles((colours) => ({
-  screen: { flex: 1, backgroundColor: colours.ground },
+const useStyles = themedStyles((c) => ({
+  screen: { flex: 1, backgroundColor: c.ground },
   fill: { flex: 1 },
-  note: { ...mobileType.footnote, color: colours.textSubtle, padding: 24 },
-  header: { flexDirection: "row", alignItems: "center", gap: 12, padding: 20, maxWidth: 440 },
+  note: { ...mobileType.footnote, color: c.textSubtle, padding: 24 },
+  first: {
+    gap: 16,
+    paddingTop: 20,
+    paddingHorizontal: 24,
+    borderRightWidth: 1,
+    borderRightColor: c.hairline,
+  },
+  second: { backgroundColor: c.panel },
+  header: { flexDirection: "row", alignItems: "center", gap: 12 },
   back: {
     width: 36,
     height: 36,
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: colours.hairline,
+    backgroundColor: c.raised,
   },
-  backGlyph: { fontSize: 22, lineHeight: 24, color: colours.textDefault },
-  titles: { flex: 1, gap: 2 },
-  name: { ...mobileType.title, fontSize: 19, color: colours.textStrong },
-  barLine: { flexDirection: "row", alignItems: "center", gap: 3 },
-  meta: { ...mobileType.footnote, color: colours.textSubtle, marginRight: 6 },
-  segment: { width: 10, height: 4 },
-  edge: { position: "absolute", height: 1, backgroundColor: "#ffffff2e" },
-  node: {
-    position: "absolute",
-    width: NODE_WIDTH,
-    height: NODE_HEIGHT,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colours.hairline,
-    backgroundColor: colours.panel,
+  pressed: { opacity: 0.7 },
+  backGlyph: { fontSize: 20, lineHeight: 22, color: c.textDefault },
+  titles: { flex: 1, minWidth: 0 },
+  name: {
+    fontFamily: mobileFont.sans,
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: mobileWeight.medium,
+    color: c.textStrong,
   },
-  nodeNeedsYou: { borderColor: colours.needsYou },
-  nodeWaiting: { borderStyle: "dashed", backgroundColor: colours.ground },
-  nodeId: { ...mobileType.index, color: colours.textSubtle },
-  nodeText: { flex: 1, minWidth: 0 },
-  nodeTitle: { ...mobileType.subhead, color: colours.textStrong },
-  nodeSecond: { ...mobileType.index, fontSize: 11, lineHeight: 14, color: colours.textSubtle },
-  claim: {
-    position: "absolute",
-    width: CLAIM_WIDTH,
-    gap: 8,
-    padding: 16,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colours.hairline,
-    backgroundColor: colours.panel,
+  sub: { ...mobileType.footnote, color: c.textSubtle },
+  done: { flexDirection: "row", flexWrap: "wrap", alignItems: "baseline", columnGap: 10 },
+  doneCount: {
+    fontFamily: mobileFont.sans,
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: "300",
+    color: c.textStrong,
   },
-  claimTitle: { ...mobileType.subhead, color: colours.textStrong },
-  sheet: {
-    marginHorizontal: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 8,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderWidth: 1,
-    borderColor: colours.hairline,
-    backgroundColor: colours.panel,
-  },
-  grabber: {
-    alignSelf: "center",
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    marginTop: 8,
-    backgroundColor: colours.textFaint,
-  },
-  leadLine: { ...mobileType.callout, color: colours.textDefault },
+  doneLine: { ...mobileType.subhead, lineHeight: 20, color: c.textSubtle },
+  chart: { paddingBottom: 24 },
 }));

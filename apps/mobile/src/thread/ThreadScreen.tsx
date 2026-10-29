@@ -58,6 +58,12 @@ export interface ThreadScreenProps {
   readonly composerSlot?: "inline" | { readonly minHeight: number };
   /** Takes the place of the session's header: a constellation's status above its lead's thread. */
   readonly header?: ReactNode;
+  /** Drawn under the header, above the transcript: a constellation's star chart panel. */
+  readonly belowHeader?: ReactNode;
+  /** After the newest Turn, in the transcript: a constellation's completion card. */
+  readonly atLatest?: ReactNode;
+  /** Over the suggestions and composer: the lead's notice of a claim handed to the user. */
+  readonly aboveComposer?: ReactNode;
 }
 
 interface HeldThread {
@@ -228,6 +234,9 @@ export const ThreadScreen = ({
   focusedKey = null,
   composerSlot = "inline",
   header,
+  belowHeader,
+  atLatest,
+  aboveComposer,
 }: ThreadScreenProps) => {
   const connection = useHost(hostId);
   const navigation = useNavigation();
@@ -339,13 +348,21 @@ export const ThreadScreen = ({
   }, []);
 
   if (connection === null)
-    return <Missing onBack={onBack} header={header} text="This host isn't linked to this iPhone" />;
+    return (
+      <Missing
+        onBack={onBack}
+        header={header}
+        belowHeader={belowHeader}
+        text="This host isn't linked to this iPhone"
+      />
+    );
 
   if (state === null || fold === null)
     return (
       <Missing
         onBack={onBack}
         header={header}
+        belowHeader={belowHeader}
         text={state?.failure ?? (slowToOpen ? "Connecting…" : "")}
       />
     );
@@ -390,6 +407,7 @@ export const ThreadScreen = ({
             onBack={onBack}
           />
         )}
+        {belowHeader}
         <FlatList
           style={[styles.list, away ? styles.offline : null]}
           contentContainerStyle={styles.listContent}
@@ -411,6 +429,7 @@ export const ThreadScreen = ({
           )}
           ListHeaderComponent={
             <>
+              {atLatest}
               {critical === null ? null : (
                 <FindingRow
                   finding={critical}
@@ -451,6 +470,7 @@ export const ThreadScreen = ({
           ]}
         >
           {away ? <Text style={styles.queued}>Reconnecting to {connection.name}…</Text> : null}
+          {aboveComposer}
           <Suggestions items={chips} onPick={pick} />
           <Composer
             mode={mode}
@@ -507,10 +527,12 @@ const Missing = ({
   text,
   onBack,
   header,
+  belowHeader,
 }: {
   readonly text: string;
   readonly onBack: () => void;
   readonly header: ReactNode;
+  readonly belowHeader: ReactNode;
 }) => {
   const styles = useStyles();
 
@@ -525,6 +547,7 @@ const Missing = ({
           onBack={onBack}
         />
       )}
+      {belowHeader}
       <Text style={styles.missing}>{text}</Text>
     </SafeAreaView>
   );

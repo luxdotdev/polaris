@@ -1,24 +1,41 @@
 /**
- * Review's foot (Paper M5): Send back and Accept. Accept shows "Accept paused · 1 critical" and
- * does nothing while a Critical finding is open or the risk summary isn't finished. Send back opens a one-line reply first, so the
- * agent session gets the user's words as its next Turn.
+ * Review's foot (Paper MX-N): Send back and Accept in one floating pill over a fade to the ground.
+ * Accept keeps a ◆ count of open Criticals and goes through MX-T's confirmation (P3's accept);
+ * Send back opens a one-line reply first, so the agent session gets the user's words as its next Turn.
  */
 import { mobileType } from "@polaris/ui/tokens";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { themedStyles, useTheme } from "../theme/index.ts";
+import { CONTROL_TEXT_SCALE } from "../theme/textScale.ts";
+import { AcceptChip, canAccept } from "./accept/index.ts";
 import { acceptLabel } from "./copy.ts";
 import type { AcceptState } from "./model.ts";
-import { SeverityGlyph } from "./severity.tsx";
 
 export interface ActionBarProps {
   readonly accept: AcceptState;
   readonly turnNumber: number;
+  /** Open Critical findings, for Accept's ◆ count. */
+  readonly criticals: number;
   readonly bottomInset: number;
   readonly notice: string | null;
   readonly onAccept: () => void;
   readonly onSendBack: (reply: string) => void;
 }
+
+const Fade = ({ ground }: { readonly ground: string }) => (
+  <Svg style={StyleSheet.absoluteFill} preserveAspectRatio="none">
+    <Defs>
+      <LinearGradient id="bar-fade" x1="0" y1="0" x2="0" y2="1">
+        <Stop offset="0" stopColor={ground} stopOpacity={0} />
+        <Stop offset="0.28" stopColor={ground} stopOpacity={0.9} />
+        <Stop offset="1" stopColor={ground} stopOpacity={1} />
+      </LinearGradient>
+    </Defs>
+    <Rect width="100%" height="100%" fill="url(#bar-fade)" />
+  </Svg>
+);
 
 const Reply = ({ onSend, onCancel }: { onSend: (reply: string) => void; onCancel: () => void }) => {
   const styles = useStyles();
@@ -29,6 +46,7 @@ const Reply = ({ onSend, onCancel }: { onSend: (reply: string) => void; onCancel
   return (
     <View style={styles.reply}>
       <TextInput
+        maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
         style={styles.input}
         value={text}
         onChangeText={setText}
@@ -39,7 +57,9 @@ const Reply = ({ onSend, onCancel }: { onSend: (reply: string) => void; onCancel
         onSubmitEditing={() => ready && onSend(text)}
       />
       <Pressable accessibilityRole="button" style={styles.ghost} onPress={onCancel}>
-        <Text style={styles.ghostText}>Cancel</Text>
+        <Text maxFontSizeMultiplier={CONTROL_TEXT_SCALE} style={styles.ghostText}>
+          Cancel
+        </Text>
       </Pressable>
       <Pressable
         accessibilityRole="button"
@@ -48,55 +68,69 @@ const Reply = ({ onSend, onCancel }: { onSend: (reply: string) => void; onCancel
         style={[styles.send, !ready && styles.sendOff]}
         onPress={() => onSend(text)}
       >
-        <Text style={[styles.sendText, !ready && styles.sendTextOff]}>Send</Text>
+        <Text
+          maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
+          style={[styles.sendText, !ready && styles.sendTextOff]}
+        >
+          Send
+        </Text>
       </Pressable>
     </View>
   );
 };
 
-export const ActionBar = ({
-  accept,
-  turnNumber,
-  bottomInset,
-  notice,
-  onAccept,
-  onSendBack,
-}: ActionBarProps) => {
+export const ActionBar = (props: ActionBarProps) => {
   const styles = useStyles();
+  const { colours } = useTheme();
   const [replying, setReplying] = useState(false);
-  const enabled = accept.kind === "ready";
+  const enabled = canAccept(props.accept);
 
   return (
-    <View style={[styles.bar, { paddingBottom: Math.max(bottomInset, 12) }]}>
-      {notice === null ? null : <Text style={styles.notice}>{notice}</Text>}
+    <View style={[styles.bar, { paddingBottom: Math.max(props.bottomInset, 12) }]}>
+      <Fade ground={colours.ground} />
+      {props.notice === null ? null : (
+        <Text maxFontSizeMultiplier={CONTROL_TEXT_SCALE} style={styles.notice}>
+          {props.notice}
+        </Text>
+      )}
       {replying ? (
         <Reply
           onCancel={() => setReplying(false)}
           onSend={(reply) => {
             setReplying(false);
-            onSendBack(reply);
+            props.onSendBack(reply);
           }}
         />
       ) : null}
-      <View style={styles.row}>
+      <View style={styles.pill}>
         <Pressable
           accessibilityRole="button"
-          style={styles.secondary}
+          style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
           onPress={() => setReplying(true)}
         >
-          <Text style={styles.secondaryText}>Send back</Text>
+          <Text maxFontSizeMultiplier={CONTROL_TEXT_SCALE} style={styles.secondaryText}>
+            Send back
+          </Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityState={{ disabled: !enabled }}
           disabled={!enabled}
-          style={[styles.accept, enabled ? styles.acceptOn : styles.acceptOff]}
-          onPress={onAccept}
+          style={({ pressed }) => [
+            styles.accept,
+            enabled ? styles.acceptOn : styles.acceptOff,
+            pressed && styles.pressed,
+          ]}
+          onPress={props.onAccept}
         >
-          {accept.kind === "paused" ? <SeverityGlyph severity="critical" size={9} /> : null}
-          <Text style={[styles.acceptText, enabled ? styles.acceptTextOn : styles.acceptTextOff]}>
-            {acceptLabel(accept, turnNumber)}
+          <Text
+            maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
+            numberOfLines={1}
+            style={[styles.acceptText, enabled ? styles.acceptTextOn : styles.acceptTextOff]}
+          >
+            {acceptLabel(props.accept, props.turnNumber)}
           </Text>
+          {enabled ? <AcceptChip count={props.criticals} /> : null}
         </Pressable>
       </View>
     </View>
@@ -110,23 +144,27 @@ const useStyles = themedStyles((colours) => ({
     right: 0,
     bottom: 0,
     gap: 10,
-    paddingTop: 12,
-    paddingHorizontal: 20,
-    backgroundColor: `${colours.ground}f2`,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colours.hairline,
+    paddingTop: 24,
+    paddingHorizontal: 12,
   },
-  notice: { ...mobileType.footnote, color: colours.failedText },
-  row: { flexDirection: "row", gap: 8 },
-  secondary: {
-    height: 46,
-    paddingHorizontal: 16,
+  notice: { ...mobileType.footnote, color: colours.failedText, paddingHorizontal: 8 },
+  pill: {
+    flexDirection: "row",
+    gap: 8,
+    padding: 6,
     borderRadius: 999,
-    justifyContent: "center",
     borderWidth: 1,
     borderColor: colours.hairline,
+    backgroundColor: colours.panel,
   },
-  secondaryText: { ...mobileType.label, color: colours.textDefault },
+  secondary: {
+    height: 46,
+    paddingHorizontal: 20,
+    borderRadius: 999,
+    justifyContent: "center",
+    backgroundColor: colours.raised,
+  },
+  secondaryText: { ...mobileType.heading, lineHeight: 20, color: colours.textStrong },
   accept: {
     flex: 1,
     height: 46,
@@ -139,9 +177,10 @@ const useStyles = themedStyles((colours) => ({
   },
   acceptOn: { backgroundColor: colours.textStrong },
   acceptOff: { backgroundColor: colours.raised },
-  acceptText: { ...mobileType.label },
+  acceptText: { ...mobileType.heading, lineHeight: 20, flexShrink: 1 },
   acceptTextOn: { color: colours.ground },
   acceptTextOff: { color: colours.textSubtle },
+  pressed: { opacity: 0.8 },
   reply: { flexDirection: "row", alignItems: "center", gap: 8 },
   input: {
     ...mobileType.callout,
@@ -150,7 +189,7 @@ const useStyles = themedStyles((colours) => ({
     paddingHorizontal: 14,
     borderRadius: 999,
     color: colours.textDefault,
-    backgroundColor: colours.well,
+    backgroundColor: colours.raised,
     borderWidth: 1,
     borderColor: colours.hairline,
   },

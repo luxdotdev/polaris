@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { useTheme } from "../theme";
+import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 
 const CloseGlyph = ({ color }: { readonly color: string }) => (
   <Svg width={12} height={12} viewBox="0 0 12 12">
@@ -16,6 +17,10 @@ const CloseGlyph = ({ color }: { readonly color: string }) => (
 
 export interface SheetHeaderProps {
   readonly title: string;
+  /** Lines the title may wrap to before it truncates; a detail sheet's name reads whole. */
+  readonly titleLines?: number;
+  /** A line under the title ("Turn 24 · read 3 files at 9be04d", MX-S). */
+  readonly subtitle?: string;
   /** One count or state word after the title, in mono ("2"). */
   readonly kicker?: string | number;
   /** A small glyph before the title (the needs you star, a Harness mark). */
@@ -27,19 +32,46 @@ export interface SheetHeaderProps {
 }
 
 /** MX-H's header: mark, title, mono kicker, and close (or one control) at the trailing edge. */
-export const SheetHeader = ({ title, kicker, mark, onClose, control }: SheetHeaderProps) => {
+export const SheetHeader = ({
+  title,
+  titleLines = 1,
+  subtitle,
+  kicker,
+  mark,
+  onClose,
+  control,
+}: SheetHeaderProps) => {
   const { colours } = useTheme();
 
   return (
     <View style={styles.header}>
       {mark === undefined ? null : <View style={styles.mark}>{mark}</View>}
-      <Text
-        accessibilityRole="header"
-        numberOfLines={1}
-        style={[styles.title, { color: colours.textStrong }]}
-      >
-        {title}
-      </Text>
+      {subtitle === undefined ? (
+        <Text
+          accessibilityRole="header"
+          numberOfLines={titleLines}
+          style={[styles.title, { color: colours.textStrong }]}
+        >
+          {title}
+        </Text>
+      ) : (
+        <View style={styles.titles}>
+          <Text
+            accessibilityRole="header"
+            numberOfLines={titleLines}
+            style={[styles.title, { color: colours.textStrong }]}
+          >
+            {title}
+          </Text>
+          <Text
+            numberOfLines={1}
+            maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+            style={[styles.subtitle, { color: colours.textSubtle }]}
+          >
+            {subtitle}
+          </Text>
+        </View>
+      )}
       {kicker === undefined ? null : (
         <Text style={[styles.count, { color: colours.textSubtle }]}>{kicker}</Text>
       )}
@@ -182,6 +214,8 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   count: { fontFamily: mobileFont.mono, fontSize: 12, lineHeight: 16 },
+  titles: { flexShrink: 1, gap: 1 },
+  subtitle: { ...mobileType.footnote },
   spacer: { flex: 1 },
   close: {
     width: 30,

@@ -13,8 +13,8 @@ export type Arrangement =
   | { readonly kind: "context"; readonly first: Rect; readonly second: Rect }
   /** Unfolded on a screen with no second half of its own: it keeps the first half. */
   | { readonly kind: "aside"; readonly first: Rect; readonly second: Rect }
-  /** D9: the constellation graph across both halves. */
-  | { readonly kind: "span"; readonly division: Rect }
+  /** MX-AG: the star chart in the first half, the chosen task's claim in the second. */
+  | { readonly kind: "span"; readonly first: Rect; readonly second: Rect }
   /** D7: the thread above the fold, its composer and the keyboard below. */
   | { readonly kind: "laptop"; readonly bottom: Rect; readonly division: Rect }
   /** D8: the sky above the fold, needs you below. */
@@ -42,10 +42,11 @@ export const arrangementOf = (posture: Posture, top: Route): Arrangement => {
   if (top.screen === "thread")
     return { kind: "context", first: posture.first, second: posture.second };
 
-  // The graph runs left to right across a vertical fold; across a horizontal one the rail stays.
+  // The chart and its claim sit side by side across a vertical fold; across a horizontal one the
+  // constellation stays as on the iPhone.
   if (top.screen === "constellation")
     return posture.division.height >= posture.division.width
-      ? { kind: "span", division: posture.division }
+      ? { kind: "span", first: posture.first, second: posture.second }
       : SINGLE;
 
   return { kind: "aside", first: posture.first, second: posture.second };

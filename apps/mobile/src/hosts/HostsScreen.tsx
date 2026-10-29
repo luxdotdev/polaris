@@ -1,22 +1,38 @@
 /**
- * Hosts (Paper M7, M9): each Host's Connection State, round trip and route, read only, and this
- * iPhone's notification switch. Routes are chosen on the Mac; no dither on Reconnecting.
+ * Hosts under Settings (Paper MX-AD): instrument rows grouped "Needs a look" and "Connected",
+ * each opening the host details sheet (MX-AE). Routes are chosen on the Mac.
  */
-import { mobileType } from "@polaris/ui/tokens";
-import type { ConnectionState } from "@polaris/protocol";
+import { mobileFont, mobileType } from "@polaris/ui/tokens";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
+import Svg, { Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackBar } from "../app/BackBar.tsx";
-import { useFollowedHosts } from "../home/feed/useFollowedHosts.ts";
+import { type FollowedHostState, useFollowedHosts } from "../home/feed/useFollowedHosts.ts";
+import { EdgeFade, HORIZON_CLEAR, HorizonScreen } from "../horizon";
 import { hostMenu, LongPressMenu, useMenuActions } from "../menus/index.ts";
-import { SwitchRow } from "../newSession/parts.tsx";
+import { useRelay } from "../relay/RelayProvider.tsx";
+import { Chevron } from "../settings/icons.tsx";
+import { themedStyles, useTheme } from "../theme/index.ts";
+import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
+import { DevSegments } from "../home/ui/DevDataToggle.tsx";
 import {
-  constellationNotifications,
-  useConstellationNotifications,
-} from "../push/constellations.ts";
-import { themedStyles } from "../theme/index.ts";
-import { buildHosts, type HostRowModel, unlinkNote } from "./model.ts";
+  chooseDevHosts,
+  DEV_HOST_SHEET,
+  type DevHostsData,
+  useDevHosts,
+  useDevHostsData,
+} from "./dev.ts";
+import { HostSheet } from "./HostSheet.tsx";
+import {
+  buildHosts,
+  hostDetails,
+  type HostInput,
+  type HostRowModel,
+  type HostSection,
+  unlinkNote,
+} from "./model.ts";
+import { StateDot, stateLineColour } from "./StateDot.tsx";
 
 /** Re-renders each second while a Host reconnects, so "42s" counts. */
 const useTicking = (active: boolean) => {
@@ -31,232 +47,299 @@ const useTicking = (active: boolean) => {
   return now;
 };
 
-const StateDot = ({ state }: { readonly state: ConnectionState }) => {
-  const styles = useStyles();
+const toInput = ({ connection, status, followed }: FollowedHostState): HostInput => ({
+  hostId: connection.hostId,
+  name: status.host?.hostname ?? connection.name,
+  route: connection.route,
+  state: status.state,
+  failure: status.failure?.detail ?? null,
+  latencyMs: status.latencyMs,
+  lastSeenAt: status.lastSeenAt,
+  sessions: followed.seen
+    ? [...followed.state.sessions.values()].filter(({ session }) => session.state !== "archived")
+        .length
+    : null,
+});
 
-  return (
-    <View style={styles.dotSlot}>
-      <View
-        style={[
-          styles.dot,
-          state === "connected" || state === "needs-attention" ? styles.dotFilled : null,
-          state === "reconnecting" ? styles.dotRing : null,
-          state === "offline" ? styles.dotDashed : null,
-        ]}
-      />
-    </View>
-  );
-};
-
-const HostRow = ({ row }: { readonly row: HostRowModel }) => {
+const HostRow = ({
+  row,
+  last,
+  onOpen,
+}: {
+  readonly row: HostRowModel;
+  readonly last: boolean;
+  readonly onOpen: () => void;
+}) => {
   const styles = useStyles();
+  const { colours } = useTheme();
   const offline = row.state === "offline";
 
   return (
-    <View style={[styles.row, row.dimmed ? styles.dimmed : null]} accessible>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${row.name}, ${row.line}, round trip ${row.roundTrip}, ${row.route}`}
+      onPress={onOpen}
+      style={({ pressed }) => [
+        styles.row,
+        last ? null : styles.divided,
+        pressed ? styles.pressed : null,
+      ]}
+    >
       <StateDot state={row.state} />
       <View style={styles.text}>
-        <Text style={[styles.name, offline ? styles.offlineName : null]} numberOfLines={1}>
+        <Text
+          style={[styles.name, offline ? styles.offlineName : null]}
+          numberOfLines={1}
+          ellipsizeMode="middle"
+          maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+        >
           {row.name}
         </Text>
-        <Text style={[styles.line, offline ? styles.offlineLine : null]} numberOfLines={2}>
+        <Text
+          style={[styles.line, { color: stateLineColour(row.state, colours) }]}
+          numberOfLines={1}
+          maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+        >
           {row.line}
         </Text>
       </View>
-      <View style={styles.count}>
-        <Text style={[styles.countValue, offline ? styles.offlineLine : null]}>{row.count}</Text>
-        <Text style={styles.countLabel}>{row.countLabel}</Text>
+      <View style={styles.meter}>
+        <Text
+          style={[styles.roundTrip, row.state === "connected" ? null : styles.faint]}
+          maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+        >
+          {row.roundTrip}
+        </Text>
+        <Text style={styles.route} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
+          {row.route}
+        </Text>
       </View>
-    </View>
+      <Chevron color={colours.textFaint} />
+    </Pressable>
   );
 };
 
-/** Paper M9: Polaris's own notifications when a constellation needs you, per device. */
-const Notifications = () => {
-  const styles = useStyles();
-  const on = useConstellationNotifications();
-
-  return (
-    <View style={styles.notifications}>
-      <Text style={styles.sectionLabel}>Notifications on this iPhone</Text>
-      <View style={styles.switchBorder}>
-        <SwitchRow
-          title="When a constellation needs you"
-          caption="A question to you or a claim the lead hands up. Approvals always arrive."
-          value={on}
-          onValueChange={constellationNotifications.set}
-        />
-      </View>
-      <Text style={styles.footerNote}>
-        Your Mac has its own switch, in Settings → Notifications.
-      </Text>
-    </View>
-  );
-};
-
-/** The Mac this iPhone is linked to (R4's Linked Devices), with Unlink. */
-export interface LinkedTo {
-  readonly name: string;
-  /** Resolves with the names of the hosts that didn't revoke this iPhone. */
-  readonly onUnlink: () => Promise<ReadonlyArray<string>>;
-}
-
-const FooterRow = ({
-  label,
-  action,
-  onPress,
+const Section = ({
+  section,
+  first,
+  onOpen,
 }: {
-  readonly label: string;
-  readonly action: string;
-  readonly onPress: () => void;
+  readonly section: HostSection;
+  readonly first: boolean;
+  readonly onOpen: (hostId: string) => void;
 }) => {
   const styles = useStyles();
+  const onMenu = useMenuActions();
 
   return (
-    <View style={styles.footerRow}>
-      <Text style={styles.footerTitle} numberOfLines={1}>
-        {label}
+    <>
+      <Text
+        style={[styles.kicker, first ? null : styles.laterKicker]}
+        accessibilityRole="header"
+        accessibilityLabel={`${section.title}, ${section.rows.length}`}
+        maxFontSizeMultiplier={CHROME_TEXT_SCALE}
+      >
+        {`${section.title} · ${section.rows.length}`.toUpperCase()}
       </Text>
-      <Pressable accessibilityRole="button" onPress={onPress} hitSlop={10}>
-        <Text style={styles.footerAction}>{action}</Text>
-      </Pressable>
-    </View>
+      <View style={styles.panel}>
+        {section.rows.map((row, index) => (
+          <LongPressMenu
+            key={row.key}
+            menu={hostMenu({ hostId: row.key, state: row.state })}
+            onAction={onMenu}
+          >
+            <HostRow
+              row={row}
+              last={index === section.rows.length - 1}
+              onOpen={() => onOpen(row.key)}
+            />
+          </LongPressMenu>
+        ))}
+      </View>
+    </>
+  );
+};
+
+const LinkRow = ({ onLink }: { readonly onLink: () => void }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
+
+  return (
+    <Pressable accessibilityRole="button" onPress={onLink} style={styles.linkRow}>
+      <Svg width={14} height={14} viewBox="0 0 14 14">
+        <Path
+          d="M7 1v12M1 7h12"
+          stroke={colours.textDefault}
+          strokeWidth={1.6}
+          strokeLinecap="round"
+        />
+      </Svg>
+      <Text style={styles.linkText} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
+        Link a host
+      </Text>
+    </Pressable>
+  );
+};
+
+/** The list ends above the moon (DESIGN.md: no row sits on the horizon); this lifts its last row past the fade. */
+const LIST_FOOT = 40;
+
+/** Room under the last row for the development toggle that stands at the list's foot. */
+const DEV_TOGGLE_ROOM = 40;
+
+const DEV_CHOICES: ReadonlyArray<readonly [DevHostsData, string]> = [
+  ["paper", "Paper"],
+  ["worst", "Worst case"],
+  ["offline", "All offline"],
+  ["one", "One"],
+  ["huge", "64"],
+  ["empty", "None"],
+];
+
+const DevHostsToggle = ({ bottom }: { readonly bottom: number }) => {
+  const data = useDevHostsData();
+
+  return data === null ? null : (
+    <DevSegments choices={DEV_CHOICES} value={data} onChoose={chooseDevHosts} bottom={bottom} />
   );
 };
 
 export const HostsScreen = ({
   onBack,
   onLink,
-  linkedTo = null,
 }: {
   readonly onBack: () => void;
   readonly onLink: () => void;
-  readonly linkedTo?: LinkedTo | null;
 }) => {
   const styles = useStyles();
   const insets = useSafeAreaInsets();
-  const hosts = useFollowedHosts();
-  const onMenu = useMenuActions();
+  const relay = useRelay();
+  const followed = useFollowedHosts();
+  const dev = useDevHosts();
+  const hosts = dev ?? followed.map(toInput);
+  const [openId, setOpenId] = useState<string | null>(DEV_HOST_SHEET);
   const [unlinkLeft, setUnlinkLeft] = useState<string | null>(null);
-  const now = useTicking(hosts.some(({ status }) => status.state === "reconnecting"));
+  const now = useTicking(hosts.some(({ state }) => state === "reconnecting"));
+  const model = buildHosts(hosts, now);
+  const open = hosts.find((host) => host.hostId === openId) ?? null;
 
-  const model = buildHosts(
-    hosts.map(({ connection, status, followed }) => ({
-      hostId: connection.hostId,
-      name: status.host?.hostname ?? connection.name,
-      route: connection.route,
-      state: status.state,
-      failure: status.failure?.detail ?? null,
-      latencyMs: status.latencyMs,
-      lastSeenAt: status.state === "connected" ? null : status.lastSeenAt,
-      sessions: followed.seen
-        ? [...followed.state.sessions.values()].filter(
-            ({ session }) => session.state !== "archived"
-          ).length
-        : null,
-    })),
-    now
-  );
+  const relayLinked = (host: HostInput) =>
+    dev === null ? relay.routeOf(host.hostId) === "relay" : host.route === "relay";
+
+  const unlink = (hostId: string) => () => {
+    setOpenId(null);
+
+    if (dev !== null) return;
+    void relay
+      .unlinkHost(hostId)
+      .then((kept) => setUnlinkLeft(unlinkNote(kept.map((host) => host.hostName))));
+  };
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <BackBar label="Sessions" onBack={onBack} />
-      <View style={styles.head}>
-        <Text style={styles.title} accessibilityRole="header">
-          Hosts
-        </Text>
-        <Text style={styles.summary}>
-          {model.summary.map((part, index) => (
-            <Text key={part.text} style={part.emphasis ? styles.emphasis : null}>
-              {index > 0 ? " · " : ""}
-              {part.text}
-            </Text>
-          ))}
-        </Text>
-      </View>
-      <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
-        {model.rows.map((row) => (
-          <LongPressMenu
-            key={row.key}
-            menu={hostMenu({ hostId: row.key, state: row.state })}
-            onAction={onMenu}
+    <HorizonScreen>
+      <View style={[styles.screen, { paddingTop: insets.top }]}>
+        <BackBar label="Settings" onBack={onBack} />
+        <View style={styles.list}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: dev === null ? LIST_FOOT : LIST_FOOT + DEV_TOGGLE_ROOM },
+            ]}
           >
-            <HostRow row={row} />
-          </LongPressMenu>
-        ))}
-        {linkedTo === null ? null : <Notifications />}
-      </ScrollView>
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) + 10 }]}>
-        {linkedTo === null ? (
-          <FooterRow label="This iPhone isn't linked to a Mac" action="Link" onPress={onLink} />
-        ) : (
-          <FooterRow
-            label={`Linked to ${linkedTo.name}`}
-            action="Unlink"
-            onPress={() => void linkedTo.onUnlink().then((kept) => setUnlinkLeft(unlinkNote(kept)))}
-          />
-        )}
-        {unlinkLeft === null ? null : <Text style={styles.footerNote}>{unlinkLeft}</Text>}
-        <Text style={styles.footerNote}>
-          Hosts you add on your Mac appear here. Each host's route is set in Polaris on the Mac,
-          under Remote Access.
-        </Text>
+            <View style={styles.head}>
+              <Text
+                style={styles.title}
+                accessibilityRole="header"
+                maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+              >
+                Hosts
+              </Text>
+              <Text style={styles.summary} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
+                {model.summary}
+              </Text>
+            </View>
+            <View style={styles.sections}>
+              {model.sections.map((section, index) => (
+                <Section
+                  key={section.title}
+                  section={section}
+                  first={index === 0}
+                  onOpen={setOpenId}
+                />
+              ))}
+              <LinkRow onLink={onLink} />
+              {unlinkLeft === null ? null : <Text style={styles.note}>{unlinkLeft}</Text>}
+            </View>
+          </ScrollView>
+          <EdgeFade />
+        </View>
       </View>
-    </View>
+      <HostSheet
+        details={open === null ? null : hostDetails(open, now)}
+        onClose={() => setOpenId(null)}
+        onUnlink={open !== null && relayLinked(open) ? unlink(open.hostId) : null}
+      />
+      <DevHostsToggle bottom={HORIZON_CLEAR + 4} />
+    </HorizonScreen>
   );
 };
 
 const useStyles = themedStyles((colours) => ({
-  screen: { flex: 1, backgroundColor: colours.ground },
-  head: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 18, gap: 6 },
-  title: { ...mobileType.largeTitle, lineHeight: 41, color: colours.textStrong },
-  summary: {
-    ...mobileType.callout,
-    lineHeight: 20,
+  screen: { flex: 1 },
+  list: { flex: 1, marginBottom: HORIZON_CLEAR },
+  content: { paddingTop: 4 },
+  head: { paddingHorizontal: 16, paddingBottom: 12, gap: 6 },
+  title: { ...mobileType.largeTitle, fontWeight: "600", lineHeight: 41, color: colours.textStrong },
+  summary: { ...mobileType.footnote, color: colours.textSubtle, fontVariant: ["tabular-nums"] },
+  sections: { paddingHorizontal: 10, gap: 10 },
+  kicker: {
+    fontFamily: mobileFont.mono,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: "500",
+    letterSpacing: 0.88,
     color: colours.textSubtle,
-    fontVariant: ["tabular-nums"],
+    paddingHorizontal: 8,
+    paddingTop: 6,
   },
-  emphasis: { color: colours.textDefault },
-  list: { flex: 1, borderTopWidth: 1, borderTopColor: colours.hairline },
-  listContent: { paddingHorizontal: 20 },
+  laterKicker: { paddingTop: 10 },
+  panel: {
+    backgroundColor: colours.panel,
+    borderColor: colours.hairline,
+    borderWidth: 1,
+    borderRadius: 20,
+    overflow: "hidden",
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colours.hairline,
+    gap: 12,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
   },
-  dimmed: { opacity: 0.55 },
-  dotSlot: { width: 12, height: 12, alignItems: "center", justifyContent: "center" },
-  dot: { width: 8, height: 8, borderRadius: 999 },
-  dotFilled: { backgroundColor: colours.textSubtle },
-  dotRing: { borderWidth: 1.5, borderColor: colours.textSubtle },
-  dotDashed: { borderWidth: 1.5, borderColor: colours.textFaint, borderStyle: "dashed" },
-  text: { flex: 1, minWidth: 0, gap: 3 },
-  name: { ...mobileType.title, color: colours.textStrong },
+  divided: { borderBottomWidth: 1, borderBottomColor: colours.hairline },
+  pressed: { backgroundColor: colours.raised },
+  text: { flex: 1, minWidth: 0 },
+  name: { ...mobileType.heading, color: colours.textStrong },
   offlineName: { color: colours.textSubtle },
-  line: { ...mobileType.subhead, color: colours.textSubtle, fontVariant: ["tabular-nums"] },
-  offlineLine: { color: colours.textFaint },
-  count: { width: 72, alignItems: "flex-end", gap: 3 },
-  countValue: {
-    ...mobileType.body,
+  line: { ...mobileType.footnote },
+  meter: { alignItems: "flex-end", flexShrink: 0 },
+  roundTrip: {
+    fontFamily: mobileFont.mono,
+    fontSize: 13,
+    lineHeight: 18,
     color: colours.textDefault,
     fontVariant: ["tabular-nums"],
   },
-  countLabel: { ...mobileType.footnote, fontSize: 12, lineHeight: 16, color: colours.textFaint },
-  footer: {
-    borderTopWidth: 1,
-    borderTopColor: colours.hairline,
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    gap: 6,
+  faint: { color: colours.textFaint },
+  route: { ...mobileType.tab, fontWeight: "400", lineHeight: 15, color: colours.textFaint },
+  linkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
   },
-  footerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  footerTitle: { ...mobileType.callout, lineHeight: 20, color: colours.textDefault },
-  footerAction: { ...mobileType.callout, lineHeight: 20, color: colours.textSubtle },
-  footerNote: { ...mobileType.footnote, color: colours.textFaint },
-  notifications: { paddingTop: 28, gap: 8 },
-  sectionLabel: { ...mobileType.footnote, color: colours.textSubtle },
-  switchBorder: { borderTopWidth: 1, borderBottomWidth: 1, borderColor: colours.hairline },
+  linkText: { ...mobileType.label, lineHeight: 20, color: colours.textDefault },
+  note: { ...mobileType.footnote, color: colours.textFaint, paddingHorizontal: 14 },
 }));

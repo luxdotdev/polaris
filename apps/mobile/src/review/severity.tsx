@@ -4,7 +4,8 @@
  */
 import type { Severity } from "@polaris/protocol";
 import { mobileType } from "@polaris/ui/tokens";
-import { Text, View } from "react-native";
+import { Text, useWindowDimensions, View } from "react-native";
+import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 import { type MobileColours, themedStyles, useTheme } from "../theme/index.ts";
 import { SEVERITIES, type Tally } from "./model.ts";
 
@@ -45,6 +46,30 @@ export const severityLabel: Readonly<Record<Severity, string>> = {
   high: "High",
   medium: "Medium",
   low: "Low",
+};
+
+/** The glyph centred on the first line of a title set at `lineHeight`, as Dynamic Type grows it. */
+export const LeadGlyph = ({
+  severity,
+  size,
+  lineHeight,
+}: {
+  readonly severity: Severity;
+  readonly size: number;
+  readonly lineHeight: number;
+}) => {
+  const { fontScale } = useWindowDimensions();
+
+  return (
+    <View
+      style={{
+        height: lineHeight * Math.min(fontScale, CONTENT_TEXT_SCALE),
+        justifyContent: "center",
+      }}
+    >
+      <SeverityGlyph severity={severity} size={size} />
+    </View>
+  );
 };
 
 export const SeverityGlyph = ({

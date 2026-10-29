@@ -20,6 +20,7 @@ import {
   PairingPayload,
 } from "@polaris/protocol";
 import { Data, Effect, Option, Schema, Stream } from "effect";
+import { alignChange } from "../diff/align.ts";
 import { lineOf } from "../markdown/line.ts";
 import { parseAfter } from "../markdown/parse.ts";
 
@@ -197,12 +198,30 @@ const markdownCheck = Effect.sync(() => {
   ]);
 });
 
+// The diff's token emphasis: syntax-diff's core over the light tokenizer's run-time patterns.
+const diffCheck = Effect.sync(() => {
+  const rows = alignChange(
+    ["  const body = await req.text(); // café", "fn(a)"],
+    ["  const body = await req.arrayBuffer(); // café", "fn(a, b)"],
+    "upload.ts"
+  );
+
+  return expectEqual(
+    rows.map((row) => [row.kind, row.removed, row.added]),
+    [
+      ["modified", [{ start: 25, end: 29 }], [{ start: 25, end: 36 }]],
+      ["inserted", [], [{ start: 4, end: 7 }]],
+    ]
+  );
+});
+
 const CHECKS: ReadonlyArray<readonly [string, Effect.Effect<string | null, unknown>]> = [
   ["effect", effectCheck],
   ["frame codec", frameCheck],
   ["connection machine", machineCheck],
   ["resume", resumeCheck],
   ["markdown", markdownCheck],
+  ["diff", diffCheck],
 ];
 
 const runOne = ([name, check]: (typeof CHECKS)[number]) =>

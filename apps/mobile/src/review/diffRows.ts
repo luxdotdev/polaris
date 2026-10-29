@@ -5,6 +5,7 @@
  */
 import type { FileDiffMetadata, Hunk } from "@pierre/diffs";
 import { type RiskFinding, SEVERITY_RANK, type Severity } from "@polaris/protocol";
+import { alignChange, type Row, type Span } from "../diff/align.ts";
 import { fileSeverities, highest, isListed, listedFindings, SEVERITIES } from "./model.ts";
 
 export type LineKind = "context" | "add" | "remove";
@@ -34,6 +35,8 @@ export interface LineRow {
   readonly oldNumber: number | null;
   readonly newNumber: number | null;
   readonly text: string;
+  /** Token spans of `text` the change emphasises. */
+  readonly emphasis: ReadonlyArray<Span>;
   /** The most severe listed finding covering this line, for the gutter glyph and the 2px rule. */
   readonly mark: Severity | null;
 }
@@ -62,7 +65,8 @@ export interface DiffFileInput {
 const trimNewline = (text: string) =>
   text.endsWith("\r\n") ? text.slice(0, -2) : text.endsWith("\n") ? text.slice(0, -1) : text;
 
-const hunkHeader = (hunk: Hunk) => {
+/** `@@ -36,7 +36,8 @@` and the symbol git names, as one line. */
+export const hunkHeader = (hunk: Hunk): string => {
   const specs =
     hunk.hunkSpecs ??
     `@@ -${hunk.deletionStart},${hunk.deletionCount} +${hunk.additionStart},${hunk.additionCount} @@`;
@@ -73,54 +77,125 @@ const hunkHeader = (hunk: Hunk) => {
   return `${specs.trim()} ${hunk.hunkContext.trim()}`;
 };
 
-interface Line {
+/** A line of a hunk: its side, numbers, text and the token spans its change emphasises. */
+export interface Line {
   readonly line: LineKind;
   readonly oldNumber: number | null;
   readonly newNumber: number | null;
   readonly text: string;
+  readonly emphasis: ReadonlyArray<Span>;
 }
 
-/** A hunk's lines in unified order: context, then each change's deletions before its additions. */
-export const hunkLines = (file: FileDiffMetadata, hunk: Hunk): ReadonlyArray<Line> => {
-  const lines: Array<Line> = [];
-  let oldNumber = hunk.deletionStart;
-  let newNumber = hunk.additionStart;
+const NONE: ReadonlyArray<Span> = [];
 
-  for (const content of hunk.hunkContent) {
-    if (content.type === "context") {
-      for (let i = 0; i < content.lines; i += 1) {
-        const text = file.additionLines[content.additionLineIndex + i] ?? "";
-        lines.push({ line: "context", oldNumber, newNumber, text: trimNewline(text) });
-        oldNumber += 1;
-        newNumber += 1;
-      }
+/** Unchanged lines, or one change: its removed lines, its added ones, and how they pair. */
+type Block =
+  | { readonly kind: "context"; readonly lines: ReadonlyArray<Line> }
+  | {
+      readonly kind: "change";
+      readonly removed: ReadonlyArray<Line>;
+      readonly added: ReadonlyArray<Line>;
+      readonly rows: ReadonlyArray<Row>;
+    };
 
-      continue;
-    }
+const changeBlock = (
+  file: FileDiffMetadata,
+  content: Extract<Hunk["hunkContent"][number], { type: "change" }>,
+  numbers: { old: number; new: number }
+): Block => {
+  const removedText = Array.from({ length: content.deletions }, (_, i) =>
+    trimNewline(file.deletionLines[content.deletionLineIndex + i] ?? "")
+  );
 
-    for (let i = 0; i < content.deletions; i += 1) {
-      const text = file.deletionLines[content.deletionLineIndex + i] ?? "";
-      lines.push({ line: "remove", oldNumber, newNumber: null, text: trimNewline(text) });
-      oldNumber += 1;
-    }
+  const addedText = Array.from({ length: content.additions }, (_, i) =>
+    trimNewline(file.additionLines[content.additionLineIndex + i] ?? "")
+  );
 
-    for (let i = 0; i < content.additions; i += 1) {
-      const text = file.additionLines[content.additionLineIndex + i] ?? "";
-      lines.push({ line: "add", oldNumber: null, newNumber, text: trimNewline(text) });
-      newNumber += 1;
-    }
-  }
+  const rows = alignChange(removedText, addedText, file.name);
+  const removedSpans = new Map(rows.flatMap((r) => (r.old === null ? [] : [[r.old, r.removed]])));
+  const addedSpans = new Map(rows.flatMap((r) => (r.new === null ? [] : [[r.new, r.added]])));
+  const { old, new: nu } = numbers;
 
-  return lines;
+  numbers.old += content.deletions;
+  numbers.new += content.additions;
+
+  return {
+    kind: "change",
+    rows,
+    removed: removedText.map((text, i) => ({
+      line: "remove",
+      oldNumber: old + i,
+      newNumber: null,
+      text,
+      emphasis: removedSpans.get(i) ?? NONE,
+    })),
+    added: addedText.map((text, i) => ({
+      line: "add",
+      oldNumber: null,
+      newNumber: nu + i,
+      text,
+      emphasis: addedSpans.get(i) ?? NONE,
+    })),
+  };
 };
 
-const covers = (finding: RiskFinding, line: Line) => {
+const hunkBlocks = (file: FileDiffMetadata, hunk: Hunk): ReadonlyArray<Block> => {
+  const numbers = { old: hunk.deletionStart, new: hunk.additionStart };
+
+  return hunk.hunkContent.map((content): Block => {
+    if (content.type === "change") return changeBlock(file, content, numbers);
+
+    const lines = Array.from({ length: content.lines }, (_, i): Line => {
+      const text = file.additionLines[content.additionLineIndex + i] ?? "";
+
+      return {
+        line: "context",
+        oldNumber: numbers.old + i,
+        newNumber: numbers.new + i,
+        text: trimNewline(text),
+        emphasis: NONE,
+      };
+    });
+
+    numbers.old += content.lines;
+    numbers.new += content.lines;
+
+    return { kind: "context", lines };
+  });
+};
+
+/** A hunk's lines in unified order: context, then each change's deletions before its additions. */
+export const hunkLines = (file: FileDiffMetadata, hunk: Hunk): ReadonlyArray<Line> =>
+  hunkBlocks(file, hunk).flatMap((block) =>
+    block.kind === "context" ? block.lines : [...block.removed, ...block.added]
+  );
+
+/** One row of a split diff: the old side's line and the new side's, either missing. */
+export interface LinePair {
+  readonly old: Line | null;
+  readonly new: Line | null;
+}
+
+/** A hunk's lines side by side: context on both, a change's lines as the token diff pairs them. */
+export const hunkPairs = (file: FileDiffMetadata, hunk: Hunk): ReadonlyArray<LinePair> =>
+  hunkBlocks(file, hunk).flatMap((block): ReadonlyArray<LinePair> => {
+    if (block.kind === "context") return block.lines.map((line) => ({ old: line, new: line }));
+
+    return block.rows.map((row) => ({
+      old: row.old === null ? null : (block.removed[row.old] ?? null),
+      new: row.new === null ? null : (block.added[row.new] ?? null),
+    }));
+  });
+
+/** Whether `finding` flags `line`, on the side its range is on. */
+export const covers = (finding: RiskFinding, line: Line): boolean => {
   const number = finding.lines.side === "old" ? line.oldNumber : line.newNumber;
 
   return number !== null && number >= finding.lines.start && number <= finding.lines.end;
 };
 
-const anchors = (finding: RiskFinding, line: Line) =>
+/** Whether `line` is the last one `finding` flags: its card goes under it. */
+export const anchors = (finding: RiskFinding, line: Line): boolean =>
   (finding.lines.side === "old" ? line.oldNumber : line.newNumber) === finding.lines.end;
 
 const fileRows = (

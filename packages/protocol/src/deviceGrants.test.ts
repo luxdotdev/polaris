@@ -12,6 +12,12 @@ test("a Linked Device may send the Mobile App's Commands", () => {
   expect(outcome("dispatch", "RespondToApproval")).toBe("allowed");
 });
 
+// ENG-559: Ask the reviewer (MX-S) runs on the phone; the walkthrough still runs from the Mac.
+test("a Linked Device may ask the reviewer, but not start a walkthrough", () => {
+  expect(outcome("review.askFinding", null)).toBe("allowed");
+  expect(outcome("review.runWalkthrough", null)).toBe("review.runWalkthrough");
+});
+
 // RX2-1: `dispatch` is decided by its Command, and anything unnamed is refused.
 test.each([
   ["dispatch", "RunShellCommand", "dispatch:RunShellCommand"],
@@ -132,4 +138,9 @@ test.each([
   ["an action it couldn't read", null],
 ])("a Linked Device is refused %s", (_, action) => {
   expect(setState(action)).toBe("constellation.set_state");
+});
+
+// ENG-559: the Mobile App's stats sheet and completion card read `constellation.stats`.
+test("a Linked Device may read a constellation's stats", () => {
+  expect(outcome("constellation.stats", null)).toBe("allowed");
 });

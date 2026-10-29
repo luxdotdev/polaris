@@ -1,7 +1,7 @@
 /**
  * The diff (Paper M5) as one virtualized list: file headers with +/− and severity badges, hunk
  * bands, unified lines on the diff fills (or the colourblind pair), the flagged line's glyph and
- * 2px rule, and Risk Findings under the line they flag.
+ * 2px rule, changed tokens filled, and Risk Findings under the line they flag.
  */
 import { mobileType } from "@polaris/ui/tokens";
 import { forwardRef, memo, useCallback } from "react";
@@ -15,9 +15,11 @@ import {
   Text,
   View,
 } from "react-native";
+import { CodeText } from "../diff/lines.tsx";
 import { themedStyles, useTheme } from "../theme/index.ts";
 import type { DiffRow, FileRow, LineRow } from "./diffRows.ts";
 import { type FindingActions, FindingRowView } from "./FindingCard.tsx";
+import { grouped } from "../home/model/format.ts";
 import type { DiffPalette } from "./palette.ts";
 import { SeverityBadge, severityColour, SeverityGlyph } from "./severity.tsx";
 
@@ -49,8 +51,8 @@ const FileHeader = memo(function FileHeader({
       <Text style={styles.path} numberOfLines={1} ellipsizeMode="head">
         {row.path}
       </Text>
-      <Text style={[styles.count, { color: palette.addedText }]}>+{row.added}</Text>
-      <Text style={[styles.count, { color: palette.removedText }]}>−{row.removed}</Text>
+      <Text style={[styles.count, { color: palette.addedText }]}>+{grouped(row.added)}</Text>
+      <Text style={[styles.count, { color: palette.removedText }]}>−{grouped(row.removed)}</Text>
       {row.severities.slice(0, 2).map((severity) => (
         <SeverityBadge key={severity} severity={severity} />
       ))}
@@ -86,7 +88,13 @@ const Line = memo(function Line({
       </View>
       <Text style={styles.number}>{number ?? ""}</Text>
       <Text style={[styles.sign, { color: signColour }]}>{SIGN[row.line]}</Text>
-      <Text style={styles.code}>{row.text}</Text>
+      <CodeText
+        text={row.text}
+        emphasis={row.emphasis}
+        kind={row.line}
+        palette={palette}
+        style={styles.code}
+      />
       {row.mark === null ? null : (
         <View style={[styles.rule, { backgroundColor: severityColour(colours, row.mark) }]} />
       )}

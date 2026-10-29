@@ -1,10 +1,13 @@
 /**
  * The posture as React state, from `modules/polaris-hinge`: its first answer, then each change,
  * each a JSON report parsed here. Off a Duo, off iOS 27.1, or in older builds, it stays folded.
+ * A development build launched with `-polarisDevPosture unfolded|halfFolded` fakes the hinge.
  */
+import { Schema } from "effect";
 import { type NativeModule, requireOptionalNativeModule } from "expo";
-import { useEffect, useState } from "react";
-import { FOLDED, type Posture, postureOf, readReport } from "./posture.ts";
+import { useEffect, useMemo, useState } from "react";
+import { Platform, Settings, useWindowDimensions } from "react-native";
+import { DevPosture, devReport, FOLDED, type Posture, postureOf, readReport } from "./posture.ts";
 
 interface PostureEvent {
   readonly json: string;
@@ -18,11 +21,26 @@ declare class PolarisHingeModule extends NativeModule<{
 
 const native = requireOptionalNativeModule<PolarisHingeModule>("PolarisHinge");
 
+const launched = (): DevPosture | null => {
+  if (!__DEV__ || Platform.OS !== "ios") return null;
+  const value: unknown = Settings.get("polarisDevPosture");
+
+  return Schema.is(DevPosture)(value) ? value : null;
+};
+
+const DEV_POSTURE = launched();
+
 export const usePosture = (): Posture => {
   const [posture, setPosture] = useState<Posture>(FOLDED);
+  const { width, height } = useWindowDimensions();
+
+  const forced = useMemo(
+    () => (DEV_POSTURE === null ? null : postureOf(devReport(DEV_POSTURE, { width, height }))),
+    [width, height]
+  );
 
   useEffect(() => {
-    if (native === null) return;
+    if (native === null || DEV_POSTURE !== null) return;
     let gone = false;
 
     const take = (json: string) => {
@@ -41,5 +59,5 @@ export const usePosture = (): Posture => {
     };
   }, []);
 
-  return posture;
+  return forced ?? posture;
 };

@@ -109,3 +109,25 @@ const decode = Schema.decodeUnknownOption(Schema.fromJsonString(HingeReportSchem
 
 /** The native module's JSON report, or null when it can't be read. */
 export const readReport = (json: string): HingeReport | null => Option.getOrNull(decode(json));
+
+/** A posture forced in a development build (`-polarisDevPosture`), for simulators without a hinge. */
+export const DevPosture = Schema.Literals(["unfolded", "halfFolded"]);
+
+export type DevPosture = typeof DevPosture.Type;
+
+/** The report a Duo would give at this window size, folded down the middle. */
+export const devReport = (
+  posture: DevPosture,
+  size: { readonly width: number; readonly height: number }
+): HingeReport =>
+  posture === "unfolded"
+    ? {
+        hinge: { status: "fullyOpen", angle: 180 },
+        ...size,
+        divisions: [{ x: Math.round(size.width / 2), y: 0, width: 0, height: size.height }],
+      }
+    : {
+        hinge: { status: "partiallyOpen", angle: 110 },
+        ...size,
+        divisions: [{ x: 0, y: Math.round(size.height / 2), width: size.width, height: 0 }],
+      };
