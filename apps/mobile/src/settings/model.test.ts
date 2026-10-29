@@ -13,12 +13,13 @@ describe("the Hosts row's line", () => {
         host("ci-box", "reconnecting"),
         host("vm", "connected"),
       ])
-    ).toEqual({ names: "mac-studio, lucas-rpi + 2", note: "1 reconnecting" });
+    ).toEqual({ names: "mac-studio, lucas-rpi", more: "+ 2", note: "1 reconnecting" });
   });
 
   test("a single healthy Host has no note and no count", () => {
     expect(hostsLine([host("mac-studio", "connected")])).toEqual({
       names: "mac-studio",
+      more: null,
       note: null,
     });
   });
@@ -27,6 +28,15 @@ describe("the Hosts row's line", () => {
     expect(
       hostsLine([host("a", "offline"), host("b", "needs-attention"), host("c", "offline")]).note
     ).toBe("1 needs attention");
+  });
+
+  test("a tailnet name is cut to its machine name; an address stays whole", () => {
+    expect(
+      hostsLine([
+        host("lucas-mac-studio.taild0d828.ts.net", "connected"),
+        host("192.168.1.20", "connected"),
+      ]).names
+    ).toBe("lucas-mac-studio, 192.168.1.20");
   });
 
   test("no Hosts says so", () => {
