@@ -10,7 +10,9 @@ import type { Menu, MenuAction } from "./model.ts";
 
 interface NativeProps {
   readonly menu: string;
+  readonly title: string;
   readonly previewColor: string;
+  readonly previewInsetBottom: number;
   readonly previewRadius: number;
   readonly onSelectItem: (event: NativeSyntheticEvent<{ readonly id: string }>) => void;
   readonly style?: object;
@@ -43,10 +45,16 @@ const encode = (menu: Menu) =>
 
 export const LongPressMenu = ({
   menu,
+  title = "",
+  previewInsetBottom = 0,
   onAction,
   children,
 }: {
   readonly menu: Menu;
+  /** The menu's header, above its items (MX-J: a turn's receipt). */
+  readonly title?: string;
+  /** Points cut from the lifted preview's foot, so what the header repeats isn't lifted twice. */
+  readonly previewInsetBottom?: number;
   readonly onAction: (action: MenuAction) => void;
   readonly children: ReactNode;
 }) => {
@@ -63,7 +71,9 @@ export const LongPressMenu = ({
   return (
     <NativeMenu
       menu={encode(menu)}
+      title={title}
       previewColor={colours.ground}
+      previewInsetBottom={previewInsetBottom}
       previewRadius={PREVIEW_RADIUS}
       onSelectItem={onSelectItem}
       style={styles.lift}

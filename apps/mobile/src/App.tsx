@@ -1,6 +1,6 @@
 /**
  * The Mobile App's shell: the Hosts (one HostConnection each), the navigation stack, the tabs
- * with New, and the screen on top, in the chosen theme.
+ * (Sessions, Review, Settings) with New, and the screen on top, in the chosen theme.
  */
 import { Match } from "effect";
 import { StatusBar } from "expo-status-bar";
@@ -22,6 +22,7 @@ import { DuoShell } from "./duo/DuoShell.tsx";
 import { FollowedHostsProvider } from "./home/feed/useFollowedHosts.ts";
 import { HomeScreen } from "./home/HomeScreen.tsx";
 import { galleryOn, RowGallery } from "./home/ui/Gallery.tsx";
+import { HorizonScreen } from "./horizon";
 import { InboxProvider } from "./inbox/index.ts";
 import { HostsScreen } from "./hosts/HostsScreen.tsx";
 import { LinkScreen } from "./link/LinkScreen.tsx";
@@ -32,6 +33,7 @@ import { SheetDemo, SheetHost } from "./sheet/index.tsx";
 import { CheckAlive } from "./runtime/CheckAlive.tsx";
 import { HostsProvider } from "./runtime/hosts.tsx";
 import { useReadyToReview } from "./review/index.ts";
+import { SettingsScreen } from "./settings/index.ts";
 import { useWidgetLinks } from "./widgets/useWidgetLinks.ts";
 import { WidgetSync } from "./widgets/WidgetSync.ts";
 import { ThemeProvider, themedStyles } from "./theme/index.ts";
@@ -44,40 +46,51 @@ const Tabs = () => {
   const insets = useSafeAreaInsets();
   const bottom = Math.max(insets.bottom, 20);
   const readyCount = useReadyToReview().rows.length;
+  const tabBarHeight = TAB_BAR + bottom;
+  const openHosts = () => navigation.push({ screen: "hosts" });
 
   return (
     <View style={styles.fill}>
-      {navigation.tab === "sessions" ? (
-        <HomeScreen
-          tabBarHeight={TAB_BAR + bottom}
-          actions={{
-            openSession: (hostId, sessionId) =>
-              navigation.push({ screen: "thread", hostId, sessionId }),
-            openReview: (hostId, sessionId) =>
-              navigation.push({ screen: "review", hostId, sessionId, turnId: null }),
-            openConstellation: (hostId, constellationId) =>
-              navigation.push({ screen: "constellation", hostId, constellationId }),
-            openHosts: () => navigation.push({ screen: "hosts" }),
-            link: () => navigation.push({ screen: "link" }),
-          }}
-        />
-      ) : (
-        <ReviewTab
-          tabBarHeight={TAB_BAR + bottom}
-          onOpen={(hostId, sessionId) =>
-            navigation.push({ screen: "review", hostId, sessionId, turnId: null })
-          }
-          onLink={() => navigation.push({ screen: "link" })}
-          onHosts={() => navigation.push({ screen: "hosts" })}
-        />
+      {Match.value(navigation.tab).pipe(
+        Match.when("sessions", () => (
+          <HomeScreen
+            tabBarHeight={tabBarHeight}
+            actions={{
+              openSession: (hostId, sessionId) =>
+                navigation.push({ screen: "thread", hostId, sessionId }),
+              openReview: (hostId, sessionId) =>
+                navigation.push({ screen: "review", hostId, sessionId, turnId: null }),
+              openConstellation: (hostId, constellationId) =>
+                navigation.push({ screen: "constellation", hostId, constellationId }),
+              openHosts,
+              link: () => navigation.push({ screen: "link" }),
+            }}
+          />
+        )),
+        Match.when("review", () => (
+          <HorizonScreen>
+            <ReviewTab
+              tabBarHeight={tabBarHeight}
+              onOpen={(hostId, sessionId) =>
+                navigation.push({ screen: "review", hostId, sessionId, turnId: null })
+              }
+              onLink={() => navigation.push({ screen: "link" })}
+              onHosts={openHosts}
+            />
+          </HorizonScreen>
+        )),
+        Match.when("settings", () => (
+          <HorizonScreen>
+            <SettingsScreen tabBarHeight={tabBarHeight} onHosts={openHosts} />
+          </HorizonScreen>
+        )),
+        Match.exhaustive
       )}
       <TabBar
         active={navigation.tab}
         reviewCount={readyCount}
         bottom={bottom}
-        onSelect={(next) =>
-          next === "hosts" ? navigation.push({ screen: "hosts" }) : navigation.selectTab(next)
-        }
+        onSelect={navigation.selectTab}
         onNew={() => navigation.openNewSession()}
       />
     </View>

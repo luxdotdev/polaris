@@ -1,44 +1,52 @@
-/** The floating tab bar and New (Paper H4): Sessions, Review, Hosts, and New beside them. */
+/**
+ * The floating tab pill (Paper MX-C, MX-G): Sessions, Review and Settings as a panel on the
+ * ground, and New beside it filled in Starlight.
+ */
 import { mobileType } from "@polaris/ui/tokens";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { type MobileColours, themedStyles, useTheme } from "../theme/index.ts";
+import Svg, { Circle, Path, Rect } from "react-native-svg";
+import { useTheme } from "../theme";
+import { HOME_TABS, type HomeTab } from "./navigationState.ts";
 
-export type Tab = "sessions" | "review" | "hosts";
+type Icon = (props: { readonly color: string }) => React.JSX.Element;
 
-const SessionsIcon = ({ color }: { readonly color: string }) => (
-  <View style={iconStyles.icon}>
-    <View style={[iconStyles.line, { top: 4, width: 14, backgroundColor: color }]} />
-    <View style={[iconStyles.line, { top: 9, width: 14, backgroundColor: color }]} />
-    <View style={[iconStyles.line, { top: 14, width: 9, backgroundColor: color }]} />
-  </View>
+const SessionsIcon: Icon = ({ color }) => (
+  <Svg width={20} height={20} viewBox="0 0 20 20">
+    <Rect x={3} y={4} width={14} height={3} rx={1} fill={color} />
+    <Rect x={3} y={9} width={14} height={3} rx={1} fill={color} />
+    <Rect x={3} y={14} width={9} height={3} rx={1} fill={color} />
+  </Svg>
 );
 
-const ReviewIcon = ({ color }: { readonly color: string }) => (
-  <View style={iconStyles.icon}>
-    <View style={[iconStyles.bubble, { borderColor: color }]} />
-    <View style={[iconStyles.tail, { backgroundColor: color }]} />
-  </View>
+const ReviewIcon: Icon = ({ color }) => (
+  <Svg width={20} height={20} viewBox="0 0 20 20">
+    <Path
+      d="M4 4h12v9H9l-4 3v-3H4z"
+      fill="none"
+      stroke={color}
+      strokeWidth={1.6}
+      strokeLinejoin="round"
+    />
+  </Svg>
 );
 
-const HostsIcon = ({ color }: { readonly color: string }) => (
-  <View style={iconStyles.icon}>
-    {[4, 11].map((top) => (
-      <View key={top} style={[iconStyles.server, { top, borderColor: color }]}>
-        <View style={[iconStyles.led, { backgroundColor: color }]} />
-      </View>
-    ))}
-  </View>
+const SettingsIcon: Icon = ({ color }) => (
+  <Svg width={20} height={20} viewBox="0 0 20 20">
+    <Circle cx={10} cy={10} r={2.6} fill="none" stroke={color} strokeWidth={1.6} />
+    <Path
+      d="M10 2.8v2.1M10 15.1v2.1M2.8 10h2.1M15.1 10h2.1M4.9 4.9l1.5 1.5M13.6 13.6l1.5 1.5M4.9 15.1l1.5-1.5M13.6 6.4l1.5-1.5"
+      stroke={color}
+      strokeWidth={1.6}
+      strokeLinecap="round"
+    />
+  </Svg>
 );
 
-const TABS: ReadonlyArray<{
-  readonly tab: Tab;
-  readonly label: string;
-  readonly Icon: (props: { readonly color: string }) => React.JSX.Element;
-}> = [
-  { tab: "sessions", label: "Sessions", Icon: SessionsIcon },
-  { tab: "review", label: "Review", Icon: ReviewIcon },
-  { tab: "hosts", label: "Hosts", Icon: HostsIcon },
-];
+const TABS: Record<HomeTab, { readonly label: string; readonly Icon: Icon }> = {
+  sessions: { label: "Sessions", Icon: SessionsIcon },
+  review: { label: "Review", Icon: ReviewIcon },
+  settings: { label: "Settings", Icon: SettingsIcon },
+};
 
 export const TabBar = ({
   active,
@@ -47,19 +55,20 @@ export const TabBar = ({
   onSelect,
   onNew,
 }: {
-  readonly active: Tab;
+  readonly active: HomeTab;
   readonly reviewCount: number;
   readonly bottom: number;
-  readonly onSelect: (tab: Tab) => void;
+  readonly onSelect: (tab: HomeTab) => void;
   readonly onNew: () => void;
 }) => {
-  const styles = useStyles();
   const { colours } = useTheme();
+  const panel = { backgroundColor: colours.panel, borderColor: colours.hairline };
 
   return (
     <View style={[styles.row, { bottom }]} pointerEvents="box-none">
-      <View style={styles.bar} accessibilityRole="tablist">
-        {TABS.map(({ tab, label, Icon }) => {
+      <View style={[styles.bar, panel]} accessibilityRole="tablist">
+        {HOME_TABS.map((tab) => {
+          const { label, Icon } = TABS[tab];
           const selected = tab === active;
           const color = selected ? colours.textStrong : colours.textSubtle;
 
@@ -69,7 +78,7 @@ export const TabBar = ({
               accessibilityRole="tab"
               accessibilityState={{ selected }}
               onPress={() => onSelect(tab)}
-              style={[styles.tab, selected ? styles.tabActive : null]}
+              style={[styles.tab, selected ? { backgroundColor: colours.raised } : null]}
             >
               <Icon color={color} />
               <Text style={[styles.label, { color }]}>
@@ -83,33 +92,38 @@ export const TabBar = ({
         accessibilityRole="button"
         accessibilityLabel="New agent session"
         onPress={onNew}
-        style={styles.new}
+        style={[styles.new, { backgroundColor: colours.starlight }]}
       >
-        <View style={[styles.plus, { width: 15, height: 1.5 }]} />
-        <View style={[styles.plus, { width: 1.5, height: 15 }]} />
+        <Svg width={22} height={22} viewBox="0 0 16 16">
+          <Path
+            d="M8 3v10M3 8h10"
+            stroke={colours.ground}
+            strokeWidth={1.7}
+            strokeLinecap="round"
+          />
+        </Svg>
       </Pressable>
     </View>
   );
 };
 
-const glassOf = (colours: MobileColours) =>
-  ({
-    backgroundColor: "#0a0b0dd9",
-    borderWidth: 1,
-    borderColor: colours.hairline,
-    borderRadius: 999,
-  }) as const;
-
-const useStyles = themedStyles((colours) => ({
+const styles = StyleSheet.create({
   row: {
     position: "absolute",
-    left: 20,
-    right: 20,
+    left: 16,
+    right: 16,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
-  bar: { ...glassOf(colours), flex: 1, height: 58, padding: 4, flexDirection: "row" },
+  bar: {
+    flex: 1,
+    height: 58,
+    padding: 4,
+    flexDirection: "row",
+    borderWidth: 1,
+    borderRadius: 999,
+  },
   tab: {
     flex: 1,
     height: 50,
@@ -118,39 +132,6 @@ const useStyles = themedStyles((colours) => ({
     justifyContent: "center",
     gap: 3,
   },
-  tabActive: { backgroundColor: "#ffffff12" },
   label: { ...mobileType.tab },
-  new: {
-    ...glassOf(colours),
-    width: 58,
-    height: 58,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  plus: { position: "absolute", borderRadius: 1, backgroundColor: colours.textStrong },
-}));
-
-const iconStyles = StyleSheet.create({
-  icon: { width: 20, height: 20 },
-  line: { position: "absolute", left: 3, height: 3, borderRadius: 1 },
-  bubble: {
-    position: "absolute",
-    left: 4,
-    top: 4,
-    width: 12,
-    height: 9,
-    borderWidth: 1.6,
-    borderRadius: 1,
-  },
-  tail: { position: "absolute", left: 6, top: 12, width: 1.6, height: 4 },
-  server: {
-    position: "absolute",
-    left: 3,
-    width: 14,
-    height: 5.5,
-    borderWidth: 1.4,
-    borderRadius: 1.5,
-    justifyContent: "center",
-  },
-  led: { width: 1.8, height: 1.8, borderRadius: 1, marginLeft: 2 },
+  new: { width: 58, height: 58, borderRadius: 999, alignItems: "center", justifyContent: "center" },
 });

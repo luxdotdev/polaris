@@ -9,7 +9,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { homeHostsOf, useFollowedHosts } from "../home/feed/useFollowedHosts.ts";
 import { useSettledHosts } from "../home/feed/settled.ts";
-import { SessionListRow } from "../home/ui/rows.tsx";
+import { SessionRow } from "../home/ui/rows.tsx";
 import { LongPressMenu, sessionMenu, useMenuActions } from "../menus/index.ts";
 import { themedStyles } from "../theme/index.ts";
 import { type ReadyEmpty, type ReadyToReview, readyToReview } from "./ready.ts";
@@ -110,7 +110,7 @@ export const ReviewTab = ({
         <ScrollView style={styles.list} contentContainerStyle={{ paddingBottom: tabBarHeight }}>
           {ready.rows.map((row) => (
             <LongPressMenu key={row.key} menu={sessionMenu(row)} onAction={onMenu}>
-              <SessionListRow
+              <SessionRow
                 row={row}
                 now={now}
                 withHost={withHost}
