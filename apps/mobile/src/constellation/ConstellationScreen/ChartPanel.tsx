@@ -3,13 +3,15 @@
  * with the done count, the stats chip, the star chart and its legend. Tap only.
  */
 import { mobileFont, mobileType } from "@polaris/ui/tokens";
-import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
-import { isCompact, StarChart, StarLegend, starCounts } from "../../starChart/index.ts";
+import { useState } from "react";
+import { Pressable, Text, useWindowDimensions, View } from "react-native";
+import { StarChart, StarLegend, starCounts } from "../../starChart/index.ts";
 import { CHROME_TEXT_SCALE } from "../../theme/textScale.ts";
 import { themedStyles } from "../../theme/index.ts";
+import { chartFit } from "./fit.ts";
 import type { StarChartData } from "./stars.ts";
 
-/** The chart's share of the screen; past it (many bands, Dynamic Type) the chart scrolls. */
+/** The chart's share of the screen; past it the waves compress to dots, then bands fold away. */
 export const CHART_SHARE = 0.22;
 
 export interface ChartPanelProps {
@@ -32,8 +34,9 @@ export const ChartPanel = ({
 }: ChartPanelProps) => {
   const styles = useStyles();
   const { done } = starCounts(chart.tasks);
-  const compact = isCompact(chart.tasks);
   const { height } = useWindowDimensions();
+  const [width, setWidth] = useState<number | null>(null);
+  const fit = width === null ? null : chartFit(chart, width, height * CHART_SHARE);
 
   return (
     <View style={styles.panel}>
@@ -56,20 +59,25 @@ export const ChartPanel = ({
           </Text>
         </Pressable>
       </View>
-      <ScrollView
-        style={{ maxHeight: height * CHART_SHARE }}
-        nestedScrollEnabled
-        showsVerticalScrollIndicator
-      >
-        <StarChart
-          tasks={chart.tasks}
-          bands={chart.bands}
-          compact={compact}
-          selectedTaskId={selectedTaskId}
-          onPressTask={onPressTask}
-        />
-      </ScrollView>
-      <StarLegend tasks={chart.tasks} compact={compact} onViewAll={onViewAll} />
+      <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)}>
+        {fit === null ? null : (
+          <StarChart
+            tasks={fit.tasks}
+            bands={chart.bands}
+            compact={fit.compact}
+            selectedTaskId={selectedTaskId}
+            onPressTask={onPressTask}
+          />
+        )}
+      </View>
+      {fit === null || fit.hiddenBands === 0 ? null : (
+        <Pressable accessibilityRole="button" hitSlop={6} onPress={onViewAll}>
+          <Text style={styles.more} maxFontSizeMultiplier={CHROME_TEXT_SCALE}>
+            +{fit.hiddenBands} more {fit.hiddenBands === 1 ? "band" : "bands"}
+          </Text>
+        </Pressable>
+      )}
+      <StarLegend tasks={chart.tasks} compact={fit?.compact ?? false} onViewAll={onViewAll} />
     </View>
   );
 };
@@ -86,8 +94,8 @@ const useStyles = themedStyles((colours) => ({
     borderColor: colours.hairline,
     backgroundColor: colours.panel,
   },
-  // Wraps rather than squeezing: a wide chip (a long run's cost) moves under the done count.
-  top: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: 8, rowGap: 6 },
+  // One line: the done count truncates before the chip does.
+  top: { flexDirection: "row", alignItems: "center", gap: 8 },
   kicker: {
     fontFamily: mobileFont.mono,
     fontSize: 11,
@@ -100,12 +108,12 @@ const useStyles = themedStyles((colours) => ({
     ...mobileType.footnote,
     fontSize: 13,
     lineHeight: 18,
-    flexGrow: 1,
+    flex: 1,
+    minWidth: 0,
     color: colours.textDefault,
   },
   chip: {
     flexShrink: 0,
-    marginLeft: "auto",
     paddingVertical: 3,
     paddingHorizontal: 9,
     borderRadius: 12,
@@ -119,5 +127,6 @@ const useStyles = themedStyles((colours) => ({
     lineHeight: 16,
     color: colours.textDefault,
   },
+  more: { ...mobileType.footnote, fontSize: 12, lineHeight: 16, color: colours.textSubtle },
   pressed: { opacity: 0.7 },
 }));

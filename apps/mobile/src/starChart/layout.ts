@@ -26,6 +26,18 @@ export const GEOMETRY = {
   segmentGap: 20,
 } as const;
 
+/** MX-X's dot rows, in points: a badge, then dots wrapping 7pt apart below a 4pt inset. */
+export const DOTS = { size: 8, gap: 7, inset: 4, badgeGap: 10, rowGap: 8 } as const;
+
+/** A dot row's height when `count` dots wrap in a chart `width` points wide. */
+export const dotRowHeight = (count: number, width: number): number => {
+  const span = width - GEOMETRY.badge - DOTS.badgeGap;
+  const perLine = Math.max(1, Math.floor((span + DOTS.gap) / (DOTS.size + DOTS.gap)));
+  const lines = Math.max(1, Math.ceil(count / perLine));
+
+  return Math.max(GEOMETRY.badge, DOTS.inset + lines * DOTS.size + (lines - 1) * DOTS.gap);
+};
+
 /** Tasks whose band isn't in `bands` sit in this band, last. */
 export const STRAY_BAND: StarBand = { id: "", letter: "?", name: "other" };
 
