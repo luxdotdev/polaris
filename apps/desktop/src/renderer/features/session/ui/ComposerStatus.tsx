@@ -31,6 +31,14 @@ import { PermissionGlyph } from "./permissionGlyphs.tsx";
 
 const MOONS_SHOWN = 3;
 
+// As the composer narrows, Send stays put: "· nearly full" goes first (the strip says it),
+// then the permission chip keeps its glyph, then the Subagents chip its count.
+const NEARLY_FULL_WORDS = "hidden @min-[600px]/composer:inline";
+
+const PERMISSION_WORDS = "hidden @min-[500px]/composer:inline";
+
+const SUBAGENT_WORDS = "hidden @min-[440px]/composer:inline";
+
 const Subagents = ({
   harness,
   subagents,
@@ -63,8 +71,11 @@ const Subagents = ({
               />
             ))}
           </span>
-          <span className="text-caption text-text-subtle tabular">
-            {roster.running} {roster.running === 1 ? "subagent" : "subagents"}
+          <span className="text-caption text-text-subtle tabular whitespace-nowrap">
+            {roster.running}
+            <span className={SUBAGENT_WORDS}>
+              {roster.running === 1 ? " subagent" : " subagents"}
+            </span>
           </span>
         </button>
       </PopoverTrigger>
@@ -122,10 +133,7 @@ const ContextChip = ({
       ? null
       : Math.min(1, usage.usedTokens / usage.windowTokens);
 
-  const words =
-    share === null
-      ? formatTokens(usage.usedTokens)
-      : `${Math.round(share * 100)}%${share >= CONTEXT_NEARLY_FULL ? " · nearly full" : ""}`;
+  const words = share === null ? formatTokens(usage.usedTokens) : `${Math.round(share * 100)}%`;
 
   return (
     <ContextReadout
@@ -137,7 +145,12 @@ const ContextChip = ({
       triggerClassName={cn(CHIP, "pr-row-x pl-gap gap-[7px]")}
     >
       <ContextRing share={share ?? 0} />
-      <span className="text-caption text-text-default tabular font-mono">{words}</span>
+      <span className="text-caption text-text-default tabular font-mono whitespace-nowrap">
+        {words}
+        {share !== null && share >= CONTEXT_NEARLY_FULL ? (
+          <span className={NEARLY_FULL_WORDS}> · nearly full</span>
+        ) : null}
+      </span>
     </ContextReadout>
   );
 };
@@ -169,7 +182,9 @@ const Permission = ({
           className={cn(CHIP, "px-row-x text-text-default gap-[7px]")}
         >
           <PermissionGlyph mode={current} />
-          <span className="text-caption font-medium">{permissionLabel(current)}</span>
+          <span className={cn("text-caption font-medium", PERMISSION_WORDS)}>
+            {permissionLabel(current)}
+          </span>
           <svg
             width="8"
             height="8"

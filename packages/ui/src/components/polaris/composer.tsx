@@ -340,7 +340,7 @@ export function Composer({
       data-working={isWorking ? "" : undefined}
       data-dither-hover={isWorking ? "" : undefined}
       className={cn(
-        "flex flex-col overflow-clip rounded-[22px] border bg-surface-raised",
+        "@container/composer flex flex-col overflow-clip rounded-[22px] border bg-surface-raised",
         tinted
           ? "border-[color-mix(in_oklab,var(--edge)_28%,transparent)] shadow-[0_0_0_3px_color-mix(in_oklab,var(--edge)_6%,transparent)]"
           : "border-hairline",
@@ -379,13 +379,17 @@ export function Composer({
         )}
       </div>
       <div className="flex items-center gap-1.5 px-3 pb-3">
-        {picker ?? <HarnessPicker harness={harness} model={model} working={isWorking} />}
-        {tools}
-        <span className="flex-1" />
-        {branch === undefined ? null : (
-          <span className="text-micro text-text-subtle truncate font-mono">{branch}</span>
-        )}
-        {status}
+        <div className="flex shrink-0 items-center gap-1.5">
+          {picker ?? <HarnessPicker harness={harness} model={model} working={isWorking} />}
+          {tools}
+        </div>
+        {/* Status gives way before Send: its chips collapse by container width, then it clips. */}
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 overflow-hidden">
+          {branch === undefined ? null : (
+            <span className="text-micro text-text-subtle truncate font-mono">{branch}</span>
+          )}
+          {status}
+        </div>
         <Button
           variant={prominentSend ? "primary" : "secondary"}
           size="icon"
