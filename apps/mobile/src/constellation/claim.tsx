@@ -160,6 +160,7 @@ export const HandedClaimActions = ({
   onCancel,
   unsent: controlled,
   onUnsent,
+  bare = false,
 }: {
   readonly claim: HandedClaim | null;
   readonly delivery: Delivery | null;
@@ -167,6 +168,8 @@ export const HandedClaimActions = ({
   readonly onCancel: () => void;
   readonly unsent?: Unsent | null;
   readonly onUnsent?: (next: Unsent) => void;
+  /** Only the verdict: the caller shows the claim's checks and question itself. */
+  readonly bare?: boolean;
 }) => {
   const styles = useStyles();
   const { colours } = useTheme();
@@ -180,8 +183,8 @@ export const HandedClaimActions = ({
 
   return (
     <View style={styles.claim}>
-      {claim === null ? null : <Checks head={claim.head} checks={claim.checks} />}
-      {claim?.question == null ? null : (
+      {claim === null || bare ? null : <Checks head={claim.head} checks={claim.checks} />}
+      {claim?.question == null || bare ? null : (
         <Text style={styles.question}>
           <Text style={{ color: colours.needsYouText }}>Asks · </Text>
           {claim.question}

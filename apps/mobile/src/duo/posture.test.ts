@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type HingeReport, postureOf, readReport } from "./posture.ts";
+import { devReport, type HingeReport, postureOf, readReport } from "./posture.ts";
 
 // The Duo's inner display, landscape (D6) and turned to portrait over a tabletop fold (D7, D8).
 const wide = { width: 951, height: 669 };
@@ -66,5 +66,25 @@ describe("readReport", () => {
     expect(readReport(json)?.hinge?.status).toBe("fullyOpen");
     expect(readReport('{"hinge":{"status":"ajar","angle":1}}')).toBeNull();
     expect(readReport("null")).toBeNull();
+  });
+});
+
+describe("devReport", () => {
+  test("unfolded splits the window into two halves side by side", () => {
+    expect(postureOf(devReport("unfolded", wide))).toEqual({
+      kind: "unfolded",
+      first: { x: 0, y: 0, width: 476, height: 669 },
+      second: { x: 476, y: 0, width: 475, height: 669 },
+      division: { x: 476, y: 0, width: 0, height: 669 },
+    });
+  });
+
+  test("half-folded splits it into a top and a bottom half", () => {
+    expect(postureOf(devReport("halfFolded", tall))).toEqual({
+      kind: "halfFolded",
+      top: { x: 0, y: 0, width: 669, height: 476 },
+      bottom: { x: 0, y: 476, width: 669, height: 475 },
+      division: { x: 0, y: 476, width: 669, height: 0 },
+    });
   });
 });

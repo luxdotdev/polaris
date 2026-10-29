@@ -9,9 +9,9 @@ import {
   type RiskFinding,
   type VerdictReason,
 } from "@polaris/protocol";
-import { mobileType } from "@polaris/ui/tokens";
+import { mobileFont, mobileType } from "@polaris/ui/tokens";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { askToFixCommand, flaggedCode, verdictCommand } from "../review/actions.ts";
 import { DiffList } from "../review/DiffList.tsx";
 import { fileLines } from "../review/diffRows.ts";
@@ -248,8 +248,8 @@ export const ContextPane = ({
 const useStyles = themedStyles((colours) => ({
   pane: {
     flex: 1,
-    backgroundColor: colours.ground,
-    borderLeftWidth: StyleSheet.hairlineWidth,
+    backgroundColor: colours.panel,
+    borderLeftWidth: 1,
     borderLeftColor: colours.hairline,
   },
   header: {
@@ -257,26 +257,42 @@ const useStyles = themedStyles((colours) => ({
     alignItems: "center",
     gap: 6,
     minHeight: 56,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingTop: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colours.hairline,
   },
   star: { width: 3, height: 3, backgroundColor: colours.starlight, marginRight: 6 },
   from: { ...mobileType.footnote, color: colours.textSubtle },
   label: { ...mobileType.footnote, fontWeight: "500", color: colours.textStrong, flex: 1 },
   open: { ...mobileType.footnote, color: colours.textSubtle },
   diff: { flex: 1, paddingHorizontal: 12 },
-  empty: { ...mobileType.footnote, color: colours.textSubtle, padding: 24 },
-  failure: { ...mobileType.footnote, color: colours.failedText, paddingHorizontal: 24 },
-  also: { paddingHorizontal: 24, paddingBottom: 16 },
-  alsoTitle: { ...mobileType.footnote, color: colours.textFaint, paddingBottom: 8 },
+  empty: { ...mobileType.callout, color: colours.textFaint, textAlign: "center", padding: 40 },
+  failure: { ...mobileType.footnote, color: colours.failedText, paddingHorizontal: 20 },
+  also: {
+    marginHorizontal: 20,
+    marginBottom: 24,
+    paddingTop: 12,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colours.hairline,
+    backgroundColor: colours.well,
+  },
+  alsoTitle: {
+    fontFamily: mobileFont.mono,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: "500",
+    letterSpacing: 0.88,
+    textTransform: "uppercase",
+    color: colours.textSubtle,
+    paddingBottom: 8,
+  },
   alsoRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     height: 38,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: 1,
     borderTopColor: colours.hairline,
   },
   alsoPath: { ...mobileType.command, fontSize: 13, color: colours.textDefault, flex: 1 },
