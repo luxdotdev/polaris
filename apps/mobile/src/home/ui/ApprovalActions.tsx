@@ -10,6 +10,7 @@ import { themedStyles, useTheme } from "../../theme/index.ts";
 import { approvalDetail, askLine, quickQuestion } from "../model/lines.ts";
 import { haptics } from "../../motion/index.ts";
 import type { Reply } from "../model/respond.ts";
+import { CONTENT_TEXT_SCALE } from "./textScale.ts";
 
 export interface ApprovalActionsProps {
   readonly approval: ApprovalRequest;
@@ -42,7 +43,9 @@ const useSend = (onReply: ApprovalActionsProps["onReply"]) => {
 
 const Failed = ({ sending }: { readonly sending: Sending }) =>
   sending.kind === "failed" ? (
-    <Text style={useStyles().failed}>Couldn't send. Try again.</Text>
+    <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={useStyles().failed}>
+      Couldn't send. Try again.
+    </Text>
   ) : null;
 
 /** Filled white for Approve and a first choice (never Starlight), outlined for other choices. */
@@ -73,7 +76,11 @@ const Button = ({
       onPress={onPress}
       style={({ pressed }) => [styles.button, fill, pressed ? styles.pressed : null]}
     >
-      <Text style={[styles.label, ink]} numberOfLines={1}>
+      <Text
+        maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+        style={[styles.label, ink]}
+        numberOfLines={1}
+      >
         {label}
       </Text>
     </Pressable>
@@ -88,10 +95,16 @@ const Permission = ({ approval, enabled, onReply, onOpen }: ApprovalActionsProps
 
   return (
     <View style={styles.block}>
-      <Text style={styles.ask}>{askLine(approval)}</Text>
+      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.ask}>
+        {askLine(approval)}
+      </Text>
       {detail === null ? null : (
         <View style={styles.command}>
-          <Text style={styles.commandText} numberOfLines={detail.tooLong ? 4 : undefined}>
+          <Text
+            maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+            style={styles.commandText}
+            numberOfLines={detail.tooLong ? 4 : undefined}
+          >
             {detail.text}
           </Text>
         </View>
@@ -99,7 +112,7 @@ const Permission = ({ approval, enabled, onReply, onOpen }: ApprovalActionsProps
       {detail?.tooLong === true ? (
         <Button label="Review it in the agent session" disabled={false} onPress={onOpen} />
       ) : (
-        <View style={[styles.buttons, live ? null : styles.waiting]}>
+        <View style={[styles.buttons, styles.wrap, live ? null : styles.waiting]}>
           <Button
             label="Approve"
             kind="filled"
@@ -133,6 +146,7 @@ const ReplyField = ({
 
   return (
     <TextInput
+      maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
       autoFocus
       style={styles.reply}
       value={text}
@@ -157,8 +171,10 @@ const Question = ({ approval, enabled, onReply, onOpen }: ApprovalActionsProps) 
 
   return (
     <View style={styles.block}>
-      <Text style={styles.question}>
-        <Text style={styles.ask}>Asks · </Text>
+      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.question}>
+        <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.ask}>
+          Asks ·{" "}
+        </Text>
         {quick?.text ?? approval.title}
       </Text>
       {replying ? (
@@ -189,6 +205,22 @@ const Question = ({ approval, enabled, onReply, onOpen }: ApprovalActionsProps) 
         </View>
       )}
       <Failed sending={sending} />
+    </View>
+  );
+};
+
+/** A session that needs you with no request in its feed: what it waits on is in the thread. */
+export const OpenToAnswer = ({ onOpen }: { readonly onOpen: () => void }) => {
+  const styles = useStyles();
+
+  return (
+    <View style={styles.block}>
+      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.ask}>
+        Waiting for your reply
+      </Text>
+      <View style={styles.buttons}>
+        <Button label="Open the agent session" kind="outlined" disabled={false} onPress={onOpen} />
+      </View>
     </View>
   );
 };
@@ -224,7 +256,7 @@ const useStyles = themedStyles((colours) => ({
   wrap: { flexWrap: "wrap" },
   waiting: { opacity: 0.55 },
   button: {
-    height: 34,
+    minHeight: 34,
     paddingHorizontal: 15,
     borderRadius: 999,
     alignItems: "center",

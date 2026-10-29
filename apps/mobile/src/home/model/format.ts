@@ -20,6 +20,10 @@ export const age = (since: number, now: number): string => {
   return `${Math.floor(elapsed / DAY)}d`;
 };
 
+/** "lucas-mac-studio.tail0.ts.net" → "lucas-mac-studio"; IP addresses stay whole. */
+export const shortHostName = (name: string): string =>
+  /^[a-z][\w-]*\./i.test(name) ? (name.split(".")[0] ?? name) : name;
+
 /** "1 host", "4 hosts". */
 export const counted = (count: number, one: string, many = `${one}s`): string =>
   `${count} ${count === 1 ? one : many}`;

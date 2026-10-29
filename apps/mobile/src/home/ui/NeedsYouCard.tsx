@@ -11,7 +11,8 @@ import { themedStyles } from "../../theme/index.ts";
 import { age } from "../model/format.ts";
 import { type SessionRow, whereLine } from "../model/home.ts";
 import { type Reply, respond } from "../model/respond.ts";
-import { ApprovalActions } from "./ApprovalActions.tsx";
+import { ApprovalActions, OpenToAnswer } from "./ApprovalActions.tsx";
+import { CONTENT_TEXT_SCALE } from "./textScale.ts";
 
 export interface RowMenu {
   readonly menu: Menu;
@@ -40,12 +41,14 @@ export const NeedsYouPage = ({ item, now, onOpen, onReply, menu }: NeedsYouPageP
       style={({ pressed }) => [styles.head, pressed ? styles.pressed : null]}
     >
       <View style={styles.top}>
-        <Text style={styles.title} numberOfLines={2}>
+        <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.title} numberOfLines={2}>
           {titleOf(item.session.title)}
         </Text>
-        <Text style={styles.age}>{age(item.since, now)}</Text>
+        <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.age}>
+          {age(item.since, now)}
+        </Text>
       </View>
-      <Text style={styles.where} numberOfLines={1}>
+      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.where} numberOfLines={1}>
         {whereLine(item)}
       </Text>
     </Pressable>
@@ -68,7 +71,9 @@ export const NeedsYouPage = ({ item, now, onOpen, onReply, menu }: NeedsYouPageP
             {head}
           </LongPressMenu>
         )}
-        {item.approval === null ? null : (
+        {item.approval === null ? (
+          <OpenToAnswer onOpen={onOpen} />
+        ) : (
           <ApprovalActions
             approval={item.approval}
             enabled={!item.stale}
@@ -131,5 +136,6 @@ const useStyles = themedStyles((colours) => ({
     fontSize: 13,
     lineHeight: 18,
     color: colours.textSubtle,
+    writingDirection: "ltr",
   },
 }));

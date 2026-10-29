@@ -4,8 +4,7 @@
  */
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
 import { useNavigation } from "../app/navigation.tsx";
-import { useSettledHosts } from "../home/feed/settled.ts";
-import { homeHostsOf, useFollowedHosts } from "../home/feed/useFollowedHosts.ts";
+import { useHomeHosts } from "../home/feed/useHomeHosts.ts";
 import { InboxSheet } from "./InboxSheet.tsx";
 import { inboxOf } from "./model.ts";
 
@@ -20,8 +19,7 @@ const InboxContext = createContext<InboxControls | null>(null);
 
 /** Under the NavigationProvider: opening an agent session from the sheet closes it. */
 export const InboxProvider = ({ children }: { readonly children: ReactNode }) => {
-  const hosts = useFollowedHosts();
-  const shown = useSettledHosts(useMemo(() => homeHostsOf(hosts), [hosts]));
+  const shown = useHomeHosts();
   const inbox = useMemo(() => inboxOf(shown), [shown]);
   const [isOpen, setOpen] = useState(false);
   const top = useNavigation().top;

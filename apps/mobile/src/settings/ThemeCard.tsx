@@ -1,9 +1,10 @@
 /** A theme card in Appearance (Paper MX-G): its dark's sky, a check when chosen, name and caption. */
 import { mobileType } from "@polaris/ui/tokens";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg";
 import { type ThemeName, useTheme } from "../theme";
 import { MOON, MOON_HALO, RIDGE_PATHS, SKIES } from "./sky.ts";
+import { ACCESSIBILITY_SCALE, TYPE_CAP } from "./type.ts";
 
 const SkyArt = ({ name }: { readonly name: ThemeName }) => {
   const sky = SKIES[name];
@@ -54,6 +55,7 @@ export const ThemeCard = ({
   const theme = useTheme();
   const { colours } = theme;
   const chosen = theme.name === name;
+  const wraps = useWindowDimensions().fontScale >= ACCESSIBILITY_SCALE;
 
   return (
     <Pressable
@@ -89,8 +91,17 @@ export const ThemeCard = ({
         ) : null}
       </View>
       <View style={styles.text}>
-        <Text style={[styles.title, { color: colours.textStrong }]}>{title}</Text>
-        <Text style={[styles.caption, { color: colours.textSubtle }]} numberOfLines={1}>
+        <Text
+          style={[styles.title, { color: colours.textStrong }]}
+          maxFontSizeMultiplier={TYPE_CAP}
+        >
+          {title}
+        </Text>
+        <Text
+          style={[styles.caption, { color: colours.textSubtle }]}
+          maxFontSizeMultiplier={TYPE_CAP}
+          numberOfLines={wraps ? 0 : 1}
+        >
           {caption}
         </Text>
       </View>

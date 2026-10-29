@@ -14,19 +14,25 @@ export const THEME_CARDS: ReadonlyArray<{
 
 export interface HostsLine {
   readonly names: string;
+  /** "+ 2", the Hosts past the named ones; it stays in view when the names truncate. */
+  readonly more: string | null;
   /** "1 reconnecting" in needs you's colour; null when every Host is fine. */
   readonly note: string | null;
 }
 
 const SHOWN = 2;
 
-/** "mac-studio, lucas-rpi + 2 · 1 reconnecting": the first names, the rest counted. */
+/** "lucas-mac-studio.taild0d828.ts.net" → "lucas-mac-studio"; an IP address stays whole. */
+const shortName = (name: string) =>
+  /^[a-z][\w-]*\./i.test(name) ? (name.split(".")[0] ?? name) : name;
+
+/** "mac-studio, lucas-rpi" "+ 2" "1 reconnecting": the first names, the rest counted. */
 export const hostsLine = (
   hosts: ReadonlyArray<{ readonly name: string; readonly state: ConnectionState }>
 ): HostsLine => {
-  if (hosts.length === 0) return { names: "No hosts yet", note: null };
+  if (hosts.length === 0) return { names: "No hosts yet", more: null, note: null };
 
-  const names = hosts.slice(0, SHOWN).map((host) => host.name);
+  const names = hosts.slice(0, SHOWN).map((host) => shortName(host.name));
   const rest = hosts.length - SHOWN;
   const count = (state: ConnectionState) => hosts.filter((host) => host.state === state).length;
 
@@ -39,7 +45,8 @@ export const hostsLine = (
   const note = notes.find(([n]) => n > 0);
 
   return {
-    names: rest > 0 ? `${names.join(", ")} + ${rest}` : names.join(", "),
+    names: names.join(", "),
+    more: rest > 0 ? `+ ${rest}` : null,
     note: note === undefined ? null : `${note[0]} ${note[1]}`,
   };
 };

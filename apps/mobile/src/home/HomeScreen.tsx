@@ -20,8 +20,7 @@ import { Celestial, sessionCelestial } from "../celestial/index.tsx";
 import { HORIZON_INSET, HorizonScreen } from "../horizon/index.tsx";
 import { constellationMenu, type MenuAction, sessionMenu, useMenuActions } from "../menus/index.ts";
 import { themedStyles, useReducedMotion, useTheme } from "../theme/index.ts";
-import { homeHostsOf, useFollowedHosts } from "./feed/useFollowedHosts.ts";
-import { useSettledHosts } from "./feed/settled.ts";
+import { useHomeHosts } from "./feed/useHomeHosts.ts";
 import { type HeroPage, heroKicker, nextUpIndex, nextUpMeta, pageIndex } from "./model/hero.ts";
 import { buildHome, type HomeRow, type SessionRow as Row } from "./model/home.ts";
 import { rowDestination } from "./model/lines.ts";
@@ -32,12 +31,14 @@ import {
   type SeenRow,
 } from "./model/sections.ts";
 import { useConstellationProgress } from "./ui/constellationProgress.ts";
+import { DevDataToggle } from "./ui/DevDataToggle.tsx";
 import { EmptyHome } from "./ui/EmptyHome.tsx";
 import { NeedsYouStar } from "./ui/glyphs.tsx";
 import { Header } from "./ui/Header.tsx";
 import { NeedsYouCard, titleOf } from "./ui/NeedsYouCard.tsx";
 import { ConstellationListRow, SessionRow } from "./ui/rows.tsx";
 import { useInbox } from "../inbox/index.ts";
+import { CHROME_TEXT_SCALE } from "./ui/textScale.ts";
 
 export interface HomeActions {
   readonly openSession: (hostId: string, sessionId: string) => void;
@@ -174,10 +175,12 @@ const NextUp = ({
         harness={row.session.harness}
         size={16}
       />
-      <Text style={styles.nextUpTitle} numberOfLines={1}>
+      <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.nextUpTitle} numberOfLines={1}>
         {titleOf(row.session.title)}
       </Text>
-      <Text style={styles.nextUpMeta}>{nextUpMeta(row, now)}</Text>
+      <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.nextUpMeta}>
+        {nextUpMeta(row, now)}
+      </Text>
       <Chevron color={colours.textFaint} />
     </Pressable>
   );
@@ -221,7 +224,11 @@ const NeedsYouHero = ({
     <View style={styles.hero}>
       <View style={styles.heroHead}>
         <NeedsYouStar size={10} />
-        <Text style={[styles.kicker, styles.heroKicker]} accessibilityRole="header">
+        <Text
+          maxFontSizeMultiplier={CHROME_TEXT_SCALE}
+          style={[styles.kicker, styles.heroKicker]}
+          accessibilityRole="header"
+        >
           {heroKicker(index, rows.length)}
         </Text>
         <PageDots count={rows.length} index={index} />
@@ -319,7 +326,11 @@ const SectionHead = ({ section }: { readonly section: HomeSection }) => {
 
   return (
     <View style={styles.sectionHead}>
-      <Text style={styles.kicker} accessibilityRole="header">
+      <Text
+        maxFontSizeMultiplier={CHROME_TEXT_SCALE}
+        style={styles.kicker}
+        accessibilityRole="header"
+      >
         {section.label}
       </Text>
     </View>
@@ -339,13 +350,12 @@ export const HomeScreen = ({
 }) => {
   const styles = useStyles();
   const insets = useSafeAreaInsets();
-  const hosts = useFollowedHosts();
+  const shownHosts = useHomeHosts();
   const [workspace, setWorkspace] = useState<string | null>(null);
   const now = useNow();
   const onMenu = useMenuActions();
   const inbox = useInbox();
 
-  const shownHosts = useSettledHosts(useMemo(() => homeHostsOf(hosts), [hosts]));
   const home = useMemo(() => buildHome(shownHosts, workspace), [shownHosts, workspace]);
 
   const hero: HeroActions = {
@@ -354,7 +364,7 @@ export const HomeScreen = ({
     onMenu,
   };
 
-  const withHost = hosts.length > 1;
+  const withHost = shownHosts.length > 1;
   const sections = useMemo(() => homeSections(home), [home]);
   const [onScreen, setOnScreen] = useState<ReadonlySet<string>>(() => new Set());
 
@@ -417,6 +427,7 @@ export const HomeScreen = ({
           )}
         />
       </View>
+      <DevDataToggle bottom={tabBarHeight + 8} />
     </HorizonScreen>
   );
 };

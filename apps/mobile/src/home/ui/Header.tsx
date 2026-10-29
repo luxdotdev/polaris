@@ -9,19 +9,22 @@ import { themedStyles, useTheme } from "../../theme/index.ts";
 import { counted } from "../model/format.ts";
 import type { Home } from "../model/home.ts";
 import { NeedsYouBadge } from "./NeedsYouBadge.tsx";
+import { CHROME_TEXT_SCALE } from "./textScale.ts";
 
 const useStyles = themedStyles((c) => ({
   header: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 14, gap: 8 },
   titleRow: {
-    height: 41,
+    minHeight: 41,
     flexDirection: "row",
+    flexWrap: "wrap",
+    rowGap: 8,
     alignItems: "center",
     justifyContent: "space-between",
   },
   title: { ...mobileType.largeTitle, color: c.textStrong },
   pills: { flexDirection: "row", gap: 8 },
   pill: {
-    height: 32,
+    minHeight: 32,
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
@@ -39,7 +42,7 @@ const useStyles = themedStyles((c) => ({
   chipsScroll: { marginHorizontal: -16 },
   chips: { gap: 8, paddingHorizontal: 16 },
   chip: {
-    height: 32,
+    minHeight: 32,
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -93,7 +96,9 @@ export const HostsPill = ({
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={styles.pill}>
       <View style={styles.pillDot} />
-      <Text style={styles.pillLabel}>{counted(count, "host")}</Text>
+      <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.pillLabel}>
+        {counted(count, "host")}
+      </Text>
       <ChevronDown color={colours.textFaint} />
     </Pressable>
   );
@@ -113,10 +118,16 @@ const Summary = ({ home }: { readonly home: Home }) => {
   const needsYou = home.needsYou > 0 ? `${home.needsYou} need you` : null;
 
   return (
-    <Text style={styles.summary} numberOfLines={2}>
-      {needsYou === null ? null : <Text style={styles.needsYou}>{needsYou}</Text>}
+    <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.summary} numberOfLines={2}>
+      {needsYou === null ? null : (
+        <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.needsYou}>
+          {needsYou}
+        </Text>
+      )}
       {rest.length === 0 ? null : (
-        <Text style={styles.rest}>{(needsYou === null ? "" : " · ") + rest.join(" · ")}</Text>
+        <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.rest}>
+          {(needsYou === null ? "" : " · ") + rest.join(" · ")}
+        </Text>
       )}
     </Text>
   );
@@ -152,13 +163,16 @@ const Chips = ({
             style={[styles.chip, active ? styles.chipActive : null]}
           >
             <Text
+              maxFontSizeMultiplier={CHROME_TEXT_SCALE}
               style={[styles.chipLabel, active ? styles.chipLabelActive : null]}
               numberOfLines={1}
             >
               {chip.label}
             </Text>
             {chip.name === null ? (
-              <Text style={styles.chipCount}>{home.workspaceCount}</Text>
+              <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.chipCount}>
+                {home.workspaceCount}
+              </Text>
             ) : null}
           </Pressable>
         );
@@ -186,7 +200,11 @@ export const Header = ({
   return (
     <View style={styles.header}>
       <View style={styles.titleRow}>
-        <Text style={styles.title} accessibilityRole="header">
+        <Text
+          maxFontSizeMultiplier={CHROME_TEXT_SCALE}
+          style={styles.title}
+          accessibilityRole="header"
+        >
           Sessions
         </Text>
         <View style={styles.pills}>
