@@ -13,7 +13,8 @@ const CURRENT_FILL: Record<Harness, string> = {
   codex: "bg-harness-codex/6",
 };
 
-const Step = ({ step, hue }: { readonly step: PlanStep; readonly hue: Hue }) => {
+/** One step: the notice strip's todo list draws its checklist with these too. */
+export const Step = ({ step, hue }: { readonly step: PlanStep; readonly hue: Hue }) => {
   const current = step.status === "in-progress";
   const label = stepLabel(step);
 

@@ -5,10 +5,12 @@
 import type { ApprovalRequest } from "@polaris/protocol";
 import { CONTEXT_NEARLY_FULL } from "./meta.ts";
 import type { Outgoing } from "./outbox.ts";
+import type { TodoList } from "./todoList.ts";
 
 export type Notice =
   | { readonly kind: "approval"; readonly request: ApprovalRequest }
   | { readonly kind: "working" }
+  | { readonly kind: "todo"; readonly list: TodoList }
   | { readonly kind: "queued"; readonly entries: ReadonlyArray<Outgoing> }
   | { readonly kind: "context"; readonly share: number }
   | { readonly kind: "limited"; readonly resetsAt: string | null };
@@ -16,6 +18,8 @@ export type Notice =
 export interface NoticeInput {
   readonly approvals: ReadonlyArray<ApprovalRequest>;
   readonly working: boolean;
+  /** The agent's todo list while its Turn works (`todoList`). */
+  readonly todo: TodoList | null;
   readonly outbox: ReadonlyArray<Outgoing>;
   /** The share of the context window in use; null when the window is unknown. */
   readonly contextShare: number | null;
@@ -42,10 +46,27 @@ export const notices = (input: NoticeInput): ReadonlyArray<Notice> => {
   return [
     first === undefined ? null : { kind: "approval" as const, request: first },
     input.working ? { kind: "working" as const } : null,
+    input.todo === null ? null : { kind: "todo" as const, list: input.todo },
     queued.length === 0 ? null : { kind: "queued" as const, entries: queued },
     share === null ? null : { kind: "context" as const, share },
     input.limited ? { kind: "limited" as const, resetsAt: input.resetsAt } : null,
   ].filter((n) => n !== null);
+};
+
+export interface StripLayout {
+  /** The rows always shown: the top notice, and the todo list under Working. */
+  readonly shown: ReadonlyArray<Notice>;
+  /** The rest, behind "+n". */
+  readonly behind: ReadonlyArray<Notice>;
+}
+
+/** One notice at a time, except that Working and the todo list share the strip. */
+export const stripLayout = (all: ReadonlyArray<Notice>): StripLayout => {
+  const [top, next] = all;
+  const shared = top?.kind === "working" && next?.kind === "todo";
+  const count = top === undefined ? 0 : shared ? 2 : 1;
+
+  return { shown: all.slice(0, count), behind: all.slice(count) };
 };
 
 const WANTS: Readonly<Record<ApprovalRequest["kind"], string>> = {

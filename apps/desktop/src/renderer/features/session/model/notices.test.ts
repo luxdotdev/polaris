@@ -17,6 +17,7 @@ const request = new ApprovalRequest({
 const quiet: NoticeInput = {
   approvals: [],
   working: false,
+  todo: null,
   outbox: [],
   contextShare: 0.17,
   contextDismissedAt: null,
@@ -31,16 +32,22 @@ describe("the composer's notice strip", () => {
     expect(kinds({})).toEqual([]);
   });
 
-  test("ranks approval lock, working, queued follow-ups, context nearly full, limited", () => {
+  test("ranks approval lock, working, todo list, queued follow-ups, context nearly full, limited", () => {
     expect(
       kinds({
         limited: true,
         contextShare: 0.91,
         outbox: [queuedOutgoing("then open a pull request", [])],
+        todo: {
+          steps: [{ text: "Run the checks", status: "in-progress", detail: null }],
+          current: 0,
+          label: "Run the checks",
+          done: 0,
+        },
         working: true,
         approvals: [request],
       })
-    ).toEqual(["approval", "working", "queued", "context", "limited"]);
+    ).toEqual(["approval", "working", "todo", "queued", "context", "limited"]);
   });
 
   test("counts only follow-ups still waiting, not steers or ones already sent", () => {

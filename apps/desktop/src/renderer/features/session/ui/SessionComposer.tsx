@@ -48,6 +48,7 @@ import { ComposerStatus } from "./ComposerStatus.tsx";
 import { useCompact } from "./ContextCard.tsx";
 import { NoticeStrip } from "./NoticeStrip.tsx";
 import { notices } from "../model/notices.ts";
+import { todoList } from "../model/todoList.ts";
 import { type ShellMode, useShellMode } from "./useShellMode.ts";
 import { polarisAuthored, type SessionChrome, useSessionChrome } from "../chrome.ts";
 
@@ -319,6 +320,7 @@ export const SessionComposer = (props: SessionComposerProps) => {
       notices={notices({
         approvals: model.pendingApprovals,
         working: working !== undefined,
+        todo: todoList(model.turns.at(-1)),
         outbox: ui.outbox,
         contextShare: contextShare(session),
         contextDismissedAt,

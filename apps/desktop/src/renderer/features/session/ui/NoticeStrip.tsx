@@ -1,6 +1,7 @@
 /**
  * The composer's notice strip (Paper X-E): one notice at a time by priority, the rest behind
- * "+n"; the chevron expands every notice and the queued follow-ups. Nothing to know, no strip.
+ * "+n"; the chevron expands every notice and the queued follow-ups. Working and the agent's todo
+ * list share the strip. Nothing to know, no strip.
  */
 import type { ApprovalRequest } from "@polaris/protocol";
 import {
@@ -17,7 +18,10 @@ import {
 } from "@polaris/ui";
 import { type ReactNode, useState } from "react";
 import { capacityReset } from "../../constellation/model/failure.ts";
-import { approvalNotice, type Notice } from "../model/notices.ts";
+import { approvalNotice, type Notice, stripLayout } from "../model/notices.ts";
+import type { TodoList } from "../model/todoList.ts";
+import { WELL } from "./marks.tsx";
+import { Step } from "./plan.tsx";
 
 export interface NoticeStripProps {
   readonly harness: Harness;
@@ -144,6 +148,87 @@ const Queued = ({ count, more }: { readonly count: number; readonly more: ReactN
   </div>
 );
 
+const RING = 2 * Math.PI * 4.75;
+
+/** The todo list's progress mark: a neutral ring filled by the share of items done. */
+const ProgressMark = ({ done, total }: { readonly done: number; readonly total: number }) => (
+  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" className="shrink-0">
+    <circle
+      cx="6"
+      cy="6"
+      r="4.75"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      opacity="0.3"
+    />
+    <circle
+      cx="6"
+      cy="6"
+      r="4.75"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeDasharray={`${(RING * done) / total} ${RING}`}
+      transform="rotate(-90 6 6)"
+    />
+  </svg>
+);
+
+/** The agent's todo list: the item in progress and "3 of 7"; a click opens the checklist. */
+const Todo = ({
+  list,
+  props,
+  more,
+}: {
+  readonly list: TodoList;
+  readonly props: NoticeStripProps;
+  readonly more: ReactNode;
+}) => {
+  const [open, setOpen] = useState(false);
+  const total = list.steps.length;
+  const count = `${list.current + 1} of ${total}`;
+
+  return (
+    <div className="flex flex-col" data-testid="notice-todo">
+      <div className={ROW}>
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          aria-label={`Todo list, ${count}: ${list.label}`}
+          data-testid="todo-toggle"
+          className="gap-row-x text-text-subtle hover:text-text-default flex min-w-0 flex-1 cursor-default items-center self-stretch text-left"
+        >
+          <ProgressMark done={list.done} total={total} />
+          <span
+            title={list.label}
+            className="text-body text-text-strong min-w-0 truncate font-medium"
+          >
+            {list.label}
+          </span>
+          <span className="text-caption text-text-subtle tabular shrink-0">· {count}</span>
+          <span className="flex-1" />
+          {open ? <ChevronUpIcon size={10} /> : <ChevronDownIcon size={10} />}
+        </button>
+        {more}
+      </div>
+      {open ? (
+        <div className="px-2.5 pb-2.5">
+          <div
+            className={cn(WELL, "flex max-h-[280px] flex-col overflow-y-auto py-1.5")}
+            data-testid="todo-list"
+          >
+            {list.steps.map((step, n) => (
+              <Step key={`${n}:${step.text}`} step={step} hue={props.harness} />
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
 const QueuedList = ({
   entries,
   onUnqueue,
@@ -241,6 +326,8 @@ const NoticeRow = ({ notice, props, more }: RowProps) => {
       return <Approval request={notice.request} props={props} more={more} />;
     case "working":
       return <Working props={props} more={more} />;
+    case "todo":
+      return <Todo list={notice.list} props={props} more={more} />;
     case "queued":
       return <Queued count={notice.entries.length} more={more} />;
     case "context":
@@ -262,7 +349,8 @@ const Expanded = ({ notice, props }: { notice: Notice; props: NoticeStripProps }
 
 export const NoticeStrip = (props: NoticeStripProps) => {
   const [open, setOpen] = useState(false);
-  const [top, ...rest] = props.notices;
+  const { shown, behind: rest } = stripLayout(props.notices);
+  const [top, ...beside] = shown;
 
   if (top === undefined) return null;
 
@@ -276,11 +364,14 @@ export const NoticeStrip = (props: NoticeStripProps) => {
     <div
       className={cn(
         "border-hairline flex shrink-0 flex-col",
-        (top.kind !== "working" || open) && "border-b"
+        (shown.length > 1 || top.kind !== "working" || open) && "border-b"
       )}
       data-testid="notice-strip"
     >
       <NoticeRow notice={top} props={props} more={more} />
+      {beside.map((n) => (
+        <NoticeRow key={n.kind} notice={n} props={props} more={null} />
+      ))}
       {open && top.kind === "queued" ? (
         <QueuedList entries={top.entries} onUnqueue={props.onUnqueue} />
       ) : null}
