@@ -5,23 +5,19 @@
 import type { Model } from "@polaris/protocol";
 import { mobileType } from "@polaris/ui/tokens";
 import type { ReactNode } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { InstrumentSheet, SheetHeader, Well } from "../sheet";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { InstrumentSheet, SheetHeader, SheetKicker, Well } from "../sheet";
 import { type MobileColours, useTheme } from "../theme";
 import { harnessName } from "../thread/labels.ts";
 import { effortFor } from "./modelSheet.ts";
 import type { ModelSheetInput } from "./useModelSheet.ts";
 
-const Section = ({ title, children }: { readonly title: string; readonly children: ReactNode }) => {
-  const { colours } = useTheme();
-
-  return (
-    <View style={styles.section}>
-      <Text style={[styles.kicker, { color: colours.textFaint }]}>{title}</Text>
-      <Well>{children}</Well>
-    </View>
-  );
-};
+const Section = ({ title, children }: { readonly title: string; readonly children: ReactNode }) => (
+  <>
+    <SheetKicker parts={[title]} />
+    <Well style={styles.well}>{children}</Well>
+  </>
+);
 
 const Option = ({
   title,
@@ -123,66 +119,62 @@ export const ModelSheet = ({ input }: { readonly input: ModelSheetInput }) => {
 
   return (
     <InstrumentSheet open={input.open} onClose={close} detents={["medium", "large"]}>
-      <SheetHeader title={input.label} kicker="Model" onClose={close} />
-      <ScrollView contentContainerStyle={styles.body}>
-        <Section title="HARNESS">
-          <Option title={harnessName(input.harness)} detail={null} on onPress={() => undefined} />
-          {input.forkTo.map((option) => (
+      <SheetHeader title={input.label} onClose={close} />
+      <Section title="Harness">
+        <Option title={harnessName(input.harness)} detail={null} on onPress={() => undefined} />
+        {input.forkTo.map((option) => (
+          <Option
+            key={option.kind}
+            title={option.name}
+            detail={`Fork on ${option.name}`}
+            on={false}
+            onPress={() => input.forkOn(option.kind)}
+          />
+        ))}
+      </Section>
+      <Section title="Model">
+        {input.models.length === 0 ? (
+          <Text style={[styles.note, { color: colours.textSubtle }]}>
+            {input.label} · this harness doesn't list its models
+          </Text>
+        ) : (
+          input.models.map((model) => (
             <Option
-              key={option.kind}
-              title={option.name}
-              detail={`Fork on ${option.name}`}
-              on={false}
-              onPress={() => input.forkOn(option.kind)}
+              key={model.id}
+              title={model.name}
+              detail={model.description}
+              on={model.id === input.model?.id}
+              disabled={locked}
+              onPress={() => {
+                if (model.id !== input.model?.id) input.pickModel(model, input.effort);
+              }}
             />
-          ))}
-        </Section>
-        <Section title="MODEL">
-          {input.models.length === 0 ? (
-            <Text style={[styles.note, { color: colours.textSubtle }]}>
-              {input.label} · this harness doesn't list its models
-            </Text>
-          ) : (
-            input.models.map((model) => (
-              <Option
-                key={model.id}
-                title={model.name}
-                detail={model.description}
-                on={model.id === input.model?.id}
-                disabled={locked}
-                onPress={() => {
-                  if (model.id !== input.model?.id) input.pickModel(model, input.effort);
-                }}
-              />
-            ))
-          )}
-          {notes(input, colours)}
-        </Section>
-        {input.model === null || input.model.efforts.length === 0 ? null : (
-          <Section title="EFFORT">
-            <Efforts input={input} model={input.model} />
-          </Section>
+          ))
         )}
-        <Section title="PERMISSIONS">
-          {input.permissions.map((option) => (
-            <Option
-              key={option.mode}
-              title={option.label}
-              detail={option.detail}
-              on={option.mode === input.permission}
-              onPress={() => input.pickPermission(option.mode)}
-            />
-          ))}
+        {notes(input, colours)}
+      </Section>
+      {input.model === null || input.model.efforts.length === 0 ? null : (
+        <Section title="Effort">
+          <Efforts input={input} model={input.model} />
         </Section>
-      </ScrollView>
+      )}
+      <Section title="Permissions">
+        {input.permissions.map((option) => (
+          <Option
+            key={option.mode}
+            title={option.label}
+            detail={option.detail}
+            on={option.mode === input.permission}
+            onPress={() => input.pickPermission(option.mode)}
+          />
+        ))}
+      </Section>
     </InstrumentSheet>
   );
 };
 
 const styles = StyleSheet.create({
-  body: { gap: 20, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 40 },
-  section: { gap: 8 },
-  kicker: { ...mobileType.index, fontSize: 11, letterSpacing: 0.8 },
+  well: { paddingVertical: 2, paddingHorizontal: 0, gap: 0 },
   row: {
     flexDirection: "row",
     alignItems: "center",
