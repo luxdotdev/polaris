@@ -60,6 +60,10 @@ export interface ThreadScreenProps {
   readonly header?: ReactNode;
   /** Drawn under the header, above the transcript: a constellation's star chart panel. */
   readonly belowHeader?: ReactNode;
+  /** After the newest Turn, in the transcript: a constellation's completion card. */
+  readonly atLatest?: ReactNode;
+  /** Over the suggestions and composer: the lead's notice of a claim handed to the user. */
+  readonly aboveComposer?: ReactNode;
 }
 
 interface HeldThread {
@@ -231,6 +235,8 @@ export const ThreadScreen = ({
   composerSlot = "inline",
   header,
   belowHeader,
+  atLatest,
+  aboveComposer,
 }: ThreadScreenProps) => {
   const connection = useHost(hostId);
   const navigation = useNavigation();
@@ -423,6 +429,7 @@ export const ThreadScreen = ({
           )}
           ListHeaderComponent={
             <>
+              {atLatest}
               {critical === null ? null : (
                 <FindingRow
                   finding={critical}
@@ -463,6 +470,7 @@ export const ThreadScreen = ({
           ]}
         >
           {away ? <Text style={styles.queued}>Reconnecting to {connection.name}…</Text> : null}
+          {aboveComposer}
           <Suggestions items={chips} onPick={pick} />
           <Composer
             mode={mode}
