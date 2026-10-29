@@ -84,8 +84,8 @@ export interface FindingsQuery {
   readonly head: string | null;
 }
 
-/** How many Turns the first Snapshot holds; earlier ones are not on the phone. */
-export const TURN_LIMIT = 200;
+/** How many Turns the first Snapshot holds; scrolling up pages in the earlier ones. */
+export const TURN_LIMIT = 30;
 
 /** What every Daemon and transport error carries. */
 interface Failed {

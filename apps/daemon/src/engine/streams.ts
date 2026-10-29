@@ -31,6 +31,7 @@ import {
   type SessionRecord,
 } from "../store/model.ts";
 import { EngineRuntime } from "./runtime.ts";
+import { newestWithin } from "./turnBudget.ts";
 
 export interface SessionSubscription {
   readonly sessionId: SessionId;
@@ -210,7 +211,7 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
       return SessionStreamItem.cases.Snapshot.make({
         sequence: cut,
         session: record.session,
-        turns: yield* turnDetails([...older, ...recent], cut, withSubagents),
+        turns: newestWithin(yield* turnDetails([...older, ...recent], cut, withSubagents)),
         pendingApprovals: [...record.pending.values()],
       });
     }).pipe(Effect.orDie);
@@ -254,11 +255,13 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
         .pipe(Effect.orDie);
 
       const page = turns.slice(Math.max(0, turns.length - limit));
+      const details = yield* turnDetails(page, cut, options.subagents === true).pipe(Effect.orDie);
+      const fit = newestWithin(details);
 
       return new TurnPage({
-        turns: yield* turnDetails(page, cut, options.subagents === true).pipe(Effect.orDie),
+        turns: fit,
         sequence: cut,
-        hasMore: turns.length > limit,
+        hasMore: turns.length > limit || fit.length < details.length,
       });
     });
 

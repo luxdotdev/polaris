@@ -1,8 +1,15 @@
 /** `session.turns`: older Turns a page at a time, for a Client that opened on the latest few. */
 import { expect, test } from "bun:test";
 import { join } from "node:path";
-import { Command, NotFound, SessionId, SessionPlacement } from "@polaris/protocol";
-import { Effect, Exit } from "effect";
+import {
+  Command,
+  encodeJsonFrame,
+  NotFound,
+  SessionId,
+  SessionPlacement,
+  SessionStreamItem,
+} from "@polaris/protocol";
+import { Effect, Exit, Option, Predicate, Schema, Stream } from "effect";
 import { makeRepo } from "../git/testing.ts";
 import { Engine } from "./Engine.ts";
 import { MAX_TURN_PAGE } from "./streams.ts";
@@ -23,7 +30,7 @@ const dispatch = (command: Command) =>
 
 const sessionId = SessionId.make("s-paging");
 
-const withTurns = (turns: number) =>
+const withTurns = (turns: number, pad = "") =>
   Effect.gen(function* () {
     const repo = yield* Effect.promise(() => makeRepo());
     yield* dispatch(Command.cases.RegisterWorkspace.make({ path: repo, name: null }));
@@ -39,7 +46,7 @@ const withTurns = (turns: number) =>
         permissionMode: "supervised",
         model: null,
         effort: null,
-        prompt: "turn 0",
+        prompt: `turn 0${pad}`,
         attachments: [],
       })
     );
@@ -47,7 +54,7 @@ const withTurns = (turns: number) =>
     for (let i = 1; i < turns; i++) {
       yield* waitFor((m) => m.sessions.get(sessionId)?.session.state === "idle");
       yield* dispatch(
-        Command.cases.SendTurn.make({ sessionId, prompt: `turn ${i}`, attachments: [] })
+        Command.cases.SendTurn.make({ sessionId, prompt: `turn ${i}${pad}`, attachments: [] })
       );
     }
 
@@ -103,6 +110,34 @@ test("a page holds at most MAX_TURN_PAGE Turns, however many the Client asks for
   expect(page.turns.at(-1)?.turn.index).toBe(MAX_TURN_PAGE);
   expect(page.hasMore).toBe(true);
 }, 30_000);
+
+const encodeItem = Schema.encodeSync(Schema.toCodecJson(SessionStreamItem));
+
+// ENG-535: a long session's Snapshot passed the 16 MB frame, and the phone never opened it.
+test("a Snapshot and a page past a frame's worth keep the newest Turns that fit", async () => {
+  const { snapshot, page } = await Effect.runPromise(
+    Effect.gen(function* () {
+      // The prompt shows twice in a Turn (its prompt and its first item): about 3 MB each, 21 in all.
+      yield* withTurns(7, "x".repeat(1536 * 1024));
+      const engine = yield* Engine;
+
+      const first = yield* engine
+        .subscribeSession({ sessionId, afterSequence: null, turnLimit: null })
+        .pipe(Stream.runHead, Effect.map(Option.getOrThrow));
+
+      return {
+        snapshot: first,
+        page: yield* engine.readTurnPage({ sessionId, beforeIndex: 7, limit: 7 }),
+      };
+    }).pipe(Effect.provide(layer()))
+  );
+
+  if (!Predicate.isTagged(snapshot, "Snapshot")) throw new Error("expected a Snapshot first");
+  expect(snapshot.turns.map((t) => t.turn.index)).toEqual([5, 6]);
+  expect(() => encodeJsonFrame(JSON.stringify(encodeItem(snapshot)))).not.toThrow();
+  expect(page.turns.map((t) => t.turn.index)).toEqual([5, 6]);
+  expect(page.hasMore).toBe(true);
+}, 60_000);
 
 test("an unknown session is NotFound", async () => {
   const missing = await Effect.runPromise(
