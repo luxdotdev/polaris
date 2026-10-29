@@ -3,21 +3,14 @@
  * Host stream, read positions and the relay's wake).
  */
 import { expect, test } from "bun:test";
-import {
-  ApprovalDecision,
-  DomainEvent,
-  type HostStreamItem,
-  ReadPosition,
-  RequestId,
-  TurnId,
-} from "@polaris/protocol";
+import { ApprovalDecision, DomainEvent, type HostStreamItem, RequestId } from "@polaris/protocol";
 import type { PushMessage } from "@polaris/protocol/relay";
 import { Effect, Layer, PubSub, Stream } from "effect";
 import { RelayRoute } from "../linkedDevices/route.ts";
 import type { PushTarget } from "../linkedDevices/store.ts";
 import { HostPresence } from "../presence/index.ts";
-import { type Held, settleRead } from "./hold.ts";
-import { PushHostEvents, PushNotifier, PushReads } from "./notifier.ts";
+import { hold } from "./hold.ts";
+import { PushHostEvents, PushNotifier } from "./notifier.ts";
 import { emptyPlan, planItem, planSettled, type Push, SETTLE_MS } from "./plan.ts";
 import {
   approvalRequested,
@@ -90,7 +83,6 @@ const withNotifier = (
                       Stream.fromPubSub(events)
                     ),
                 }),
-                Layer.succeed(PushReads)({ subscribe: () => Stream.never }),
                 Layer.succeed(RelayRoute)(route),
                 Layer.succeed(HostPresence)(presence)
               )
@@ -142,10 +134,24 @@ test("a lapsed lease sends what was held, with no away report", () =>
   withNotifier(150, ({ feed, presence, woken }) =>
     Effect.gen(function* () {
       presence.report(1, "present");
-      feed(notified("n1", false));
+      feed(approvalRequested("r1"));
       yield* Effect.sleep("50 millis");
       expect(woken).toEqual([]);
       yield* Effect.sleep("250 millis");
+      expect(requestIds(woken)).toEqual(["r1"]);
+    })
+  ));
+
+test("a notification while present reaches the phone neither then nor once the user is away", () =>
+  withNotifier(60_000, ({ feed, presence, woken }) =>
+    Effect.gen(function* () {
+      presence.report(1, "present");
+      feed(notified("n1", false));
+      yield* Effect.sleep("50 millis");
+      presence.report(1, "away");
+      feed(notified("n2", false));
+      yield* Effect.sleep("50 millis");
+      // Only n2, sent once away; n1 isn't held for later.
       expect(woken.map((m) => m.kind)).toEqual(["notify"]);
     })
   ));
@@ -167,42 +173,32 @@ test("with two Desktop Apps the Host stays quiet until both are away", () =>
 
 const host = { hostId: "host-1", hostName: "studio" };
 
-/** A finished Turn (index 0) and an agent's notification, as the plan pushes them, held. */
-const heldPushes = (): Held => {
+/** A finished Turn, an agent's notification and a Needs You, as the plan pushes them. */
+const planned = (): ReadonlyArray<Push> => {
   let state = emptyPlan;
-  const held: Array<Push> = [];
+  const pushes: Array<Push> = [];
 
   for (const item of [
     snapshot(),
     synchronized(),
     notified("n1", false),
     turnEnded("t1", "All green"),
+    approvalRequested("r1"),
   ]) {
-    const planned = planItem(state, item, { ...host, now: 1_000 });
-    state = planned.state;
-    held.push(...planned.send);
+    const next = planItem(state, item, { ...host, now: 1_000 });
+    state = next.state;
+    pushes.push(...next.send);
   }
 
-  held.push(...planSettled(state, { ...host, now: 1_000 + SETTLE_MS }).send);
-
-  return held;
+  return [...pushes, ...planSettled(state, { ...host, now: 1_000 + SETTLE_MS }).send];
 };
 
-const read = (turnIndex: number, at: number) =>
-  new ReadPosition({
-    sessionId: SESSION_ID,
-    turnId: TurnId.make("t1"),
-    turnIndex,
-    at: new Date(at).toISOString(),
-  });
-
-const kinds = (held: Held) => held.map(({ message }) => message.kind);
-
-test("reading the session through a finished Turn handles it and the notification before it", () => {
-  expect(kinds(heldPushes())).toEqual(["notify", "turn-ended"]);
-  expect(kinds(settleRead(heldPushes(), read(0, 5_000)))).toEqual([]);
-});
-
-test("a read from before the Turn or the notification handles neither", () => {
-  expect(kinds(settleRead(heldPushes(), read(-1, 500)))).toEqual(["notify", "turn-ended"]);
+// ENG-524: the Desktop App showed these as banners; on away they'd arrive as a burst.
+test("only a Needs You is held: finished Turns and notifications at the Mac never reach the phone", () => {
+  expect(planned().map(({ message }) => message.kind)).toEqual([
+    "notify",
+    "needs-you",
+    "turn-ended",
+  ]);
+  expect(hold([], planned()).map(({ message }) => message.requestId)).toEqual(["r1"]);
 });

@@ -37,7 +37,7 @@ import { shortTemp } from "../platform/testing.ts";
 import { HostSecrets } from "../secrets/index.ts";
 import { ServerRpcs } from "../transport/rpcs.ts";
 import { startServer } from "../transport/server.ts";
-import { PushHostEvents, PushNotifier, PushReads } from "./notifier.ts";
+import { PushHostEvents, PushNotifier } from "./notifier.ts";
 import {
   approvalRequested,
   notified,
@@ -175,14 +175,11 @@ test("a Needs You reaches an offline linked device sealed, and its answer comes 
     ),
     PushNotifier.pipe(
       Layer.provide(
-        Layer.merge(
-          // Like the Engine's: every subscription starts with a Snapshot and Synchronized.
-          Layer.succeed(PushHostEvents)({
-            subscribe: () =>
-              Stream.concat(Stream.make(snapshot(), synchronized()), Stream.fromPubSub(events)),
-          }),
-          Layer.succeed(PushReads)({ subscribe: () => Stream.never })
-        )
+        // Like the Engine's: every subscription starts with a Snapshot and Synchronized.
+        Layer.succeed(PushHostEvents)({
+          subscribe: () =>
+            Stream.concat(Stream.make(snapshot(), synchronized()), Stream.fromPubSub(events)),
+        })
       )
     )
   );
