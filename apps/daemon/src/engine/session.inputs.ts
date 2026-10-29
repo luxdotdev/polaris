@@ -132,7 +132,12 @@ export const eventSchemas = {
   "session.fail": standard(Schema.Struct({ message: Schema.String, ...At })),
   "turn.interruptUnattended": standard(Schema.Struct(At)),
   "daemon.recover": standard(
-    Schema.Struct({ cause: Schema.Literals(["restart", "upgrade"]), ...At })
+    Schema.Struct({
+      cause: Schema.Literals(["restart", "upgrade"]),
+      /** What stopped the Daemon, for copy and reasons only; `cause` decides. Defaults to `cause`. */
+      stoppedFor: Schema.optionalKey(Schema.Literals(["restart", "upgrade"])),
+      ...At,
+    })
   ),
 };
 
@@ -165,6 +170,9 @@ export const isEmitted = (event: EventObject): event is Emitted => EMITTED.has(e
 export const normalizedInput = (input: SessionInput, at: string) => {
   if (input.type === "idle.timeout")
     return { ...input, backgroundExpired: input.backgroundExpired ?? false, at: input.at ?? at };
+
+  if (input.type === "daemon.recover")
+    return { ...input, stoppedFor: input.stoppedFor ?? input.cause };
 
   return input.type === "harness.turnEnded" ? { ...input, limit: input.limit ?? null } : input;
 };

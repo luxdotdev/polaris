@@ -30,8 +30,12 @@ export const recoverOnStart = (rt: EngineRuntime["Service"]) =>
 /**
  * Stop every Harness that lives in the Daemon process (`liveCoAttach: false`)
  * and recover its session now; Codex threads outlive the exec and are left alone.
+ * `stoppedFor` only names the stop in copy (a Client's Restart daemon says `restart`).
  */
-export const prepareForUpgrade = (rt: EngineRuntime["Service"]) =>
+export const prepareForUpgrade = (
+  rt: EngineRuntime["Service"],
+  stoppedFor: "restart" | "upgrade" = "upgrade"
+) =>
   Effect.gen(function* () {
     const inProcess = [...rt.live.entries()].flatMap(([id, entry]) =>
       entry.driver.capabilities.liveCoAttach ? [] : [id]
@@ -45,7 +49,7 @@ export const prepareForUpgrade = (rt: EngineRuntime["Service"]) =>
             Effect.gen(function* () {
               yield* rt.cancelIdle(sessionId);
               yield* rt.stopHarness(sessionId);
-              yield* recoverSession(rt, sessionId, "upgrade", yield* rt.now);
+              yield* recoverSession(rt, sessionId, "upgrade", yield* rt.now, stoppedFor);
             })
           )
           .pipe(

@@ -1,7 +1,7 @@
 /**
  * Restart daemon's two RPCs: the confirm's preview, read from the model and the
  * live terminals, and the clean stop of in-process Harness Turns before the Client
- * restarts the service (docs/adr/0086-restart-runs-from-the-client-through-the-service-manager.md).
+ * restarts the service (docs/adr/0087-restart-runs-from-the-client-through-the-service-manager.md).
  */
 import { DaemonRpcs, RestartPreview, RestartWorkingSession } from "@polaris/protocol";
 import { Effect, Layer } from "effect";
@@ -55,7 +55,7 @@ export const restartPreview = Effect.gen(function* () {
 export const prepareRestart = Effect.gen(function* () {
   const store = yield* EventStore;
   const before = inFlight(yield* store.model);
-  yield* (yield* Engine).prepareForUpgrade;
+  yield* (yield* Engine).prepareForRestart;
   const interruptedTurns = Math.max(0, before - inFlight(yield* store.model));
   yield* Effect.logInfo(`preparing for a restart ended ${interruptedTurns} Turns`);
 

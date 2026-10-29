@@ -155,3 +155,25 @@ test("late setup completion preserves the latest card and archived Session State
   const other = card("completed", "old-setup");
   expect(decideSession(record, { type: "session.setup", setup: other }).events).toEqual([]);
 });
+
+test("the setup card names what stopped the Daemon: an upgrade, or a Client's Restart daemon", () => {
+  const record = foldSession(
+    WORKER,
+    fresh(),
+    decideSession(fresh(), setupInput("running")).events,
+    AT
+  )!;
+
+  const lastLine = (input: SessionInput) =>
+    foldSession(WORKER, record, decideSession(record, input).events, AT)!
+      .session.worktreeSetup?.output.split("\n")
+      .at(-1);
+
+  expect(lastLine({ type: "daemon.recover", cause: "upgrade", at: AT })).toBe(
+    "Setup interrupted by Daemon upgrade. Dispatch again to retry."
+  );
+  // Restart daemon prepares like an upgrade, but the card says what the user did.
+  expect(
+    lastLine({ type: "daemon.recover", cause: "upgrade", stoppedFor: "restart", at: AT })
+  ).toBe("Setup interrupted by Daemon restart. Dispatch again to retry.");
+});

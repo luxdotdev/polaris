@@ -49,7 +49,8 @@ export const recoverSession = Effect.fnUntraced(function* (
   rt: Pick<EngineRuntime["Service"], "store">,
   sessionId: SessionId,
   cause: "restart" | "upgrade",
-  at: string
+  at: string,
+  stoppedFor: "restart" | "upgrade" = cause
 ) {
   yield* rt.store.commit({
     commandId: null,
@@ -57,7 +58,13 @@ export const recoverSession = Effect.fnUntraced(function* (
       const record = model.sessions.get(sessionId);
 
       if (record === undefined) return Effect.succeed([]);
-      const events = decideSession(record, { type: "daemon.recover", cause, at }).events;
+
+      const events = decideSession(record, {
+        type: "daemon.recover",
+        cause,
+        stoppedFor,
+        at,
+      }).events;
 
       return Effect.succeed(
         events.length === 0 ? [] : [...events, ...interruptionEvents(model, record, at)]

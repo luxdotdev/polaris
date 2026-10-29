@@ -96,6 +96,8 @@ export class Engine extends Context.Service<
      * app-server, which outlives the Daemon, so they are left alone.
      */
     readonly prepareForUpgrade: Effect.Effect<void>;
+    /** The same before a Client's Restart daemon; recovery copy says `restart` (ADR 0087). */
+    readonly prepareForRestart: Effect.Effect<void>;
     /** When this Host archives Dormant sessions (`autoArchive.ts`). */
     readonly autoArchiveSettings: Effect.Effect<AutoArchiveSettings>;
     readonly setAutoArchiveSettings: (
@@ -153,6 +155,7 @@ const make = Effect.gen(function* () {
   const autoArchive = yield* AutoArchive;
   const idleCompaction = yield* IdleCompaction;
   const prepareForUpgrade = prepareSessionsForUpgrade(runtime);
+  const prepareForRestart = prepareSessionsForUpgrade(runtime, "restart");
 
   const recoveredTurns = yield* recoverOnStart(runtime);
   yield* checkouts.recover;
@@ -218,6 +221,7 @@ const make = Effect.gen(function* () {
     terminalCommand: (sessionId) =>
       Effect.sync(() => runtime.terminalLaunch.get(sessionId) ?? null),
     prepareForUpgrade,
+    prepareForRestart,
     autoArchiveSettings: autoArchive.settings,
     setAutoArchiveSettings: autoArchive.setSettings,
     idleCompactionSettings: idleCompaction.settings,
