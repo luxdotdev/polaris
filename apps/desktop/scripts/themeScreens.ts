@@ -33,7 +33,8 @@ writeFileSync(
 
 const app = await electron.launch({
   executablePath: electronBinary(),
-  args: [APP_DIR],
+  // A mock Keychain: the screenshots need no secrets, and a background session can't unlock it.
+  args: ["--use-mock-keychain", APP_DIR],
   env: {
     ...process.env,
     POLARIS_DESKTOP_LOCAL_SOCKET: daemon.socketPath,
