@@ -22,19 +22,22 @@ const DAWN_BANDS = [
   { y: 16, height: 20 },
 ] as const;
 
+/** Moonlit's colour, or Midnight's under `--midnight: 1` (theme.css), which the nearest theme sets. */
+const dark = (moonlit: string, midnight: string) =>
+  `color-mix(in oklab, ${midnight} calc(var(--midnight, 0) * 100%), ${moonlit})`;
+
 /*
  * Per-theme colours as light-dark() pairs, so the system appearance needs no JavaScript: light
- * draws the dawn, dark the night; data-theme-dark="midnight" swaps the night for a new moon.
+ * draws the dawn, dark the night; Midnight swaps the night for a new moon.
  */
-const THEME = cn(
-  "[--hz-back:light-dark(#C9D3C4,#262B45)] [--hz-front:light-dark(#B7C4B9,#1E2236)]",
-  "[--hz-glow-0:light-dark(#F6D9C466,#465CBE1F)] [--hz-glow-1:light-dark(#F6D9C41F,#465CBE0A)]",
-  "[--hz-star:light-dark(transparent,#BCD3FF)] [--hz-dawn:light-dark(#F6D9C4,transparent)]",
-  "in-data-[theme-dark=midnight]:[--hz-back:light-dark(#C9D3C4,#151A3A)]",
-  "in-data-[theme-dark=midnight]:[--hz-front:light-dark(#B7C4B9,#0B1026)]",
-  "in-data-[theme-dark=midnight]:[--hz-glow-0:light-dark(#F6D9C466,#465CBE29)]",
-  "in-data-[theme-dark=midnight]:[--hz-glow-1:light-dark(#F6D9C41F,#465CBE0D)]"
-);
+const THEME: Readonly<Record<`--hz-${string}`, string>> = {
+  "--hz-back": `light-dark(#C9D3C4, ${dark("#262B45", "#151A3A")})`,
+  "--hz-front": `light-dark(#B7C4B9, ${dark("#1E2236", "#0B1026")})`,
+  "--hz-glow-0": `light-dark(#F6D9C466, ${dark("#465CBE1F", "#465CBE29")})`,
+  "--hz-glow-1": `light-dark(#F6D9C41F, ${dark("#465CBE0A", "#465CBE0D")})`,
+  "--hz-star": "light-dark(transparent, #BCD3FF)",
+  "--hz-dawn": "light-dark(#F6D9C4, transparent)",
+};
 
 const night = (color: string) => `light-dark(transparent, ${color})`;
 
@@ -46,7 +49,8 @@ const Stars = () => (
   <svg
     width="100%"
     height={SKY}
-    className="pixelated absolute inset-x-0 top-0 opacity-70 in-data-[theme-dark=midnight]:opacity-100"
+    className="pixelated absolute inset-x-0 top-0"
+    style={{ opacity: "calc(0.7 + 0.3 * var(--midnight, 0))" }}
   >
     {STARS.map((star) => (
       <rect
@@ -55,9 +59,10 @@ const Stars = () => (
         y={star.y}
         width={star.size}
         height={star.size}
-        opacity={star.opacity}
-        style={{ fill: "var(--hz-star)" }}
-        className={star.moonlit ? undefined : "hidden in-data-[theme-dark=midnight]:inline"}
+        style={{
+          fill: "var(--hz-star)",
+          opacity: star.moonlit ? star.opacity : `calc(${star.opacity} * var(--midnight, 0))`,
+        }}
       />
     ))}
   </svg>
@@ -114,7 +119,8 @@ const Moon = () => (
     width="72"
     height="72"
     viewBox="0 0 72 72"
-    className="pixelated absolute top-5 left-[68px] in-data-[theme-dark=midnight]:hidden"
+    className="pixelated absolute top-5 left-[68px]"
+    style={{ opacity: "calc(1 - var(--midnight, 0))" }}
   >
     <path d={MOON_HALO} style={{ fill: night("#D9DEE833") }} />
     {MOON.map(([fill, d]) => (
@@ -149,10 +155,9 @@ export function Horizon({ className, ...props }: HTMLAttributes<HTMLDivElement>)
       data-slot="horizon"
       className={cn(
         "pointer-events-none absolute inset-x-0 bottom-0 -z-10 overflow-hidden select-none",
-        THEME,
         className
       )}
-      style={{ height: SKY }}
+      style={{ ...THEME, height: SKY }}
       {...props}
     >
       <div className="absolute inset-0 bg-[linear-gradient(in_oklab_to_top,var(--hz-glow-0),var(--hz-glow-1)_45%,transparent)]" />

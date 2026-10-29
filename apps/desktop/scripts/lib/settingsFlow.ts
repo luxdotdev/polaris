@@ -88,11 +88,15 @@ export const settingsFlow = async ({ app, page, step, shoot }: SettingsFlowInput
   await page.getByTestId("settings").waitFor({ timeout: 5_000 });
   step("⌘, opened Settings");
 
-  await page.getByRole("radio", { name: /Dawn/ }).click();
+  await page.getByRole("radio", { name: "Light", exact: true }).click();
   await attached(page, 'html[data-theme="light"]');
-  await page.getByRole("radio", { name: /Night/ }).click();
+  await page.getByRole("radio", { name: "Dark", exact: true }).click();
   await attached(page, 'html[data-theme="dark"]');
-  await page.getByRole("slider", { name: "Density" }).press("ArrowRight");
+  await page.getByRole("radio", { name: "Midnight", exact: true }).click();
+  await attached(page, 'html[data-theme-dark="midnight"]');
+  await page.getByRole("radio", { name: "Moonlit", exact: true }).click();
+  await attached(page, 'html[data-theme-dark="moonlit"]');
+  await page.getByRole("radio", { name: "Balanced", exact: true }).click();
   await attached(page, 'html[data-density="balanced"]');
   await page.getByRole("switch").first().click();
   await attached(page, 'html[data-diff-palette="cvd"]');
@@ -106,10 +110,10 @@ export const settingsFlow = async ({ app, page, step, shoot }: SettingsFlowInput
     throw new Error(`settings not saved: ${JSON.stringify(saved)}`);
   }
 
-  step("theme, density and diff palette changed live and saved");
+  step("theme, dark theme, density and diff palette changed live and saved");
   await shoot("settings-appearance");
 
-  await page.getByRole("slider", { name: "Density" }).press("ArrowLeft");
+  await page.getByRole("radio", { name: "Calm", exact: true }).click();
   await attached(page, 'html[data-density="calm"]');
   await page.getByRole("switch").first().click();
   await attached(page, "html:not([data-diff-palette])");

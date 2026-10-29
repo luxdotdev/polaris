@@ -65,6 +65,27 @@ export const Group = ({
   </section>
 );
 
+/** Settings as plain rows on the panel (Paper X-J): hairline dividers, no box; `ruled` adds one above. */
+export const PlainRows = ({
+  children,
+  label,
+  ruled = false,
+}: {
+  readonly children: ReactNode;
+  readonly label: string;
+  readonly ruled?: boolean;
+}) => (
+  <section
+    aria-label={label}
+    className={cn(
+      "divide-hairline border-hairline flex flex-col divide-y border-b *:px-0",
+      ruled && "border-t"
+    )}
+  >
+    {children}
+  </section>
+);
+
 /** A setting: its name and one caption line, then its control in the trailing lane. */
 export const SettingRow = ({
   title,

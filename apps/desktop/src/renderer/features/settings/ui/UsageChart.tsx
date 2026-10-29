@@ -2,7 +2,7 @@
  * Settings → Usage's daily chart: stacked bars in Harness hues, and on hover or keyboard
  * focus (← → Home End) a tooltip listing the day's Models with tokens and cost, then its total.
  */
-import { cn, harnessHue, hueVar } from "@polaris/ui";
+import { cn, harnessHue, hueVar, Kicker } from "@polaris/ui";
 import { type KeyboardEvent, memo, type PointerEvent, useId, useState } from "react";
 import { type Day, type DayTipRow, dayTip, type UsageSummary } from "../model/usage.ts";
 
@@ -236,13 +236,11 @@ export const UsageChart = ({
         )}
       </div>
       <div className="gap-panel flex items-center">
-        <span className="text-caption text-text-subtle">
-          {first === undefined ? "" : shortDate(first.date)}
-        </span>
+        <Kicker>{first === undefined ? "" : shortDate(first.date)}</Kicker>
         <span className="flex-1" />
         <Legend harnesses={summary.harnesses} split={split} />
         <span className="flex-1" />
-        <span className="text-caption text-text-subtle">Today</span>
+        <Kicker>Today</Kicker>
       </div>
     </div>
   );
