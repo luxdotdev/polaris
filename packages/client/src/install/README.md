@@ -19,6 +19,7 @@ const result = yield* ensureDaemon(alias, builds, { trigger: "user", approvedSha
 | `plan.ts` | `planInstall(probe, builds, options)` and `deliveryFor(build, probe)`, pure functions; every branch is unit-tested. |
 | `remote.ts` | `probeHost`, `applyPlan`, `ensureDaemon`. |
 | `apply.ts` | What both installers share: `RemoteInstallError`, `ApplyOptions`/`ApplyResult`, `runPolaris` and the Daemon's JSON report. |
+| `../restart/` | Restart daemon: the Host's service manager restarts the Daemon over the same channel ([ADR 0086](../../../../docs/adr/0086-restart-runs-from-the-client-through-the-service-manager.md)). |
 | `windows/` | A Windows Host over SSH ([ADR 0063](../../../../docs/adr/0063-windows-ssh-hosts.md)): the PowerShell probe (`probe.ts`), `-EncodedCommand` and base64-line stdin (`powershell.ts`), the staging, upload, install, upgrade and bridge-relay scripts (`scripts.ts`), and `applyWindowsPlan` (`apply.ts`). |
 | `archive.ts` | The Release archive format: `packArchive` (deterministic gzipped ustar of plain files, used by packaging) and `unpackArchive` (refuses paths, links and directories). |
 | `download.ts` | `downloadBuild({ cacheDir, clientVersion, fetch })`: the Client-side download into `<cacheDir>/<version>/<platform>/`, checked against the manifest; other versions are removed. |

@@ -134,6 +134,10 @@ export const upgradeCommand = (
 /** `polaris.exe install --json` with the installed build: (re)starts the Daemon's task. */
 export const startCommand = (): string => encodedCommand(runExe(currentExe, ["install", "--json"]));
 
+/** `polaris.exe install --restart --json`: stops the Daemon on its control pipe, then `schtasks /Run`. */
+export const restartCommand = (): string =>
+  encodedCommand(runExe(currentExe, ["install", "--restart", "--json"]));
+
 export const cleanUpCommand = (dir: string): string =>
   encodedCommand(
     `Remove-Item -LiteralPath ${stagingPath(dir)} -Recurse -Force -ErrorAction SilentlyContinue`

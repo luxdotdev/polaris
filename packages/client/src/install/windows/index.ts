@@ -16,4 +16,4 @@ export {
   windowsShellOf,
 } from "./probe.ts";
 
-export { bridgeCommand, startCommand } from "./scripts.ts";
+export { bridgeCommand, restartCommand, startCommand } from "./scripts.ts";
