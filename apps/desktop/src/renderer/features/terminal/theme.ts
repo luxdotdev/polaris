@@ -42,10 +42,10 @@ export const terminalTheme = (): ITheme => {
   const fg = token("text-default");
 
   const theme: ITheme = {
-    background: read(token("bg")),
+    background: read(token("panel")),
     foreground: read(fg),
     cursor: read(token("text-strong")),
-    cursorAccent: read(token("bg")),
+    cursorAccent: read(token("panel")),
     selectionBackground: read(mix("text-strong", 22, "transparent")),
     selectionInactiveBackground: read(mix("text-strong", 12, "transparent")),
     black: read(token("surface-sunken")),

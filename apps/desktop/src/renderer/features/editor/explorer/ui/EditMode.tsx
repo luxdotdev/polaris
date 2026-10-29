@@ -1,11 +1,11 @@
 /**
- * Edit mode (⌘3, the title bar's Edit; DESIGN.md Editor): the Workspace bar,
- * then the explorer and the editor pane over the status bar, for the selected
- * Workspace. Choosing another Workspace keeps Edit; tabs are per Workspace.
+ * Edit mode (⌘3, the title bar's Edit; DESIGN.md, Chrome redesign → Editor): the Workspace bar,
+ * then the explorer on the ground over the horizon, and the editor and terminal as panels 6px
+ * apart. Choosing another Workspace keeps Edit; tabs are per Workspace.
  */
-import { EmptyState, PixelFolderIcon } from "@polaris/ui";
+import { EmptyState, Horizon, PixelFolderIcon } from "@polaris/ui";
 import { useEffect } from "react";
-import { TerminalDock } from "../../../terminal/index.ts";
+import { TerminalPanels } from "../../../terminal/index.ts";
 import { TopBar } from "../../../../shell/TopBar.tsx";
 import { useApp, useSelection } from "../../../../shell/hooks.ts";
 import { explorerKey, useExplorerState } from "../data/store.ts";
@@ -40,19 +40,25 @@ const Workbench = ({
   const root = explorer.root ?? workspace.path;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col" data-testid="edit-mode">
-      <div className="flex min-h-0 flex-1">
+    <div className="flex min-h-0 flex-1 gap-1.5 pr-1.5 pb-1.5" data-testid="edit-mode">
+      <div className="relative isolate flex min-h-0 shrink-0 flex-col">
         <Explorer host={host} workspace={workspace} />
-        <TerminalDock hostKey={hostKey} workspaceId={workspaceId}>
-          <EditorPane hostKey={hostKey} workspaceId={workspaceId} root={root} />
-        </TerminalDock>
+        <Horizon />
       </div>
-      <StatusBar
-        host={host}
-        place={{ key: explorerKey(hostKey, workspaceId), hostKey, workspaceId, root }}
-        git={explorer.git}
-        right={<EditorStatus hostKey={hostKey} workspaceId={workspaceId} />}
-      />
+      <TerminalPanels
+        hostKey={hostKey}
+        workspaceId={workspaceId}
+        status={
+          <StatusBar
+            host={host}
+            place={{ key: explorerKey(hostKey, workspaceId), hostKey, workspaceId, root }}
+            git={explorer.git}
+            right={<EditorStatus hostKey={hostKey} workspaceId={workspaceId} />}
+          />
+        }
+      >
+        <EditorPane hostKey={hostKey} workspaceId={workspaceId} root={root} />
+      </TerminalPanels>
     </div>
   );
 };

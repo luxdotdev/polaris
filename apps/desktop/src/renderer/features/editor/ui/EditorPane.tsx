@@ -273,7 +273,7 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
 
   if (fileTabs.length === 0 || active === null) {
     return (
-      <section aria-label="Editor" className="bg-bg grid min-h-0 min-w-0 flex-1 place-items-center">
+      <section aria-label="Editor" className="grid min-h-0 min-w-0 flex-1 place-items-center">
         <RefactorPreview hostKey={hostKey} root={root} />
         <RefactorRecovery hostKey={hostKey} root={root} />
         <EmptyState

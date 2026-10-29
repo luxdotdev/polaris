@@ -152,7 +152,7 @@ export const LogView = ({ scope, server, detail }: LogViewProps) => {
     <section
       aria-label={`${server} log`}
       data-testid="language-log"
-      className="bg-bg flex min-h-0 flex-1 flex-col"
+      className="flex min-h-0 flex-1 flex-col"
       onKeyDown={(event) => {
         if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "f") {
           event.preventDefault();
