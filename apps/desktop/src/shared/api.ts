@@ -54,6 +54,7 @@ import type {
   SessionStreamItem,
   ComposerDraft,
   ContinuityItem,
+  HostStatsItem,
   ReadPosition,
   TerminalId,
   TerminalLaunch,
@@ -561,6 +562,7 @@ export interface SubscriptionItems extends GitHubSubscriptionItems, GitSubscript
   "harness.availability": Plain<HostHarnesses>;
   continuity: ContinuityItem;
   "plan-limits": Plain<PlanLimit>;
+  "host.stats": HostStatsItem;
   "review.watchRiskSummary": RiskSummary;
   "inline.propose": InlineStreamItem;
   constellation: ConstellationStreamItem;
