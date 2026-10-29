@@ -273,7 +273,7 @@ const HeadLine = ({
     <View style={styles.headLine}>
       <View style={styles.headText}>
         <Text style={styles.sha}>head {detail.head}</Text>
-        <Text numberOfLines={1} style={styles.branch}>
+        <Text numberOfLines={1} ellipsizeMode="middle" style={styles.branch}>
           {detail.branch}
         </Text>
       </View>
@@ -377,6 +377,8 @@ export interface ClaimSheetProps {
   readonly now: number;
   /** Opens the claim's diff; the link shows only when given. */
   readonly onOpenDiff?: () => void;
+  /** The task as the star chart labels it ("B3"); its plan id otherwise. */
+  readonly label?: string | undefined;
 }
 
 /**
@@ -391,6 +393,7 @@ export const ClaimSheet = ({
   verdicts,
   now,
   onOpenDiff,
+  label,
 }: ClaimSheetProps) => {
   const styles = useSheetStyles();
   const { colours } = useTheme();
@@ -406,7 +409,7 @@ export const ClaimSheet = ({
         <View style={styles.body}>
           <SheetHead onClose={onClose}>
             <Kicker
-              text={`Claim · ${detail.taskId} · attempt ${detail.attempt}`}
+              text={`Claim · ${label ?? detail.taskId} · attempt ${detail.attempt}`}
               dot={detail.row.handed === null ? colours.textFaint : colours.needsYou}
             />
             <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.title}>

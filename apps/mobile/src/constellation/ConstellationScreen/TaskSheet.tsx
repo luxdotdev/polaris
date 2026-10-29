@@ -185,6 +185,7 @@ const Body = ({
             <Text
               style={styles.branch}
               numberOfLines={1}
+              ellipsizeMode="middle"
               maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
             >
               {detail.branch}

@@ -23,7 +23,13 @@ export interface StatsSheetProps {
   readonly connection: HostConnection;
   /** Claims handed to the user and not yet decided, for the review meter's open cells. */
   readonly waitingForYou: number;
+  /** A task as the star chart labels it ("B3"); its plan id otherwise. */
+  readonly labelOf?: (taskId: string) => string;
 }
+
+type LabelOf = (taskId: string) => string;
+
+const planId: LabelOf = (taskId) => taskId;
 
 const Split = ({ view }: { readonly view: StatsSheetView }) => {
   const styles = useStyles();
@@ -90,7 +96,13 @@ const Review = ({ review }: { readonly review: StatsSheetView["review"] }) => {
   );
 };
 
-const Workers = ({ workers }: { readonly workers: StatsSheetView["workers"] }) => {
+const Workers = ({
+  workers,
+  labelOf,
+}: {
+  readonly workers: StatsSheetView["workers"];
+  readonly labelOf: LabelOf;
+}) => {
   const styles = useStyles();
   const { colours } = useTheme();
 
@@ -105,7 +117,9 @@ const Workers = ({ workers }: { readonly workers: StatsSheetView["workers"] }) =
       {workers.rows.map((row) => (
         <View key={row.taskId} style={styles.workerRow}>
           <Text numberOfLines={1} maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.who}>
-            {row.harness === null ? row.taskId : `${row.taskId} · ${harnessName(row.harness)}`}
+            {row.harness === null
+              ? labelOf(row.taskId)
+              : `${labelOf(row.taskId)} · ${harnessName(row.harness)}`}
           </Text>
           <View style={styles.track}>
             <View
@@ -134,9 +148,11 @@ const Workers = ({ workers }: { readonly workers: StatsSheetView["workers"] }) =
 const Body = ({
   view,
   onClose,
+  labelOf,
 }: {
   readonly view: StatsSheetView;
   readonly onClose: () => void;
+  readonly labelOf: LabelOf;
 }) => {
   const styles = useStyles();
 
@@ -144,7 +160,12 @@ const Body = ({
     <View style={styles.body}>
       <SheetHead onClose={onClose}>
         <Kicker text={view.measure === "cost" ? "Constellation cost" : "Constellation tokens"} />
-        <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.headline}>
+        <Text
+          maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          style={styles.headline}
+        >
           {view.headline}
         </Text>
         <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.subline}>
@@ -153,7 +174,7 @@ const Body = ({
       </SheetHead>
       <Split view={view} />
       <Review review={view.review} />
-      <Workers workers={view.workers} />
+      <Workers workers={view.workers} labelOf={labelOf} />
     </View>
   );
 };
@@ -186,6 +207,7 @@ export const StatsSheetContent = ({
   source,
   state,
   waitingForYou,
+  labelOf,
 }: Omit<StatsSheetProps, "connection"> & { readonly state: StatsState }) => {
   const c = source.constellation;
 
@@ -205,7 +227,7 @@ export const StatsSheetContent = ({
   return (
     <InstrumentSheet open={open} onClose={onClose} detents={["medium", "large"]}>
       {view !== null ? (
-        <Body view={view} onClose={onClose} />
+        <Body view={view} onClose={onClose} labelOf={labelOf ?? planId} />
       ) : (
         <Unavailable
           text={state.kind === "failed" ? state.message : "Reading the stats…"}
@@ -237,7 +259,13 @@ const useStyles = themedStyles((colours) => ({
   split: { gap: 8 },
   bar: { flexDirection: "row", gap: 2, height: 8 },
   segment: { flexBasis: 0, borderRadius: 4 },
-  legend: { flexDirection: "row", justifyContent: "space-between" },
+  legend: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    columnGap: 12,
+    rowGap: 4,
+  },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   square: { width: 8, height: 8, borderRadius: 2 },
   legendText: { ...mobileType.footnote, color: colours.textDefault },
@@ -273,5 +301,5 @@ const useStyles = themedStyles((colours) => ({
   who: { ...mobileType.footnote, color: colours.textDefault, width: 110 },
   track: { flex: 1, height: 6, borderRadius: 3, backgroundColor: colours.raised },
   fill: { height: 6, borderRadius: 3 },
-  time: { ...mobileType.index, color: colours.textSubtle, width: 40, textAlign: "right" },
+  time: { ...mobileType.index, color: colours.textSubtle, minWidth: 40, textAlign: "right" },
 }));
