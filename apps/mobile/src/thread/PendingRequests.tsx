@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
   detail: { ...mobileType.index },
   whole: { maxHeight: 160 },
   working: { flexShrink: 1 },
-  time: { ...mobileType.footnote, fontSize: 12, lineHeight: 16, flex: 1 },
+  time: { ...mobileType.footnote, fontSize: 12, lineHeight: 16, flexShrink: 0 },
   buttons: { flexDirection: "row", alignItems: "center", gap: 4 },
   answer: {
     minHeight: 30,
