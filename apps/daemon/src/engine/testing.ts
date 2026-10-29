@@ -15,6 +15,7 @@ import {
   type HarnessKind,
   type RequestId,
   type SessionId,
+  type WorkspaceId,
   TurnItem,
 } from "@polaris/protocol";
 import { type Cause, Duration, Effect, Layer, Queue, Stream } from "effect";
@@ -228,6 +229,8 @@ export interface Fakes {
   readonly worktrees: Map<string, Array<WorktreeInfo>>;
   readonly worktreeCalls: Array<{ op: "create" | "remove"; path: string; detail: unknown }>;
   readonly archived: Array<SessionId>;
+  /** Workspaces whose staged attachments the engine asked to delete. */
+  readonly removedWorkspaces: Array<WorkspaceId>;
   readonly attachments: Map<AttachmentId, Attachment>;
 }
 
@@ -236,6 +239,7 @@ export const makeFakes = (): Fakes => ({
   worktrees: new Map(),
   worktreeCalls: [],
   archived: [],
+  removedWorkspaces: [],
   attachments: new Map(),
 });
 
@@ -297,6 +301,8 @@ export const fakeServices = (fakes: Fakes, drivers: ReadonlyArray<FakeDriver>) =
         }),
       get: (ids) => Effect.sync(() => ids.flatMap((id) => fakes.attachments.get(id) ?? [])),
       onSessionArchived: (sessionId) => Effect.sync(() => void fakes.archived.push(sessionId)),
+      onWorkspaceRemoved: (workspaceId) =>
+        Effect.sync(() => void fakes.removedWorkspaces.push(workspaceId)),
     }),
     Layer.succeed(HarnessRegistry)({
       get: (kind) => {

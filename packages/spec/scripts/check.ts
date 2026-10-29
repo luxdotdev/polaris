@@ -56,6 +56,10 @@ const WITNESSES = [
 
 const REVIEW_WITNESSES = ["witnessAccepted", "witnessAcceptRefused", "witnessVerdict"];
 
+/** The same for the `removal` instance (Clients removing the Workspace, ADR 0086). */
+
+const REMOVAL_WITNESSES = ["witnessRemoved", "witnessRemoveRefused", "witnessPurgedRefused"];
+
 /** Each ENG-209 finding: the instance of the code before its fix, and the property it breaks. */
 
 const FINDINGS = [
@@ -410,6 +414,8 @@ const simulateWitnessed = (
 simulateWitnessed("current", WITNESSES);
 
 simulateWitnessed("review", REVIEW_WITNESSES);
+
+simulateWitnessed("removal", REMOVAL_WITNESSES);
 
 simulateWitnessed(
   "current_constellations",

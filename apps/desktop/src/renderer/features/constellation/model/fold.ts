@@ -424,6 +424,10 @@ const listEvent = (
 ): ReadonlyMap<string, SummaryData> => {
   if (Predicate.isTagged(event, "ConstellationStarted"))
     return new Map(listed).set(event.constellationId, listedFrom(event.constellation));
+
+  // A removed Workspace takes its Constellations with it (docs/adr/0086).
+  if (Predicate.isTagged(event, "WorkspaceRemoved"))
+    return new Map([...listed].filter(([, c]) => c.workspaceId !== event.workspaceId));
   const prior = isConstellationEvent(event) ? listed.get(event.constellationId) : undefined;
 
   if (prior === undefined) return listed;

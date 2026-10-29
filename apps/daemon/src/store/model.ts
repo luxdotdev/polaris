@@ -34,6 +34,7 @@ import { emptyResources, foldResources, type ResourcesModel } from "../resources
 
 import { pickCelestial } from "./celestial.ts";
 import { foldConstellation, graphEvent, type ConstellationRecord } from "./constellation.ts";
+import { purgeWorkspace } from "./removal.ts";
 import { replyPreview } from "./replyPreview.ts";
 import { replyText, userTurnAfter } from "./userTurns.ts";
 
@@ -488,18 +489,8 @@ const setWorkspace =
 
 const removeWorkspace =
   (event: { readonly workspaceId: WorkspaceId }): Reducer =>
-  ({ model }) => {
-    const worktrees = new Map(model.worktrees);
-
-    for (const [id, wt] of worktrees)
-      if (wt.workspaceId === event.workspaceId) worktrees.delete(id);
-
-    return {
-      ...model,
-      workspaces: withMap(model.workspaces, event.workspaceId, undefined),
-      worktrees,
-    };
-  };
+  ({ model }) =>
+    purgeWorkspace(model, event.workspaceId);
 
 const createSession =
   (event: { readonly session: AgentSession }): Reducer =>

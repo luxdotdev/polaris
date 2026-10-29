@@ -281,6 +281,8 @@ describe("host model", () => {
 
     expect(visibleWorkspaces(removed)).toEqual([]);
     expect([...removed.worktrees.keys()]).toEqual(["theirs"]);
+    // Removal purges its sessions, archived ones included (docs/adr/0086).
+    expect(removed.sessions.has(sessionId)).toBe(false);
   });
 
   test("the cache holds only synchronized live models and paints them marked as cached", () => {

@@ -124,9 +124,16 @@ const fold = (event: DomainEvent): Fold =>
     Match.tags({
       WorkspaceRegistered: ({ workspace }) => withWorkspace(workspace),
       WorkspaceUpdated: ({ workspace }) => withWorkspace(workspace),
+      // A removed Workspace takes its sessions with it (docs/adr/0086).
       WorkspaceRemoved:
         ({ workspaceId }): Fold =>
-        (state) => ({ ...state, workspaces: withEntry(state.workspaces, workspaceId, undefined) }),
+        (state) => ({
+          ...state,
+          workspaces: withEntry(state.workspaces, workspaceId, undefined),
+          sessions: new Map(
+            [...state.sessions].filter(([, entry]) => entry.session.workspaceId !== workspaceId)
+          ),
+        }),
       SessionCreated:
         ({ session }): Fold =>
         (state) => ({

@@ -177,6 +177,10 @@ const removeWorkspace =
     ...model,
     workspaces: withEntry(model.workspaces, workspaceId, undefined),
     worktrees: new Map([...model.worktrees].filter(([, wt]) => wt.workspaceId !== workspaceId)),
+    // Removal purges its sessions, archived ones included (docs/adr/0086).
+    sessions: new Map(
+      [...model.sessions].filter(([, entry]) => entry.session.workspaceId !== workspaceId)
+    ),
   });
 
 const unchanged: Fold = (model) => model;

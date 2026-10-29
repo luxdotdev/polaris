@@ -536,6 +536,18 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
       sweep,
     });
 
+    // The Workspace was removed: its staged files and its override go (docs/adr/0086).
+    const onWorkspaceRemoved = Effect.fn("AttachmentStore.onWorkspaceRemoved")(function* (
+      workspaceId: WorkspaceId
+    ) {
+      yield* maintenance.clearNow({ workspaceId });
+
+      if (settings.workspaces[workspaceId] === undefined) return;
+      const { [workspaceId]: _removed, ...workspaces } = settings.workspaces;
+
+      yield* maintenance.setSettings({ ...settings, workspaces });
+    });
+
     const sweepMs = options.sweepMs ?? 60 * 60 * 1000;
 
     const timer = setInterval(() => {
@@ -545,7 +557,7 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
     yield* Effect.addFinalizer(() => Effect.sync(() => clearInterval(timer)));
 
     return {
-      store: AttachmentStore.of({ stage, get, onSessionArchived }),
+      store: AttachmentStore.of({ stage, get, onSessionArchived, onWorkspaceRemoved }),
       maintenance,
     };
   });
