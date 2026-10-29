@@ -4,7 +4,7 @@
  * chips and the composer. Data comes from the Host's shared connection.
  */
 import type { RiskFinding, SessionId, Workspace, WorkspaceId } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import {
   type ReactNode,
   useCallback,
@@ -29,6 +29,7 @@ import { useAttachments } from "../composer/useAttachments.ts";
 import { useVoiceInput } from "../composer/useVoiceInput.ts";
 import type { HostConnection } from "../runtime/hostConnection.ts";
 import { useHost, useLiveHost } from "../runtime/hosts.tsx";
+import { themedStyles } from "../theme/index.ts";
 import { composerMode } from "./composer.ts";
 import { Composer, Suggestions } from "./Composer.tsx";
 import { openThread, type ThreadController } from "./controller.ts";
@@ -117,32 +118,36 @@ const Header = ({
   readonly line: string;
   readonly criticals: number;
   readonly onBack: () => void;
-}) => (
-  <View style={styles.header}>
-    <Pressable
-      style={styles.back}
-      onPress={onBack}
-      accessibilityRole="button"
-      accessibilityLabel="Back"
-    >
-      <Text style={styles.backGlyph}>‹</Text>
-    </Pressable>
-    <View style={styles.titles}>
-      <Text style={styles.title} numberOfLines={1}>
-        {title}
-      </Text>
-      <Text style={styles.subtitle} numberOfLines={1}>
-        {line}
-      </Text>
-    </View>
-    {criticals === 0 ? null : (
-      <View style={styles.pill}>
-        <Diamond />
-        <Text style={styles.pillLabel}>{criticals} critical</Text>
+}) => {
+  const styles = useStyles();
+
+  return (
+    <View style={styles.header}>
+      <Pressable
+        style={styles.back}
+        onPress={onBack}
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+      >
+        <Text style={styles.backGlyph}>‹</Text>
+      </Pressable>
+      <View style={styles.titles}>
+        <Text style={styles.title} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={styles.subtitle} numberOfLines={1}>
+          {line}
+        </Text>
       </View>
-    )}
-  </View>
-);
+      {criticals === 0 ? null : (
+        <View style={styles.pill}>
+          <Diamond />
+          <Text style={styles.pillLabel}>{criticals} critical</Text>
+        </View>
+      )}
+    </View>
+  );
+};
 
 const FindingRow = ({
   finding,
@@ -150,17 +155,21 @@ const FindingRow = ({
 }: {
   readonly finding: RiskFinding;
   readonly onPress?: (() => void) | undefined;
-}) => (
-  <Pressable style={styles.finding} disabled={onPress === undefined} onPress={onPress}>
-    <Diamond />
-    <Text style={styles.findingTitle} numberOfLines={2}>
-      {finding.title}
-    </Text>
-    <Text style={styles.findingWhere} numberOfLines={1}>
-      {finding.path.slice(finding.path.lastIndexOf("/") + 1)}:{finding.lines.start}
-    </Text>
-  </Pressable>
-);
+}) => {
+  const styles = useStyles();
+
+  return (
+    <Pressable style={styles.finding} disabled={onPress === undefined} onPress={onPress}>
+      <Diamond />
+      <Text style={styles.findingTitle} numberOfLines={2}>
+        {finding.title}
+      </Text>
+      <Text style={styles.findingWhere} numberOfLines={1}>
+        {finding.path.slice(finding.path.lastIndexOf("/") + 1)}:{finding.lines.start}
+      </Text>
+    </Pressable>
+  );
+};
 
 /** Hosts the Workspace's name once the Host's Snapshot has it. */
 const useWorkspace = (controller: ThreadController | null, workspaceId: WorkspaceId | null) => {
@@ -195,6 +204,7 @@ export const ThreadScreen = ({
   composerSlot = "inline",
   header,
 }: ThreadScreenProps) => {
+  const styles = useStyles();
   const connection = useHost(hostId);
   const navigation = useNavigation();
   const { controller, live } = useController(connection, sessionId);
@@ -445,8 +455,11 @@ export const ThreadScreen = ({
 };
 
 /** At the top of the thread while older Turns are on their way. */
-const OlderNote = ({ loading }: { readonly loading: boolean }) =>
-  loading ? <Text style={styles.older}>Loading earlier turns…</Text> : null;
+const OlderNote = ({ loading }: { readonly loading: boolean }) => {
+  const styles = useStyles();
+
+  return loading ? <Text style={styles.older}>Loading earlier turns…</Text> : null;
+};
 
 const Missing = ({
   text,
@@ -456,15 +469,19 @@ const Missing = ({
   readonly text: string;
   readonly onBack: () => void;
   readonly header: ReactNode;
-}) => (
-  <SafeAreaView style={styles.screen}>
-    {header ?? <Header title="" line="" criticals={0} onBack={onBack} />}
-    <Text style={styles.missing}>{text}</Text>
-  </SafeAreaView>
-);
+}) => {
+  const styles = useStyles();
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: midnight.bg },
+  return (
+    <SafeAreaView style={styles.screen}>
+      {header ?? <Header title="" line="" criticals={0} onBack={onBack} />}
+      <Text style={styles.missing}>{text}</Text>
+    </SafeAreaView>
+  );
+};
+
+const useStyles = themedStyles((colours) => ({
+  screen: { flex: 1, backgroundColor: colours.ground },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -473,7 +490,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: midnight.hairline,
+    borderBottomColor: colours.hairline,
   },
   back: {
     width: 36,
@@ -481,12 +498,12 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: midnight.surfaceRaised,
+    backgroundColor: colours.raised,
   },
-  backGlyph: { fontSize: 24, lineHeight: 26, color: midnight.textDefault },
+  backGlyph: { fontSize: 24, lineHeight: 26, color: colours.textDefault },
   titles: { flex: 1, minWidth: 0, gap: 2 },
-  title: { ...mobileType.title, color: midnight.textStrong },
-  subtitle: { ...mobileType.footnote, color: midnight.textSubtle },
+  title: { ...mobileType.title, color: colours.textStrong },
+  subtitle: { ...mobileType.footnote, color: colours.textSubtle },
   pill: {
     flexDirection: "row",
     alignItems: "center",
@@ -495,9 +512,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: midnight.hairline,
+    borderColor: colours.hairline,
   },
-  pillLabel: { ...mobileType.footnote, color: midnight.textDefault },
+  pillLabel: { ...mobileType.footnote, color: colours.textDefault },
   list: { flex: 1 },
   offline: { opacity: 0.55 },
   listContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 },
@@ -508,13 +525,13 @@ const styles = StyleSheet.create({
     minHeight: 40,
     paddingLeft: 12,
     borderLeftWidth: 2,
-    borderLeftColor: midnight.severityCritical,
+    borderLeftColor: colours.severityCritical,
     marginBottom: 4,
   },
-  findingTitle: { ...mobileType.callout, fontWeight: "500", color: midnight.textStrong, flex: 1 },
-  findingWhere: { ...mobileType.index, color: midnight.textFaint },
+  findingTitle: { ...mobileType.callout, fontWeight: "500", color: colours.textStrong, flex: 1 },
+  findingWhere: { ...mobileType.index, color: colours.textFaint },
   bottom: { gap: 10, paddingHorizontal: 12, paddingTop: 4, paddingBottom: 8 },
-  queued: { ...mobileType.footnote, color: midnight.textSubtle, marginHorizontal: 4 },
-  older: { ...mobileType.footnote, color: midnight.textFaint, textAlign: "center", padding: 12 },
-  missing: { ...mobileType.callout, color: midnight.textSubtle, padding: 16 },
-});
+  queued: { ...mobileType.footnote, color: colours.textSubtle, marginHorizontal: 4 },
+  older: { ...mobileType.footnote, color: colours.textFaint, textAlign: "center", padding: 12 },
+  missing: { ...mobileType.callout, color: colours.textSubtle, padding: 16 },
+}));

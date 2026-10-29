@@ -5,13 +5,14 @@
  */
 import type { LinkedHost } from "@polaris/client/relay";
 import { decodeLinkString } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { Option } from "effect";
 import { type BarcodeScanningResult, CameraView, useCameraPermissions } from "expo-camera";
 import { useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRelay } from "../relay/RelayProvider.tsx";
+import { themedStyles, useTheme } from "../theme/index.ts";
 import { Sky } from "./Sky.tsx";
 
 export interface LinkScreenProps {
@@ -31,6 +32,8 @@ const hostsLine = (count: number, hostName: string) =>
   `Found ${count} ${count === 1 ? "host" : "hosts"} on ${hostName}`;
 
 const StatusRow = ({ step }: { readonly step: Step }) => {
+  const styles = useStyles();
+
   if (step.kind === "linking" || step.kind === "linked")
     return (
       <View style={styles.status} accessibilityLiveRegion="polite">
@@ -58,6 +61,7 @@ const StatusRow = ({ step }: { readonly step: Step }) => {
 };
 
 const Scanner = ({ onCode }: { readonly onCode: (text: string) => void }) => {
+  const styles = useStyles();
   const [permission, request] = useCameraPermissions();
 
   if (permission?.granted === true)
@@ -87,6 +91,8 @@ const Scanner = ({ onCode }: { readonly onCode: (text: string) => void }) => {
 };
 
 export const LinkScreen = ({ onLinked, onCancel }: LinkScreenProps) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
   const relay = useRelay();
   const [step, setStep] = useState<Step>({ kind: "scan" });
   const [pasted, setPasted] = useState("");
@@ -146,7 +152,7 @@ export const LinkScreen = ({ onLinked, onCancel }: LinkScreenProps) => {
               value={pasted}
               onChangeText={setPasted}
               placeholder="polaris-link:…"
-              placeholderTextColor={midnight.textFaint}
+              placeholderTextColor={colours.textFaint}
               autoCapitalize="none"
               autoCorrect={false}
               multiline
@@ -198,18 +204,18 @@ export const LinkScreen = ({ onLinked, onCancel }: LinkScreenProps) => {
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: midnight.bg },
+const useStyles = themedStyles((colours) => ({
+  screen: { flex: 1, backgroundColor: colours.ground },
   content: { flex: 1 },
   heading: { marginTop: 242, paddingHorizontal: 28, paddingTop: 8, paddingBottom: 24, gap: 10 },
-  title: { ...mobileType.largeTitle, color: midnight.textStrong },
-  lead: { ...mobileType.body, lineHeight: 24, color: midnight.textSubtle },
+  title: { ...mobileType.largeTitle, color: colours.textStrong },
+  lead: { ...mobileType.body, lineHeight: 24, color: colours.textSubtle },
   scanCard: {
     marginHorizontal: 28,
     height: 250,
     borderRadius: 22,
     overflow: "hidden",
-    backgroundColor: midnight.surfaceRaised,
+    backgroundColor: colours.raised,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -218,12 +224,12 @@ const styles = StyleSheet.create({
     height: 170,
     borderRadius: 12,
     borderWidth: 3,
-    borderColor: midnight.textStrong,
+    borderColor: colours.textStrong,
   },
   cameraOff: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "flex-end" },
   cameraOffText: {
     ...mobileType.footnote,
-    color: midnight.textSubtle,
+    color: colours.textSubtle,
     textAlign: "center",
     paddingHorizontal: 24,
     paddingBottom: 14,
@@ -233,11 +239,11 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     padding: 16,
     gap: 12,
-    backgroundColor: midnight.surfaceRaised,
+    backgroundColor: colours.raised,
   },
   input: {
     ...mobileType.command,
-    color: midnight.textDefault,
+    color: colours.textDefault,
     minHeight: 120,
     textAlignVertical: "top",
   },
@@ -246,9 +252,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: midnight.fillSelected,
+    backgroundColor: colours.fillSelected,
   },
-  buttonText: { ...mobileType.label, color: midnight.textStrong },
+  buttonText: { ...mobileType.label, color: colours.textStrong },
   status: {
     marginHorizontal: 28,
     marginTop: 16,
@@ -259,20 +265,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: midnight.hairline,
-    backgroundColor: midnight.surfaceSunken,
+    borderColor: colours.hairline,
+    backgroundColor: colours.panel,
   },
   statusMark: {
     ...mobileType.callout,
     width: 16,
     textAlign: "center",
-    color: midnight.textDefault,
+    color: colours.textDefault,
   },
-  failedMark: { color: midnight.failedText },
+  failedMark: { color: colours.failedText },
   statusText: { flex: 1, gap: 2 },
-  statusTitle: { ...mobileType.callout, lineHeight: 20, color: midnight.textStrong },
-  statusDetail: { ...mobileType.footnote, lineHeight: 17, color: midnight.textFaint },
+  statusTitle: { ...mobileType.callout, lineHeight: 20, color: colours.textStrong },
+  statusDetail: { ...mobileType.footnote, lineHeight: 17, color: colours.textFaint },
   spacer: { flex: 1 },
   footer: { alignItems: "center", gap: 14, paddingBottom: 48 },
-  footerAction: { ...mobileType.body, fontSize: 16, lineHeight: 21, color: midnight.textSubtle },
-});
+  footerAction: { ...mobileType.body, fontSize: 16, lineHeight: 21, color: colours.textSubtle },
+}));

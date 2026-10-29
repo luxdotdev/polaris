@@ -1,14 +1,19 @@
 /** One row of the thread (M4): a message, a numbered tool step, or a run of them. */
 import type { Attachment } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { memo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Thumbnails } from "../attachments/index.ts";
 import { Markdown } from "../markdown/index.ts";
+import { themedStyles } from "../theme/index.ts";
 import type { ThreadRow } from "./rows.ts";
 
 /** The Critical diamond: an 8pt square turned 45°. */
-export const Diamond = () => <View style={styles.diamond} />;
+export const Diamond = () => {
+  const styles = useStyles();
+
+  return <View style={styles.diamond} />;
+};
 
 /** Finished calls folded into one line (DESIGN.md, Tool runs): a faint check, the summary, a chevron. */
 const Run = ({
@@ -17,21 +22,25 @@ const Run = ({
 }: {
   readonly row: Extract<ThreadRow, { kind: "run" }>;
   readonly onToggle: (key: string) => void;
-}) => (
-  <Pressable
-    style={[styles.step, row.last && !row.open ? styles.stepLast : null]}
-    onPress={() => onToggle(row.key)}
-    accessibilityRole="button"
-    accessibilityState={{ expanded: row.open }}
-    accessibilityLabel={row.summary}
-  >
-    <Text style={styles.runCheck}>✓</Text>
-    <Text style={styles.runSummary} numberOfLines={1}>
-      {row.summary}
-    </Text>
-    <Text style={[styles.runChevron, row.open ? styles.runChevronOpen : null]}>›</Text>
-  </Pressable>
-);
+}) => {
+  const styles = useStyles();
+
+  return (
+    <Pressable
+      style={[styles.step, row.last && !row.open ? styles.stepLast : null]}
+      onPress={() => onToggle(row.key)}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: row.open }}
+      accessibilityLabel={row.summary}
+    >
+      <Text style={styles.runCheck}>✓</Text>
+      <Text style={styles.runSummary} numberOfLines={1}>
+        {row.summary}
+      </Text>
+      <Text style={[styles.runChevron, row.open ? styles.runChevronOpen : null]}>›</Text>
+    </Pressable>
+  );
+};
 
 /** What a tapped step or finding puts in focus, for the iPhone Duo's second half (D6). */
 export interface ThreadFocus {
@@ -52,37 +61,41 @@ const Step = ({
   readonly critical: boolean;
   readonly focused: boolean;
   readonly onFocus: ((focus: ThreadFocus) => void) | undefined;
-}) => (
-  <Pressable
-    disabled={onFocus === undefined}
-    onPress={() =>
-      onFocus?.({
-        key: row.key,
-        turnId: row.turnId,
-        kind: "step",
-        label: row.label,
-        paths: row.paths,
-      })
-    }
-    accessibilityRole={onFocus === undefined ? undefined : "button"}
-    accessibilityState={onFocus === undefined ? undefined : { selected: focused }}
-    style={[styles.step, row.last ? styles.stepLast : null, focused ? styles.stepFocused : null]}
-  >
-    <Text style={styles.stepIndex}>{row.index}</Text>
-    <Text
-      style={[styles.stepLabel, row.tone === "active" ? styles.stepActive : null]}
-      numberOfLines={1}
+}) => {
+  const styles = useStyles();
+
+  return (
+    <Pressable
+      disabled={onFocus === undefined}
+      onPress={() =>
+        onFocus?.({
+          key: row.key,
+          turnId: row.turnId,
+          kind: "step",
+          label: row.label,
+          paths: row.paths,
+        })
+      }
+      accessibilityRole={onFocus === undefined ? undefined : "button"}
+      accessibilityState={onFocus === undefined ? undefined : { selected: focused }}
+      style={[styles.step, row.last ? styles.stepLast : null, focused ? styles.stepFocused : null]}
     >
-      {row.label}
-    </Text>
-    {critical ? <Diamond /> : null}
-    {row.detail === "" ? null : (
-      <Text style={row.tone === "failed" ? styles.stepFailed : styles.stepDetail}>
-        {row.detail}
+      <Text style={styles.stepIndex}>{row.index}</Text>
+      <Text
+        style={[styles.stepLabel, row.tone === "active" ? styles.stepActive : null]}
+        numberOfLines={1}
+      >
+        {row.label}
       </Text>
-    )}
-  </Pressable>
-);
+      {critical ? <Diamond /> : null}
+      {row.detail === "" ? null : (
+        <Text style={row.tone === "failed" ? styles.stepFailed : styles.stepDetail}>
+          {row.detail}
+        </Text>
+      )}
+    </Pressable>
+  );
+};
 
 export interface RowProps {
   readonly row: ThreadRow;
@@ -113,21 +126,25 @@ const Bubble = ({
   readonly attachments?: ReadonlyArray<Attachment>;
   readonly faded?: boolean;
   readonly failed?: boolean;
-}) => (
-  <View style={[styles.promptLine, faded ? styles.faded : null]}>
-    <Thumbnails hostId={hostId} attachments={attachments} />
-    {text.trim() === "" ? null : (
-      <View style={styles.prompt}>
-        <Text style={styles.message} selectable>
-          {text}
-        </Text>
-      </View>
-    )}
-    {note === null ? null : (
-      <Text style={[styles.note, failed ? styles.noteFailed : null]}>{note}</Text>
-    )}
-  </View>
-);
+}) => {
+  const styles = useStyles();
+
+  return (
+    <View style={[styles.promptLine, faded ? styles.faded : null]}>
+      <Thumbnails hostId={hostId} attachments={attachments} />
+      {text.trim() === "" ? null : (
+        <View style={styles.prompt}>
+          <Text style={styles.message} selectable>
+            {text}
+          </Text>
+        </View>
+      )}
+      {note === null ? null : (
+        <Text style={[styles.note, failed ? styles.noteFailed : null]}>{note}</Text>
+      )}
+    </View>
+  );
+};
 
 const RowView = ({
   row,
@@ -138,6 +155,8 @@ const RowView = ({
   onEditSteer,
   hostId,
 }: RowProps) => {
+  const styles = useStyles();
+
   switch (row.kind) {
     case "prompt":
       return <Bubble text={row.text} note={null} hostId={hostId} attachments={row.attachments} />;
@@ -181,28 +200,28 @@ const RowView = ({
 
 export const Row = memo(RowView);
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((colours) => ({
   diamond: {
     width: 6,
     height: 6,
     margin: 1,
-    backgroundColor: midnight.severityCritical,
+    backgroundColor: colours.severityCritical,
     transform: [{ rotate: "45deg" }],
   },
   promptLine: { alignItems: "flex-end", gap: 4, marginBottom: 12 },
   faded: { opacity: 0.6 },
-  note: { ...mobileType.footnote, color: midnight.textSubtle, marginHorizontal: 4 },
-  noteFailed: { color: midnight.failedText },
+  note: { ...mobileType.footnote, color: colours.textSubtle, marginHorizontal: 4 },
+  noteFailed: { color: colours.failedText },
   prompt: {
-    backgroundColor: midnight.surfaceRaised,
+    backgroundColor: colours.raised,
     borderRadius: 18,
     paddingVertical: 10,
     paddingHorizontal: 14,
     maxWidth: "88%",
   },
-  message: { ...mobileType.callout, color: midnight.textDefault },
+  message: { ...mobileType.callout, color: colours.textDefault },
   reply: { marginBottom: 12 },
-  error: { color: midnight.failedText, marginBottom: 12 },
+  error: { color: colours.failedText, marginBottom: 12 },
   step: {
     flexDirection: "row",
     alignItems: "center",
@@ -210,26 +229,26 @@ const styles = StyleSheet.create({
     height: 38,
     paddingHorizontal: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: midnight.hairline,
+    borderTopColor: colours.hairline,
   },
   stepLast: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: midnight.hairline,
+    borderBottomColor: colours.hairline,
     marginBottom: 12,
   },
   stepFocused: {
-    backgroundColor: midnight.surfaceRaised,
+    backgroundColor: colours.raised,
     borderRadius: 10,
     borderLeftWidth: 2,
-    borderLeftColor: midnight.starlight,
+    borderLeftColor: colours.starlight,
   },
-  stepIndex: { ...mobileType.index, color: midnight.textFaint, width: 20 },
-  stepLabel: { ...mobileType.subhead, color: midnight.textSubtle, flex: 1 },
-  stepActive: { color: midnight.textDefault, fontWeight: "500" },
-  stepDetail: { ...mobileType.footnote, color: midnight.textFaint },
-  stepFailed: { ...mobileType.footnote, color: midnight.failedText },
-  runCheck: { ...mobileType.index, color: midnight.textFaint, width: 20 },
-  runSummary: { ...mobileType.footnote, color: midnight.textSubtle, flex: 1 },
-  runChevron: { ...mobileType.subhead, color: midnight.textFaint },
+  stepIndex: { ...mobileType.index, color: colours.textFaint, width: 20 },
+  stepLabel: { ...mobileType.subhead, color: colours.textSubtle, flex: 1 },
+  stepActive: { color: colours.textDefault, fontWeight: "500" },
+  stepDetail: { ...mobileType.footnote, color: colours.textFaint },
+  stepFailed: { ...mobileType.footnote, color: colours.failedText },
+  runCheck: { ...mobileType.index, color: colours.textFaint, width: 20 },
+  runSummary: { ...mobileType.footnote, color: colours.textSubtle, flex: 1 },
+  runChevron: { ...mobileType.subhead, color: colours.textFaint },
   runChevronOpen: { transform: [{ rotate: "90deg" }] },
-});
+}));

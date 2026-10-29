@@ -1,18 +1,19 @@
 /** Names and hues the thread shows for a session: its Harness, Model and working time. */
 import { harnessEntry, type HarnessKind } from "@polaris/protocol";
-import { midnight } from "@polaris/ui/tokens";
+import type { MobileColours } from "../theme/index.ts";
 
 /** The Harness's product name ("Claude Code"), or its kind when this build doesn't list it. */
 export const harnessName = (kind: HarnessKind): string => harnessEntry(kind)?.name ?? kind;
 
-const HUES = new Map([
-  ["claude", midnight.harnessClaudeCode],
-  ["codex", midnight.harnessCodex],
-  ["opencode", midnight.harnessOpencode],
+const HUES = new Map<HarnessKind, keyof MobileColours>([
+  ["claude", "harnessClaudeCode"],
+  ["codex", "harnessCodex"],
+  ["opencode", "harnessOpencode"],
 ]);
 
 /** A hued Harness's colour; the others read in plain text (DESIGN.md, Harness hue). */
-export const harnessHue = (kind: HarnessKind): string => HUES.get(kind) ?? midnight.textDefault;
+export const harnessHue = (colours: MobileColours, kind: HarnessKind): string =>
+  colours[HUES.get(kind) ?? "textDefault"];
 
 /** "1m 12s", "45s", "1h 3m": how long the Turn in flight has worked. */
 export const elapsed = (ms: number): string => {

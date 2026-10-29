@@ -9,7 +9,7 @@ import {
   type RiskFinding,
   type VerdictReason,
 } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { askToFixCommand, flaggedCode, verdictCommand } from "../review/actions.ts";
@@ -21,6 +21,7 @@ import { SeverityGlyph, severityLabel, severityText } from "../review/severity.t
 import { reviewSlot } from "../review/submissions.ts";
 import { useReviewSubmissions } from "../review/useSubmissions.ts";
 import { useHost, useLiveHost } from "../runtime/hosts.tsx";
+import { themedStyles, useTheme } from "../theme/index.ts";
 import type { ThreadFocus } from "../thread/Row.tsx";
 import { contextOf, type OtherFile, type TurnContext } from "./context.ts";
 import { contextRows, summaryOf, type TurnFiles } from "./contextRows.ts";
@@ -44,20 +45,24 @@ const Header = ({
 }: {
   readonly context: TurnContext;
   readonly onOpenReview: () => void;
-}) => (
-  <View style={styles.header}>
-    <View style={styles.star} />
-    <Text style={styles.from}>From turn {context.turnNumber} · </Text>
-    <Text style={styles.label} numberOfLines={1}>
-      {context.label}
-    </Text>
-    {context.working ? null : (
-      <Pressable onPress={onOpenReview} accessibilityRole="link" hitSlop={8}>
-        <Text style={styles.open}>Open review</Text>
-      </Pressable>
-    )}
-  </View>
-);
+}) => {
+  const styles = useStyles();
+
+  return (
+    <View style={styles.header}>
+      <View style={styles.star} />
+      <Text style={styles.from}>From turn {context.turnNumber} · </Text>
+      <Text style={styles.label} numberOfLines={1}>
+        {context.label}
+      </Text>
+      {context.working ? null : (
+        <Pressable onPress={onOpenReview} accessibilityRole="link" hitSlop={8}>
+          <Text style={styles.open}>Open review</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+};
 
 const Also = ({
   context,
@@ -68,6 +73,9 @@ const Also = ({
   readonly files: TurnFiles;
   readonly onPick: (file: OtherFile) => void;
 }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
+
   if (context.also.length === 0) return null;
   const counts = files.kind === "ready" ? files.files : [];
 
@@ -96,7 +104,9 @@ const Also = ({
             {file.severity === null ? null : (
               <View style={styles.alsoSeverity}>
                 <SeverityGlyph severity={file.severity} size={8} />
-                <Text style={[styles.alsoSeverityText, { color: severityText[file.severity] }]}>
+                <Text
+                  style={[styles.alsoSeverityText, { color: severityText(colours, file.severity) }]}
+                >
                   {severityLabel[file.severity]}
                 </Text>
               </View>
@@ -108,8 +118,6 @@ const Also = ({
   );
 };
 
-const PALETTE = diffPalette(false);
-
 const NOTHING = new Set<string>();
 
 export const ContextPane = ({
@@ -120,6 +128,9 @@ export const ContextPane = ({
   onShown,
   onOpenReview,
 }: ContextPaneProps) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
+  const palette = useMemo(() => diffPalette(colours, false), [colours]);
   const connection = useHost(hostId);
   const data = useSessionContext(connection, sessionId);
   const turns = data.fold?.turns ?? [];
@@ -213,7 +224,7 @@ export const ContextPane = ({
       <View style={styles.diff}>
         <DiffList
           rows={rows}
-          palette={PALETTE}
+          palette={palette}
           expanded={context.finding === null ? opened : new Set([...opened, context.finding.id])}
           actions={actions}
           onToggleFile={() => undefined}
@@ -234,12 +245,12 @@ export const ContextPane = ({
   );
 };
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((colours) => ({
   pane: {
     flex: 1,
-    backgroundColor: midnight.bg,
+    backgroundColor: colours.ground,
     borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: midnight.hairline,
+    borderLeftColor: colours.hairline,
   },
   header: {
     flexDirection: "row",
@@ -249,32 +260,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: midnight.hairline,
+    borderBottomColor: colours.hairline,
   },
-  star: { width: 3, height: 3, backgroundColor: midnight.starlight, marginRight: 6 },
-  from: { ...mobileType.footnote, color: midnight.textSubtle },
-  label: { ...mobileType.footnote, fontWeight: "500", color: midnight.textStrong, flex: 1 },
-  open: { ...mobileType.footnote, color: midnight.textSubtle },
+  star: { width: 3, height: 3, backgroundColor: colours.starlight, marginRight: 6 },
+  from: { ...mobileType.footnote, color: colours.textSubtle },
+  label: { ...mobileType.footnote, fontWeight: "500", color: colours.textStrong, flex: 1 },
+  open: { ...mobileType.footnote, color: colours.textSubtle },
   diff: { flex: 1, paddingHorizontal: 12 },
-  empty: { ...mobileType.footnote, color: midnight.textSubtle, padding: 24 },
-  failure: { ...mobileType.footnote, color: midnight.failedText, paddingHorizontal: 24 },
+  empty: { ...mobileType.footnote, color: colours.textSubtle, padding: 24 },
+  failure: { ...mobileType.footnote, color: colours.failedText, paddingHorizontal: 24 },
   also: { paddingHorizontal: 24, paddingBottom: 16 },
-  alsoTitle: { ...mobileType.footnote, color: midnight.textFaint, paddingBottom: 8 },
+  alsoTitle: { ...mobileType.footnote, color: colours.textFaint, paddingBottom: 8 },
   alsoRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     height: 38,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: midnight.hairline,
+    borderTopColor: colours.hairline,
   },
-  alsoPath: { ...mobileType.command, fontSize: 13, color: midnight.textDefault, flex: 1 },
-  added: { ...mobileType.footnote, color: midnight.diffAddedText, fontVariant: ["tabular-nums"] },
+  alsoPath: { ...mobileType.command, fontSize: 13, color: colours.textDefault, flex: 1 },
+  added: { ...mobileType.footnote, color: colours.diffAddedText, fontVariant: ["tabular-nums"] },
   removed: {
     ...mobileType.footnote,
-    color: midnight.diffRemovedText,
+    color: colours.diffRemovedText,
     fontVariant: ["tabular-nums"],
   },
   alsoSeverity: { flexDirection: "row", alignItems: "center", gap: 5, minWidth: 62 },
   alsoSeverityText: { ...mobileType.footnote },
-});
+}));
