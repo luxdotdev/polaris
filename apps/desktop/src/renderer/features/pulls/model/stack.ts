@@ -41,11 +41,12 @@ export const topDown = (stack: StackView) => stack.members.toReversed();
 
 /**
  * A pull request state's hue (DESIGN.md, Chrome redesign → Review): merged light purple, open
- * light green, closed light red, as light-dark() pairs; draft has none and stays neutral.
+ * light green, closed light red; draft has none and stays neutral. Merged is the palette's
+ * `pull-merged` token; open and closed are light-dark() pairs.
  */
 export const STATUS_HUES: Readonly<Record<PullStatus, string | null>> = {
   open: "light-dark(#237a45, #8fd3a4)",
-  merged: "light-dark(#6a4fc7, #b9a6f2)",
+  merged: "var(--color-pull-merged)",
   closed: "light-dark(#b83a3a, #f2a0a0)",
   draft: null,
 };
