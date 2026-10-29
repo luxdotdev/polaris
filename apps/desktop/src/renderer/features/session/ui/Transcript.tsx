@@ -11,12 +11,13 @@ import { useOlderTurns } from "../older.ts";
 import { RAIL_MIN_TURNS } from "../model/rail.ts";
 import { setTurnOpen } from "../state.ts";
 import { Conversation, type Reveal } from "./Conversation.tsx";
+import { createJumpControl, type JumpControl } from "./follow.ts";
 import type { RowContext } from "./rows.tsx";
 import { TranscriptSearch } from "./TranscriptSearch.tsx";
 import { createRowRange, TurnRail } from "./TurnRail.tsx";
 
-/** ⌘F while this conversation is on screen; null while the find bar is closed. */
-const useFind = (host: RefObject<HTMLDivElement | null>) => {
+/** ⌘F while this conversation is on screen (null while the find bar is closed); ⌘↓ jumps to the end. */
+const useFind = (host: RefObject<HTMLDivElement | null>, jump: JumpControl) => {
   const commands = useCommands();
   const [finding, setFinding] = useState<number | null>(null);
 
@@ -27,8 +28,12 @@ const useFind = (host: RefObject<HTMLDivElement | null>) => {
           run: () => setFinding((n) => (n ?? 0) + 1),
           enabled: () => host.current?.checkVisibility() ?? false,
         },
+        "transcript.jumpToEnd": {
+          run: jump.run,
+          enabled: () => jump.available() && (host.current?.checkVisibility() ?? false),
+        },
       }),
-    [commands, host]
+    [commands, host, jump]
   );
 
   return { finding, close: () => setFinding(null) };
@@ -49,7 +54,8 @@ export interface TranscriptProps {
 export const Transcript = (props: TranscriptProps) => {
   const { uiKey, turns } = props;
   const host = useRef<HTMLDivElement>(null);
-  const find = useFind(host);
+  const [jump] = useState(createJumpControl);
+  const find = useFind(host, jump);
   const [reveal, setReveal] = useState<Reveal | null>(null);
   const [range] = useState(createRowRange);
   const rail = turns.length >= RAIL_MIN_TURNS;
@@ -72,6 +78,8 @@ export const Transcript = (props: TranscriptProps) => {
   return (
     <div ref={host} className="relative flex min-h-0 flex-1 flex-col">
       <Conversation
+        key={uiKey}
+        jump={jump}
         scrollKey={uiKey}
         rows={rows}
         ctx={ctx}

@@ -69,7 +69,16 @@ const SHOT_SCENES = new Map([
   ["polaris-raw", "polaris"],
   ["polaris-notify", "polaris"],
   ["windows-hover", "windows"],
+  ["jump", "long"],
 ]);
+
+/** The long scene scrolled up by the wheel: the jump-to-latest arrow shows over the composer. */
+const scrollAway = async (page: Page) => {
+  await page.getByTestId("conversation").hover();
+  await page.mouse.wheel(0, -900);
+  await page.locator('[data-testid="jump-to-latest"][data-shown="true"]').waitFor();
+  await page.mouse.move(0, 0);
+};
 
 /** "This PC" just upgraded: the top bar's Host label hovered, showing the stop's note. */
 const hoverUpgradedHost = async (page: Page) => {
@@ -236,6 +245,8 @@ const open = async (page: Page, scene: string) => {
     await openPolaris(page, scene);
   } else if (TRANSCRIPT_SHOTS.has(scene)) {
     await openTranscriptShot(page, scene);
+  } else if (scene === "jump") {
+    await scrollAway(page);
   } else if (scene === "windows-hover") {
     await hoverUpgradedHost(page);
   } else if (scene === "viewer") {

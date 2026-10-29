@@ -25,6 +25,7 @@ export type CommandId =
   | "session.archive"
   | "session.openInTerminal"
   | "transcript.find"
+  | "transcript.jumpToEnd"
   | "theme.toggle"
   | "settings.open"
   | "settings.about"
@@ -447,6 +448,15 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     keys: ["CmdOrCtrl+F"],
     menu: "Session",
     palette: WORKSPACE({ keywords: ["search", "chat", "conversation", "turn"] }),
+  },
+  // Outside fields only: in the composer ⌘↓ keeps moving the caret to the end.
+  {
+    id: "transcript.jumpToEnd",
+    title: "Jump to latest",
+    keys: ["CmdOrCtrl+Down"],
+    inFields: false,
+    menu: "Session",
+    palette: WORKSPACE({ keywords: ["scroll", "bottom", "end", "conversation"] }),
   },
   {
     id: "session.archive",
