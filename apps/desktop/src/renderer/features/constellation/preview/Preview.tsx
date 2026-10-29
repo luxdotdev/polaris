@@ -33,6 +33,7 @@ import { FAILURE_SIGNALS, failuresRecord } from "./failures.ts";
 import { STARTUP_SIGNALS, withStartupSetups } from "./startup.ts";
 import { chromeRecord } from "./chrome.ts";
 import { largeRecord } from "./large.ts";
+import { worstRecords } from "./worst.ts";
 import { b8Model, setupRecord, setupSessions } from "./setup.ts";
 import { statsFixture } from "./stats.ts";
 import {
@@ -109,6 +110,11 @@ const SCENES = [
   "steered",
   "startup",
   "chrome",
+  "worst-one",
+  "worst-80",
+  "worst-failed",
+  "worst-accepted",
+  "worst-cycle",
 ] as const;
 
 type Scene = (typeof SCENES)[number];
@@ -117,6 +123,7 @@ const FIXED: Partial<Record<Scene, () => ConstellationRecord>> = {
   large: largeRecord,
   chrome: chromeRecord,
   failures: failuresRecord,
+  ...worstRecords,
 };
 
 const recordFor = (scene: Scene): ConstellationRecord => {
@@ -231,6 +238,11 @@ const UI: Readonly<Record<Scene, Partial<LeadUi>>> = {
   slugs: { selected: "task:email-validator", folds: SLUG_FOLDS },
   tree: { selected: "task:F2", folds: TREE_FOLDS },
   chrome: {},
+  "worst-one": {},
+  "worst-80": {},
+  "worst-failed": {},
+  "worst-accepted": {},
+  "worst-cycle": {},
 };
 
 const LEADS = new Map<Scene, () => SessionModel>([
