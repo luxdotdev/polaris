@@ -64,6 +64,16 @@ import {
   XG_FINDINGS,
   xgDetail,
 } from "./xgScenes.ts";
+import {
+  isWorst,
+  setUpWorst,
+  worstDetail,
+  worstFindings,
+  worstHosts,
+  worstPatch,
+  worstReviewerSession,
+  worstSummary,
+} from "./worstScenes.ts";
 
 const encode = (text: string) => new TextEncoder().encode(text);
 
@@ -71,6 +81,8 @@ const patchFor = (scene: string, spec: GitDiffSpec) => {
   if (scene === "large") return manyFilesPatch(2500);
 
   if (scene === "list-only") return manyFilesPatch(12_000);
+
+  if (isWorst(scene)) return scene === "worst-empty" ? "" : worstPatch(200);
 
   return Predicate.isTagged(spec, "Turn") ? (TURN_PATCHES.get(spec.turnId) ?? "") : PULL_PATCH;
 };
@@ -93,6 +105,8 @@ const detailFor = (scene: string) => {
 
   if (isXg(scene)) return xgDetail(PULL_DETAIL);
 
+  if (isWorst(scene)) return worstDetail(PULL_DETAIL, scene);
+
   if (scene.startsWith("ov")) return overviewDetail(PULL_DETAIL, scene);
 
   return scene.startsWith("pull-") ? withThreads(PULL_DETAIL) : PULL_DETAIL;
@@ -100,6 +114,8 @@ const detailFor = (scene: string) => {
 
 const xgOr = (scene: string) => {
   if (isXg(scene)) return XG_FINDINGS;
+
+  if (isWorst(scene)) return worstFindings(scene);
 
   return scene === "large" || scene === "list-only" ? [] : PULL_FINDINGS;
 };
@@ -118,11 +134,10 @@ const request = (scene: string) => (method: string, input: PreviewInput) => {
   if (method === "github.pull.compare") return ok(QUEUE_COMPARE);
 
   if (method === "review.runRiskSummary") {
-    return ok(
-      scene.startsWith("session")
-        ? sessionSummary(SESSION_FINDINGS, SESSION.id)
-        : pullSummary(xgOr(scene))
-    );
+    if (scene.startsWith("session")) return ok(sessionSummary(SESSION_FINDINGS, SESSION.id));
+    const summary = pullSummary(xgOr(scene));
+
+    return ok(isWorst(scene) ? worstSummary(summary, scene) : summary);
   }
 
   if (method === "review.verdicts") return ok([]);
@@ -240,6 +255,8 @@ const setUpOverview = (scene: string) => {
 const findingsOf = (scene: string) => {
   if (isXg(scene)) return XG_FINDINGS;
 
+  if (isWorst(scene)) return worstFindings(scene);
+
   return scene.startsWith("pull") || scene.startsWith("ov") ? PULL_FINDINGS : [];
 };
 
@@ -249,9 +266,11 @@ export const mountReviewPreview = (root: HTMLElement, hash: string) => {
   const studio = MODELS.studio;
   const local = MODELS.local;
 
+  const reviewer = isWorst(scene) ? worstReviewerSession : reviewerSession;
+
   const store = createStore<AppState>(() => ({
     ...initialState,
-    hosts: bench ? [] : HOSTS,
+    hosts: bench ? [] : worstHosts(HOSTS, scene),
     hostModels: bench
       ? benchModels(new URLSearchParams(search))
       : {
@@ -276,8 +295,8 @@ export const mountReviewPreview = (root: HTMLElement, hash: string) => {
         },
     sessions: {
       [sessionKey("local", SESSION.id)]: sessionModel(),
-      [sessionKey("studio", REVIEWER_SESSION)]: reviewerSession(),
-      [sessionKey("local", REVIEWER_SESSION)]: reviewerSession(),
+      [sessionKey("studio", REVIEWER_SESSION)]: reviewer(),
+      [sessionKey("local", REVIEWER_SESSION)]: reviewer(),
     },
   }));
 
@@ -311,6 +330,7 @@ export const mountReviewPreview = (root: HTMLElement, hash: string) => {
     const pull = pullOf(scene);
 
     setUpXg(scene, subjectKey({ kind: "pull", pull }), "rs-88");
+    setUpWorst(scene, subjectKey({ kind: "pull", pull }), "rs-88");
     openPull(navigation.actions, pull);
     updateSurface(subjectKey({ kind: "pull", pull }), {
       findings: findingsOf(scene),

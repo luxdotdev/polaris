@@ -281,9 +281,12 @@ export const StackChip = ({ stack, repo, compact = false }: StackChipProps) => {
             <div className="px-row-x flex items-center gap-2.5 py-1.5" data-testid="stack-trunk">
               <span
                 aria-hidden
-                className="border-text-subtle mx-[3px] size-2 rounded-full border"
+                className="border-text-subtle mx-[3px] size-2 shrink-0 rounded-full border"
               />
-              <span className="bg-row-selected text-text-default text-micro rounded-[4px] px-1.5 py-px font-mono">
+              <span
+                title={stack.trunk}
+                className="bg-row-selected text-text-default text-micro min-w-0 truncate rounded-[4px] px-1.5 py-px font-mono"
+              >
                 {stack.trunk}
               </span>
             </div>

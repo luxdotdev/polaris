@@ -82,6 +82,8 @@ const FooterBar = ({
   const { openSettings } = useShellActions();
   const names = useCostNames(hostKey, summary);
   const files = useStore(surfaceStore, (s) => (s[subjectKey] ?? emptySurface).paths.length);
+  const status = footerStatus(files, groupFindings(summary.findings));
+  const cost = reviewerLine(summary, names);
 
   return (
     <footer
@@ -89,12 +91,16 @@ const FooterBar = ({
       data-testid="risk-footer"
     >
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <Kicker className="truncate" data-testid="risk-status">
-          {footerStatus(files, groupFindings(summary.findings))}
+        <Kicker className="truncate" data-testid="risk-status" title={status}>
+          {status}
         </Kicker>
         {summary.status !== "running" && (
-          <p className="text-caption text-text-subtle truncate" data-testid="risk-cost">
-            {reviewerLine(summary, names)}
+          <p
+            className="text-caption text-text-subtle truncate"
+            data-testid="risk-cost"
+            title={cost}
+          >
+            {cost}
           </p>
         )}
       </div>

@@ -86,7 +86,15 @@ export const CHART = {
   inset: 30,
   /** Under a band's last star: its label. */
   tail: 34,
+  /** A gate's two-line label ("gate · waits 2") runs to here below it. */
+  gateTail: 48,
+  /** Between a floating gate and anything above it in its column, so its label clears. */
+  gateRow: 60,
 } as const;
+
+/** A star label's width: at most its column's step, so neighbours never overlap. */
+export const labelWidth = (step: number) =>
+  Math.min(150, Math.max(step - 8, Math.min(40, step - 4)));
 
 const leavesOf = (tasks: ReadonlyArray<ChartTask>) => {
   const live = tasks.filter((t) => !t.canceled);
@@ -398,7 +406,8 @@ const floatY = (
     )
   );
 
-  while (taken.some((t) => t.wave === gate.wave && Math.abs(t.y - at) < CHART.row)) at += CHART.row;
+  while (taken.some((t) => t.wave === gate.wave && Math.abs(t.y - at) < CHART.gateRow))
+    at += CHART.gateRow;
 
   return at;
 };
@@ -514,7 +523,10 @@ export const starChart = (tasks: ReadonlyArray<ChartTask>): StarChart => {
     y: y.get(p.task.id) ?? middle,
   }));
 
-  const lowest = Math.max(bottom, ...stars.map((s) => s.y + CHART.tail));
+  const lowest = Math.max(
+    bottom,
+    ...stars.map((s) => s.y + (s.gate ? CHART.gateTail : CHART.tail))
+  );
 
   return {
     width: CHART.width,

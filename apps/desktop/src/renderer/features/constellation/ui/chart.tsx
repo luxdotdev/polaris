@@ -10,6 +10,7 @@ import {
   type ChartBundle,
   type ChartEdge,
   type ChartStar,
+  labelWidth,
   type StarChart,
 } from "../model/chart.ts";
 import { progressOf } from "../model/glance.ts";
@@ -210,7 +211,7 @@ const Label = ({
   readonly note: string | null;
 }) => {
   const tone = segment?.tone ?? "waiting";
-  const width = Math.max(40, Math.min(150, step - 8));
+  const width = labelWidth(step);
   const left = Math.min(Math.max(4, star.x - width / 2), CHART.width - width - 4);
   const idOnly = step < 72;
 
@@ -221,9 +222,12 @@ const Label = ({
       data-testid="chart-star"
       data-task={star.id}
       data-tone={tone}
+      title={`${star.id} · ${star.title}`}
     >
       <span className="flex max-w-full min-w-0">
-        <span className={cn("shrink-0", ID_TONE[tone] ?? "text-text-strong")}>{star.id}</span>
+        <span className={cn("max-w-full shrink-0 truncate", ID_TONE[tone] ?? "text-text-strong")}>
+          {star.id}
+        </span>
         {idOnly ? null : (
           <span
             className={cn(
@@ -236,7 +240,7 @@ const Label = ({
         )}
         <span className="sr-only">, {segment?.word ?? "waiting"}</span>
       </span>
-      {note === null ? null : <span className="text-text-subtle">{note}</span>}
+      {note === null ? null : <span className="text-text-subtle max-w-full truncate">{note}</span>}
     </div>
   );
 };
@@ -283,7 +287,7 @@ const Legend = ({
 
   return (
     <div
-      className="text-text-subtle absolute right-3 left-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] leading-[14px]"
+      className="text-text-subtle absolute right-7 left-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] leading-[14px]"
       style={{ top }}
       data-testid="chart-legend"
     >
@@ -325,7 +329,8 @@ const ProgressKicker = ({
   const p = progressOf(segments);
 
   return (
-    <div className="absolute top-3 right-3 left-3 flex items-center gap-2">
+    // Clear of the hero's scrollbar, which overlaps the chart's right edge once it scrolls.
+    <div className="absolute top-3 right-7 left-3 flex items-center gap-2">
       <Kicker className="min-w-0 flex-1 truncate">
         <span className="text-accepted-text">
           {p.accepted} of {p.total} accepted

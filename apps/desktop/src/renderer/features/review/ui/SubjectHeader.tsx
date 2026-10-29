@@ -120,7 +120,7 @@ export const PullHeader = ({ name, number, detail, url, actions }: PullHeaderPro
                 >
                   {(detail.author?.login ?? "?").slice(0, 1).toUpperCase()}
                 </span>
-                <span>
+                <span className="min-w-0 truncate">
                   {detail.author?.login ?? "ghost"} wants to merge {detail.commits}{" "}
                   {detail.commits === 1 ? "commit" : "commits"} into
                 </span>

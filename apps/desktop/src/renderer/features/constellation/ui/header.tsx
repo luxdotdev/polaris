@@ -138,17 +138,18 @@ export const Filters = ({
 export type RowKeys = ReadonlyArray<readonly [key: string, label: string]>;
 
 export const KeyHints = ({ last }: { readonly last: RowKeys }) => (
-  <div className="text-caption text-text-subtle border-hairline flex h-9 shrink-0 items-center gap-5 border-t px-4">
+  // One line in a narrow panel: fold and tab give way first, nothing wraps.
+  <div className="text-caption text-text-subtle border-hairline flex h-9 shrink-0 items-center gap-5 overflow-hidden border-t px-4 whitespace-nowrap *:shrink-0">
     <span>
       <Kbd variant="plain">↑↓</Kbd> move
     </span>
     <span>
       <Kbd variant="plain">↵</Kbd> focus
     </span>
-    <span>
+    <span className="@max-[24rem]:hidden">
       <Kbd variant="plain">← →</Kbd> fold
     </span>
-    <span>
+    <span className="@max-[33rem]:hidden">
       <Kbd variant="plain">tab</Kbd> next that needs you
     </span>
     {last.map(([key, label]) => (
