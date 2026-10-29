@@ -38,10 +38,20 @@ export interface ChartStar {
   readonly y: number;
 }
 
+/** A dependency on a parent: one line from its band's edge nearest the dependent. */
+export interface ChartBundle {
+  readonly name: string;
+  /** Every leaf inside the parent: the line is done when they all are. */
+  readonly leaves: ReadonlyArray<string>;
+  readonly x: number;
+  readonly y: number;
+}
+
 export interface ChartEdge {
-  /** A Task id, or null for the Lead. */
+  /** A Task id (a parent's for a bundle), or null for the Lead. */
   readonly from: string | null;
   readonly to: string;
+  readonly bundle: ChartBundle | null;
 }
 
 export interface StarChart {
@@ -82,14 +92,20 @@ const leavesOf = (tasks: ReadonlyArray<ChartTask>) => {
 };
 
 /** A container's leaves that no other leaf inside it waits on: where its work ends. */
+/** A parent's leaves, and those nothing else inside it waits on. */
+interface Parts {
+  readonly inside: ReadonlyArray<string>;
+  readonly sinks: ReadonlyArray<string>;
+}
+
 const sinksOf = (
-  id: TaskId,
+  id: string,
   children: ReadonlyMap<string, ReadonlyArray<ChartTask>>,
   depsOf: (t: ChartTask) => ReadonlyArray<string>
-): ReadonlyArray<string> => {
+): Parts => {
   const inside: Array<ChartTask> = [];
 
-  const visit = (at: TaskId, seen: Set<string>) => {
+  const visit = (at: string, seen: Set<string>) => {
     for (const c of children.get(at) ?? []) {
       if (seen.has(c.id)) continue;
       seen.add(c.id);
@@ -103,36 +119,71 @@ const sinksOf = (
   const ids = new Set<string>(inside.map((t) => t.id));
   const waited = new Set(inside.flatMap((t) => depsOf(t).filter((d) => ids.has(d))));
 
-  return inside.flatMap((t) => (waited.has(t.id) ? [] : [t.id]));
+  return {
+    inside: inside.map((t) => t.id),
+    sinks: inside.flatMap((t) => (waited.has(t.id) ? [] : [t.id])),
+  };
 };
+
+/** A leaf's dependencies as drawn: a leaf on its own line, a parent as one bundled line. */
+export interface Drawn {
+  readonly leaves: ReadonlyArray<string>;
+  readonly parents: ReadonlyArray<string>;
+}
 
 /** Each leaf's upstream leaves: its own and its ancestors' deps, a parent standing for its sinks. */
 const upstreamOf = (tasks: ReadonlyArray<ChartTask>) => {
   const { live, children, leaves } = leavesOf(tasks);
-  const byId = new Map(live.map((t) => [t.id, t]));
+  const byId = new Map<string, ChartTask>(live.map((t) => [t.id, t]));
   const leafIds = new Set<string>(leaves.map((t) => t.id));
   const own = (t: ChartTask) => effectiveDeps(byId, t);
-  const sinks = new Map<string, ReadonlyArray<string>>();
+  const parts = new Map<string, Parts>();
 
-  const expand = (dep: TaskId): ReadonlyArray<string> => {
-    if (leafIds.has(dep)) return [dep];
-
-    if (!byId.has(dep)) return [];
-    const known = sinks.get(dep);
+  const partsOf = (dep: string) => {
+    const known = parts.get(dep);
 
     if (known !== undefined) return known;
-    const found = sinksOf(dep, children, own).flatMap((s) => (leafIds.has(s) ? [s] : []));
+    const found = sinksOf(dep, children, own);
 
-    sinks.set(dep, found);
+    const kept = {
+      inside: found.inside.filter((s) => leafIds.has(s)),
+      sinks: found.sinks.filter((s) => leafIds.has(s)),
+    };
 
-    return found;
+    parts.set(dep, kept);
+
+    return kept;
+  };
+
+  const expand = (dep: string): ReadonlyArray<string> => {
+    if (leafIds.has(dep)) return [dep];
+
+    return byId.has(dep) ? partsOf(dep).sinks : [];
   };
 
   const upstream = new Map<string, ReadonlyArray<string>>(
     leaves.map((t) => [t.id, [...new Set(own(t).flatMap(expand))].filter((d) => d !== t.id)])
   );
 
-  return { byId, leaves, upstream };
+  const drawnOf = (t: ChartTask): Drawn => {
+    const deps = [...new Set(own(t))].filter((d) => d !== t.id);
+
+    const parents = deps.filter(
+      (d) =>
+        !leafIds.has(d) &&
+        byId.has(d) &&
+        partsOf(d).sinks.length > 0 &&
+        !partsOf(d).inside.includes(t.id)
+    );
+
+    const covered = new Set(parents.flatMap((d) => partsOf(d).inside));
+
+    return { leaves: deps.filter((d) => leafIds.has(d) && !covered.has(d)), parents };
+  };
+
+  const drawn = new Map<string, Drawn>(leaves.map((t) => [t.id, drawnOf(t)]));
+
+  return { byId, leaves, upstream, drawn, inside: (id: string) => partsOf(id) };
 };
 
 /** Longest path from a root, one-based; an edge that closes a cycle counts for nothing. */
@@ -304,8 +355,76 @@ const floatY = (
   return at;
 };
 
+type Upstream = ReturnType<typeof upstreamOf>;
+
+const starsAt = (ids: ReadonlyArray<string>, at: ReadonlyMap<string, ChartStar>) =>
+  ids.flatMap((id) => {
+    const s = at.get(id);
+
+    return s === undefined ? [] : [s];
+  });
+
+/** Where a parent's line starts: its last sink's column, on its band's edge nearest `to`. */
+const bundleFrom = (
+  parent: ChartTask,
+  parts: Parts,
+  at: ReadonlyMap<string, ChartStar>,
+  bands: ReadonlyArray<ChartBand>,
+  to: ChartStar
+): ChartBundle | null => {
+  const sinks = starsAt(parts.sinks, at);
+  const inside = starsAt(parts.inside, at);
+
+  if (sinks.length === 0) return null;
+  const band = bands.find((b) => b.key === `parent:${parent.id}`);
+  const top = band?.y ?? Math.min(...inside.map((s) => s.y)) - CHART.row / 2;
+
+  const bottom =
+    band === undefined ? Math.max(...inside.map((s) => s.y)) + CHART.row / 2 : band.y + band.height;
+
+  return {
+    name: parent.title,
+    leaves: parts.inside,
+    x: Math.max(...sinks.map((s) => s.x)),
+    y: Math.round(Math.min(bottom, Math.max(top, to.y))),
+  };
+};
+
+/** The Lead to the first wave, then each leaf's drawn dependencies. */
+const edgesOf = (
+  up: Upstream,
+  stars: ReadonlyArray<ChartStar>,
+  bands: ReadonlyArray<ChartBand>
+): ReadonlyArray<ChartEdge> => {
+  const at = new Map(stars.map((s) => [s.id, s]));
+
+  const into = (to: ChartStar): ReadonlyArray<ChartEdge> => {
+    const drawn = up.drawn.get(to.id);
+
+    if (drawn === undefined) return [];
+
+    return [
+      ...drawn.leaves.map((from) => ({ from, to: to.id, bundle: null })),
+      ...drawn.parents.flatMap((from) => {
+        const parent = up.byId.get(from);
+
+        const bundle =
+          parent === undefined ? null : bundleFrom(parent, up.inside(from), at, bands, to);
+
+        return bundle === null ? [] : [{ from, to: to.id, bundle }];
+      }),
+    ];
+  };
+
+  return [
+    ...stars.flatMap((s) => (s.wave === 1 ? [{ from: null, to: s.id, bundle: null }] : [])),
+    ...stars.flatMap(into),
+  ];
+};
+
 export const starChart = (tasks: ReadonlyArray<ChartTask>): StarChart => {
-  const { byId, leaves, upstream } = upstreamOf(tasks);
+  const up = upstreamOf(tasks);
+  const { byId, leaves, upstream } = up;
   const wave = wavesOf(leaves, upstream);
   const waves = Math.max(1, ...wave.values());
   const order = new Map(tasks.map((t, n) => [t.id, n]));
@@ -354,11 +473,6 @@ export const starChart = (tasks: ReadonlyArray<ChartTask>): StarChart => {
 
   const lowest = Math.max(bottom, ...stars.map((s) => s.y + CHART.tail));
 
-  const edges: ReadonlyArray<ChartEdge> = [
-    ...stars.flatMap((s) => (s.wave === 1 ? [{ from: null, to: s.id }] : [])),
-    ...leaves.flatMap((t) => (upstream.get(t.id) ?? []).map((from) => ({ from, to: t.id }))),
-  ];
-
   return {
     width: CHART.width,
     height: lowest + CHART.bottom,
@@ -367,6 +481,6 @@ export const starChart = (tasks: ReadonlyArray<ChartTask>): StarChart => {
     lead: { x: CHART.leadX, y: Math.round(middle) },
     bands,
     stars,
-    edges,
+    edges: edgesOf(up, stars, bands),
   };
 };

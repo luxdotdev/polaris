@@ -3,9 +3,15 @@
  * only the flow dots off working Tasks move, by transform, and never under Reduce Motion.
  */
 import type { HarnessKind } from "@polaris/protocol";
-import { cn, Kicker, reducedMotion } from "@polaris/ui";
+import { cn, Kicker, reducedMotion, Tooltip, TooltipContent, TooltipTrigger } from "@polaris/ui";
 import { type CSSProperties, useMemo } from "react";
-import { CHART, type ChartEdge, type ChartStar, type StarChart } from "../model/chart.ts";
+import {
+  CHART,
+  type ChartBundle,
+  type ChartEdge,
+  type ChartStar,
+  type StarChart,
+} from "../model/chart.ts";
 import { progressOf } from "../model/glance.ts";
 import type { Segment, StripTone } from "../model/index.ts";
 import { GateStar, LeadStar, Star, StarIcon, toneFill } from "./stars.tsx";
@@ -30,6 +36,25 @@ const ID_TONE: Readonly<Partial<Record<StripTone, string>>> = {
   "needs-you": "text-needs-you-text",
   failed: "text-failed-text",
 };
+
+interface Point {
+  readonly x: number;
+  readonly y: number;
+}
+
+/** Where a line starts: the Task's star, or a bundled parent's band edge. */
+const sourceOf = (e: ChartEdge, at: ReadonlyMap<string, ChartStar>): Point | undefined =>
+  e.bundle ?? (e.from === null ? undefined : at.get(e.from));
+
+/** The Tasks a line waits on: its source, or every leaf of a bundled parent. */
+const waitsOn = (e: ChartEdge): ReadonlyArray<string> =>
+  e.bundle?.leaves ?? (e.from === null ? [] : [e.from]);
+
+const doneAt = (states: Lookup, e: ChartEdge) =>
+  e.from !== null && waitsOn(e).every((id) => toneAt(states, id) === "accepted");
+
+const bundleLabel = (parent: string, bundle: ChartBundle) =>
+  `${parent} · ${bundle.leaves.length} ${bundle.leaves.length === 1 ? "task" : "tasks"}`;
 
 const QUIET: ReadonlySet<StripTone> = new Set(["accepted", "waiting", "blocked"]);
 
@@ -102,10 +127,10 @@ const Edge = ({
         strokeOpacity={0.6}
       />
     );
-  const from = at.get(edge.from);
+  const from = sourceOf(edge, at);
 
   if (from === undefined) return null;
-  const solid = toneAt(states, edge.from) === "accepted";
+  const solid = doneAt(states, edge);
 
   return (
     <line
@@ -128,8 +153,8 @@ const Flow = ({
   harness,
   still,
 }: {
-  readonly from: ChartStar;
-  readonly to: ChartStar;
+  readonly from: Point;
+  readonly to: Point;
   readonly harness: HarnessKind | null;
   readonly still: boolean;
 }) => {
@@ -219,9 +244,7 @@ const Label = ({
 const gateNote = (chart: StarChart, states: Lookup, gate: ChartStar) => {
   if (toneAt(states, gate.id) === "accepted") return "gate · accepted";
 
-  const waits = chart.edges.filter(
-    (e) => e.to === gate.id && toneAt(states, e.from) !== "accepted"
-  ).length;
+  const waits = chart.edges.filter((e) => e.to === gate.id && !doneAt(states, e)).length;
 
   return waits === 0 ? "gate · ready" : `gate · waits ${waits}`;
 };
@@ -320,6 +343,55 @@ const ProgressKicker = ({
   );
 };
 
+/** The chart is aria-hidden; a bundled line answers hover and focus with its parent's leaves. */
+const BundleHits = ({
+  chart,
+  at,
+}: {
+  readonly chart: StarChart;
+  readonly at: ReadonlyMap<string, ChartStar>;
+}) => (
+  <svg
+    width={chart.width}
+    height={chart.height}
+    className="pointer-events-none absolute inset-0"
+    role="group"
+    aria-label="Dependencies on parents"
+  >
+    {chart.edges.map((e) => {
+      const to = at.get(e.to);
+
+      if (e.bundle === null || e.from === null || to === undefined) return null;
+      const label = bundleLabel(e.from, e.bundle);
+
+      return (
+        <Tooltip key={`${e.from}>${e.to}`}>
+          <TooltipTrigger asChild>
+            <line
+              x1={e.bundle.x}
+              y1={e.bundle.y + 0.5}
+              x2={to.x}
+              y2={to.y + 0.5}
+              data-bundle={e.from}
+              tabIndex={0}
+              aria-label={`${label} before ${e.to}: ${e.bundle.leaves.join(", ")}`}
+              stroke="var(--color-ring)"
+              strokeOpacity={0}
+              strokeWidth={8}
+              style={{ pointerEvents: "stroke" }}
+              className="outline-none hover:[stroke-opacity:0.15] focus-visible:[stroke-opacity:0.35]"
+            />
+          </TooltipTrigger>
+          <TooltipContent className="max-w-64">
+            {label}
+            <span className="text-text-subtle"> · {e.bundle.leaves.join(", ")}</span>
+          </TooltipContent>
+        </Tooltip>
+      );
+    })}
+  </svg>
+);
+
 export const StarChartHero = ({
   chart,
   segments,
@@ -338,13 +410,16 @@ export const StarChartHero = ({
   const still = reducedMotion();
 
   const flows = chart.edges.flatMap((e) => {
-    const from = e.from === null ? undefined : at.get(e.from);
+    const from = sourceOf(e, at);
     const to = at.get(e.to);
-    const s = e.from === null ? undefined : states.get(e.from);
 
-    return from === undefined || to === undefined || s?.tone !== "working"
+    const working = waitsOn(e)
+      .map((id) => states.get(id))
+      .find((s) => s?.tone === "working");
+
+    return from === undefined || to === undefined || working === undefined
       ? []
-      : [{ from, to, harness: s.harness }];
+      : [{ key: `${e.from ?? ""}>${e.to}`, from, to, harness: working.harness }];
   });
 
   return (
@@ -364,7 +439,7 @@ export const StarChartHero = ({
           <Edge key={`${e.from ?? ""}>${e.to}`} edge={e} chart={chart} states={states} at={at} />
         ))}
         {flows.map((f) => (
-          <Flow key={`${f.from.id}>${f.to.id}`} {...f} still={still} />
+          <Flow key={f.key} from={f.from} to={f.to} harness={f.harness} still={still} />
         ))}
         <rect
           x={chart.lead.x - 14}
@@ -388,6 +463,7 @@ export const StarChartHero = ({
           )
         )}
       </svg>
+      <BundleHits chart={chart} at={at} />
       <ProgressKicker segments={segments} waves={chart.waves} />
       <BandLabels chart={chart} />
       <span

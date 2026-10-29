@@ -125,7 +125,8 @@ describe.each(graphs)("the %s graph", (_, tasks) => {
     const wave = wavesOf(chart);
 
     for (const e of chart.edges)
-      if (e.from !== null) expect(wave[e.from] ?? 0).toBeLessThan(wave[e.to] ?? 0);
+      for (const from of e.bundle?.leaves ?? (e.from === null ? [] : [e.from]))
+        expect(wave[from] ?? 0).toBeLessThan(wave[e.to] ?? 0);
   });
 
   test("fits every star inside the hero", () => {
@@ -152,8 +153,27 @@ describe("the layout", () => {
       t("X", { deps: ["P"] }),
     ]);
 
-    expect(edgesOf(chart)).toEqual(["P1→P2", "P2→X", "lead→P1"]);
+    expect(edgesOf(chart)).toEqual(["P1→P2", "P→X", "lead→P1"]);
     expect(star(chart, "X").wave).toBe(3);
+  });
+
+  test("a dependency on a parent is one line from its band's edge nearest the dependent", () => {
+    const chart = starChart([
+      t("P"),
+      t("P1", { parent: "P" }),
+      t("P2", { parent: "P" }),
+      t("P3", { parent: "P", deps: ["P1"] }),
+      t("X", { deps: ["P"] }),
+      t("Y", { deps: ["P2"] }),
+    ]);
+
+    const band = chart.bands.find((b) => b.key === "parent:P");
+    const bundle = chart.edges.find((e) => e.to === "X")?.bundle;
+
+    expect(edgesOf(chart)).toEqual(["P1→P3", "P2→Y", "P→X", "lead→P1", "lead→P2"]);
+    expect(bundle?.leaves.toSorted()).toEqual(["P1", "P2", "P3"]);
+    expect(bundle?.x).toBe(star(chart, "P3").x);
+    expect(bundle?.y).toBe((band?.y ?? 0) + (band?.height ?? 0));
   });
 
   test("a child inherits its parent's dependencies", () => {
