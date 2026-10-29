@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import type { ConstellationSource } from "../model.ts";
 import { taskDetail } from "./detail.ts";
 import { attempt, claim, deps, NOW, projection, source, task } from "./fixtures.testing.ts";
-import { bandLetter, starChartOf, starCounts } from "./stars.ts";
+import { bandLetter, starChartOf } from "./stars.ts";
 
 /** MX-W's shape: two bands, a cross-band dependency, two tasks sharing a wave, a gate. */
 const mxw = () =>
@@ -103,16 +103,10 @@ test("band letters run past Z", () => {
   expect([0, 25, 26, 27].map(bandLetter)).toEqual(["A", "Z", "AA", "AB"]);
 });
 
-test("the legend counts each state", () => {
-  expect(starCounts(starChartOf(mxw()).tasks)).toEqual({
-    done: 2,
-    total: 6,
-    review: 0,
-    blocked: 0,
-    failed: 1,
-    working: 1,
-    waiting: 2,
-  });
+test("each star carries its plan dependencies, for the chart's edges", () => {
+  const stars = byId(mxw());
+
+  expect(stars.get("g1")?.dependsOn).toEqual(["t3", "t4"]);
 });
 
 test("MX-Z: a claim in review on a second attempt after a send-back", () => {

@@ -196,7 +196,7 @@ export const galleryConstellation = (
   lead: { readonly sessionId: string; readonly hostId: string },
   now: number
 ): ConstellationSource => {
-  const bands: ReadonlyArray<readonly [string, ReadonlyArray<Code>]> = (
+  const plan: ReadonlyArray<readonly [string, string]> =
     dataset === "header"
       ? [
           ["Contracts", "dddwa"],
@@ -209,8 +209,9 @@ export const galleryConstellation = (
           ["Core", "ddddddwwbaa"],
           ["Duo", "dddddwa"],
           ["Edge", "aaaa"],
-        ]
-  ).map(([band, text]) => [band, codes(text)] as const);
+        ];
+
+  const bands = plan.map(([band, text]) => [band, codes(text)] as const);
 
   const { tasks, projections, attempts } = chained(bands, now);
 

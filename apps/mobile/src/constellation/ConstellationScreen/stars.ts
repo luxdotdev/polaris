@@ -104,33 +104,9 @@ export const starChartOf = (source: ConstellationSource): StarChartData => {
         band: band.id,
         wave: waves.get(s.task.id) ?? 1,
         state: s.state,
+        dependsOn: s.task.deps,
       }))
   );
 
   return { tasks: stars, bands };
-};
-
-/** MX-W's legend counts: claims to review, blocked and failed, working, waiting. */
-export interface StarCounts {
-  readonly done: number;
-  readonly total: number;
-  readonly review: number;
-  readonly blocked: number;
-  readonly failed: number;
-  readonly working: number;
-  readonly waiting: number;
-}
-
-export const starCounts = (tasks: ReadonlyArray<StarTask>): StarCounts => {
-  const count = (state: StarState) => tasks.filter((t) => t.state === state).length;
-
-  return {
-    done: count("done"),
-    total: tasks.length,
-    review: count("review"),
-    blocked: count("blocked"),
-    failed: count("failed"),
-    working: count("working"),
-    waiting: count("waiting"),
-  };
 };
