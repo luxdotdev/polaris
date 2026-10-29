@@ -98,7 +98,9 @@ const Permission = ({
   readonly onToggle: () => void;
 }) => {
   const { colours } = useTheme();
-  const whole = open || !notice.compact;
+  // A compact command that still wraps opens to the whole: Approve is never beside cut-off text.
+  const [wraps, setWraps] = useState(false);
+  const whole = open || !notice.compact || wraps;
 
   const approve = () => {
     haptics.approve();
@@ -138,7 +140,12 @@ const Permission = ({
         >
           <Text style={[styles.headline, { color: colours.needsYouText }]}>{notice.headline}</Text>
           {notice.detail === null || whole ? null : (
-            <Text style={[styles.detail, { color: colours.textDefault }]} numberOfLines={1}>
+            <Text
+              style={[styles.detail, { color: colours.textDefault }]}
+              onTextLayout={(event) => {
+                if (event.nativeEvent.lines.length > 1) setWraps(true);
+              }}
+            >
               {notice.detail}
             </Text>
           )}

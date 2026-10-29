@@ -51,6 +51,10 @@ describe("the composer's notice strip", () => {
   test.each([
     ["a long command", "x".repeat(80)],
     ["a multi-line command", "cd apps\nbun test"],
+    ["a line separator", "ls\u2028rm -rf ~"],
+    ["a bidi override", "ls \u202e~ fr- mr"],
+    ["a zero-width space", "ls\u200b"],
+    ["past what fits beside Approve", "bun run build:all" + "x".repeat(10)],
   ])("%s opens to every line instead of sitting beside Approve", (_, detail) => {
     const strip = stripOf({
       requests: [request({ kind: "command", detail })],

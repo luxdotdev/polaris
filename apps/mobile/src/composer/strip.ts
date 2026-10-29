@@ -12,8 +12,11 @@ const WANTS: Readonly<Record<ApprovalRequest["kind"], string>> = {
   question: "has a question",
 };
 
-/** Longer than this, or more than one line, and the strip opens to the whole request. */
-export const COMPACT_CHARACTERS = 48;
+/** What fits beside Approve and Deny on the narrowest iPhone; longer opens to the whole request. */
+export const COMPACT_CHARACTERS = 20;
+
+/** Printable ASCII only: no line breaks, controls, bidi or zero-width marks that hide text. */
+const PLAIN = /^[\x20-\x7e]*$/;
 
 export type StripNotice =
   | {
@@ -23,7 +26,7 @@ export type StripNotice =
       readonly headline: string;
       /** Every line of the command, file or tool; null when the Harness named none. */
       readonly detail: string | null;
-      /** The whole detail fits one line: Approve sits beside it, nothing is cut short. */
+      /** Short plain text: Approve may sit beside it; the view still opens if it wraps. */
       readonly compact: boolean;
     }
   | { readonly kind: "question"; readonly request: ApprovalRequest }
@@ -35,7 +38,7 @@ export interface Strip {
   readonly more: number;
 }
 
-const fitsOneLine = (text: string) => !text.includes("\n") && text.length <= COMPACT_CHARACTERS;
+const fitsOneLine = (text: string) => PLAIN.test(text) && text.length <= COMPACT_CHARACTERS;
 
 const noticeOf = (request: ApprovalRequest, harness: string): StripNotice => {
   if (request.kind === "question") return { kind: "question", request };
