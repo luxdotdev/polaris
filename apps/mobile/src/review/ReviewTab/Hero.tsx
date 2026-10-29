@@ -11,14 +11,19 @@ import {
   Pressable,
   ScrollView,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { Celestial, sessionCelestial } from "../../celestial/index.tsx";
-import { age } from "../../home/model/format.ts";
+import { age, grouped } from "../../home/model/format.ts";
 import { titleOf } from "../../home/ui/NeedsYouCard.tsx";
 import { LongPressMenu, type MenuAction, sessionMenu } from "../../menus/index.ts";
 import { themedStyles, useReducedMotion, useTheme } from "../../theme/index.ts";
-import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../../theme/textScale.ts";
+import {
+  ACCESSIBILITY_SCALE,
+  CHROME_TEXT_SCALE,
+  CONTENT_TEXT_SCALE,
+} from "../../theme/textScale.ts";
 import { highest, SEVERITIES } from "../model.ts";
 import { SeverityGlyph, severityLabel, severityText } from "../severity.tsx";
 import { AskToFix, QueueAccept } from "./actions.tsx";
@@ -79,6 +84,7 @@ const TopFinding = ({
           maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
           style={styles.findingPlace}
           numberOfLines={1}
+          ellipsizeMode="middle"
         >
           {lineLabel(finding)}
         </Text>
@@ -98,6 +104,7 @@ const Page = ({ item, actions }: { readonly item: QueueItem; readonly actions: H
   const { session } = item.row;
   const files = item.turn?.files ?? null;
   const [top] = item.findings;
+  const wraps = useWindowDimensions().fontScale >= ACCESSIBILITY_SCALE;
   const note = riskNote(item);
 
   return (
@@ -126,21 +133,22 @@ const Page = ({ item, actions }: { readonly item: QueueItem; readonly actions: H
                 {age(item.row.since, actions.now)}
               </Text>
             </View>
-            <View style={styles.metaRow}>
+            <View style={[styles.metaRow, wraps ? styles.metaWraps : null]}>
               <Text
                 maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
-                style={styles.meta}
-                numberOfLines={1}
+                style={[styles.meta, wraps ? styles.metaWhole : null]}
+                numberOfLines={wraps ? 2 : 1}
+                ellipsizeMode="middle"
               >
                 {heroMeta(item, actions.withHost)}
               </Text>
               {files === null ? null : (
                 <>
                   <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.added}>
-                    +{files.added}
+                    +{grouped(files.added)}
                   </Text>
                   <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.removed}>
-                    −{files.removed}
+                    −{grouped(files.removed)}
                   </Text>
                 </>
               )}
@@ -331,6 +339,9 @@ const useStyles = themedStyles((c) => ({
   },
   age: { ...mono, paddingTop: 2, color: c.textSubtle, fontVariant: ["tabular-nums"] },
   metaRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  /** At accessibility sizes the counts move under the meta line instead of squeezing it. */
+  metaWraps: { flexWrap: "wrap" },
+  metaWhole: { width: "100%" },
   meta: { ...mobileType.footnote, lineHeight: 18, color: c.textSubtle, flexShrink: 1 },
   added: { ...mono, color: c.diffAddedText },
   removed: { ...mono, color: c.diffRemovedText },

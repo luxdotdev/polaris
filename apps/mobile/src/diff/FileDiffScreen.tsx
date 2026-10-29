@@ -75,7 +75,12 @@ const PortraitHeader = ({
       <BackButton onPress={onBack} size={40} />
       <View style={styles.titles}>
         <View style={styles.titleRow}>
-          <Text style={styles.name} numberOfLines={1} maxFontSizeMultiplier={CHROME_TEXT_SCALE}>
+          <Text
+            style={styles.name}
+            numberOfLines={1}
+            ellipsizeMode="middle"
+            maxFontSizeMultiplier={CHROME_TEXT_SCALE}
+          >
             {name}
           </Text>
           <Counts file={file} />

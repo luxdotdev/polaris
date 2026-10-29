@@ -4,11 +4,15 @@ import { finding } from "../review.testing.ts";
 import {
   type Acknowledged,
   acknowledge,
+  acknowledgedIn,
+  askLabel,
   canAccept,
   confirmationBody,
   confirmationTitle,
+  moreCriticals,
   needsConfirmation,
   openCriticals,
+  rememberAcknowledged,
 } from "./confirmation.ts";
 
 /** Accept pressed with `findings` open: whether it asked, and what it remembers after a confirm. */
@@ -94,5 +98,35 @@ describe("its words", () => {
     expect(confirmationBody(2, undefined)).toBe(
       "Accept anyway. You won't be asked again for these criticals."
     );
+  });
+
+  test("say them, not it, when several are open", () => {
+    expect(confirmationBody(3, "Codex")).toBe(
+      "Accept anyway, or ask Codex about them first. You won't be asked again for these criticals."
+    );
+    expect([askLabel(1, "Codex"), askLabel(3, "Codex")]).toEqual([
+      "Ask Codex about it",
+      "Ask Codex about them",
+    ]);
+  });
+
+  test("count the criticals past the listed three", () => {
+    expect([3, 4, 6].map(moreCriticals)).toEqual([
+      null,
+      "and 1 more critical",
+      "and 3 more criticals",
+    ]);
+  });
+});
+
+describe("what was accepted despite", () => {
+  test("outlives the screen that asked, within its agent session only", () => {
+    const criticals = [finding("kept", "critical")];
+
+    rememberAcknowledged("mac/session-a", criticals);
+
+    // A remounted Review or queue reads the same session's acknowledgments back.
+    expect(needsConfirmation(criticals, acknowledgedIn("mac/session-a"))).toBe(false);
+    expect(needsConfirmation(criticals, acknowledgedIn("mac/session-b"))).toBe(true);
   });
 });

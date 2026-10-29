@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { parsePatch } from "../review/patch.ts";
 import { finding } from "../review/review.testing.ts";
-import { fileRows, type ScreenRow } from "./rows.ts";
+import { fileRows, noLinesNote, type ScreenRow } from "./rows.ts";
 
 const patch = [
   "diff --git a/up.ts b/up.ts",
@@ -58,5 +58,27 @@ describe("a file's screen rows", () => {
       "_|3 -",
       "3|4 -",
     ]);
+  });
+});
+
+describe("a file with no lines", () => {
+  test("says it was renamed, or why nothing shows", () => {
+    const [renamed, binary] = parsePatch(
+      [
+        "diff --git a/README.md b/docs/README.md",
+        "similarity index 100%",
+        "rename from README.md",
+        "rename to docs/README.md",
+        "diff --git a/logo.png b/logo.png",
+        "Binary files a/logo.png and b/logo.png differ",
+        "",
+      ].join("\n")
+    );
+
+    expect([renamed, binary].map((f) => (f === undefined ? null : noLinesNote(f)))).toEqual([
+      "Renamed from README.md. Its contents didn't change.",
+      "No line changes to show. It may be a binary file.",
+    ]);
+    expect(noLinesNote(file)).toBeNull();
   });
 });

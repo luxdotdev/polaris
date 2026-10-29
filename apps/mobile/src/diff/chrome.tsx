@@ -10,6 +10,7 @@ import type { DiffFileInput } from "../review/diffRows.ts";
 import { SeverityGlyph } from "../review/severity.tsx";
 import { themedStyles, useTheme } from "../theme/index.ts";
 import { CHROME_TEXT_SCALE } from "../theme/textScale.ts";
+import { grouped } from "../home/model/format.ts";
 
 /** `src/artifact/upload.ts` as its directory (with the slash) and its name. */
 export interface SplitPath {
@@ -92,13 +93,13 @@ export const Counts = ({ file }: { readonly file: DiffFileInput }) => {
         style={[styles.count, { color: colours.diffAddedText }]}
         maxFontSizeMultiplier={CHROME_TEXT_SCALE}
       >
-        +{file.added}
+        +{grouped(file.added)}
       </Text>
       <Text
         style={[styles.count, { color: colours.diffRemovedText }]}
         maxFontSizeMultiplier={CHROME_TEXT_SCALE}
       >
-        −{file.removed}
+        −{grouped(file.removed)}
       </Text>
     </>
   );
@@ -212,6 +213,7 @@ const PagerEnd = ({
       <Text
         style={[styles.endText, { color: colour }]}
         numberOfLines={1}
+        ellipsizeMode="middle"
         maxFontSizeMultiplier={CHROME_TEXT_SCALE}
       >
         {name}

@@ -35,6 +35,7 @@ import { usePush, usePushLinks } from "./push/usePush.ts";
 import { RelayProvider, useRelay } from "./relay/RelayProvider.tsx";
 import { runSelfCheck } from "./runtime/selfCheck.ts";
 import { AcceptDemo } from "./review/accept/index.ts";
+import { ReviewGallery, reviewGalleryOn } from "./review/gallery/Gallery.tsx";
 import { SheetDemo, SheetHost } from "./sheet/index.tsx";
 import { CheckAlive } from "./runtime/CheckAlive.tsx";
 import { HostsProvider } from "./runtime/hosts.tsx";
@@ -188,6 +189,15 @@ const Shell = () => {
       <SheetHost>
         <InboxProvider>
           <ConstellationGallery />
+        </InboxProvider>
+      </SheetHost>
+    );
+
+  if (reviewGalleryOn())
+    return (
+      <SheetHost>
+        <InboxProvider>
+          <ReviewGallery />
         </InboxProvider>
       </SheetHost>
     );

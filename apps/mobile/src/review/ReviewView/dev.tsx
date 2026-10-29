@@ -250,6 +250,7 @@ const Preview = () => {
 
   return (
     <ReviewView
+      scope="preview"
       turnNumber={24}
       sessionTitle="Cap artifact uploads"
       harnessName="Claude Code"

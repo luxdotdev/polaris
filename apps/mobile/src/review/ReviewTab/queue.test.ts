@@ -114,6 +114,17 @@ describe("a queued turn's lines", () => {
     expect(wellMeta(clean, true)).toBe("Turn 3 · 2 files · no findings · Mac Studio");
     expect(wellMeta(item("x", 1, { kind: "unreviewed" }), false)).toBe("Turn 3 · 2 files");
   });
+
+  test("a big turn's file count keeps its thousands separator", () => {
+    const big = queueItem(row("big", 1), {
+      turnId: "big-t3",
+      number: 3,
+      files: { count: 1_284, added: 0, removed: 0 },
+      risk: reviewed(),
+    });
+
+    expect(wellMeta(big, false)).toBe("Turn 3 · 1,284 files · no findings");
+  });
 });
 
 describe("Accept from the queue", () => {

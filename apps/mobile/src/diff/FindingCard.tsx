@@ -5,10 +5,10 @@
 import type { RiskFinding } from "@polaris/protocol";
 import { mobileType } from "@polaris/ui/tokens";
 import { memo } from "react";
-import { Pressable, Text, View } from "react-native";
-import { severityColour, severityLabel, SeverityGlyph } from "../review/severity.tsx";
+import { Pressable, Text, useWindowDimensions, View } from "react-native";
+import { LeadGlyph, severityColour, severityLabel } from "../review/severity.tsx";
 import { themedStyles, useTheme } from "../theme/index.ts";
-import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
+import { ACCESSIBILITY_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 import type { DiffFindingActions } from "./types.ts";
 
 export const DiffFindingCard = memo(function DiffFindingCard({
@@ -21,22 +21,28 @@ export const DiffFindingCard = memo(function DiffFindingCard({
   const styles = useStyles();
   const { colours } = useTheme();
   const askReviewer = actions?.askReviewer;
+  const wraps = useWindowDimensions().fontScale >= ACCESSIBILITY_SCALE;
 
   return (
     <View style={styles.inset}>
       <View style={[styles.card, { borderLeftColor: severityColour(colours, finding.severity) }]}>
-        <View style={styles.head}>
-          <SeverityGlyph severity={finding.severity} size={10} />
+        <View style={[styles.head, wraps && styles.wraps]}>
+          <LeadGlyph severity={finding.severity} size={10} lineHeight={18} />
           <Text style={styles.title} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
             {finding.title}
           </Text>
-          <Text style={styles.meta} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
+          <Text
+            style={[styles.meta, wraps && styles.under]}
+            maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+          >
             {severityLabel[finding.severity]} · {Math.round(finding.confidence * 100)}%
           </Text>
         </View>
-        <Text style={styles.reason} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
-          {finding.reason}
-        </Text>
+        {finding.reason === "" ? null : (
+          <Text style={styles.reason} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
+            {finding.reason}
+          </Text>
+        )}
         {actions === undefined ? null : (
           <View style={styles.actions}>
             <Pressable
@@ -85,9 +91,18 @@ const useStyles = themedStyles((colours) => ({
     borderColor: colours.hairline,
     backgroundColor: colours.raised,
   },
-  head: { flexDirection: "row", alignItems: "center", gap: 8 },
+  head: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  /** At accessibility sizes the meta goes under the title, which keeps the row's width. */
+  wraps: { flexWrap: "wrap" },
+  under: { width: "100%", paddingLeft: 18, marginTop: 0 },
   title: { ...mobileType.subhead, fontWeight: "500", color: colours.textStrong, flex: 1 },
-  meta: { ...mobileType.index, fontSize: 11, lineHeight: 14, color: colours.textSubtle },
+  meta: {
+    ...mobileType.index,
+    fontSize: 11,
+    lineHeight: 14,
+    marginTop: 2,
+    color: colours.textSubtle,
+  },
   reason: { ...mobileType.footnote, color: colours.textSubtle },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   primary: { ...pill, backgroundColor: colours.textStrong },
