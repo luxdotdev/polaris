@@ -176,7 +176,7 @@ Findings 1–3 are fixed on `fix/verification-findings`, finding 4 on `m2/protoc
 - A late approval request is dropped without an answer to the Harness. That is right for the Turn-scoped requests the drivers send today; a Harness that asked about an ended Turn and blocked on the answer would wait until its next Turn or exit.
 - Interrupt with no Harness running (`turn.interruptUnattended`) moves an In Terminal session to Dormant, even though its terminal UI may still be open (the Claude hand-off follows the TUI without a Harness). It is how a user ends a Turn the TUI left open before archiving; a follow-up could keep In Terminal there.
 - Checked against the ENG-210 session machine (merged at `1285069`).
-- The Engine model-based test and trace validation don't send `RemoveWorkspace` yet (`replay.ts` drops `WorkspaceRemoved`, and its runs import the spec with `WORKSPACE_REMOVAL = false`); the store and Engine tests (`store/removal.test.ts`, `engine/Engine.removeWorkspace.test.ts`) cover it on the real code.
+- The Engine model-based test and trace validation don't send `RemoveWorkspace` yet (`replay.ts` drops `WorkspaceRemoved`, and its runs import the spec with `WORKSPACE_REMOVAL = false`); the store and Engine tests (`store/removal.test.ts`, `engine/Engine.removeWorkspace.test.ts`) cover it on the real code (follow-up ENG-572).
 
 ## Constellations v1 (C1-P, ENG-236/ENG-243/ENG-244)
 
