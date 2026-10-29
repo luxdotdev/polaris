@@ -12,9 +12,10 @@ import {
 import { mobileFont, mobileType } from "@polaris/ui/tokens";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import { counted, grouped } from "../home/model/format.ts";
 import { askToFixCommand, flaggedCode, verdictCommand } from "../review/actions.ts";
 import { DiffList } from "../review/DiffList.tsx";
-import { fileLines } from "../review/diffRows.ts";
+import { type DiffRow, fileLines } from "../review/diffRows.ts";
 import type { FindingActions } from "../review/FindingCard.tsx";
 import { diffPalette } from "../review/palette.ts";
 import { SeverityGlyph, severityLabel, severityText } from "../review/severity.tsx";
@@ -50,28 +51,35 @@ const Header = ({
 
   return (
     <View style={styles.header}>
-      <View style={styles.star} />
-      <Text style={styles.from}>From turn {context.turnNumber} · </Text>
-      <Text style={styles.label} numberOfLines={1}>
+      <View style={styles.fromLine}>
+        <View style={styles.star} />
+        <Text style={styles.from}>From turn {grouped(context.turnNumber)}</Text>
+        {context.working ? null : (
+          <Pressable onPress={onOpenReview} accessibilityRole="link" hitSlop={8}>
+            <Text style={styles.open}>Open review</Text>
+          </Pressable>
+        )}
+      </View>
+      <Text style={styles.label} numberOfLines={2} ellipsizeMode="middle">
         {context.label}
       </Text>
-      {context.working ? null : (
-        <Pressable onPress={onOpenReview} accessibilityRole="link" hitSlop={8}>
-          <Text style={styles.open}>Open review</Text>
-        </Pressable>
-      )}
     </View>
   );
 };
+
+/** The "also" rows shown before the rest fold into "N more files", so the diff keeps the pane. */
+const ALSO_LIMIT = 4;
 
 const Also = ({
   context,
   files,
   onPick,
+  onMore,
 }: {
   readonly context: TurnContext;
   readonly files: TurnFiles;
   readonly onPick: (file: OtherFile) => void;
+  readonly onMore: () => void;
 }) => {
   const styles = useStyles();
   const { colours } = useTheme();
@@ -82,7 +90,7 @@ const Also = ({
   return (
     <View style={styles.also}>
       <Text style={styles.alsoTitle}>Also in turn {context.turnNumber}</Text>
-      {context.also.map((file) => {
+      {context.also.slice(0, ALSO_LIMIT).map((file) => {
         const diff = counts.find((f) => f.diff.name === file.path);
 
         return (
@@ -92,13 +100,13 @@ const Also = ({
             onPress={() => onPick(file)}
             accessibilityRole="button"
           >
-            <Text style={styles.alsoPath} numberOfLines={1}>
+            <Text style={styles.alsoPath} numberOfLines={1} ellipsizeMode="middle">
               {basename(file.path)}
             </Text>
             {diff === undefined ? null : (
               <>
-                <Text style={styles.added}>+{diff.added}</Text>
-                <Text style={styles.removed}>−{diff.removed}</Text>
+                <Text style={styles.added}>+{grouped(diff.added)}</Text>
+                <Text style={styles.removed}>−{grouped(diff.removed)}</Text>
               </>
             )}
             {file.severity === null ? null : (
@@ -114,6 +122,13 @@ const Also = ({
           </Pressable>
         );
       })}
+      {context.also.length > ALSO_LIMIT ? (
+        <Pressable style={styles.alsoRow} onPress={onMore} accessibilityRole="link">
+          <Text style={styles.alsoMore}>
+            {counted(context.also.length - ALSO_LIMIT, "more file")} · Open review
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 };
@@ -128,13 +143,9 @@ export const ContextPane = ({
   onShown,
   onOpenReview,
 }: ContextPaneProps) => {
-  const styles = useStyles();
-  const { colours } = useTheme();
-  const palette = useMemo(() => diffPalette(colours, false), [colours]);
   const connection = useHost(hostId);
   const data = useSessionContext(connection, sessionId);
   const turns = data.fold?.turns ?? [];
-  const [opened, setOpened] = useState<ReadonlySet<string>>(NOTHING);
   const submissions = useReviewSubmissions(hostId, useLiveHost(connection));
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -208,11 +219,53 @@ export const ContextPane = ({
     [context, onFocus]
   );
 
+  return (
+    <ContextView
+      context={context}
+      connecting={data.fold === null}
+      files={files}
+      rows={rows}
+      failure={failure}
+      actions={actions}
+      onOpenReview={onOpenReview}
+      onPick={pick}
+    />
+  );
+};
+
+export interface ContextViewProps {
+  readonly context: TurnContext | null;
+  /** True until the thread's fold arrives. */
+  readonly connecting: boolean;
+  readonly files: TurnFiles;
+  readonly rows: ReadonlyArray<DiffRow>;
+  readonly failure: string | null;
+  readonly actions: FindingActions;
+  readonly onOpenReview: (turnId: string) => void;
+  readonly onPick: (file: OtherFile) => void;
+}
+
+/** The pane as drawn from its data: the data boundary the dev gallery feeds worst cases through. */
+export const ContextView = ({
+  context,
+  connecting,
+  files,
+  rows,
+  failure,
+  actions,
+  onOpenReview,
+  onPick,
+}: ContextViewProps) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
+  const palette = useMemo(() => diffPalette(colours, false), [colours]);
+  const [opened, setOpened] = useState<ReadonlySet<string>>(NOTHING);
+
   if (context === null)
     return (
       <View style={styles.pane}>
         <Text style={styles.empty}>
-          {data.fold === null ? "Connecting…" : "Tap a step, file or finding and it shows here."}
+          {connecting ? "Connecting…" : "Tap a step, file or finding and it shows here."}
         </Text>
       </View>
     );
@@ -240,7 +293,12 @@ export const ContextPane = ({
           bottomInset={12}
         />
       </View>
-      <Also context={context} files={files} onPick={pick} />
+      <Also
+        context={context}
+        files={files}
+        onPick={onPick}
+        onMore={() => onOpenReview(context.turnId)}
+      />
     </View>
   );
 };
@@ -252,17 +310,11 @@ const useStyles = themedStyles((colours) => ({
     borderLeftWidth: 1,
     borderLeftColor: colours.hairline,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    minHeight: 56,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-  },
+  header: { gap: 2, minHeight: 56, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 6 },
+  fromLine: { flexDirection: "row", alignItems: "center", gap: 6 },
   star: { width: 3, height: 3, backgroundColor: colours.starlight, marginRight: 6 },
-  from: { ...mobileType.footnote, color: colours.textSubtle },
-  label: { ...mobileType.footnote, fontWeight: "500", color: colours.textStrong, flex: 1 },
+  from: { ...mobileType.footnote, color: colours.textSubtle, flex: 1 },
+  label: { ...mobileType.footnote, fontWeight: "500", color: colours.textStrong },
   open: { ...mobileType.footnote, color: colours.textSubtle },
   diff: { flex: 1, paddingHorizontal: 12 },
   empty: { ...mobileType.callout, color: colours.textFaint, textAlign: "center", padding: 40 },
@@ -302,6 +354,7 @@ const useStyles = themedStyles((colours) => ({
     color: colours.diffRemovedText,
     fontVariant: ["tabular-nums"],
   },
+  alsoMore: { ...mobileType.footnote, color: colours.textSubtle },
   alsoSeverity: { flexDirection: "row", alignItems: "center", gap: 5, minWidth: 62 },
   alsoSeverityText: { ...mobileType.footnote },
 }));

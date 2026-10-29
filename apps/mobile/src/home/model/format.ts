@@ -22,11 +22,14 @@ export const age = (since: number, now: number): string => {
 
 /** "lucas-mac-studio.tail0.ts.net" → "lucas-mac-studio"; IP addresses stay whole. */
 export const shortHostName = (name: string): string =>
-  /^[a-z][\w-]*\./i.test(name) ? (name.split(".")[0] ?? name) : name;
+  /^\p{L}[\p{L}\p{N}_-]*\./u.test(name) ? (name.split(".")[0] ?? name) : name;
+
+/** "1,284": counts and line totals with their thousands separated. */
+export const grouped = (count: number): string => count.toLocaleString("en-US");
 
 /** "1 host", "4 hosts". */
 export const counted = (count: number, one: string, many = `${one}s`): string =>
-  `${count} ${count === 1 ? one : many}`;
+  `${grouped(count)} ${count === 1 ? one : many}`;
 
 /** The Harness's product name ("Claude Code"), or its kind when the catalogue doesn't know it. */
 export const harnessName = (kind: string): string => harnessEntry(kind)?.name ?? kind;

@@ -9,13 +9,20 @@ import Svg, { Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackBar } from "../app/BackBar.tsx";
 import { type FollowedHostState, useFollowedHosts } from "../home/feed/useFollowedHosts.ts";
-import { HORIZON_INSET, HorizonScreen } from "../horizon";
+import { EdgeFade, HORIZON_CLEAR, HorizonScreen } from "../horizon";
 import { hostMenu, LongPressMenu, useMenuActions } from "../menus/index.ts";
 import { useRelay } from "../relay/RelayProvider.tsx";
 import { Chevron } from "../settings/icons.tsx";
 import { themedStyles, useTheme } from "../theme/index.ts";
 import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
-import { DEV_HOST_SHEET, DEV_HOSTS } from "./dev.ts";
+import { DevSegments } from "../home/ui/DevDataToggle.tsx";
+import {
+  chooseDevHosts,
+  DEV_HOST_SHEET,
+  type DevHostsData,
+  useDevHosts,
+  useDevHostsData,
+} from "./dev.ts";
 import { HostSheet } from "./HostSheet.tsx";
 import {
   buildHosts,
@@ -83,6 +90,7 @@ const HostRow = ({
         <Text
           style={[styles.name, offline ? styles.offlineName : null]}
           numberOfLines={1}
+          ellipsizeMode="middle"
           maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
         >
           {row.name}
@@ -173,6 +181,29 @@ const LinkRow = ({ onLink }: { readonly onLink: () => void }) => {
   );
 };
 
+/** The list ends above the moon (DESIGN.md: no row sits on the horizon); this lifts its last row past the fade. */
+const LIST_FOOT = 40;
+
+/** Room under the last row for the development toggle that stands at the list's foot. */
+const DEV_TOGGLE_ROOM = 40;
+
+const DEV_CHOICES: ReadonlyArray<readonly [DevHostsData, string]> = [
+  ["paper", "Paper"],
+  ["worst", "Worst case"],
+  ["offline", "All offline"],
+  ["one", "One"],
+  ["huge", "64"],
+  ["empty", "None"],
+];
+
+const DevHostsToggle = ({ bottom }: { readonly bottom: number }) => {
+  const data = useDevHostsData();
+
+  return data === null ? null : (
+    <DevSegments choices={DEV_CHOICES} value={data} onChoose={chooseDevHosts} bottom={bottom} />
+  );
+};
+
 export const HostsScreen = ({
   onBack,
   onLink,
@@ -184,7 +215,8 @@ export const HostsScreen = ({
   const insets = useSafeAreaInsets();
   const relay = useRelay();
   const followed = useFollowedHosts();
-  const hosts = DEV_HOSTS ?? followed.map(toInput);
+  const dev = useDevHosts();
+  const hosts = dev ?? followed.map(toInput);
   const [openId, setOpenId] = useState<string | null>(DEV_HOST_SHEET);
   const [unlinkLeft, setUnlinkLeft] = useState<string | null>(null);
   const now = useTicking(hosts.some(({ state }) => state === "reconnecting"));
@@ -192,12 +224,12 @@ export const HostsScreen = ({
   const open = hosts.find((host) => host.hostId === openId) ?? null;
 
   const relayLinked = (host: HostInput) =>
-    DEV_HOSTS === null ? relay.routeOf(host.hostId) === "relay" : host.route === "relay";
+    dev === null ? relay.routeOf(host.hostId) === "relay" : host.route === "relay";
 
   const unlink = (hostId: string) => () => {
     setOpenId(null);
 
-    if (DEV_HOSTS !== null) return;
+    if (dev !== null) return;
     void relay
       .unlinkHost(hostId)
       .then((kept) => setUnlinkLeft(unlinkNote(kept.map((host) => host.hostName))));
@@ -207,44 +239,54 @@ export const HostsScreen = ({
     <HorizonScreen>
       <View style={[styles.screen, { paddingTop: insets.top }]}>
         <BackBar label="Settings" onBack={onBack} />
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: HORIZON_INSET }]}>
-          <View style={styles.head}>
-            <Text
-              style={styles.title}
-              accessibilityRole="header"
-              maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
-            >
-              Hosts
-            </Text>
-            <Text style={styles.summary} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
-              {model.summary}
-            </Text>
-          </View>
-          <View style={styles.sections}>
-            {model.sections.map((section, index) => (
-              <Section
-                key={section.title}
-                section={section}
-                first={index === 0}
-                onOpen={setOpenId}
-              />
-            ))}
-            <LinkRow onLink={onLink} />
-            {unlinkLeft === null ? null : <Text style={styles.note}>{unlinkLeft}</Text>}
-          </View>
-        </ScrollView>
+        <View style={styles.list}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: dev === null ? LIST_FOOT : LIST_FOOT + DEV_TOGGLE_ROOM },
+            ]}
+          >
+            <View style={styles.head}>
+              <Text
+                style={styles.title}
+                accessibilityRole="header"
+                maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+              >
+                Hosts
+              </Text>
+              <Text style={styles.summary} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
+                {model.summary}
+              </Text>
+            </View>
+            <View style={styles.sections}>
+              {model.sections.map((section, index) => (
+                <Section
+                  key={section.title}
+                  section={section}
+                  first={index === 0}
+                  onOpen={setOpenId}
+                />
+              ))}
+              <LinkRow onLink={onLink} />
+              {unlinkLeft === null ? null : <Text style={styles.note}>{unlinkLeft}</Text>}
+            </View>
+          </ScrollView>
+          <EdgeFade />
+        </View>
       </View>
       <HostSheet
         details={open === null ? null : hostDetails(open, now)}
         onClose={() => setOpenId(null)}
         onUnlink={open !== null && relayLinked(open) ? unlink(open.hostId) : null}
       />
+      <DevHostsToggle bottom={HORIZON_CLEAR + 4} />
     </HorizonScreen>
   );
 };
 
 const useStyles = themedStyles((colours) => ({
   screen: { flex: 1 },
+  list: { flex: 1, marginBottom: HORIZON_CLEAR },
   content: { paddingTop: 4 },
   head: { paddingHorizontal: 16, paddingBottom: 12, gap: 6 },
   title: { ...mobileType.largeTitle, fontWeight: "600", lineHeight: 41, color: colours.textStrong },

@@ -11,6 +11,7 @@ import {
 import { InstrumentSheet, SheetHeader, Well } from "../sheet/index.tsx";
 import { themedStyles, useTheme } from "../theme/index.ts";
 import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
+import { shortHostName } from "../home/model/format.ts";
 import type { HostDetails } from "./model.ts";
 import { StateDot, stateLineColour } from "./StateDot.tsx";
 
@@ -100,7 +101,7 @@ export const HostSheet = ({
     <InstrumentSheet open={details !== null} onClose={onClose}>
       {details === null ? null : (
         <>
-          <SheetHeader title={details.name} onClose={onClose} />
+          <SheetHeader title={details.name} titleLines={2} onClose={onClose} />
           <View style={styles.status} accessible>
             <StateDot state={details.state} />
             <Text
@@ -140,10 +141,10 @@ export const HostSheet = ({
               >
                 <Text
                   style={styles.unlinkText}
-                  numberOfLines={1}
+                  numberOfLines={2}
                   maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
                 >
-                  Unlink this iPhone from {details.name}…
+                  Unlink this iPhone from {shortHostName(details.name)}…
                 </Text>
               </Pressable>
             </>
@@ -197,7 +198,8 @@ const useStyles = themedStyles((colours) => ({
   switchTitle: { ...mobileType.callout, lineHeight: 20, color: colours.textDefault },
   switchCaption: { ...mobileType.footnote, fontSize: 12, lineHeight: 16, color: colours.textFaint },
   unlink: {
-    height: 48,
+    minHeight: 48,
+    paddingVertical: 12,
     borderRadius: 24,
     borderWidth: 1,
     borderColor: colours.hairline,
@@ -207,5 +209,10 @@ const useStyles = themedStyles((colours) => ({
     paddingHorizontal: 16,
   },
   pressed: { transform: [{ scale: 0.98 }] },
-  unlinkText: { ...mobileType.heading, fontWeight: "600", color: colours.failedText },
+  unlinkText: {
+    ...mobileType.heading,
+    fontWeight: "600",
+    color: colours.failedText,
+    textAlign: "center",
+  },
 }));
