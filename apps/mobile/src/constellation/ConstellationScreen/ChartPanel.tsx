@@ -41,7 +41,7 @@ export const ChartPanel = ({
   return (
     <View style={styles.panel}>
       <View style={styles.top}>
-        <Text style={styles.kicker} maxFontSizeMultiplier={CHROME_TEXT_SCALE}>
+        <Text style={styles.kicker} maxFontSizeMultiplier={CHROME_TEXT_SCALE} numberOfLines={1}>
           CONSTELLATION
         </Text>
         <Text style={styles.done} maxFontSizeMultiplier={CHROME_TEXT_SCALE} numberOfLines={1}>
@@ -94,7 +94,7 @@ const useStyles = themedStyles((colours) => ({
     borderColor: colours.hairline,
     backgroundColor: colours.panel,
   },
-  // One line: the done count truncates before the chip does.
+  // One line: the kicker gives way to the done count and the chip, which never truncate.
   top: { flexDirection: "row", alignItems: "center", gap: 8 },
   kicker: {
     fontFamily: mobileFont.mono,
@@ -102,13 +102,16 @@ const useStyles = themedStyles((colours) => ({
     lineHeight: 14,
     fontWeight: "500",
     letterSpacing: 0.88,
+    flexShrink: 1,
+    minWidth: 0,
     color: colours.textSubtle,
   },
   done: {
     ...mobileType.footnote,
     fontSize: 13,
     lineHeight: 18,
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 0,
     minWidth: 0,
     color: colours.textDefault,
   },
