@@ -58,6 +58,8 @@ export interface ThreadScreenProps {
   readonly composerSlot?: "inline" | { readonly minHeight: number };
   /** Takes the place of the session's header: a constellation's status above its lead's thread. */
   readonly header?: ReactNode;
+  /** Drawn under the header, above the transcript: a constellation's star chart panel. */
+  readonly belowHeader?: ReactNode;
 }
 
 interface HeldThread {
@@ -228,6 +230,7 @@ export const ThreadScreen = ({
   focusedKey = null,
   composerSlot = "inline",
   header,
+  belowHeader,
 }: ThreadScreenProps) => {
   const connection = useHost(hostId);
   const navigation = useNavigation();
@@ -339,13 +342,21 @@ export const ThreadScreen = ({
   }, []);
 
   if (connection === null)
-    return <Missing onBack={onBack} header={header} text="This host isn't linked to this iPhone" />;
+    return (
+      <Missing
+        onBack={onBack}
+        header={header}
+        belowHeader={belowHeader}
+        text="This host isn't linked to this iPhone"
+      />
+    );
 
   if (state === null || fold === null)
     return (
       <Missing
         onBack={onBack}
         header={header}
+        belowHeader={belowHeader}
         text={state?.failure ?? (slowToOpen ? "Connecting…" : "")}
       />
     );
@@ -390,6 +401,7 @@ export const ThreadScreen = ({
             onBack={onBack}
           />
         )}
+        {belowHeader}
         <FlatList
           style={[styles.list, away ? styles.offline : null]}
           contentContainerStyle={styles.listContent}
@@ -507,10 +519,12 @@ const Missing = ({
   text,
   onBack,
   header,
+  belowHeader,
 }: {
   readonly text: string;
   readonly onBack: () => void;
   readonly header: ReactNode;
+  readonly belowHeader: ReactNode;
 }) => {
   const styles = useStyles();
 
@@ -525,6 +539,7 @@ const Missing = ({
           onBack={onBack}
         />
       )}
+      {belowHeader}
       <Text style={styles.missing}>{text}</Text>
     </SafeAreaView>
   );

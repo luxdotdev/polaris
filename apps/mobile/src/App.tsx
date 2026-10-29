@@ -22,6 +22,10 @@ import { DuoShell } from "./duo/DuoShell.tsx";
 import { FollowedHostsProvider } from "./home/feed/useFollowedHosts.ts";
 import { HomeScreen } from "./home/HomeScreen.tsx";
 import { ComposerGallery, composerGalleryOn } from "./composer/Gallery.tsx";
+import {
+  ConstellationGallery,
+  constellationGalleryOn,
+} from "./constellation/ConstellationScreen/Gallery.tsx";
 import { galleryOn, RowGallery } from "./home/ui/Gallery.tsx";
 import { HorizonScreen } from "./horizon";
 import { InboxProvider } from "./inbox/index.ts";
@@ -172,6 +176,15 @@ const Shell = () => {
       <SheetHost>
         <InboxProvider>
           <ThreadGallery />
+        </InboxProvider>
+      </SheetHost>
+    );
+
+  if (constellationGalleryOn())
+    return (
+      <SheetHost>
+        <InboxProvider>
+          <ConstellationGallery />
         </InboxProvider>
       </SheetHost>
     );
