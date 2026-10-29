@@ -4,6 +4,8 @@
  */
 export { NeedsYouInbox } from "./ui/Inbox.tsx";
 
+export { NeedsYouPopover } from "./ui/InboxPopover.tsx";
+
 export { NeedsYouHover, type NeedsYouHoverProps } from "./ui/Hover.tsx";
 
 export { NeedsYouPublisher } from "./ui/Publisher.tsx";

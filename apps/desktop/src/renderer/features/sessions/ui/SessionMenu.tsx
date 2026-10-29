@@ -1,6 +1,6 @@
 /**
- * A session row's right-click menu (C9, Paper 12 and M2): Pin to top or Unpin, Rename… ·
- * Open in Review, Open in terminal, Fork… · Copy session ID · Archive. Rename edits in place.
+ * A session row's right-click menu (C9, Paper X-F 06): Open, Open in Review, Open in terminal,
+ * Rename…, Fork…, Pin or Unpin · MOVE: Archive · Copy session ID. Rename edits in place.
  */
 import {
   ContextMenu,
@@ -67,21 +67,8 @@ export const SessionMenu = ({ hostKey, entry, onRename, children, ...slot }: Ses
     );
 
   const entries: ReadonlyArray<MenuEntryInput> = [
-    hasCapability(host, "session.pin") && {
-      kind: "item",
-      label: pinned ? "Unpin" : "Pin to top",
-      onSelect: pin,
-    },
-    {
-      kind: "item",
-      label: "Rename…",
-      needsInput: true,
-      onSelect: () => {
-        renamingNext.current = true;
-        onRename();
-      },
-    },
-    MENU_SEPARATOR_ENTRY,
+    // ↵ on the focused row opens it too.
+    { kind: "item", label: "Open", shortcut: "↵", onSelect: open },
     reviewable(entry) && {
       kind: "item",
       label: "Open in Review",
@@ -97,6 +84,15 @@ export const SessionMenu = ({ hostKey, entry, onRename, children, ...slot }: Ses
       state: session.state,
       title: session.title === "" ? session.harness : session.title,
     }),
+    {
+      kind: "item",
+      label: "Rename…",
+      needsInput: true,
+      onSelect: () => {
+        renamingNext.current = true;
+        onRename();
+      },
+    },
     session.turnCount > 0 &&
       !archived &&
       hasCapability(host, "session.fork") && {
@@ -108,10 +104,16 @@ export const SessionMenu = ({ hostKey, entry, onRename, children, ...slot }: Ses
           requestFork(hostKey, session.id);
         },
       },
+    hasCapability(host, "session.pin") && {
+      kind: "item",
+      label: pinned ? "Unpin" : "Pin",
+      onSelect: pin,
+    },
+    MENU_SEPARATOR_ENTRY,
+    { kind: "label", text: "Move" },
+    { kind: "item", label: archived ? "Unarchive" : "Archive", onSelect: archive },
     MENU_SEPARATOR_ENTRY,
     copyEntry("Copy session ID", session.id),
-    MENU_SEPARATOR_ENTRY,
-    { kind: "item", label: archived ? "Unarchive" : "Archive", onSelect: archive },
   ];
 
   return (

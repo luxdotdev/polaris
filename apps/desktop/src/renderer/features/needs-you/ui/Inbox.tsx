@@ -161,7 +161,8 @@ const alsoDetail = (item: AlsoWaiting): string => {
   return item.kind === "in-terminal" ? "In your terminal" : "Interrupted when the daemon stopped";
 };
 
-const Also = ({ item, reserve }: { readonly item: AlsoWaiting; readonly reserve: string }) => {
+/** An "Also waiting" item's one action (Retry, Take back, Continue, or Open setup) and Open. */
+export const useAlsoAction = (item: AlsoWaiting) => {
   const { selectSession } = useShellActions();
   const { session } = item.entry;
   const id: SessionId = session.id;
@@ -181,7 +182,13 @@ const Also = ({ item, reserve }: { readonly item: AlsoWaiting; readonly reserve:
     else void retryTurn(item.hostKey, id).then((ok) => ok || open());
   };
 
-  const label = setupFailed ? "Open setup" : ALSO[item.kind].action;
+  return { label: setupFailed ? "Open setup" : ALSO[item.kind].action, run, open, setupFailed };
+};
+
+const Also = ({ item, reserve }: { readonly item: AlsoWaiting; readonly reserve: string }) => {
+  const { label, run, open, setupFailed } = useAlsoAction(item);
+  const { session } = item.entry;
+  const id: SessionId = session.id;
 
   return (
     <CardMenu

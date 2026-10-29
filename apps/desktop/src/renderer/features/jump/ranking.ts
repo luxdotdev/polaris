@@ -121,3 +121,30 @@ export const rank = <A extends Searchable>({
     )
     .slice(0, limit)
     .map((r) => r.item);
+
+/** Where the query's words appear as written in `title`, as sorted, merged [start, end) spans. */
+export const matchSpans = (
+  query: string,
+  title: string
+): ReadonlyArray<readonly [number, number]> => {
+  const t = title.toLowerCase();
+
+  const spans = query
+    .toLowerCase()
+    .split(/\s+/)
+    .flatMap((word): Array<[number, number]> => {
+      const at = word === "" ? -1 : t.indexOf(word);
+
+      return at === -1 ? [] : [[at, at + word.length]];
+    })
+    .sort((a, b) => a[0] - b[0]);
+
+  return spans.reduce<Array<[number, number]>>((out, span) => {
+    const last = out.at(-1);
+
+    if (last !== undefined && span[0] <= last[1]) last[1] = Math.max(last[1], span[1]);
+    else out.push([...span]);
+
+    return out;
+  }, []);
+};

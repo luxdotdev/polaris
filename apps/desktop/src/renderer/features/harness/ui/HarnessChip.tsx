@@ -1,59 +1,33 @@
 /**
- * The Harness picker chip (DESIGN.md, Harness picker; artboards 4 and 5): the
- * Harness tile, its handle and Model, opening a menu of the Host's Harnesses
- * (ready or needing sign-in only; the rest under "Other harnesses") and the
- * Harness's Models (its newest four, the rest under "More models"), the effort bar, a refresh,
- * and its Plan Limits. Picks are staged while the menu is open and sent once when it closes.
+ * The model picker (DESIGN.md, Harness picker and Menus and popovers; Paper X-F 01): the
+ * Harness chip opens an instrument card with the Harness switch in its header, the Models,
+ * effort as a full-width track, fast mode and the Plan Limits. Picks are staged while it is
+ * open and sent once when it closes; Escape closes without sending.
  */
 import type { CelestialBody, HarnessKind } from "@polaris/protocol";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-  EffortBar,
-  effortKey,
   harnessHue,
-  HarnessMark,
   HarnessPicker,
+  hueVar,
+  InstrumentPopoverContent,
+  Popover,
+  PopoverTrigger,
+  SegmentedControl,
 } from "@polaris/ui";
 import { useRef, useState } from "react";
-import { useNow } from "../../../shell/useNow.ts";
-import { useAvailability, useHarnessModels, useHarnessRunning, usePlanLimits } from "../live.ts";
-import { limitHint, limitsFor } from "../model/limits.ts";
+import { useHost } from "../../session/hooks.ts";
+import { useAvailability, useHarnessModels } from "../live.ts";
 import {
   choose,
   effortFor,
-  effortNote,
   type ModelChoice,
   type ModelData,
   modelLabel,
   shortlist,
 } from "../model/models.ts";
-import { type HarnessOption, listedOptions, STATUS_LABELS } from "../model/options.ts";
+import { type HarnessOption, listedOptions } from "../model/options.ts";
 import { AvailabilitySheet } from "./Availability.tsx";
-
-const FastIcon = () => (
-  <svg
-    width="14"
-    height="14"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-    aria-hidden="true"
-  >
-    <path d="M13 2 4 14h7l-1 8 10-12h-7l1-8Z" />
-  </svg>
-);
+import { FastIcon, ModelsWell, SettingsWell } from "./ModelCard.tsx";
 
 export interface HarnessChipProps {
   readonly hostKey: string;
@@ -77,111 +51,20 @@ export interface HarnessChipProps {
     readonly onPick: (option: HarnessOption) => void;
     readonly verb: (option: HarnessOption) => string;
   };
-  /** Controls the menu, so `/model` in the composer can open it; uncontrolled when unset. */
+  /** Controls the card, so `/model` in the composer can open it; uncontrolled when unset. */
   readonly open?: boolean;
   readonly onOpenChange?: (open: boolean) => void;
 }
 
-/** What the open menu has picked but not sent yet: committed on close, dropped on Escape. */
+/** What the open card has picked but not sent yet: committed on close, dropped on Escape. */
 interface Staged {
   readonly model: string | null;
   readonly effort: string | null;
   readonly serviceTier?: "default" | "priority" | null;
 }
 
-const ModelRows = ({
-  models,
-  shown,
-  onStage,
-}: {
-  readonly models: ReadonlyArray<ModelData>;
-  readonly shown: string | null;
-  readonly onStage: (model: ModelData) => void;
-}) => (
-  <DropdownMenuRadioGroup
-    value={shown ?? ""}
-    onValueChange={(id) => {
-      const picked = models.find((m) => m.id === id);
-
-      if (picked !== undefined) onStage(picked);
-    }}
-  >
-    {models.map((m) => (
-      <DropdownMenuRadioItem
-        key={m.id}
-        value={m.id}
-        // Picking a Model keeps the menu open, so its effort can follow.
-        onSelect={(event) => event.preventDefault()}
-        data-testid="model-option"
-      >
-        {m.name}
-      </DropdownMenuRadioItem>
-    ))}
-  </DropdownMenuRadioGroup>
-);
-
-/**
- * DESIGN.md, Harness picker: effort as a dither bar. ←/→, a press or a drag move it and keep
- * the menu open; Enter sends it.
- */
-const EffortRow = ({
-  harness,
-  model,
-  effort,
-  onStage,
-}: {
-  readonly harness: HarnessKind;
-  readonly model: ModelData;
-  readonly effort: string | null;
-  readonly serviceTier?: "default" | "priority" | null;
-  readonly onStage: (effort: string) => void;
-}) => {
-  const level = effortFor(model, effort);
-  const index = Math.max(0, model.efforts.indexOf(level ?? ""));
-  const note = effortNote(harnessHue(harness).name, model);
-
-  return (
-    <>
-      <DropdownMenuItem
-        className="h-auto flex-col items-stretch gap-1.5 py-2"
-        aria-label={`Effort: ${level ?? "none"}. Left and right arrows change it.`}
-        aria-keyshortcuts="ArrowLeft ArrowRight Home End"
-        data-testid="effort-bar"
-        // A pointer's click would select the row and close the menu; Enter's (detail 0) still does.
-        onClick={(event) => {
-          if (event.detail > 0) event.preventDefault();
-        }}
-        onKeyDown={(event) => {
-          const next = effortKey(event.key, index, model.efforts.length);
-
-          if (next === null) return;
-          event.preventDefault();
-          event.stopPropagation();
-          onStage(model.efforts[next] ?? "");
-        }}
-      >
-        <span className="flex items-baseline">
-          <span className="text-caption text-text-subtle">Effort</span>
-          <span className="flex-1" />
-          <span className="text-caption text-text-strong" data-testid="effort-level">
-            {level}
-          </span>
-        </span>
-        <EffortBar
-          levels={model.efforts}
-          value={index}
-          hue={harness}
-          onChange={(i) => onStage(model.efforts[i] ?? "")}
-        />
-      </DropdownMenuItem>
-      {note === null ? null : (
-        <p className="text-caption text-text-subtle max-w-64 px-2 py-1.5">{note}</p>
-      )}
-    </>
-  );
-};
-
-const HarnessItems = ({
+/** The header's Harness switch: this one and the others the Host lists; picking one closes. */
+const HarnessSwitch = ({
   current,
   options,
   harnesses,
@@ -189,151 +72,44 @@ const HarnessItems = ({
   readonly current: HarnessKind;
   readonly options: ReadonlyArray<HarnessOption>;
   readonly harnesses: NonNullable<HarnessChipProps["harnesses"]>;
-}) => (
-  <>
-    <DropdownMenuLabel>Harness</DropdownMenuLabel>
-    {options
-      .filter((o) => o.kind !== current)
-      .map((option) => (
-        <DropdownMenuItem
-          key={option.kind}
-          onSelect={() => harnesses.onPick(option)}
-          data-testid={`pick-harness-${option.kind}`}
-        >
-          <HarnessMark harness={option.kind} size={20} />
-          <span className="flex-1">{harnesses.verb(option)}</span>
-          {option.status === "ready" ? (
-            option.note === null ? null : (
-              <span className="text-caption text-text-subtle pl-3">{option.note}</span>
-            )
-          ) : (
-            <span className="text-caption text-text-subtle pl-3">
-              {STATUS_LABELS[option.status]}
-            </span>
-          )}
-        </DropdownMenuItem>
-      ))}
-  </>
-);
-
-const ModelSection = ({
-  props,
-  staged,
-  onStage,
-}: {
-  readonly props: HarnessChipProps;
-  readonly staged: Staged | null;
-  readonly onStage: (next: Staged) => void;
 }) => {
-  const { hostKey, harness, model, effort, modelNote, modelBlocked } = props;
-  const models = useHarnessModels(hostKey, harness);
-  const { top, more } = shortlist(harness, models.models);
-  const shownModel = staged?.model ?? model;
-  const shownEffort = staged === null ? effort : staged.effort;
-  const selected = models.models.find((m) => m.id === shownModel);
-  const shownTier = staged === null ? props.serviceTier : staged.serviceTier;
+  const listed = options.some((o) => o.kind === current)
+    ? options
+    : [{ kind: current, name: harnessHue(current).name } as const, ...options];
 
-  const stage = (m: ModelData) =>
-    onStage({ model: m.id, effort: effortFor(m, shownEffort), serviceTier: shownTier ?? null });
+  if (listed.length < 2) return null;
 
   return (
-    <>
-      <DropdownMenuLabel>Model</DropdownMenuLabel>
-      {modelNote === undefined ? null : (
-        <p className="text-caption text-text-subtle max-w-64 px-2 pb-1.5">{modelNote}</p>
-      )}
-      {modelBlocked === undefined ? null : (
-        <p className="text-caption text-text-subtle max-w-64 px-2 py-1.5">{modelBlocked}</p>
-      )}
-      {models.loading ? (
-        <p className="text-caption text-text-subtle px-2 py-1.5">Loading…</p>
-      ) : null}
-      {models.error === null ? null : (
-        <p className="text-caption text-text-subtle max-w-64 px-2 py-1.5">{models.error}</p>
-      )}
-      {modelBlocked === undefined ? (
-        <>
-          {harness === "codex" && props.fastAvailable ? (
-            <>
-              <DropdownMenuCheckboxItem
-                checked={shownTier === "priority"}
-                onSelect={(event) => event.preventDefault()}
-                onCheckedChange={(checked) =>
-                  onStage({
-                    model: shownModel,
-                    effort: shownEffort,
-                    serviceTier: checked ? "priority" : "default",
-                  })
-                }
-                data-testid="fast-mode-toggle"
-              >
-                <FastIcon />
-                Fast mode
-              </DropdownMenuCheckboxItem>
-              <p className="text-caption text-text-subtle max-w-64 px-2 pb-1.5">
-                Faster responses, higher usage cost
-              </p>
-              <DropdownMenuSeparator />
-            </>
-          ) : null}
-          <ModelRows models={top} shown={shownModel} onStage={stage} />
-          {more.length === 0 ? null : (
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger data-testid="more-models">
-                <span className="text-text-subtle">More models</span>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                <ModelRows models={more} shown={shownModel} onStage={stage} />
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          )}
-          {selected === undefined || selected.efforts.length === 0 ? null : (
-            <>
-              <DropdownMenuSeparator />
-              <EffortRow
-                harness={harness}
-                model={selected}
-                effort={shownEffort}
-                onStage={(next) =>
-                  onStage({ model: selected.id, effort: next, serviceTier: shownTier ?? null })
-                }
-              />
-            </>
-          )}
-        </>
-      ) : null}
-      <DropdownMenuSeparator />
-      <DropdownMenuItem
-        onSelect={(event) => {
-          event.preventDefault();
-          models.refresh();
-        }}
-        data-testid="refresh-models"
-      >
-        <span className="text-text-subtle">Refresh models</span>
-      </DropdownMenuItem>
-    </>
+    <SegmentedControl
+      aria-label="Harness"
+      pill
+      variant="fill"
+      className="w-auto"
+      value={current}
+      onValueChange={(kind) => {
+        const option = options.find((o) => o.kind === kind);
+
+        if (option !== undefined && kind !== current) harnesses.onPick(option);
+      }}
+      options={listed.map((o) => ({
+        value: o.kind,
+        label: (
+          <span
+            className="flex items-center gap-1.5 px-2.5 whitespace-nowrap"
+            title={"status" in o && o.kind !== current ? harnesses.verb(o) : undefined}
+            data-testid={`pick-harness-${o.kind}`}
+          >
+            <span className="size-2 shrink-0" style={{ background: hueVar(o.kind) }} />
+            {o.name}
+          </span>
+        ),
+      }))}
+    />
   );
 };
 
-const LimitsHint = ({ hostKey, harness }: { hostKey: string; harness: HarnessKind }) => {
-  const limits = limitsFor(usePlanLimits(hostKey), harness);
-  const now = useNow(60_000);
-  const running = useHarnessRunning(hostKey, harness);
-  const hint = limitHint(limits, now, running);
-
-  return hint === null ? null : (
-    <>
-      <DropdownMenuSeparator />
-      <p
-        className="text-caption text-text-subtle tabular max-w-72 px-2 py-1.5"
-        data-testid="plan-limits"
-      >
-        {hint}
-      </p>
-    </>
-  );
-};
+const footerStatus = (name: string, version: string | null, host: string | undefined) =>
+  [version === null ? name : `${name} ${version}`, host].filter((p) => p !== undefined).join(" · ");
 
 export const HarnessChip = (props: HarnessChipProps) => {
   const { hostKey, harness, model, effort, working = false, disabled = false, harnesses } = props;
@@ -343,8 +119,17 @@ export const HarnessChip = (props: HarnessChipProps) => {
   const [sheet, setSheet] = useState(false);
   const [staged, setStaged] = useState<Staged | null>(null);
   const cancelled = useRef(false);
+  const content = useRef<HTMLDivElement>(null);
   const models = useHarnessModels(hostKey, harness);
   const { options } = useAvailability(hostKey);
+  const host = useHost(hostKey);
+  const name = harnessHue(harness).name;
+  const { top, more } = shortlist(harness, models.models);
+  const shownModel = staged?.model ?? model;
+  const shownEffort = staged === null ? effort : staged.effort;
+  const shownTier = staged === null ? props.serviceTier : staged.serviceTier;
+  const selected = models.models.find((m) => m.id === shownModel);
+  const version = options.find((o) => o.kind === harness)?.version ?? null;
 
   // One send per opening: what was staged, if it differs from what the session has.
   const commit = () => {
@@ -371,14 +156,17 @@ export const HarnessChip = (props: HarnessChipProps) => {
     setOpen(next);
   };
 
+  const stageModel = (m: ModelData) =>
+    setStaged({ model: m.id, effort: effortFor(m, shownEffort), serviceTier: shownTier ?? null });
+
   return (
     <>
-      <DropdownMenu open={open} onOpenChange={onOpenChange}>
-        <DropdownMenuTrigger asChild disabled={disabled}>
+      <Popover open={open} onOpenChange={onOpenChange}>
+        <PopoverTrigger asChild disabled={disabled}>
           <HarnessPicker
             harness={harness}
             model={modelLabel(models.models, model, effort)}
-            aria-label={`${harnessHue(harness).name}, ${modelLabel(models.models, model, effort)}${props.serviceTier === "priority" ? ", fast mode on" : ""}`}
+            aria-label={`${name}, ${modelLabel(models.models, model, effort)}${props.serviceTier === "priority" ? ", fast mode on" : ""}`}
             suffix={
               harness === "codex" && props.serviceTier === "priority" ? <FastIcon /> : undefined
             }
@@ -386,36 +174,73 @@ export const HarnessChip = (props: HarnessChipProps) => {
             celestial={props.celestial}
             data-testid="model-picker"
           />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent
+        </PopoverTrigger>
+        <InstrumentPopoverContent
           align="start"
-          className="min-w-60"
+          ref={content}
+          className="w-[360px]"
+          data-testid="model-card"
           onEscapeKeyDown={() => {
             cancelled.current = true;
           }}
-        >
-          <ModelSection props={props} staged={staged} onStage={setStaged} />
-          <LimitsHint hostKey={hostKey} harness={harness} />
-          {harnesses === undefined ? null : (
-            <>
-              <DropdownMenuSeparator />
-              <HarnessItems
-                current={harness}
-                options={listedOptions(options)}
-                harnesses={harnesses}
-              />
-            </>
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            needsInput
-            onSelect={() => setSheet(true)}
-            data-testid="other-harnesses"
-          >
-            <span className="text-text-subtle">Other harnesses…</span>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            content.current
+              ?.querySelector<HTMLElement>("[data-selected], [role=radio], [data-row]")
+              ?.focus();
+          }}
+          header={{
+            title: "Model",
+            control:
+              harnesses === undefined ? undefined : (
+                <HarnessSwitch
+                  current={harness}
+                  options={listedOptions(options)}
+                  harnesses={harnesses}
+                />
+              ),
+          }}
+          wells={[
+            <ModelsWell
+              key="models"
+              top={top}
+              more={more}
+              shown={shownModel}
+              note={props.modelNote}
+              blocked={props.modelBlocked}
+              loading={models.loading}
+              error={models.error}
+              onPick={stageModel}
+              onRefresh={models.refresh}
+              onOtherHarnesses={() => {
+                onOpenChange(false);
+                setSheet(true);
+              }}
+            />,
+            <SettingsWell
+              key="settings"
+              hostKey={hostKey}
+              harness={harness}
+              model={props.modelBlocked === undefined ? selected : undefined}
+              effort={shownEffort}
+              fastAvailable={props.fastAvailable === true && props.modelBlocked === undefined}
+              fast={shownTier === "priority"}
+              onEffort={(next) =>
+                setStaged({ model: shownModel, effort: next, serviceTier: shownTier ?? null })
+              }
+              onFast={(on) =>
+                setStaged({
+                  model: shownModel,
+                  effort: shownEffort,
+                  serviceTier: on ? "priority" : "default",
+                })
+              }
+              onSend={() => onOpenChange(false)}
+            />,
+          ]}
+          footer={{ status: footerStatus(name, version, host?.label) }}
+        />
+      </Popover>
       <AvailabilitySheet hostKey={hostKey} open={sheet} onOpenChange={setSheet} />
     </>
   );

@@ -4,11 +4,13 @@
  * and Machines, each ranked and capped. Navigation only: commands are the palette's.
  */
 import type { JumpItem } from "./items.ts";
-import { rank } from "./ranking.ts";
+import { itemScore, rank } from "./ranking.ts";
 
 export interface JumpGroup {
   readonly heading: string;
   readonly items: ReadonlyArray<JumpItem>;
+  /** Everything that matched, before the cap; more than `items.length` when some were cut. */
+  readonly matched: number;
 }
 
 export interface JumpSources {
@@ -38,7 +40,20 @@ export interface GroupsInput {
 
 const RECENT_SHOWN = 5;
 
-const nonEmpty = (groups: ReadonlyArray<JumpGroup>) => groups.filter((g) => g.items.length > 0);
+type Section = Omit<JumpGroup, "matched"> & { readonly matched?: number };
+
+const nonEmpty = (groups: ReadonlyArray<Section>): ReadonlyArray<JumpGroup> =>
+  groups.flatMap((g) =>
+    g.items.length === 0 ? [] : [{ ...g, matched: g.matched ?? g.items.length }]
+  );
+
+/** Every item the menu searches, for its footer's "6 of 41". */
+export const searchedCount = ({ sessions, workspaces, worktrees, hosts, review }: JumpSources) =>
+  sessions.length +
+  workspaces.length +
+  worktrees.length +
+  hosts.length +
+  (review === undefined ? 0 : review.pulls.length + review.files.length + review.findings.length);
 
 export const jumpGroups = ({ query, sources, recent }: GroupsInput): ReadonlyArray<JumpGroup> => {
   const recency = (item: JumpItem) => {
@@ -70,16 +85,24 @@ export const jumpGroups = ({ query, sources, recent }: GroupsInput): ReadonlyArr
     ]);
   }
 
-  const ranked = (items: ReadonlyArray<JumpItem>, limit: number, urgent = false) =>
-    rank({ query, items, recency, limit, urgent: (i: JumpItem) => urgent && i.needsYou });
+  const section = (
+    heading: string,
+    items: ReadonlyArray<JumpItem>,
+    limit: number,
+    urgent = false
+  ): Section => ({
+    heading,
+    items: rank({ query, items, recency, limit, urgent: (i: JumpItem) => urgent && i.needsYou }),
+    matched: items.filter((i) => itemScore(query, i) !== null).length,
+  });
 
   return nonEmpty([
-    { heading: "Pull requests", items: ranked(sources.review?.pulls ?? [], 5) },
-    { heading: "Files", items: ranked(sources.review?.files ?? [], 6) },
-    { heading: "Findings", items: ranked(sources.review?.findings ?? [], 5) },
-    { heading: "Sessions", items: ranked(sources.sessions, 6, true) },
-    { heading: "Workspaces", items: ranked(sources.workspaces, 5) },
-    { heading: "Worktrees", items: ranked(sources.worktrees, 4) },
-    { heading: "Machines", items: ranked(sources.hosts, 4) },
+    section("Pull requests", sources.review?.pulls ?? [], 5),
+    section("Files", sources.review?.files ?? [], 6),
+    section("Findings", sources.review?.findings ?? [], 5),
+    section("Sessions", sources.sessions, 6, true),
+    section("Workspaces", sources.workspaces, 5),
+    section("Worktrees", sources.worktrees, 4),
+    section("Machines", sources.hosts, 4),
   ]);
 };

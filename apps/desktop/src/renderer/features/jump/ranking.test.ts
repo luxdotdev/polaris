@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { itemScore, rank, wordScore } from "./ranking.ts";
+import { itemScore, matchSpans, rank, wordScore } from "./ranking.ts";
 
 const item = (title: string, keywords: ReadonlyArray<string> = [], needsYou = false) => ({
   title,
@@ -76,5 +76,13 @@ describe("jump ranking", () => {
     });
 
     expect(ranked.map((i) => i.title)).toEqual(["c", "a"]);
+  });
+});
+
+describe("jump match spans", () => {
+  test("each word's first occurrence, case-insensitive, overlaps merged; scattered letters aren't marked", () => {
+    expect(matchSpans("pol", "Inventory Polaris TLS clients")).toEqual([[10, 13]]);
+    expect(matchSpans("ris pola", "Polaris planning")).toEqual([[0, 7]]);
+    expect(matchSpans("pln", "Polaris planning")).toEqual([]);
   });
 });

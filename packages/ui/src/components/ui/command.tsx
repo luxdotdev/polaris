@@ -28,6 +28,8 @@ export interface CommandDialogProps extends ComponentProps<typeof Dialog> {
   /** The highlighted item's value, when the caller controls it. */
   readonly value?: string | undefined;
   readonly onValueChange?: ((value: string) => void) | undefined;
+  /** The card's `data-testid`, for screenshots and smoke tests. */
+  readonly testId?: string | undefined;
 }
 
 /** cmdk's highlighted item, when a dialog's caller controls it. */
@@ -43,6 +45,7 @@ export function CommandDialog({
   trigger,
   value,
   onValueChange,
+  testId,
   ...props
 }: CommandDialogProps) {
   const controlled: ControlledHighlight = {};
@@ -54,7 +57,7 @@ export function CommandDialog({
   return (
     <Dialog {...props}>
       {trigger === undefined ? null : <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent placement="top" className={cn("w-[620px]", className)}>
+      <DialogContent placement="top" data-testid={testId} className={cn("w-[620px]", className)}>
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <DialogDescription className="sr-only">{description}</DialogDescription>
         <Command shouldFilter={shouldFilter ?? true} {...controlled}>
@@ -151,7 +154,7 @@ export interface CommandItemProps extends ComponentProps<typeof CommandPrimitive
   readonly meta?: ReactNode;
 }
 
-/** A 36px result row; the highlighted row takes fill-selected and shows ↵. */
+/** A 36px result row; the highlighted row takes fill-selected and shows ↵ in a lane every row keeps. */
 export function CommandItem({
   className,
   leading,
@@ -164,7 +167,7 @@ export function CommandItem({
     <CommandPrimitive.Item
       data-slot="command-item"
       className={cn(
-        "group/item flex h-9 cursor-default items-center gap-2.5 rounded-row px-2.5 text-label text-text-default outline-hidden select-none",
+        "group/item flex h-9 cursor-default items-center gap-2.5 rounded-control px-3 text-body text-text-default outline-hidden select-none",
         "data-[selected=true]:bg-fill-selected data-[selected=true]:text-text-strong data-[disabled=true]:opacity-(--opacity-dimmed)",
         className
       )}
@@ -187,7 +190,7 @@ export function CommandItem({
           {meta}
         </span>
       )}
-      <kbd className="text-micro text-text-subtle hidden w-3 font-sans group-data-[selected=true]/item:inline">
+      <kbd className="text-caption text-text-subtle invisible w-5 shrink-0 text-right font-sans group-data-[selected=true]/item:visible">
         ↵
       </kbd>
     </CommandPrimitive.Item>

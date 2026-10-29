@@ -117,6 +117,13 @@
   --color-accepted: light-dark(#646fd8, #646fd8);
   --color-accepted-text: light-dark(#4c56c2, #8b94ea);
 
+  /* Session context card only (rule/context-categories); conversation is the Harness hue. */
+  --color-context-system: light-dark(#8a67c4, #c3a6e6);
+  --color-context-tools: light-dark(#3e7ebf, #7fb2e5);
+  --color-context-mcp: light-dark(#238f8a, #5cbdb9);
+  --color-context-skills: light-dark(#ba5689, #e39ac0);
+  --color-context-memory: light-dark(#668833, #a9c27c);
+
   /* Syntax: moonlit. */
   --color-syntax-keyword: light-dark(#4a5a80, #a3afcb);
   --color-syntax-string: light-dark(#86652e, #d9c9a3);

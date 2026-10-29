@@ -61,6 +61,17 @@ colors:
   accepted-light: "#646FD8"
   accepted-text-dark: "#8B94EA"   # 6.2:1 on bg-dark; #646FD8 is 3.9:1, glyphs only
   accepted-text-light: "#4C56C2"  # 5.9:1 on bg-light
+  # Session context card only (rule/context-categories): low-chroma, apart from every signal hue; always labelled. Conversation takes the Harness hue.
+  context-system-dark: "#C3A6E6"  # lilac
+  context-system-light: "#8A67C4"
+  context-tools-dark: "#7FB2E5"   # sky
+  context-tools-light: "#3E7EBF"
+  context-mcp-dark: "#5CBDB9"     # teal
+  context-mcp-light: "#238F8A"
+  context-skills-dark: "#E39AC0"  # pink
+  context-skills-light: "#BA5689"
+  context-memory-dark: "#A9C27C"  # moss
+  context-memory-light: "#668833"
   # Severity.
   # Severity. Always a filled badge: shape + label + colour.
   severity-critical: "#E5484D"   # red, diamond
@@ -523,7 +534,7 @@ The Orchestrator's sidebar unit, and the Harness's home in the chrome. A session
 
 **Exception, machine mode (Paper MX-0):** with the machine bar, the sidebar groups a machine's sessions by Workspace, and those grouped rows are 32px single-line glyph rows (a 16px state glyph, the title, the age), not tile rows, so many Workspaces fit. The two-line tile row is for a single Workspace's sessions.
 
-**Pinned, Reviews and the session menu (C7–C9; Paper 12 dark, 12b light; owner, 2026-10-12).** The sidebar has three sections: "Pinned", "Sessions" and "Reviews". **Pinned** sits above Sessions and holds the sessions the user pinned, oldest pin first. A pin is Daemon state (`PinSession`), so it follows the user to every Client. A pinned session that needs you stays in Pinned and is loud there. In machine mode, Pinned is one section above the Workspace groups. **Reviews** sits under the sessions. It holds a Reviewer's and a walkthrough's own sessions: `AgentSession.origin` marks them, and older sessions fall back to the `.review/` directory or the "Reviewer · " / "Walkthrough · " title. Its header looks like a machine group's: a chevron, "Reviews" and a count. It is folded by default, and the fold is remembered per Workspace (per Host in machine mode). While one of its sessions needs you it opens on its own and can't be folded. **Right-click** on any session or Lead row opens the session menu: Pin to top (Unpin when pinned; shown only on Daemons with `session.pin`), Rename… (edits the row's title in place: Enter saves, Esc cancels), Open in Review (only for a session with Turns that isn't a review session), Copy session ID, a separator, then Archive (Unarchive when archived).
+**Pinned, Reviews and the session menu (C7–C9; Paper 12 dark, 12b light; owner, 2026-10-12).** The sidebar has three sections: "Pinned", "Sessions" and "Reviews". **Pinned** sits above Sessions and holds the sessions the user pinned, oldest pin first. A pin is Daemon state (`PinSession`), so it follows the user to every Client. A pinned session that needs you stays in Pinned and is loud there. In machine mode, Pinned is one section above the Workspace groups. **Reviews** sits under the sessions. It holds a Reviewer's and a walkthrough's own sessions: `AgentSession.origin` marks them, and older sessions fall back to the `.review/` directory or the "Reviewer · " / "Walkthrough · " title. Its header looks like a machine group's: a chevron, "Reviews" and a count. It is folded by default, and the fold is remembered per Workspace (per Host in machine mode). While one of its sessions needs you it opens on its own and can't be folded. **Right-click** on any session or Lead row opens the session menu, a plain menu (Paper X-F 06): Open (↵ in the key lane), Open in Review (only for a session with Turns that isn't a review session), Open in terminal, Rename… (edits the row's title in place: Enter saves, Esc cancels), Fork…, Pin (Unpin when pinned; shown only on Daemons with `session.pin`), a separator, a "MOVE" kicker over Archive (Unarchive when archived), a separator, then Copy session ID.
 
 **Space preview (K4; Paper 13 dark, 13b light; owner, 2026-10-12).** Press Space on a Lead row while it is hovered or focused to open a 344px card beside it. Space is the only trigger; hovering alone never opens it. The card shows the Constellation's name, "running · 40m", the progress strip, and the counts (done, working, in review, needs you, blocked, waiting; only "needs you" is in colour). Then come the Tasks still in play, at most six (needs you, then in review, working, blocked, waiting), each with its glyph, id on the lane, title and state word, then "N more". The footer reads "Space close · ↵ open the lead". Space toggles it, and Esc or a click elsewhere closes it. The row keeps focus, so ↵ still opens the Lead. Space no longer selects a Lead row; Enter does. A key listener exists only while the pointer is over a Lead row, so an idle sidebar costs nothing. Apart from the popover's standard fade it doesn't animate.
 
@@ -595,7 +606,7 @@ A square tile holding a Nucleo pixel icon over a watercolour wash. Sizes are 24,
 
 ### Toasts
 
-Bottom-right, 360px wide, 16px in from the window's edges, and clear of the 28px Terminal strip under Output (44px up) and the collapsed Output rail (its width further in; the shell sets `--toast-inset-right` and `--toast-inset-bottom`). They never cover the composer. `card` radius, `surface-raised` with a float shadow. Leading edge: a pixel tile, full toast height, washed in the **source's** hue (the Harness that sent it, or Starlight for Polaris). Title in `heading`, one line of `body` in `text-subtle`, at most one action. Whether the news is good or bad is carried by the pixel icon and the words, never by the wash.
+Bottom-right, 380px wide, 16px in from the window's edges, and clear of the 28px Terminal strip under Output (44px up) and the collapsed Output rail (its width further in; the shell sets `--toast-inset-right` and `--toast-inset-bottom`). They never cover the composer. `card` radius, `surface-raised` with a float shadow (Paper X-F 08). Leading: the source's 32px mark (a session's Celestial, a Harness mark, or a pixel icon for Polaris), no wash tile. Then a mono kicker naming the **source** (the Harness's name, or Polaris), "Needs you" with a 10px hand in the Needs You hue when a session waits on the user, and the time ("CODEX · NEEDS YOU · NOW"); the sentence in `body`, commands and paths in mono `text-strong`; an optional `body` line in `text-subtle`. Actions are 30px pills: a filled primary for a decision ("Approve"), a secondary for a way in ("Open session"), the key hint in mono `text-subtle` at the right. Whether the news is good or bad is carried by the icon and the words, never by colour.
 
 ### Harness picker
 

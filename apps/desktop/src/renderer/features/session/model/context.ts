@@ -1,23 +1,23 @@
 /**
- * The Session context card (Paper "11 · Session context"): what fills the
- * window, as a meter of 100 cells (1% each) and a legend. Claude Code gives a
- * breakdown by category; other Harnesses give the total only.
+ * The Session context card (DESIGN.md, Session context card, redesigned; Paper X-F 02): what
+ * fills the window, as a waffle of token cells coloured by category and a legend. Claude Code
+ * gives a breakdown by category; other Harnesses give the total only.
  */
 import type { Compaction, ContextUsage } from "@polaris/protocol";
 import type { Plain } from "../../../store/plain.ts";
 import { type Details, detailsOf } from "./contextDetails.ts";
 import { CONTEXT_NEARLY_FULL, formatTokens } from "./meta.ts";
 
-/** How a segment is drawn: the Harness hue at a strength, the free track, or the outlined reserve. */
-export type Tone = "strong" | "medium" | "light" | "free" | "reserve";
-
 export interface Segment {
+  /** Its category (rule/context-categories): conversation, system, tools, mcp, skills, memory,
+   * free, reserve; "used" for a total-only count, "other:…" for a category Polaris doesn't group. */
   readonly key: string;
   readonly label: string;
+  /** The legend's short name ("MCP", "Auto-compact"). */
+  readonly short: string;
   /** What the row opens to (Paper 11c); empty rows don't open. */
   readonly details: Details;
   readonly tokens: number;
-  readonly tone: Tone;
 }
 
 export interface ContextCard {
@@ -31,28 +31,34 @@ export interface ContextCard {
   readonly totalsOnly: boolean;
   /** Legend order: the conversation first, free and the reserve last. */
   readonly legend: ReadonlyArray<Segment>;
-  /** 100 cells in window order (the system prompt first), each naming its segment. */
-  readonly cells: ReadonlyArray<{ readonly key: string; readonly tone: Tone }>;
+  /** Tokens per waffle cell: 1k up to a 200k window, then a round step that keeps ~200 cells. */
+  readonly cellTokens: number;
+  /** The waffle in window order (the system prompt first), each cell naming its segment. */
+  readonly cells: ReadonlyArray<string>;
 }
 
-export const CELLS = 100;
+const CELL_STEPS = [1_000, 2_000, 5_000, 10_000, 20_000, 50_000];
+
+/** The smallest round cell that keeps the waffle at 200 cells or fewer. */
+export const cellTokensFor = (window: number) =>
+  CELL_STEPS.find((step) => window / step <= 200) ?? Math.ceil(window / 200);
 
 /** Claude Code's `/context` names, grouped as the card shows them; any other name keeps its own row. */
-const CONVERSATION = { key: "conversation", label: "Conversation", tone: "strong" } as const;
+const CONVERSATION = { key: "conversation", label: "Conversation", short: "Conversation" };
 
-const TOOLS = { key: "tools", label: "Built-in tools", tone: "medium" } as const;
+const TOOLS = { key: "tools", label: "Built-in tools", short: "Tools" };
 
-const MCP = { key: "mcp", label: "MCP servers", tone: "medium" } as const;
+const MCP = { key: "mcp", label: "MCP servers", short: "MCP" };
 
-const SYSTEM = { key: "system", label: "System prompt and agents", tone: "medium" } as const;
+const SYSTEM = { key: "system", label: "System prompt and agents", short: "System" };
 
-const GROUPS = new Map<string, { key: string; label: string; tone: Tone }>([
+const GROUPS = new Map<string, { key: string; label: string; short: string }>([
   ["Messages", CONVERSATION],
   ["System tools", TOOLS],
   ["MCP tools", MCP],
   ["MCP server instructions", MCP],
-  ["Skills", { key: "skills", label: "Skills", tone: "medium" }],
-  ["Memory files", { key: "memory", label: "Memory files", tone: "light" }],
+  ["Skills", { key: "skills", label: "Skills", short: "Skills" }],
+  ["Memory files", { key: "memory", label: "Memory files", short: "Memory" }],
   ["System prompt", SYSTEM],
   ["Custom agents", SYSTEM],
 ]);
@@ -62,7 +68,7 @@ const LEGEND_ORDER = ["conversation", "tools", "mcp", "skills", "memory", "syste
 interface Group {
   key: string;
   label: string;
-  tone: Tone;
+  short: string;
   tokens: number;
 }
 
@@ -76,7 +82,7 @@ const usedGroups = (usage: Plain<ContextUsage>): Group[] => {
     const group = GROUPS.get(category.name) ?? {
       key: `other:${category.name}`,
       label: category.name,
-      tone: "medium" as const,
+      short: category.name,
     };
 
     const found = groups.get(group.key);
@@ -120,23 +126,23 @@ const segmentsOf = (usage: Plain<ContextUsage>, window: number) => {
   const segment = (g: Group): Segment => ({
     key: g.key,
     label: g.label,
+    short: g.short,
     details: detailsOf(usage, g.key),
     tokens: g.tokens,
-    tone: g.tone,
   });
 
   if (usage.categories.length === 0) {
     const used: Group = {
       key: "used",
       label: "In context",
-      tone: "strong",
+      short: "In context",
       tokens: usage.usedTokens,
     };
 
     const free: Group = {
       key: "free",
       label: "Free",
-      tone: "free",
+      short: "Free",
       tokens: Math.max(0, window - usage.usedTokens),
     };
 
@@ -148,12 +154,12 @@ const segmentsOf = (usage: Plain<ContextUsage>, window: number) => {
   const usedTotal = groups.reduce((n, g) => n + g.tokens, 0);
   // The lag Messages took comes out of free space, so the rows still add up to the window.
   const free = Math.max(0, Math.min(sumKind(usage, "free"), window - usedTotal - reserve));
-  const freeGroup: Group = { key: "free", label: "Free", tone: "free", tokens: free };
+  const freeGroup: Group = { key: "free", label: "Free", short: "Free", tokens: free };
 
   const reserveGroup: Group = {
     key: "reserve",
     label: "Kept free for auto-compact",
-    tone: "reserve",
+    short: "Auto-compact",
     tokens: reserve,
   };
 
@@ -165,21 +171,22 @@ const segmentsOf = (usage: Plain<ContextUsage>, window: number) => {
   };
 };
 
-/** Cells per segment from rounded running totals, so they always add up to 100. */
-const cellsOf = (inWindow: ReadonlyArray<Group>, window: number) => {
-  const cells: Array<{ key: string; tone: Tone }> = [];
+/** Cells per segment from rounded running totals, so they always fill the window's cells. */
+const cellsOf = (inWindow: ReadonlyArray<Group>, window: number, cellTokens: number) => {
+  const count = Math.ceil(window / cellTokens);
+  const cells: string[] = [];
   let running = 0;
 
   for (const group of inWindow) {
     running += group.tokens;
-    const until = Math.min(CELLS, Math.round((running / window) * CELLS));
+    const until = Math.min(count, Math.round(running / cellTokens));
 
-    while (cells.length < until) cells.push({ key: group.key, tone: group.tone });
+    while (cells.length < until) cells.push(group.key);
   }
 
-  const last = inWindow.at(-1);
+  const last = inWindow.at(-1)?.key ?? "free";
 
-  while (cells.length < CELLS) cells.push({ key: last?.key ?? "free", tone: last?.tone ?? "free" });
+  while (cells.length < count) cells.push(last);
 
   return cells;
 };
@@ -195,10 +202,12 @@ export const contextCard = (usage: Plain<ContextUsage>): ContextCard => {
       nearlyFull: false,
       totalsOnly: usage.categories.length === 0,
       legend: [],
+      cellTokens: 0,
       cells: [],
     };
   const share = Math.min(1, Math.max(0, usage.usedTokens / window));
   const { inWindow, legend } = segmentsOf(usage, window);
+  const cellTokens = cellTokensFor(window);
 
   return {
     used: usage.usedTokens,
@@ -207,7 +216,8 @@ export const contextCard = (usage: Plain<ContextUsage>): ContextCard => {
     nearlyFull: share >= CONTEXT_NEARLY_FULL,
     totalsOnly: usage.categories.length === 0,
     legend,
-    cells: cellsOf(inWindow, window),
+    cellTokens,
+    cells: cellsOf(inWindow, window, cellTokens),
   };
 };
 
@@ -261,6 +271,13 @@ export interface SessionSpend {
   readonly line: string;
   /** "91% read from cache", or "No cost reported". */
   readonly detail: string | null;
+  /** "~$4.12" (estimated) or "$4.12"; null when nothing was priced. */
+  readonly cost: string | null;
+  /** The share of prompt tokens read from cache, 0–100; null before any prompt. */
+  readonly cacheShare: number | null;
+  /** Prompt tokens read from cache, and written or sent fresh. */
+  readonly cached: number;
+  readonly fresh: number;
 }
 
 const usd = (n: number) =>
@@ -292,13 +309,18 @@ export const sessionSpend = (buckets: ReadonlyArray<SessionSpendBucket>): Sessio
     }
   }
 
-  const money = priced ? ` · ${estimated ? "~" : ""}${usd(cost)}` : "";
+  const price = priced ? `${estimated ? "~" : ""}${usd(cost)}` : null;
+  const money = price === null ? "" : ` · ${price}`;
 
-  const cacheShare =
-    prompt === 0 ? null : `${Math.round((cached / prompt) * 100)}% read from cache`;
+  const share = prompt === 0 ? null : Math.round((cached / prompt) * 100);
+  const cacheLine = share === null ? null : `${share}% read from cache`;
 
   return {
     line: `This session · ${formatTokens(tokens)} tokens${money}`,
-    detail: priced ? cacheShare : "No cost reported",
+    detail: priced ? cacheLine : "No cost reported",
+    cost: price,
+    cacheShare: share,
+    cached,
+    fresh: prompt - cached,
   };
 };

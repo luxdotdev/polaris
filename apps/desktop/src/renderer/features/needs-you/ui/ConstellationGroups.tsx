@@ -79,7 +79,8 @@ interface ItemProps {
 
 const who = (item: ConstellationItem) => (item.taskId === null ? "The lead" : item.taskId);
 
-const useOpen = (group: ConstellationGroup, item: ConstellationItem) => {
+/** Opens the Lead, focused on the item's Task. */
+export const useOpen = (group: ConstellationGroup, item: ConstellationItem) => {
   const { selectSession } = useShellActions();
   const { focusTask } = useConstellationActions();
   const leadSessionId = group.view.constellation.leadSessionId;

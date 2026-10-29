@@ -1,5 +1,5 @@
 /**
- * The K jump menu (Paper AR-0): one field across every Host, to sessions,
+ * The K jump menu (Paper AR-0, X-F 07): one field across every Host, to sessions,
  * Workspaces, Worktrees and machines; commands are the Command Palette's. ↑↓ move, ↵ opens, ⌘↵ opens a
  * session in Review, esc closes. Fills the shell's `JumpMenu` slot.
  */
@@ -12,12 +12,14 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  cn,
   FolderIcon,
+  KICKER,
   SEVERITIES,
   SEVERITY_LABELS,
   SeverityGlyph,
 } from "@polaris/ui";
-import { type KeyboardEvent, useMemo, useState } from "react";
+import { type KeyboardEvent, type ReactNode, useMemo, useState } from "react";
 import { useStore } from "zustand";
 import { useReviewSubject } from "../../routes/review.ts";
 import { PullGlyph } from "../pulls/ui/glyphs.tsx";
@@ -28,7 +30,8 @@ import { barHosts } from "../../routes/topBar.ts";
 import { SessionGlyph, SummaryGlyph } from "../../shell/glyphs.tsx";
 import { useApp, useNav, useSelection, useShellActions } from "../../shell/hooks.ts";
 import { jumpCopy } from "./copy.ts";
-import { jumpGroups, type ReviewSources } from "./groups.ts";
+import { jumpGroups, type JumpGroup, type ReviewSources, searchedCount } from "./groups.ts";
+import { matchSpans } from "./ranking.ts";
 import { fileItems, findingItems, pullItems } from "./reviewItems.ts";
 import { hostItems, type JumpItem, sessionItems, workspaceItems, worktreeItems } from "./items.ts";
 import { useRunJump } from "./run.ts";
@@ -46,9 +49,9 @@ const Leading = ({ item }: { readonly item: JumpItem }) => {
     return severity === undefined ? null : <SeverityGlyph severity={severity} tone="text" />;
   }
 
-  if (target.kind === "workspace") return <FolderIcon size={14} className="text-text-subtle" />;
+  if (target.kind === "workspace") return <FolderIcon size={16} className="text-text-subtle" />;
 
-  if (target.kind === "worktree") return <BranchIcon size={14} className="text-text-subtle" />;
+  if (target.kind === "worktree") return <BranchIcon size={16} className="text-text-subtle" />;
 
   if (item.state === null || item.harness === null) return null;
 
@@ -60,8 +63,56 @@ const Leading = ({ item }: { readonly item: JumpItem }) => {
     );
   }
 
-  return <SessionGlyph state={item.state} harness={item.harness} size={14} />;
+  return <SessionGlyph state={item.state} harness={item.harness} size={16} />;
 };
+
+/** The title with the query's words, where they appear as written, in strong semibold. */
+const Highlighted = ({ text, query }: { readonly text: string; readonly query: string }) => {
+  const parts: Array<ReactNode> = [];
+  let from = 0;
+
+  for (const [start, end] of matchSpans(query, text)) {
+    parts.push(text.slice(from, start));
+    parts.push(
+      <b key={start} className="text-text-strong font-semibold">
+        {text.slice(start, end)}
+      </b>
+    );
+    from = end;
+  }
+
+  parts.push(text.slice(from));
+
+  return <>{parts}</>;
+};
+
+/** The right-hand lane: where it lives (a Workspace's path in mono), then its state or chord. */
+const Meta = ({ item }: { readonly item: JumpItem }) => {
+  if (item.detail === "" && item.meta === "") return undefined;
+
+  return (
+    <span className="flex max-w-80 min-w-0 items-center gap-2.5">
+      {item.detail === "" ? null : (
+        <span
+          className={cn(
+            "truncate",
+            item.target.kind === "workspace" && "font-mono text-[11px] leading-4"
+          )}
+        >
+          {item.detail}
+        </span>
+      )}
+      {item.meta === "" ? null : <span className="shrink-0">{item.meta}</span>}
+    </span>
+  );
+};
+
+/** A group's kicker; "Sessions · 12" when more matched than it shows. */
+const heading = (group: JumpGroup) => (
+  <span className={KICKER}>
+    {group.matched > group.items.length ? `${group.heading} · ${group.matched}` : group.heading}
+  </span>
+);
 
 /** In Review: pull requests, and the open Review's files and findings. */
 const useReviewSources = (mode: string): ReviewSources | undefined => {
@@ -108,6 +159,7 @@ const Results = ({ onClose }: { readonly onClose: () => void }) => {
   const copy = jumpCopy(useSelection().mode);
   const recent = useNav((s) => s.recent);
   const groups = jumpGroups({ query, sources, recent });
+  const shown = groups.reduce((n, g) => n + g.items.length, 0);
   const byId = new Map(groups.flatMap((g) => g.items.map((i) => [i.id, i])));
   const runJump = useRunJump();
 
@@ -134,13 +186,17 @@ const Results = ({ onClose }: { readonly onClose: () => void }) => {
         value={query}
         onValueChange={setQuery}
         placeholder={copy.placeholder}
-        hint={copy.hint}
+        hint={<kbd className="font-mono text-[11px] leading-[14px]">esc</kbd>}
         aria-label={copy.label}
       />
-      <CommandList aria-label="Results">
+      <CommandList aria-label="Results" className="max-h-[420px] p-1">
         <CommandEmpty>Nothing matches</CommandEmpty>
         {groups.map((group) => (
-          <CommandGroup key={group.heading} heading={group.heading}>
+          <CommandGroup
+            key={group.heading}
+            heading={heading(group)}
+            className="border-hairline [&_[cmdk-group-heading]]:h-tree-row not-first:mt-1 not-first:border-t [&_[cmdk-group-heading]]:flex [&_[cmdk-group-heading]]:items-center [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pt-1 [&_[cmdk-group-heading]]:pb-0 first:[&_[cmdk-group-heading]]:pt-1"
+          >
             {group.items.map((item) => (
               <CommandItem
                 key={item.id}
@@ -148,22 +204,22 @@ const Results = ({ onClose }: { readonly onClose: () => void }) => {
                 data-jump-id={item.id}
                 data-testid="jump-item"
                 leading={<Leading item={item} />}
-                detail={item.detail === "" ? undefined : item.detail}
-                meta={item.meta === "" ? undefined : item.meta}
+                meta={<Meta item={item} />}
                 onSelect={() => open(item, false)}
               >
-                {item.title}
+                <Highlighted text={item.title} query={query} />
               </CommandItem>
             ))}
           </CommandGroup>
         ))}
       </CommandList>
-      <CommandFooter>
-        <span>↑↓ Move</span>
-        <span>↵ Open</span>
-        <span>{shortcutLabel(FIELD_CHORDS.submit)} Open in Review</span>
-        <span className="flex-1" />
-        <span>esc</span>
+      <CommandFooter className="px-panel gap-4 bg-transparent">
+        <span className={cn(KICKER, "min-w-0 flex-1 truncate")}>
+          ↵ Open · {shortcutLabel(FIELD_CHORDS.submit)} Open in Review
+        </span>
+        <span className={cn(KICKER, "shrink-0")}>
+          {shown} of {searchedCount(sources)}
+        </span>
       </CommandFooter>
     </div>
   );
@@ -181,6 +237,8 @@ export const JumpMenu = ({ open, onOpenChange }: JumpMenuProps) => {
   return (
     <CommandDialog
       open
+      testId="jump-menu"
+      className="w-[560px]"
       onOpenChange={onOpenChange}
       shouldFilter={false}
       title="Jump"

@@ -3,6 +3,7 @@ import { useState } from "react";
 import {
   ApprovalCard,
   Button,
+  Celestial,
   CodeWell,
   Composer,
   ContextMenu,
@@ -28,8 +29,6 @@ import {
   HoverCardContent,
   HoverCardTrigger,
   MENU_SEPARATOR_ENTRY,
-  PixelHandIcon,
-  PixelPolarisIcon,
   Popover,
   PopoverContent,
   PopoverDescription,
@@ -206,11 +205,16 @@ function Triggers() {
         onClick={() =>
           showToast({
             source: "codex",
-            icon: <PixelHandIcon size={24} className="text-needs-you" />,
-            title: "Codex needs you",
-            message: "Spike GPUI review screen wants to run cargo build --release",
+            icon: <Celestial body="ringed" harness="codex" size={32} />,
+            needsYou: true,
+            title: (
+              <>
+                Spike GPUI review wants to run <code>cargo build</code>
+              </>
+            ),
             time: "now",
             action: { label: "Approve", onAction: () => undefined, shortcut: "⌘⇧A" },
+            secondaryAction: { label: "Open session", onAction: () => undefined },
           })
         }
       >
@@ -232,18 +236,28 @@ export function FloatingSection() {
         <div className="flex flex-col gap-3">
           <Toast
             source="codex"
-            icon={<PixelHandIcon size={24} className="text-needs-you" />}
-            title="Codex needs you"
-            message="Spike GPUI review screen wants to run cargo build --release"
+            icon={<Celestial body="ringed" harness="codex" size={32} />}
+            needsYou
+            title={
+              <>
+                Spike GPUI review wants to run <code>cargo build</code>
+              </>
+            }
             time="now"
             action={{ label: "Approve", onAction: () => undefined, shortcut: "⌘⇧A" }}
+            secondaryAction={{ label: "Open session", onAction: () => undefined }}
           />
           <Toast
-            source="starlight"
-            icon={<PixelPolarisIcon size={24} className="text-starlight" />}
-            title="Risk summary ready"
-            message="1 critical in Polaris planning · turn 24"
-            time="2m"
+            source="claude"
+            icon={<Celestial body="cratered" harness="claude" size={32} />}
+            title="Polaris planning finished · 3 files changed"
+            time="1m"
+            action={{
+              label: "Open review",
+              emphasis: "secondary",
+              onAction: () => undefined,
+              shortcut: "⌘2",
+            }}
           />
         </div>
       </div>

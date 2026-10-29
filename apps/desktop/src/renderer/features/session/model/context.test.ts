@@ -60,14 +60,21 @@ describe("contextCard", () => {
     expect(card.totalsOnly).toBe(false);
   });
 
-  test("100 cells in window order: system and tools, memory, conversation, free, the reserve", () => {
-    const { cells } = contextCard(claude());
+  test("1k-token cells in window order: system and tools, memory, conversation, free, the reserve", () => {
+    const { cells, cellTokens } = contextCard(claude());
 
-    const runs = cells.map((c) => c.key).filter((key, i, keys) => key !== keys[i - 1]);
+    const runs = cells.filter((key, i, keys) => key !== keys[i - 1]);
 
-    expect(cells).toHaveLength(100);
+    expect(cellTokens).toBe(1_000);
+    expect(cells).toHaveLength(200);
     expect(runs).toEqual(["system", "tools", "mcp", "memory", "conversation", "free", "reserve"]);
-    expect(cells.filter((c) => c.key === "reserve")).toHaveLength(22);
+    expect(cells.filter((c) => c === "reserve")).toHaveLength(45);
+  });
+
+  test("a window past 200k takes larger round cells, never more than 200", () => {
+    expect(contextCard(usage(10_000, 258_000)).cellTokens).toBe(2_000);
+    expect(contextCard(usage(10_000, 1_000_000)).cellTokens).toBe(5_000);
+    expect(contextCard(usage(10_000, 1_000_000)).cells).toHaveLength(200);
   });
 
   test("tokens used since the count go to the conversation, out of free space", () => {
@@ -86,7 +93,7 @@ describe("contextCard", () => {
       ["In context", 236_000],
       ["Free", 22_000],
     ]);
-    expect(card.cells.filter((c) => c.key === "used")).toHaveLength(91);
+    expect(card.cells.filter((c) => c === "used")).toHaveLength(118);
   });
 
   test("an unknown window: the total only, no meter", () => {
@@ -148,6 +155,10 @@ describe("sessionSpend", () => {
     expect(sessionSpend([{ tokens, reportedCost: { usd: 1.5 } }])).toEqual({
       line: "This session · 1M tokens · $1.50",
       detail: "90% read from cache",
+      cost: "$1.50",
+      cacheShare: 90,
+      cached: 900_000,
+      fresh: 100_000,
     });
     expect(
       sessionSpend([
@@ -157,7 +168,7 @@ describe("sessionSpend", () => {
   });
 
   test("nothing priced: the tokens, and says so", () => {
-    expect(sessionSpend([{ tokens, reportedCost: null }])).toEqual({
+    expect(sessionSpend([{ tokens, reportedCost: null }])).toMatchObject({
       line: "This session · 1M tokens",
       detail: "No cost reported",
     });

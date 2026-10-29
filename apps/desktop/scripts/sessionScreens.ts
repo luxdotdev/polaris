@@ -5,6 +5,7 @@
  * Paper's `11U-0` and `VG-0`.
  *
  *   node scripts/sessionScreens.ts --out <dir> [--build] [--scenes session,new]
+ *     [--size 1280x720] [--themes dark,midnight,light]
  */
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -222,6 +223,19 @@ const open = async (page: Page, scene: string) => {
 
 const densities = (option("--densities") ?? "calm,balanced,compact").split(",");
 
+/** "dark" keeps the dark the settings hold; "moonlit" and "midnight" choose it. */
+const themes = (option("--themes") ?? "dark,light").split(",");
+
+const [width = 1440, height = 900] = (option("--size") ?? "1440x900").split("x").map(Number);
+
+const setTheme = (theme: string) =>
+  theme === "moonlit" || theme === "midnight"
+    ? `Promise.all([window.polaris.request("settings.setTheme", { theme: "dark" }), window.polaris.request("settings.setAppearance", { patch: { darkTheme: "${theme}" } })])`
+    : `window.polaris.request("settings.setTheme", { theme: "${theme}" })`;
+
+/** The open card's bottom edge: a popover must stay 12px clear of the window (rule/popover-fits-window). */
+const cardBottom = `(() => { const card = document.querySelector('[data-slot="instrument-card"]'); return card === null ? null : Math.round(card.getBoundingClientRect().bottom); })()`;
+
 const home = mkdtempSync(join(tmpdir(), "polaris-screens-"));
 
 const daemon = await startDaemon({ home, benchHarness: true });
@@ -241,7 +255,7 @@ const app = await electron.launch({
 try {
   const page = await app.firstWindow();
 
-  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.setViewportSize({ width, height });
   mkdirSync(out, { recursive: true });
 
   if (args.includes("--frames")) {
@@ -279,20 +293,31 @@ try {
     if (scene === "setup") await page.getByTestId("harness-codex").click();
 
     for (const density of densities) {
-      for (const theme of ["dark", "light"]) {
+      for (const theme of themes) {
         await page.evaluate(
-          `Promise.all([window.polaris.request("settings.setTheme", { theme: "${theme}" }), window.polaris.request("settings.setDensity", { density: "${density}" })])`
+          `Promise.all([${setTheme(theme)}, window.polaris.request("settings.setDensity", { density: "${density}" })])`
         );
-        await page.locator(`html[data-theme="${theme}"][data-density="${density}"]`).waitFor({
-          state: "attached",
-        });
+        const shown = theme === "light" ? "light" : "dark";
+
+        const dark =
+          theme === "moonlit" || theme === "midnight" ? `[data-theme-dark="${theme}"]` : "";
+
+        await page
+          .locator(`html[data-theme="${shown}"]${dark}[data-density="${density}"]`)
+          .waitFor({
+            state: "attached",
+          });
         await page.waitForTimeout(400);
         await open(page, scene);
         await page.waitForTimeout(200);
         const path = join(out, `${scene}-${theme}-${density}.png`);
 
         await page.screenshot({ path });
-        console.log(`screens: ${path}`);
+        const bottom = await page.evaluate<number | null>(cardBottom);
+
+        console.log(
+          `screens: ${path}${bottom === null ? "" : ` · card bottom ${bottom} of ${height}`}`
+        );
       }
     }
   }
