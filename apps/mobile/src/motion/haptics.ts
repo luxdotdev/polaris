@@ -16,4 +16,6 @@ export const haptics = {
   send: () => fire(impactAsync(ImpactFeedbackStyle.Light)),
   /** A Turn stopped. */
   stop: () => fire(impactAsync(ImpactFeedbackStyle.Rigid)),
+  /** A confirmation that asks before a risky step (accepting with a Critical open). */
+  warning: () => fire(notificationAsync(NotificationFeedbackType.Warning)),
 } as const;

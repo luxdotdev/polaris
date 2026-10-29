@@ -1,6 +1,14 @@
 import type { RiskFinding } from "@polaris/protocol";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { haptics } from "../../motion/index.ts";
 import type { AcceptState } from "../model.ts";
+import {
+  type Acknowledged,
+  acknowledge,
+  canAccept,
+  needsConfirmation,
+  openCriticals,
+} from "./confirmation.ts";
 
 export interface AcceptReviewInput {
   readonly state: AcceptState;
@@ -20,26 +28,36 @@ export interface AcceptReview {
   readonly dismiss: () => void;
 }
 
-const openCriticals = (findings: ReadonlyArray<RiskFinding>) =>
-  findings.filter((f) => f.severity === "critical" && f.status === "open");
-
-/** Stub of Accept with MX-T's confirmation; P3 builds the real one. */
-export const useAcceptReview = ({ findings, onAccept }: AcceptReviewInput): AcceptReview => {
-  const [confirming, setConfirming] = useState<ReadonlyArray<RiskFinding> | null>(null);
+/**
+ * Accept through MX-T: it asks once per set of open Criticals, with a warning haptic, and asks
+ * again only when a Critical opens that the user hasn't accepted despite.
+ */
+export const useAcceptReview = ({ state, findings, onAccept }: AcceptReviewInput): AcceptReview => {
+  const [asking, setAsking] = useState(false);
+  const [acknowledged, setAcknowledged] = useState<Acknowledged>(() => new Set());
+  const criticals = useMemo(() => openCriticals(findings), [findings]);
+  const ready = canAccept(state);
 
   const accept = useCallback(() => {
-    const criticals = openCriticals(findings);
+    if (!ready) return;
 
-    if (criticals.length > 0) setConfirming(criticals);
-    else onAccept();
-  }, [findings, onAccept]);
+    if (needsConfirmation(criticals, acknowledged)) {
+      setAsking(true);
+      haptics.warning();
+    } else onAccept();
+  }, [ready, criticals, acknowledged, onAccept]);
 
   const confirm = useCallback(() => {
-    setConfirming(null);
-    onAccept();
-  }, [onAccept]);
+    setAsking(false);
+    setAcknowledged((current) => acknowledge(current, criticals));
 
-  const dismiss = useCallback(() => setConfirming(null), []);
+    if (ready) onAccept();
+  }, [criticals, ready, onAccept]);
+
+  const dismiss = useCallback(() => setAsking(false), []);
+
+  // The sheet follows the live findings: it closes once nothing open is left to confirm.
+  const confirming = asking && ready && criticals.length > 0 ? criticals : null;
 
   return { accept, confirming, confirm, dismiss };
 };

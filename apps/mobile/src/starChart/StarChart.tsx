@@ -1,20 +1,43 @@
-/** Placeholder for the constellation header's star chart (MX-W, MX-X); P1 builds it. */
-import { mobileType } from "@polaris/ui/tokens";
-import { Text, View } from "react-native";
-import { themedStyles } from "../theme/index.ts";
+/** The constellation header's star chart (MX-W), compressing to dots past about 30 tasks (MX-X). */
+import { useState } from "react";
+import { type LayoutChangeEvent, View } from "react-native";
+import { DotChart } from "./DotChart.tsx";
+import { isCompact } from "./layout.ts";
 import type { StarChartProps } from "./types.ts";
+import { WaveChart } from "./WaveChart.tsx";
 
-export const StarChart = ({ tasks }: StarChartProps) => {
-  const styles = useStyles();
+/** Fits its container's width: no scrolling or pinch-zoom; the waves wrap instead. */
+export const StarChart = ({
+  tasks,
+  bands,
+  compact,
+  selectedTaskId = null,
+  onPressTask,
+}: StarChartProps) => {
+  const [width, setWidth] = useState<number | null>(null);
+  const onLayout = (event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width);
+
+  if (isCompact(tasks, compact))
+    return (
+      <DotChart
+        tasks={tasks}
+        bands={bands}
+        selectedTaskId={selectedTaskId}
+        onPressTask={onPressTask}
+      />
+    );
 
   return (
-    <View style={styles.panel}>
-      <Text style={styles.text}>{tasks.length} tasks</Text>
+    <View onLayout={onLayout}>
+      {width === null ? null : (
+        <WaveChart
+          tasks={tasks}
+          bands={bands}
+          width={width}
+          selectedTaskId={selectedTaskId}
+          onPressTask={onPressTask}
+        />
+      )}
     </View>
   );
 };
-
-const useStyles = themedStyles((colours) => ({
-  panel: { padding: 12, borderRadius: 12, backgroundColor: colours.panel },
-  text: { ...mobileType.label, color: colours.textSubtle },
-}));
