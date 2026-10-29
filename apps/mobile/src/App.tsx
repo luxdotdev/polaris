@@ -159,15 +159,17 @@ const Shell = () => {
 
   return (
     <SheetHost>
-      <View style={styles.fill}>
-        <DuoShell>
-          <Screen />
-        </DuoShell>
-        {navigation.newSession.open ? (
-          <NewSessionSheet onClose={navigation.closeNewSession} />
-        ) : null}
-        {__DEV__ ? <SheetDemo /> : null}
-      </View>
+      <InboxProvider>
+        <View style={styles.fill}>
+          <DuoShell>
+            <Screen />
+          </DuoShell>
+          {navigation.newSession.open ? (
+            <NewSessionSheet onClose={navigation.closeNewSession} />
+          ) : null}
+          {__DEV__ ? <SheetDemo /> : null}
+        </View>
+      </InboxProvider>
     </SheetHost>
   );
 };
@@ -198,9 +200,7 @@ export const App = () => {
                 <CheckAlive />
                 <Push />
                 <NavigationProvider>
-                  <InboxProvider>
-                    <Shell />
-                  </InboxProvider>
+                  <Shell />
                 </NavigationProvider>
               </FollowedHostsProvider>
             </RelayProvider>
