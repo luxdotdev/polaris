@@ -14,7 +14,7 @@ import { CONTENT_TEXT_SCALE } from "../../theme/textScale.ts";
 import type { ConstellationSource } from "../model.ts";
 import { type ReviewCell, reportedPrice, type StatsSheetView, statsSheetView } from "./model.ts";
 import { Kicker, SheetHead } from "./parts.tsx";
-import { useConstellationStats } from "./useStats.ts";
+import { type StatsState, useConstellationStats } from "./useStats.ts";
 
 export interface StatsSheetProps {
   readonly open: boolean;
@@ -179,15 +179,15 @@ const Unavailable = ({
   );
 };
 
-export const StatsSheet = ({
+/** The sheet over a stats read already in hand; `StatsSheet` reads it from the Host. */
+export const StatsSheetContent = ({
   open,
   onClose,
   source,
-  connection,
+  state,
   waitingForYou,
-}: StatsSheetProps) => {
+}: Omit<StatsSheetProps, "connection"> & { readonly state: StatsState }) => {
   const c = source.constellation;
-  const state = useConstellationStats(connection, c.id, c.revision, open);
 
   const view = useMemo(
     () =>
@@ -214,6 +214,13 @@ export const StatsSheet = ({
       )}
     </InstrumentSheet>
   );
+};
+
+export const StatsSheet = ({ connection, ...props }: StatsSheetProps) => {
+  const c = props.source.constellation;
+  const state = useConstellationStats(connection, c.id, c.revision, props.open);
+
+  return <StatsSheetContent {...props} state={state} />;
 };
 
 const useStyles = themedStyles((colours) => ({

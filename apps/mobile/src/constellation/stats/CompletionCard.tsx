@@ -2,6 +2,7 @@
  * The completion card (Paper MX-AC; ENG-532): inline in the lead's thread once its constellation
  * is completed or archived, with the readout the stats sheet draws from `constellation.stats`.
  */
+import type { ConstellationStats } from "@polaris/protocol";
 import { mobileType } from "@polaris/ui/tokens";
 import { useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -74,16 +75,15 @@ const Button = ({
   );
 };
 
-export const CompletionCard = ({
+/** The card over stats already in hand (null while unread or refused). */
+export const CompletionCardContent = ({
   source,
-  connection,
+  stats,
   reviewTurn,
   onViewAllTasks,
-}: CompletionCardProps) => {
+}: Omit<CompletionCardProps, "connection"> & { readonly stats: ConstellationStats | null }) => {
   const styles = useStyles();
   const c = source.constellation;
-  const state = useConstellationStats(connection, c.id, c.revision);
-  const stats = state.kind === "ready" ? state.stats : null;
 
   const view = useMemo(
     () => completionView(c, source.projections, stats, reportedPrice),
@@ -131,6 +131,13 @@ export const CompletionCard = ({
       )}
     </View>
   );
+};
+
+export const CompletionCard = ({ connection, ...props }: CompletionCardProps) => {
+  const c = props.source.constellation;
+  const state = useConstellationStats(connection, c.id, c.revision);
+
+  return <CompletionCardContent {...props} stats={state.kind === "ready" ? state.stats : null} />;
 };
 
 const useStyles = themedStyles((colours) => ({
