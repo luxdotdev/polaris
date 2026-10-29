@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Screenshots of the Constellation tab on fixtures (`#constellation/<scene>`) at 1440×900
- * against Paper C1–C9, both themes and every density; `--frames` scrolls the 128-Task scene.
+ * against Paper C1–C9, Moonlit, Midnight and light, and every density; `--frames` scrolls the
+ * 128-Task scene. The completed scene also shoots its card alone at 1440, 900 and 2560 wide.
  *
  *   node scripts/constellationTabScreens.ts --out <dir> [--build] [--scenes lead,focus] [--frames]
  */
@@ -70,14 +71,38 @@ const app = await electron.launch({
   },
 });
 
-const appearance = async (page: Page, theme: string, density: string) => {
+const THEMES = [
+  { name: "moonlit", theme: "dark", dark: "moonlit" },
+  { name: "midnight", theme: "dark", dark: "midnight" },
+  { name: "light", theme: "light", dark: "moonlit" },
+] as const;
+
+const appearance = async (page: Page, t: (typeof THEMES)[number], density: string) => {
   await page.evaluate(
-    `Promise.all([window.polaris.request("settings.setTheme", { theme: "${theme}" }), window.polaris.request("settings.setDensity", { density: "${density}" })])`
+    `window.polaris.request("settings.setAppearance", { patch: { theme: "${t.theme}", darkTheme: "${t.dark}", density: "${density}" } })`
   );
   await page
-    .locator(`html[data-theme="${theme}"][data-density="${density}"]`)
+    .locator(
+      `html[data-theme="${t.theme}"][data-theme-dark="${t.dark}"][data-density="${density}"]`
+    )
     .waitFor({ state: "attached" });
   await page.waitForTimeout(400);
+};
+
+/** The completion card on its own, at the tab's width and then in a narrow window. */
+const completionCard = async (page: Page, name: string) => {
+  const card = page.getByTestId("completion-card");
+
+  await card.screenshot({ path: join(out, `${name}-card.png`) });
+  await page.setViewportSize({ width: 900, height: 900 });
+  await page.waitForTimeout(300);
+  await card.screenshot({ path: join(out, `${name}-card-narrow.png`) });
+  await page.setViewportSize({ width: 2560, height: 1100 });
+  await page.waitForTimeout(300);
+  await card.screenshot({ path: join(out, `${name}-card-wide.png`) });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.waitForTimeout(300);
+  console.log(`screens: ${join(out, `${name}-card.png`)} (and -narrow, -wide)`);
 };
 
 /** Frame intervals while the 128-Task rail scrolls end to end and back. */
@@ -128,12 +153,15 @@ try {
     }
 
     for (const density of densities) {
-      for (const theme of ["dark", "light"]) {
-        await appearance(page, theme, density);
+      for (const t of THEMES) {
+        await appearance(page, t, density);
+        const theme = t.name;
         const path = join(out, `${scene}-${theme}-${density}.png`);
 
         await page.screenshot({ path });
         console.log(`screens: ${path}`);
+
+        if (scene === "completed") await completionCard(page, `${scene}-${theme}-${density}`);
 
         if (scene === "stats") {
           const end = join(out, `${scene}-end-${theme}-${density}.png`);

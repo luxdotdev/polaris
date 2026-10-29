@@ -4,62 +4,30 @@
  */
 import {
   Button,
-  cn,
+  InstrumentCard,
   InstrumentPopoverContent,
   Popover,
   PopoverTrigger,
   SegmentedControl,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
 } from "@polaris/ui";
-import { completionFacts, type StatLine, statsCoverage } from "../model/stats.ts";
+import { completionHeadline, completionTally, statsCoverage } from "../model/stats.ts";
 import { type Measure, statsPanel } from "../model/statsPanel.ts";
 import { clock } from "../model/copy.ts";
 import type { ConstellationStatsView } from "../../../../shared/api.ts";
 import type { ConstellationRecord } from "../model/index.ts";
 import { type StatsState, useConstellationStats } from "../useStats.ts";
 import { ConstellationMark } from "./glyphs.tsx";
-import { SpendWell, WorkWell } from "./statsCharts.tsx";
+import {
+  Lead,
+  leadHarness,
+  Review,
+  SpendHeadline,
+  SpendWell,
+  Well,
+  Workers,
+  WorkWell,
+} from "./statsCharts.tsx";
 import { useState } from "react";
-
-const Value = ({ line }: { readonly line: StatLine }) => {
-  const text = (
-    <span
-      className={cn("tabular text-right", line.missing ? "text-text-faint" : "text-text-strong")}
-    >
-      {line.value}
-    </span>
-  );
-
-  return line.note === null ? (
-    text
-  ) : (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="flex flex-col items-end">
-          {text}
-          <span className="text-caption text-text-subtle max-w-48 truncate text-right">
-            {line.note}
-          </span>
-        </span>
-      </TooltipTrigger>
-      <TooltipContent className="max-w-64">{line.note}</TooltipContent>
-    </Tooltip>
-  );
-};
-
-const Line = ({ line }: { readonly line: StatLine }) => (
-  <div
-    className="text-body flex items-start justify-between gap-3 py-0.5"
-    data-missing={line.missing ? "" : undefined}
-  >
-    <span className="text-text-default shrink-0">{line.label}</span>
-    <span className="flex min-w-0 justify-end">
-      <Value line={line} />
-    </span>
-  </div>
-);
 
 const Waiting = ({ state }: { readonly state: StatsState }) => {
   if (state.kind === "ready") return null;
@@ -160,7 +128,10 @@ export const StatsPopover = ({
   );
 };
 
-/** Shown at the top of a completed Constellation's tab. */
+/**
+ * Shown at the top of a completed Constellation's tab: the popover's instrument at rest, cost as
+ * its hero, the wells side by side when the tab is wide. Past 60% of the tab only the body scrolls.
+ */
 export const CompletionCard = ({
   hostKey,
   record,
@@ -170,32 +141,35 @@ export const CompletionCard = ({
 }) => {
   const c = record.constellation;
   const state = useConstellationStats(hostKey, c.id, c.revision, true);
-  const live = c.tasks.filter((t) => !t.canceled);
-  const done = record.projections.filter((p) => p.state === "done").length;
+  const panel = state.kind === "ready" ? statsPanel(state.view, titleOf(record)) : null;
 
   return (
-    <div
-      className="rounded-row border-hairline bg-surface-raised mx-4 mb-2 border px-3.5 py-3"
+    <InstrumentCard
+      aria-label={`Constellation ${c.state}`}
       data-testid="completion-card"
-    >
-      <p className="flex items-center gap-2 pb-2">
-        <ConstellationMark size={14} />
-        <span className="text-label text-text-strong">Constellation {c.state}</span>
-        {state.kind === "ready" ? (
-          <span className="text-body text-text-subtle min-w-0 truncate">
-            · {completionFacts(state.view, done, live.length).headline}
-          </span>
-        ) : null}
-      </p>
-      {state.kind !== "ready" ? (
-        <Waiting state={state} />
-      ) : (
-        <div className="grid grid-cols-1 gap-x-6 @[36rem]:grid-cols-2">
-          {completionFacts(state.view, done, live.length).lines.map((line) => (
-            <Line key={line.label} line={line} />
-          ))}
-        </div>
-      )}
-    </div>
+      className="mx-4 mb-2 max-h-[60%] w-auto max-w-[784px] shrink-0"
+      columns
+      header={{
+        mark: <ConstellationMark size={14} />,
+        title: `Constellation ${c.state}`,
+        state: completionHeadline(completionTally(c.tasks, record.projections)),
+      }}
+      wells={
+        state.kind !== "ready" || panel === null
+          ? [<Waiting key="waiting" state={state} />]
+          : [
+              <Well key="spend" testId="completion-spend">
+                <SpendHeadline panel={panel} />
+                <Review review={panel.review} />
+              </Well>,
+              <Well key="work" testId="completion-work">
+                <Workers workers={panel.workers} />
+                <Lead lead={panel.lead} harness={leadHarness(panel)} />
+                <Notes view={state.view} />
+              </Well>,
+            ]
+      }
+      footer={state.kind === "ready" ? { status: asOf(state.view).join(" · ") } : undefined}
+    />
   );
 };

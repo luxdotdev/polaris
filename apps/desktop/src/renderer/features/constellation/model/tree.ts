@@ -4,7 +4,7 @@
  */
 import type { TaskId } from "@polaris/protocol";
 
-interface Node {
+export interface Node {
   readonly id: TaskId;
   readonly parent?: TaskId | null;
   readonly deps: ReadonlyArray<TaskId>;

@@ -1,6 +1,16 @@
 import { describe, expect, test } from "bun:test";
+import { TaskId } from "@polaris/protocol";
+import { c1Tasks, task, treeTasks } from "../preview/graph.ts";
 import { statsFixture } from "../preview/stats.ts";
-import { completionFacts, duration, statsCoverage, tokens, usd } from "./stats.ts";
+import {
+  completionHeadline,
+  completionTally,
+  duration,
+  statsCoverage,
+  tokens,
+  usd,
+} from "./stats.ts";
+import type { Node } from "./tree.ts";
 import { MAX_COLUMNS, statsPanel } from "./statsPanel.ts";
 
 const view = statsFixture(37);
@@ -51,7 +61,7 @@ describe("stats", () => {
 
   test("review: a cell per first Claim, accepted ones first; causes read as words", () => {
     expect(panel.review.cells.map((c) => c.accepted)).toEqual([true, true, true, false]);
-    expect(panel.review.summary).toBe("3 of 4 accepted first time");
+    expect(panel.review.summary).toBe("3 of 4 tasks accepted first time");
     expect(panel.review.sentBack).toBe("1 sent back · 1 merge conflict");
   });
 
@@ -122,7 +132,27 @@ describe("stats", () => {
     ]);
   });
 
-  test("the completion card leads with tasks done and wall clock", () => {
-    expect(completionFacts(view, 8, 10).headline).toBe("8 of 10 tasks done in 4h 12m");
+  test("workers' working time reads against the wall clock", () => {
+    expect(panel.workers.working).toBe("3h 32m working in 4h 12m");
+  });
+
+  test("the completion card counts Gates and leaf Tasks, never Parents or canceled Tasks", () => {
+    const tasks: ReadonlyArray<Node> = [
+      ...c1Tasks.slice(0, 3),
+      ...treeTasks,
+      { id: TaskId.make("S"), deps: [], canceled: true },
+      task({ id: "X", title: "Emptied parent" }),
+      { id: TaskId.make("X1"), deps: [], parent: TaskId.make("X"), canceled: true },
+    ];
+
+    const done = ["A1", "A2", "G1", "F1a", "F1", "S"];
+
+    const tally = completionTally(
+      tasks,
+      tasks.map((t) => ({ taskId: t.id, state: done.includes(t.id) ? "done" : "working" }))
+    );
+
+    expect(tally).toEqual({ done: 4, count: 8 });
+    expect(completionHeadline(tally)).toBe("4 of 8 tasks done");
   });
 });

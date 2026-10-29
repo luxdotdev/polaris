@@ -1,9 +1,9 @@
 /**
- * The Stats popover's two wells (ENG-470): spend (headline, role split, costliest tasks) and
- * work (workers' time, review, update turns). Harness hue is identity, `accepted` is acceptance.
+ * The Stats popover's two wells (ENG-470) and the parts the completion card reuses: spend (headline,
+ * role split, costliest tasks) and work (workers' time, review, update turns). Hue is identity.
  */
 import { cn, hueVar, Tooltip, TooltipContent, TooltipTrigger, washVar } from "@polaris/ui";
-import { type KeyboardEvent, type ReactNode, useState } from "react";
+import { type KeyboardEvent, type ReactNode, type Ref, useCallback, useState } from "react";
 import type {
   LeadChart,
   ReviewChart,
@@ -15,7 +15,28 @@ import type {
 import { CellBar, CellColumns, type Density, TickRuler, TRACK } from "./statsPixels.tsx";
 
 /** The wells' inner width at the popover's 400px. */
-export const CHART_WIDTH = 334;
+const CHART_WIDTH = 334;
+
+/** A chart fills its section's content box: the popover's 334px until measured. */
+const useChartWidth = () => {
+  const [width, setWidth] = useState(CHART_WIDTH);
+
+  const ref = useCallback((node: HTMLElement | null) => {
+    if (node === null) return;
+
+    const observer = new ResizeObserver(([entry]) => {
+      const measured = Math.floor(entry?.contentRect.width ?? 0);
+
+      if (measured > 0) setWidth(measured);
+    });
+
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, width] as const;
+};
 
 const fillOf = (harness: string | null) =>
   harness === null ? "var(--color-text-subtle)" : hueVar(harness);
@@ -70,12 +91,17 @@ const Part = ({
   title,
   aside,
   children,
+  ref,
 }: {
   readonly title: string;
   readonly aside?: ReactNode;
   readonly children: ReactNode;
+  readonly ref?: Ref<HTMLElement>;
 }) => (
-  <section className="border-hairline flex flex-col gap-2.5 border-t border-dashed px-3.5 py-3 first:border-t-0">
+  <section
+    ref={ref}
+    className="border-hairline flex flex-col gap-2.5 border-t border-dashed px-3.5 py-3 first:border-t-0"
+  >
     <h3 className="flex items-baseline justify-between gap-3">
       <span className="text-label text-text-strong">{title}</span>
       {aside == null ? null : <Mono className="truncate">{aside}</Mono>}
@@ -124,15 +150,17 @@ const roleDensity = (roles: ReadonlyArray<RoleShare>) => {
   return (r: RoleShare): Density => (r.role === "worker" && r.harness === lead ? "half" : "solid");
 };
 
-const SpendHeadline = ({ panel }: { readonly panel: StatsPanel }) => {
+export const SpendHeadline = ({ panel }: { readonly panel: StatsPanel }) => {
   const [hover, setHover] = useState<string | null>(null);
   const density = roleDensity(panel.roles);
   const shown = panel.roles.filter((r) => r.share > 0);
   const { headline } = panel;
   const hue = panel.workers.harness ?? panel.roles[0]?.harness ?? null;
+  const [ref, width] = useChartWidth();
 
   return (
     <section
+      ref={ref}
       className="relative flex flex-col gap-3 px-3.5 pt-3 pb-3.5"
       data-testid="stats-headline"
     >
@@ -159,7 +187,7 @@ const SpendHeadline = ({ panel }: { readonly panel: StatsPanel }) => {
         <Mono>{headline.secondary}</Mono>
       </div>
       <CellBar
-        width={CHART_WIDTH}
+        width={width}
         height={12}
         active={hover}
         label={`${panel.measure === "cost" ? "Cost" : "Tokens"} by role: ${shown.map((r) => `${r.label} ${pct(r.share)}`).join(", ")}`}
@@ -252,16 +280,16 @@ const TIME_PAINT: Record<
 const timeFill = (s: TimeSegment, hue: string) =>
   TIME_PAINT[s.key].hued ? hue : "var(--color-text-faint)";
 
-const Workers = ({ workers }: { readonly workers: WorkerTime }) => {
+export const Workers = ({ workers }: { readonly workers: WorkerTime }) => {
   const [hover, setHover] = useState<string | null>(null);
   const hue = fillOf(workers.harness);
   const recorded = workers.segments.filter((s) => s.ms !== null && s.ms > 0);
-  const working = workers.segments.find((s) => s.key === "working");
+  const [ref, width] = useChartWidth();
 
   return (
-    <Part title="Workers" aside={working?.ms == null ? null : `${working.text} working`}>
+    <Part title="Workers" aside={workers.working} ref={ref}>
       <CellBar
-        width={CHART_WIDTH}
+        width={width}
         active={hover}
         label={`Workers' time: ${recorded.map((s) => `${s.label} ${s.text}`).join(", ")}`}
         parts={recorded.map((s) => ({
@@ -303,16 +331,21 @@ const Workers = ({ workers }: { readonly workers: WorkerTime }) => {
 /** Past this many first Claims, cells give way to a cell bar. */
 const MAX_CELLS = 56;
 
-const Review = ({ review }: { readonly review: ReviewChart }) => {
+export const Review = ({ review }: { readonly review: ReviewChart }) => {
   const accepted = review.cells.filter((c) => c.accepted).length;
+  const [ref, width] = useChartWidth();
 
   return (
-    <Part title="Review" aside={review.rate === null ? null : `${review.rate} first time`}>
+    <Part
+      title="Review"
+      aside={review.rate === null ? null : `${review.rate} first time`}
+      ref={ref}
+    >
       {review.cells.length === 0 ? null : (
         <div className="flex flex-col gap-1.5">
           {review.cells.length > MAX_CELLS ? (
             <CellBar
-              width={CHART_WIDTH}
+              width={width}
               label={review.summary}
               parts={[
                 { key: "accepted", share: accepted, fill: "var(--color-accepted)" },
@@ -346,11 +379,21 @@ const Review = ({ review }: { readonly review: ReviewChart }) => {
   );
 };
 
+export const leadHarness = (panel: StatsPanel) =>
+  panel.roles.find((r) => r.role === "lead")?.harness ?? null;
+
 /** One column per update turn; hovering or ← → reads one out under the chart. */
-const Lead = ({ lead, harness }: { readonly lead: LeadChart; readonly harness: string | null }) => {
+export const Lead = ({
+  lead,
+  harness,
+}: {
+  readonly lead: LeadChart;
+  readonly harness: string | null;
+}) => {
   const last = lead.columns.length - 1;
   const [active, setActive] = useState<number | null>(null);
   const shown = active ?? last;
+  const [ref, width] = useChartWidth();
 
   const onKey = (e: KeyboardEvent) => {
     const moves = new Map([
@@ -368,7 +411,7 @@ const Lead = ({ lead, harness }: { readonly lead: LeadChart; readonly harness: s
   };
 
   return (
-    <Part title="Lead" aside={lead.title}>
+    <Part title="Lead" aside={lead.title} ref={ref}>
       {lead.columns.length === 0 ? null : (
         <div className="flex flex-col gap-1.5">
           <div
@@ -384,7 +427,7 @@ const Lead = ({ lead, harness }: { readonly lead: LeadChart; readonly harness: s
               columns={lead.columns}
               active={shown}
               fill={fillOf(harness)}
-              width={CHART_WIDTH}
+              width={width}
               onActive={setActive}
             />
           </div>
@@ -415,7 +458,7 @@ export const WorkWell = ({
   <Well testId="stats-work">
     <Workers workers={panel.workers} />
     <Review review={panel.review} />
-    <Lead lead={panel.lead} harness={panel.roles.find((r) => r.role === "lead")?.harness ?? null} />
+    <Lead lead={panel.lead} harness={leadHarness(panel)} />
     {children}
   </Well>
 );

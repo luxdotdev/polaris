@@ -1,23 +1,15 @@
 /**
- * Formatters, the completion card and coverage notes from `constellation.stats` (C1-M), priced in
- * main; the popover's charts are `statsPanel.ts`. A null metric is "not recorded", never zero.
+ * Formatters, coverage notes and the completion card's tally from `constellation.stats` (C1-M),
+ * priced in main; the charts are `statsPanel.ts`. A null metric is "not recorded", never zero.
  */
 import type { ConstellationStatsView } from "../../../../shared/api.ts";
-import { type Spend, statsSpend } from "../../settings/model/byConstellation.ts";
+import type { Spend } from "../../settings/model/byConstellation.ts";
 import { pluralize } from "./copy.ts";
+import { childrenOf, isContainer, type Node } from "./tree.ts";
 
 type Stats = ConstellationStatsView["stats"];
 
 type Tokens = Stats["usage"]["total"]["tokens"];
-
-export interface StatLine {
-  readonly label: string;
-  readonly value: string;
-  /** Why it isn't recorded, or a qualifier ("reported cost only"). */
-  readonly note: string | null;
-  /** True when the value is "not recorded". */
-  readonly missing: boolean;
-}
 
 const SECOND = 1000;
 
@@ -50,32 +42,10 @@ export const tokens = (count: number): string => {
 
 export const totalTokens = (t: Tokens) => t.input + t.cacheRead + t.cacheWrite + t.output;
 
-const percent = (rate: number) => `${Math.round(rate * 100)}%`;
-
-const NOT_RECORDED = "not recorded";
-
 /** The first coverage reason for a metric (or its parent: `workers` covers `workers.idleMs`). */
 export const reasonFor = (stats: Stats, metric: string) =>
   stats.coverage.find((c) => c.metric === metric || metric.startsWith(`${c.metric}.`))?.reason ??
   null;
-
-const line = (label: string, value: string, note: string | null = null): StatLine => ({
-  label,
-  value,
-  note,
-  missing: false,
-});
-
-const maybe = (
-  stats: Stats,
-  label: string,
-  metric: string,
-  value: number | null,
-  format: (n: number) => string
-): StatLine =>
-  value === null
-    ? { label, value: NOT_RECORDED, note: reasonFor(stats, metric), missing: true }
-    : line(label, format(value));
 
 export const costNote = (spend: Spend, priced: boolean) => {
   if (!priced) return "reported cost only; no price list was available";
@@ -98,14 +68,6 @@ export const sendBacks = (stats: Stats) => {
     : causes.map((c) => `${c.count} ${causeWords(c.cause)}`).join(" · ");
 };
 
-const firstTime = (stats: Stats) => {
-  const { acceptedFirstTime, firstClaimsReviewed, firstTimeAcceptanceRate } = stats.review;
-
-  if (firstClaimsReviewed === 0 || firstTimeAcceptanceRate === null) return null;
-
-  return `${acceptedFirstTime} of ${firstClaimsReviewed} · ${percent(firstTimeAcceptanceRate)}`;
-};
-
 /** What the popover's foot says about how complete the numbers are. */
 export const statsCoverage = (view: ConstellationStatsView): ReadonlyArray<string> => {
   const notes = new Set<string>();
@@ -118,36 +80,21 @@ export const statsCoverage = (view: ConstellationStatsView): ReadonlyArray<strin
   return [...notes];
 };
 
-export interface CompletionFacts {
-  readonly headline: string;
-  readonly lines: ReadonlyArray<StatLine>;
-}
+/**
+ * The completion card's tally: Tasks that carry Attempts (Gates included), never Parents or
+ * canceled Tasks, so it shares its denominator with first-time acceptance.
+ */
+export const completionTally = (
+  tasks: ReadonlyArray<Node>,
+  projections: ReadonlyArray<{ readonly taskId: string; readonly state: string }>
+) => {
+  const children = childrenOf(tasks);
+  const done = new Set(projections.flatMap((p) => (p.state === "done" ? [p.taskId] : [])));
+  const counted = tasks.filter((t) => t.canceled !== true && !isContainer(children.get(t.id)));
 
-/** The completion summary card: the few numbers that say how the Constellation went. */
-export const completionFacts = (
-  view: ConstellationStatsView,
-  done: number,
-  count: number
-): CompletionFacts => {
-  const { stats } = view;
-  const first = firstTime(stats);
-  const spend = statsSpend(view.usage.total);
-
-  return {
-    headline: `${done} of ${pluralize(count, "task")} done in ${duration(stats.wallClockMs)}`,
-    lines: [
-      line("Cost", usd(spend.cost.usd), costNote(spend, view.pricesFetchedAt !== null)),
-      line("Tokens", tokens(totalTokens(stats.usage.total.tokens))),
-      line("Accepted first time", first ?? "no Claim reviewed"),
-      line("Sent back", sendBacks(stats)),
-      maybe(
-        stats,
-        "Workers working",
-        "workers.workingMs",
-        stats.workers.totals.workingMs,
-        duration
-      ),
-      line("Lead turns from updates", String(stats.lead.wakeups)),
-    ],
-  };
+  return { done: counted.filter((t) => done.has(t.id)).length, count: counted.length };
 };
+
+/** "18 of 18 tasks done". */
+export const completionHeadline = (tally: { readonly done: number; readonly count: number }) =>
+  `${tally.done} of ${pluralize(tally.count, "task")} done`;

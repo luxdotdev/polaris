@@ -49,6 +49,8 @@ export interface InstrumentSlots {
   /** The hero's height cap in px; past it the hero scrolls. Default 160. */
   readonly heroMaxHeight?: number | undefined;
   readonly wells: readonly [ReactNode] | readonly [ReactNode, ReactNode];
+  /** Two wells side by side once the card is wide enough (a card in place, never a popover). */
+  readonly columns?: boolean | undefined;
   readonly footer?: InstrumentFooterSlot | undefined;
 }
 
@@ -92,13 +94,30 @@ function Footer({ status, action }: InstrumentFooterSlot) {
 }
 
 /** Header, scrolling body and footer; the container gives it a height cap. */
-function InstrumentLayout({ header, hero, heroMaxHeight, wells, footer }: InstrumentSlots) {
+function InstrumentLayout({
+  header,
+  hero,
+  heroMaxHeight,
+  wells,
+  columns,
+  footer,
+}: InstrumentSlots) {
+  const both = (
+    <>
+      <Well>{wells[0]}</Well>
+      {wells.length === 2 ? <Well>{wells[1]}</Well> : null}
+    </>
+  );
+
   return (
     <>
       <Header {...header} />
       <div
         data-slot="instrument-body"
-        className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 pt-1 pb-2"
+        className={cn(
+          "flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 pt-1 pb-2",
+          columns === true && "@container"
+        )}
       >
         {hero === undefined ? null : (
           <div
@@ -109,8 +128,13 @@ function InstrumentLayout({ header, hero, heroMaxHeight, wells, footer }: Instru
             {hero}
           </div>
         )}
-        <Well>{wells[0]}</Well>
-        {wells.length === 2 ? <Well>{wells[1]}</Well> : null}
+        {columns === true ? (
+          <div data-slot="instrument-columns" className="grid gap-2 @[47rem]:grid-cols-2">
+            {both}
+          </div>
+        ) : (
+          both
+        )}
       </div>
       {footer === undefined ? null : <Footer {...footer} />}
     </>
@@ -128,6 +152,7 @@ export function InstrumentCard({
   hero,
   heroMaxHeight,
   wells,
+  columns,
   footer,
   className,
   ...props
@@ -139,12 +164,12 @@ export function InstrumentCard({
       className={cn(CARD, "bg-raised text-text-default", className)}
       {...props}
     >
-      <InstrumentLayout {...{ header, hero, heroMaxHeight, wells, footer }} />
+      <InstrumentLayout {...{ header, hero, heroMaxHeight, wells, columns, footer }} />
     </div>
   );
 }
 
-export type InstrumentPopoverContentProps = InstrumentSlots &
+export type InstrumentPopoverContentProps = Omit<InstrumentSlots, "columns"> &
   Omit<ComponentProps<typeof PopoverContent>, "children">;
 
 /** A popover that is an instrument card, sized to the room its trigger leaves. */
@@ -169,7 +194,7 @@ export function InstrumentPopoverContent({
   );
 }
 
-export type InstrumentHoverCardContentProps = InstrumentSlots &
+export type InstrumentHoverCardContentProps = Omit<InstrumentSlots, "columns"> &
   Omit<ComponentProps<typeof HoverCardContent>, "children">;
 
 /** A hover card that is an instrument card (the session context card), sized like the popover. */

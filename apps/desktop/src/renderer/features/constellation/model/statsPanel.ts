@@ -71,10 +71,12 @@ export interface TimeSegment {
 export interface WorkerTime {
   readonly harness: string | null;
   readonly segments: ReadonlyArray<TimeSegment>;
+  /** Workers' working time against the wall clock ("8h 54m working in 4h 49m"); null if unknown. */
+  readonly working: string | null;
 }
 
 export interface ReviewChart {
-  /** One per first Claim reviewed: accepted first time, then the rest. */
+  /** One per Task whose first Claim was decided: accepted first time, then the rest. */
   readonly cells: ReadonlyArray<{ readonly id: string; readonly accepted: boolean }>;
   readonly summary: string;
   readonly rate: string | null;
@@ -178,8 +180,12 @@ const workersOf = (view: ConstellationStatsView): WorkerTime => {
   const recorded = TIMES.reduce((sum, [, , , field]) => sum + (totals[field] ?? 0), 0);
   const worker = view.usage.perRole.find((r) => r.role === "worker");
 
+  const working = totals.workingMs;
+
   return {
     harness: worker === undefined ? null : dominantHarness(worker.usage),
+    working:
+      working === null ? null : `${duration(working)} working in ${duration(stats.wallClockMs)}`,
     segments: TIMES.map(([key, label, metric, field]) => {
       const ms = totals[field];
 
@@ -207,7 +213,7 @@ const reviewOf = (stats: Stats): ReviewChart => {
     summary:
       reviewed === 0
         ? "No claim reviewed yet"
-        : `${r.acceptedFirstTime} of ${reviewed} accepted first time`,
+        : `${r.acceptedFirstTime} of ${pluralize(reviewed, "task")} accepted first time`,
     rate: r.firstTimeAcceptanceRate === null ? null : percent(r.firstTimeAcceptanceRate),
     claimToReview:
       r.medianClaimToReviewMs === null
