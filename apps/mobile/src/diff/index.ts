@@ -3,4 +3,4 @@ export { FileDiffScreen } from "./FileDiffScreen.tsx";
 
 export { HunkView } from "./HunkView.tsx";
 
-export type { FileDiffScreenProps, HunkViewProps } from "./types.ts";
+export type { DiffFindingActions, FileDiffScreenProps, HunkViewProps } from "./types.ts";

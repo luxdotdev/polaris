@@ -136,6 +136,7 @@
         "@polaris/client": "workspace:*",
         "@polaris/protocol": "workspace:*",
         "@polaris/sdk": "workspace:*",
+        "@polaris/syntax-diff": "workspace:*",
         "@polaris/ui": "workspace:*",
         "effect": "4.0.0-rc.118",
         "expo": "58.0.20",
