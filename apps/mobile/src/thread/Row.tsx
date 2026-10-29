@@ -302,6 +302,12 @@ const RowView = ({
   switch (row.kind) {
     case "prompt":
       return <Bubble text={row.text} note={null} hostId={hostId} attachments={row.attachments} />;
+    case "quiet":
+      return (
+        <Text style={[styles.quiet, styles.turnEnd]} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
+          {row.text}
+        </Text>
+      );
     case "steered":
       return <Bubble text={row.text} note="Steered this turn" hostId={hostId} />;
     case "outgoing":
@@ -386,6 +392,7 @@ const makeStyles = (colours: MobileColours) =>
     reply: { paddingHorizontal: 6, marginBottom: ITEM_GAP, gap: RECEIPT_GAP },
     turnEnd: { marginBottom: TURN_GAP },
     receipt: { ...mobileType.index, color: colours.textFaint },
+    quiet: { ...mobileType.footnote, color: colours.textSubtle, paddingHorizontal: 6 },
     error: { color: colours.failedText, paddingHorizontal: 6, marginBottom: ITEM_GAP },
     well: {
       backgroundColor: colours.panel,

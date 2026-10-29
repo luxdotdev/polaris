@@ -433,3 +433,36 @@ describe("the thread header", () => {
     expect(turnHeading({ number: 23, startedAt })).toBe("Turn 23 · 09:05");
   });
 });
+
+describe("idle compaction's Turn in the thread", () => {
+  const prompted = {
+    turn: turn(0, { prompt: "Refactor the parser" }),
+    items: [reply("a", "Split")],
+  };
+
+  const compaction = (status: "working" | "completed") => ({
+    turn: turn(1, {
+      prompt: "/compact",
+      idleCompaction: true,
+      status,
+      endedAt: status === "working" ? null : "2026-10-29T00:00:12.000Z",
+    }),
+    items: [],
+  });
+
+  test.each([
+    ["completed", "Compacted while idle, before the prompt cache expired"],
+    ["working", "Compacting while idle, before the prompt cache expires"],
+  ] as const)(
+    "%s: a quiet line after the Turn before it, never the user's /compact",
+    (status, text) => {
+      const fold = foldOf([snapshot([prompted, compaction(status)])]);
+      const rows = threadRows(fold?.turns ?? [], new Set());
+
+      expect(rows.slice(-1).map(line)).toEqual([`quiet: ${text}`]);
+      expect(rows.filter((row) => row.kind === "prompt").map(line)).toEqual([
+        "prompt: Refactor the parser",
+      ]);
+    }
+  );
+});

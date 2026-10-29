@@ -8,6 +8,7 @@ import type { Attachment, SessionState, TurnId, TurnItem } from "@polaris/protoc
 import type { FollowUp } from "./composer.ts";
 import { Match, Predicate } from "effect";
 import type { Session, TurnEntry } from "./fold.ts";
+import { compactionLine } from "./idleCompaction.ts";
 import { elapsed } from "./labels.ts";
 import type { OutgoingSteer } from "./outbox.ts";
 import { runKind, runSummary, toolLabel } from "./steps.ts";
@@ -39,6 +40,8 @@ export type ThreadRow = RowBase &
         readonly text: string;
         readonly attachments: ReadonlyArray<Attachment>;
       }
+    /** A Turn the user didn't send, as one quiet line after the Turn before it: idle compaction. */
+    | { readonly kind: "quiet"; readonly text: string }
     /** A steer the Harness took, where it landed in the Turn. */
     | { readonly kind: "steered"; readonly text: string }
     /** A steer or queued follow-up still on its way, or why a steer didn't land. */
@@ -267,8 +270,11 @@ const openRows = (
   const { turn } = entry;
   const rows: Array<ThreadRow> = [];
   let step = 0;
+  const quiet = compactionLine(turn);
 
-  if (turn.prompt.trim() !== "" || turn.attachments.length > 0)
+  if (quiet !== null)
+    rows.push({ kind: "quiet", key: `${turn.id}:q`, turnId: turn.id, text: quiet });
+  else if (turn.prompt.trim() !== "" || turn.attachments.length > 0)
     rows.push({
       kind: "prompt",
       key: `${turn.id}:p`,
@@ -321,7 +327,8 @@ const openRows = (
     segment.run.forEach((one) => place(one, open));
   }
 
-  return withReceipt(entry, grouped(rows));
+  // Idle compaction belongs to the Turn before it: no receipt or Turn menu of its own.
+  return quiet === null ? withReceipt(entry, grouped(rows)) : grouped(rows);
 };
 
 const isGrouped = (row: ThreadRow | undefined) => row?.kind === "step" || row?.kind === "run";
