@@ -3,24 +3,18 @@
  * with its celestial; constellation rows with their task bar (MX-C).
  */
 import { mobileFont } from "@polaris/ui/tokens";
-import { type ReactNode, useMemo } from "react";
+import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Defs, Path, RadialGradient, Rect, Stop } from "react-native-svg";
-import { Celestial, leadStar, sessionCelestial } from "../../celestial";
+import { Celestial, leadStar, sessionCelestial } from "../../celestial/index.tsx";
 import { LongPressMenu } from "../../menus/index.ts";
-import { type MobileColours, useTheme } from "../../theme";
+import { themedStyles, useTheme } from "../../theme/index.ts";
 import { age } from "../model/format.ts";
 import type { ConstellationRow, SessionRow as Row } from "../model/home.ts";
 import type { Reply } from "../model/respond.ts";
 import { type ConstellationProgress, progressLine, sevenSegments } from "../model/taskBar.ts";
 import { NeedsYouPage, type RowMenu, titleOf } from "./NeedsYouCard.tsx";
 import { celestialLook, harnessHue, type MetaTone, metaLine } from "./rowLook.ts";
-
-const useStyles = () => {
-  const { colours } = useTheme();
-
-  return useMemo(() => stylesFor(colours), [colours]);
-};
 
 const WASH_WIDTH = 168;
 
@@ -120,7 +114,7 @@ const Top = ({
   );
 };
 
-const leadStyle = (styles: ReturnType<typeof stylesFor>, tone: MetaTone) =>
+const leadStyle = (styles: ReturnType<typeof useStyles>, tone: MetaTone) =>
   ({ "needs-you": styles.leadNeedsYou, failed: styles.leadFailed, default: styles.leadDefault })[
     tone
   ];
@@ -260,48 +254,47 @@ export const ConstellationListRow = ({
 };
 
 /** Paper MX-I: a 14pt-radius well, 12/14 padding, a 24pt celestial, 16pt titles, mono ages. */
-const stylesFor = (colours: MobileColours) =>
-  StyleSheet.create({
-    well: {
-      backgroundColor: colours.panel,
-      borderColor: colours.hairline,
-      borderWidth: 1,
-      borderRadius: 14,
-      paddingVertical: 12,
-      paddingHorizontal: 14,
-      overflow: "hidden",
-    },
-    pressed: { backgroundColor: colours.raised, transform: [{ scale: 0.985 }] },
-    stale: { opacity: 0.55 },
-    inner: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-    mark: { width: 24, height: 24, alignItems: "center", justifyContent: "center" },
-    text: { flex: 1, minWidth: 0, gap: 2 },
-    top: { flexDirection: "row", alignItems: "center", gap: 10 },
-    title: {
-      flex: 1,
-      fontFamily: mobileFont.sans,
-      fontSize: 16,
-      lineHeight: 21,
-      fontWeight: "500",
-      color: colours.textStrong,
-    },
-    age: {
-      fontFamily: mobileFont.mono,
-      fontSize: 12,
-      lineHeight: 16,
-      color: colours.textSubtle,
-      fontVariant: ["tabular-nums"],
-    },
-    meta: {
-      fontFamily: mobileFont.sans,
-      fontSize: 13,
-      lineHeight: 18,
-      color: colours.textSubtle,
-    },
-    leadNeedsYou: { color: colours.needsYouText, fontWeight: "500" },
-    leadFailed: { color: colours.failedText, fontWeight: "500" },
-    leadDefault: { color: colours.textDefault },
-    progress: { flexDirection: "row", alignItems: "center", gap: 8, height: 18 },
-    bar: { flexDirection: "row", gap: 3 },
-    segment: { width: 14, height: 4, borderRadius: 1 },
-  });
+const useStyles = themedStyles((colours) => ({
+  well: {
+    backgroundColor: colours.panel,
+    borderColor: colours.hairline,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    overflow: "hidden",
+  },
+  pressed: { backgroundColor: colours.raised, transform: [{ scale: 0.985 }] },
+  stale: { opacity: 0.55 },
+  inner: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  mark: { width: 24, height: 24, alignItems: "center", justifyContent: "center" },
+  text: { flex: 1, minWidth: 0, gap: 2 },
+  top: { flexDirection: "row", alignItems: "center", gap: 10 },
+  title: {
+    flex: 1,
+    fontFamily: mobileFont.sans,
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: "500",
+    color: colours.textStrong,
+  },
+  age: {
+    fontFamily: mobileFont.mono,
+    fontSize: 12,
+    lineHeight: 16,
+    color: colours.textSubtle,
+    fontVariant: ["tabular-nums"],
+  },
+  meta: {
+    fontFamily: mobileFont.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colours.textSubtle,
+  },
+  leadNeedsYou: { color: colours.needsYouText, fontWeight: "500" },
+  leadFailed: { color: colours.failedText, fontWeight: "500" },
+  leadDefault: { color: colours.textDefault },
+  progress: { flexDirection: "row", alignItems: "center", gap: 8, height: 18 },
+  bar: { flexDirection: "row", gap: 3 },
+  segment: { width: 14, height: 4, borderRadius: 1 },
+}));

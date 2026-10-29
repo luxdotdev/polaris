@@ -4,10 +4,11 @@
  * line until tapped. A Critical card is always expanded and says Accept waits on it.
  */
 import type { RiskFinding, VerdictReason } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { memo, useState } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, Text, View } from "react-native";
 import thumb from "../../assets/review/thumb.png";
+import { themedStyles, useTheme } from "../theme/index.ts";
 import { findingMeta, VERDICT_REASONS } from "./copy.ts";
 import { isDimmed } from "./model.ts";
 import { SeverityBadge, severityColour, SeverityGlyph, severityText } from "./severity.tsx";
@@ -20,57 +21,71 @@ export interface FindingActions {
   readonly sent: ReadonlySet<string>;
 }
 
-const Thumb = ({ down, onPress }: { readonly down: boolean; readonly onPress: () => void }) => (
-  <Pressable
-    accessibilityRole="button"
-    accessibilityLabel={down ? "Not a problem" : "Useful finding"}
-    hitSlop={6}
-    style={styles.thumb}
-    onPress={onPress}
-  >
-    <Image source={thumb} style={[styles.thumbGlyph, down && styles.down]} />
-  </Pressable>
-);
+const Thumb = ({ down, onPress }: { readonly down: boolean; readonly onPress: () => void }) => {
+  const styles = useStyles();
 
-const Reasons = ({ onPick }: { readonly onPick: (reason: VerdictReason) => void }) => (
-  <View style={styles.reasons}>
-    <Text style={styles.meta}>Why is this not a problem?</Text>
-    <View style={styles.pills}>
-      {VERDICT_REASONS.map(({ reason, label }) => (
-        <Pressable
-          key={reason}
-          accessibilityRole="button"
-          style={styles.pill}
-          onPress={() => onPick(reason)}
-        >
-          <Text style={styles.pillText}>{label}</Text>
-        </Pressable>
-      ))}
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={down ? "Not a problem" : "Useful finding"}
+      hitSlop={6}
+      style={styles.thumb}
+      onPress={onPress}
+    >
+      <Image source={thumb} style={[styles.thumbGlyph, down && styles.down]} />
+    </Pressable>
+  );
+};
+
+const Reasons = ({ onPick }: { readonly onPick: (reason: VerdictReason) => void }) => {
+  const styles = useStyles();
+
+  return (
+    <View style={styles.reasons}>
+      <Text style={styles.meta}>Why is this not a problem?</Text>
+      <View style={styles.pills}>
+        {VERDICT_REASONS.map(({ reason, label }) => (
+          <Pressable
+            key={reason}
+            accessibilityRole="button"
+            style={styles.pill}
+            onPress={() => onPick(reason)}
+          >
+            <Text style={styles.pillText}>{label}</Text>
+          </Pressable>
+        ))}
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
-const Folded = ({ finding, onOpen }: { finding: RiskFinding; onOpen: () => void }) => (
-  <Pressable
-    accessibilityRole="button"
-    style={[styles.folded, isDimmed(finding) && styles.dimmed]}
-    onPress={onOpen}
-  >
-    <SeverityBadge severity={finding.severity} />
-    <Text style={styles.foldedTitle} numberOfLines={1}>
-      {finding.title}
-    </Text>
-    <Text style={styles.meta}>{findingMeta(finding)}</Text>
-  </Pressable>
-);
+const Folded = ({ finding, onOpen }: { finding: RiskFinding; onOpen: () => void }) => {
+  const styles = useStyles();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      style={[styles.folded, isDimmed(finding) && styles.dimmed]}
+      onPress={onOpen}
+    >
+      <SeverityBadge severity={finding.severity} />
+      <Text style={styles.foldedTitle} numberOfLines={1}>
+        {finding.title}
+      </Text>
+      <Text style={styles.meta}>{findingMeta(finding)}</Text>
+    </Pressable>
+  );
+};
 
 const Card = ({ finding, actions }: { finding: RiskFinding; actions: FindingActions }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
   const [asking, setAsking] = useState(false);
   const critical = finding.severity === "critical";
   const sent = actions.sent.has(finding.id);
 
   return (
-    <View style={[styles.card, { borderLeftColor: severityColour[finding.severity] }]}>
+    <View style={[styles.card, { borderLeftColor: severityColour(colours, finding.severity) }]}>
       <View style={styles.titleRow}>
         <Text style={styles.title}>{finding.title}</Text>
         <Text style={styles.meta}>{findingMeta(finding)}</Text>
@@ -79,7 +94,7 @@ const Card = ({ finding, actions }: { finding: RiskFinding; actions: FindingActi
       {critical ? (
         <View style={styles.pausedLine}>
           <SeverityGlyph severity="critical" size={8} />
-          <Text style={[styles.meta, { color: severityText.critical }]}>
+          <Text style={[styles.meta, { color: severityText(colours, "critical") }]}>
             {finding.status === "dismissed"
               ? "Dismissed, and still listed: nothing hides a critical finding."
               : "Accept is paused until this is fixed or dismissed."}
@@ -131,7 +146,7 @@ export const FindingRowView = memo(function FindingRowView({
   return <Card finding={finding} actions={actions} />;
 });
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((colours) => ({
   card: {
     borderLeftWidth: 2,
     paddingTop: 14,
@@ -141,13 +156,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   titleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  title: { ...mobileType.label, fontSize: 15, lineHeight: 20, color: midnight.textStrong, flex: 1 },
+  title: { ...mobileType.label, fontSize: 15, lineHeight: 20, color: colours.textStrong, flex: 1 },
   meta: {
     ...mobileType.index,
     fontFamily: mobileType.footnote.fontFamily,
-    color: midnight.textSubtle,
+    color: colours.textSubtle,
   },
-  reason: { ...mobileType.subhead, lineHeight: 20, color: midnight.textDefault },
+  reason: { ...mobileType.subhead, lineHeight: 20, color: colours.textDefault },
   pausedLine: { flexDirection: "row", alignItems: "center", gap: 6 },
   actions: { flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 2 },
   primary: {
@@ -155,11 +170,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 999,
     justifyContent: "center",
-    backgroundColor: midnight.textStrong,
+    backgroundColor: colours.textStrong,
   },
-  primarySent: { backgroundColor: midnight.surfaceRaised },
-  primaryText: { ...mobileType.subhead, fontWeight: "500", color: midnight.bg },
-  sentText: { color: midnight.textSubtle },
+  primarySent: { backgroundColor: colours.raised },
+  primaryText: { ...mobileType.subhead, fontWeight: "500", color: colours.ground },
+  sentText: { color: colours.textSubtle },
   spacer: { flex: 1 },
   thumb: {
     width: 34,
@@ -168,7 +183,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  thumbGlyph: { width: 16, height: 16, tintColor: midnight.textSubtle },
+  thumbGlyph: { width: 16, height: 16, tintColor: colours.textSubtle },
   down: { transform: [{ rotate: "180deg" }] },
   reasons: { gap: 8, paddingTop: 4 },
   pills: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
@@ -178,10 +193,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: midnight.hairline,
-    backgroundColor: midnight.surfaceSunken,
+    borderColor: colours.hairline,
+    backgroundColor: colours.panel,
   },
-  pillText: { ...mobileType.footnote, color: midnight.textDefault },
+  pillText: { ...mobileType.footnote, color: colours.textDefault },
   folded: {
     flexDirection: "row",
     alignItems: "center",
@@ -189,6 +204,6 @@ const styles = StyleSheet.create({
     minHeight: 40,
     paddingHorizontal: 20,
   },
-  foldedTitle: { ...mobileType.footnote, color: midnight.textDefault, flex: 1 },
+  foldedTitle: { ...mobileType.footnote, color: colours.textDefault, flex: 1 },
   dimmed: { opacity: 0.55 },
-});
+}));

@@ -4,7 +4,7 @@
  */
 import { View } from "react-native";
 import Svg, { Path } from "react-native-svg";
-import { useTheme } from "../../theme";
+import { useTheme } from "../../theme/index.ts";
 
 type Rect = readonly [x: number, y: number, width: number, height: number, alpha?: number];
 

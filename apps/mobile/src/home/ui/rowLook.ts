@@ -3,7 +3,7 @@
  * name, and how its celestial looks in each Session State.
  */
 import type { SessionState } from "@polaris/protocol";
-import type { MobileColours } from "../../theme";
+import type { MobileColours } from "../../theme/index.ts";
 import type { SessionRow } from "../model/home.ts";
 import { approvalDetail, askLine, hasUnreviewedTurns, quickQuestion } from "../model/lines.ts";
 

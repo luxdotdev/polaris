@@ -3,12 +3,11 @@
  * the agent session, what it asks, and its answer controls. The frame around it is the caller's.
  */
 import { mobileFont } from "@polaris/ui/tokens";
-import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Celestial, sessionCelestial } from "../../celestial";
+import { Pressable, Text, View } from "react-native";
+import { Celestial, sessionCelestial } from "../../celestial/index.tsx";
 import { LongPressMenu, type Menu, type MenuAction } from "../../menus/index.ts";
 import { useHost } from "../../runtime/hosts.tsx";
-import { type MobileColours, useTheme } from "../../theme";
+import { themedStyles } from "../../theme/index.ts";
 import { age } from "../model/format.ts";
 import { type SessionRow, whereLine } from "../model/home.ts";
 import { type Reply, respond } from "../model/respond.ts";
@@ -32,8 +31,7 @@ export const titleOf = (title: string) => (title.trim() === "" ? "Untitled agent
 
 /** The page with its replies sent through `onReply`. */
 export const NeedsYouPage = ({ item, now, onOpen, onReply, menu }: NeedsYouPageProps) => {
-  const { colours } = useTheme();
-  const styles = useMemo(() => stylesFor(colours), [colours]);
+  const styles = useStyles();
 
   const head = (
     <Pressable
@@ -104,35 +102,34 @@ export const NeedsYouCard = ({ item, hostId, now, onOpen, menu }: NeedsYouCardPr
   return <NeedsYouPage item={item} now={now} onOpen={onOpen} onReply={onReply} menu={menu} />;
 };
 
-const stylesFor = (colours: MobileColours) =>
-  StyleSheet.create({
-    page: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 2 },
-    stale: { opacity: 0.55 },
-    mark: { width: 24, height: 24, alignItems: "center", justifyContent: "center" },
-    text: { flex: 1, minWidth: 0 },
-    head: { gap: 2 },
-    pressed: { opacity: 0.7 },
-    top: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
-    title: {
-      flex: 1,
-      fontFamily: mobileFont.sans,
-      fontSize: 16,
-      lineHeight: 21,
-      fontWeight: "500",
-      color: colours.textStrong,
-    },
-    age: {
-      fontFamily: mobileFont.mono,
-      fontSize: 12,
-      lineHeight: 16,
-      paddingTop: 2,
-      color: colours.textSubtle,
-      fontVariant: ["tabular-nums"],
-    },
-    where: {
-      fontFamily: mobileFont.sans,
-      fontSize: 13,
-      lineHeight: 18,
-      color: colours.textSubtle,
-    },
-  });
+const useStyles = themedStyles((colours) => ({
+  page: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 2 },
+  stale: { opacity: 0.55 },
+  mark: { width: 24, height: 24, alignItems: "center", justifyContent: "center" },
+  text: { flex: 1, minWidth: 0 },
+  head: { gap: 2 },
+  pressed: { opacity: 0.7 },
+  top: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  title: {
+    flex: 1,
+    fontFamily: mobileFont.sans,
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: "500",
+    color: colours.textStrong,
+  },
+  age: {
+    fontFamily: mobileFont.mono,
+    fontSize: 12,
+    lineHeight: 16,
+    paddingTop: 2,
+    color: colours.textSubtle,
+    fontVariant: ["tabular-nums"],
+  },
+  where: {
+    fontFamily: mobileFont.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colours.textSubtle,
+  },
+}));

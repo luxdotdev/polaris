@@ -1,29 +1,30 @@
 /** The floating tab bar and New (Paper H4): Sessions, Review, Hosts, and New beside them. */
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { type MobileColours, themedStyles, useTheme } from "../theme/index.ts";
 
 export type Tab = "sessions" | "review" | "hosts";
 
 const SessionsIcon = ({ color }: { readonly color: string }) => (
-  <View style={styles.icon}>
-    <View style={[styles.line, { top: 4, width: 14, backgroundColor: color }]} />
-    <View style={[styles.line, { top: 9, width: 14, backgroundColor: color }]} />
-    <View style={[styles.line, { top: 14, width: 9, backgroundColor: color }]} />
+  <View style={iconStyles.icon}>
+    <View style={[iconStyles.line, { top: 4, width: 14, backgroundColor: color }]} />
+    <View style={[iconStyles.line, { top: 9, width: 14, backgroundColor: color }]} />
+    <View style={[iconStyles.line, { top: 14, width: 9, backgroundColor: color }]} />
   </View>
 );
 
 const ReviewIcon = ({ color }: { readonly color: string }) => (
-  <View style={styles.icon}>
-    <View style={[styles.bubble, { borderColor: color }]} />
-    <View style={[styles.tail, { backgroundColor: color }]} />
+  <View style={iconStyles.icon}>
+    <View style={[iconStyles.bubble, { borderColor: color }]} />
+    <View style={[iconStyles.tail, { backgroundColor: color }]} />
   </View>
 );
 
 const HostsIcon = ({ color }: { readonly color: string }) => (
-  <View style={styles.icon}>
+  <View style={iconStyles.icon}>
     {[4, 11].map((top) => (
-      <View key={top} style={[styles.server, { top, borderColor: color }]}>
-        <View style={[styles.led, { backgroundColor: color }]} />
+      <View key={top} style={[iconStyles.server, { top, borderColor: color }]}>
+        <View style={[iconStyles.led, { backgroundColor: color }]} />
       </View>
     ))}
   </View>
@@ -51,49 +52,55 @@ export const TabBar = ({
   readonly bottom: number;
   readonly onSelect: (tab: Tab) => void;
   readonly onNew: () => void;
-}) => (
-  <View style={[styles.row, { bottom }]} pointerEvents="box-none">
-    <View style={styles.bar} accessibilityRole="tablist">
-      {TABS.map(({ tab, label, Icon }) => {
-        const selected = tab === active;
-        const color = selected ? midnight.textStrong : midnight.textSubtle;
+}) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
 
-        return (
-          <Pressable
-            key={tab}
-            accessibilityRole="tab"
-            accessibilityState={{ selected }}
-            onPress={() => onSelect(tab)}
-            style={[styles.tab, selected ? styles.tabActive : null]}
-          >
-            <Icon color={color} />
-            <Text style={[styles.label, { color }]}>
-              {tab === "review" && reviewCount > 0 ? `${label} · ${reviewCount}` : label}
-            </Text>
-          </Pressable>
-        );
-      })}
+  return (
+    <View style={[styles.row, { bottom }]} pointerEvents="box-none">
+      <View style={styles.bar} accessibilityRole="tablist">
+        {TABS.map(({ tab, label, Icon }) => {
+          const selected = tab === active;
+          const color = selected ? colours.textStrong : colours.textSubtle;
+
+          return (
+            <Pressable
+              key={tab}
+              accessibilityRole="tab"
+              accessibilityState={{ selected }}
+              onPress={() => onSelect(tab)}
+              style={[styles.tab, selected ? styles.tabActive : null]}
+            >
+              <Icon color={color} />
+              <Text style={[styles.label, { color }]}>
+                {tab === "review" && reviewCount > 0 ? `${label} · ${reviewCount}` : label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="New agent session"
+        onPress={onNew}
+        style={styles.new}
+      >
+        <View style={[styles.plus, { width: 15, height: 1.5 }]} />
+        <View style={[styles.plus, { width: 1.5, height: 15 }]} />
+      </Pressable>
     </View>
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="New agent session"
-      onPress={onNew}
-      style={styles.new}
-    >
-      <View style={[styles.plus, { width: 15, height: 1.5 }]} />
-      <View style={[styles.plus, { width: 1.5, height: 15 }]} />
-    </Pressable>
-  </View>
-);
+  );
+};
 
-const glass = {
-  backgroundColor: "#0a0b0dd9",
-  borderWidth: 1,
-  borderColor: midnight.hairline,
-  borderRadius: 999,
-} as const;
+const glassOf = (colours: MobileColours) =>
+  ({
+    backgroundColor: "#0a0b0dd9",
+    borderWidth: 1,
+    borderColor: colours.hairline,
+    borderRadius: 999,
+  }) as const;
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((colours) => ({
   row: {
     position: "absolute",
     left: 20,
@@ -102,7 +109,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
-  bar: { ...glass, flex: 1, height: 58, padding: 4, flexDirection: "row" },
+  bar: { ...glassOf(colours), flex: 1, height: 58, padding: 4, flexDirection: "row" },
   tab: {
     flex: 1,
     height: 50,
@@ -113,8 +120,17 @@ const styles = StyleSheet.create({
   },
   tabActive: { backgroundColor: "#ffffff12" },
   label: { ...mobileType.tab },
-  new: { ...glass, width: 58, height: 58, alignItems: "center", justifyContent: "center" },
-  plus: { position: "absolute", borderRadius: 1, backgroundColor: midnight.textStrong },
+  new: {
+    ...glassOf(colours),
+    width: 58,
+    height: 58,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  plus: { position: "absolute", borderRadius: 1, backgroundColor: colours.textStrong },
+}));
+
+const iconStyles = StyleSheet.create({
   icon: { width: 20, height: 20 },
   line: { position: "absolute", left: 3, height: 3, borderRadius: 1 },
   bubble: {

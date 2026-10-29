@@ -9,7 +9,7 @@ import { Predicate } from "effect";
 import { type ReactNode, useEffect } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useTheme } from "../../theme";
+import { useTheme } from "../../theme/index.ts";
 import {
   commandApproval,
   constellation,

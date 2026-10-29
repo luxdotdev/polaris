@@ -1,7 +1,7 @@
 /** The header's needs you badge (Paper MX-C): the star and the count; it opens the inbox. */
 import { mobileFont } from "@polaris/ui/tokens";
 import { Pressable, Text } from "react-native";
-import { useTheme } from "../../theme";
+import { useTheme } from "../../theme/index.ts";
 import { NeedsYouStar } from "./glyphs.tsx";
 import { badgeCount } from "./rowLook.ts";
 

@@ -2,15 +2,16 @@
  * The Review tab (Paper H4): every Host's agent sessions ready to review, newest first; a row
  * opens Review of its latest ended Turn. Empty, it says why.
  */
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { Match } from "effect";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { homeHostsOf, useFollowedHosts } from "../home/feed/useFollowedHosts.ts";
 import { useSettledHosts } from "../home/feed/settled.ts";
 import { SessionListRow } from "../home/ui/rows.tsx";
 import { LongPressMenu, sessionMenu, useMenuActions } from "../menus/index.ts";
+import { themedStyles } from "../theme/index.ts";
 import { type ReadyEmpty, type ReadyToReview, readyToReview } from "./ready.ts";
 
 /** The agent sessions ready to review across the followed Hosts. */
@@ -44,6 +45,8 @@ const Empty = ({
   readonly onLink: () => void;
   readonly onHosts: () => void;
 }) => {
+  const styles = useStyles();
+
   const copy = Match.value(empty).pipe(
     Match.when("no-hosts", () => ({
       title: "No hosts yet",
@@ -87,6 +90,7 @@ export const ReviewTab = ({
   readonly onLink: () => void;
   readonly onHosts: () => void;
 }) => {
+  const styles = useStyles();
   const insets = useSafeAreaInsets();
   const ready = useReadyToReview();
   const now = useNow();
@@ -118,20 +122,20 @@ export const ReviewTab = ({
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: midnight.bg },
-  large: { ...mobileType.largeTitle, color: midnight.textStrong, paddingHorizontal: 20 },
+const useStyles = themedStyles((colours) => ({
+  screen: { flex: 1, backgroundColor: colours.ground },
+  large: { ...mobileType.largeTitle, color: colours.textStrong, paddingHorizontal: 20 },
   list: { flex: 1, paddingHorizontal: 20, paddingTop: 12 },
   empty: {
     borderTopWidth: 1,
-    borderTopColor: midnight.hairline,
+    borderTopColor: colours.hairline,
     marginHorizontal: 20,
     marginTop: 12,
     paddingTop: 28,
     gap: 8,
   },
-  emptyTitle: { ...mobileType.title, color: midnight.textStrong },
-  body: { ...mobileType.callout, color: midnight.textSubtle, maxWidth: 320 },
+  emptyTitle: { ...mobileType.title, color: colours.textStrong },
+  body: { ...mobileType.callout, color: colours.textSubtle, maxWidth: 320 },
   action: {
     alignSelf: "flex-start",
     marginTop: 8,
@@ -142,5 +146,5 @@ const styles = StyleSheet.create({
     borderColor: "#ffffff1f",
     justifyContent: "center",
   },
-  actionLabel: { ...mobileType.label, color: midnight.textDefault },
-});
+  actionLabel: { ...mobileType.label, color: colours.textDefault },
+}));

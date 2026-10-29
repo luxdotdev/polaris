@@ -4,9 +4,9 @@
  */
 import type { ApprovalRequest } from "@polaris/protocol";
 import { mobileFont } from "@polaris/ui/tokens";
-import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { type MobileColours, useTheme } from "../../theme";
+import { useState } from "react";
+import { Pressable, Text, TextInput, View } from "react-native";
+import { themedStyles, useTheme } from "../../theme/index.ts";
 import { approvalDetail, askLine, quickQuestion } from "../model/lines.ts";
 import { haptics } from "../../motion/index.ts";
 import type { Reply } from "../model/respond.ts";
@@ -38,12 +38,6 @@ const useSend = (onReply: ApprovalActionsProps["onReply"]) => {
   };
 
   return { sending, send };
-};
-
-const useStyles = () => {
-  const { colours } = useTheme();
-
-  return useMemo(() => stylesFor(colours), [colours]);
 };
 
 const Failed = ({ sending }: { readonly sending: Sending }) =>
@@ -203,78 +197,77 @@ export const ApprovalActions = (props: ApprovalActionsProps) =>
   props.approval.kind === "question" ? <Question {...props} /> : <Permission {...props} />;
 
 /** Paper MX-C's approval block: 14pt medium controls, 34pt pills, the command in a ground well. */
-const stylesFor = (colours: MobileColours) =>
-  StyleSheet.create({
-    block: { gap: 8, paddingTop: 8 },
-    ask: {
-      fontFamily: mobileFont.sans,
-      fontSize: 14,
-      lineHeight: 18,
-      fontWeight: "500",
-      color: colours.needsYouText,
-    },
-    command: {
-      backgroundColor: colours.ground,
-      borderColor: colours.hairline,
-      borderWidth: 1,
-      borderRadius: 10,
-      paddingVertical: 9,
-      paddingHorizontal: 12,
-    },
-    commandText: {
-      fontFamily: mobileFont.mono,
-      fontSize: 13,
-      lineHeight: 18,
-      color: colours.textDefault,
-    },
-    buttons: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 2 },
-    wrap: { flexWrap: "wrap" },
-    waiting: { opacity: 0.55 },
-    button: {
-      height: 34,
-      paddingHorizontal: 15,
-      borderRadius: 999,
-      alignItems: "center",
-      justifyContent: "center",
-      maxWidth: "100%",
-    },
-    filled: { backgroundColor: colours.textStrong },
-    outlined: {
-      backgroundColor: colours.raised,
-      borderColor: colours.hairline,
-      borderWidth: 1,
-    },
-    pressed: { opacity: 0.8, transform: [{ scale: 0.97 }] },
-    label: {
-      fontFamily: mobileFont.sans,
-      fontSize: 14,
-      lineHeight: 18,
-      fontWeight: "500",
-      color: colours.textDefault,
-    },
-    filledLabel: { color: colours.panel },
-    quietLabel: { color: colours.textSubtle },
-    question: {
-      fontFamily: mobileFont.sans,
-      fontSize: 14,
-      lineHeight: 19,
-      color: colours.textDefault,
-    },
-    reply: {
-      fontFamily: mobileFont.sans,
-      fontSize: 15,
-      lineHeight: 21,
-      color: colours.textStrong,
-      borderWidth: 1,
-      borderColor: colours.hairline,
-      borderRadius: 18,
-      paddingHorizontal: 14,
-      paddingVertical: 7,
-    },
-    failed: {
-      fontFamily: mobileFont.sans,
-      fontSize: 13,
-      lineHeight: 18,
-      color: colours.failedText,
-    },
-  });
+const useStyles = themedStyles((colours) => ({
+  block: { gap: 8, paddingTop: 8 },
+  ask: {
+    fontFamily: mobileFont.sans,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: "500",
+    color: colours.needsYouText,
+  },
+  command: {
+    backgroundColor: colours.ground,
+    borderColor: colours.hairline,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+  },
+  commandText: {
+    fontFamily: mobileFont.mono,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colours.textDefault,
+  },
+  buttons: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 2 },
+  wrap: { flexWrap: "wrap" },
+  waiting: { opacity: 0.55 },
+  button: {
+    height: 34,
+    paddingHorizontal: 15,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    maxWidth: "100%",
+  },
+  filled: { backgroundColor: colours.textStrong },
+  outlined: {
+    backgroundColor: colours.raised,
+    borderColor: colours.hairline,
+    borderWidth: 1,
+  },
+  pressed: { opacity: 0.8, transform: [{ scale: 0.97 }] },
+  label: {
+    fontFamily: mobileFont.sans,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: "500",
+    color: colours.textDefault,
+  },
+  filledLabel: { color: colours.panel },
+  quietLabel: { color: colours.textSubtle },
+  question: {
+    fontFamily: mobileFont.sans,
+    fontSize: 14,
+    lineHeight: 19,
+    color: colours.textDefault,
+  },
+  reply: {
+    fontFamily: mobileFont.sans,
+    fontSize: 15,
+    lineHeight: 21,
+    color: colours.textStrong,
+    borderWidth: 1,
+    borderColor: colours.hairline,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  failed: {
+    fontFamily: mobileFont.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colours.failedText,
+  },
+}));

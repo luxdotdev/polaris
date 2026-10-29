@@ -4,7 +4,7 @@
  * `ReviewScreen` feeds it from a Host, the diff bench from a fixture.
  */
 import type { RiskFinding, RiskSummary, VerdictReason } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { type Ref, useCallback, useMemo, useState } from "react";
 import {
   type FlatList,
@@ -19,6 +19,7 @@ import {
 } from "react-native";
 import polarisMark from "../../assets/review/polaris.png";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { themedStyles, useTheme } from "../theme/index.ts";
 import { ActionBar } from "./ActionBar.tsx";
 import { summaryCaption } from "./copy.ts";
 import { DiffList } from "./DiffList.tsx";
@@ -59,30 +60,38 @@ export interface ReviewViewProps {
   readonly onScroll?: ((event: NativeSyntheticEvent<NativeScrollEvent>) => void) | undefined;
 }
 
-const Segments = ({ value, onChange }: { value: FileOrder; onChange: (v: FileOrder) => void }) => (
-  <View style={styles.segments}>
-    {(["risk", "path"] as const).map((order) => (
-      <Pressable
-        key={order}
-        accessibilityRole="tab"
-        accessibilityState={{ selected: value === order }}
-        style={[styles.segment, value === order && styles.segmentOn]}
-        onPress={() => onChange(order)}
-      >
-        <Text style={[styles.segmentText, value === order && styles.segmentTextOn]}>
-          {order === "risk" ? "Risk" : "Files"}
-        </Text>
-      </Pressable>
-    ))}
-  </View>
-);
+const Segments = ({ value, onChange }: { value: FileOrder; onChange: (v: FileOrder) => void }) => {
+  const styles = useStyles();
+
+  return (
+    <View style={styles.segments}>
+      {(["risk", "path"] as const).map((order) => (
+        <Pressable
+          key={order}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: value === order }}
+          style={[styles.segment, value === order && styles.segmentOn]}
+          onPress={() => onChange(order)}
+        >
+          <Text style={[styles.segmentText, value === order && styles.segmentTextOn]}>
+            {order === "risk" ? "Risk" : "Files"}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+};
 
 /** The Starlight-washed Polaris tile with the pixel north-star (DESIGN.md: the reviewer is Polaris). */
-const PolarisTile = () => (
-  <View style={styles.tile}>
-    <Image source={polarisMark} style={styles.mark} />
-  </View>
-);
+const PolarisTile = () => {
+  const styles = useStyles();
+
+  return (
+    <View style={styles.tile}>
+      <Image source={polarisMark} style={styles.mark} />
+    </View>
+  );
+};
 
 const Header = ({
   props,
@@ -93,9 +102,11 @@ const Header = ({
   order: FileOrder;
   onOrder: (o: FileOrder) => void;
 }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
   const added = props.files?.reduce((n, f) => n + f.added, 0) ?? 0;
   const removed = props.files?.reduce((n, f) => n + f.removed, 0) ?? 0;
-  const palette = diffPalette(props.colourblind);
+  const palette = diffPalette(colours, props.colourblind);
   const count = props.files?.length ?? 0;
 
   return (
@@ -126,6 +137,7 @@ const Header = ({
 };
 
 const Summary = ({ props }: { props: ReviewViewProps }) => {
+  const styles = useStyles();
   const findings = props.summary?.findings ?? [];
 
   return (
@@ -145,6 +157,10 @@ const Summary = ({ props }: { props: ReviewViewProps }) => {
 };
 
 export const ReviewView = (props: ReviewViewProps) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
+  const { colourblind } = props;
+  const palette = useMemo(() => diffPalette(colours, colourblind), [colours, colourblind]);
   const insets = useSafeAreaInsets();
   const [order, setOrder] = useState<FileOrder>("risk");
   const findings = useMemo(() => props.summary?.findings ?? [], [props.summary]);
@@ -197,7 +213,7 @@ export const ReviewView = (props: ReviewViewProps) => {
       <DiffList
         ref={props.listRef}
         rows={rows}
-        palette={diffPalette(props.colourblind)}
+        palette={palette}
         expanded={expanded}
         actions={actions}
         onToggleFile={onToggleFile}
@@ -217,8 +233,8 @@ export const ReviewView = (props: ReviewViewProps) => {
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: midnight.bg },
+const useStyles = themedStyles((colours) => ({
+  screen: { flex: 1, backgroundColor: colours.ground },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -234,15 +250,15 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: midnight.surfaceSunken,
+    backgroundColor: colours.panel,
     borderWidth: 1,
-    borderColor: midnight.hairline,
+    borderColor: colours.hairline,
   },
-  backArrow: { ...mobileType.title, fontSize: 24, color: midnight.textDefault },
+  backArrow: { ...mobileType.title, fontSize: 24, color: colours.textDefault },
   titles: { flex: 1, gap: 2, minWidth: 0 },
-  title: { ...mobileType.title, color: midnight.textStrong },
+  title: { ...mobileType.title, color: colours.textStrong },
   subtitle: { flexDirection: "row", gap: 6 },
-  meta: { ...mobileType.footnote, lineHeight: 16, color: midnight.textSubtle, flexShrink: 1 },
+  meta: { ...mobileType.footnote, lineHeight: 16, color: colours.textSubtle, flexShrink: 1 },
   segments: {
     flexDirection: "row",
     alignItems: "center",
@@ -250,32 +266,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: midnight.hairline,
-    backgroundColor: midnight.surfaceSunken,
+    borderColor: colours.hairline,
+    backgroundColor: colours.panel,
   },
   segment: { height: 28, paddingHorizontal: 10, borderRadius: 999, justifyContent: "center" },
-  segmentOn: { backgroundColor: midnight.surfaceRaised },
-  segmentText: { ...mobileType.footnote, fontWeight: "500", color: midnight.textSubtle },
-  segmentTextOn: { color: midnight.textStrong },
+  segmentOn: { backgroundColor: colours.raised },
+  segmentText: { ...mobileType.footnote, fontWeight: "500", color: colours.textSubtle },
+  segmentTextOn: { color: colours.textStrong },
   summary: {
     gap: 12,
     paddingTop: 4,
     paddingBottom: 14,
     paddingHorizontal: 20,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: midnight.hairline,
+    borderBottomColor: colours.hairline,
   },
   summaryRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  summaryTitle: { ...mobileType.heading, lineHeight: 20, color: midnight.textStrong },
+  summaryTitle: { ...mobileType.heading, lineHeight: 20, color: colours.textStrong },
   tile: {
     width: 36,
     height: 36,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: `${midnight.starlight}38`,
-    backgroundColor: `${midnight.starlight}1f`,
+    borderColor: `${colours.starlight}38`,
+    backgroundColor: `${colours.starlight}1f`,
     alignItems: "center",
     justifyContent: "center",
   },
   mark: { width: 16, height: 16 },
-});
+}));

@@ -4,7 +4,7 @@
  * night. "Reply…" opens that agent session as the laptop (D7) in place.
  */
 import type { ApprovalRequest } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { harnessHue } from "../constellation/glyphs.tsx";
@@ -18,6 +18,7 @@ import { type Reply, respond } from "../home/model/respond.ts";
 import { Horizon } from "../home/ui/Horizon.tsx";
 import { NeedsYouMark } from "../home/ui/glyphs.tsx";
 import { useHosts } from "../runtime/hosts.tsx";
+import { themedStyles, useTheme } from "../theme/index.ts";
 import { isNight, skyLine, type Star, starsOf, targetsOf } from "./monitor.ts";
 import type { Rect } from "./posture.ts";
 
@@ -48,27 +49,37 @@ const clock = (now: Date) => {
   return `${hours}:${String(now.getMinutes()).padStart(2, "0")}`;
 };
 
-const StarView = ({ star, sky }: { readonly star: Star; readonly sky: Rect }) => (
-  <View style={[styles.star, { left: star.x * sky.width, top: 150 + star.y * (sky.height - 270) }]}>
-    {star.tone === "needs-you" ? (
-      <NeedsYouMark />
-    ) : (
-      <View style={styles.halo}>
-        <Dither color={harnessHue(star.harness)} size={22} moving />
-        <View style={[styles.core, { backgroundColor: harnessHue(star.harness) }]} />
-      </View>
-    )}
-    <Text
-      style={[
-        styles.starLabel,
-        { color: star.tone === "needs-you" ? midnight.needsYouText : harnessHue(star.harness) },
-      ]}
-      numberOfLines={1}
+const StarView = ({ star, sky }: { readonly star: Star; readonly sky: Rect }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
+
+  return (
+    <View
+      style={[styles.star, { left: star.x * sky.width, top: 150 + star.y * (sky.height - 270) }]}
     >
-      {star.label}
-    </Text>
-  </View>
-);
+      {star.tone === "needs-you" ? (
+        <NeedsYouMark />
+      ) : (
+        <View style={styles.halo}>
+          <Dither color={harnessHue(colours, star.harness)} size={22} moving />
+          <View style={[styles.core, { backgroundColor: harnessHue(colours, star.harness) }]} />
+        </View>
+      )}
+      <Text
+        style={[
+          styles.starLabel,
+          {
+            color:
+              star.tone === "needs-you" ? colours.needsYouText : harnessHue(colours, star.harness),
+          },
+        ]}
+        numberOfLines={1}
+      >
+        {star.label}
+      </Text>
+    </View>
+  );
+};
 
 const Sky = ({
   rect,
@@ -80,24 +91,29 @@ const Sky = ({
   readonly stars: ReadonlyArray<Star>;
   readonly now: Date;
   readonly line: ReturnType<typeof skyLine>;
-}) => (
-  <View style={[styles.sky, { height: rect.height }]}>
-    <View style={styles.dusk} />
-    <Horizon hour={now.getHours()} />
-    <Text style={styles.time} accessibilityRole="header">
-      {clock(now)}
-    </Text>
-    <Text style={styles.line}>
-      {line.working}
-      {line.working !== "" && line.needsYou !== "" ? " · " : ""}
-      <Text style={{ color: midnight.needsYouText }}>{line.needsYou}</Text>
-      {line.working === "" && line.needsYou === "" ? "Nothing needs you" : ""}
-    </Text>
-    {stars.map((star) => (
-      <StarView key={star.key} star={star} sky={rect} />
-    ))}
-  </View>
-);
+}) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
+
+  return (
+    <View style={[styles.sky, { height: rect.height }]}>
+      <View style={styles.dusk} />
+      <Horizon hour={now.getHours()} />
+      <Text style={styles.time} accessibilityRole="header">
+        {clock(now)}
+      </Text>
+      <Text style={styles.line}>
+        {line.working}
+        {line.working !== "" && line.needsYou !== "" ? " · " : ""}
+        <Text style={{ color: colours.needsYouText }}>{line.needsYou}</Text>
+        {line.working === "" && line.needsYou === "" ? "Nothing needs you" : ""}
+      </Text>
+      {stars.map((star) => (
+        <StarView key={star.key} star={star} sky={rect} />
+      ))}
+    </View>
+  );
+};
 
 type Send = (row: SessionRow, approval: ApprovalRequest, reply: Reply) => Promise<void>;
 
@@ -112,6 +128,7 @@ const Buttons = ({
   readonly send: Send;
   readonly onReply: () => void;
 }) => {
+  const styles = useStyles();
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const live = !row.stale && !busy;
@@ -196,6 +213,8 @@ const Target = ({
   readonly send: Send;
   readonly onReply: (row: SessionRow) => void;
 }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
   const approval = row.approval;
 
   if (approval === null) return null;
@@ -215,12 +234,12 @@ const Target = ({
       </View>
       {approval.kind === "question" ? (
         <Text style={styles.ask}>
-          <Text style={{ color: midnight.needsYouText }}>{askLine(approval)} </Text>
+          <Text style={{ color: colours.needsYouText }}>{askLine(approval)} </Text>
           <Text style={styles.askText}>{quick?.text ?? approval.title}</Text>
         </Text>
       ) : (
         <View style={styles.permission}>
-          <Text style={[styles.ask, { color: midnight.needsYouText }]}>{askLine(approval)}</Text>
+          <Text style={[styles.ask, { color: colours.needsYouText }]}>{askLine(approval)}</Text>
           {/* Never clipped: what Approve allows is shown whole; a longer one goes to Reply…. */}
           {detail === null ? null : <Text style={styles.command}>{detail.text}</Text>}
         </View>
@@ -238,6 +257,7 @@ export interface MonitorProps {
 }
 
 export const Monitor = ({ top, bottom, division, onReply }: MonitorProps) => {
+  const styles = useStyles();
   const hosts = useFollowedHosts();
   const connections = useHosts();
   const now = useMinute();
@@ -282,8 +302,8 @@ export const Monitor = ({ top, bottom, division, onReply }: MonitorProps) => {
   );
 };
 
-const styles = StyleSheet.create({
-  monitor: { flex: 1, backgroundColor: midnight.bg },
+const useStyles = themedStyles((colours) => ({
+  monitor: { flex: 1, backgroundColor: colours.ground },
   sky: { overflow: "hidden", backgroundColor: "#03050c" },
   dusk: {
     position: "absolute",
@@ -300,27 +320,27 @@ const styles = StyleSheet.create({
     fontSize: 96,
     lineHeight: 104,
     fontWeight: "200",
-    color: midnight.textStrong,
+    color: colours.textStrong,
     fontVariant: ["tabular-nums"],
   },
-  line: { ...mobileType.subhead, alignSelf: "center", color: midnight.textDefault, marginTop: 4 },
+  line: { ...mobileType.subhead, alignSelf: "center", color: colours.textDefault, marginTop: 4 },
   star: { position: "absolute", flexDirection: "row", alignItems: "center", gap: 8 },
   halo: { width: 22, height: 22, alignItems: "center", justifyContent: "center" },
   core: { position: "absolute", width: 4, height: 4 },
   starLabel: { ...mobileType.index, maxWidth: 180 },
   night: { opacity: 0.55 },
   bottom: { paddingHorizontal: 28, paddingTop: 40, paddingBottom: 32 },
-  calm: { ...mobileType.callout, color: midnight.textSubtle, alignSelf: "center", paddingTop: 80 },
+  calm: { ...mobileType.callout, color: colours.textSubtle, alignSelf: "center", paddingTop: 80 },
   item: { gap: 12, paddingVertical: 20 },
-  divided: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: midnight.hairline },
+  divided: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colours.hairline },
   titleLine: { flexDirection: "row", alignItems: "baseline", gap: 18 },
-  index: { ...mobileType.index, color: midnight.textFaint, width: 16 },
-  title: { ...mobileType.title, fontSize: 19, color: midnight.textStrong, flex: 1 },
-  meta: { ...mobileType.footnote, color: midnight.textFaint },
+  index: { ...mobileType.index, color: colours.textFaint, width: 16 },
+  title: { ...mobileType.title, fontSize: 19, color: colours.textStrong, flex: 1 },
+  meta: { ...mobileType.footnote, color: colours.textFaint },
   ask: { ...mobileType.callout, paddingLeft: 34 },
-  askText: { color: midnight.textDefault },
+  askText: { color: colours.textDefault },
   permission: { gap: 4 },
-  command: { ...mobileType.command, color: midnight.textDefault, paddingLeft: 34 },
+  command: { ...mobileType.command, color: colours.textDefault, paddingLeft: 34 },
   targets: { flexDirection: "row", gap: 10, paddingLeft: 34 },
   waiting: { opacity: 0.55 },
   target: {
@@ -333,10 +353,10 @@ const styles = StyleSheet.create({
   },
   narrow: { flex: 0, minWidth: 110 },
   primary: { flex: 1.15, backgroundColor: "#c4c5ca" },
-  secondary: { backgroundColor: midnight.surfaceRaised },
-  outline: { borderWidth: 1, borderColor: midnight.hairline },
-  primaryLabel: { ...mobileType.label, fontSize: 17, color: midnight.bg },
-  targetLabel: { ...mobileType.label, fontSize: 17, color: midnight.textDefault },
-  quietLabel: { ...mobileType.label, fontSize: 17, color: midnight.textSubtle },
-  failed: { ...mobileType.footnote, color: midnight.failedText, paddingLeft: 34 },
-});
+  secondary: { backgroundColor: colours.raised },
+  outline: { borderWidth: 1, borderColor: colours.hairline },
+  primaryLabel: { ...mobileType.label, fontSize: 17, color: colours.ground },
+  targetLabel: { ...mobileType.label, fontSize: 17, color: colours.textDefault },
+  quietLabel: { ...mobileType.label, fontSize: 17, color: colours.textSubtle },
+  failed: { ...mobileType.footnote, color: colours.failedText, paddingLeft: 34 },
+}));
