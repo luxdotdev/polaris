@@ -81,6 +81,8 @@ export const Settings = Schema.Struct({
       keepDaemonUpToDate: Schema.optionalKey(Schema.Boolean),
     })
   ),
+  /** The main window's bounds and state; windowPlacement.ts parses it, so bad data resets only it. */
+  window: Schema.optionalKey(Schema.Unknown),
   /** Set once "Get started" is pressed on the welcome (onboarding O1). */
   welcomeSeen: Schema.optionalKey(Schema.Boolean),
 });

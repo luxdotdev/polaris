@@ -84,6 +84,7 @@ import {
   writeSettings,
 } from "./settings.ts";
 import { createMainWindow } from "./window.ts";
+import { decodeWindowState } from "./windowPlacement.ts";
 import { createDeepLinkInbox } from "./deepLinks.ts";
 import { focusWindow } from "./notifications/focus.ts";
 import { DEEP_LINK_SCHEME, deepLinkArg } from "../shared/deepLink.ts";
@@ -509,6 +510,8 @@ const start = async () => {
     trusted,
     show: env.POLARIS_DESKTOP_HIDDEN !== "1",
     icon: iconPng({ repoRoot }),
+    savedState: decodeWindowState(settings.window),
+    saveState: (state) => saveSettings({ window: state }),
   });
 
   // macOS: closing the window hides it, so the star, notifications and badge keep counting.
