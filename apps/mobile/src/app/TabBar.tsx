@@ -42,6 +42,9 @@ const SettingsIcon: Icon = ({ color }) => (
   </Svg>
 );
 
+/** The pill's height is fixed, so its labels grow only a little with Dynamic Type, as a UITabBar's. */
+const LABEL_CAP = 1.2;
+
 const TABS: Record<HomeTab, { readonly label: string; readonly Icon: Icon }> = {
   sessions: { label: "Sessions", Icon: SessionsIcon },
   review: { label: "Review", Icon: ReviewIcon },
@@ -71,18 +74,24 @@ export const TabBar = ({
           const { label, Icon } = TABS[tab];
           const selected = tab === active;
           const color = selected ? colours.textStrong : colours.textSubtle;
+          const counted = tab === "review" && reviewCount > 0;
 
           return (
             <Pressable
               key={tab}
               accessibilityRole="tab"
               accessibilityState={{ selected }}
+              accessibilityLabel={counted ? `${label}, ${reviewCount} ready` : label}
               onPress={() => onSelect(tab)}
               style={[styles.tab, selected ? { backgroundColor: colours.raised } : null]}
             >
               <Icon color={color} />
-              <Text style={[styles.label, { color }]}>
-                {tab === "review" && reviewCount > 0 ? `${label} · ${reviewCount}` : label}
+              <Text
+                style={[styles.label, { color }]}
+                maxFontSizeMultiplier={LABEL_CAP}
+                numberOfLines={1}
+              >
+                {counted ? `${label} · ${reviewCount}` : label}
               </Text>
             </Pressable>
           );
@@ -131,6 +140,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 3,
+    paddingHorizontal: 4,
   },
   label: { ...mobileType.tab },
   new: { width: 58, height: 58, borderRadius: 999, alignItems: "center", justifyContent: "center" },

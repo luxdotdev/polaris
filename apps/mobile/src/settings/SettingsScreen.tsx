@@ -10,20 +10,24 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFollowedHosts } from "../home/feed/useFollowedHosts.ts";
+import { HORIZON_INSET } from "../horizon";
 import { useMotionPreference, useTheme } from "../theme";
 import { Chevron, HostsGlyph, MotionGlyph, NotificationsGlyph } from "./icons.tsx";
 import { hostsLine, MOTION_CHOICES, motionLine, THEME_CARDS } from "./model.ts";
 import { ThemeCard } from "./ThemeCard.tsx";
+import { ACCESSIBILITY_SCALE, TYPE_CAP } from "./type.ts";
 import { InboxBadge } from "../inbox/index.ts";
 
 const Row = ({
   Glyph,
   title,
   line,
+  more = null,
   note = null,
   last = false,
   onPress,
@@ -31,16 +35,21 @@ const Row = ({
   readonly Glyph: (props: { readonly color: string }) => React.JSX.Element;
   readonly title: string;
   readonly line: string;
+  readonly more?: string | null;
   readonly note?: string | null;
   readonly last?: boolean;
   readonly onPress: () => void;
 }) => {
   const { colours } = useTheme();
+  // At accessibility sizes the line wraps; below them the names truncate and the note stays.
+  const wraps = useWindowDimensions().fontScale >= ACCESSIBILITY_SCALE;
+  const lineStyle = [styles.rowLine, { color: colours.textSubtle }];
+  const kept = [more === null ? "" : ` ${more}`, note === null ? "" : ` · ${note}`];
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${title}, ${line}${note === null ? "" : `, ${note}`}`}
+      accessibilityLabel={[title, line, more, note].filter((part) => part !== null).join(", ")}
       onPress={onPress}
       style={[
         styles.row,
@@ -51,11 +60,33 @@ const Row = ({
         <Glyph color={colours.textDefault} />
       </View>
       <View style={styles.rowText}>
-        <Text style={[styles.rowTitle, { color: colours.textStrong }]}>{title}</Text>
-        <Text style={[styles.rowLine, { color: colours.textSubtle }]} numberOfLines={1}>
-          {line}
-          {note === null ? null : <Text style={{ color: colours.needsYouText }}> · {note}</Text>}
+        <Text
+          style={[styles.rowTitle, { color: colours.textStrong }]}
+          maxFontSizeMultiplier={TYPE_CAP}
+        >
+          {title}
         </Text>
+        <View style={styles.lineRow}>
+          <Text
+            style={[lineStyle, styles.names]}
+            maxFontSizeMultiplier={TYPE_CAP}
+            numberOfLines={wraps ? 0 : 1}
+          >
+            {line}
+            {wraps ? kept[0] : null}
+            {wraps ? <Text style={{ color: colours.needsYouText }}>{kept[1]}</Text> : null}
+          </Text>
+          {wraps ? null : (
+            <Text
+              style={[lineStyle, styles.kept]}
+              maxFontSizeMultiplier={TYPE_CAP}
+              numberOfLines={1}
+            >
+              {kept[0]}
+              <Text style={{ color: colours.needsYouText }}>{kept[1]}</Text>
+            </Text>
+          )}
+        </View>
       </View>
       <Chevron color={colours.textFaint} />
     </Pressable>
@@ -98,18 +129,30 @@ export const SettingsScreen = ({
 
   return (
     <ScrollView
-      style={styles.fill}
-      contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: tabBarHeight + 24 }}
+      style={[styles.fill, { marginTop: insets.top }]}
+      contentContainerStyle={{
+        paddingTop: 6,
+        paddingBottom: Math.max(HORIZON_INSET, tabBarHeight + 24),
+      }}
     >
       <View style={styles.titleRow}>
-        <Text style={[styles.large, { color: colours.textStrong }]} accessibilityRole="header">
+        <Text
+          style={[styles.large, { color: colours.textStrong }]}
+          accessibilityRole="header"
+          maxFontSizeMultiplier={TYPE_CAP}
+        >
           Settings
         </Text>
         <InboxBadge />
       </View>
       <View style={styles.panels}>
         <View style={[styles.panel, styles.appearance, panel]}>
-          <Text style={[styles.kicker, { color: colours.textSubtle }]} accessibilityRole="header">
+          <Text
+            style={[styles.kicker, { color: colours.textSubtle }]}
+            accessibilityRole="header"
+            accessibilityLabel="Appearance"
+            maxFontSizeMultiplier={TYPE_CAP}
+          >
             APPEARANCE
           </Text>
           <View style={styles.cards} accessibilityRole="radiogroup">
@@ -123,6 +166,7 @@ export const SettingsScreen = ({
             Glyph={HostsGlyph}
             title="Hosts"
             line={hosts.names}
+            more={hosts.more}
             note={hosts.note}
             onPress={onHosts}
           />
@@ -153,7 +197,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingRight: 16,
   },
-  large: { ...mobileType.largeTitle, paddingHorizontal: 16, paddingBottom: 14 },
+  large: { ...mobileType.largeTitle, flexShrink: 1, paddingHorizontal: 16, paddingBottom: 14 },
   panels: { paddingHorizontal: 10, gap: 10 },
   panel: { borderRadius: 22, borderWidth: 1 },
   appearance: { gap: 12, paddingHorizontal: 14, paddingTop: 14, paddingBottom: 16 },
@@ -177,4 +221,7 @@ const styles = StyleSheet.create({
   rowText: { flex: 1, minWidth: 0, gap: 1 },
   rowTitle: { ...mobileType.heading },
   rowLine: { ...mobileType.footnote },
+  lineRow: { flexDirection: "row" },
+  names: { flexShrink: 1 },
+  kept: { flexShrink: 0 },
 });
