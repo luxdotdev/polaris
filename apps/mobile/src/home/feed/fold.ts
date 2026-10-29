@@ -84,10 +84,12 @@ const withoutRequest =
     pendingApprovals: entry.pendingApprovals.filter((request) => request.id !== requestId),
   });
 
+/** Idle compaction's Turn (ENG-570) moves nothing the user reads: the last reply stays. */
 const onTurn = (turn: Turn): Fold =>
   onSession(turn.sessionId, (entry) => ({
     ...patch({ turnCount: Math.max(entry.session.turnCount, turn.index + 1) })(entry),
-    replyPreview: turn.replyPreview ?? entry.replyPreview,
+    replyPreview:
+      turn.idleCompaction === true ? entry.replyPreview : (turn.replyPreview ?? entry.replyPreview),
   }));
 
 const withWorkspace =
