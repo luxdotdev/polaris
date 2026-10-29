@@ -2,9 +2,9 @@
  * Home (Paper H4): every Host's agent sessions ranked needs you, working, recent, with
  * approvals answered in place and the horizon at the foot.
  */
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import { SectionList, StyleSheet, Text, View } from "react-native";
+import { SectionList, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   constellationMenu,
@@ -14,6 +14,7 @@ import {
   useMenuActions,
 } from "../menus/index.ts";
 import type { HostConnection } from "../runtime/hostConnection.ts";
+import { themedStyles } from "../theme/index.ts";
 import { homeHostsOf, useFollowedHosts } from "./feed/useFollowedHosts.ts";
 import { useSettledHosts } from "./feed/settled.ts";
 import { buildHome, type HomeRow, type SessionRow } from "./model/home.ts";
@@ -29,7 +30,7 @@ import {
 import { EmptyHome } from "./ui/EmptyHome.tsx";
 import { NeedsYouMark, WorkingMark } from "./ui/glyphs.tsx";
 import { Header } from "./ui/Header.tsx";
-import { HORIZON_HEIGHT, Horizon } from "./ui/Horizon.tsx";
+import { HORIZON_HEIGHT, Horizon } from "../horizon";
 import { useConstellationProgress } from "./ui/constellationProgress.ts";
 import { ConstellationListRow, NeedsYouRow, SessionListRow } from "./ui/rows.tsx";
 
@@ -61,18 +62,22 @@ const MARKS: Readonly<Record<SectionKind, ReactNode>> = {
   recent: null,
 };
 
-const SectionHead = ({ section }: { readonly section: HomeSection }) => (
-  <View style={styles.sectionHead}>
-    {MARKS[section.kind]}
-    <Text
-      style={[styles.sectionLabel, section.kind === "needs-you" ? styles.needsYouLabel : null]}
-      accessibilityRole="header"
-    >
-      {section.label}
-    </Text>
-    {section.count === null ? null : <Text style={styles.sectionCount}>{section.count}</Text>}
-  </View>
-);
+const SectionHead = ({ section }: { readonly section: HomeSection }) => {
+  const styles = useStyles();
+
+  return (
+    <View style={styles.sectionHead}>
+      {MARKS[section.kind]}
+      <Text
+        style={[styles.sectionLabel, section.kind === "needs-you" ? styles.needsYouLabel : null]}
+        accessibilityRole="header"
+      >
+        {section.label}
+      </Text>
+      {section.count === null ? null : <Text style={styles.sectionCount}>{section.count}</Text>}
+    </View>
+  );
+};
 
 const ConstellationRowWithProgress = ({
   row,
@@ -154,6 +159,7 @@ export const HomeScreen = ({
   readonly actions: HomeActions;
   readonly tabBarHeight: number;
 }) => {
+  const styles = useStyles();
   const insets = useSafeAreaInsets();
   const hosts = useFollowedHosts();
   const [workspace, setWorkspace] = useState<string | null>(null);
@@ -230,25 +236,25 @@ export const HomeScreen = ({
           onAll={() => setWorkspace(null)}
         />
       )}
-      <Horizon hour={new Date(now).getHours()} />
+      <Horizon />
     </View>
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: midnight.bg },
+const useStyles = themedStyles((colours) => ({
+  screen: { flex: 1, backgroundColor: colours.ground },
   list: { flex: 1, paddingHorizontal: 20 },
   sectionHead: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     borderTopWidth: 1,
-    borderTopColor: midnight.hairline,
+    borderTopColor: colours.hairline,
     paddingTop: 12,
     paddingBottom: 6,
   },
   sectionFoot: { height: 4 },
-  sectionLabel: { ...mobileType.section, color: midnight.textSubtle },
-  needsYouLabel: { color: midnight.needsYouText },
-  sectionCount: { ...mobileType.footnote, lineHeight: 16, color: midnight.textFaint },
-});
+  sectionLabel: { ...mobileType.section, color: colours.textSubtle },
+  needsYouLabel: { color: colours.needsYouText },
+  sectionCount: { ...mobileType.footnote, lineHeight: 16, color: colours.textFaint },
+}));

@@ -1,7 +1,7 @@
 /** A pushed screen that follows a swipe from the left edge and goes back when it commits. */
-import { midnight } from "@polaris/ui/tokens";
 import { type ReactNode, useMemo, useRef } from "react";
-import { Animated, PanResponder, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Animated, PanResponder, useWindowDimensions, View } from "react-native";
+import { themedStyles } from "../theme/index.ts";
 import { commitsSwipeBack, startsSwipeBack } from "./swipeBack.ts";
 
 export const SwipeBack = ({
@@ -11,6 +11,7 @@ export const SwipeBack = ({
   readonly onBack: () => void;
   readonly children: ReactNode;
 }) => {
+  const styles = useStyles();
   const { width } = useWindowDimensions();
   const x = useRef(new Animated.Value(0)).current;
   const latest = useRef({ onBack, width });
@@ -53,7 +54,7 @@ export const SwipeBack = ({
   );
 };
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((colours) => ({
   fill: { flex: 1 },
-  screen: { backgroundColor: midnight.bg },
-});
+  screen: { backgroundColor: colours.ground },
+}));

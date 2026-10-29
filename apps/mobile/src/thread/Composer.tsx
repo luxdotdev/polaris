@@ -163,7 +163,14 @@ export const Composer = (props: ComposerProps) => {
         {attach === null || blocked ? null : <AttachButton onPress={attach.pick} compact />}
         {voice === null || blocked ? null : <MicButton voice={voice} large />}
         {mode.kind === "steer" && !empty ? (
-          <Pressable onPress={props.onQueue} accessibilityRole="button" hitSlop={8}>
+          <Pressable
+            onPress={() => {
+              haptics.send();
+              props.onQueue();
+            }}
+            accessibilityRole="button"
+            hitSlop={8}
+          >
             <Text style={[styles.queue, { color: colours.textDefault }]}>Queue</Text>
           </Pressable>
         ) : null}

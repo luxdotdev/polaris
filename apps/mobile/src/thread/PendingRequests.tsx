@@ -8,13 +8,12 @@ import { mobileType } from "@polaris/ui/tokens";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
-import { harnessHueIn } from "../composer/hue.ts";
 import { noticesOf, type Strip, stripOf, type StripNotice } from "../composer/strip.ts";
 import { Dither } from "../dither/index.ts";
 import { decisionOf } from "../home/model/respond.ts";
 import { haptics } from "../motion";
 import { type MobileColours, useTheme } from "../theme";
-import { elapsed, harnessName } from "./labels.ts";
+import { elapsed, harnessHue, harnessName } from "./labels.ts";
 import { answered, answersDecision, pick, type Picks, requestCard } from "./requests.ts";
 
 export interface PendingRequestsProps {
@@ -115,7 +114,10 @@ const Permission = ({
           label="Always here"
           filled={false}
           live={card.live}
-          onPress={() => card.onRespond(decisionOf({ kind: "always" }))}
+          onPress={() => {
+            haptics.approve();
+            card.onRespond(decisionOf({ kind: "always" }));
+          }}
         />
       ) : null}
       <Answer
@@ -220,7 +222,10 @@ const Questions = ({ request, live, onRespond }: CardProps) => {
           label="Send answers"
           filled
           live={ready}
-          onPress={() => onRespond(answersDecision(request, picks))}
+          onPress={() => {
+            haptics.approve();
+            onRespond(answersDecision(request, picks));
+          }}
         />
       </View>
     </ScrollView>
@@ -230,7 +235,7 @@ const Questions = ({ request, live, onRespond }: CardProps) => {
 const Working = ({ harness, since }: { readonly harness: HarnessKind; readonly since: string }) => {
   const { colours } = useTheme();
   const time = useElapsed(since);
-  const hue = harnessHueIn(colours, harness);
+  const hue = harnessHue(colours, harness);
 
   return (
     <View style={styles.row} accessibilityLiveRegion="polite">

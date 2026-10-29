@@ -3,10 +3,11 @@
  * stored size, other files (and images that can't be shown) as their name.
  */
 import type { Attachment } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { memo, useEffect, useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { useHost, useLiveHost } from "../runtime/hosts.tsx";
+import { themedStyles } from "../theme/index.ts";
 import { hostReader, type ImageState, isPreviewable, loadImage } from "./load.ts";
 import { diskCache } from "./native.ts";
 
@@ -58,6 +59,7 @@ const Thumbnail = ({
   readonly hostId: string;
   readonly attachment: Attachment;
 }) => {
+  const styles = useStyles();
   const state = useImage(hostId, attachment);
 
   if (state.kind === "none") return <Named attachment={attachment} />;
@@ -75,13 +77,17 @@ const Thumbnail = ({
   );
 };
 
-const Named = ({ attachment }: { readonly attachment: Attachment }) => (
-  <View style={styles.chip}>
-    <Text style={styles.chipText} numberOfLines={1}>
-      {attachment.name}
-    </Text>
-  </View>
-);
+const Named = ({ attachment }: { readonly attachment: Attachment }) => {
+  const styles = useStyles();
+
+  return (
+    <View style={styles.chip}>
+      <Text style={styles.chipText} numberOfLines={1}>
+        {attachment.name}
+      </Text>
+    </View>
+  );
+};
 
 const ThumbnailsView = ({
   hostId,
@@ -89,8 +95,10 @@ const ThumbnailsView = ({
 }: {
   readonly hostId: string;
   readonly attachments: ReadonlyArray<Attachment>;
-}) =>
-  attachments.length === 0 ? null : (
+}) => {
+  const styles = useStyles();
+
+  return attachments.length === 0 ? null : (
     <View style={styles.row}>
       {attachments.map((attachment) =>
         isPreviewable(attachment) ? (
@@ -101,10 +109,11 @@ const ThumbnailsView = ({
       )}
     </View>
   );
+};
 
 export const Thumbnails = memo(ThumbnailsView);
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((colours) => ({
   row: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -115,9 +124,9 @@ const styles = StyleSheet.create({
   box: {
     borderRadius: 12,
     overflow: "hidden",
-    backgroundColor: midnight.surfaceRaised,
+    backgroundColor: colours.raised,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: midnight.hairline,
+    borderColor: colours.hairline,
   },
   image: { width: "100%", height: "100%" },
   chip: {
@@ -125,7 +134,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 10,
-    backgroundColor: midnight.surfaceRaised,
+    backgroundColor: colours.raised,
   },
-  chipText: { ...mobileType.footnote, color: midnight.textSubtle },
-});
+  chipText: { ...mobileType.footnote, color: colours.textSubtle },
+}));

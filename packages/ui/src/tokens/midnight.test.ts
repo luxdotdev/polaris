@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 
-import { midnight } from ".";
+import { midnight, moonlit } from ".";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 
@@ -47,11 +47,9 @@ function darkColours(): Map<string, string> {
   return colours;
 }
 
-/** theme.css's Midnight block, each token's dark arm. */
-function midnightOverrides(): Map<string, string> {
-  const block =
-    /\[data-theme="midnight"\],\s*\[data-theme-dark="midnight"\]\s*\{([^}]*)\}/.exec(theme)?.[1] ??
-    "";
+/** A theme.css block's colour tokens, each token's dark arm. */
+function darkArms(selector: RegExp): Map<string, string> {
+  const block = selector.exec(theme)?.[1] ?? "";
 
   return new Map(
     [...block.matchAll(/--color-([a-z0-9-]+):\s*light-dark\(#[0-9a-f]+, (#[0-9a-f]+)\);/g)].map(
@@ -60,13 +58,22 @@ function midnightOverrides(): Map<string, string> {
   );
 }
 
+/** theme.css's Midnight block. */
+const midnightOverrides = () =>
+  darkArms(/\[data-theme="midnight"\],\s*\[data-theme-dark="midnight"\]\s*\{([^}]*)\}/);
+
+/** theme.css's Moonlit block. */
+const moonlitOverrides = () => darkArms(/\[data-theme-dark="moonlit"\]\s*\{([^}]*)\}/);
+
+/** Dark's tokens with a theme block's overrides, keyed as the TS constants are. */
+const expectedColours = (overrides: Map<string, string>) =>
+  Object.fromEntries(
+    [...darkColours(), ...overrides].map(([name, value]) => [camel(name), value] as const)
+  );
+
 describe("midnight", () => {
   test("the TS constants are dark's tokens with theme.css's midnight overrides, nothing else", () => {
-    const expected: Record<string, string> = {};
-
-    for (const [name, value] of darkColours()) expected[camel(name)] = value;
-
-    for (const [name, value] of midnightOverrides()) expected[camel(name)] = value;
+    const expected = expectedColours(midnightOverrides());
 
     expect(Object.keys(expected).length).toBeGreaterThan(50);
     expect<Record<string, string>>({ ...midnight }).toEqual(expected);
@@ -147,6 +154,42 @@ describe("midnight", () => {
     expect(assets).toMatch(
       /@media \(prefers-color-scheme: light\)\s*\{\s*:root:not\(\[data-theme\]\)/
     );
+  });
+});
+
+describe("moonlit", () => {
+  test("the TS constants are dark's tokens with theme.css's moonlit overrides, nothing else", () => {
+    expect(moonlitOverrides().size).toBeGreaterThan(5);
+    expect<Record<string, string>>({ ...moonlit }).toEqual(expectedColours(moonlitOverrides()));
+  });
+
+  test("has DESIGN.md's Moonlit ground, panels, raised, wells and hairline", () => {
+    const chrome =
+      /\*\*Moonlit\*\* \(today's dark, the default: ground `(#[0-9A-F]{6})`, panels `(#[0-9A-F]{6})`, raised `(#[0-9A-F]{6})`, wells `(#[0-9A-F]{6})`, hairline white (\d+)%\)/.exec(
+        design
+      );
+
+    expect(chrome).not.toBeNull();
+
+    const [, ground = "", panel = "", raised = "", well = "", hairline = ""] = chrome ?? [];
+
+    const alpha = Math.round(Number(hairline) * 2.55)
+      .toString(16)
+      .padStart(2, "0");
+
+    expect<Record<string, string>>({
+      ground: moonlit.ground,
+      panel: moonlit.panel,
+      raised: moonlit.raised,
+      well: moonlit.well,
+      hairline: moonlit.hairline,
+    }).toEqual({
+      ground: ground.toLowerCase(),
+      panel: panel.toLowerCase(),
+      raised: raised.toLowerCase(),
+      well: well.toLowerCase(),
+      hairline: `#ffffff${alpha}`,
+    });
   });
 });
 
