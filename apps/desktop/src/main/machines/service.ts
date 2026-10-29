@@ -149,7 +149,7 @@ export class Machines extends Context.Service<
     /** The user confirmed: rerun the install a held sign-in task stopped, with `--replace-task`. */
     readonly takeOverTask: (key: string) => Effect.Effect<void, MachineError>;
     readonly startDaemon: (key: string) => Effect.Effect<void, MachineError>;
-    /** Restart daemon: the Host's service manager restarts it (ADR 0086). */
+    /** Restart daemon: the Host's service manager restarts it (ADR 0087). */
     readonly restartDaemon: (key: string) => Effect.Effect<RestartDaemonResult, MachineError>;
     readonly restartPreview: (key: string) => Effect.Effect<RestartPreviewView, MachineError>;
     readonly setLocalEnabled: (enabled: boolean) => Effect.Effect<void, MachineError>;

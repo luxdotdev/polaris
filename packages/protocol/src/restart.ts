@@ -1,7 +1,7 @@
 /**
  * Restart daemon (Settings → Hosts): what a restart would interrupt, and the step
  * that ends in-process Harness Turns before the Client asks the Host's service
- * manager to restart the Daemon (ADR 0086). Token-less Clients only (`grants.ts`).
+ * manager to restart the Daemon (ADR 0087). Token-less Clients only (`grants.ts`).
  */
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";

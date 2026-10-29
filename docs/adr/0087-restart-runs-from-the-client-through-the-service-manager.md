@@ -29,7 +29,7 @@ own exit, and a Daemon that doesn't answer can't be asked at all.
   for an install.
 - **Claude's Turns end cleanly first.** The Client calls `host.prepareRestart` (capability
   `host.restart`), which runs the upgrade path's `prepareForUpgrade`: in-process Harnesses stop
-  and their sessions recover with cause `upgrade`. A Daemon without the RPC, or one that doesn't
+  and their sessions recover with cause `upgrade` (`stoppedFor: restart`). A Daemon without the RPC, or one that doesn't
   answer, is restarted anyway; the next Daemon's recovery (cause `restart`, ADR 0004) ends the
   Turns. `host.restartPreview` answers the confirm's counts: sessions with a Turn in flight,
   running terminals, pending approvals.
@@ -49,6 +49,9 @@ own exit, and a Daemon that doesn't answer can't be asked at all.
 - The spec doesn't change: `crash` / `restart` already stand for the Daemon dying at any point
   and starting on the same database, and `prepareForUpgrade` is the unmodelled upgrade hand-off
   whose recovery is a subset of the one on start.
-- A setup card interrupted by the prepare step says "upgrade", as before an upgrade.
+- The prepare step decides exactly as before an upgrade (cause `upgrade`), but `daemon.recover`
+  carries `stoppedFor: restart`, so what users read names the restart: the setup card ("Setup
+  interrupted by Daemon restart"), the withdrawn approvals' reason and the Dormant reason. Only
+  copy differs, so the spec doesn't.
 - Recovery of In Terminal sessions waits for the restart's own recovery (cause `restart`), as
   `upgrade` leaves them alone.

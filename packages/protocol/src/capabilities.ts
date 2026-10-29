@@ -18,7 +18,7 @@ export const Capability = Schema.Literals([
   "host.resources",
   /** `host.stats.watch`: the Host's CPU, load, memory and disk, sampled while watched (ENG-565). */
   "host.stats",
-  /** `host.restartPreview` and `host.prepareRestart`: Restart daemon's confirm and clean stop (ADR 0086). */
+  /** `host.restartPreview` and `host.prepareRestart`: Restart daemon's confirm and clean stop (ADR 0087). */
   "host.restart",
   /** `remoteAccess.status`, `remoteAccess.enable` and `remoteAccess.disable` (Tailscale, ADR 0076). */
   "remote-access",

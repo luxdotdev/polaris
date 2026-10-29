@@ -3,7 +3,7 @@
  * manager, over the channel it already uses there (ssh, wsl.exe, a local shell; this PC's
  * `polaris.exe` on a Windows Client). Claude's Turns end cleanly first (`host.prepareRestart`);
  * the Connection State then moves through the machine as for any dropped connection.
- * See docs/adr/0086-restart-runs-from-the-client-through-the-service-manager.md.
+ * See docs/adr/0087-restart-runs-from-the-client-through-the-service-manager.md.
  */
 import type { RestartPreview } from "@polaris/protocol";
 import {

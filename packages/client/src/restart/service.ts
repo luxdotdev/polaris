@@ -2,7 +2,7 @@
  * Which service manager keeps a Host's Daemon running, found with one `sh` probe, and
  * the command that restarts it there: `launchctl kickstart -k`, `systemctl --user restart`,
  * Polaris' own supervisor, or the Windows logon task through `polaris.exe install --restart`.
- * Pure but for the probe's text. See docs/adr/0086-restart-runs-from-the-client-through-the-service-manager.md.
+ * Pure but for the probe's text. See docs/adr/0087-restart-runs-from-the-client-through-the-service-manager.md.
  */
 import { LAUNCHD_LABEL, SYSTEMD_UNIT } from "@polaris/protocol/endpoint";
 import { Data, Match, Schema } from "effect";
