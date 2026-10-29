@@ -38,3 +38,28 @@ export const stackTitle = (stack: StackView) =>
 
 /** Top (newest layer) first, as GitHub lists them; the trunk goes under the last. */
 export const topDown = (stack: StackView) => stack.members.toReversed();
+
+/**
+ * A pull request state's hue (DESIGN.md, Chrome redesign → Review): merged light purple, open
+ * light green, closed light red, as light-dark() pairs; draft has none and stays neutral.
+ */
+export const STATUS_HUES: Readonly<Record<PullStatus, string | null>> = {
+  open: "light-dark(#237a45, #8fd3a4)",
+  merged: "light-dark(#6a4fc7, #b9a6f2)",
+  closed: "light-dark(#b83a3a, #f2a0a0)",
+  draft: null,
+};
+
+/** The stack popover's status line: "Layer 3 of 4 · base nightly · 1 merged". */
+export const stackStatus = (stack: StackView) => {
+  const merged = stack.members.filter((m) => m.status === "merged").length;
+  const parts = [`Layer ${stack.position} of ${stack.size}`, `base ${stack.trunk}`];
+
+  return (merged === 0 ? parts : [...parts, `${merged} merged`]).join(" · ");
+};
+
+/** The hero's label beside a layer: "#88 · open · current". */
+export const slabLabel = (member: StackView["members"][number], current: boolean) =>
+  [`#${member.number}`, STATUS_LABELS[member.status].toLowerCase(), current ? "current" : null]
+    .filter((p) => p !== null)
+    .join(" · ");

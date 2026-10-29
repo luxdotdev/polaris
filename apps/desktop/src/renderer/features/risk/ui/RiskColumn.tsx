@@ -1,28 +1,28 @@
 /**
- * The Risk Summary in the risk column (Paper R1 1VV-0, 1WG-0; DESIGN.md, Review): the
- * Starlight reviewer tile with what ran, the four-cell Severity tally, the findings ranked
- * by Severity then confidence with Critical on top, the collapsed Dismissed and Resolved
- * groups, notes, and the quiet cost line. Comments without a line follow it.
+ * The Risk Summary card in the risk panel (Paper X-G; DESIGN.md, Review): the Starlight
+ * reviewer tile with what ran and Rerun, the readout well, the findings ranked by Severity
+ * then confidence with Critical on top, the collapsed Dismissed and Resolved groups and
+ * notes; comments without a line follow. While the Reviewer chats, its conversation stands
+ * in for the findings. The composer, Walkthrough and status line are its foot (`RiskFooter`).
  */
-import type { Severity } from "@polaris/protocol";
 import {
   Button,
-  cn,
+  ChevronLeftIcon,
   Dither,
   EmptyState,
-  harnessHue,
+  KICKER,
   PixelPolarisIcon,
-  SEVERITIES,
-  SeverityGlyph,
   Tile,
 } from "@polaris/ui";
 import { Match } from "effect";
-import { type ReactNode, useEffect, useState } from "react";
+import { Fragment, type ReactNode, useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { useApp, useShellActions } from "../../../shell/hooks.ts";
+import { setChatting, useChatting } from "../data/ui.ts";
+import { Conversation, reviewerName } from "./AskReviewer.tsx";
+import { Readout } from "./Readout.tsx";
 import { isWindowsHost } from "../../../shell/hostPlatform.ts";
 import { CommentsSection, CommentsSync, FeedbackCard } from "../../comments/index.ts";
-import { modelLabel, useHarnessModels } from "../../harness/index.ts";
 import {
   emptySurface,
   type ReviewSlotProps,
@@ -34,8 +34,6 @@ import { useCanSummarise, useRiskRequest } from "../data/request.ts";
 import { type RiskState, runRiskSummary, useRiskSummary } from "../data/riskStore.ts";
 import {
   captionOf,
-  reviewerLine,
-  reviewerState,
   type Finding,
   groupFindings,
   notesOf,
@@ -43,40 +41,6 @@ import {
   type Summary,
 } from "../model/summary.ts";
 import { FindingItem } from "./FindingItem.tsx";
-
-const TALLY_FILL: Readonly<Record<Severity, string>> = {
-  critical: "bg-[color-mix(in_oklab,var(--color-severity-critical)_12%,transparent)]",
-  high: "bg-[color-mix(in_oklab,var(--color-severity-high)_12%,transparent)]",
-  medium: "bg-[color-mix(in_oklab,var(--color-severity-medium)_10%,transparent)]",
-  low: "bg-[color-mix(in_oklab,var(--color-severity-low)_10%,transparent)]",
-};
-
-const Tally = ({ tally }: { readonly tally: Readonly<Record<Severity, number>> }) => (
-  <div className="flex gap-1.5" data-testid="risk-tally">
-    {SEVERITIES.map((severity) => {
-      const n = tally[severity];
-
-      return (
-        <div
-          key={severity}
-          data-severity={severity}
-          className={cn(
-            "rounded-control h-tree-row flex flex-1 items-center justify-center gap-1.5",
-            n === 0 ? "bg-surface-sunken text-text-subtle" : TALLY_FILL[severity]
-          )}
-          style={n === 0 ? undefined : { color: `var(--color-severity-${severity}-text)` }}
-        >
-          {n === 0 ? (
-            <SeverityGlyph severity={severity} className="opacity-40 grayscale" />
-          ) : (
-            <SeverityGlyph severity={severity} tone="text" />
-          )}
-          <span className="text-caption tabular font-medium">{n}</span>
-        </div>
-      );
-    })}
-  </div>
-);
 
 /** A fresh "1m ago" every minute while a summary is open. */
 const useNow = () => {
@@ -164,21 +128,6 @@ const Group = ({
   );
 };
 
-const useCostNames = (hostKey: string, summary: Summary) => {
-  const harness = summary.reviewer?.harness ?? "codex";
-  const { models } = useHarnessModels(hostKey, harness, summary.reviewer !== null);
-
-  if (summary.reviewer === null) return null;
-
-  return {
-    harness: harnessHue(harness).name,
-    model:
-      summary.reviewer.model === null
-        ? null
-        : modelLabel(models, summary.reviewer.model, summary.reviewer.effort),
-  };
-};
-
 const Findings = ({
   subjectKey,
   hostKey,
@@ -188,7 +137,7 @@ const Findings = ({
   readonly subjectKey: string;
   readonly hostKey: string;
   readonly summary: Summary;
-  /** Under the tally: a review bot's verdict ("Also reviewed by Suzuka"). */
+  /** Over the findings: a review bot's verdict ("Also reviewed by Suzuka"). */
   readonly after?: ReactNode;
 }) => {
   const selected = useStore(surfaceStore, (s) => (s[subjectKey] ?? emptySurface).selectedFinding);
@@ -208,11 +157,8 @@ const Findings = ({
 
   return (
     <>
-      <div className="px-panel pb-3">
-        <Tally tally={groups.tally} />
-        {after}
-      </div>
-      <div className="px-gap flex flex-col gap-0.5" data-testid="risk-findings">
+      {after !== undefined && <div className="px-panel">{after}</div>}
+      <div className="px-gap flex flex-col gap-0.5 pt-3" data-testid="risk-findings">
         {groups.listed.length === 0 && summary.status !== "running" && (
           <EmptyState
             className="py-6"
@@ -221,7 +167,14 @@ const Findings = ({
             fact="That isn’t a sign-off: read the diff before you approve"
           />
         )}
-        {groups.listed.map(item)}
+        {groups.listed.map((finding, i) => (
+          <Fragment key={finding.id}>
+            {i > 0 && groups.listed[i - 1]?.severity !== finding.severity && (
+              <div aria-hidden className="bg-hairline mx-3 my-1 h-px" />
+            )}
+            {item(finding)}
+          </Fragment>
+        ))}
         <Group label="Dismissed" findings={groups.dismissed} render={item} />
         <Group label="Resolved" findings={groups.resolved} render={item} />
       </div>
@@ -236,32 +189,57 @@ const Findings = ({
   );
 };
 
-/** ENG-229's quiet cost line, pinned under the findings, naming the Reviewer with a way to change it (ENG-222). */
-const CostLine = ({
-  hostKey,
+/** While chatting: back to the findings, the open criticals, and who is being asked. */
+const ChatHeader = ({
+  subjectKey,
   summary,
 }: {
-  readonly hostKey: string;
+  readonly subjectKey: string;
   readonly summary: Summary;
 }) => {
-  const { openSettings } = useShellActions();
-  const names = useCostNames(hostKey, summary);
-  const cost = reviewerLine(summary, names);
+  const critical = groupFindings(summary.findings).listed.filter(
+    (f) => f.severity === "critical" && f.status === "open"
+  ).length;
 
   return (
-    <div className="px-panel gap-gap flex items-baseline pt-2" data-testid="risk-cost-line">
-      <p className="text-caption text-text-subtle min-w-0 flex-1" data-testid="risk-cost">
-        {cost}
-      </p>
-      <Button
-        size="xs"
-        variant="ghost"
-        className="shrink-0"
-        data-testid="risk-reviewer-settings"
-        onClick={() => openSettings("reviewer")}
-      >
-        {reviewerState(summary) === "none" ? "Choose a reviewer" : "Change"}
-      </Button>
+    <div
+      className="px-panel flex shrink-0 flex-col gap-2.5 pt-3 pb-3"
+      data-testid="risk-chat-header"
+    >
+      <div className="flex items-center">
+        <Button
+          size="xs"
+          variant="secondary"
+          className="gap-1 rounded-full"
+          data-testid="risk-back-to-findings"
+          onClick={() => setChatting(subjectKey, false)}
+        >
+          <ChevronLeftIcon size={10} />
+          Findings
+        </Button>
+        <span className="flex-1" />
+        {critical > 0 && (
+          <span className={KICKER} style={{ color: "var(--color-severity-critical-text)" }}>
+            {critical} critical open
+          </span>
+        )}
+      </div>
+      <div className="gap-gap flex items-center">
+        <span
+          aria-hidden
+          className="size-2 shrink-0 rounded-full"
+          style={{
+            background:
+              summary.reviewer === null
+                ? "var(--color-starlight)"
+                : `var(--color-harness-${summary.reviewer.harness})`,
+          }}
+        />
+        <span className="text-heading-sm text-text-strong font-medium">
+          Asking {reviewerName(summary)}
+        </span>
+        <span className="text-caption text-text-subtle">· Risk summary</span>
+      </div>
     </div>
   );
 };
@@ -272,6 +250,7 @@ export const RiskColumnSlot = (props: ReviewSlotProps) => {
   const state = useRiskSummary(key, request);
   const capable = useCanSummarise(props);
   const { openSettings } = useShellActions();
+  const chatting = useChatting(key) && state.kind === "ready";
 
   const rerun =
     request !== null &&
@@ -280,24 +259,33 @@ export const RiskColumnSlot = (props: ReviewSlotProps) => {
       ? () => void runRiskSummary(key, request, true)
       : null;
 
-  // Sized to its content, leaving 16rem for the file list and the foot. Past that only the
-  // findings scroll: the header, the cost line and the feedback card stay put.
+  // The header and readout stay put; only the findings (or the conversation) scroll.
   return (
     <div
-      className="flex max-h-[calc(100%-16rem)] min-h-0 shrink-0 flex-col pb-3"
+      className="flex min-h-0 flex-1 flex-col"
       data-testid="risk-summary"
       data-state={state.kind}
+      data-chatting={chatting ? "" : undefined}
     >
       <CommentsSync {...props} />
-      <div className="pt-panel px-panel shrink-0 pb-3">
-        <Header
-          state={state}
-          onRerun={state.kind === "ready" || state.kind === "failed" ? rerun : null}
-        />
-      </div>
+      {chatting ? (
+        <ChatHeader subjectKey={key} summary={state.summary} />
+      ) : (
+        <>
+          <div className="px-panel shrink-0 pt-4 pb-3">
+            <Header
+              state={state}
+              onRerun={state.kind === "ready" || state.kind === "failed" ? rerun : null}
+            />
+          </div>
+          {state.kind === "ready" && (
+            <Readout tally={groupFindings(state.summary.findings).tally} />
+          )}
+        </>
+      )}
       <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto" data-testid="risk-scroll">
         {!capable.ok && (
-          <p className="text-caption text-text-subtle px-panel pb-3">
+          <p className="text-caption text-text-subtle px-panel pt-3">
             Risk summaries need a newer daemon on {capable.host} ·{" "}
             <button
               type="button"
@@ -308,19 +296,19 @@ export const RiskColumnSlot = (props: ReviewSlotProps) => {
             </button>
           </p>
         )}
-        {state.kind === "ready" && (
-          <Findings
-            subjectKey={key}
-            hostKey={state.hostKey}
-            summary={state.summary}
-            after={<AlsoReviewed subject={props.subject} />}
-          />
-        )}
-        {props.subject.kind === "pull" && <CommentsSection subjectKey={key} />}
+        {state.kind === "ready" &&
+          (chatting ? (
+            <Conversation subjectKey={key} hostKey={state.hostKey} summary={state.summary} />
+          ) : (
+            <Findings
+              subjectKey={key}
+              hostKey={state.hostKey}
+              summary={state.summary}
+              after={<AlsoReviewed subject={props.subject} />}
+            />
+          ))}
+        {!chatting && props.subject.kind === "pull" && <CommentsSection subjectKey={key} />}
       </div>
-      {state.kind === "ready" && state.summary.status !== "running" && (
-        <CostLine hostKey={state.hostKey} summary={state.summary} />
-      )}
       {props.subject.kind === "session" && (
         <div className="shrink-0">
           <FeedbackCard subjectKey={key} />

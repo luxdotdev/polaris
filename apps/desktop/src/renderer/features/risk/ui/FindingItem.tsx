@@ -164,9 +164,9 @@ export const FindingItem = (props: FindingItemProps) => {
         data-finding={finding.id}
         data-selected={selected ? "" : undefined}
         className={cn(
-          "rounded-row flex flex-col border",
+          "flex flex-col rounded-[12px] border",
           selected
-            ? cn("bg-row-selected gap-row-x p-3", SEVERITY_BORDER[finding.severity])
+            ? cn("bg-raised gap-row-x p-3", SEVERITY_BORDER[finding.severity])
             : "hover:bg-fill-hover border-transparent",
           // Dimmed once, here; the badge isn't dimmed again (rule/low-confidence-dims).
           dimmed && "opacity-(--opacity-dimmed)"

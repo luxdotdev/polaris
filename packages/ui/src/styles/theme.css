@@ -49,6 +49,9 @@
   --color-raised: light-dark(#ffffff, #141518);
   --color-well: light-dark(#f6f7f9, #0e0f12);
   --color-well-raised: light-dark(#f6f7f9, #0e0f12);
+  /* On a black panel the diff's line fills sit a few percent lower than Moonlit's 10%. */
+  --color-diff-added-bg: light-dark(#1a7f3714, #3fb95014);
+  --color-diff-removed-bg: light-dark(#cf222e12, #f8514914);
 }
 
 /* Inside a popover or instrument card, bg-well is the well for a raised surface. */

@@ -1,9 +1,9 @@
 /**
- * The two columns under the subject header (Paper R1 1VR-0): the risk column (the Risk
- * Summary slot, the file list, its foot slot) and the diff, or what stands in for the diff
- * while it loads, fails or waits for a Review Checkout.
+ * A subject's two panels (Paper X-G): the header, tabs and diff (or what stands in for the
+ * diff while it loads, fails or waits for a Review Checkout), and the risk panel (the Risk
+ * Summary slot and its foot slot). The file list goes under the queue (`filesSlot.tsx`).
  */
-import { EmptyState, PixelForkIcon, SegmentedControl } from "@polaris/ui";
+import { EmptyState, Panel, PixelForkIcon, SegmentedControl } from "@polaris/ui";
 import type { FileDiffMetadata, SelectedLineRange } from "@pierre/diffs";
 import { type ReactNode, useEffect, useMemo } from "react";
 import { useStore } from "zustand";
@@ -36,6 +36,7 @@ import {
 import type { Grouping } from "../model/groups.ts";
 import { useRisk } from "../../risk/data/riskStore.ts";
 import { FileList } from "./FileList.tsx";
+import { InFilesSlot } from "./filesSlot.tsx";
 import { useThemeType } from "../../diffs/index.ts";
 import { type PullViewed, useReviewModel } from "./useReviewModel.ts";
 
@@ -58,28 +59,39 @@ export interface ReviewBodyProps {
   readonly mergeBase: string | null;
   /** Where the diff's paths are on disk (the Review Checkout, the session's cwd), for "Open in editor". */
   readonly place: EditorPlace | null;
+  /** The subject's header, at the top of the diff's panel. */
+  readonly header: ReactNode;
 }
 
-const RiskColumn = ({
-  slotProps,
-  children,
-}: {
-  readonly slotProps: ReviewSlotProps;
-  readonly children: ReactNode;
-}) => {
+/** The right panel: the Risk Summary card and its foot (the Reviewer's composer). */
+const RiskPanel = ({ slotProps }: { readonly slotProps: ReviewSlotProps }) => {
   const { RiskColumn: Risk, RiskFooter: Footer } = reviewSlots.current;
 
   return (
-    <aside
-      data-testid="risk-column"
-      className="border-hairline flex w-[360px] shrink-0 flex-col border-r"
-    >
-      <Risk {...slotProps} />
-      {children}
-      <Footer {...slotProps} />
-    </aside>
+    <Panel asChild className="mb-2 w-[360px] shrink-0">
+      <aside data-testid="risk-column">
+        <Risk {...slotProps} />
+        <Footer {...slotProps} />
+      </aside>
+    </Panel>
   );
 };
+
+/** The centre panel: the header over the tabs and the diff, the calmest surface. */
+const DiffPanel = ({
+  header,
+  children,
+}: {
+  readonly header: ReactNode;
+  readonly children: ReactNode;
+}) => (
+  <Panel asChild className="mb-2 min-w-0 flex-1">
+    <div data-testid="review-centre-panel">
+      {header}
+      {children}
+    </div>
+  </Panel>
+);
 
 const selectionOf = (
   path: string,
@@ -96,10 +108,7 @@ const selectionOf = (
 };
 
 const Waiting = ({ placeholder }: { readonly placeholder: Placeholder | null }) => (
-  <div
-    className="bg-bg flex min-w-0 flex-1 items-center justify-center"
-    data-testid="review-waiting"
-  >
+  <div className="flex min-w-0 flex-1 items-center justify-center" data-testid="review-waiting">
     {placeholder === null ? (
       <span className="text-caption text-text-subtle">Reading the diff…</span>
     ) : (
@@ -147,6 +156,7 @@ const Ready = ({
   pullViewed,
   session,
   mergeBase,
+  header,
 }: ReviewBodyProps & { readonly diff: Extract<ReviewDiff, { readonly kind: "ready" }> }) => {
   const surface = useStore(surfaceStore, (s) => s[subjectKey] ?? emptySurface);
   const themeType = useThemeType();
@@ -195,8 +205,8 @@ const Ready = ({
   }, [subjectKey, model.items]);
 
   return (
-    <div className="flex min-h-0 flex-1">
-      <RiskColumn slotProps={slotProps}>
+    <>
+      <InFilesSlot>
         <FileList
           files={model.files}
           viewedOf={model.viewedOf}
@@ -216,56 +226,60 @@ const Ready = ({
           mode={listMode}
           onMode={setListGrouping}
         />
-      </RiskColumn>
-      <CentrePane
-        subjectKey={subjectKey}
-        slotProps={slotProps}
-        files={model.files.length}
-        viewed={model.progress.viewed}
-        session={session}
-        mergeBase={mergeBase}
-        changes={
-          <div
-            className="bg-bg flex min-h-0 min-w-0 flex-1 flex-col"
-            data-testid="review-diff"
-            data-complete={diff.complete ? "" : undefined}
-            data-files={model.files.length}
-          >
-            {session !== null && pane.kind !== "message" && (
-              <SessionGroupingBar grouping={model.grouping} />
-            )}
-            {pane.kind === "message" ? (
-              <Waiting placeholder={{ title: pane.title, fact: pane.fact }} />
-            ) : (
-              <DiffPane
-                items={model.items}
-                marksCss={model.marksCss}
-                themeType={themeType}
-                loadDiffFiles={model.loadDiffFiles}
-                itemKeys={model.itemKeys}
-                subjectKey={subjectKey}
-                onSelect={(id, range) => {
-                  const file = model.files.find((f) => f.key === id);
-                  const parsed = model.items.find((p) => p.item.id === id)?.item;
+      </InFilesSlot>
+      <DiffPanel header={header}>
+        <CentrePane
+          subjectKey={subjectKey}
+          slotProps={slotProps}
+          files={model.files.length}
+          viewed={model.progress.viewed}
+          session={session}
+          mergeBase={mergeBase}
+          changes={
+            <div
+              className="flex min-h-0 min-w-0 flex-1 flex-col"
+              data-testid="review-diff"
+              data-complete={diff.complete ? "" : undefined}
+              data-files={model.files.length}
+            >
+              {session !== null && pane.kind !== "message" && (
+                <SessionGroupingBar grouping={model.grouping} />
+              )}
+              {pane.kind === "message" ? (
+                <Waiting placeholder={{ title: pane.title, fact: pane.fact }} />
+              ) : (
+                <DiffPane
+                  items={model.items}
+                  marksCss={model.marksCss}
+                  themeType={themeType}
+                  loadDiffFiles={model.loadDiffFiles}
+                  itemKeys={model.itemKeys}
+                  subjectKey={subjectKey}
+                  onSelect={(id, range) => {
+                    const file = model.files.find((f) => f.key === id);
+                    const parsed = model.items.find((p) => p.item.id === id)?.item;
 
-                  updateSurface(subjectKey, {
-                    selection:
-                      file === undefined || range === null
-                        ? null
-                        : selectionOf(
-                            file.file.path,
-                            range,
-                            parsed?.type === "diff" ? parsed : null,
-                            diff.sections.find((s) => s.id === file.section)?.divider?.turn ?? null
-                          ),
-                  });
-                }}
-              />
-            )}
-          </div>
-        }
-      />
-    </div>
+                    updateSurface(subjectKey, {
+                      selection:
+                        file === undefined || range === null
+                          ? null
+                          : selectionOf(
+                              file.file.path,
+                              range,
+                              parsed?.type === "diff" ? parsed : null,
+                              diff.sections.find((s) => s.id === file.section)?.divider?.turn ??
+                                null
+                            ),
+                    });
+                  }}
+                />
+              )}
+            </div>
+          }
+        />
+      </DiffPanel>
+      <RiskPanel slotProps={slotProps} />
+    </>
   );
 };
 
@@ -278,20 +292,20 @@ const Body = (props: ReviewBodyProps) => {
       : null;
 
   return (
-    <div className="flex min-h-0 flex-1">
-      <RiskColumn slotProps={props.slotProps}>
-        <div className="flex-1" />
-      </RiskColumn>
-      <CentrePane
-        subjectKey={props.subjectKey}
-        slotProps={props.slotProps}
-        files={null}
-        viewed={null}
-        session={props.session}
-        mergeBase={props.mergeBase}
-        changes={<Waiting placeholder={props.placeholder ?? failed} />}
-      />
-    </div>
+    <>
+      <DiffPanel header={props.header}>
+        <CentrePane
+          subjectKey={props.subjectKey}
+          slotProps={props.slotProps}
+          files={null}
+          viewed={null}
+          session={props.session}
+          mergeBase={props.mergeBase}
+          changes={<Waiting placeholder={props.placeholder ?? failed} />}
+        />
+      </DiffPanel>
+      <RiskPanel slotProps={props.slotProps} />
+    </>
   );
 };
 

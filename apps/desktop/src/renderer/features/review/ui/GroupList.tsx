@@ -122,7 +122,11 @@ export const GroupList = (props: GroupListProps) => {
   };
 
   return (
-    <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto" data-testid="review-groups">
+    <div
+      ref={scrollRef}
+      className="min-h-0 flex-1 overflow-y-auto pb-24"
+      data-testid="review-groups"
+    >
       <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((item) => {
           const row = rows[item.index];

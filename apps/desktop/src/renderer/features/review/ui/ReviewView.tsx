@@ -1,7 +1,10 @@
 /**
- * Review with a subject open (DESIGN.md, Review; Paper R1, R2): the queue, then the
- * subject's header, risk column and diff. Pierre's worker pool lives while this is mounted.
+ * Review with a subject open (DESIGN.md, Review; Paper R1, R2, X-G): the queue with the
+ * subject's files under it on the ground, then the subject's header, tabs and diff in one
+ * panel and its Risk Summary in another. Pierre's worker pool lives while this is mounted.
  */
+import { Horizon } from "@polaris/ui";
+import { useState } from "react";
 import type { OpenPull } from "../../../../shared/api.ts";
 import {
   closeReviewSubject,
@@ -25,6 +28,7 @@ import { subjectKey, surfaceStore } from "../surface.ts";
 import { PullReview } from "./PullReview.tsx";
 import { Queue } from "./Queue.tsx";
 import { SessionReview } from "./SessionReview.tsx";
+import { FilesSlotProvider } from "./filesSlot.tsx";
 import "../../risk/install.ts";
 // The session's accept action fills its slot (M2-A).
 import "../../accept/install.ts";
@@ -83,39 +87,56 @@ export const ReviewView = ({ subject, onBack }: ReviewViewProps) => {
   useAdvance(groups, selected, open);
 
   const finished = subject.kind === "pull" && done !== null && done.pullId === selected;
+  const [files, setFiles] = useState<HTMLElement | null>(null);
 
   return (
     <DiffWorkers>
-      <div className="flex min-h-0 flex-1" data-testid="review-view">
-        <Queue
-          groups={groups}
-          markOf={markOf}
-          caption={`${plural(hosts, "host")} · ${plural(workspaces, "workspace")}`}
-          selected={finished ? null : selected}
-          onOpen={open}
-          onOpenPull={(pull: OpenPull) => {
-            clearDone();
-            openPull(actions, pull);
-          }}
-          onList={() => {
-            clearDone();
-            closeReviewSubject();
-            onBack();
-          }}
-          reviewedOpen={reviewedOpen}
-          onReviewedOpen={setReviewedOpen}
-        />
-        {finished && subject.kind === "pull" ? (
-          <QueueDone pull={subject.pull} group={done.group} moved={done.moved} onBack={clearDone} />
-        ) : subject.kind === "pull" ? (
-          <PullReview
-            key={`${subject.pull.repo.owner}/${subject.pull.repo.name}#${subject.pull.number}`}
-            subject={subject}
+      <FilesSlotProvider value={files}>
+        <div className="relative isolate flex min-h-0 flex-1 gap-2 pr-2" data-testid="review-view">
+          <Queue
+            groups={groups}
+            markOf={markOf}
+            caption={`${plural(hosts, "host")} · ${plural(workspaces, "workspace")}`}
+            selected={finished ? null : selected}
+            onOpen={open}
+            onOpenPull={(pull: OpenPull) => {
+              clearDone();
+              openPull(actions, pull);
+            }}
+            onList={() => {
+              clearDone();
+              closeReviewSubject();
+              onBack();
+            }}
+            reviewedOpen={reviewedOpen}
+            onReviewedOpen={setReviewedOpen}
+            files={
+              // Stars never behind text: the list fades over the horizon; its scroller pads clear.
+              <div
+                ref={setFiles}
+                data-testid="review-files-slot"
+                className="-mx-gap flex min-h-[140px] flex-1 flex-col [mask-image:linear-gradient(to_bottom,black_calc(100%-96px),transparent_calc(100%-32px))]"
+              />
+            }
           />
-        ) : (
-          <SessionReview key={`${subject.hostKey}:${subject.sessionId}`} subject={subject} />
-        )}
-      </div>
+          {finished && subject.kind === "pull" ? (
+            <QueueDone
+              pull={subject.pull}
+              group={done.group}
+              moved={done.moved}
+              onBack={clearDone}
+            />
+          ) : subject.kind === "pull" ? (
+            <PullReview
+              key={`${subject.pull.repo.owner}/${subject.pull.repo.name}#${subject.pull.number}`}
+              subject={subject}
+            />
+          ) : (
+            <SessionReview key={`${subject.hostKey}:${subject.sessionId}`} subject={subject} />
+          )}
+          <Horizon />
+        </div>
+      </FilesSlotProvider>
     </DiffWorkers>
   );
 };

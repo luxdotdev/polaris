@@ -1,18 +1,20 @@
 /**
- * The queue on Review's left (Paper R1 1TC-0): what's waiting to be reviewed, the open
- * subject selected, Reviewed folded at the bottom, and "Review a PR by URL" at its foot.
- * The header goes back to the list; a pull request's row opens its menu on right-click.
+ * The queue on Review's left, on the ground (Paper R1 1TC-0, X-G): what's waiting to be
+ * reviewed, the open subject selected, Reviewed folded, the open subject's files under it,
+ * and "Review a PR by URL" at its foot. The header goes back to the list; a pull request's
+ * row opens its menu on right-click.
  */
 import {
   ChevronDownIcon,
   ChevronRightIcon,
   cn,
   Kbd,
+  KICKER,
   SEVERITY_LABELS,
   SeverityGlyph,
   Tile,
 } from "@polaris/ui";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { reviewDigits } from "../../../routes/review.ts";
 import { shortcutLabel } from "../../../routes/topBar.ts";
 import type { RiskMark } from "../model/findings.ts";
@@ -35,6 +37,8 @@ export interface QueueProps {
   /** Whether a folding group (Reviewed) is open; closed by default. */
   readonly reviewedOpen: boolean;
   readonly onReviewedOpen: (open: boolean) => void;
+  /** Under the queue: where the open subject's file list goes. */
+  readonly files?: ReactNode;
 }
 
 /** "▲ 1": the highest Severity's glyph and how many findings have it (DESIGN.md, Review → Queue). */
@@ -171,13 +175,13 @@ const GroupHeader = ({
   readonly open: boolean;
   readonly onToggle: () => void;
 }) => {
-  const className =
-    "text-caption text-text-subtle px-gap pt-gap flex items-center pb-1.5 font-normal";
+  const className = cn(KICKER, "px-gap pt-gap flex items-center gap-1.5 pb-1.5");
 
   if (group.collapsible !== true) {
     return (
       <h2 className={className}>
-        <span className="flex-1">{group.label}</span>
+        <span>{group.label}</span>
+        <span aria-hidden>·</span>
         <span className="tabular">{group.rows.length}</span>
       </h2>
     );
@@ -196,7 +200,8 @@ const GroupHeader = ({
         className={cn(className, "hover:text-text-default flex-1 cursor-default gap-1.5")}
       >
         <Chevron size={10} className="text-text-faint shrink-0" />
-        <span className="flex-1 text-left">{group.label}</span>
+        <span className="text-left">{group.label}</span>
+        <span aria-hidden>·</span>
         <span className="tabular">{group.rows.length}</span>
       </button>
     </h2>
@@ -257,6 +262,7 @@ export const Queue = ({
   markOf,
   reviewedOpen,
   onReviewedOpen,
+  files,
 }: QueueProps) => {
   const held = useCtrlHeld();
   const order = visibleRows(groups, reviewedOpen);
@@ -267,19 +273,24 @@ export const Queue = ({
     <nav
       aria-label="Review queue"
       data-testid="review-queue"
-      className="bg-surface-sunken border-hairline flex w-[264px] shrink-0 flex-col border-r"
+      className="flex w-[288px] shrink-0 flex-col pt-2 pr-3 pl-4"
     >
       <button
         type="button"
         onClick={onList}
         aria-label="Pull requests"
         title="All pull requests"
-        className="px-panel pt-panel flex cursor-default flex-col gap-0.5 pb-1.5 text-left"
+        className="px-gap flex cursor-default flex-col gap-0.5 pb-1.5 text-left"
       >
-        <span className="text-heading text-text-strong font-medium">Review</span>
+        <span className="text-title text-text-strong font-semibold">Review</span>
         <span className="text-caption text-text-subtle">{caption}</span>
       </button>
-      <div className="pb-gap min-h-0 flex-1 overflow-y-auto">
+      <div
+        className={cn(
+          "pb-gap -mx-gap min-h-0 overflow-y-auto",
+          files === undefined ? "flex-1" : "max-h-[55%] shrink"
+        )}
+      >
         {groups.map((group) => {
           const open = group.collapsible !== true || reviewedOpen;
 
@@ -288,7 +299,7 @@ export const Queue = ({
               key={group.id}
               data-testid="review-queue-group"
               data-group={group.id}
-              className="px-gap pt-gap flex flex-col gap-0.5"
+              className="px-gap flex flex-col gap-0.5"
             >
               <GroupHeader
                 group={group}
@@ -315,8 +326,13 @@ export const Queue = ({
           );
         })}
       </div>
-      <div className="border-hairline px-panel flex h-10 shrink-0 items-center border-t">
+      {files}
+      <div className="gap-gap flex h-12 shrink-0 items-center">
         <ByUrl onOpen={onOpenPull} />
+        <span className="flex-1" />
+        <span className="text-caption text-text-faint tabular shrink-0 whitespace-nowrap">
+          {shortcutLabel(0)}–9 to jump
+        </span>
       </div>
     </nav>
   );

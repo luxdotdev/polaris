@@ -1,7 +1,7 @@
 /**
  * Midnight: DESIGN.md's third theme (Mobile App, and the Desktop App's second dark). Dark's tokens
- * with a true black ground, near-black surfaces and wells and an 8% hairline; signal and harness
- * colours are dark's, unchanged.
+ * with a true black ground, near-black surfaces and wells, an 8% hairline and the diff's line fills
+ * a few percent lower; signal and harness colours are dark's, unchanged.
  * Badge fills are the base hue at 12% as 8-digit hex (tokens.css mixes them in oklab).
  * tokens.test.ts fails if this drifts from tokens.css and theme.css's midnight block.
  */
@@ -58,8 +58,8 @@ export const midnight = {
   diffRemovedCvd: "#db8b2c",
   diffAddedCvdText: "#5c9eff",
   diffRemovedCvdText: "#db8b2c",
-  diffAddedBg: "#3fb9501a",
-  diffRemovedBg: "#f851491a",
+  diffAddedBg: "#3fb95014",
+  diffRemovedBg: "#f8514914",
   diffAddedEmphasis: "#3fb95040",
   diffRemovedEmphasis: "#f8514940",
   diffSelection: "#bcd3ff29",

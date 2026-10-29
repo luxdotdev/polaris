@@ -1,7 +1,8 @@
 /**
- * The subject header (Paper R1 1V2-0, R2 243-0): a pull request's title, number and one
- * caption line (author, base ← head as mono chips, repository), or an Agent Session's tile,
- * title, caption and Turn picker; then the checkout chip and the primary action (slots).
+ * The subject header at the top of the diff's panel (Paper X-G, R2 243-0): a pull request's
+ * toolbar (state pill and stack chip, then its actions: reviewers, the checkout chip, Merge,
+ * Submit review), its title and number, and one caption line (author, base ← head as mono
+ * chips, repository); or an Agent Session's tile, title, caption, Turn picker and actions.
  */
 import type { TurnId } from "@polaris/protocol";
 import { cn, harnessHue, Tile } from "@polaris/ui";
@@ -11,7 +12,7 @@ import { BranchChip, StackChip, StatusPill } from "../../pulls/ui/StackParts.tsx
 import { pickerOptions, type ReviewTurn, type TurnPick } from "../data/source.ts";
 import { PullMenu } from "./pullMenu.tsx";
 
-/** A pull request's header tops its two lines (R1); an Agent Session's centres on its tile (R2). */
+/** A pull request's header stacks toolbar, title and caption (X-G); an Agent Session's centres on its tile (R2). */
 const Shell = ({
   children,
   centred = false,
@@ -22,8 +23,8 @@ const Shell = ({
   <header
     data-testid="review-header"
     className={cn(
-      "border-hairline flex shrink-0 border-b px-5",
-      centred ? "items-center gap-3.5 py-3.5" : "gap-panel pt-panel items-start pb-3.5"
+      "flex shrink-0 pr-4 pl-5",
+      centred ? "items-center gap-3.5 py-3.5" : "flex-col gap-1.5 py-3"
     )}
   >
     {children}
@@ -83,12 +84,25 @@ export interface PullHeaderProps {
 export const PullHeader = ({ name, number, detail, url, actions }: PullHeaderProps) => {
   return (
     <Shell>
+      <div className="gap-gap flex min-w-0 items-center pb-1" data-testid="pull-review-toolbar">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+          {detail !== null && (
+            <>
+              <StatusPill status={pullStatus(detail.state, detail.isDraft)} />
+              {detail.stack === null || detail.stack === undefined ? null : (
+                <StackChip stack={detail.stack} repo={repoOfRow(detail)} />
+              )}
+            </>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">{actions}</div>
+      </div>
       <PullMenu url={url}>
-        <div className="gap-gap flex min-w-0 flex-1 flex-col" data-testid="pull-review-subject">
+        <div className="gap-gap flex min-w-0 flex-col" data-testid="pull-review-subject">
           <div className="gap-row-x flex min-w-0 items-baseline">
             <h1
               data-testid="pull-review-title"
-              className="text-title text-text-strong truncate font-medium tracking-[-0.01em]"
+              className="text-title text-text-strong truncate font-semibold tracking-[-0.01em]"
             >
               {detail?.title ?? name}
             </h1>
@@ -99,10 +113,6 @@ export const PullHeader = ({ name, number, detail, url, actions }: PullHeaderPro
               <span>{name}</span>
             ) : (
               <>
-                <StatusPill status={pullStatus(detail.state, detail.isDraft)} />
-                {detail.stack === null || detail.stack === undefined ? null : (
-                  <StackChip stack={detail.stack} repo={repoOfRow(detail)} />
-                )}
                 {/* Remote images are outside the CSP: the author's initial stands in for the avatar. */}
                 <span
                   aria-hidden="true"
@@ -124,7 +134,6 @@ export const PullHeader = ({ name, number, detail, url, actions }: PullHeaderPro
           </div>
         </div>
       </PullMenu>
-      <div className="gap-gap flex shrink-0 items-center">{actions}</div>
     </Shell>
   );
 };
