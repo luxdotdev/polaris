@@ -1,5 +1,5 @@
 /**
- * The app's navigation: a stack of screens over the tabs (Sessions, Review), New as a sheet.
+ * The app's navigation: a stack of screens over the tabs (Sessions, Review, Settings), New as a sheet.
  * Screens push routes; the shell in App.tsx draws the top of the stack.
  */
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
@@ -10,6 +10,7 @@ import {
   type NavigationState,
   opened,
   pushed,
+  selected,
   topOf,
   wentBack,
 } from "./navigationState.ts";
@@ -42,7 +43,7 @@ export const NavigationProvider = ({ children }: { readonly children: ReactNode 
     () => ({
       top: topOf(state),
       tab: state.tab,
-      selectTab: (tab) => setState((current) => ({ ...current, tab })),
+      selectTab: (tab) => setState((current) => selected(current, tab)),
       push: (route) => setState((current) => pushed(current, route)),
       back: () => setState(wentBack),
       open,
