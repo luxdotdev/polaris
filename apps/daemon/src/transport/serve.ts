@@ -126,8 +126,8 @@ export const daemonHandlers = Layer.mergeAll(
   PredictionRpcsLive,
   CommitMessageRpcsLive,
   EngineRpcHandlers,
-  // One Continuity: the notifier sees the reads `continuity.markRead` makes.
-  Layer.merge(ContinuityRpcsLive, PushNotifierLive).pipe(Layer.provide(Continuity.layer)),
+  ContinuityRpcsLive.pipe(Layer.provide(Continuity.layer)),
+  PushNotifierLive,
   ResourceRpcsLive,
   lazyConstellationHandlers,
   FilesRpcsLive.pipe(Layer.provide(FileSearchLive())),

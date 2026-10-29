@@ -2,20 +2,14 @@
  * Pushes Needs You, notifications and finished Turns to Linked Devices registered for push
  * (apps/relay README: Push). It follows the Engine's Host stream only while some device is
  * registered, so a Host without one pays nothing; a timer runs only while a Turn settles.
- * While the user is at a Desktop App (`HostPresence`) pushes are held, not sent (`hold.ts`).
+ * While the user is at a Desktop App (`HostPresence`) Needs You is held and the rest dropped (`hold.ts`).
  */
-import {
-  type Capability,
-  ContinuityItem,
-  type HostStreamItem,
-  type ReadPosition,
-} from "@polaris/protocol";
+import type { Capability, HostStreamItem } from "@polaris/protocol";
 import { Context, Effect, Fiber, Layer, Stream } from "effect";
-import { Continuity } from "../continuity/index.ts";
 import { Engine } from "../engine/Engine.ts";
 import { RelayRoute } from "../linkedDevices/route.ts";
 import { HostPresence } from "../presence/index.ts";
-import { type Held, hold, settleItem, settleRead } from "./hold.ts";
+import { type Held, hold, settleItem } from "./hold.ts";
 import { emptyPlan, nextSettle, type PlanState, planItem, planSettled, type Push } from "./plan.ts";
 
 /** What the plan reads beyond the base Host stream. */
@@ -39,36 +33,9 @@ export class PushHostEvents extends Context.Service<
   );
 }
 
-/** Every session's read position, then each move: followed only while a push is held. */
-export class PushReads extends Context.Service<
-  PushReads,
-  { readonly subscribe: () => Stream.Stream<ReadPosition> }
->()("polaris/daemon/push/PushReads") {
-  static readonly continuity = Layer.effect(
-    PushReads,
-    Effect.gen(function* () {
-      const continuity = yield* Continuity;
-
-      return PushReads.of({
-        subscribe: () =>
-          continuity.watch.pipe(
-            Stream.flatMap(
-              ContinuityItem.match({
-                Snapshot: ({ reads }) => Stream.fromIterable(reads),
-                Read: ({ position }) => Stream.make(position),
-                Draft: () => Stream.empty,
-              })
-            )
-          ),
-      });
-    })
-  );
-}
-
 export const PushNotifier = Layer.effectDiscard(
   Effect.gen(function* () {
     const events = yield* PushHostEvents;
-    const reads = yield* PushReads;
     const route = yield* RelayRoute;
     const presence = yield* HostPresence;
     const context = yield* Effect.context<never>();
@@ -77,7 +44,6 @@ export const PushNotifier = Layer.effectDiscard(
     let following: Fiber.Fiber<void> | null = null;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let held: Held = [];
-    let followingReads: Fiber.Fiber<void> | null = null;
 
     const contextNow = () => ({ ...route.host, now: Date.now() });
 
@@ -95,30 +61,16 @@ export const PushNotifier = Layer.effectDiscard(
             );
     };
 
-    const setHeld = (next: Held) => {
-      held = next;
-
-      if (held.length === 0 && followingReads !== null) {
-        runFork(Fiber.interrupt(followingReads));
-        followingReads = null;
-      } else if (held.length > 0 && followingReads === null)
-        followingReads = runFork(
-          Stream.runForEach(reads.subscribe(), (read) =>
-            Effect.sync(() => setHeld(settleRead(held, read)))
-          )
-        );
-    };
-
     // While the user is at a Desktop App the push waits for them to leave (ENG-495).
     const send = (pushes: ReadonlyArray<Push>) => {
-      if (presence.present()) setHeld(hold(held, pushes));
+      if (presence.present()) held = hold(held, pushes);
       else wake(pushes);
     };
 
     const release = (present: boolean) => {
       if (present) return;
       const due = held;
-      setHeld([]);
+      held = [];
       wake(due);
     };
 
@@ -141,7 +93,7 @@ export const PushNotifier = Layer.effectDiscard(
 
     const onItem = (item: HostStreamItem) =>
       Effect.sync(() => {
-        setHeld(settleItem(held, item));
+        held = settleItem(held, item);
         const planned = planItem(plan, item, contextNow());
         plan = planned.state;
         send(planned.send);
@@ -152,7 +104,7 @@ export const PushNotifier = Layer.effectDiscard(
       if (following !== null) runFork(Fiber.interrupt(following));
       following = null;
       plan = emptyPlan;
-      setHeld([]);
+      held = [];
       schedule();
     };
 
@@ -177,7 +129,5 @@ export const PushNotifier = Layer.effectDiscard(
   })
 );
 
-/** The notifier on the Engine's Host stream and Continuity's read positions, as the Daemon runs it. */
-export const PushNotifierLive = PushNotifier.pipe(
-  Layer.provide(Layer.merge(PushHostEvents.engine, PushReads.continuity))
-);
+/** The notifier on the Engine's Host stream, as the Daemon runs it. */
+export const PushNotifierLive = PushNotifier.pipe(Layer.provide(PushHostEvents.engine));

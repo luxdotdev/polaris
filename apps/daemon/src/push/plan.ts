@@ -56,18 +56,11 @@ export interface PlanContext {
   readonly now: number;
 }
 
-/**
- * What a push asks of the user, so a push held while they are at a Desktop App can be
- * dropped once they deal with it there (`hold.ts`).
- */
+/** What a push asks of the user: a Needs You is held at a Desktop App until answered (`hold.ts`). */
 export interface Need {
   readonly sessionId: string;
   /** Needs You: handled once this request is answered or withdrawn. */
   readonly requestId: string | null;
-  /** A finished Turn: handled once the session is read through this Turn's index. */
-  readonly turnIndex: number | null;
-  /** When it was planned; a notification is handled by a read of its session after it. */
-  readonly at: number;
 }
 
 /** A push, and whether it is automatic: devices that turned those off don't get it. */
@@ -146,7 +139,7 @@ const notified = (
   context: PlanContext
 ): Push => ({
   automatic: notification.automatic,
-  need: { sessionId, requestId: null, turnIndex: null, at: context.now },
+  need: { sessionId, requestId: null },
   message: {
     v: 1,
     kind: "notify",
@@ -242,8 +235,6 @@ const applyEvent = (state: PlanState, event: DomainEvent, context: PlanContext):
                   push(needsYou(session, request, context), {
                     sessionId: request.sessionId,
                     requestId: request.id,
-                    turnIndex: null,
-                    at: context.now,
                   }),
                 ],
         };
@@ -303,8 +294,6 @@ export const planSettled = (state: PlanState, context: PlanContext): Planned => 
         push(turnEnded(sessionId, session, session.ended.reply, context), {
           sessionId,
           requestId: null,
-          turnIndex: session.ended.index,
-          at: context.now,
         })
       );
   }

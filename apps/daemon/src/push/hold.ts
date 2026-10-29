@@ -1,9 +1,9 @@
 /**
- * Pushes held while the user is at a Desktop App (ENG-495). What they deal with there is
- * dropped: an answered or withdrawn request, a finished Turn they read, a notification
- * whose session they read after it. The rest go out when presence ends. Pure.
+ * Pushes held while the user is at a Desktop App (ENG-495, ENG-524). Only Needs You is held:
+ * the Desktop App already showed finished Turns and notifications as banners. A request
+ * answered or withdrawn there is dropped; the rest go out when presence ends. Pure.
  */
-import type { DomainEvent, HostStreamItem, ReadPosition } from "@polaris/protocol";
+import type { DomainEvent, HostStreamItem } from "@polaris/protocol";
 import { Match, Predicate } from "effect";
 import type { Push } from "./plan.ts";
 
@@ -12,8 +12,12 @@ export const MAX_HELD = 200;
 
 export type Held = ReadonlyArray<Push>;
 
-export const hold = (held: Held, pushes: ReadonlyArray<Push>): Held =>
-  pushes.length === 0 ? held : [...held, ...pushes].slice(-MAX_HELD);
+/** Holds the Needs You among `pushes`; the rest the Desktop App showed, so they're dropped. */
+export const hold = (held: Held, pushes: ReadonlyArray<Push>): Held => {
+  const needsYou = pushes.filter(({ need }) => need.requestId !== null);
+
+  return needsYou.length === 0 ? held : [...held, ...needsYou].slice(-MAX_HELD);
+};
 
 const withoutRequest = (held: Held, requestId: string): Held =>
   held.filter(({ need }) => need.requestId !== requestId);
@@ -32,19 +36,3 @@ export const settleItem = (held: Held, item: HostStreamItem): Held =>
   held.length === 0 || !Predicate.isTagged(item, "Event")
     ? held
     : settleEvent(held, item.envelope.event);
-
-const readThrough = (read: ReadPosition) => {
-  const at = Date.parse(read.at);
-
-  return ({ need }: Push) =>
-    need.sessionId === read.sessionId &&
-    need.requestId === null &&
-    (need.turnIndex === null ? at >= need.at : read.turnIndex >= need.turnIndex);
-};
-
-/** Drops the finished Turns and notifications a read position shows seen. */
-export const settleRead = (held: Held, read: ReadPosition): Held => {
-  const seen = readThrough(read);
-
-  return held.length === 0 ? held : held.filter((push) => !seen(push));
-};
