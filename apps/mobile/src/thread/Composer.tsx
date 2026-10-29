@@ -18,6 +18,7 @@ import {
 import { usePastedImages } from "../composer/usePastedImages.ts";
 import { Dither } from "../dither/index.ts";
 import { themedStyles, useTheme } from "../theme/index.ts";
+import { haptics } from "../motion/index.ts";
 import { type ComposerMode, placeholderFor } from "./composer.ts";
 import { elapsed, harnessHue, harnessName } from "./labels.ts";
 import { Diamond } from "./Row.tsx";
@@ -153,13 +154,18 @@ export const Composer = (props: ComposerProps) => {
   const notice = voice?.failure ?? attach?.caption ?? null;
   const fieldId = usePastedImages(attach, !blocked);
 
+  const stopWithTap = () => {
+    haptics.stop();
+    props.onStop();
+  };
+
   const footnote =
     props.error ?? (props.draftStatus === null ? "" : DRAFT_WORDS[props.draftStatus]);
 
   return (
     <View style={[styles.box, workingSince === null ? null : { borderColor: `${hue}40` }]}>
       {workingSince === null ? null : (
-        <WorkingStrip harness={harness} since={workingSince} onStop={props.onStop} />
+        <WorkingStrip harness={harness} since={workingSince} onStop={stopWithTap} />
       )}
       <View style={styles.body}>
         {attach === null ? null : <AttachmentChips attach={attach} />}
@@ -191,7 +197,10 @@ export const Composer = (props: ComposerProps) => {
           {voice === null || blocked ? null : <MicButton voice={voice} />}
           {mode.kind === "steer" ? (
             <Pressable
-              onPress={props.onQueue}
+              onPress={() => {
+                haptics.send();
+                props.onQueue();
+              }}
               disabled={empty}
               accessibilityRole="button"
               hitSlop={8}
@@ -201,7 +210,10 @@ export const Composer = (props: ComposerProps) => {
           ) : null}
           <Pressable
             style={[styles.send, empty || blocked ? styles.dim : null]}
-            onPress={props.onSend}
+            onPress={() => {
+              haptics.send();
+              props.onSend();
+            }}
             disabled={empty || blocked}
             accessibilityRole="button"
             accessibilityLabel={mode.kind === "queue" ? "Queue a follow-up" : "Send"}

@@ -5,7 +5,8 @@
 import { Match } from "effect";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { StyleSheet, View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { NavigationProvider, useNavigation } from "./app/navigation.tsx";
 import {
@@ -177,21 +178,23 @@ export const App = () => {
 
   return (
     <ThemeProvider>
-      <SafeAreaProvider>
-        <StatusBar style="light" />
-        <HostsProvider>
-          <RelayProvider>
-            <FollowedHostsProvider>
-              <WidgetSync />
-              <CheckAlive />
-              <Push />
-              <NavigationProvider>
-                <Shell />
-              </NavigationProvider>
-            </FollowedHostsProvider>
-          </RelayProvider>
-        </HostsProvider>
-      </SafeAreaProvider>
+      <GestureHandlerRootView style={rootStyles.root}>
+        <SafeAreaProvider>
+          <StatusBar style="light" />
+          <HostsProvider>
+            <RelayProvider>
+              <FollowedHostsProvider>
+                <WidgetSync />
+                <CheckAlive />
+                <Push />
+                <NavigationProvider>
+                  <Shell />
+                </NavigationProvider>
+              </FollowedHostsProvider>
+            </RelayProvider>
+          </HostsProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
     </ThemeProvider>
   );
 };
@@ -199,3 +202,5 @@ export const App = () => {
 const useStyles = themedStyles((colours) => ({
   fill: { flex: 1, backgroundColor: colours.ground },
 }));
+
+const rootStyles = StyleSheet.create({ root: { flex: 1 } });

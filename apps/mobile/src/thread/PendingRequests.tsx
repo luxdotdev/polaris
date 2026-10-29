@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { decisionOf } from "../home/model/respond.ts";
 import { themedStyles } from "../theme/index.ts";
+import { haptics } from "../motion/index.ts";
 import { answered, answersDecision, pick, type Picks, requestCard } from "./requests.ts";
 
 export interface PendingRequestsProps {
@@ -42,7 +43,10 @@ const Permission = ({ request, live, onRespond }: CardProps) => {
         <Pressable
           accessibilityRole="button"
           disabled={!live}
-          onPress={() => onRespond(decisionOf({ kind: "approve" }))}
+          onPress={() => {
+            haptics.approve();
+            onRespond(decisionOf({ kind: "approve" }));
+          }}
           style={styles.approve}
         >
           <Text style={styles.approveLabel}>Approve</Text>
@@ -50,7 +54,10 @@ const Permission = ({ request, live, onRespond }: CardProps) => {
         <Pressable
           accessibilityRole="button"
           disabled={!live}
-          onPress={() => onRespond(decisionOf({ kind: "always" }))}
+          onPress={() => {
+            haptics.approve();
+            onRespond(decisionOf({ kind: "always" }));
+          }}
           hitSlop={10}
         >
           <Text style={styles.always}>Always here</Text>
@@ -112,7 +119,10 @@ const Questions = ({ request, live, onRespond }: CardProps) => {
       <Pressable
         accessibilityRole="button"
         disabled={!ready}
-        onPress={() => onRespond(answersDecision(request, picks))}
+        onPress={() => {
+          haptics.approve();
+          onRespond(answersDecision(request, picks));
+        }}
         style={[styles.approve, ready ? null : styles.waiting]}
       >
         <Text style={styles.approveLabel}>Send answers</Text>
