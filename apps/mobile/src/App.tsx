@@ -34,6 +34,7 @@ import { LinkScreen } from "./link/LinkScreen.tsx";
 import { usePush, usePushLinks } from "./push/usePush.ts";
 import { RelayProvider, useRelay } from "./relay/RelayProvider.tsx";
 import { runSelfCheck } from "./runtime/selfCheck.ts";
+import { AcceptDemo } from "./review/accept/index.ts";
 import { SheetDemo, SheetHost } from "./sheet/index.tsx";
 import { CheckAlive } from "./runtime/CheckAlive.tsx";
 import { HostsProvider } from "./runtime/hosts.tsx";
@@ -206,6 +207,7 @@ const Shell = () => {
             <NewSessionSheet onClose={navigation.closeNewSession} />
           ) : null}
           {__DEV__ ? <SheetDemo /> : null}
+          {__DEV__ ? <AcceptDemo /> : null}
         </View>
       </InboxProvider>
     </SheetHost>

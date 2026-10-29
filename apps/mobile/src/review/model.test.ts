@@ -38,13 +38,14 @@ describe("which findings stay listed", () => {
 });
 
 describe("Accept", () => {
-  test("is paused while a Critical finding is open, and counts them", () => {
+  test("counts the open Criticals it will ask about, under the plain Accept label", () => {
     const state = acceptState({
       ...ready,
       risk: risk(finding("a", "critical"), finding("b", "critical"), finding("c", "high")),
     });
 
     expect(state).toEqual({ kind: "paused", critical: 2 });
+    expect(acceptLabel(state, 3)).toBe("Accept turn 3");
   });
 
   test("goes ahead once the only Critical is dismissed, even though it stays listed", () => {
@@ -56,11 +57,14 @@ describe("Accept", () => {
   test("waits for a Turn still working, and stays accepted once accepted", () => {
     expect(acceptState({ ...ready, turnEnded: false, risk: risk() }).kind).toBe("working");
     expect(
+      acceptState({ ...ready, turnEnded: false, risk: risk(finding("a", "critical")) }).kind
+    ).toBe("working");
+    expect(
       acceptState({ ...ready, accepted: true, risk: risk(finding("a", "critical")) }).kind
     ).toBe("accepted");
   });
 
-  test("stays paused while the risk summary loads, then pauses for the Critical it brings", () => {
+  test("waits while the risk summary loads or runs, even with a Critical already in it", () => {
     const loading = acceptState({ ...ready, risk: { kind: "loading" } });
     const running = acceptState({ ...ready, risk: { kind: "ready", value: summary("running") } });
 
@@ -71,10 +75,10 @@ describe("Accept", () => {
 
     expect([loading.kind, running.kind]).toEqual(["checking", "checking"]);
     expect(acceptLabel(loading, 3)).toBe("Accept waits for the risk summary");
-    expect(critical).toEqual({ kind: "paused", critical: 1 });
+    expect(critical.kind).toBe("checking");
   });
 
-  test("stays paused when the risk summary can't load or fails, and says why", () => {
+  test("waits when the risk summary can't load or fails, and says why", () => {
     const unloaded = acceptState({
       ...ready,
       risk: { kind: "failed", message: "The host isn't connected" },
@@ -87,7 +91,7 @@ describe("Accept", () => {
 
     expect(unloaded).toEqual({ kind: "unchecked", reason: "The host isn't connected" });
     expect(failed).toEqual({ kind: "unchecked", reason: "The rules layer crashed" });
-    expect(acceptLabel(unloaded, 3)).toBe("Accept paused · no risk summary");
+    expect(acceptLabel(unloaded, 3)).toBe("Accept needs a risk summary");
   });
 
   test("goes ahead once the risk summary has finished with no open Critical", () => {
