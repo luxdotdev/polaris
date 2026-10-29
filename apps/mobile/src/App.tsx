@@ -35,6 +35,7 @@ import { CheckAlive } from "./runtime/CheckAlive.tsx";
 import { HostsProvider } from "./runtime/hosts.tsx";
 import { useReadyToReview } from "./review/index.ts";
 import { SettingsScreen } from "./settings/index.ts";
+import { StarChartGallery, starChartGalleryOn } from "./starChart/Gallery.tsx";
 import { ThreadGallery, threadGalleryOn } from "./thread/ThreadGallery.tsx";
 import { useWidgetLinks } from "./widgets/useWidgetLinks.ts";
 import { WidgetSync } from "./widgets/WidgetSync.ts";
@@ -174,6 +175,8 @@ const Shell = () => {
   usePushLinks(navigation.open);
 
   if (galleryOn()) return <RowGallery />;
+
+  if (starChartGalleryOn()) return <StarChartGallery />;
 
   if (threadGalleryOn())
     return (
