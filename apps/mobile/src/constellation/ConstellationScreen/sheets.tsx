@@ -33,6 +33,10 @@ export interface SlotContext {
   readonly lastClaim: string | null;
 }
 
+/** A task as the chart labels it ("B3"), so the sheets name it as the stars do. */
+const labelIn = (chart: StarChartData, taskId: string | null): string | undefined =>
+  chart.tasks.find((t) => t.id === taskId)?.label;
+
 /** MX-AA: the claim sheet, from the task sheet's Review claim or the lead's claim notice. */
 export const renderClaimSheet = (context: SlotContext): ReactNode => (
   <ClaimSheet
@@ -42,6 +46,7 @@ export const renderClaimSheet = (context: SlotContext): ReactNode => (
     source={context.source}
     verdicts={context.verdicts}
     now={context.now}
+    label={labelIn(context.chart, context.lastClaim)}
   />
 );
 
@@ -53,5 +58,6 @@ export const renderStatsSheet = (context: SlotContext): ReactNode => (
     source={context.source}
     state={context.stats}
     waitingForYou={starCounts(context.chart.tasks).review}
+    labelOf={(taskId) => labelIn(context.chart, taskId) ?? taskId}
   />
 );

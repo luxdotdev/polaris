@@ -48,13 +48,24 @@ export const elapsed = (sinceMs: number, now: number): string => {
   const ms = now - sinceMs;
 
   if (!Number.isFinite(ms) || ms < MINUTE) return "now";
-  const minutes = Math.floor(ms / MINUTE);
 
+  return span(Math.floor(ms / MINUTE));
+};
+
+/** "31m", "1h", "2h 41m"; past a day "3d" or "9d 4h", so a long run stays short. */
+export const span = (minutes: number): string => {
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
 
-  return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
+  if (hours < 24) {
+    const rest = minutes % 60;
+
+    return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
+  }
+
+  const days = Math.floor(hours / 24);
+
+  return hours % 24 === 0 ? `${days}d` : `${days}d ${hours % 24}h`;
 };
 
 /** An ISO timestamp's age, as `elapsed`. */

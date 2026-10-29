@@ -161,6 +161,8 @@ export const stats = (
     readonly lead?: StatsUsage;
     readonly worker?: StatsUsage;
     readonly review?: { readonly accepted: number; readonly reviewed: number };
+    readonly wallClockMs?: number;
+    readonly workers?: ConstellationStats["workers"];
   } = {}
 ) =>
   new ConstellationStats({
@@ -169,7 +171,7 @@ export const stats = (
     hostId: HostId.make("mac"),
     asOf: "2026-10-29T11:12:00Z",
     sequence: Sequence.make(40),
-    wallClockMs: 72 * MINUTE,
+    wallClockMs: extra.wallClockMs ?? 72 * MINUTE,
     usageIndexedAt: null,
     indexing: false,
     lead: {
@@ -190,7 +192,7 @@ export const stats = (
       firstTimeAcceptanceRate: null,
       sendBacksByCause: [],
     },
-    workers: {
+    workers: extra.workers ?? {
       totals: times(161),
       attempts: [
         workerAttempt("A4", 1, 20),

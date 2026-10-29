@@ -3,11 +3,14 @@
  * with the done count, the stats chip, the star chart and its legend. Tap only.
  */
 import { mobileFont, mobileType } from "@polaris/ui/tokens";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { isCompact, StarChart, StarLegend, starCounts } from "../../starChart/index.ts";
 import { CHROME_TEXT_SCALE } from "../../theme/textScale.ts";
 import { themedStyles } from "../../theme/index.ts";
 import type { StarChartData } from "./stars.ts";
+
+/** The chart's share of the screen; past it (many bands, Dynamic Type) the chart scrolls. */
+export const CHART_SHARE = 0.22;
 
 export interface ChartPanelProps {
   readonly chart: StarChartData;
@@ -30,6 +33,7 @@ export const ChartPanel = ({
   const styles = useStyles();
   const { done } = starCounts(chart.tasks);
   const compact = isCompact(chart.tasks);
+  const { height } = useWindowDimensions();
 
   return (
     <View style={styles.panel}>
@@ -52,13 +56,19 @@ export const ChartPanel = ({
           </Text>
         </Pressable>
       </View>
-      <StarChart
-        tasks={chart.tasks}
-        bands={chart.bands}
-        compact={compact}
-        selectedTaskId={selectedTaskId}
-        onPressTask={onPressTask}
-      />
+      <ScrollView
+        style={{ maxHeight: height * CHART_SHARE }}
+        nestedScrollEnabled
+        showsVerticalScrollIndicator
+      >
+        <StarChart
+          tasks={chart.tasks}
+          bands={chart.bands}
+          compact={compact}
+          selectedTaskId={selectedTaskId}
+          onPressTask={onPressTask}
+        />
+      </ScrollView>
       <StarLegend tasks={chart.tasks} compact={compact} onViewAll={onViewAll} />
     </View>
   );
@@ -76,7 +86,8 @@ const useStyles = themedStyles((colours) => ({
     borderColor: colours.hairline,
     backgroundColor: colours.panel,
   },
-  top: { flexDirection: "row", alignItems: "center", gap: 8 },
+  // Wraps rather than squeezing: a wide chip (a long run's cost) moves under the done count.
+  top: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: 8, rowGap: 6 },
   kicker: {
     fontFamily: mobileFont.mono,
     fontSize: 11,
@@ -89,11 +100,12 @@ const useStyles = themedStyles((colours) => ({
     ...mobileType.footnote,
     fontSize: 13,
     lineHeight: 18,
-    flex: 1,
+    flexGrow: 1,
     color: colours.textDefault,
   },
   chip: {
     flexShrink: 0,
+    marginLeft: "auto",
     paddingVertical: 3,
     paddingHorizontal: 9,
     borderRadius: 12,
