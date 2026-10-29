@@ -1,6 +1,6 @@
 /**
  * The agent session thread (Paper M4): header, the transcript as a virtualized
- * list (earlier Turns collapsed), the inline Critical finding, suggested
+ * list, every Turn in order, older ones paged in on scrolling up, the inline Critical finding, suggested
  * chips and the composer. Data comes from the Host's shared connection.
  */
 import type { RiskFinding, SessionId, Workspace, WorkspaceId } from "@polaris/protocol";
@@ -353,7 +353,6 @@ export const ThreadScreen = ({
           renderItem={({ item }) => (
             <Row
               row={item}
-              open={expanded.has(item.turnId)}
               criticalPaths={criticalPaths}
               onToggle={toggle}
               onFocus={onFocus}
@@ -390,6 +389,10 @@ export const ThreadScreen = ({
               )}
             </>
           }
+          // Inverted: the end is the top, the oldest Turn; older ones page in from there.
+          onEndReached={() => controller?.loadOlder()}
+          onEndReachedThreshold={1.5}
+          ListFooterComponent={<OlderNote loading={state.older === "loading"} />}
           initialNumToRender={16}
           maxToRenderPerBatch={12}
           windowSize={9}
@@ -440,6 +443,10 @@ export const ThreadScreen = ({
     </SafeAreaView>
   );
 };
+
+/** At the top of the thread while older Turns are on their way. */
+const OlderNote = ({ loading }: { readonly loading: boolean }) =>
+  loading ? <Text style={styles.older}>Loading earlier turns…</Text> : null;
 
 const Missing = ({
   text,
@@ -508,5 +515,6 @@ const styles = StyleSheet.create({
   findingWhere: { ...mobileType.index, color: midnight.textFaint },
   bottom: { gap: 10, paddingHorizontal: 12, paddingTop: 4, paddingBottom: 8 },
   queued: { ...mobileType.footnote, color: midnight.textSubtle, marginHorizontal: 4 },
+  older: { ...mobileType.footnote, color: midnight.textFaint, textAlign: "center", padding: 12 },
   missing: { ...mobileType.callout, color: midnight.textSubtle, padding: 16 },
 });

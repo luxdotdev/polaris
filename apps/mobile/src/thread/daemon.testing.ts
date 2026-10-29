@@ -31,6 +31,7 @@ import {
   SessionStreamItem,
   Turn,
   TurnDetail,
+  TurnPage,
   TurnId,
   type TurnItem,
   Unsupported,
@@ -188,6 +189,8 @@ export interface FakeHost {
   readonly dropNextAnswer: () => void;
   readonly reads: ReadonlyArray<number>;
   readonly summariesAsked: ReadonlyArray<string>;
+  /** Each `session.turns` call's `beforeIndex`, in order. */
+  readonly pagesAsked: ReadonlyArray<number>;
   /** Holds saveDraft's answers until `release` (the phone waits for the Host's ack). */
   readonly holdSaves: () => void;
   /** The next saveDraft fails, as when the connection drops mid-write. */
@@ -198,6 +201,8 @@ export interface FakeHost {
 export interface FakeHostOptions {
   /** Cached Risk Summaries by the head commit they cover. */
   readonly summaries?: ReadonlyMap<string, RiskSummary>;
+  /** The session's whole history, oldest first, as `session.turns` pages it. */
+  readonly history?: ReadonlyArray<Turn>;
 }
 
 export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOptions = {}) {
@@ -210,6 +215,7 @@ export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOption
   let dropNext = false;
   const reads: Array<number> = [];
   const summariesAsked: Array<string> = [];
+  const pagesAsked: Array<number> = [];
   const drafts = new Map<SessionId, ComposerDraft>();
   let readPosition: ReadPosition | null = null;
   let revision = 0;
@@ -296,6 +302,19 @@ export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOption
           ByKey: () => null,
         })
       ),
+    "session.turns": ({ beforeIndex, limit }) =>
+      Effect.sync(() => {
+        const before = (options.history ?? []).filter((t) => t.index < beforeIndex);
+        const page = before.slice(Math.max(0, before.length - limit));
+
+        pagesAsked.push(beforeIndex);
+
+        return new TurnPage({
+          turns: page.map((t) => new TurnDetail({ turn: t, items: [], subagents: [] })),
+          sequence: Sequence.make(1),
+          hasMore: page.length < before.length,
+        });
+      }),
     "review.watchRiskSummary": ({ summaryId }) =>
       Stream.fromIterable(
         [...(options.summaries?.values() ?? [])].filter((summary) => summary.id === summaryId)
@@ -338,6 +357,7 @@ export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOption
     },
     reads,
     summariesAsked,
+    pagesAsked,
     failNextSave: () => {
       failNext = true;
     },

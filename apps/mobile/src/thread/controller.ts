@@ -24,7 +24,7 @@ import {
   type Workspace,
   type WorkspaceId,
 } from "@polaris/protocol";
-import { Effect, Exit, Fiber, Stream } from "effect";
+import { Effect, Exit, Fiber, Predicate, Stream } from "effect";
 import {
   composerMode,
   type FollowUp,
@@ -32,10 +32,11 @@ import {
   sendQueues,
   submitCommand,
 } from "./composer.ts";
-import { applySessionItem, type SessionFold, summaryHead } from "./fold.ts";
+import { applySessionItem, type SessionFold, summaryHead, withOlder } from "./fold.ts";
 import { type OutgoingSteer, outgoingSteer, settleSteers } from "./outbox.ts";
 import { newestEndedOnScreen } from "./rows.ts";
 import { newCommandId, type ThreadFailure, type ThreadSource } from "./source.ts";
+import type { TurnDetail } from "@polaris/protocol";
 
 export interface ThreadState {
   readonly fold: SessionFold | null;
@@ -55,6 +56,8 @@ export interface ThreadState {
   readonly answering: ReadonlyArray<RequestId>;
   /** Why the last answer to a pending request failed, by request. */
   readonly requestErrors: ReadonlyMap<RequestId, string>;
+  /** Older Turns than the thread holds: there may be more, they're on their way, or that's all. */
+  readonly older: "more" | "loading" | "all";
 }
 
 export interface ThreadController {
@@ -77,6 +80,8 @@ export interface ThreadController {
   readonly busy: () => boolean;
   /** The Host's connection came back: drafts that failed to save are written again. */
   readonly reconnected: () => void;
+  /** Pages in Turns older than the thread holds; does nothing while a page is on its way. */
+  readonly loadOlder: () => void;
   /** The Turns with rows on screen while the app is in front. */
   readonly seen: (turnIds: ReadonlyArray<string>) => void;
   readonly dispose: () => void;
@@ -93,7 +98,11 @@ const initial: ThreadState = {
   error: null,
   answering: [],
   requestErrors: new Map(),
+  older: "more",
 };
+
+/** How many older Turns one scroll to the top brings in. */
+export const OLDER_PAGE = 30;
 
 const lastTurnOf = (fold: SessionFold | null) => fold?.turns.at(-1)?.turn ?? null;
 
@@ -124,6 +133,8 @@ export const openThread = (
   /** Bumped by every edit, so an acknowledgement clears only the text it sent. */
   let generation = 0;
   let findingsFiber: Fiber.Fiber<void, ThreadFailure> | null = null;
+  /** Older Turns paged in so far, oldest first; a fresh Snapshot keeps them. */
+  let pages: ReadonlyArray<TurnDetail> = [];
   const listeners = new Set<() => void>();
   const fibers: Array<Fiber.Fiber<void, ThreadFailure>> = [];
 
@@ -227,7 +238,12 @@ export const openThread = (
 
   fibers.push(
     follow(source.session(sessionId), (item) => {
-      const fold = applySessionItem(state.fold, item);
+      const applied = applySessionItem(state.fold, item);
+
+      const fold =
+        applied !== null && Predicate.isTagged(item, "Snapshot")
+          ? withOlder(applied, pages)
+          : applied;
 
       if (fold === state.fold || fold === null) return;
       set({ fold, steers: settleSteers(state.steers, fold.turns) });
@@ -354,6 +370,33 @@ export const openThread = (
     set({ answering: state.answering.filter((id) => id !== requestId), requestErrors: after });
   };
 
+  const loadOlder = () => {
+    const first = state.fold?.turns[0]?.turn.index ?? 0;
+
+    if (state.older !== "more" || state.fold === null) return;
+
+    if (first === 0) return set({ older: "all" });
+    set({ older: "loading" });
+
+    const paged = source.olderTurns(sessionId, first, OLDER_PAGE).pipe(
+      Effect.match({
+        // A dropped connection tries again on the next scroll; a refusal is the end.
+        onFailure: (error) => set({ older: error.ambiguous === true ? "more" : "all" }),
+        onSuccess: (page) => {
+          if (page === null) return set({ older: "all" });
+          pages = [...page.turns, ...pages];
+
+          set({
+            fold: state.fold === null ? null : withOlder(state.fold, page.turns),
+            older: page.hasMore ? "more" : "all",
+          });
+        },
+      })
+    );
+
+    void Effect.runPromise(paged);
+  };
+
   const seen = (turnIds: ReadonlyArray<string>) => {
     const fold = state.fold;
 
@@ -389,6 +432,7 @@ export const openThread = (
       inFlight.size > 0 ||
       state.steers.some((entry) => entry.status !== "failed"),
     seen,
+    loadOlder,
     reconnected: () => void drafts.retry(),
     dispose: () => {
       void drafts.flush(sessionId).finally(() => drafts.dispose());
