@@ -37,6 +37,7 @@ import { NeedsYouStar } from "./ui/glyphs.tsx";
 import { Header } from "./ui/Header.tsx";
 import { NeedsYouCard, titleOf } from "./ui/NeedsYouCard.tsx";
 import { ConstellationListRow, SessionRow } from "./ui/rows.tsx";
+import { useInbox } from "../inbox/index.ts";
 
 export interface HomeActions {
   readonly openSession: (hostId: string, sessionId: string) => void;
@@ -122,16 +123,6 @@ const useNow = () => {
 
   return now;
 };
-
-/** S3's `InboxControls` (src/inbox), stubbed here until it merges. */
-interface InboxControls {
-  readonly open: () => void;
-  readonly close: () => void;
-  readonly count: number;
-}
-
-/** Stand-in for S3's `useInbox` until it merges: opens nothing yet. */
-const useInbox = (): InboxControls => ({ open: () => undefined, close: () => undefined, count: 0 });
 
 interface HeroActions {
   readonly now: number;

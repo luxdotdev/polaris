@@ -42,6 +42,7 @@ import { type HeaderLine, headerLine, outgoingRows, threadRows, type ThreadRow }
 import { chipAction, openCritical, type Suggestion, suggestions } from "./suggestions.ts";
 import { threadKey, threads } from "./threads.ts";
 import { useAfter } from "../runtime/useAfter.ts";
+import { InboxBadge } from "../inbox/index.ts";
 
 export interface ThreadScreenProps {
   readonly hostId: string;
@@ -165,6 +166,7 @@ const Header = ({
           <Text style={styles.pillLabel}>{criticals} critical</Text>
         </View>
       )}
+      <InboxBadge />
     </View>
   );
 };

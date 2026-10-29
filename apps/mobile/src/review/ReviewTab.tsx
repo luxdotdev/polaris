@@ -13,6 +13,7 @@ import { SessionRow } from "../home/ui/rows.tsx";
 import { LongPressMenu, sessionMenu, useMenuActions } from "../menus/index.ts";
 import { themedStyles } from "../theme/index.ts";
 import { type ReadyEmpty, type ReadyToReview, readyToReview } from "./ready.ts";
+import { InboxBadge } from "../inbox/index.ts";
 
 /** The agent sessions ready to review across the followed Hosts. */
 export const useReadyToReview = (): ReadyToReview => {
@@ -99,9 +100,12 @@ export const ReviewTab = ({
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
-      <Text style={styles.large} accessibilityRole="header">
-        Review
-      </Text>
+      <View style={styles.titleRow}>
+        <Text style={styles.large} accessibilityRole="header">
+          Review
+        </Text>
+        <InboxBadge />
+      </View>
       {ready.empty === null ? (
         <ScrollView style={styles.list} contentContainerStyle={{ paddingBottom: tabBarHeight }}>
           {ready.rows.map((row) => (
@@ -124,6 +128,12 @@ export const ReviewTab = ({
 
 const useStyles = themedStyles((colours) => ({
   screen: { flex: 1, backgroundColor: colours.ground },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingRight: 16,
+  },
   large: { ...mobileType.largeTitle, color: colours.textStrong, paddingHorizontal: 20 },
   list: { flex: 1, paddingHorizontal: 20, paddingTop: 12 },
   empty: {
