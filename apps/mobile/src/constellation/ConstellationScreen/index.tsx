@@ -42,6 +42,15 @@ const useNow = (everyMs: number) => {
   return now;
 };
 
+/** `value` as of the last tick of `now`: a busy constellation re-reads its stats once a tick. */
+const useThrottled = <T,>(value: T, now: number): T => {
+  const [held, setHeld] = useState(value);
+
+  useEffect(() => setHeld(value), [now]);
+
+  return held;
+};
+
 const awayLine = (status: HostStatus): string | null => {
   if (status.state === "connected") return null;
 
@@ -83,7 +92,8 @@ export const ChartedThread = ({
   const chart = useMemo(() => starChartOf(source), [source]);
   const notice = useMemo(() => claimNotice(source, chart, now), [source, chart, now]);
   const c = source.constellation;
-  const stats = useConstellationStats(connection, constellationId, c.revision);
+  const statsRevision = useThrottled(c.revision, now);
+  const stats = useConstellationStats(connection, constellationId, statsRevision);
   const read = stats.kind === "ready" ? stats.stats : null;
 
   const close = () => setSheet(null);
