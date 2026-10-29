@@ -20,7 +20,7 @@ export interface WaveSegment {
 }
 
 /** A wave's segment at most, the whole bar at most, and the gaps (Paper X-H: 24, 3, 1). */
-export const WAVE_BAR = { segment: 24, budget: 150, gap: 3, partGap: 1, minPart: 2 } as const;
+export const WAVE_BAR = { segment: 24, budget: 108, gap: 3, partGap: 1, minPart: 2 } as const;
 
 const ORDER: ReadonlyArray<StripTone> = [
   "accepted",

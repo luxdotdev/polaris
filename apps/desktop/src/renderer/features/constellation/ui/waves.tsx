@@ -97,7 +97,7 @@ export const WaveBar = ({
         width={width}
         height={HEIGHT + 2}
         aria-hidden
-        className="shrink-0 [shape-rendering:crispEdges]"
+        className="min-w-0 shrink [shape-rendering:crispEdges]"
       >
         {bar.map((segment, n) => (
           <Segment key={segment.wave} segment={segment} x={xs[n] ?? 0} />

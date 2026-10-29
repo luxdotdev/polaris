@@ -31,6 +31,7 @@ import {
 } from "./graph.ts";
 import { FAILURE_SIGNALS, failuresRecord } from "./failures.ts";
 import { STARTUP_SIGNALS, withStartupSetups } from "./startup.ts";
+import { chromeRecord } from "./chrome.ts";
 import { largeRecord } from "./large.ts";
 import { b8Model, setupRecord, setupSessions } from "./setup.ts";
 import { statsFixture } from "./stats.ts";
@@ -107,12 +108,21 @@ const SCENES = [
   "failures",
   "steered",
   "startup",
+  "chrome",
 ] as const;
 
 type Scene = (typeof SCENES)[number];
 
+const FIXED: Partial<Record<Scene, () => ConstellationRecord>> = {
+  large: largeRecord,
+  chrome: chromeRecord,
+  failures: failuresRecord,
+};
+
 const recordFor = (scene: Scene): ConstellationRecord => {
-  if (scene === "large") return largeRecord();
+  const fixed = FIXED[scene];
+
+  if (fixed !== undefined) return fixed();
 
   if (scene === "empty")
     return startedRecord(
@@ -130,8 +140,6 @@ const recordFor = (scene: Scene): ConstellationRecord => {
   if (scene === "setup" || scene === "setup-focus") return setupRecord();
 
   if (scene === "completed") return c1Record({ state: "completed", attempts: completedAttempts() });
-
-  if (scene === "failures") return failuresRecord();
 
   if (scene === "digests") {
     const record = slugRecord();
@@ -222,6 +230,7 @@ const UI: Readonly<Record<Scene, Partial<LeadUi>>> = {
   },
   slugs: { selected: "task:email-validator", folds: SLUG_FOLDS },
   tree: { selected: "task:F2", folds: TREE_FOLDS },
+  chrome: {},
 };
 
 const LEADS = new Map<Scene, () => SessionModel>([
