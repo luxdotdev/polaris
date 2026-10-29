@@ -68,6 +68,8 @@ export interface MenuItem {
   /** Under the title; says why a disabled item is disabled. */
   readonly subtitle: string | null;
   readonly disabled: boolean;
+  /** An SF Symbol drawn at the item's trailing edge, as MX-J draws Copy and Fork; null for none. */
+  readonly symbol: string | null;
   readonly action: MenuAction;
 }
 
@@ -79,6 +81,7 @@ const item = (id: string, title: string, action: MenuAction): MenuItem => ({
   title,
   subtitle: null,
   disabled: false,
+  symbol: null,
   action,
 });
 
@@ -266,9 +269,12 @@ export const turnMenu = (
   turn: { readonly turnId: string; readonly output: string }
 ): Menu => [
   [
-    ...(turn.output === "" ? [] : [item("copy", "Copy", { kind: "copy", text: turn.output })]),
+    ...(turn.output === ""
+      ? []
+      : [{ ...item("copy", "Copy", { kind: "copy", text: turn.output }), symbol: "doc.on.doc" }]),
     {
       ...item("fork", "Fork from here", { kind: "fork", ...where, turnId: turn.turnId }),
+      symbol: "arrow.triangle.branch",
       // ForkSession is "local" in DEVICE_COMMANDS: the Daemon refuses it from a phone.
       subtitle: "From the desktop app for now",
       disabled: true,

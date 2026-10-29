@@ -10,7 +10,7 @@ import { devHomeHosts } from "../worstCase.testing.ts";
 import { useSettledHosts } from "./settled.ts";
 import { homeHostsOf, useFollowedHosts } from "./useFollowedHosts.ts";
 
-export const DevHomeData = Schema.Literals(["live", "worst", "empty", "one", "huge"]);
+export const DevHomeData = Schema.Literals(["live", "worst", "empty", "one", "huge", "paper"]);
 
 export type DevHomeData = typeof DevHomeData.Type;
 

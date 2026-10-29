@@ -17,8 +17,9 @@ import {
   workspace,
 } from "./fixtures.testing.ts";
 import type { HomeHost } from "./model/home.ts";
+import { paperHomeHosts } from "./paperData.testing.ts";
 
-export type DevHomeData = "worst" | "empty" | "one" | "huge";
+export type DevHomeData = "worst" | "empty" | "one" | "huge" | "paper";
 
 const host = (
   hostId: string,
@@ -213,4 +214,5 @@ export const devHomeHosts: Record<DevHomeData, ReadonlyArray<HomeHost>> = {
   empty: [empty],
   one: [one],
   huge: [huge],
+  paper: paperHomeHosts,
 };

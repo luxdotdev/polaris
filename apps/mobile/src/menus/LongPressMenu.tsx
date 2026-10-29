@@ -39,7 +39,13 @@ export const copyText = async (text: string): Promise<boolean> => {
 const encode = (menu: Menu) =>
   JSON.stringify(
     menu.map((group) =>
-      group.map(({ id, title, subtitle, disabled }) => ({ id, title, subtitle, disabled }))
+      group.map(({ id, title, subtitle, disabled, symbol }) => ({
+        id,
+        title,
+        subtitle,
+        disabled,
+        symbol,
+      }))
     )
   );
 
@@ -47,6 +53,7 @@ export const LongPressMenu = ({
   menu,
   title = "",
   previewInsetBottom = 0,
+  card = false,
   onAction,
   children,
 }: {
@@ -55,6 +62,8 @@ export const LongPressMenu = ({
   readonly title?: string;
   /** Points cut from the lifted preview's foot, so what the header repeats isn't lifted twice. */
   readonly previewInsetBottom?: number;
+  /** Lifts open-ground content (a Turn's text) as MX-J's card: raised, padded, 18pt corners. */
+  readonly card?: boolean;
   readonly onAction: (action: MenuAction) => void;
   readonly children: ReactNode;
 }) => {
@@ -72,11 +81,11 @@ export const LongPressMenu = ({
     <NativeMenu
       menu={encode(menu)}
       title={title}
-      previewColor={colours.ground}
+      previewColor={card ? colours.raised : colours.ground}
       previewInsetBottom={previewInsetBottom}
-      previewRadius={PREVIEW_RADIUS}
+      previewRadius={card ? CARD_RADIUS : PREVIEW_RADIUS}
       onSelectItem={onSelectItem}
-      style={styles.lift}
+      style={card ? styles.card : styles.lift}
     >
       {children}
     </NativeMenu>
@@ -87,7 +96,11 @@ const PREVIEW_RADIUS = 12;
 
 const PREVIEW_MARGIN = 12;
 
+const CARD_RADIUS = 18;
+
 /** Wider than the row by a margin each side, so the lifted preview has room around the text. */
 const styles = StyleSheet.create({
   lift: { marginHorizontal: -PREVIEW_MARGIN, paddingHorizontal: PREVIEW_MARGIN },
+  // MX-J's 14pt padding: 8 here and the reply's own 6 across; 10 above and below the text.
+  card: { marginHorizontal: -8, paddingHorizontal: 8, marginVertical: -10, paddingVertical: 10 },
 });

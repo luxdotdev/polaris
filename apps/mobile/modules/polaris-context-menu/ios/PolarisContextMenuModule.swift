@@ -43,6 +43,7 @@ struct ContextMenuItem: Decodable {
   let title: String
   let subtitle: String?
   let disabled: Bool
+  let symbol: String?
 }
 
 final class PolarisContextMenuView: ExpoView, UIContextMenuInteractionDelegate {
@@ -127,7 +128,8 @@ final class PolarisContextMenuView: ExpoView, UIContextMenuInteractionDelegate {
   private func action(_ item: ContextMenuItem) -> UIAction {
     let attributes: UIMenuElement.Attributes = item.disabled ? [.disabled] : []
 
-    let action = UIAction(title: item.title, attributes: attributes) { [weak self] _ in
+    let image = item.symbol.flatMap { UIImage(systemName: $0) }
+    let action = UIAction(title: item.title, image: image, attributes: attributes) { [weak self] _ in
       self?.onSelectItem(["id": item.id])
     }
     action.subtitle = item.subtitle

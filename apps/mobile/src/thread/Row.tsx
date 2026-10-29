@@ -238,6 +238,7 @@ const TurnMenu = ({
       menu={turnMenu(session, turn)}
       title={[turnHeading(turn), turn.receipt].filter((line) => line !== "").join("\n")}
       previewInsetBottom={receiptHeight}
+      card
       onAction={onMenuAction}
     >
       {children}
@@ -258,8 +259,9 @@ const Reply = ({
   const styles = useStyles();
   const [receiptHeight, setReceiptHeight] = useState(0);
 
+  // The menu's view also holds the reply's bottom margin, so the cut starts above both.
   const measure = (event: LayoutChangeEvent) =>
-    setReceiptHeight(event.nativeEvent.layout.height + RECEIPT_GAP);
+    setReceiptHeight(event.nativeEvent.layout.height + RECEIPT_GAP + TURN_GAP);
 
   return (
     <TurnMenu

@@ -13,6 +13,7 @@ const CHOICES: ReadonlyArray<readonly [DevHomeData, string]> = [
   ["empty", "Empty"],
   ["one", "One"],
   ["huge", "Huge"],
+  ["paper", "Paper"],
 ];
 
 export const DevDataToggle = ({ bottom }: { readonly bottom: number }) => {

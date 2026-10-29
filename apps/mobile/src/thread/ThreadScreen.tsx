@@ -584,7 +584,8 @@ const makeStyles = (colours: MobileColours) =>
       flex: 1,
     },
     findingWhere: { ...mobileType.index, color: colours.textFaint },
-    bottom: { gap: 10, paddingHorizontal: 10, paddingTop: 4, paddingBottom: 8 },
+    // MX-E: the composer's foot sits on the home-indicator inset, with nothing added.
+    bottom: { gap: 10, paddingHorizontal: 10, paddingTop: 4 },
     queued: { ...mobileType.footnote, color: colours.textSubtle, marginHorizontal: 4 },
     older: { ...mobileType.footnote, color: colours.textFaint, textAlign: "center", padding: 12 },
     missing: { ...mobileType.callout, color: colours.textSubtle, padding: 16 },
