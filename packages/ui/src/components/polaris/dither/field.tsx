@@ -4,6 +4,7 @@ import { cn } from "../../../lib/cn";
 import type { CssVars } from "../../../lib/css";
 import { hueVar, type TintHue } from "../../../lib/hue";
 import { reducedMotion } from "../../../lib/motion";
+import { LiveClock, watchGates } from "./clock";
 import {
   BLOOM_MS,
   bloomAt,
@@ -11,6 +12,7 @@ import {
   type FieldColors,
   type FieldFrame,
   HUE_ALPHA,
+  liveAt,
   paintFrame,
   RESTING,
   type Rgb,
@@ -20,8 +22,10 @@ import {
 
 export interface DitherFieldProps extends HTMLAttributes<HTMLCanvasElement> {
   readonly hue: TintHue;
-  /** A change (a new status line) re-blooms the corner, as does mounting. */
+  /** A change (a new status line) re-blooms the corner, as does mounting; unset never blooms. */
   readonly bloom?: string | undefined;
+  /** While a Turn runs the threshold drifts and the edge breathes at 12 fps (LiveClock). */
+  readonly active?: boolean | undefined;
 }
 
 /** A resolved CSS colour as sRGB bytes, whatever colour space the token uses. */
@@ -96,15 +100,23 @@ function step(motion: Motion, dt: number): boolean {
 
 interface Controller {
   readonly bloom: () => void;
+  readonly clock: LiveClock;
 }
 
 /**
- * The Working strip's dither field (DESIGN.md, Working strip): fine hue dots at the top-left,
- * a trail and sparse bright dots around the pointer while its `[data-dither-hover]` ancestor
- * is hovered, and a bloom on each status. It paints only while something moves; Reduce Motion
- * keeps it still.
+ * The live dither field (DESIGN.md, Working strip): fine hue dots at the top-left that drift
+ * and breathe while `active`, a trail and sparse bright dots around the pointer while its
+ * `[data-dither-hover]` ancestor is hovered, and a bloom on each status. It paints only while
+ * something moves; hidden, out of view or under Reduce Motion it is the still corner.
  */
-export function DitherField({ hue, bloom, className, style, ...props }: DitherFieldProps) {
+export function DitherField({
+  hue,
+  bloom,
+  active = false,
+  className,
+  style,
+  ...props
+}: DitherFieldProps) {
   const ref = useRef<HTMLCanvasElement>(null);
   const controller = useRef<Controller | null>(null);
 
@@ -114,9 +126,9 @@ export function DitherField({ hue, bloom, className, style, ...props }: DitherFi
 
     if (canvas === null || context === null || context === undefined) return;
     const area = canvas.parentElement;
-    const host = canvas.closest<HTMLElement>("[data-dither-hover]") ?? area;
+    const host = canvas.closest<HTMLElement>("[data-dither-hover]");
 
-    if (area === null || host === null) return;
+    if (area === null) return;
 
     let colors = resolveColors(canvas);
     let image = context.createImageData(1, 1);
@@ -124,6 +136,7 @@ export function DitherField({ hue, bloom, className, style, ...props }: DitherFi
     let origin = { x: 0, y: 0 };
     let frame = 0;
     let last = 0;
+    let live = liveAt(0);
 
     const motion: Motion = {
       target: { x: 0, y: 0 },
@@ -136,6 +149,7 @@ export function DitherField({ hue, bloom, className, style, ...props }: DitherFi
 
     const current = (): FieldFrame => ({
       bloom: motion.bloomAge >= BLOOM_MS ? RESTING : bloomAt(motion.bloomAge),
+      ...live,
       trail: motion.trail,
       pointer: motion.pointer,
       presence: motion.presence,
@@ -215,6 +229,14 @@ export function DitherField({ hue, bloom, className, style, ...props }: DitherFi
       paint();
     };
 
+    // A live step repaints, unless the pointer's frame loop is about to.
+    const clock = new LiveClock((step) => {
+      live = liveAt(step);
+
+      if (frame === 0) paint();
+    });
+
+    const unwatch = watchGates(canvas, clock);
     const observer = new ResizeObserver(resize);
     const themes = new MutationObserver(recolor);
     const scheme = matchMedia("(prefers-color-scheme: dark)");
@@ -222,9 +244,9 @@ export function DitherField({ hue, bloom, className, style, ...props }: DitherFi
     observer.observe(area);
     themes.observe(document.documentElement, { attributeFilter: ["data-theme", "class"] });
     scheme.addEventListener("change", recolor);
-    host.addEventListener("pointerenter", onEnter);
-    host.addEventListener("pointermove", onMove);
-    host.addEventListener("pointerleave", onLeave);
+    host?.addEventListener("pointerenter", onEnter);
+    host?.addEventListener("pointermove", onMove);
+    host?.addEventListener("pointerleave", onLeave);
     resize();
 
     controller.current = {
@@ -234,21 +256,28 @@ export function DitherField({ hue, bloom, className, style, ...props }: DitherFi
         motion.bloomAge = 0;
         wake();
       },
+      clock,
     };
 
     return () => {
       controller.current = null;
+      clock.dispose();
+      unwatch();
       cancelAnimationFrame(frame);
       observer.disconnect();
       themes.disconnect();
       scheme.removeEventListener("change", recolor);
-      host.removeEventListener("pointerenter", onEnter);
-      host.removeEventListener("pointermove", onMove);
-      host.removeEventListener("pointerleave", onLeave);
+      host?.removeEventListener("pointerenter", onEnter);
+      host?.removeEventListener("pointermove", onMove);
+      host?.removeEventListener("pointerleave", onLeave);
     };
   }, [hue]);
 
-  useEffect(() => controller.current?.bloom(), [hue, bloom]);
+  useEffect(() => {
+    if (bloom !== undefined) controller.current?.bloom();
+  }, [hue, bloom]);
+
+  useEffect(() => controller.current?.clock.set({ active }), [hue, active]);
 
   const vars: CssVars = {
     color: hueVar(hue),

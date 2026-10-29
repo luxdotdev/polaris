@@ -133,6 +133,10 @@ export function sparseAlpha(x: number, y: number, frame: FieldFrame): number {
 
 export interface FieldFrame {
   readonly bloom: Bloom;
+  /** The live clock's step: shifts the Bayer threshold so the fringe drifts. 0 is still. */
+  readonly drift: number;
+  /** The corner's reach as it breathes, 1 at rest. */
+  readonly breath: number;
   readonly trail: Trail | null;
   /** Where the sparse patch sits, in CSS px from the field's top-left. */
   readonly pointer: { readonly x: number; readonly y: number };
@@ -142,29 +146,50 @@ export interface FieldFrame {
 
 export const STILL: FieldFrame = {
   bloom: RESTING,
+  drift: 0,
+  breath: 1,
   trail: null,
   pointer: { x: 0, y: 0 },
   presence: 0,
 };
 
+/** Milliseconds per live step: the dither's 12 fps. */
+export const LIVE_FRAME_MS = 83;
+
+const BREATH = { periodSteps: 30, depth: 0.07 } as const;
+
+/** A live field's drift and breath at `step`: the edge swells and eases over ~2.5s. */
+export function liveAt(step: number): Pick<FieldFrame, "drift" | "breath"> {
+  const phase = (step % BREATH.periodSteps) / BREATH.periodSteps;
+
+  return { drift: step, breath: 1 + BREATH.depth * Math.sin(phase * 2 * Math.PI) };
+}
+
 /** A hue dot's value (0–1) at dot (i, j): the corner under the bloom, plus the trail. */
 export function hueValue(i: number, j: number, frame: FieldFrame): number {
-  const corner = cornerValue(i * DOT_PITCH, j * DOT_PITCH, frame.bloom.spread) * frame.bloom.gain;
+  const spread = frame.bloom.spread * frame.breath;
+  const corner = cornerValue(i * DOT_PITCH, j * DOT_PITCH, spread) * frame.bloom.gain;
   const trail = frame.trail?.values[j * frame.trail.columns + i] ?? 0;
 
   return Math.min(1, corner + trail);
 }
 
-/** Whether the Bayer threshold keeps dot (i, j) at value `v`, so the fringe thins out. */
-export function kept(i: number, j: number, v: number): boolean {
-  return ((BAYER4[(j % 4) * 4 + (i % 4)] ?? 0) + 0.5) / 16 < v * 1.5;
+/**
+ * Whether the Bayer threshold keeps dot (i, j) at value `v`, so the fringe thins out; `drift`
+ * walks the matrix diagonally, so the fringe's dots shift while the dense core holds.
+ */
+export function kept(i: number, j: number, v: number, drift = 0): boolean {
+  const dx = drift % 4;
+  const dy = Math.floor(drift / 4) % 4;
+
+  return ((BAYER4[((j + dy) % 4) * 4 + ((i + dx) % 4)] ?? 0) + 0.5) / 16 < v * 1.5;
 }
 
 /** A hue dot's alpha, or 0 where the Bayer threshold drops it. */
 export function hueAlpha(i: number, j: number, frame: FieldFrame, alpha = HUE_ALPHA): number {
   const v = hueValue(i, j, frame);
 
-  return kept(i, j, v) ? alpha * v : 0;
+  return kept(i, j, v, frame.drift) ? alpha * v : 0;
 }
 
 export type Rgb = readonly [number, number, number];
@@ -222,7 +247,7 @@ export function paintFrame(target: FieldPixels, colors: FieldColors, frame: Fiel
       let dot = wash;
 
       if (sparse > 0) dot = packPixel(colors.sparse, sparse);
-      else if (kept(i, j, v)) dot = packPixel(colors.hue, colors.hueAlpha * v);
+      else if (kept(i, j, v, frame.drift)) dot = packPixel(colors.hue, colors.hueAlpha * v);
 
       if (dot !== 0 || wash !== 0) paintCell(target, x, y, dot, wash);
     }

@@ -4,10 +4,9 @@
  * each one, and the quiet opening of a Turn the Harness started itself.
  */
 import type { BackgroundTask } from "@polaris/protocol";
-import { cn, Dither, Tooltip, TooltipContent, TooltipTrigger } from "@polaris/ui";
+import { cn, Tooltip, TooltipContent, TooltipTrigger } from "@polaris/ui";
 import type { ReactElement } from "react";
 import { waitingPhrase } from "../model/background.ts";
-import type { Hue } from "./items.tsx";
 
 /** Each task on its own line: its description, then its kind. */
 export const BackgroundTaskList = ({
@@ -52,16 +51,10 @@ export const BackgroundTasksHover = ({
 
 const AVATAR = "flex w-6 shrink-0 justify-center";
 
-/** The conversation's last line while an Idle session waits: a still dither, never looping. */
-export const Waiting = ({
-  tasks,
-  hue,
-}: {
-  readonly tasks: ReadonlyArray<BackgroundTask>;
-  readonly hue: Hue;
-}) => (
+/** The conversation's last line while an Idle session waits; no dither, nothing runs. */
+export const Waiting = ({ tasks }: { readonly tasks: ReadonlyArray<BackgroundTask> }) => (
   <div className="flex items-center gap-3" data-testid="waiting">
-    <div className={AVATAR}>{hue === null ? null : <Dither hue={hue} size={12} />}</div>
+    <div className={AVATAR} />
     <BackgroundTasksHover tasks={tasks}>
       <p
         tabIndex={0}

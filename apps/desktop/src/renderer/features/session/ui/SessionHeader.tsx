@@ -21,8 +21,9 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   type Harness,
-  HarnessMark,
+  harnessHue,
   Input,
+  Tile,
 } from "@polaris/ui";
 import { useState } from "react";
 import { Commands } from "../../../commands.ts";
@@ -218,7 +219,10 @@ export const SessionHeader = (props: SessionHeaderProps) => {
         {harness === null ? (
           <span className="text-label text-text-default">{session.harness}</span>
         ) : (
-          <HarnessMark harness={harness} named className="shrink-0" />
+          <span className="text-label text-text-default inline-flex shrink-0 items-center gap-1.5">
+            <Tile hue={harness} size={20} />
+            {harnessHue(harness).name}
+          </span>
         )}
         {waiting.length > 0 ? (
           <BackgroundTasksHover tasks={waiting}>{stateLine}</BackgroundTasksHover>

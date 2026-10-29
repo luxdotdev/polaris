@@ -8,6 +8,8 @@ import { ditherStillMask, ditherStripMask } from "./frames";
 
 export { DitherField, type DitherFieldProps } from "./field";
 
+export { LiveDither, type LiveDitherProps } from "./live";
+
 export { DITHER_CELL, DITHER_EXIT_MS, DITHER_FRAME_MS, DITHER_FRAMES, ditherFrame } from "./cells";
 
 export interface DitherProps extends HTMLAttributes<HTMLSpanElement> {

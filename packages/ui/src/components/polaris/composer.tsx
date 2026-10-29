@@ -8,6 +8,7 @@ import { Button } from "../ui/button";
 import { Textarea, type TextareaProps } from "../ui/textarea";
 import { Dither } from "./dither";
 import { DitherField } from "./dither/field";
+import { LiveDither } from "./dither/live";
 import { Kbd } from "./kbd";
 import { Tile } from "./tile";
 
@@ -20,7 +21,7 @@ export interface HarnessPickerProps extends HTMLAttributes<HTMLButtonElement> {
   readonly working?: boolean;
 }
 
-/** DESIGN.md, Harness picker: a small tile, the handle, the model and a chevron. */
+/** DESIGN.md, Harness picker: a small tile, the handle, the model and a chevron; no dither. */
 export function HarnessPicker({
   harness,
   model,
@@ -51,9 +52,7 @@ export function HarnessPicker({
       style={vars}
       {...props}
     >
-      <Tile hue={harness} size={20} className="size-[18px] rounded-[5px]">
-        <Dither hue={harness} size={10} moving={working} />
-      </Tile>
+      <Tile hue={harness} size={20} className="size-[18px] rounded-[5px]" />
       <span
         className={cn(
           "text-caption font-medium",
@@ -99,7 +98,7 @@ export function WorkingStrip({
       data-slot="working-strip"
       className="relative flex h-[34px] shrink-0 items-center gap-2 overflow-clip pr-2.5 pl-3"
     >
-      <DitherField hue={harness} bloom={status} />
+      <LiveDither harness={harness} active bloom={status ?? "working"} />
       <Dither hue={harness} size={14} moving className="relative" />
       <span className="text-caption relative shrink-0 font-medium whitespace-nowrap text-(--harness-text)">
         {children ?? `${harnessHue(harness).name} is working`}

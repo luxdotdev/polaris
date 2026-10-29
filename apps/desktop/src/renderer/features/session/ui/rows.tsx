@@ -402,7 +402,7 @@ export const ConversationRow = ({ row, ctx }: { row: Row; ctx: RowContext }) => 
     case "trigger":
       return <TriggerRow row={row} ctx={ctx} />;
     case "waiting":
-      return <Waiting tasks={row.tasks} hue={ctx.harness} />;
+      return <Waiting tasks={row.tasks} />;
     case "trailer":
       return ctx.chrome.trailer ?? null;
     case "item":

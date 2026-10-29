@@ -7,6 +7,7 @@ import {
   type FieldFrame,
   HUE_ALPHA,
   hueAlpha,
+  liveAt,
   onLattice,
   packPixel,
   paintFrame,
@@ -124,5 +125,38 @@ describe("the Working strip's dither field", () => {
     expect(pixels[width]).toBe(0);
     expect(pixels[8 * width + 8]).toBe(packPixel(colors.sparse, sparseAlpha(8, 8, hovered(8, 8))));
     expect((pixels[2] ?? 0) & 0xffffff).toBe(0x64c800);
+  });
+
+  test("live, the fringe's dots drift while its density holds", () => {
+    const lit = (frame: FieldFrame, i0: number, i1: number) => {
+      const dots: string[] = [];
+
+      for (let i = i0; i < i1; i++)
+        for (let j = 0; j < 4; j++) if (hueAlpha(i, j, frame) > 0) dots.push(`${i},${j}`);
+
+      return dots;
+    };
+
+    const later = { ...STILL, ...liveAt(5), breath: 1 };
+
+    expect(lit(later, 50, 58)).not.toEqual(lit(STILL, 50, 58));
+    expect(Math.abs(lit(later, 0, 16).length - lit(STILL, 0, 16).length)).toBeLessThanOrEqual(2);
+  });
+
+  test("live, the edge breathes past the still corner's reach and back", () => {
+    const reach = (step: number) => {
+      const frame = { ...STILL, ...liveAt(step), drift: 0 };
+      let i = 0;
+
+      while (hueAlpha(i, 0, frame) > 0 || hueAlpha(i + 1, 0, frame) > 0) i++;
+
+      return i;
+    };
+
+    const reaches = Array.from({ length: 30 }, (_, step) => reach(step));
+
+    expect(Math.max(...reaches)).toBeGreaterThan(reach(0));
+    expect(Math.min(...reaches)).toBeLessThan(reach(0));
+    expect(liveAt(0)).toEqual({ drift: 0, breath: 1 });
   });
 });

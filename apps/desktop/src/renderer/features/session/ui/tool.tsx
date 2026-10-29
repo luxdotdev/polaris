@@ -10,6 +10,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   cn,
+  LiveDither,
   PixelFailedIcon,
 } from "@polaris/ui";
 import { Predicate } from "effect";
@@ -158,6 +159,7 @@ export const Tool = ({ item, hue }: { readonly item: ToolView; readonly hue: Hue
   // A failed call opens on its error; the user's choice wins.
   const [open, setOpen] = useState(() => collapseChoice(key) ?? item.status === "failed");
   const opens = item.status !== "running";
+  const live = item.status === "running" ? hue : null;
 
   const toggle = () => {
     chooseCollapse(key, !open);
@@ -167,10 +169,14 @@ export const Tool = ({ item, hue }: { readonly item: ToolView; readonly hue: Hue
   return (
     <div className="flex min-w-0 flex-col" data-testid="tool-call" data-status={item.status}>
       <div
-        className="flex h-6 min-w-0 items-center gap-2"
+        className={cn(
+          "relative isolate flex h-6 min-w-0 items-center gap-2",
+          live !== null && "rounded-row -mx-1.5 overflow-clip px-1.5"
+        )}
         data-menu-path={textFile(item)?.path}
         data-menu-line={textFile(item)?.line ?? undefined}
       >
+        {live === null ? null : <LiveDither harness={live} active className="-z-10" />}
         <ToolMark item={item} hue={hue} />
         <button
           type="button"
