@@ -146,10 +146,10 @@ export const KeyHints = ({ last }: { readonly last: RowKeys }) => (
     <span>
       <Kbd variant="plain">↵</Kbd> focus
     </span>
-    <span className="@max-[30rem]:hidden">
+    <span className="@max-[24rem]:hidden">
       <Kbd variant="plain">← →</Kbd> fold
     </span>
-    <span className="@max-[36rem]:hidden">
+    <span className="@max-[33rem]:hidden">
       <Kbd variant="plain">tab</Kbd> next that needs you
     </span>
     {last.map(([key, label]) => (
