@@ -22,6 +22,7 @@ import { paths } from "../../paths.ts";
 import { HarnessError, HarnessEvent } from "../HarnessDriver.ts";
 import { approvalKind, describeToolCall } from "./permissions.ts";
 import { decodeHookBody, type HookBody, type ToolPayload } from "./payloads.ts";
+import { readTranscriptTitle, TitleWatch } from "./title.ts";
 import { planItem, toolItem } from "./translate.ts";
 
 /** Hook events Polaris subscribes to while a session is In Terminal. */
@@ -78,6 +79,7 @@ export class HookTranslator {
   private lastTool: { readonly name: string; readonly input: ToolPayload } | null = null;
   private plan: TurnItem | null = null;
   private ended = false;
+  private readonly titles = new TitleWatch();
 
   /** What each followed hook event does, by `hook_event_name`. */
   private readonly handlers = new Map<string, (body: HookBody, events: HarnessEvent[]) => void>([
@@ -149,6 +151,17 @@ export class HookTranslator {
     if (body.hook_event_name !== null) this.handlers.get(body.hook_event_name)?.(body, events);
 
     return events;
+  }
+
+  /** The transcript to read the session's title from, when Claude stopped. */
+  titleSource(body: HookBody): string | null {
+    const stopped = body.hook_event_name === "Stop" && body.agent_id === null;
+
+    return stopped && !this.ended ? body.transcript_path : null;
+  }
+
+  onTitle(title: string | null): ReadonlyArray<HarnessEvent> {
+    return this.titles.next(title);
   }
 
   private onPrompt(body: HookBody, events: HarnessEvent[]): void {
@@ -292,10 +305,12 @@ export const makeHookHandler =
       return new Response(null, { status: 400 });
     }
 
-    const events = Option.match(body, {
-      onNone: () => [],
-      onSome: (hook) => registration.translator.onHook(hook),
-    });
+    const hook = Option.getOrNull(body);
+    const events = hook === null ? [] : registration.translator.onHook(hook);
+    const transcript = hook === null ? null : registration.translator.titleSource(hook);
+
+    if (transcript !== null)
+      events.push(...registration.translator.onTitle(await readTranscriptTitle(transcript)));
 
     for (const event of events) Queue.offerUnsafe(registration.queue, event);
 

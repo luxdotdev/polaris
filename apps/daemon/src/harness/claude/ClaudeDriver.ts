@@ -60,7 +60,8 @@ import { breakdownOf } from "./context.ts";
 import { emptyClaudeLimitContext } from "../limits/claude.ts";
 import type { PlanLimitReporter } from "../limits/PlanLimitReporter.ts";
 import { ClaudeHookReceiver } from "./hooks.ts";
-import { decodeModelUsage } from "./payloads.ts";
+import { contextWindowOf } from "./payloads.ts";
+import { titleHooks } from "./title.ts";
 import { Inbox } from "./inbox.ts";
 import { buildUserMessage } from "./input.ts";
 import { shellCommandMessage } from "./shellInput.ts";
@@ -158,18 +159,6 @@ interface TurnOutcome {
   readonly status: "completed" | "failed";
   readonly error: string | null;
 }
-
-/** The largest context window among the Models a result used: the Turn's own Model. */
-
-const contextWindowOf = (result: SDKResultMessage): number | null => {
-  const usage = decodeModelUsage(result.modelUsage);
-
-  const windows = Option.isSome(usage)
-    ? Object.values(usage.value).map((model) => model.contextWindow)
-    : [];
-
-  return windows.length === 0 ? null : Math.max(...windows);
-};
 
 const resultOutcome = (result: SDKResultMessage): TurnOutcome => {
   if (result.subtype === "success")
@@ -382,6 +371,8 @@ const openSession = Effect.fnUntraced(function* (
     extraArgs: { "replay-user-messages": null },
     // Subagents' own text and thinking, not only their tool calls (see translate.ts).
     forwardSubagentText: true,
+    // Claude Code's own title for the session (title.ts); a reviewer's options replace it.
+    hooks: titleHooks(emit),
     systemPrompt: { type: "preset", preset: "claude_code", append: polarisInstructions(options) },
     settingSources: ["user", "project", "local"],
     additionalDirectories: [join(driver.stagingDir ?? paths().staging, options.sessionId)],

@@ -217,6 +217,21 @@ export class FakeClaude {
     this.out.push(message as SDKMessage);
   }
 
+  /** Claude stops answering: runs the driver's Stop hooks, as the `claude` child would. */
+  async stop(transcriptPath: string): Promise<void> {
+    const input = {
+      hook_event_name: "Stop" as const,
+      session_id: "claude-session-1",
+      transcript_path: transcriptPath,
+      cwd: this.options?.cwd ?? "",
+      stop_hook_active: false,
+    };
+
+    for (const matcher of this.options?.hooks?.Stop ?? [])
+      for (const hook of matcher.hooks)
+        await hook(input, undefined, { signal: new AbortController().signal });
+  }
+
   /** The `claude` child exits on its own. */
   exit(): void {
     this.out.end();

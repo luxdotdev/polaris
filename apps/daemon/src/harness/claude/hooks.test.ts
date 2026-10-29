@@ -1,7 +1,7 @@
 import { tempDirectory } from "../../verification/tempDirectories.testing.ts";
 import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { readFile, stat } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { RequestId, SessionId, TurnId, TurnItem } from "@polaris/protocol";
@@ -256,7 +256,7 @@ describe("ClaudeHookReceiver", () => {
   };
 
   test("writes a private settings file and follows a session over loopback", async () => {
-    await withReceiver(async (receiver) => {
+    await withReceiver(async (receiver, settingsDir) => {
       const sessionId = SessionId.make("session-1");
 
       const { settingsPath } = await Effect.runPromise(
@@ -288,7 +288,15 @@ describe("ClaudeHookReceiver", () => {
       const ok = await post(auth, { ...base, hook_event_name: "UserPromptSubmit", prompt: "hi" });
       expect(ok.status).toBe(200);
       expect(await ok.json()).toEqual({});
-      await post(auth, { ...base, hook_event_name: "Stop", last_assistant_message: "hello" });
+      // Claude Code 2.1.310 names the session in its transcript, never in a hook's body.
+      const transcript = join(settingsDir, "..", "cs-1.jsonl");
+      await writeFile(transcript, `${JSON.stringify({ type: "ai-title", aiTitle: "Say hi" })}\n`);
+      await post(auth, {
+        ...base,
+        transcript_path: transcript,
+        hook_event_name: "Stop",
+        last_assistant_message: "hello",
+      });
       await post(auth, { ...base, hook_event_name: "SessionEnd", reason: "other" });
 
       const events: HarnessEvent[] = await Effect.runPromise(
@@ -299,8 +307,10 @@ describe("ClaudeHookReceiver", () => {
         "TurnStarted",
         "ItemCompleted",
         "TurnEnded",
+        "TitleSuggested",
         "Exited",
       ]);
+      expect(events.find(HarnessEvent.$is("TitleSuggested"))?.title).toBe("Say hi");
 
       await Effect.runPromise(receiver.release(sessionId));
       expect(existsSync(settingsPath)).toBe(false);
