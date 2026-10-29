@@ -109,7 +109,6 @@ export const ConstellationGallery = () => {
       {host === null || source === null ? null : (
         <GalleryHosts hosts={[host.connection]}>
           <ChartedThread
-            key={dataset}
             connection={host.connection}
             constellationId="gallery"
             source={source}

@@ -342,13 +342,21 @@ export const ThreadScreen = ({
   }, []);
 
   if (connection === null)
-    return <Missing onBack={onBack} header={header} text="This host isn't linked to this iPhone" />;
+    return (
+      <Missing
+        onBack={onBack}
+        header={header}
+        belowHeader={belowHeader}
+        text="This host isn't linked to this iPhone"
+      />
+    );
 
   if (state === null || fold === null)
     return (
       <Missing
         onBack={onBack}
         header={header}
+        belowHeader={belowHeader}
         text={state?.failure ?? (slowToOpen ? "Connecting…" : "")}
       />
     );
@@ -511,10 +519,12 @@ const Missing = ({
   text,
   onBack,
   header,
+  belowHeader,
 }: {
   readonly text: string;
   readonly onBack: () => void;
   readonly header: ReactNode;
+  readonly belowHeader: ReactNode;
 }) => {
   const styles = useStyles();
 
@@ -529,6 +539,7 @@ const Missing = ({
           onBack={onBack}
         />
       )}
+      {belowHeader}
       <Text style={styles.missing}>{text}</Text>
     </SafeAreaView>
   );

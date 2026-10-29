@@ -8,6 +8,7 @@ import {
   Constellation,
   ConstellationId,
   ConstellationSettings,
+  HarnessSelection,
   HostId,
   SessionId,
   Task,
@@ -173,6 +174,7 @@ const chained = (bands: ReadonlyArray<readonly [string, ReadonlyArray<Code>]>, n
       const definition: Partial<TaskDefinition> = {
         title: TITLES[(tasks.length * 3) % TITLES.length] ?? id,
         group: band,
+        suggested: new HarnessSelection({ harness: i % 2 === 0 ? "codex" : "claude" }),
       };
 
       if (i > 0) Object.assign(definition, deps(`${band.slice(0, 1)}${i}`));

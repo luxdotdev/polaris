@@ -103,7 +103,10 @@ const workerReadout = (
 };
 
 const sentBackNote = (attempts: ReadonlyArray<Attempt>): string | null => {
-  const back = attempts.findLast((a, i) => i < attempts.length - 1 && a.rejectionReason != null);
+  const back = attempts
+    .slice(0, -1)
+    .reverse()
+    .find((a) => a.rejectionReason != null);
 
   if (back === undefined) return null;
   const n = attempts.indexOf(back) + 1;

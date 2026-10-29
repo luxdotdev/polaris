@@ -93,7 +93,7 @@ export const starChartOf = (source: ConstellationSource): StarChartData => {
   const stars = bands.flatMap((band) =>
     shown
       .filter((s) => (s.task.group ?? UNGROUPED) === band.id)
-      .toSorted(
+      .sort(
         (a, b) =>
           (waves.get(a.task.id) ?? 1) - (waves.get(b.task.id) ?? 1) ||
           (order.get(a.task.id) ?? 0) - (order.get(b.task.id) ?? 0)
