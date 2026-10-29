@@ -239,3 +239,21 @@ export const revealOffset = (view: Span, item: Span, pad: number): number => {
 
   return end > view.start + view.size ? end - view.size : view.start;
 };
+
+/** Which edges of a scrolling bar have chips past them; 1px of slack absorbs subpixel widths. */
+export type EdgeFade = "none" | "start" | "end" | "both";
+
+export const edgeFade = (scroll: {
+  readonly offset: number;
+  readonly view: number;
+  readonly content: number;
+}): EdgeFade => {
+  const before = scroll.offset > 1;
+  const after = scroll.offset + scroll.view < scroll.content - 1;
+
+  if (before && after) return "both";
+
+  if (before) return "start";
+
+  return after ? "end" : "none";
+};

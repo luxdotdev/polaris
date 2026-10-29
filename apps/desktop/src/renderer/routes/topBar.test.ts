@@ -5,6 +5,7 @@ import {
   barHosts,
   barWorkspaces,
   hiddenWorkspaces,
+  edgeFade,
   revealOffset,
   shortcutLabel,
   shownWorkspaces,
@@ -165,5 +166,21 @@ describe("revealing the open chip (ENG-499)", () => {
 
   test("a chip already in view leaves the bar where it is", () => {
     expect(revealOffset(view, { start: 200, size: 120 }, 16)).toBe(100);
+  });
+});
+
+describe("the bar's edge fade (ENG-499)", () => {
+  test("no fade when every chip fits", () => {
+    expect(edgeFade({ offset: 0, view: 800, content: 800 })).toBe("none");
+  });
+
+  test("only the side with chips past it fades", () => {
+    expect(edgeFade({ offset: 0, view: 800, content: 1400 })).toBe("end");
+    expect(edgeFade({ offset: 600, view: 800, content: 1400 })).toBe("start");
+    expect(edgeFade({ offset: 300, view: 800, content: 1400 })).toBe("both");
+  });
+
+  test("a subpixel remainder at the end doesn't fade", () => {
+    expect(edgeFade({ offset: 599.5, view: 800, content: 1400 })).toBe("start");
   });
 });
