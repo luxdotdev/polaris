@@ -8,6 +8,8 @@ struct LiveLine: Decodable {
   let sessionId: String
   let session: String
   let line: String
+  /// The Harness by name ("Claude Code"); absent from older Hosts or cut to fit.
+  let harness: String?
 }
 
 struct LiveNeed: Decodable {
@@ -15,8 +17,22 @@ struct LiveNeed: Decodable {
   let sessionId: String
   let session: String
   let line: String
+  let harness: String?
   let requestId: String
   let kind: String
+}
+
+/// A working session's celestial: `<harness kind>/<body>`.
+struct LiveCelestial: Equatable {
+  let harness: String
+  let body: String
+
+  init?(_ text: String) {
+    let parts = text.split(separator: "/", maxSplits: 1).map(String.init)
+    guard parts.count == 2 else { return nil }
+    harness = parts[0]
+    body = parts[1]
+  }
 }
 
 struct HostSlice: Decodable {
@@ -29,6 +45,7 @@ struct HostSlice: Decodable {
   let step: LiveLine?
   let need: LiveNeed?
   let needs: Int
+  let celestials: [String]?
 }
 
 /// Matches modules/polaris-push: the same group, service and account.
@@ -62,24 +79,24 @@ func openSlice(_ sealed: String, key: P256.KeyAgreement.PrivateKey) -> HostSlice
   return slice
 }
 
+/// What the activity draws at most of the working sessions' celestials.
+let liveCelestialLimit = 3
+
 /// Every Host folded: total working, the longest-running Turn, the newest step, the oldest need.
 struct LiveSummary {
+  var hosts = 0
   var working = 0
   var since: Date?
-  var step: (host: String, line: LiveLine)?
-  var need: (host: String, need: LiveNeed)?
+  var step: (hostId: String, host: String, line: LiveLine)?
+  var need: (hostId: String, host: String, need: LiveNeed)?
   var needs = 0
+  var celestials: [LiveCelestial] = []
   var unreadable = 0
 
+  /// Opens every slice with the push key from the shared Keychain.
   init(_ state: PolarisActivityAttributes.ContentState) {
     let key = LiveKeychain.load()
-    for sealed in state.slices {
-      guard let key, let slice = openSlice(sealed, key: key) else {
-        unreadable += 1
-        continue
-      }
-      add(slice)
-    }
+    self.init(slices: state.slices.map { sealed in key.flatMap { openSlice(sealed, key: $0) } })
     #if DEBUG
       NSLog(
         "POLARIS_LIVE render working=%d needs=%d unreadable=%d step=%@ need=%@", working, needs, unreadable,
@@ -87,17 +104,31 @@ struct LiveSummary {
     #endif
   }
 
+  /// `nil` for a slice that couldn't be opened.
+  init(slices: [HostSlice?]) {
+    for slice in slices {
+      guard let slice else {
+        unreadable += 1
+        continue
+      }
+      add(slice)
+    }
+  }
+
   private mutating func add(_ slice: HostSlice) {
+    hosts += 1
     working += slice.working
     needs += slice.needs
     if let started = slice.since.map({ Date(timeIntervalSince1970: $0) }), since.map({ started < $0 }) ?? true {
       since = started
     }
     if let line = slice.step, step.map({ line.at > $0.line.at }) ?? true {
-      step = (slice.host, line)
+      step = (slice.hostId, slice.host, line)
     }
     if let open = slice.need, need.map({ open.at < $0.need.at }) ?? true {
-      need = (slice.host, open)
+      need = (slice.hostId, slice.host, open)
     }
+    let room = liveCelestialLimit - celestials.count
+    celestials += (slice.celestials ?? []).compactMap(LiveCelestial.init).prefix(max(0, room))
   }
 }
