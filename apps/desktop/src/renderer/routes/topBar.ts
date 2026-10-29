@@ -221,3 +221,21 @@ export const shortcutLabel = (
   index: number,
   platform: KeyPlatform = currentKeyPlatform()
 ): string | undefined => acceleratorLabel(digitChord(index, platform), platform);
+
+/** A span along the bar's scroll axis, in px. */
+export interface Span {
+  readonly start: number;
+  readonly size: number;
+}
+
+/**
+ * The bar's scroll offset that brings the open chip into view with `pad` px of room,
+ * scrolling as little as it can: the bar has no scrollbar, so a chip past its edge is unseen.
+ */
+export const revealOffset = (view: Span, item: Span, pad: number): number => {
+  if (item.start - pad < view.start) return Math.max(0, item.start - pad);
+
+  const end = item.start + item.size + pad;
+
+  return end > view.start + view.size ? end - view.size : view.start;
+};

@@ -5,6 +5,7 @@ import {
   barHosts,
   barWorkspaces,
   hiddenWorkspaces,
+  revealOffset,
   shortcutLabel,
   shownWorkspaces,
   summarize,
@@ -147,5 +148,22 @@ describe("hidden Workspaces", () => {
   test("shown and hidden lists split every Workspace, oldest first", () => {
     expect(shownWorkspaces(models.local).map((w) => w.name)).toEqual(["a", "b"]);
     expect(hiddenWorkspaces(models.local).map((w) => w.name)).toEqual(["quiet", "asks"]);
+  });
+});
+
+describe("revealing the open chip (ENG-499)", () => {
+  const view = { start: 100, size: 400 };
+
+  test("a chip past the right edge scrolls in with its padding", () => {
+    expect(revealOffset(view, { start: 560, size: 120 }, 16)).toBe(296);
+  });
+
+  test("a chip before the left edge scrolls back to it, never below zero", () => {
+    expect(revealOffset(view, { start: 40, size: 120 }, 16)).toBe(24);
+    expect(revealOffset(view, { start: 4, size: 120 }, 16)).toBe(0);
+  });
+
+  test("a chip already in view leaves the bar where it is", () => {
+    expect(revealOffset(view, { start: 200, size: 120 }, 16)).toBe(100);
   });
 });

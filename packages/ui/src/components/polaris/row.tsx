@@ -56,13 +56,18 @@ interface RowLinesProps {
 function RowLines({ title, description, session, titleClass, needsYou }: RowLinesProps) {
   return (
     <span className={cn("flex min-w-0 flex-1 flex-col gap-px", session && CALM_TEXT.lines)}>
-      <span className={cn("truncate text-label", session && CALM_TEXT.title, titleClass)}>
+      {/* dir="auto": a right-to-left title keeps its start and loses its end to the ellipsis. */}
+      <span
+        dir="auto"
+        className={cn("truncate text-left text-label", session && CALM_TEXT.title, titleClass)}
+      >
         {title}
       </span>
       {description === undefined ? null : (
         <span
+          dir="auto"
           className={cn(
-            "truncate text-caption in-data-[density=compact]:hidden",
+            "truncate text-left text-caption in-data-[density=compact]:hidden",
             session && CALM_TEXT.description,
             needsYou ? "text-needs-you-text" : "text-text-subtle"
           )}
