@@ -13,7 +13,16 @@ import {
   workspace,
 } from "../home/fixtures.testing.ts";
 import { buildHome, type HomeHost } from "../home/model/home.ts";
-import { isNight, skyLine, starLabel, starsOf, targetsOf } from "./monitor.ts";
+import {
+  isNight,
+  skyLine,
+  starLabel,
+  starLimit,
+  starsOf,
+  targetsOf,
+  wantsDetail,
+  wantsLine,
+} from "./monitor.ts";
 
 const host = (items: ReadonlyArray<HostStreamItem>, connection: ConnectionState = "connected") =>
   ({
@@ -42,28 +51,30 @@ const night = home([
 ]);
 
 describe("the monitor", () => {
-  test("needs you and working sessions are stars; idle ones stay on Home", () => {
-    expect(starsOf(night).map((s) => [s.label, s.tone])).toEqual([
-      ["spike-gpui-review-scr…", "needs-you"],
-      ["fix-eligibility-form", "needs-you"],
-      ["polaris-planning", "working"],
-      ["relay-codec", "working"],
+  test("needs you and working sessions stand on the horizon; idle ones stay on Home", () => {
+    expect(starsOf(night, 9).map((s) => [s.label, s.tone, s.working])).toEqual([
+      ["spike-gpui-review…", "needs-you", false],
+      ["fix-eligibility-f…", "needs-you", false],
+      ["polaris-planning", "working", true],
+      ["relay-codec", "working", true],
     ]);
   });
 
-  test("stars stay inside the sky, each in its own place, and keep it between renders", () => {
-    const stars = starsOf(night);
+  test("celestials are spaced evenly across the sky, as many as their slots allow", () => {
+    expect(starsOf(night, 9).map((s) => s.x)).toEqual([0.125, 0.375, 0.625, 0.875]);
+    expect(starLimit(669)).toBe(5);
+    expect(starsOf(night, starLimit(300)).map((s) => s.label)).toEqual([
+      "spike-gpui-review…",
+      "fix-eligibility-f…",
+    ]);
+  });
 
-    for (const star of stars) {
-      expect(star.x).toBeGreaterThanOrEqual(0);
-      expect(star.x).toBeLessThan(0.82);
-      expect(star.y).toBeGreaterThan(0);
-      expect(star.y).toBeLessThan(1);
-    }
-
-    const cells = stars.map((s) => `${Math.floor(s.x * 4)}:${Math.floor(s.y * 2)}`);
-    expect(new Set(cells).size).toBe(stars.length);
-    expect(starsOf(night)).toEqual(stars);
+  test.each([
+    ["command", "Wants to run"],
+    ["file-change", "Wants to change"],
+    ["tool", "Wants to use"],
+  ] as const)("a %s permission reads %p before its detail", (kind, line) => {
+    expect(wantsLine(kind)).toBe(line);
   });
 
   test("the sky line counts working and needs you, in the singular for one", () => {
@@ -83,6 +94,11 @@ describe("the monitor", () => {
     [21, false],
   ])("at %i:00 the targets dim: %p", (hour, dim) => {
     expect(isNight(hour)).toBe(dim);
+  });
+
+  test("the command after Wants to run drops its prompt sign, and nothing else", () => {
+    expect(wantsDetail("$ cargo build --release")).toBe("cargo build --release");
+    expect(wantsDetail("echo $ HOME")).toBe("echo $ HOME");
   });
 
   test("a title with nothing to slug reads untitled", () => {

@@ -178,7 +178,8 @@ export const DuoShell = ({ children }: { readonly children: ReactNode }) => {
           <ConstellationSpan
             hostId={top.hostId}
             constellationId={top.constellationId}
-            division={arrangement.division}
+            first={arrangement.first}
+            second={arrangement.second}
             onBack={navigation.back}
           />
         </View>
@@ -205,8 +206,9 @@ const useStyles = themedStyles((colours) => ({
     flex: 1,
     justifyContent: "center",
     padding: 40,
-    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftWidth: 1,
     borderLeftColor: colours.hairline,
+    backgroundColor: colours.panel,
   },
   asideText: { ...mobileType.callout, color: colours.textFaint, textAlign: "center" },
 }));

@@ -1,143 +1,74 @@
 /**
- * The half-folded Duo idle (Paper D8): a monitor. Above the fold the night sky with the time and
- * agent sessions as labelled stars; below it the needs you items as 56pt targets, dimmed at
- * night. "Reply…" opens that agent session as the laptop (D7) in place.
+ * The half-folded Duo idle (Paper MX-AF, after D8): a monitor. Above the fold the sky with the
+ * time and agent sessions as celestials on the horizon; below it the needs you items, the first
+ * as a raised hero, dimmed at night. "Reply…" opens that agent session as the laptop (D7).
  */
 import type { ApprovalRequest } from "@polaris/protocol";
-import { mobileType } from "@polaris/ui/tokens";
-import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { harnessHue } from "../constellation/glyphs.tsx";
-import { Dither } from "../dither/index.ts";
-import { homeHostsOf, useFollowedHosts } from "../home/feed/useFollowedHosts.ts";
-import { useSettledHosts } from "../home/feed/settled.ts";
+import { mobileFont, mobileType, mobileWeight } from "@polaris/ui/tokens";
+import { useMemo, useState } from "react";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import { useHomeHosts } from "../home/feed/useHomeHosts.ts";
 import { buildHome, type SessionRow } from "../home/model/home.ts";
-import { age, harnessName, rowIndex } from "../home/model/format.ts";
-import { approvalDetail, askLine, quickQuestion } from "../home/model/lines.ts";
+import { age, harnessName, shortHostName } from "../home/model/format.ts";
+import { approvalDetail, quickQuestion } from "../home/model/lines.ts";
 import { type Reply, respond } from "../home/model/respond.ts";
-import { Horizon } from "../horizon";
-import { NeedsYouMark } from "../home/ui/glyphs.tsx";
+import { haptics } from "../motion/index.ts";
 import { useHosts } from "../runtime/hosts.tsx";
-import { themedStyles, useTheme } from "../theme/index.ts";
-import { isNight, skyLine, type Star, starsOf, targetsOf } from "./monitor.ts";
+import { CONTENT_TEXT_SCALE, CONTROL_TEXT_SCALE } from "../theme/textScale.ts";
+import { themedStyles } from "../theme/index.ts";
+import {
+  isNight,
+  skyLine,
+  starLimit,
+  starsOf,
+  targetsOf,
+  wantsDetail,
+  wantsLine,
+} from "./monitor.ts";
+import { MonitorSky, useMinute } from "./MonitorSky.tsx";
 import type { Rect } from "./posture.ts";
 
-/** The clock moves once a minute, on the minute. */
-const useMinute = () => {
-  const [now, setNow] = useState(() => new Date());
+/** MX-AF's hero edge and lift, as Home's (MX-C). */
+const HERO_EDGE = "#ffffff1f";
 
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-
-    const tick = () => {
-      const next = new Date();
-      setNow(next);
-      timer = setTimeout(tick, 60_000 - (next.getTime() % 60_000));
-    };
-
-    timer = setTimeout(tick, 60_000 - (Date.now() % 60_000));
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  return now;
-};
-
-const clock = (now: Date) => {
-  const hours = now.getHours() % 12 === 0 ? 12 : now.getHours() % 12;
-
-  return `${hours}:${String(now.getMinutes()).padStart(2, "0")}`;
-};
-
-const StarView = ({ star, sky }: { readonly star: Star; readonly sky: Rect }) => {
-  const styles = useStyles();
-  const { colours } = useTheme();
-
-  return (
-    <View
-      style={[styles.star, { left: star.x * sky.width, top: 150 + star.y * (sky.height - 270) }]}
-    >
-      {star.tone === "needs-you" ? (
-        <NeedsYouMark />
-      ) : (
-        <View style={styles.halo}>
-          <Dither color={harnessHue(colours, star.harness)} size={22} moving />
-          <View style={[styles.core, { backgroundColor: harnessHue(colours, star.harness) }]} />
-        </View>
-      )}
-      <Text
-        style={[
-          styles.starLabel,
-          {
-            color:
-              star.tone === "needs-you" ? colours.needsYouText : harnessHue(colours, star.harness),
-          },
-        ]}
-        numberOfLines={1}
-      >
-        {star.label}
-      </Text>
-    </View>
-  );
-};
-
-const Sky = ({
-  rect,
-  stars,
-  now,
-  line,
-}: {
-  readonly rect: Rect;
-  readonly stars: ReadonlyArray<Star>;
-  readonly now: Date;
-  readonly line: ReturnType<typeof skyLine>;
-}) => {
-  const styles = useStyles();
-  const { colours } = useTheme();
-
-  return (
-    <View style={[styles.sky, { height: rect.height }]}>
-      <View style={styles.dusk} />
-      <Horizon />
-      <Text style={styles.time} accessibilityRole="header">
-        {clock(now)}
-      </Text>
-      <Text style={styles.line}>
-        {line.working}
-        {line.working !== "" && line.needsYou !== "" ? " · " : ""}
-        <Text style={{ color: colours.needsYouText }}>{line.needsYou}</Text>
-        {line.working === "" && line.needsYou === "" ? "Nothing needs you" : ""}
-      </Text>
-      {stars.map((star) => (
-        <StarView key={star.key} star={star} sky={rect} />
-      ))}
-    </View>
-  );
-};
+const HERO_SHADOW = "#000000a0";
 
 type Send = (row: SessionRow, approval: ApprovalRequest, reply: Reply) => Promise<void>;
 
-const Buttons = ({
-  row,
-  approval,
-  send,
-  onReply,
-}: {
-  readonly row: SessionRow;
-  readonly approval: ApprovalRequest;
-  readonly send: Send;
-  readonly onReply: () => void;
-}) => {
-  const styles = useStyles();
+interface Choice {
+  readonly label: string;
+  readonly reply: Reply;
+}
+
+const choicesOf = (approval: ApprovalRequest): ReadonlyArray<Choice> => {
+  if (approval.kind === "question")
+    return (quickQuestion(approval)?.choices ?? [])
+      .slice(0, 2)
+      .map((text) => ({ label: text, reply: { kind: "answer", text } }));
+
+  return approvalDetail(approval)?.tooLong === true
+    ? []
+    : [
+        { label: "Approve", reply: { kind: "approve" } },
+        { label: "Always here", reply: { kind: "always" } },
+      ];
+};
+
+/** Sends one reply at a time; a refusal says so under the buttons. */
+const useSend = (send: () => (reply: Reply) => Promise<void>) => {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
-  const live = !row.stale && !busy;
 
   const go = (reply: Reply) => {
     setBusy(true);
     setFailed(false);
-    send(row, approval, reply).then(
-      () => setBusy(false),
+
+    send()(reply).then(
+      () => {
+        setBusy(false);
+
+        if (reply.kind !== "deny") haptics.approve();
+      },
       () => {
         setBusy(false);
         setFailed(true);
@@ -145,106 +76,181 @@ const Buttons = ({
     );
   };
 
-  const quick = approval.kind === "question" ? quickQuestion(approval) : null;
-  const tooLong = approvalDetail(approval)?.tooLong === true;
+  return { busy, failed, go };
+};
 
-  const choices: ReadonlyArray<{ readonly label: string; readonly reply: Reply }> =
-    approval.kind === "question"
-      ? (quick?.choices ?? [])
-          .slice(0, 2)
-          .map((text) => ({ label: text, reply: { kind: "answer", text } }))
-      : tooLong
-        ? []
-        : [
-            { label: "Approve", reply: { kind: "approve" } },
-            { label: "Always here", reply: { kind: "always" } },
-          ];
+const Permission = ({
+  approval,
+  live,
+  go,
+  onReply,
+}: {
+  readonly approval: ApprovalRequest;
+  readonly live: boolean;
+  readonly go: (reply: Reply) => void;
+  readonly onReply: () => void;
+}) => {
+  const styles = useStyles();
+  const detail = approvalDetail(approval);
+  const choices = choicesOf(approval);
 
   return (
     <>
-      <View style={[styles.targets, live ? null : styles.waiting]}>
+      <View style={styles.command}>
+        <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.wants}>
+          {approval.kind === "question" ? "Asks" : wantsLine(approval.kind)}
+        </Text>
+        {/* Never clipped: what Approve allows is shown whole; a longer one goes to Reply…. */}
+        <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.commandText}>
+          {wantsDetail(detail?.text ?? approval.title)}
+        </Text>
+      </View>
+      <View style={[styles.buttons, live ? null : styles.waiting]}>
         {choices.map((choice, index) => (
           <Pressable
             key={choice.label}
             accessibilityRole="button"
             disabled={!live}
             onPress={() => go(choice.reply)}
-            style={[styles.target, index === 0 ? styles.primary : styles.secondary]}
+            style={({ pressed }) => [
+              styles.button,
+              index === 0 ? styles.approve : styles.outline,
+              pressed ? styles.pressed : null,
+            ]}
           >
-            <Text style={index === 0 ? styles.primaryLabel : styles.targetLabel} numberOfLines={1}>
+            <Text
+              maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
+              numberOfLines={1}
+              style={index === 0 ? styles.approveLabel : styles.buttonLabel}
+            >
               {choice.label}
             </Text>
           </Pressable>
         ))}
-        {approval.kind === "question" || tooLong ? (
+        {choices.length === 0 ? (
           <Pressable
             accessibilityRole="button"
             onPress={onReply}
-            style={[styles.target, styles.outline, styles.narrow]}
+            style={[styles.button, styles.outline]}
           >
-            <Text style={styles.quietLabel}>Reply…</Text>
+            <Text maxFontSizeMultiplier={CONTROL_TEXT_SCALE} style={styles.buttonLabel}>
+              Reply…
+            </Text>
           </Pressable>
-        ) : (
+        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          disabled={!live}
+          onPress={() => go({ kind: "deny" })}
+          style={({ pressed }) => [
+            styles.button,
+            styles.outline,
+            styles.deny,
+            pressed ? styles.pressed : null,
+          ]}
+        >
+          <Text maxFontSizeMultiplier={CONTROL_TEXT_SCALE} style={styles.quietLabel}>
+            Deny
+          </Text>
+        </Pressable>
+      </View>
+    </>
+  );
+};
+
+const Question = ({
+  approval,
+  live,
+  go,
+  onReply,
+}: {
+  readonly approval: ApprovalRequest;
+  readonly live: boolean;
+  readonly go: (reply: Reply) => void;
+  readonly onReply: () => void;
+}) => {
+  const styles = useStyles();
+  const quick = quickQuestion(approval);
+
+  return (
+    <>
+      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.ask}>
+        <Text style={styles.wants}>Asks </Text>
+        {quick?.text ?? approval.title}
+      </Text>
+      <View style={[styles.chips, live ? null : styles.waiting]}>
+        {choicesOf(approval).map((choice) => (
           <Pressable
+            key={choice.label}
             accessibilityRole="button"
             disabled={!live}
-            onPress={() => go({ kind: "deny" })}
-            style={[styles.target, styles.outline, styles.narrow]}
+            onPress={() => go(choice.reply)}
+            style={({ pressed }) => [styles.chip, pressed ? styles.pressed : null]}
           >
-            <Text style={styles.quietLabel}>Deny</Text>
+            <Text
+              maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
+              numberOfLines={1}
+              style={styles.chipLabel}
+            >
+              {choice.label}
+            </Text>
           </Pressable>
-        )}
+        ))}
+        <Pressable accessibilityRole="button" onPress={onReply} style={styles.chipQuiet}>
+          <Text maxFontSizeMultiplier={CONTROL_TEXT_SCALE} style={styles.chipQuietLabel}>
+            Reply…
+          </Text>
+        </Pressable>
       </View>
-      {failed ? <Text style={styles.failed}>Couldn't send. Try again.</Text> : null}
     </>
   );
 };
 
 const Target = ({
   row,
-  index,
+  hero,
   now,
   send,
   onReply,
 }: {
   readonly row: SessionRow;
-  readonly index: number;
+  readonly hero: boolean;
   readonly now: number;
   readonly send: Send;
   readonly onReply: (row: SessionRow) => void;
 }) => {
   const styles = useStyles();
-  const { colours } = useTheme();
   const approval = row.approval;
 
+  const { busy, failed, go } = useSend(
+    () => (reply) =>
+      approval === null ? Promise.reject(new Error("answered")) : send(row, approval, reply)
+  );
+
   if (approval === null) return null;
-  const detail = approvalDetail(approval);
-  const quick = approval.kind === "question" ? quickQuestion(approval) : null;
+  const live = !row.stale && !busy;
+  const Body = approval.kind === "question" ? Question : Permission;
 
   return (
-    <View style={[styles.item, index > 0 ? styles.divided : null]}>
+    <View style={hero ? styles.hero : styles.well}>
       <View style={styles.titleLine}>
-        <Text style={styles.index}>{rowIndex(index)}</Text>
-        <Text style={styles.title} numberOfLines={1}>
-          {row.session.title === "" ? "Untitled" : row.session.title}
+        <Text
+          maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+          style={[styles.title, hero ? styles.heroTitle : null]}
+          numberOfLines={1}
+        >
+          {row.session.title === "" ? "Untitled agent session" : row.session.title}
         </Text>
-        <Text style={styles.meta}>
-          {[harnessName(row.session.harness), row.hostName, age(row.since, now)].join(" · ")}
+        <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.meta}>
+          {[
+            harnessName(row.session.harness),
+            shortHostName(row.hostName),
+            age(row.since, now),
+          ].join(" · ")}
         </Text>
       </View>
-      {approval.kind === "question" ? (
-        <Text style={styles.ask}>
-          <Text style={{ color: colours.needsYouText }}>{askLine(approval)} </Text>
-          <Text style={styles.askText}>{quick?.text ?? approval.title}</Text>
-        </Text>
-      ) : (
-        <View style={styles.permission}>
-          <Text style={[styles.ask, { color: colours.needsYouText }]}>{askLine(approval)}</Text>
-          {/* Never clipped: what Approve allows is shown whole; a longer one goes to Reply…. */}
-          {detail === null ? null : <Text style={styles.command}>{detail.text}</Text>}
-        </View>
-      )}
-      <Buttons row={row} approval={approval} send={send} onReply={() => onReply(row)} />
+      <Body approval={approval} live={live} go={go} onReply={() => onReply(row)} />
+      {failed ? <Text style={styles.failed}>Couldn't send. Try again.</Text> : null}
     </View>
   );
 };
@@ -258,12 +264,11 @@ export interface MonitorProps {
 
 export const Monitor = ({ top, bottom, division, onReply }: MonitorProps) => {
   const styles = useStyles();
-  const hosts = useFollowedHosts();
+  const hosts = useHomeHosts();
   const connections = useHosts();
   const now = useMinute();
-  const shownHosts = useSettledHosts(useMemo(() => homeHostsOf(hosts), [hosts]));
-  const home = useMemo(() => buildHome(shownHosts, null), [shownHosts]);
-  const stars = useMemo(() => starsOf(home), [home]);
+  const home = useMemo(() => buildHome(hosts, null), [hosts]);
+  const stars = useMemo(() => starsOf(home, starLimit(top.width)), [home, top.width]);
   const targets = targetsOf(home, 4);
   const night = isNight(now.getHours());
 
@@ -277,7 +282,7 @@ export const Monitor = ({ top, bottom, division, onReply }: MonitorProps) => {
 
   return (
     <View style={styles.monitor}>
-      <Sky rect={top} stars={stars} now={now} line={skyLine(home)} />
+      <MonitorSky rect={top} stars={stars} now={now} line={skyLine(home)} />
       <View style={{ height: division.height }} />
       <ScrollView
         style={[{ height: bottom.height }, night ? styles.night : null]}
@@ -286,77 +291,114 @@ export const Monitor = ({ top, bottom, division, onReply }: MonitorProps) => {
         {targets.length === 0 ? (
           <Text style={styles.calm}>Nothing needs you.</Text>
         ) : (
-          targets.map((row, index) => (
-            <Target
-              key={row.key}
-              row={row}
-              index={index}
-              now={now.getTime()}
-              send={send}
-              onReply={(r) => onReply(r.hostId, r.session.id)}
-            />
-          ))
+          <>
+            <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.kicker}>
+              Needs you · {home.needsYou}
+            </Text>
+            {targets.map((row, index) => (
+              <Target
+                key={row.key}
+                row={row}
+                hero={index === 0}
+                now={now.getTime()}
+                send={send}
+                onReply={(r) => onReply(r.hostId, r.session.id)}
+              />
+            ))}
+          </>
         )}
       </ScrollView>
     </View>
   );
 };
 
-const useStyles = themedStyles((colours) => ({
-  monitor: { flex: 1, backgroundColor: colours.ground },
-  sky: { overflow: "hidden", backgroundColor: "#03050c" },
-  dusk: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    top: "45%",
-    backgroundColor: "#0a1430",
-    opacity: 0.6,
-  },
-  time: {
-    marginTop: 70,
-    alignSelf: "center",
-    fontSize: 96,
-    lineHeight: 104,
-    fontWeight: "200",
-    color: colours.textStrong,
-    fontVariant: ["tabular-nums"],
-  },
-  line: { ...mobileType.subhead, alignSelf: "center", color: colours.textDefault, marginTop: 4 },
-  star: { position: "absolute", flexDirection: "row", alignItems: "center", gap: 8 },
-  halo: { width: 22, height: 22, alignItems: "center", justifyContent: "center" },
-  core: { position: "absolute", width: 4, height: 4 },
-  starLabel: { ...mobileType.index, maxWidth: 180 },
+const sans = (fontSize: number, lineHeight: number, medium = false) => ({
+  fontFamily: mobileFont.sans,
+  fontSize,
+  lineHeight,
+  fontWeight: medium ? mobileWeight.medium : mobileWeight.regular,
+});
+
+const useStyles = themedStyles((c) => ({
+  monitor: { flex: 1, backgroundColor: c.ground },
   night: { opacity: 0.55 },
-  bottom: { paddingHorizontal: 28, paddingTop: 40, paddingBottom: 32 },
-  calm: { ...mobileType.callout, color: colours.textSubtle, alignSelf: "center", paddingTop: 80 },
-  item: { gap: 12, paddingVertical: 20 },
-  divided: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colours.hairline },
-  titleLine: { flexDirection: "row", alignItems: "baseline", gap: 18 },
-  index: { ...mobileType.index, color: colours.textFaint, width: 16 },
-  title: { ...mobileType.title, fontSize: 19, color: colours.textStrong, flex: 1 },
-  meta: { ...mobileType.footnote, color: colours.textFaint },
-  ask: { ...mobileType.callout, paddingLeft: 34 },
-  askText: { color: colours.textDefault },
-  permission: { gap: 4 },
-  command: { ...mobileType.command, color: colours.textDefault, paddingLeft: 34 },
-  targets: { flexDirection: "row", gap: 10, paddingLeft: 34 },
+  bottom: { gap: 12, paddingHorizontal: 24, paddingTop: 28, paddingBottom: 32 },
+  calm: { ...mobileType.callout, color: c.textSubtle, alignSelf: "center", paddingTop: 80 },
+  kicker: {
+    fontFamily: mobileFont.mono,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: mobileWeight.medium,
+    letterSpacing: 0.88,
+    textTransform: "uppercase",
+    color: c.textSubtle,
+  },
+  hero: {
+    gap: 12,
+    padding: 18,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: HERO_EDGE,
+    backgroundColor: c.raised,
+    shadowColor: HERO_SHADOW,
+    shadowOpacity: 1,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 16 },
+  },
+  well: {
+    gap: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: c.hairline,
+    backgroundColor: c.well,
+  },
+  titleLine: { flexDirection: "row", alignItems: "baseline", gap: 10 },
+  title: { ...sans(17, 22, true), flex: 1, color: c.textStrong },
+  heroTitle: { fontSize: 19, lineHeight: 24 },
+  meta: { ...sans(13, 18), color: c.textSubtle },
+  command: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "baseline",
+    columnGap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: c.well,
+  },
+  wants: { ...sans(14, 19), color: c.needsYouText },
+  commandText: { fontFamily: mobileFont.mono, fontSize: 14, lineHeight: 19, color: c.textDefault },
+  ask: { ...sans(14, 20), color: c.textDefault },
+  buttons: { flexDirection: "row", gap: 10 },
   waiting: { opacity: 0.55 },
-  target: {
+  button: {
     flex: 1,
-    height: 56,
-    borderRadius: 14,
+    height: 52,
+    borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 14,
   },
-  narrow: { flex: 0, minWidth: 110 },
-  primary: { flex: 1.15, backgroundColor: "#c4c5ca" },
-  secondary: { backgroundColor: colours.raised },
-  outline: { borderWidth: 1, borderColor: colours.hairline },
-  primaryLabel: { ...mobileType.label, fontSize: 17, color: colours.ground },
-  targetLabel: { ...mobileType.label, fontSize: 17, color: colours.textDefault },
-  quietLabel: { ...mobileType.label, fontSize: 17, color: colours.textSubtle },
-  failed: { ...mobileType.footnote, color: colours.failedText, paddingLeft: 34 },
+  approve: { flex: 1.2, backgroundColor: c.textStrong },
+  outline: { borderWidth: 1, borderColor: HERO_EDGE, backgroundColor: c.well },
+  deny: { flex: 0, width: 96 },
+  pressed: { opacity: 0.8, transform: [{ scale: 0.97 }] },
+  approveLabel: { ...sans(17, 22, true), color: c.panel },
+  buttonLabel: { ...sans(17, 22, true), color: c.textDefault },
+  quietLabel: { ...sans(17, 22, true), color: c.textSubtle },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: {
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: HERO_EDGE,
+    backgroundColor: c.raised,
+  },
+  chipLabel: { ...sans(15, 20, true), color: c.textStrong },
+  chipQuiet: { paddingVertical: 9, paddingHorizontal: 16 },
+  chipQuietLabel: { ...sans(15, 20, true), color: c.textSubtle },
+  failed: { ...mobileType.footnote, color: c.failedText },
 }));

@@ -39,6 +39,14 @@ describe("arrangementOf", () => {
     expect(arrangementOf(unfolded, route).kind).toBe(kind);
   });
 
+  test("unfolded, the constellation's chart and claim take the two halves", () => {
+    expect(arrangementOf(unfolded, constellation)).toEqual({
+      kind: "span",
+      first: { x: 0, y: 0, width: 455.5, height: 669 },
+      second: { x: 495.5, y: 0, width: 455.5, height: 669 },
+    });
+  });
+
   test.each([
     [thread, "laptop"],
     [home, "monitor"],
