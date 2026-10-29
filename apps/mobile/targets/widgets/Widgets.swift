@@ -1,5 +1,5 @@
 // The lock-screen widget (W1, inline) and the home-screen widget (W2, medium), on one timeline
-// read from the App Group. Paper "Mobile" page, W1 and W2.
+// read from the App Group (Paper "Mobile" page, W1 and W2); and the Live Activity (ADR 0088).
 import SwiftUI
 import WidgetKit
 
@@ -65,5 +65,6 @@ struct PolarisWidgets: WidgetBundle {
   var body: some Widget {
     InlineWidget()
     HomeWidget()
+    PolarisLiveActivity()
   }
 }
