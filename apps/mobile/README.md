@@ -122,6 +122,21 @@ devDependency, its config plugin only) adds to the Xcode project at prebuild.
   it the app's real snapshot, so the Swift reader, its merge of pushes, its ages and its links
   can't drift from the TypeScript (skipped where there is no `swiftc`).
 
+## Phase 3's shared pieces
+
+- **The scan sheet.** `src/link/ScanSheet.tsx` is pairing's sheet (MX-AH, MX-AJ) and Link another
+  Mac's (MX-AU): `ScanSheet({ open, title?, instruction, pasteInstruction, onClose?, onLink,
+  onLinked?, onStep? })`, with `PAIRING_COPY` and `LINK_ANOTHER_COPY`. `onLink` is
+  `useRelay().link`; `onStep` reports scan, paste, linking, linked and failed for a screen that
+  lights its star by them. `src/link/linking.ts` is the step logic.
+- **The states pattern.** `src/states/` (MX-AV): `StatePanel` for a top-level screen,
+  `ReconnectingLine` above the composer, and `BubbleFootnote` with `useBubbleTreatment` for queued
+  and failed sends. Launch a development build with
+  `-polarisDevStates pair|another|empty|offline|review|thread` (and `-polarisDevTheme moonlit`).
+- **Themes outside the app.** `WidgetSync` writes the theme's name to the App Group under
+  `polaris.theme`; `targets/widgets/Theme.swift` reads it (`PolarisTheme.current`) and holds both
+  palettes. `scripts/widgets.theme.test.ts` checks them against `@polaris/ui`'s tokens.
+
 ## Markdown
 
 `src/markdown/` draws agent messages as Markdown, as the Desktop App does with Streamdown: marked's

@@ -43,6 +43,7 @@ import { useReadyToReview } from "./review/index.ts";
 import { SettingsScreen } from "./settings/index.ts";
 import { ContextGallery, contextGalleryOn } from "./duo/ContextGallery.tsx";
 import { StarChartGallery, starChartGalleryOn } from "./starChart/Gallery.tsx";
+import { StatesGallery, statesGalleryOn } from "./states/index.ts";
 import { ThreadGallery, threadGalleryOn } from "./thread/ThreadGallery.tsx";
 import { useWidgetLinks } from "./widgets/useWidgetLinks.ts";
 import { WidgetSync } from "./widgets/WidgetSync.ts";
@@ -199,6 +200,13 @@ const Shell = () => {
         <InboxProvider>
           <ReviewGallery />
         </InboxProvider>
+      </SheetHost>
+    );
+
+  if (statesGalleryOn())
+    return (
+      <SheetHost>
+        <StatesGallery />
       </SheetHost>
     );
 
