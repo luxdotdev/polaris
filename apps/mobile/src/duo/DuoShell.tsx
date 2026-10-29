@@ -3,7 +3,7 @@
  * mounted in one place whatever the posture; folding only moves and resizes it and adds the
  * second half, so the focus and the navigation never change with the hinge.
  */
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import {
   createContext,
   type ReactNode,
@@ -16,6 +16,7 @@ import {
 import { Keyboard, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "../app/navigation.tsx";
+import { themedStyles } from "../theme/index.ts";
 import type { ThreadFocus } from "../thread/Row.tsx";
 import { type Arrangement, arrangementOf, composerMinHeight } from "./arrangement.ts";
 import { ConstellationSpan } from "./ConstellationSpan.tsx";
@@ -96,13 +97,20 @@ const useFocus = () => {
   return { chosen, shown, choose, show };
 };
 
-const Aside = () => (
-  <View style={styles.aside}>
-    <Text style={styles.asideText}>Open an agent session, and what you tap in it shows here.</Text>
-  </View>
-);
+const Aside = () => {
+  const styles = useStyles();
+
+  return (
+    <View style={styles.aside}>
+      <Text style={styles.asideText}>
+        Open an agent session, and what you tap in it shows here.
+      </Text>
+    </View>
+  );
+};
 
 export const DuoShell = ({ children }: { readonly children: ReactNode }) => {
+  const styles = useStyles();
   const navigation = useNavigation();
   const posture = usePosture();
   const keyboard = useKeyboardHeight();
@@ -191,14 +199,14 @@ export const DuoShell = ({ children }: { readonly children: ReactNode }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  fill: { flex: 1, backgroundColor: midnight.bg },
+const useStyles = themedStyles((colours) => ({
+  fill: { flex: 1, backgroundColor: colours.ground },
   aside: {
     flex: 1,
     justifyContent: "center",
     padding: 40,
     borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: midnight.hairline,
+    borderLeftColor: colours.hairline,
   },
-  asideText: { ...mobileType.callout, color: midnight.textFaint, textAlign: "center" },
-});
+  asideText: { ...mobileType.callout, color: colours.textFaint, textAlign: "center" },
+}));

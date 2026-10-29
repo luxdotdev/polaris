@@ -3,30 +3,42 @@
  * shape always comes with the colour, so the glyphs read without colour vision.
  */
 import type { Severity } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
-import { StyleSheet, Text, View } from "react-native";
+import { mobileType } from "@polaris/ui/tokens";
+import { Text, View } from "react-native";
+import { type MobileColours, themedStyles, useTheme } from "../theme/index.ts";
 import { SEVERITIES, type Tally } from "./model.ts";
 
-export const severityColour: Readonly<Record<Severity, string>> = {
-  critical: midnight.severityCritical,
-  high: midnight.severityHigh,
-  medium: midnight.severityMedium,
-  low: midnight.severityLow,
+type ColourKey = keyof MobileColours;
+
+const COLOUR: Readonly<Record<Severity, ColourKey>> = {
+  critical: "severityCritical",
+  high: "severityHigh",
+  medium: "severityMedium",
+  low: "severityLow",
 };
 
-export const severityText: Readonly<Record<Severity, string>> = {
-  critical: midnight.severityCriticalText,
-  high: midnight.severityHighText,
-  medium: midnight.severityMediumText,
-  low: midnight.severityLowText,
+const TEXT: Readonly<Record<Severity, ColourKey>> = {
+  critical: "severityCriticalText",
+  high: "severityHighText",
+  medium: "severityMediumText",
+  low: "severityLowText",
 };
 
-export const severityFill: Readonly<Record<Severity, string>> = {
-  critical: midnight.severityCriticalFill,
-  high: midnight.severityHighFill,
-  medium: midnight.severityMediumFill,
-  low: midnight.severityLowFill,
+const FILL: Readonly<Record<Severity, ColourKey>> = {
+  critical: "severityCriticalFill",
+  high: "severityHighFill",
+  medium: "severityMediumFill",
+  low: "severityLowFill",
 };
+
+export const severityColour = (colours: MobileColours, severity: Severity): string =>
+  colours[COLOUR[severity]];
+
+export const severityText = (colours: MobileColours, severity: Severity): string =>
+  colours[TEXT[severity]];
+
+export const severityFill = (colours: MobileColours, severity: Severity): string =>
+  colours[FILL[severity]];
 
 export const severityLabel: Readonly<Record<Severity, string>> = {
   critical: "Critical",
@@ -38,12 +50,16 @@ export const severityLabel: Readonly<Record<Severity, string>> = {
 export const SeverityGlyph = ({
   severity,
   size = 8,
-  colour = severityColour[severity],
+  colour,
 }: {
   readonly severity: Severity;
   readonly size?: number;
   readonly colour?: string;
 }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
+  const tint = colour ?? severityColour(colours, severity);
+
   if (severity === "critical") {
     const side = Math.round(size / Math.SQRT2);
 
@@ -53,7 +69,7 @@ export const SeverityGlyph = ({
           style={{
             width: side,
             height: side,
-            backgroundColor: colour,
+            backgroundColor: tint,
             transform: [{ rotate: "45deg" }],
           }}
         />
@@ -70,7 +86,7 @@ export const SeverityGlyph = ({
             borderLeftWidth: size / 2 + 0.5,
             borderRightWidth: size / 2 + 0.5,
             borderBottomWidth: size,
-            borderBottomColor: colour,
+            borderBottomColor: tint,
           },
         ]}
       />
@@ -80,60 +96,71 @@ export const SeverityGlyph = ({
     <View
       style={[
         { width: size - 1, height: size - 1, borderRadius: size },
-        severity === "medium"
-          ? { backgroundColor: colour }
-          : { borderWidth: 1.5, borderColor: colour },
+        severity === "medium" ? { backgroundColor: tint } : { borderWidth: 1.5, borderColor: tint },
       ]}
     />
   );
 };
 
-export const SeverityBadge = ({ severity }: { readonly severity: Severity }) => (
-  <View
-    style={[styles.badge, { backgroundColor: severityFill[severity] }]}
-    accessibilityLabel={`${severityLabel[severity]} finding`}
-  >
-    <SeverityGlyph severity={severity} size={8} />
-    <Text style={[styles.badgeText, { color: severityText[severity] }]}>
-      {severityLabel[severity]}
-    </Text>
-  </View>
-);
+export const SeverityBadge = ({ severity }: { readonly severity: Severity }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
+
+  return (
+    <View
+      style={[styles.badge, { backgroundColor: severityFill(colours, severity) }]}
+      accessibilityLabel={`${severityLabel[severity]} finding`}
+    >
+      <SeverityGlyph severity={severity} size={8} />
+      <Text style={[styles.badgeText, { color: severityText(colours, severity) }]}>
+        {severityLabel[severity]}
+      </Text>
+    </View>
+  );
+};
 
 /** The four-cell tally: zero cells go faint; an open Critical is outlined. */
-export const SeverityTally = ({ counts }: { readonly counts: Tally }) => (
-  <View style={styles.tally}>
-    {SEVERITIES.map((severity) => {
-      const count = counts[severity];
-      const zero = count === 0;
+export const SeverityTally = ({ counts }: { readonly counts: Tally }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
 
-      return (
-        <View
-          key={severity}
-          accessibilityLabel={`${count} ${severityLabel[severity].toLowerCase()}`}
-          style={[
-            styles.cell,
-            { backgroundColor: zero ? midnight.surfaceSunken : severityFill[severity] },
-            severity === "critical" && !zero ? styles.criticalCell : null,
-          ]}
-        >
-          <SeverityGlyph
-            severity={severity}
-            size={9}
-            colour={zero ? midnight.textFaint : severityColour[severity]}
-          />
-          <Text
-            style={[styles.count, { color: zero ? midnight.textFaint : severityText[severity] }]}
+  return (
+    <View style={styles.tally}>
+      {SEVERITIES.map((severity) => {
+        const count = counts[severity];
+        const zero = count === 0;
+
+        return (
+          <View
+            key={severity}
+            accessibilityLabel={`${count} ${severityLabel[severity].toLowerCase()}`}
+            style={[
+              styles.cell,
+              { backgroundColor: zero ? colours.panel : severityFill(colours, severity) },
+              severity === "critical" && !zero ? styles.criticalCell : null,
+            ]}
           >
-            {count}
-          </Text>
-        </View>
-      );
-    })}
-  </View>
-);
+            <SeverityGlyph
+              severity={severity}
+              size={9}
+              colour={zero ? colours.textFaint : severityColour(colours, severity)}
+            />
+            <Text
+              style={[
+                styles.count,
+                { color: zero ? colours.textFaint : severityText(colours, severity) },
+              ]}
+            >
+              {count}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+};
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((colours) => ({
   box: { alignItems: "center", justifyContent: "center" },
   triangle: {
     width: 0,
@@ -160,6 +187,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 5,
   },
-  criticalCell: { borderWidth: 1, borderColor: `${midnight.severityCritical}40` },
+  criticalCell: { borderWidth: 1, borderColor: `${colours.severityCritical}40` },
   count: { ...mobileType.subhead, fontWeight: "500" },
-});
+}));

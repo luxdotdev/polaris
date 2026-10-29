@@ -3,16 +3,19 @@
  * the Desktop App), the Harness choice with its Models, and the Host's permission modes.
  */
 import type { HarnessKind, Model, PermissionMode } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { themedStyles } from "../theme/index.ts";
 import { type HarnessOption, shortlist } from "./harness.ts";
 import { displayPath, type PermissionOption, type SheetHost, type Target } from "./model.ts";
 import { HarnessTile } from "./parts.tsx";
 
-const Check = ({ on }: { readonly on: boolean }) => (
-  <Text style={[styles.check, on ? null : styles.hidden]}>✓</Text>
-);
+const Check = ({ on }: { readonly on: boolean }) => {
+  const styles = useStyles();
+
+  return <Text style={[styles.check, on ? null : styles.hidden]}>✓</Text>;
+};
 
 export const WorkspacePicker = ({
   hosts,
@@ -22,45 +25,49 @@ export const WorkspacePicker = ({
   readonly hosts: ReadonlyArray<SheetHost>;
   readonly target: Target | null;
   readonly onPick: (target: Target) => void;
-}) => (
-  <ScrollView contentContainerStyle={styles.list}>
-    {hosts.map((host) => (
-      <View key={host.hostId} style={styles.group}>
-        <Text style={styles.section}>
-          {host.hostName}
-          {host.connected ? null : <Text style={styles.faint}> · not connected</Text>}
-        </Text>
-        {host.workspaces
-          .filter((w) => !w.hidden)
-          .map((w) => {
-            const on = target?.hostId === host.hostId && target.workspaceId === w.id;
+}) => {
+  const styles = useStyles();
 
-            return (
-              <Pressable
-                key={w.id}
-                style={styles.row}
-                disabled={!host.connected}
-                onPress={() => onPick({ hostId: host.hostId, workspaceId: w.id })}
-                accessibilityRole="button"
-                accessibilityState={{ selected: on, disabled: !host.connected }}
-              >
-                <View style={styles.rowText}>
-                  <Text style={host.connected ? styles.title : styles.titleOff}>{w.name}</Text>
-                  <Text style={styles.path} numberOfLines={1}>
-                    {displayPath(w.path, host.homeDir)}
-                  </Text>
-                </View>
-                <Check on={on} />
-              </Pressable>
-            );
-          })}
-        {host.workspaces.every((w) => w.hidden) ? (
-          <Text style={styles.faint}>No workspaces on {host.hostName}</Text>
-        ) : null}
-      </View>
-    ))}
-  </ScrollView>
-);
+  return (
+    <ScrollView contentContainerStyle={styles.list}>
+      {hosts.map((host) => (
+        <View key={host.hostId} style={styles.group}>
+          <Text style={styles.section}>
+            {host.hostName}
+            {host.connected ? null : <Text style={styles.faint}> · not connected</Text>}
+          </Text>
+          {host.workspaces
+            .filter((w) => !w.hidden)
+            .map((w) => {
+              const on = target?.hostId === host.hostId && target.workspaceId === w.id;
+
+              return (
+                <Pressable
+                  key={w.id}
+                  style={styles.row}
+                  disabled={!host.connected}
+                  onPress={() => onPick({ hostId: host.hostId, workspaceId: w.id })}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on, disabled: !host.connected }}
+                >
+                  <View style={styles.rowText}>
+                    <Text style={host.connected ? styles.title : styles.titleOff}>{w.name}</Text>
+                    <Text style={styles.path} numberOfLines={1}>
+                      {displayPath(w.path, host.homeDir)}
+                    </Text>
+                  </View>
+                  <Check on={on} />
+                </Pressable>
+              );
+            })}
+          {host.workspaces.every((w) => w.hidden) ? (
+            <Text style={styles.faint}>No workspaces on {host.hostName}</Text>
+          ) : null}
+        </View>
+      ))}
+    </ScrollView>
+  );
+};
 
 const STATUS = new Map([
   ["ready", "Ready"],
@@ -76,8 +83,10 @@ const ModelRows = ({
   readonly models: ReadonlyArray<Model>;
   readonly model: Model | null;
   readonly onPick: (model: Model) => void;
-}) =>
-  models.map((m) => (
+}) => {
+  const styles = useStyles();
+
+  return models.map((m) => (
     <Pressable
       key={m.id}
       style={styles.row}
@@ -92,6 +101,7 @@ const ModelRows = ({
       <Check on={model?.id === m.id || (model === null && m.isDefault)} />
     </Pressable>
   ));
+};
 
 export const HarnessPicker = ({
   options,
@@ -108,6 +118,7 @@ export const HarnessPicker = ({
   readonly onHarness: (harness: HarnessKind) => void;
   readonly onModel: (model: Model) => void;
 }) => {
+  const styles = useStyles();
   const [more, setMore] = useState(false);
   const list = harness === null ? null : shortlist(harness, models);
 
@@ -157,46 +168,50 @@ export const PermissionPicker = ({
   readonly options: ReadonlyArray<PermissionOption>;
   readonly mode: PermissionMode;
   readonly onPick: (mode: PermissionMode) => void;
-}) => (
-  <ScrollView contentContainerStyle={styles.list}>
-    <View style={styles.group}>
-      {options.map((p) => (
-        <Pressable
-          key={p.mode}
-          style={styles.row}
-          onPress={() => onPick(p.mode)}
-          accessibilityRole="button"
-          accessibilityState={{ selected: p.mode === mode }}
-        >
-          <View style={styles.rowText}>
-            <Text style={styles.title}>{p.label}</Text>
-            <Text style={styles.faint}>{p.detail}</Text>
-          </View>
-          <Check on={p.mode === mode} />
-        </Pressable>
-      ))}
-    </View>
-  </ScrollView>
-);
+}) => {
+  const styles = useStyles();
 
-const styles = StyleSheet.create({
+  return (
+    <ScrollView contentContainerStyle={styles.list}>
+      <View style={styles.group}>
+        {options.map((p) => (
+          <Pressable
+            key={p.mode}
+            style={styles.row}
+            onPress={() => onPick(p.mode)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: p.mode === mode }}
+          >
+            <View style={styles.rowText}>
+              <Text style={styles.title}>{p.label}</Text>
+              <Text style={styles.faint}>{p.detail}</Text>
+            </View>
+            <Check on={p.mode === mode} />
+          </Pressable>
+        ))}
+      </View>
+    </ScrollView>
+  );
+};
+
+const useStyles = themedStyles((colours) => ({
   list: { gap: 20, paddingBottom: 24 },
   group: { gap: 0 },
-  section: { ...mobileType.section, color: midnight.textSubtle, paddingBottom: 4 },
+  section: { ...mobileType.section, color: colours.textSubtle, paddingBottom: 4 },
   row: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
     minHeight: 52,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: midnight.hairline,
+    borderBottomColor: colours.hairline,
   },
   rowText: { flex: 1, gap: 2, minWidth: 0 },
-  title: { ...mobileType.heading, fontWeight: "400", color: midnight.textStrong },
-  titleOff: { ...mobileType.heading, fontWeight: "400", color: midnight.textFaint },
-  path: { ...mobileType.footnote, color: midnight.textFaint },
-  faint: { ...mobileType.footnote, color: midnight.textFaint },
-  subtle: { ...mobileType.callout, color: midnight.textSubtle },
-  check: { ...mobileType.heading, color: midnight.textStrong, width: 20, textAlign: "right" },
+  title: { ...mobileType.heading, fontWeight: "400", color: colours.textStrong },
+  titleOff: { ...mobileType.heading, fontWeight: "400", color: colours.textFaint },
+  path: { ...mobileType.footnote, color: colours.textFaint },
+  faint: { ...mobileType.footnote, color: colours.textFaint },
+  subtle: { ...mobileType.callout, color: colours.textSubtle },
+  check: { ...mobileType.heading, color: colours.textStrong, width: 20, textAlign: "right" },
   hidden: { opacity: 0 },
-});
+}));

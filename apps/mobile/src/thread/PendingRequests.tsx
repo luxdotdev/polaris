@@ -4,10 +4,11 @@
  * options and Send. Home sends long or many-question requests here.
  */
 import type { ApprovalDecision, ApprovalRequest, RequestId } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { decisionOf } from "../home/model/respond.ts";
+import { themedStyles } from "../theme/index.ts";
 import { haptics } from "../motion/index.ts";
 import { answered, answersDecision, pick, type Picks, requestCard } from "./requests.ts";
 
@@ -27,6 +28,7 @@ interface CardProps {
 }
 
 const Permission = ({ request, live, onRespond }: CardProps) => {
+  const styles = useStyles();
   const card = requestCard(request);
 
   return (
@@ -74,6 +76,7 @@ const Permission = ({ request, live, onRespond }: CardProps) => {
 };
 
 const Questions = ({ request, live, onRespond }: CardProps) => {
+  const styles = useStyles();
   const [picks, setPicks] = useState<Picks>([]);
   const card = requestCard(request);
   const questions = card.kind === "questions" ? card.questions : [];
@@ -134,8 +137,10 @@ export const PendingRequests = ({
   errors,
   enabled,
   onRespond,
-}: PendingRequestsProps) =>
-  requests.length === 0 ? null : (
+}: PendingRequestsProps) => {
+  const styles = useStyles();
+
+  return requests.length === 0 ? null : (
     <View style={styles.list}>
       {requests.map((request) => {
         const props: CardProps = {
@@ -157,17 +162,18 @@ export const PendingRequests = ({
       })}
     </View>
   );
+};
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((colours) => ({
   list: { gap: 12, marginBottom: 8 },
   card: {
     gap: 8,
     paddingLeft: 12,
     borderLeftWidth: 2,
-    borderLeftColor: midnight.needsYouText,
+    borderLeftColor: colours.needsYouText,
   },
-  ask: { ...mobileType.subhead, color: midnight.needsYouText },
-  command: { ...mobileType.command, color: midnight.textDefault },
+  ask: { ...mobileType.subhead, color: colours.needsYouText },
+  command: { ...mobileType.command, color: colours.textDefault },
   buttons: { flexDirection: "row", alignItems: "center", gap: 18, paddingTop: 2 },
   waiting: { opacity: 0.55 },
   approve: {
@@ -175,15 +181,15 @@ const styles = StyleSheet.create({
     height: 36,
     paddingHorizontal: 20,
     borderRadius: 999,
-    backgroundColor: midnight.textStrong,
+    backgroundColor: colours.textStrong,
     alignItems: "center",
     justifyContent: "center",
   },
-  approveLabel: { ...mobileType.label, color: midnight.bg },
-  always: { ...mobileType.label, color: midnight.textDefault },
-  deny: { ...mobileType.label, color: midnight.textSubtle },
+  approveLabel: { ...mobileType.label, color: colours.ground },
+  always: { ...mobileType.label, color: colours.textDefault },
+  deny: { ...mobileType.label, color: colours.textSubtle },
   question: { gap: 6 },
-  questionText: { ...mobileType.callout, color: midnight.textDefault },
+  questionText: { ...mobileType.callout, color: colours.textDefault },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   choice: {
     minHeight: 34,
@@ -191,7 +197,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 17,
     borderWidth: 1,
-    borderColor: midnight.hairline,
+    borderColor: colours.hairline,
     justifyContent: "center",
     maxWidth: "100%",
   },
@@ -200,11 +206,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 17,
-    backgroundColor: midnight.textStrong,
+    backgroundColor: colours.textStrong,
     justifyContent: "center",
     maxWidth: "100%",
   },
-  choiceLabel: { ...mobileType.subhead, fontWeight: "500", color: midnight.textDefault },
-  chosenLabel: { ...mobileType.subhead, fontWeight: "500", color: midnight.bg },
-  failed: { ...mobileType.footnote, color: midnight.failedText },
-});
+  choiceLabel: { ...mobileType.subhead, fontWeight: "500", color: colours.textDefault },
+  chosenLabel: { ...mobileType.subhead, fontWeight: "500", color: colours.ground },
+  failed: { ...mobileType.footnote, color: colours.failedText },
+}));
