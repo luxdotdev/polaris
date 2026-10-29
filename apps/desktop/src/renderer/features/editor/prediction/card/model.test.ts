@@ -178,7 +178,11 @@ test("Models list Recommended first; ones Polaris can't prompt are disabled with
 });
 
 test("Two ids of one model are one row, keeping the chosen id (ENG-510)", () => {
-  const ids = ["sweep-next-edit-1.5b-q8_0", "hf.co/sweepai/sweep-next-edit-1.5B-GGUF:Q4_K_M"];
+  const ids = [
+    "sweep-next-edit-1.5b-q8_0",
+    "hf.co/sweepai/sweep-next-edit-1.5B-GGUF:Q4_K_M",
+  ] as const;
+
   const [first] = INSPECTION.client.endpoints;
 
   const client = {
@@ -197,7 +201,7 @@ test("Two ids of one model are one row, keeping the chosen id (ENG-510)", () => 
     [ids[0], "Sweep Next-Edit 1.5B"],
     ["qwen2.5-coder-1.5b", "Qwen2.5-Coder"],
   ]);
-  expect(rows(ids[1]!)?.[1]).toEqual([ids[1], "Sweep Next-Edit 1.5B"]);
+  expect(rows(ids[1])?.[1]).toEqual([ids[1], "Sweep Next-Edit 1.5B"]);
 });
 
 test("Recovery follows the server: clear the cache, reload a model, or advise a restart", () => {
