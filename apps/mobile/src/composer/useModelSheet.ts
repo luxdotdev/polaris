@@ -30,6 +30,7 @@ import {
   setModelCommand,
   setPermissionCommand,
 } from "./modelSheet.ts";
+import { modelsFor, rememberModels } from "./modelNames.ts";
 
 export interface ModelSheetInput {
   readonly open: boolean;
@@ -57,6 +58,7 @@ export interface ModelSheetInput {
 }
 
 export interface ModelSheetContext {
+  readonly hostId: string;
   readonly connection: HostConnection | null;
   readonly capabilities: ReadonlyArray<Capability>;
   readonly session: Session;
@@ -71,6 +73,7 @@ export const sheetContextOf = (
   live: boolean,
   fold: { readonly session: Session; readonly turns: ReadonlyArray<{ readonly turn: Turn }> }
 ): ModelSheetContext => ({
+  hostId: connection.hostId,
   connection: live ? connection : null,
   capabilities: connection.status().capabilities,
   session: fold.session,
@@ -84,7 +87,7 @@ interface Listed {
 }
 
 /** The session's Harness's Models, asked again only when the Host or Harness changes. */
-const useModels = (connection: HostConnection | null, harness: HarnessKind) => {
+const useModels = (hostId: string, connection: HostConnection | null, harness: HarnessKind) => {
   const [listed, setListed] = useState<Listed>({ models: [], switchesModel: false });
 
   useEffect(() => {
@@ -94,6 +97,8 @@ const useModels = (connection: HostConnection | null, harness: HarnessKind) => {
     void connection
       .run((client) => client["harness.models"]({ harness, refresh: false }))
       .then((reply) => {
+        rememberModels(hostId, harness, reply.models);
+
         if (live) setListed({ models: reply.models, switchesModel: reply.switchesModel });
       })
       .catch(() => undefined);
@@ -101,9 +106,9 @@ const useModels = (connection: HostConnection | null, harness: HarnessKind) => {
     return () => {
       live = false;
     };
-  }, [connection, harness]);
+  }, [hostId, connection, harness]);
 
-  return listed;
+  return { ...listed, models: modelsFor(hostId, harness, listed.models) };
 };
 
 /** The ready Harnesses other than the session's, asked when the sheet opens. */
@@ -134,7 +139,7 @@ export const useModelSheet = (ctx: ModelSheetContext): ModelSheetInput => {
   const navigation = useNavigation();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const listed = useModels(connection, session.harness);
+  const listed = useModels(ctx.hostId, connection, session.harness);
   const forkable = useForkTargets(connection, open, session.harness);
   const model = currentModel(listed.models, session.model);
 

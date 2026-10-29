@@ -1,6 +1,7 @@
 /** The chosen Host's Harnesses and the chosen Harness's Models, loaded when the Host changes. */
 import type { HarnessKind, Model, ReasoningEffort } from "@polaris/protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { rememberModels } from "../composer/modelNames.ts";
 import type { NewSessionApi } from "./api.ts";
 import {
   defaultHarness,
@@ -97,6 +98,8 @@ export const useHarnessChoice = (api: NewSessionApi, host: SheetHost | null): Ha
     void api
       .models(hostId, harness)
       .then((listed) => {
+        rememberModels(hostId, harness, listed.models);
+
         if (!live) return;
         setModels(listed.models);
         setModel(listed.models.find((m) => m.id === last) ?? null);
