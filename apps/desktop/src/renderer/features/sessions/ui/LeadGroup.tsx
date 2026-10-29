@@ -26,6 +26,7 @@ import {
 } from "../model/leadGroups.ts";
 import { blockedHover, setupHover, shownWorker, TONE_CLASS } from "../model/workerCopy.ts";
 import { ConstellationPeek, useSpacePeek } from "../../constellation/ui/peek.tsx";
+import { WaveBar } from "../../constellation/ui/waves.tsx";
 import { RenameField, SessionMenu, useRenaming } from "./SessionMenu.tsx";
 import { WorkerMenu } from "./WorkerMenu.tsx";
 import { useConstellationActions, useFocusedTask } from "../source.ts";
@@ -36,22 +37,33 @@ interface GroupProps {
   readonly now: number;
 }
 
-const LeadLine = ({ group, open }: { readonly group: Group; readonly open: boolean }) => {
+/** Open, its workers show below; folded, the wave bar stands in for them (Paper X-H). */
+const LeadLine = ({
+  hostKey,
+  group,
+  open,
+}: {
+  readonly hostKey: string;
+  readonly group: Group;
+  readonly open: boolean;
+}) => {
   const line = leadLine(group);
+
+  if (!open)
+    return (
+      <span className="flex min-w-0 items-center gap-1">
+        <WaveBar hostKey={hostKey} leadSessionId={group.lead.session.id} />
+        <span className="sr-only">
+          {line.workers}
+          {line.needsYou === null ? null : ` · ${line.needsYou}`}
+        </span>
+      </span>
+    );
 
   return (
     <span className="flex min-w-0 items-center gap-1">
       <ConstellationMark size={12} />
-      {open ? (
-        <span className="truncate">Lead · {line.workers}</span>
-      ) : (
-        <span className="truncate">
-          ▸ {line.workers}
-          {line.needsYou === null ? null : (
-            <span className="text-needs-you-text"> · {line.needsYou}</span>
-          )}
-        </span>
-      )}
+      <span className="truncate">Lead · {line.workers}</span>
     </span>
   );
 };
@@ -360,7 +372,7 @@ export const LeadGroup = ({ hostKey, group, now }: GroupProps) => {
                   lead.session.title || group.view.constellation.name
                 )
               }
-              description={<LeadLine group={group} open={open} />}
+              description={<LeadLine hostKey={hostKey} group={group} open={open} />}
               meta={age(lead.session.createdAt, now)}
               trailing={
                 <button
