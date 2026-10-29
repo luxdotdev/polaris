@@ -2,6 +2,7 @@
  * Fixture Hosts for screenshots and break-ui, in a development build launched with
  * `-polarisDevHosts paper|worst|offline|one|huge|empty`, switched from the Hosts screen's toggle.
  * `-polarisDevHostSheet <id>` opens that Host's details sheet.
+ * `-polarisDevHostLink 1` opens Link another Mac.
  */
 import { Schema } from "effect";
 import { useMemo, useSyncExternalStore } from "react";
@@ -57,3 +58,6 @@ export const useDevHosts = (): ReadonlyArray<HostInput> | null => {
 /** The Host whose sheet opens on launch. */
 export const DEV_HOST_SHEET: string | null =
   LAUNCHED === null ? null : launched("polarisDevHostSheet");
+
+/** Link another Mac open on launch. */
+export const DEV_HOST_LINK = LAUNCHED !== null && launched("polarisDevHostLink") === "1";

@@ -124,9 +124,7 @@ const Screen = () => {
   const screen = Match.value(navigation.top).pipe(
     Match.discriminatorsExhaustive("screen")({
       tabs: () => <Tabs />,
-      hosts: () => (
-        <HostsScreen onBack={navigation.back} onLink={() => navigation.push({ screen: "link" })} />
-      ),
+      hosts: () => <HostsScreen onBack={navigation.back} />,
       thread: ({ hostId, sessionId, rise }) => (
         <ThreadRoute hostId={hostId} sessionId={sessionId} rise={rise} onBack={navigation.back} />
       ),
