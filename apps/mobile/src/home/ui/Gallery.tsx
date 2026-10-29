@@ -179,9 +179,8 @@ export const RowGallery = () => {
   const insets = useSafeAreaInsets();
   const noop = () => undefined;
 
-  useEffect(() => {
-    if (THEME === "moonlit") setTheme("moonlit");
-  }, [setTheme]);
+  // Once: setTheme is new each render, and the tap to switch must stick.
+  useEffect(() => setTheme(THEME === "moonlit" ? "moonlit" : "midnight"), []);
 
   return (
     <ScrollView
