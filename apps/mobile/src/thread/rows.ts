@@ -1,15 +1,29 @@
 /**
- * The thread as flat rows for a virtualized list (M4): every Turn in order, its prompt,
+ * The thread as flat rows for a virtualized list (MX-E): every Turn in order, its prompt,
  * replies and numbered tool steps; finished calls in a row fold into a run until opened
- * (`steps.ts`). A Turn's rows are cached on its entry, so text streaming into the
- * latest Turn rebuilds only that Turn's rows.
+ * (`steps.ts`), and a finished Turn ends on its receipt. A Turn's rows are cached on its
+ * entry, so text streaming into the latest Turn rebuilds only that Turn's rows.
  */
-import type { Attachment, TurnItem } from "@polaris/protocol";
+import type { Attachment, SessionState, TurnId, TurnItem } from "@polaris/protocol";
 import type { FollowUp } from "./composer.ts";
-import { Match } from "effect";
-import type { TurnEntry } from "./fold.ts";
+import { Match, Predicate } from "effect";
+import type { Session, TurnEntry } from "./fold.ts";
+import { elapsed } from "./labels.ts";
 import type { OutgoingSteer } from "./outbox.ts";
 import { runKind, runSummary, toolLabel } from "./steps.ts";
+
+/** What a finished Turn's long-press menu needs (MX-J). */
+export interface TurnFacts {
+  readonly turnId: TurnId;
+  /** One-based, as the UI numbers Turns. */
+  readonly number: number;
+  /** When the Turn started (ISO). */
+  readonly startedAt: string;
+  /** "4 files · 2 commands · 1m 41s"; empty when there is nothing to say. */
+  readonly receipt: string;
+  /** Every reply as Markdown, a blank line apart: what Copy puts on the pasteboard. */
+  readonly output: string;
+}
 
 export type StepTone = "done" | "active" | "failed";
 
@@ -36,7 +50,16 @@ export type ThreadRow = RowBase &
         readonly failed: boolean;
         readonly note: string;
       }
-    | { readonly kind: "reply"; readonly text: string }
+    | {
+        readonly kind: "reply";
+        readonly text: string;
+        /** Its finished Turn, for the long-press menu; null while the Turn works. */
+        readonly turn: TurnFacts | null;
+        /** The receipt line under it: only on a finished Turn's last reply, its summary. */
+        readonly receipt: string | null;
+      }
+    /** A finished Turn's receipt where it has no reply to sit under. */
+    | { readonly kind: "receipt"; readonly text: string; readonly turn: TurnFacts }
     | {
         readonly kind: "step";
         /** Two digits, counted within its Turn: "01". */
@@ -46,7 +69,8 @@ export type ThreadRow = RowBase &
         readonly tone: StepTone;
         /** Files it touched, to mark the one a Critical finding is in. */
         readonly paths: ReadonlyArray<string>;
-        /** The last step of a run of steps, which closes its group with a hairline. */
+        /** The first and last rows of a group of steps open and close its well. */
+        readonly first: boolean;
         readonly last: boolean;
       }
     | {
@@ -54,7 +78,8 @@ export type ThreadRow = RowBase &
         /** "Read 3 files, ran 4 commands", as the Desktop App says it. */
         readonly summary: string;
         readonly open: boolean;
-        /** As a step's: the last of a group closes it with a hairline. */
+        /** As a step's: the first and last of a group open and close its well. */
+        readonly first: boolean;
         readonly last: boolean;
       }
     | { readonly kind: "error"; readonly text: string }
@@ -78,7 +103,10 @@ const toneOf = (status: "running" | "completed" | "failed" | "declined"): StepTo
 
 const VERBS = { add: "Created", modify: "Edited", delete: "Deleted" } as const;
 
-type Step = Omit<Extract<ThreadRow, { kind: "step" }>, "key" | "turnId" | "index" | "last">;
+type Step = Omit<
+  Extract<ThreadRow, { kind: "step" }>,
+  "key" | "turnId" | "index" | "first" | "last"
+>;
 
 const fileStep = (item: Extract<TurnItem, { _tag: "FileChange" }>): Step => {
   const paths = item.changes.map((change) => change.path);
@@ -247,6 +275,7 @@ const openRows = (
           key: `${turn.id}:${id}`,
           turnId: turn.id,
           index: pad(step),
+          first: false,
           last: false,
         });
 
@@ -255,8 +284,14 @@ const openRows = (
 
     const text = streamed.get(id) ?? piece.text;
 
-    if (text.trim() !== "")
-      rows.push({ kind: piece.row, key: `${turn.id}:${id}`, turnId: turn.id, text });
+    if (text.trim() === "") return;
+    const key = `${turn.id}:${id}`;
+
+    rows.push(
+      piece.row === "reply"
+        ? { kind: "reply", key, turnId: turn.id, text, turn: null, receipt: null }
+        : { kind: piece.row, key, turnId: turn.id, text }
+    );
   };
 
   for (const segment of segments(placedOf(entry))) {
@@ -268,15 +303,81 @@ const openRows = (
     const key = `${turn.id}:run:${segment.run[0]?.id ?? ""}`;
     const open = isOpen(key);
     const summary = runSummary(segment.run.flatMap(({ item }) => (item === null ? [] : [item])));
-    rows.push({ kind: "run", key, turnId: turn.id, summary, open, last: false });
+    rows.push({ kind: "run", key, turnId: turn.id, summary, open, first: false, last: false });
     segment.run.forEach((one) => place(one, open));
   }
 
-  const grouped = (row: ThreadRow | undefined) => row?.kind === "step" || row?.kind === "run";
+  return withReceipt(entry, grouped(rows));
+};
 
-  return rows.map((row, index) =>
-    grouped(row) && !grouped(rows[index + 1]) ? { ...row, last: true } : row
+const isGrouped = (row: ThreadRow | undefined) => row?.kind === "step" || row?.kind === "run";
+
+/** Marks where each group of steps opens and closes its well. */
+const grouped = (rows: ReadonlyArray<ThreadRow>): Array<ThreadRow> =>
+  rows.map((row, index) =>
+    row.kind === "step" || row.kind === "run"
+      ? { ...row, first: !isGrouped(rows[index - 1]), last: !isGrouped(rows[index + 1]) }
+      : row
   );
+
+const plural = (count: number, one: string) => `${count} ${count === 1 ? one : `${one}s`}`;
+
+/** A finished Turn's receipt as the Desktop App words it, leaving out what it didn't do. */
+export const turnReceipt = (entry: TurnEntry): string => {
+  const { turn, items } = entry;
+
+  const files = new Set(
+    items.flatMap((item) =>
+      Predicate.isTagged(item, "FileChange") ? item.changes.map((change) => change.path) : []
+    )
+  ).size;
+
+  const commands = items.filter((item) => Predicate.isTagged(item, "CommandExecution")).length;
+
+  const took =
+    turn.endedAt === null ? Number.NaN : Date.parse(turn.endedAt) - Date.parse(turn.startedAt);
+
+  return [
+    files === 0 ? null : plural(files, "file"),
+    commands === 0 ? null : plural(commands, "command"),
+    Number.isNaN(took) ? null : elapsed(took),
+  ]
+    .filter((part) => part !== null)
+    .join(" · ");
+};
+
+const factsOf = (entry: TurnEntry, rows: ReadonlyArray<ThreadRow>): TurnFacts => ({
+  turnId: entry.turn.id,
+  number: entry.turn.userTurnNumber ?? entry.turn.index + 1,
+  startedAt: entry.turn.startedAt,
+  receipt: turnReceipt(entry),
+  output: rows.flatMap((row) => (row.kind === "reply" ? [row.text.trim()] : [])).join("\n\n"),
+});
+
+/** A finished Turn: its replies carry its facts, and the last one its receipt. */
+const withReceipt = (entry: TurnEntry, rows: Array<ThreadRow>): ReadonlyArray<ThreadRow> => {
+  if (entry.turn.status === "working") return rows;
+  const turn = factsOf(entry, rows);
+  const summary = rows.findLastIndex((row) => row.kind === "reply");
+
+  const out = rows.map((row, index) =>
+    row.kind === "reply"
+      ? { ...row, turn, receipt: index === summary && turn.receipt !== "" ? turn.receipt : null }
+      : row
+  );
+
+  if (summary !== -1 || turn.receipt === "") return out;
+
+  return [
+    ...out,
+    {
+      kind: "receipt",
+      key: `${entry.turn.id}:receipt`,
+      turnId: entry.turn.id,
+      text: turn.receipt,
+      turn,
+    },
+  ];
 };
 
 export type StepRow = Extract<ThreadRow, { kind: "step" }>;
@@ -354,4 +455,47 @@ export const newestEndedOnScreen = (
   }
 
   return newest;
+};
+
+const STATE_WORDS: Readonly<Record<SessionState, string>> = {
+  starting: "Starting",
+  working: "Working",
+  "needs-you": "Needs you",
+  idle: "Idle",
+  "in-terminal": "In the terminal",
+  dormant: "Dormant",
+  failed: "Failed",
+  limited: "At its usage limit",
+  archived: "Archived",
+};
+
+/** The thread header's second line: its state, then the rest ("turn 24 · polaris"). */
+export interface HeaderLine {
+  readonly state: string;
+  readonly rest: string;
+}
+
+/** The thread header's second line (MX-E). */
+export const headerLine = (
+  session: Pick<Session, "state" | "turnCount" | "currentUserTurn">,
+  place: string | null
+): HeaderLine => {
+  const turn =
+    session.turnCount > 0 ? `turn ${session.currentUserTurn?.number ?? session.turnCount}` : null;
+
+  return {
+    state: STATE_WORDS[session.state],
+    rest: [turn, place].filter((part) => part !== null && part !== "").join(" · "),
+  };
+};
+
+/** "Turn 23 · 11:42": the long-press menu's first header line, in the phone's time. */
+export const turnHeading = (facts: Pick<TurnFacts, "number" | "startedAt">): string => {
+  const at = new Date(facts.startedAt);
+
+  const time = Number.isNaN(at.getTime())
+    ? null
+    : `${at.getHours().toString().padStart(2, "0")}:${at.getMinutes().toString().padStart(2, "0")}`;
+
+  return [`Turn ${facts.number}`, time].filter((part) => part !== null).join(" · ");
 };

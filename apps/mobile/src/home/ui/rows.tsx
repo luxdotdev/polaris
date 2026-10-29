@@ -11,9 +11,8 @@ import { LongPressMenu } from "../../menus/index.ts";
 import { themedStyles, useTheme } from "../../theme/index.ts";
 import { age } from "../model/format.ts";
 import type { ConstellationRow, SessionRow as Row } from "../model/home.ts";
-import type { Reply } from "../model/respond.ts";
 import { type ConstellationProgress, progressLine, sevenSegments } from "../model/taskBar.ts";
-import { NeedsYouPage, type RowMenu, titleOf } from "./NeedsYouCard.tsx";
+import { type RowMenu, titleOf } from "./NeedsYouCard.tsx";
 import { celestialLook, harnessHue, type MetaTone, metaLine } from "./rowLook.ts";
 
 const WASH_WIDTH = 168;
@@ -161,30 +160,6 @@ export const SessionRow = ({ row, now, withHost, onOpen, menu }: SessionRowProps
     </Well>
   );
 };
-
-/** The name Review's list and Home still import. */
-export const SessionListRow = SessionRow;
-
-/** Home's needs you row until the hero card replaces it: the card's page in a well. */
-export const NeedsYouRow = ({
-  row,
-  now,
-  onOpen,
-  onReply,
-  menu,
-}: {
-  readonly row: Row;
-  readonly position: number;
-  readonly first: boolean;
-  readonly now: number;
-  readonly onOpen: () => void;
-  readonly onReply: (reply: Reply) => Promise<void>;
-  readonly menu: RowMenu;
-}) => (
-  <View style={useStyles().well}>
-    <NeedsYouPage item={row} now={now} onOpen={onOpen} onReply={onReply} menu={menu} />
-  </View>
-);
 
 export const TaskBar = ({
   progress,

@@ -147,6 +147,7 @@ describe("empty", () => {
   test.each([
     ["no Host", [], null, "no-hosts"],
     ["Hosts never reached", [host("A", null, "offline")], null, "unreachable"],
+    ["a Host connected, its snapshot on the way", [host("A", null)], null, "loading"],
     [
       "a Host with no agent sessions",
       [host("A", [snapshot(), synchronized()])],

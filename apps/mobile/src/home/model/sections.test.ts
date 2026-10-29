@@ -17,6 +17,7 @@ const busyHost = {
         workspaces: [workspace("w1", "polaris")],
         sessions: [
           summary(session({ id: "done", state: "idle" })),
+          summary(session({ id: "asks", state: "needs-you" })),
           ...Array.from({ length: ACTIVE }, (_, i) =>
             summary(session({ id: `lead${i}`, state: "working" }))
           ),
@@ -33,10 +34,10 @@ const busyHost = {
 
 const home = buildHome([busyHost], null);
 
-test("Home lists its sections in order and leaves out empty ones", () => {
-  expect(homeSections(home).map((s) => [s.kind, s.count, s.data.length])).toEqual([
-    ["working", ACTIVE, ACTIVE],
-    ["recent", null, 1],
+test("Home lists its sections in order under the hero and leaves out empty ones", () => {
+  expect(homeSections(home).map((s) => [s.kind, s.label, s.data.length])).toEqual([
+    ["working", `Working · ${ACTIVE}`, ACTIVE],
+    ["recent", "Recent", 1],
   ]);
 });
 

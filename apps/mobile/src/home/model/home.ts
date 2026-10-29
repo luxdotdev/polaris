@@ -52,6 +52,8 @@ export interface WorkspaceChip {
 export type HomeEmpty =
   /** No Host is known yet: link this iPhone. */
   | "no-hosts"
+  /** A Host is connected and its first snapshot hasn't arrived yet. */
+  | "loading"
   /** Hosts are known but none has been reached this launch. */
   | "unreachable"
   /** Reached, with no agent sessions at all. */
@@ -212,7 +214,8 @@ const emptyOf = (
 
   if (listed > 0) return "filtered";
 
-  if (!hosts.some((host) => host.followed.seen)) return "unreachable";
+  if (!hosts.some((host) => host.followed.seen))
+    return hosts.some((host) => host.connection === "connected") ? "loading" : "unreachable";
 
   return "no-sessions";
 };
