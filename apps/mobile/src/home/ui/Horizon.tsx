@@ -1,10 +1,10 @@
 /**
  * The horizon (DESIGN.md, Mobile App): a thin pixel ridge at the foot of Home, lit for the time
- * of day, with the list fading to black above it so no legible row ever sits on the scene.
+ * of day, with the list fading into the ground above it so no legible row ever sits on the scene.
  */
-import { midnight } from "@polaris/ui/tokens";
 import { StyleSheet, useWindowDimensions, View } from "react-native";
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from "react-native-svg";
+import { type MobileColours, themedStyles, useTheme } from "../../theme/index.ts";
 
 export const HORIZON_HEIGHT = 200;
 
@@ -32,15 +32,17 @@ const RIDGE: ReadonlyArray<readonly [number, number, number]> = [
   [372, 402, 90],
 ];
 
-const STARS: ReadonlyArray<readonly [number, number, string, number]> = [
-  [38, 44, midnight.starlight, 0.55],
+const starsOf = (
+  colours: MobileColours
+): ReadonlyArray<readonly [number, number, string, number]> => [
+  [38, 44, colours.starlight, 0.55],
   [87, 68, "#ffffff", 0.35],
-  [131, 32, midnight.starlight, 0.4],
+  [131, 32, colours.starlight, 0.4],
   [166, 78, "#ffffff", 0.25],
   [247, 56, "#ffffff", 0.3],
-  [289, 26, midnight.starlight, 0.5],
+  [289, 26, colours.starlight, 0.5],
   [352, 72, "#ffffff", 0.3],
-  [377, 40, midnight.starlight, 0.35],
+  [377, 40, colours.starlight, 0.35],
 ];
 
 export interface Glow {
@@ -104,6 +106,8 @@ const GLOW_CENTRE = 96;
 const FADE_STEPS = 8;
 
 export const Horizon = ({ hour }: { readonly hour: number }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
   const { width } = useWindowDimensions();
   const scale = width / 402;
   const glow = glowFor(hour);
@@ -118,7 +122,7 @@ export const Horizon = ({ hour }: { readonly hour: number }) => {
       ))}
       <View style={[styles.solid, { top: FADE_STEPS * 4 }]} />
       <GlowLight width={width} glow={glow} />
-      {STARS.map(([x, y, color, opacity]) => (
+      {starsOf(colours).map(([x, y, color, opacity]) => (
         <View
           key={`${x}:${y}`}
           style={[styles.star, { left: x * scale, top: y, backgroundColor: color, opacity }]}
@@ -150,20 +154,20 @@ export const Horizon = ({ hour }: { readonly hour: number }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((colours) => ({
   horizon: { position: "absolute", left: 0, bottom: 0, height: HORIZON_HEIGHT, overflow: "hidden" },
-  band: { position: "absolute", left: 0, right: 0, height: 4, backgroundColor: midnight.bg },
-  solid: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: midnight.bg },
+  band: { position: "absolute", left: 0, right: 0, height: 4, backgroundColor: colours.ground },
+  solid: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: colours.ground },
   star: { position: "absolute", width: 2, height: 2 },
   polaris: { position: "absolute", top: 55, width: 9, height: 9, opacity: 0.9 },
   polarisArm: {
     position: "absolute",
     width: 3,
     height: 3,
-    backgroundColor: midnight.starlight,
+    backgroundColor: colours.starlight,
     opacity: 0.35,
   },
-  polarisCore: { position: "absolute", width: 3, height: 3, backgroundColor: midnight.starlight },
+  polarisCore: { position: "absolute", width: 3, height: 3, backgroundColor: colours.starlight },
   ridgeEdge: { height: 3, backgroundColor: "#22305a" },
-  ridgeFill: { flex: 1, backgroundColor: midnight.bg },
-});
+  ridgeFill: { flex: 1, backgroundColor: colours.ground },
+}));
