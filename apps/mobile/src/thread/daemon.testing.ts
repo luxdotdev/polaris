@@ -203,6 +203,8 @@ export interface FakeHostOptions {
   readonly summaries?: ReadonlyMap<string, RiskSummary>;
   /** The session's whole history, oldest first, as `session.turns` pages it. */
   readonly history?: ReadonlyArray<Turn>;
+  /** The Workspace's name in the Host's Snapshot; "polaris" by default. */
+  readonly workspaceName?: string;
 }
 
 export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOptions = {}) {
@@ -240,7 +242,7 @@ export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOption
             new Workspace({
               id: workspaceId,
               path: "/repo",
-              name: "polaris",
+              name: options.workspaceName ?? "polaris",
               isGitRepo: true,
               worktreeRoot: "/repo.worktrees",
               hidden: false,

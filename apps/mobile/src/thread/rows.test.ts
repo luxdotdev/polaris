@@ -358,6 +358,62 @@ describe("a finished turn's receipt (MX-E)", () => {
       [false, true],
     ]);
   });
+
+  test("ends the turn after the steps and error that follow its last reply, saying it failed", () => {
+    const rows = finished(
+      [
+        reply("a", "Running the integration suite now."),
+        command("b", "bun test", 137, "failed"),
+        TurnItem.cases.Error.make({ id: "c", message: "Claude Code exited with code 137" }),
+      ],
+      { status: "failed" }
+    );
+
+    expect(rows.map(line).slice(1)).toEqual([
+      "reply: Running the integration suite now.",
+      "01 bun test |",
+      "error: Claude Code exited with code 137",
+      "receipt: Failed · 1 command · 1m 41s",
+    ]);
+  });
+
+  test("a stopped turn says so, and leaves no step working: its plan done, its command stopped", () => {
+    const plan = TurnItem.cases.Plan.make({
+      id: "b",
+      steps: [
+        { text: "Read", status: "completed", detail: null },
+        { text: "Backfill", status: "in-progress", detail: null },
+      ],
+      explanation: null,
+    });
+
+    const rows = finished(
+      [reply("a", "Backfilling."), plan, command("c", "bun run backfill", 0, "running")],
+      { status: "interrupted" }
+    );
+
+    expect(
+      rows.flatMap((row) => (row.kind === "step" ? [[row.label, row.tone, row.detail]] : []))
+    ).toEqual([
+      ["Updated the plan", "done", "1 of 2"],
+      ["bun run backfill", "failed", "stopped"],
+    ]);
+    expect(rows.at(-1)).toMatchObject({ kind: "receipt", text: "Stopped · 1 command · 1m 41s" });
+  });
+
+  test("groups thousands in its counts", () => {
+    const paths = Array.from({ length: 1284 }, (_, n) => `invoice-${n}.json`);
+
+    const bulk = TurnItem.cases.FileChange.make({
+      id: "a",
+      changes: paths.map((path) => ({ path, kind: "modify" as const })),
+      status: "completed",
+    });
+
+    expect(finished([bulk, reply("b", "Backfilled.")]).at(-1)).toMatchObject({
+      receipt: "1,284 files · 1m 41s",
+    });
+  });
 });
 
 describe("the thread header", () => {
