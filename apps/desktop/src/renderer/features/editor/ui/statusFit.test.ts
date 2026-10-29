@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { BRANCH_FLOOR, HOST_FLOOR, middleTruncate, statusFit } from "./statusFit.ts";
+import { BRANCH_FLOOR, HOST_FLOOR, middleTruncate, statusDrops, statusFit } from "./statusFit.ts";
 
 // One unit per character: the helper only needs widths that grow with the text.
 const chars = (text: string) => text.length;
@@ -32,6 +32,7 @@ test("Completions drops to its glyph before the branch shrinks", () => {
     completions: "label",
     branchRoom: null,
     hostRoom: null,
+    short: 0,
   });
 
   // Short by 40: Completions' label gives back 80, so the branch stays whole.
@@ -39,6 +40,7 @@ test("Completions drops to its glyph before the branch shrinks", () => {
     completions: "glyph",
     branchRoom: null,
     hostRoom: null,
+    short: 0,
   });
 
   // Short by 140: the label's 80 isn't enough, so the branch shrinks into what is left.
@@ -46,6 +48,7 @@ test("Completions drops to its glyph before the branch shrinks", () => {
     completions: "glyph",
     branchRoom: 180,
     hostRoom: null,
+    short: 0,
   });
 });
 
@@ -55,7 +58,7 @@ const WIDE = { branch: 700, completionsLabel: 80, host: 245 };
 test("Once the branch is at its floor, the Host name gives way before the branch shrinks further", () => {
   const fit = statusFit({ ...WIDE, room: BRANCH_FLOOR - 80 - 100 });
 
-  expect(fit).toEqual({ completions: "glyph", branchRoom: BRANCH_FLOOR, hostRoom: 145 });
+  expect(fit).toEqual({ completions: "glyph", branchRoom: BRANCH_FLOOR, hostRoom: 145, short: 0 });
 });
 
 test("With the Host name at its floor, the branch shrinks below its floor, to nothing at worst", () => {
@@ -64,8 +67,10 @@ test("With the Host name at its floor, the branch shrinks below its floor, to no
     completions: "glyph",
     branchRoom: 45,
     hostRoom: HOST_FLOOR,
+    short: 0,
   });
-  expect(statusFit({ ...WIDE, room: -900 }).branchRoom).toBe(0);
+  // Short by 820 after the glyph: the Host gives 165, so 655 is still missing.
+  expect(statusFit({ ...WIDE, room: -900 })).toMatchObject({ branchRoom: 0, short: 655 });
 });
 
 test("Each item given its cap fits the row exactly while there is anything left to shrink", () => {
@@ -80,4 +85,22 @@ test("Each item given its cap fits the row exactly while there is anything left 
 
 test("A short Host name is never padded out to the floor", () => {
   expect(statusFit({ ...WIDE, host: 40, room: -400 }).hostRoom).toBeNull();
+});
+
+// Widths with their gaps: "Spaces 2", "↓1284 ↑128" and "284 ms".
+const DROPPABLE = { indent: 70, "sync-counts": 84, latency: 50 };
+
+test("Past the fit, the indentation drops first, then the sync counts, then the Host latency", () => {
+  expect(statusDrops(0, DROPPABLE)).toEqual([]);
+  expect(statusDrops(40, DROPPABLE)).toEqual(["indent"]);
+  expect(statusDrops(71, DROPPABLE)).toEqual(["indent", "sync-counts"]);
+  expect(statusDrops(155, DROPPABLE)).toEqual(["indent", "sync-counts", "latency"]);
+  // Nothing else ever drops: the language and Completions are controls and stay.
+  expect(statusDrops(10_000, DROPPABLE)).toEqual(["indent", "sync-counts", "latency"]);
+});
+
+test("An item the row doesn't show is skipped, and the next one drops in its place", () => {
+  expect(statusDrops(40, { ...DROPPABLE, "sync-counts": 0 })).toEqual(["indent"]);
+  expect(statusDrops(100, { ...DROPPABLE, "sync-counts": 0 })).toEqual(["indent", "latency"]);
+  expect(statusDrops(40, { ...DROPPABLE, indent: 0 })).toEqual(["sync-counts"]);
 });

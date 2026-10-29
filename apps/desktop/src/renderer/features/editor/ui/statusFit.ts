@@ -55,6 +55,8 @@ export interface StatusFit {
   readonly branchRoom: number | null;
   /** The Host name's width cap, or null when it shows in full. */
   readonly hostRoom: number | null;
+  /** The width still missing with the branch at nothing and the Host name at its floor. */
+  readonly short: number;
 }
 
 /** The branch shrinks to this before the Host name gives way ("lucas/eng…vim"). */
@@ -65,27 +67,58 @@ export const HOST_FLOOR = 80;
 
 /**
  * What gives way, in order: Completions' label, the branch down to its floor, the Host name down
- * to its floor, then the branch to its ellipsis.
+ * to its floor, then the branch to its ellipsis; `short` is what is still missing after that.
  */
 export const statusFit = ({ room, branch, completionsLabel, host }: StatusFitInput): StatusFit => {
-  if (branch <= room) return { completions: "label", branchRoom: null, hostRoom: null };
+  if (branch <= room) return { completions: "label", branchRoom: null, hostRoom: null, short: 0 };
 
   const glyphRoom = room + completionsLabel;
 
-  if (branch <= glyphRoom) return { completions: "glyph", branchRoom: null, hostRoom: null };
+  if (branch <= glyphRoom)
+    return { completions: "glyph", branchRoom: null, hostRoom: null, short: 0 };
   const branchFloor = Math.min(branch, BRANCH_FLOOR);
 
   if (glyphRoom >= branchFloor)
-    return { completions: "glyph", branchRoom: glyphRoom, hostRoom: null };
+    return { completions: "glyph", branchRoom: glyphRoom, hostRoom: null, short: 0 };
   const hostFloor = Math.min(host, HOST_FLOOR);
   const short = branchFloor - glyphRoom;
 
   if (host - short >= hostFloor)
-    return { completions: "glyph", branchRoom: branchFloor, hostRoom: host - short };
+    return { completions: "glyph", branchRoom: branchFloor, hostRoom: host - short, short: 0 };
+  const left = glyphRoom + host - hostFloor;
 
   return {
     completions: "glyph",
-    branchRoom: Math.max(0, glyphRoom + host - hostFloor),
+    branchRoom: Math.max(0, left),
     hostRoom: host > hostFloor ? hostFloor : null,
+    short: Math.max(0, -left),
   };
+};
+
+/** What leaves the row once nothing else can shrink, in this order; each is reachable elsewhere. */
+export const DROP_ORDER = ["indent", "sync-counts", "latency"] as const;
+
+export type StatusDrop = (typeof DROP_ORDER)[number];
+
+/**
+ * The items to drop, in `DROP_ORDER`, for the row to give back `over` px; `widths` holds each
+ * item's width with its gap, 0 when the row doesn't show it.
+ */
+export const statusDrops = (
+  over: number,
+  widths: Readonly<Record<StatusDrop, number>>
+): ReadonlyArray<StatusDrop> => {
+  const dropped: StatusDrop[] = [];
+  let left = over;
+
+  for (const item of DROP_ORDER) {
+    if (left <= 0) break;
+
+    if (widths[item] > 0) {
+      dropped.push(item);
+      left -= widths[item];
+    }
+  }
+
+  return dropped;
 };

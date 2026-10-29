@@ -199,7 +199,15 @@ export interface LanguageStatusProps {
   readonly languageId: LanguageId;
   /** The manual language choice, shown at the popover's foot. */
   readonly languageMode?: ReactNode;
+  /** The file's indentation ("Spaces 2"), a fact row: here too when the status row drops it. */
+  readonly indentation?: string;
 }
+
+/** The view with the file's indentation as its last fact. */
+export const withIndentation = (view: StatusView, indentation: string | undefined): StatusView =>
+  indentation === undefined
+    ? view
+    : { ...view, facts: [...view.facts, { label: "Indentation", value: indentation }] };
 
 /** Reads what the Host chose for a Python or SQL file's row: on focus and whenever it opens. */
 const useHostChoice = (
@@ -230,6 +238,7 @@ export const LanguageStatus = ({
   language,
   languageId,
   languageMode,
+  indentation,
 }: LanguageStatusProps) => {
   const [open, setOpen] = useState(false);
   const [running, setRunning] = useState<Running>(null);
@@ -337,7 +346,7 @@ export const LanguageStatus = ({
         )}
       >
         <StatusPopover
-          view={view}
+          view={withIndentation(view, indentation)}
           running={running}
           failure={failure}
           feedback={

@@ -10,7 +10,14 @@ import type { SyncControls } from "./useSync.ts";
 const ITEM =
   "flex min-w-0 shrink-0 cursor-default items-center gap-1.5 rounded-[4px] px-1 -mx-1 hover:text-text-default disabled:hover:text-text-subtle";
 
-export const SyncStatus = ({ controls }: { readonly controls: SyncControls }) => {
+export const SyncStatus = ({
+  controls,
+  counts = true,
+}: {
+  readonly controls: SyncControls;
+  /** False when the status row dropped the counts for room: the glyph and its hint remain. */
+  readonly counts?: boolean;
+}) => {
   const { view } = controls;
 
   if (view.running !== null) {
@@ -58,7 +65,9 @@ export const SyncStatus = ({ controls }: { readonly controls: SyncControls }) =>
       data-state={view.standing}
     >
       <SyncGlyph standing={view.standing} size={12} />
-      <SyncCounts ahead={view.ahead} behind={view.behind} />
+      <span data-drop="sync-counts" hidden={!counts}>
+        <SyncCounts ahead={view.ahead} behind={view.behind} />
+      </span>
       {view.standing === "unpublished" ? <span>Publish</span> : null}
     </button>
   );

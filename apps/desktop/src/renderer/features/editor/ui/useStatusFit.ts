@@ -1,9 +1,16 @@
 /**
- * Measures the status row and applies `statusFit`: the branch's shown text, the Host name's cap and
- * whether Completions keeps its label. Recomputes when the row or its right side changes size.
+ * Measures the status row and applies `statusFit`: the branch's shown text, the Host name's cap,
+ * whether Completions keeps its label, and which items drop (`statusDrops`). Recomputes on resize.
  */
 import { createContext, type RefObject, useContext, useLayoutEffect, useState } from "react";
-import { middleTruncate, statusFit, type StatusFit } from "./statusFit.ts";
+import {
+  DROP_ORDER,
+  middleTruncate,
+  type StatusDrop,
+  statusDrops,
+  statusFit,
+  type StatusFit,
+} from "./statusFit.ts";
 
 export const FIT_BRANCH = "branch";
 
@@ -20,6 +27,11 @@ export const FIT_YIELDS = "yields";
 export const CompletionsFit = createContext<StatusFit["completions"]>("label");
 
 export const useCompletionsFit = () => useContext(CompletionsFit);
+
+/** The items the status row's fit dropped; each marks itself with `data-drop` and hides. */
+export const StatusDrops = createContext<ReadonlyArray<StatusDrop>>([]);
+
+export const useDropped = (item: StatusDrop) => useContext(StatusDrops).includes(item);
 
 let canvas: CanvasRenderingContext2D | null | undefined;
 
@@ -43,15 +55,51 @@ interface Shown {
   readonly branch: string | null;
   /** The Host name's width cap in px; null shows it whole. */
   readonly host: number | null;
+  readonly drops: ReadonlyArray<StatusDrop>;
 }
 
-/** An item's width with everything in it that CSS truncated given back. */
+const NONE: ReadonlyArray<StatusDrop> = [];
+
+/**
+ * Each droppable item's width with its gap: measured while shown, and kept on the element while
+ * hidden, so a dropped item still counts for whether it can come back.
+ */
+const dropWidths = (row: HTMLElement): Record<StatusDrop, number> => {
+  const widths: Record<StatusDrop, number> = { indent: 0, "sync-counts": 0, latency: 0 };
+
+  for (const item of DROP_ORDER) {
+    const element = row.querySelector<HTMLElement>(`[data-drop="${item}"]`);
+
+    if (element === null) continue;
+
+    if (!element.hidden) {
+      const gap = Number.parseFloat(getComputedStyle(element.parentElement ?? row).columnGap) || 0;
+      const margin = Number.parseFloat(getComputedStyle(element).marginLeft) || 0;
+
+      element.dataset.dropWidth = String(element.offsetWidth + gap + margin);
+    }
+
+    widths[item] = Number(element.dataset.dropWidth ?? 0);
+  }
+
+  return widths;
+};
+
+/** What CSS can still take from the items that truncate: their whole text. */
+const yielded = (row: HTMLElement) =>
+  [...row.querySelectorAll<HTMLElement>(`[data-fit="${FIT_YIELDS}"]`)].reduce(
+    (sum, y) => sum + y.scrollWidth,
+    0
+  );
+
+/** An item's width with everything in it that CSS truncated or the row squeezed given back. */
 const natural = (item: HTMLElement) => {
-  const yields = [item, ...item.querySelectorAll<HTMLElement>(`[data-fit="${FIT_YIELDS}"]`)];
+  if (item.dataset.fit === FIT_YIELDS) return item.scrollWidth;
+  const yields = [...item.querySelectorAll<HTMLElement>(`[data-fit="${FIT_YIELDS}"]`)];
 
   return yields.reduce(
-    (width, y) => (y.dataset.fit === FIT_YIELDS ? width + y.scrollWidth - y.offsetWidth : width),
-    item.offsetWidth
+    (width, y) => width + y.scrollWidth - y.offsetWidth,
+    Math.max(item.offsetWidth, item.scrollWidth)
   );
 };
 
@@ -90,11 +138,16 @@ const measure = (row: HTMLElement, branch: string | null, shown: Shown): Shown =
   const labelWidth = completions === null ? 0 : textWidth(completions, label);
   const hostWidth = host === null ? 0 : textWidth(host, host.textContent ?? "");
 
-  if (branch === null || slot === null) return { completions: "label", branch: null, host: null };
+  if (branch === null || slot === null)
+    return { completions: "label", branch: null, host: null, drops: NONE };
+  const widths = dropWidths(row);
+  const dropped = shown.drops.reduce((sum, item) => sum + widths[item], 0);
 
-  // While Completions shows its glyph, its label's width is part of what the row gave back.
+  // While Completions shows its glyph or items are dropped, their widths are what the row gave back.
   const room =
-    roomFor(row, slot, host, hostWidth) - (shown.completions === "glyph" ? labelWidth : 0);
+    roomFor(row, slot, host, hostWidth) -
+    (shown.completions === "glyph" ? labelWidth : 0) -
+    dropped;
 
   const fit = statusFit({
     room,
@@ -103,8 +156,11 @@ const measure = (row: HTMLElement, branch: string | null, shown: Shown): Shown =
     host: hostWidth,
   });
 
+  const drops = statusDrops(fit.short - yielded(row), widths);
+
   return {
     completions: fit.completions,
+    drops: drops.join() === shown.drops.join() ? shown.drops : drops,
     host: fit.hostRoom === null ? null : Math.floor(fit.hostRoom),
     branch:
       fit.branchRoom === null
@@ -118,7 +174,12 @@ export const useStatusFit = (
   branch: string | null,
   host: string
 ): Shown => {
-  const [shown, setShown] = useState<Shown>({ completions: "label", branch, host: null });
+  const [shown, setShown] = useState<Shown>({
+    completions: "label",
+    branch,
+    host: null,
+    drops: NONE,
+  });
 
   useLayoutEffect(() => {
     const element = row.current;
@@ -131,7 +192,8 @@ export const useStatusFit = (
 
         return next.completions === current.completions &&
           next.branch === current.branch &&
-          next.host === current.host
+          next.host === current.host &&
+          next.drops === current.drops
           ? current
           : next;
       });
@@ -143,7 +205,24 @@ export const useStatusFit = (
 
     for (const child of element.children) observer.observe(child);
 
-    return () => observer.disconnect();
+    // A squeezed item's text can change without its box resizing: re-fit once per frame on edits.
+    let frame: number | null = null;
+
+    const edits = new MutationObserver(() => {
+      frame ??= requestAnimationFrame(() => {
+        frame = null;
+        update();
+      });
+    });
+
+    edits.observe(element, { subtree: true, childList: true, characterData: true });
+
+    return () => {
+      observer.disconnect();
+      edits.disconnect();
+
+      if (frame !== null) cancelAnimationFrame(frame);
+    };
   }, [row, branch, host]);
 
   return shown;

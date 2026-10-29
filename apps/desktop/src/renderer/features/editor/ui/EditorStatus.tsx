@@ -13,7 +13,7 @@ import { followingText } from "../model/agent.ts";
 import { fileKey, workspaceKey } from "../model/drafts.ts";
 import { type Cursor, useEditor } from "../runtime/store.ts";
 import { PredictionStatus } from "../prediction/Status.tsx";
-import { FIT_YIELDS } from "./useStatusFit.ts";
+import { FIT_YIELDS, useDropped } from "./useStatusFit.ts";
 
 export interface EditorStatusProps {
   readonly hostKey: string;
@@ -71,6 +71,9 @@ export const EditorStatus = ({ hostKey, workspaceId }: EditorStatusProps) => {
     return edit === undefined || !s.follow ? null : harnessHue(edit.harness).name;
   });
 
+  // Dropped for room, the indentation is still in the language status card.
+  const indentDropped = useDropped("indent");
+
   const language = useEditor((s) =>
     active === null ? null : (s.buffers[fileKey(hostKey, active.path)]?.language ?? null)
   );
@@ -92,7 +95,9 @@ export const EditorStatus = ({ hostKey, workspaceId }: EditorStatusProps) => {
           {positionText(cursor)}
         </span>
       )}
-      <span className="shrink-0">{indent}</span>
+      <span className="shrink-0" data-drop="indent" hidden={indentDropped}>
+        {indent}
+      </span>
       {language === null ? null : (
         <LanguageStatus
           hostKey={hostKey}
@@ -100,6 +105,7 @@ export const EditorStatus = ({ hostKey, workspaceId }: EditorStatusProps) => {
           path={active.path}
           language={LANGUAGE_NAMES[language]}
           languageId={language}
+          indentation={indent}
           languageMode={
             <LanguageSelector hostKey={hostKey} path={active.path} language={language} />
           }

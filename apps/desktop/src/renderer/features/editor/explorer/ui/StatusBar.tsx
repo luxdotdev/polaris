@@ -11,8 +11,10 @@ import {
   FIT_HOST,
   FIT_SPACER,
   FIT_YIELDS,
+  StatusDrops,
   useStatusFit,
 } from "../../ui/useStatusFit.ts";
+import type { StatusDrop } from "../../ui/statusFit.ts";
 import type { HostView } from "../../../../../shared/api.ts";
 import type { Place } from "../data/actions.ts";
 import type { GitFacts } from "../data/store.ts";
@@ -46,12 +48,14 @@ const GitItems = ({
   sync,
   away,
   branch,
+  drops,
 }: {
   readonly git: GitFacts;
   readonly sync: SyncControls | null;
   readonly away: boolean;
   /** The branch as it fits, middle-truncated; null without one. */
   readonly branch: { readonly full: string; readonly shown: string } | null;
+  readonly drops: ReadonlyArray<StatusDrop>;
 }) => (
   <>
     {branch === null ? null : (
@@ -70,7 +74,7 @@ const GitItems = ({
     )}
     {sync === null ? null : (
       <span className={cn("flex shrink-0", away && "opacity-(--opacity-dimmed)")}>
-        <SyncStatus controls={sync} />
+        <SyncStatus controls={sync} counts={!drops.includes("sync-counts")} />
       </span>
     )}
     {/* Truncates first once the fit has nothing left, then the editor's cursor text. */}
@@ -114,18 +118,28 @@ export const StatusBar = ({ host, place, git, right }: StatusBarProps) => {
         >
           {host.label}
         </span>
-        {note === null ? null : <span className="ml-1">{note}</span>}
+        {note === null ? null : away ? (
+          <span className="ml-1">{note}</span>
+        ) : (
+          // Only the latency drops for room; Settings → Hosts still shows it.
+          <span className="ml-1" data-drop="latency" hidden={fit.drops.includes("latency")}>
+            {note}
+          </span>
+        )}
       </span>
       {git === null || git === "none" ? null : (
         <GitItems
           git={git}
           sync={sync}
+          drops={fit.drops}
           away={away}
           branch={full === null ? null : { full, shown: fit.branch ?? full }}
         />
       )}
       <span data-fit={FIT_SPACER} className="min-w-0 flex-1" />
-      <CompletionsFit value={fit.completions}>{right}</CompletionsFit>
+      <CompletionsFit value={fit.completions}>
+        <StatusDrops value={fit.drops}>{right}</StatusDrops>
+      </CompletionsFit>
     </footer>
   );
 };
