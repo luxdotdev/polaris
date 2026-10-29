@@ -133,3 +133,8 @@ test.each([
 ])("a Linked Device is refused %s", (_, action) => {
   expect(setState(action)).toBe("constellation.set_state");
 });
+
+// ENG-559: the Mobile App's stats sheet and completion card read `constellation.stats`.
+test("a Linked Device may read a constellation's stats", () => {
+  expect(outcome("constellation.stats", null)).toBe("allowed");
+});

@@ -2,13 +2,20 @@
  * A claim the lead handed to the user (Paper C2, B2): its question, Accept and Send back.
  * Either opens a one-line reply; sending it records the verdict and tells the lead (Q27).
  */
-import { mobileType } from "@polaris/ui/tokens";
-import { useState } from "react";
+import { mobileFont, mobileType } from "@polaris/ui/tokens";
+import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
+import Svg, { Path } from "react-native-svg";
+import { haptics } from "../motion/index.ts";
+import { InstrumentSheet } from "../sheet/index.tsx";
 import { themedStyles, useTheme } from "../theme/index.ts";
-import type { Check, HandedClaim } from "./model.ts";
+import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
+import { type ClaimCheck, type ClaimDetail, claimDetail, claimStep } from "./claimSheet.ts";
+import type { Check, ConstellationSource, HandedClaim } from "./model.ts";
 import { cancellable, type Delivery, deliveryLine, editable } from "./outbox.ts";
 import { chosen, claimKey, fresh, typed, type Unsent, unsentFor } from "./unsent.ts";
+import { Kicker, SheetHead } from "./stats/parts.tsx";
+import type { Verdicts } from "./useVerdicts.ts";
 import { canSend, type Verdict } from "./verdict.ts";
 
 export type SendVerdict = (verdict: Verdict, reply: string) => void;
@@ -209,6 +216,269 @@ export const HandedClaimActions = ({
     </View>
   );
 };
+
+const CheckGlyph = ({ result }: { readonly result: Check["result"] }) => {
+  const { colours } = useTheme();
+
+  if (result === "reported")
+    return <Text style={{ color: colours.textSubtle, width: 12 }}>{MARK.reported}</Text>;
+
+  return (
+    <Svg width={12} height={12} viewBox="0 0 12 12">
+      <Path
+        d={result === "passed" ? "M2 6.5l2.5 2.5L10 3" : "M3 3l6 6M9 3l-6 6"}
+        fill="none"
+        stroke={result === "passed" ? colours.diffAddedText : colours.failedText}
+        strokeWidth={1.6}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+};
+
+const CheckWell = ({ checks }: { readonly checks: ReadonlyArray<ClaimCheck> }) => {
+  const styles = useSheetStyles();
+
+  if (checks.length === 0) return null;
+
+  return (
+    <View style={styles.checks}>
+      {checks.map((check, i) => (
+        <View key={check.label} style={[styles.check, i > 0 && styles.ruled]}>
+          <CheckGlyph result={check.result} />
+          <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.checkLabel}>
+            {check.label}
+          </Text>
+          {check.detail === null ? null : <Text style={styles.detail}>{check.detail}</Text>}
+        </View>
+      ))}
+    </View>
+  );
+};
+
+const HeadLine = ({
+  detail,
+  onOpenDiff,
+}: {
+  readonly detail: ClaimDetail;
+  readonly onOpenDiff: (() => void) | undefined;
+}) => {
+  const styles = useSheetStyles();
+
+  return (
+    <View style={styles.headLine}>
+      <View style={styles.headText}>
+        <Text style={styles.sha}>head {detail.head}</Text>
+        <Text numberOfLines={1} style={styles.branch}>
+          {detail.branch}
+        </Text>
+      </View>
+      {onOpenDiff === undefined ? null : (
+        <Pressable accessibilityRole="button" hitSlop={8} onPress={onOpenDiff}>
+          <Text style={styles.link}>Open diff ›</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+};
+
+const VerdictButtons = ({
+  onSendBack,
+  onAccept,
+}: {
+  readonly onSendBack: () => void;
+  readonly onAccept: () => void;
+}) => {
+  const styles = useSheetStyles();
+
+  return (
+    <View style={styles.verdicts}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onSendBack}
+        style={({ pressed }) => [styles.big, styles.bigSecondary, pressed && styles.pressed]}
+      >
+        <Text style={[styles.bigLabel, styles.bigSecondaryLabel]}>Send back…</Text>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onAccept}
+        style={({ pressed }) => [styles.big, styles.bigPrimary, pressed && styles.pressed]}
+      >
+        <Text style={[styles.bigLabel, styles.bigPrimaryLabel]}>Accept</Text>
+      </Pressable>
+    </View>
+  );
+};
+
+const Foot = ({
+  detail,
+  verdicts,
+}: {
+  readonly detail: ClaimDetail;
+  readonly verdicts: Verdicts;
+}) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
+  const [askingReason, setAskingReason] = useState(false);
+  const [draft, setDraft] = useState<string | null>(null);
+  const delivery = verdicts.find(detail.row);
+  const send = verdicts.send(detail.row);
+  const step = claimStep(detail, delivery, askingReason);
+
+  const accept = () => {
+    haptics.approve();
+    send("accept", "");
+  };
+
+  switch (step) {
+    case "read-only":
+      return <Text style={styles.caption}>The lead is reviewing this claim.</Text>;
+    case "delivered":
+      return (
+        <Text style={[styles.caption, { color: colours.acceptedText }]}>
+          {delivery === null ? "" : deliveryLine(delivery)}
+        </Text>
+      );
+    case "choose":
+      return <VerdictButtons onSendBack={() => setAskingReason(true)} onAccept={accept} />;
+    default:
+      return (
+        <Reply
+          verdict={delivery?.input.verdict ?? "send-back"}
+          delivery={delivery}
+          typedDraft={draft}
+          onDraft={setDraft}
+          onSend={(reply) => {
+            haptics.send();
+            send(delivery?.input.verdict ?? "send-back", reply);
+          }}
+          onCancel={() => {
+            verdicts.cancel(detail.row);
+            setAskingReason(false);
+            setDraft(null);
+          }}
+        />
+      );
+  }
+};
+
+export interface ClaimSheetProps {
+  readonly open: boolean;
+  readonly onClose: () => void;
+  readonly taskId: string | null;
+  readonly source: ConstellationSource;
+  /** The screen's `useVerdicts`, so the sheet and the rail share one outbox. */
+  readonly verdicts: Verdicts;
+  readonly now: number;
+  /** Opens the claim's diff; the link shows only when given. */
+  readonly onOpenDiff?: () => void;
+}
+
+/**
+ * The claim sheet (Paper MX-AA): the claim, its checks and head. Accept fires the success
+ * haptic and tells the lead at once; Send back asks for the reason first.
+ */
+export const ClaimSheet = ({
+  open,
+  onClose,
+  taskId,
+  source,
+  verdicts,
+  now,
+  onOpenDiff,
+}: ClaimSheetProps) => {
+  const styles = useSheetStyles();
+  const { colours } = useTheme();
+
+  const detail = useMemo(
+    () => (taskId === null ? null : claimDetail(source, taskId, now)),
+    [source, taskId, now]
+  );
+
+  return (
+    <InstrumentSheet open={open && detail !== null} onClose={onClose} detents={["large"]}>
+      {detail === null ? null : (
+        <View style={styles.body}>
+          <SheetHead onClose={onClose}>
+            <Kicker
+              text={`Claim · ${detail.taskId} · attempt ${detail.attempt}`}
+              dot={detail.row.handed === null ? colours.textFaint : colours.needsYou}
+            />
+            <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.title}>
+              {detail.title}
+            </Text>
+          </SheetHead>
+          {detail.summary === "" ? null : (
+            <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.summary}>
+              {detail.summary}
+            </Text>
+          )}
+          <CheckWell checks={detail.checks} />
+          <HeadLine detail={detail} onOpenDiff={onOpenDiff} />
+          <Foot
+            key={detail.row.handed?.attemptId ?? detail.taskId}
+            detail={detail}
+            verdicts={verdicts}
+          />
+        </View>
+      )}
+    </InstrumentSheet>
+  );
+};
+
+const useSheetStyles = themedStyles((colours) => ({
+  body: { gap: 14, paddingHorizontal: 6, paddingBottom: 8 },
+  title: {
+    fontFamily: mobileType.title.fontFamily,
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: "600",
+    color: colours.textStrong,
+  },
+  summary: { ...mobileType.callout, lineHeight: 22, color: colours.textDefault },
+  checks: {
+    borderRadius: 16,
+    borderWidth: 1,
+    backgroundColor: colours.well,
+    borderColor: colours.hairline,
+  },
+  check: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  ruled: { borderTopWidth: 1, borderTopColor: colours.hairline },
+  checkLabel: {
+    flex: 1,
+    fontFamily: mobileFont.mono,
+    fontSize: 12,
+    lineHeight: 17,
+    color: colours.textDefault,
+  },
+  detail: { fontFamily: mobileFont.mono, fontSize: 11, lineHeight: 16, color: colours.textFaint },
+  headLine: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 2 },
+  headText: { flex: 1, minWidth: 0 },
+  sha: { fontFamily: mobileFont.mono, fontSize: 12, lineHeight: 17, color: colours.textDefault },
+  branch: { fontFamily: mobileFont.mono, fontSize: 11, lineHeight: 16, color: colours.textFaint },
+  link: { ...mobileType.subhead, fontWeight: "500", color: colours.textDefault },
+  verdicts: { flexDirection: "row", gap: 10 },
+  big: { flex: 1, height: 50, borderRadius: 25, alignItems: "center", justifyContent: "center" },
+  bigSecondary: { backgroundColor: colours.raised, borderWidth: 1, borderColor: colours.hairline },
+  bigPrimary: { backgroundColor: colours.textStrong },
+  bigLabel: {
+    fontFamily: mobileType.label.fontFamily,
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: "600",
+  },
+  bigSecondaryLabel: { color: colours.textDefault },
+  bigPrimaryLabel: { color: colours.ground },
+  pressed: { transform: [{ scale: 0.97 }] },
+}));
 
 const useStyles = themedStyles((colours) => ({
   claim: { gap: 6 },
