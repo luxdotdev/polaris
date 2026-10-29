@@ -1,10 +1,12 @@
 /**
  * A development screen of every session row state, the needs you card and the badge, from Home's
- * fixtures, in either theme. Shown with `EXPO_PUBLIC_POLARIS_GALLERY=rows` in a development build.
+ * fixtures. `EXPO_PUBLIC_POLARIS_GALLERY=rows` or `cards`, with `:moonlit` for Moonlit, in a
+ * development build; tap the theme's name to switch.
  */
 import type { ApprovalRequest } from "@polaris/protocol";
 import { mobileFont } from "@polaris/ui/tokens";
-import type { ReactNode } from "react";
+import { Predicate } from "effect";
+import { type ReactNode, useEffect } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../theme";
@@ -23,8 +25,13 @@ import { NeedsYouCard } from "./NeedsYouCard.tsx";
 import { ConstellationListRow, SessionRow } from "./rows.tsx";
 
 // Read whole: Expo inlines EXPO_PUBLIC_ variables only where they are named in full.
-export const galleryOn = (): boolean =>
-  __DEV__ && process.env.EXPO_PUBLIC_POLARIS_GALLERY === "rows";
+const env: unknown = process.env.EXPO_PUBLIC_POLARIS_GALLERY;
+
+const GALLERY = __DEV__ && Predicate.isString(env) ? env : "";
+
+const [PART, THEME] = GALLERY.split(":");
+
+export const galleryOn = (): boolean => PART === "rows" || PART === "cards";
 
 const row = (
   input: SessionInput & { readonly minutes: number },
@@ -172,6 +179,10 @@ export const RowGallery = () => {
   const insets = useSafeAreaInsets();
   const noop = () => undefined;
 
+  useEffect(() => {
+    if (THEME === "moonlit") setTheme("moonlit");
+  }, [setTheme]);
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colours.ground }}
@@ -195,27 +206,34 @@ export const RowGallery = () => {
         <NeedsYouBadge count={2} onPress={noop} />
         <NeedsYouBadge count={120} onPress={noop} />
       </View>
-      {ROWS.map(([label, item]) => (
-        <View key={item.key} style={{ gap: 2 }}>
-          <Kicker>{label}</Kicker>
-          <SessionRow row={item} now={NOW} withHost={false} onOpen={noop} />
-        </View>
-      ))}
-      <Kicker>constellation</Kicker>
-      <ConstellationListRow
-        row={CONSTELLATION}
-        progress={{ done: 3, working: 1, total: 7 }}
-        now={NOW}
-        onOpen={noop}
-      />
-      <Kicker>needs you card · hero</Kicker>
-      <Frame inbox={false}>
-        <NeedsYouCard item={HERO} hostId="gallery" now={NOW} onOpen={noop} />
-      </Frame>
-      <Kicker>needs you card · inbox</Kicker>
-      <Frame inbox>
-        <NeedsYouCard item={INBOX} hostId="gallery" now={NOW} onOpen={noop} />
-      </Frame>
+      {PART === "rows" ? (
+        <>
+          {ROWS.map(([label, item]) => (
+            <View key={item.key} style={{ gap: 2 }}>
+              <Kicker>{label}</Kicker>
+              <SessionRow row={item} now={NOW} withHost={false} onOpen={noop} />
+            </View>
+          ))}
+          <Kicker>constellation</Kicker>
+          <ConstellationListRow
+            row={CONSTELLATION}
+            progress={{ done: 3, working: 1, total: 7 }}
+            now={NOW}
+            onOpen={noop}
+          />
+        </>
+      ) : (
+        <>
+          <Kicker>needs you card · hero</Kicker>
+          <Frame inbox={false}>
+            <NeedsYouCard item={HERO} hostId="gallery" now={NOW} onOpen={noop} />
+          </Frame>
+          <Kicker>needs you card · inbox</Kicker>
+          <Frame inbox>
+            <NeedsYouCard item={INBOX} hostId="gallery" now={NOW} onOpen={noop} />
+          </Frame>
+        </>
+      )}
     </ScrollView>
   );
 };
