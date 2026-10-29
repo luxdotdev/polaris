@@ -5,7 +5,7 @@
 import type { ApprovalRequest, ConnectionState } from "@polaris/protocol";
 import type { FollowedHost } from "../feed/follow.ts";
 import type { ConstellationListing, Session, SessionEntry } from "../feed/fold.ts";
-import { counted, harnessName } from "./format.ts";
+import { counted, harnessName, shortHostName } from "./format.ts";
 
 export interface HomeHost {
   readonly hostId: string;
@@ -52,6 +52,8 @@ export interface WorkspaceChip {
 export type HomeEmpty =
   /** No Host is known yet: link this iPhone. */
   | "no-hosts"
+  /** A Host is connected and its first snapshot hasn't arrived yet. */
+  | "loading"
   /** Hosts are known but none has been reached this launch. */
   | "unreachable"
   /** Reached, with no agent sessions at all. */
@@ -94,7 +96,9 @@ const stateWord: Record<Exclude<ConnectionState, "connected">, string> = {
 
 const attentionLine = (hosts: ReadonlyArray<HomeHost>): string | null => {
   const words = hosts.flatMap((host) =>
-    host.connection === "connected" ? [] : [{ name: host.name, word: stateWord[host.connection] }]
+    host.connection === "connected"
+      ? []
+      : [{ name: shortHostName(host.name), word: stateWord[host.connection] }]
   );
 
   const [first] = words;
@@ -140,7 +144,7 @@ const sessionRow = ({ host, entry, workspaceName }: Placed): SessionRow => {
     kind: "session",
     key: `${host.hostId}/${entry.session.id}`,
     hostId: host.hostId,
-    hostName: host.name,
+    hostName: shortHostName(host.name),
     workspaceName,
     session: entry.session,
     approval,
@@ -168,7 +172,7 @@ const constellationRows = (
           kind: "constellation" as const,
           key: `${host.hostId}/constellation/${constellation.id}`,
           hostId: host.hostId,
-          hostName: host.name,
+          hostName: shortHostName(host.name),
           constellation,
           lead,
           since: Date.parse(lead?.updatedAt ?? constellation.createdAt),
@@ -212,7 +216,8 @@ const emptyOf = (
 
   if (listed > 0) return "filtered";
 
-  if (!hosts.some((host) => host.followed.seen)) return "unreachable";
+  if (!hosts.some((host) => host.followed.seen))
+    return hosts.some((host) => host.connection === "connected") ? "loading" : "unreachable";
 
   return "no-sessions";
 };

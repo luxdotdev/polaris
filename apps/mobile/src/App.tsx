@@ -1,11 +1,11 @@
 /**
  * The Mobile App's shell: the Hosts (one HostConnection each), the navigation stack, the tabs
- * with New, and the screen on top. Midnight throughout.
+ * (Sessions, Review, Settings) with New, and the screen on top, in the chosen theme.
  */
-import { midnight } from "@polaris/ui/tokens";
 import { Match } from "effect";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { NavigationProvider, useNavigation } from "./app/navigation.tsx";
@@ -21,58 +21,81 @@ import { TabBar } from "./app/TabBar.tsx";
 import { DuoShell } from "./duo/DuoShell.tsx";
 import { FollowedHostsProvider } from "./home/feed/useFollowedHosts.ts";
 import { HomeScreen } from "./home/HomeScreen.tsx";
+import { ComposerGallery, composerGalleryOn } from "./composer/Gallery.tsx";
+import { galleryOn, RowGallery } from "./home/ui/Gallery.tsx";
+import { HorizonScreen } from "./horizon";
+import { InboxProvider } from "./inbox/index.ts";
 import { HostsScreen } from "./hosts/HostsScreen.tsx";
 import { LinkScreen } from "./link/LinkScreen.tsx";
 import { usePush, usePushLinks } from "./push/usePush.ts";
 import { RelayProvider, useRelay } from "./relay/RelayProvider.tsx";
 import { runSelfCheck } from "./runtime/selfCheck.ts";
+import { SheetDemo, SheetHost } from "./sheet/index.tsx";
 import { CheckAlive } from "./runtime/CheckAlive.tsx";
 import { HostsProvider } from "./runtime/hosts.tsx";
 import { useReadyToReview } from "./review/index.ts";
+import { SettingsScreen } from "./settings/index.ts";
+import { ThreadGallery, threadGalleryOn } from "./thread/ThreadGallery.tsx";
 import { useWidgetLinks } from "./widgets/useWidgetLinks.ts";
 import { WidgetSync } from "./widgets/WidgetSync.ts";
+import { ThemeProvider, themedStyles } from "./theme/index.ts";
 
 const TAB_BAR = 58;
 
+/** MX-C: the pill's foot sits 30pt up on a 34pt home-indicator inset, a little into it. */
+const INTO_INSET = 4;
+
 const Tabs = () => {
+  const styles = useStyles();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const bottom = Math.max(insets.bottom, 20);
+  const bottom = Math.max(insets.bottom - INTO_INSET, 20);
   const readyCount = useReadyToReview().rows.length;
+  const tabBarHeight = TAB_BAR + bottom;
+  const openHosts = () => navigation.push({ screen: "hosts" });
 
   return (
     <View style={styles.fill}>
-      {navigation.tab === "sessions" ? (
-        <HomeScreen
-          tabBarHeight={TAB_BAR + bottom}
-          actions={{
-            openSession: (hostId, sessionId) =>
-              navigation.push({ screen: "thread", hostId, sessionId }),
-            openReview: (hostId, sessionId) =>
-              navigation.push({ screen: "review", hostId, sessionId, turnId: null }),
-            openConstellation: (hostId, constellationId) =>
-              navigation.push({ screen: "constellation", hostId, constellationId }),
-            openHosts: () => navigation.push({ screen: "hosts" }),
-            link: () => navigation.push({ screen: "link" }),
-          }}
-        />
-      ) : (
-        <ReviewTab
-          tabBarHeight={TAB_BAR + bottom}
-          onOpen={(hostId, sessionId) =>
-            navigation.push({ screen: "review", hostId, sessionId, turnId: null })
-          }
-          onLink={() => navigation.push({ screen: "link" })}
-          onHosts={() => navigation.push({ screen: "hosts" })}
-        />
+      {Match.value(navigation.tab).pipe(
+        Match.when("sessions", () => (
+          <HomeScreen
+            tabBarHeight={tabBarHeight}
+            actions={{
+              openSession: (hostId, sessionId) =>
+                navigation.push({ screen: "thread", hostId, sessionId }),
+              openReview: (hostId, sessionId) =>
+                navigation.push({ screen: "review", hostId, sessionId, turnId: null }),
+              openConstellation: (hostId, constellationId) =>
+                navigation.push({ screen: "constellation", hostId, constellationId }),
+              openHosts,
+              link: () => navigation.push({ screen: "link" }),
+            }}
+          />
+        )),
+        Match.when("review", () => (
+          <HorizonScreen>
+            <ReviewTab
+              tabBarHeight={tabBarHeight}
+              onOpen={(hostId, sessionId) =>
+                navigation.push({ screen: "review", hostId, sessionId, turnId: null })
+              }
+              onLink={() => navigation.push({ screen: "link" })}
+              onHosts={openHosts}
+            />
+          </HorizonScreen>
+        )),
+        Match.when("settings", () => (
+          <HorizonScreen>
+            <SettingsScreen tabBarHeight={tabBarHeight} onHosts={openHosts} />
+          </HorizonScreen>
+        )),
+        Match.exhaustive
       )}
       <TabBar
         active={navigation.tab}
         reviewCount={readyCount}
         bottom={bottom}
-        onSelect={(next) =>
-          next === "hosts" ? navigation.push({ screen: "hosts" }) : navigation.selectTab(next)
-        }
+        onSelect={navigation.selectTab}
         onNew={() => navigation.openNewSession()}
       />
     </View>
@@ -144,18 +167,44 @@ const Push = () => {
 };
 
 const Shell = () => {
+  const styles = useStyles();
   const navigation = useNavigation();
 
   useWidgetLinks(navigation.open);
   usePushLinks(navigation.open);
 
+  if (galleryOn()) return <RowGallery />;
+
+  if (threadGalleryOn())
+    return (
+      <SheetHost>
+        <InboxProvider>
+          <ThreadGallery />
+        </InboxProvider>
+      </SheetHost>
+    );
+
+  if (composerGalleryOn())
+    return (
+      <SheetHost>
+        <ComposerGallery />
+      </SheetHost>
+    );
+
   return (
-    <View style={styles.fill}>
-      <DuoShell>
-        <Screen />
-      </DuoShell>
-      {navigation.newSession.open ? <NewSessionSheet onClose={navigation.closeNewSession} /> : null}
-    </View>
+    <SheetHost>
+      <InboxProvider>
+        <View style={styles.fill}>
+          <DuoShell>
+            <Screen />
+          </DuoShell>
+          {navigation.newSession.open ? (
+            <NewSessionSheet onClose={navigation.closeNewSession} />
+          ) : null}
+          {__DEV__ ? <SheetDemo /> : null}
+        </View>
+      </InboxProvider>
+    </SheetHost>
   );
 };
 
@@ -174,24 +223,30 @@ export const App = () => {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style="light" />
-      <HostsProvider>
-        <RelayProvider>
-          <FollowedHostsProvider>
-            <WidgetSync />
-            <CheckAlive />
-            <Push />
-            <NavigationProvider>
-              <Shell />
-            </NavigationProvider>
-          </FollowedHostsProvider>
-        </RelayProvider>
-      </HostsProvider>
-    </SafeAreaProvider>
+    <ThemeProvider>
+      <GestureHandlerRootView style={rootStyles.root}>
+        <SafeAreaProvider>
+          <StatusBar style="light" />
+          <HostsProvider>
+            <RelayProvider>
+              <FollowedHostsProvider>
+                <WidgetSync />
+                <CheckAlive />
+                <Push />
+                <NavigationProvider>
+                  <Shell />
+                </NavigationProvider>
+              </FollowedHostsProvider>
+            </RelayProvider>
+          </HostsProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ThemeProvider>
   );
 };
 
-const styles = StyleSheet.create({
-  fill: { flex: 1, backgroundColor: midnight.bg },
-});
+const useStyles = themedStyles((colours) => ({
+  fill: { flex: 1, backgroundColor: colours.ground },
+}));
+
+const rootStyles = StyleSheet.create({ root: { flex: 1 } });

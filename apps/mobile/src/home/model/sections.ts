@@ -1,27 +1,25 @@
 /**
- * Home's sections as a virtualized list sees them, and which constellation rows are on screen:
- * only those follow their constellation feed for task counts.
+ * Home's sections under the needs you hero (MX-C) as a virtualized list sees them, and which
+ * constellation rows are on screen: only those follow their constellation feed for task counts.
  */
 import type { Home, HomeRow } from "./home.ts";
 
-export type SectionKind = "needs-you" | "working" | "recent";
+export type SectionKind = "working" | "recent";
 
 export interface HomeSection {
   readonly kind: SectionKind;
+  /** The section's mono kicker: "Working · 3", or "Recent", which is capped. */
   readonly label: string;
-  /** Shown after the label; null for recent, which is capped. */
-  readonly count: number | null;
   readonly data: ReadonlyArray<HomeRow>;
 }
 
-/** Needs you, working, recent, each only when it has rows. */
+/** Working, recent, each only when it has rows; needs you is the hero above them. */
 export const homeSections = (home: Home): ReadonlyArray<HomeSection> => {
-  const { needsYou, working, recent } = home.sections;
+  const { working, recent } = home.sections;
 
   const all: ReadonlyArray<HomeSection> = [
-    { kind: "needs-you", label: "Needs you", count: needsYou.length, data: needsYou },
-    { kind: "working", label: "Working", count: working.length, data: working },
-    { kind: "recent", label: "Recent", count: null, data: recent },
+    { kind: "working", label: `Working · ${working.length}`, data: working },
+    { kind: "recent", label: "Recent", data: recent },
   ];
 
   return all.filter((section) => section.data.length > 0);

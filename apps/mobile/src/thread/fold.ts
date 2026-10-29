@@ -2,13 +2,14 @@
  * One Agent Session folded from `subscribeSession`: its Turns with their
  * completed items, the items still running (`ItemProgress`), and text still
  * streaming in. A Snapshot resets it, except the checkpoint commits seen so
- * far; Subagents' own items stay out.
+ * far; Subagents' own items stay out, the Subagents themselves are kept.
  */
 import type {
   AgentSession,
   ApprovalRequest,
   DomainEvent,
   SessionStreamItem,
+  Subagent,
   Turn,
   TurnItem,
 } from "@polaris/protocol";
@@ -36,6 +37,8 @@ export interface SessionFold {
   readonly pendingApprovals: ReadonlyArray<ApprovalRequest>;
   /** Checkpoint refs to their commits, as `CheckpointRecorded` reported them on this feed. */
   readonly checkpoints: ReadonlyMap<string, string>;
+  /** The Subagents of the Turns this feed holds, in the order they started. */
+  readonly subagents: ReadonlyArray<Subagent>;
 }
 
 type Fold = (state: SessionFold) => SessionFold;
@@ -59,6 +62,16 @@ const withoutRequest =
   (state) => ({
     ...state,
     pendingApprovals: state.pendingApprovals.filter((request) => request.id !== requestId),
+  });
+
+/** A Subagent's latest state, kept in the place it started. */
+const withSubagent =
+  (subagent: Subagent): Fold =>
+  (state) => ({
+    ...state,
+    subagents: state.subagents.some((held) => held.id === subagent.id)
+      ? state.subagents.map((held) => (held.id === subagent.id ? subagent : held))
+      : [...state.subagents, subagent],
   });
 
 const entryOf = (turn: Turn, items: ReadonlyArray<TurnItem> = []): TurnEntry => ({
@@ -111,6 +124,8 @@ const foldEvent = (event: DomainEvent): Fold =>
       CheckpointRecorded:
         ({ ref, commit }): Fold =>
         (state) => ({ ...state, checkpoints: new Map(state.checkpoints).set(ref, commit) }),
+      SubagentStarted: ({ subagent }) => withSubagent(subagent),
+      SubagentEnded: ({ subagent }) => withSubagent(subagent),
       ApprovalResolved: ({ requestId }) => withoutRequest(requestId),
       ApprovalWithdrawn: ({ requestId }) => withoutRequest(requestId),
     }),
@@ -153,6 +168,9 @@ export const applySessionItem = (
         turns: snapshot.turns.map((detail) => entryOf(detail.turn, detail.items)),
         pendingApprovals: snapshot.pendingApprovals,
         checkpoints: state?.checkpoints ?? new Map(),
+        subagents: snapshot.turns.flatMap((detail) =>
+          detail.subagents.map((held) => held.subagent)
+        ),
       }),
       Event: ({ envelope }) => {
         if (state === null || envelope.sequence <= state.sequence) return state;

@@ -12,7 +12,7 @@ import {
   synchronized,
   workspace,
 } from "../fixtures.testing.ts";
-import { buildHome, type HomeHost, type HomeRow, RECENT_LIMIT } from "./home.ts";
+import { buildHome, type HomeHost, type HomeRow, RECENT_LIMIT, whereLine } from "./home.ts";
 
 const host = (
   name: string,
@@ -143,10 +143,35 @@ describe("Hosts that aren't connected", () => {
   });
 });
 
+describe("a Host named by its tailnet hostname", () => {
+  const tailnet = (connection: ConnectionState) => ({
+    ...studio,
+    name: "lucas-mac-studio.taild0d828.ts.net",
+    connection,
+  });
+
+  test("rows and the summary name it by its first label, so the line keeps its other parts", () => {
+    const home = buildHome([tailnet("reconnecting")], null);
+    const row = home.sections.needsYou[0];
+
+    expect(row === undefined ? null : whereLine(row)).toBe(
+      "Claude Code · lucas-mac-studio · polaris"
+    );
+    expect(home.attention).toBe("lucas-mac-studio reconnecting");
+  });
+
+  test("an IP address stays whole", () => {
+    const home = buildHome([{ ...tailnet("offline"), name: "192.168.100.254" }], null);
+
+    expect(home.attention).toBe("192.168.100.254 offline");
+  });
+});
+
 describe("empty", () => {
   test.each([
     ["no Host", [], null, "no-hosts"],
     ["Hosts never reached", [host("A", null, "offline")], null, "unreachable"],
+    ["a Host connected, its snapshot on the way", [host("A", null)], null, "loading"],
     [
       "a Host with no agent sessions",
       [host("A", [snapshot(), synchronized()])],

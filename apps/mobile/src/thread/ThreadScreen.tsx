@@ -1,10 +1,18 @@
 /**
- * The agent session thread (Paper M4): header, the transcript as a virtualized
- * list, every Turn in order, older ones paged in on scrolling up, the inline Critical finding, suggested
- * chips and the composer. Data comes from the Host's shared connection.
+ * The agent session thread (MX-E): the header with the session's celestial, the transcript as a
+ * virtualized list on the open ground, every Turn in order, older ones paged in on scrolling up,
+ * the inline Critical finding, suggested chips and the composer; no horizon. Data comes from the
+ * Host's shared connection.
  */
-import type { RiskFinding, SessionId, Workspace, WorkspaceId } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import type {
+  CelestialBody,
+  HarnessKind,
+  RiskFinding,
+  SessionId,
+  Workspace,
+  WorkspaceId,
+} from "@polaris/protocol";
+import { mobileType } from "@polaris/ui/tokens";
 import {
   type ReactNode,
   useCallback,
@@ -14,18 +22,12 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import {
-  AppState,
-  FlatList,
-  KeyboardAvoidingView,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { AppState, FlatList, KeyboardAvoidingView, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "../app/navigation.tsx";
+import { Celestial, sessionCelestial } from "../celestial";
 import { useAttachments } from "../composer/useAttachments.ts";
+import { sheetContextOf } from "../composer/useModelSheet.ts";
 import { useVoiceInput } from "../composer/useVoiceInput.ts";
 import type { HostConnection } from "../runtime/hostConnection.ts";
 import { useHost, useLiveHost } from "../runtime/hosts.tsx";
@@ -33,13 +35,15 @@ import { composerMode } from "./composer.ts";
 import { Composer, Suggestions } from "./Composer.tsx";
 import { openThread, type ThreadController } from "./controller.ts";
 import { hostThreadSource } from "./hostSource.ts";
-import { harnessName, subtitle } from "./labels.ts";
-import { PendingRequests } from "./PendingRequests.tsx";
-import { Diamond, Row, type ThreadFocus } from "./Row.tsx";
-import { outgoingRows, threadRows, type ThreadRow } from "./rows.ts";
+import { useMenuActions } from "../menus/index.ts";
+import { type MobileColours, themedStyles } from "../theme/index.ts";
+import { Diamond, Row, type RowSession, type ThreadFocus } from "./Row.tsx";
+import { type HeaderLine, headerLine, outgoingRows, threadRows, type ThreadRow } from "./rows.ts";
 import { chipAction, openCritical, type Suggestion, suggestions } from "./suggestions.ts";
 import { threadKey, threads } from "./threads.ts";
 import { useAfter } from "../runtime/useAfter.ts";
+import { InboxBadge } from "../inbox/index.ts";
+import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 
 export interface ThreadScreenProps {
   readonly hostId: string;
@@ -107,42 +111,68 @@ const noSubscribe = () => () => {};
 const useThreadState = (controller: ThreadController | null) =>
   useSyncExternalStore(controller?.subscribe ?? noSubscribe, () => controller?.get() ?? null);
 
+/** The session's look in the header: its celestial, working while a Turn runs. */
+interface HeaderBody {
+  readonly body: CelestialBody;
+  readonly harness: HarnessKind;
+  readonly working: boolean;
+}
+
 const Header = ({
   title,
   line,
+  celestial,
   criticals,
   onBack,
 }: {
   readonly title: string;
-  readonly line: string;
+  readonly line: HeaderLine;
+  readonly celestial: HeaderBody | null;
   readonly criticals: number;
   readonly onBack: () => void;
-}) => (
-  <View style={styles.header}>
-    <Pressable
-      style={styles.back}
-      onPress={onBack}
-      accessibilityRole="button"
-      accessibilityLabel="Back"
-    >
-      <Text style={styles.backGlyph}>‹</Text>
-    </Pressable>
-    <View style={styles.titles}>
-      <Text style={styles.title} numberOfLines={1}>
-        {title}
-      </Text>
-      <Text style={styles.subtitle} numberOfLines={1}>
-        {line}
-      </Text>
-    </View>
-    {criticals === 0 ? null : (
-      <View style={styles.pill}>
-        <Diamond />
-        <Text style={styles.pillLabel}>{criticals} critical</Text>
+}) => {
+  const styles = useStyles();
+
+  return (
+    <View style={styles.header}>
+      <Pressable
+        style={styles.back}
+        onPress={onBack}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+      >
+        <Text style={styles.backGlyph} allowFontScaling={false}>
+          ‹
+        </Text>
+      </Pressable>
+      {celestial === null ? null : (
+        <Celestial
+          body={celestial.body}
+          harness={celestial.harness}
+          size={24}
+          working={celestial.working}
+        />
+      )}
+      <View style={styles.titles}>
+        <Text style={styles.title} numberOfLines={1} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
+          {title}
+        </Text>
+        <Text style={styles.subtitle} numberOfLines={1} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
+          <Text style={styles.subtitleState}>{line.state}</Text>
+          {line.rest === "" ? "" : ` · ${line.rest}`}
+        </Text>
       </View>
-    )}
-  </View>
-);
+      {criticals === 0 ? null : (
+        <View style={styles.pill}>
+          <Diamond />
+          <Text style={styles.pillLabel}>{criticals} critical</Text>
+        </View>
+      )}
+      <InboxBadge />
+    </View>
+  );
+};
 
 const FindingRow = ({
   finding,
@@ -150,17 +180,21 @@ const FindingRow = ({
 }: {
   readonly finding: RiskFinding;
   readonly onPress?: (() => void) | undefined;
-}) => (
-  <Pressable style={styles.finding} disabled={onPress === undefined} onPress={onPress}>
-    <Diamond />
-    <Text style={styles.findingTitle} numberOfLines={2}>
-      {finding.title}
-    </Text>
-    <Text style={styles.findingWhere} numberOfLines={1}>
-      {finding.path.slice(finding.path.lastIndexOf("/") + 1)}:{finding.lines.start}
-    </Text>
-  </Pressable>
-);
+}) => {
+  const styles = useStyles();
+
+  return (
+    <Pressable style={styles.finding} disabled={onPress === undefined} onPress={onPress}>
+      <Diamond />
+      <Text style={styles.findingTitle} numberOfLines={2}>
+        {finding.title}
+      </Text>
+      <Text style={styles.findingWhere} numberOfLines={1}>
+        {finding.path.slice(finding.path.lastIndexOf("/") + 1)}:{finding.lines.start}
+      </Text>
+    </Pressable>
+  );
+};
 
 /** Hosts the Workspace's name once the Host's Snapshot has it. */
 const useWorkspace = (controller: ThreadController | null, workspaceId: WorkspaceId | null) => {
@@ -197,6 +231,8 @@ export const ThreadScreen = ({
 }: ThreadScreenProps) => {
   const connection = useHost(hostId);
   const navigation = useNavigation();
+  const styles = useStyles();
+  const onMenuAction = useMenuActions();
   const { controller, live } = useController(connection, sessionId);
   const state = useThreadState(controller);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
@@ -243,6 +279,15 @@ export const ThreadScreen = ({
   );
 
   const criticalPaths = useMemo(() => new Set(criticals.map((f) => f.path)), [criticals]);
+
+  const harness = fold?.session.harness ?? null;
+  const planet = fold?.session.celestial ?? null;
+
+  const rowSession = useMemo(
+    (): RowSession | undefined =>
+      harness === null ? undefined : { hostId, sessionId, body: sessionCelestial(planet), harness },
+    [hostId, sessionId, planet, harness]
+  );
 
   const toggle = useCallback(
     (key: string) =>
@@ -335,11 +380,12 @@ export const ThreadScreen = ({
         {header ?? (
           <Header
             title={session.title === "" ? "Untitled" : session.title}
-            line={subtitle([
-              harnessName(session.harness),
-              connection.name,
-              workspace?.name ?? null,
-            ])}
+            line={headerLine(session, workspace?.name ?? null)}
+            celestial={{
+              body: sessionCelestial(session.celestial),
+              harness: session.harness,
+              working: session.state === "working" || session.state === "starting",
+            }}
             criticals={criticals.length}
             onBack={onBack}
           />
@@ -359,17 +405,12 @@ export const ThreadScreen = ({
               focused={item.key === focusedKey}
               onEditSteer={editSteer}
               hostId={hostId}
+              session={rowSession}
+              onMenuAction={onMenuAction}
             />
           )}
           ListHeaderComponent={
             <>
-              <PendingRequests
-                requests={fold.pendingApprovals}
-                answering={state.answering}
-                errors={state.requestErrors}
-                enabled={live}
-                onRespond={(requestId, decision) => void controller?.respond(requestId, decision)}
-              />
               {critical === null ? null : (
                 <FindingRow
                   finding={critical}
@@ -416,6 +457,17 @@ export const ThreadScreen = ({
             text={state.text}
             harness={session.harness}
             model={session.model}
+            celestial={session.celestial}
+            requests={{
+              requests: fold.pendingApprovals,
+              answering: state.answering,
+              errors: state.requestErrors,
+              enabled: live,
+              onRespond: (requestId, decision) => void controller?.respond(requestId, decision),
+            }}
+            subagents={fold.subagents}
+            contextUsage={session.contextUsage}
+            sheet={sheetContextOf(connection, live, fold)}
             workingSince={last?.status === "working" ? last.startedAt : null}
             draftStatus={state.draftStatus}
             error={state.error}
@@ -445,8 +497,11 @@ export const ThreadScreen = ({
 };
 
 /** At the top of the thread while older Turns are on their way. */
-const OlderNote = ({ loading }: { readonly loading: boolean }) =>
-  loading ? <Text style={styles.older}>Loading earlier turns…</Text> : null;
+const OlderNote = ({ loading }: { readonly loading: boolean }) => {
+  const styles = useStyles();
+
+  return loading ? <Text style={styles.older}>Loading earlier turns…</Text> : null;
+};
 
 const Missing = ({
   text,
@@ -456,65 +511,82 @@ const Missing = ({
   readonly text: string;
   readonly onBack: () => void;
   readonly header: ReactNode;
-}) => (
-  <SafeAreaView style={styles.screen}>
-    {header ?? <Header title="" line="" criticals={0} onBack={onBack} />}
-    <Text style={styles.missing}>{text}</Text>
-  </SafeAreaView>
-);
+}) => {
+  const styles = useStyles();
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: midnight.bg },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingTop: 6,
-    paddingBottom: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: midnight.hairline,
-  },
-  back: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: midnight.surfaceRaised,
-  },
-  backGlyph: { fontSize: 24, lineHeight: 26, color: midnight.textDefault },
-  titles: { flex: 1, minWidth: 0, gap: 2 },
-  title: { ...mobileType.title, color: midnight.textStrong },
-  subtitle: { ...mobileType.footnote, color: midnight.textSubtle },
-  pill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    height: 28,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: midnight.hairline,
-  },
-  pillLabel: { ...mobileType.footnote, color: midnight.textDefault },
-  list: { flex: 1 },
-  offline: { opacity: 0.55 },
-  listContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 },
-  finding: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    minHeight: 40,
-    paddingLeft: 12,
-    borderLeftWidth: 2,
-    borderLeftColor: midnight.severityCritical,
-    marginBottom: 4,
-  },
-  findingTitle: { ...mobileType.callout, fontWeight: "500", color: midnight.textStrong, flex: 1 },
-  findingWhere: { ...mobileType.index, color: midnight.textFaint },
-  bottom: { gap: 10, paddingHorizontal: 12, paddingTop: 4, paddingBottom: 8 },
-  queued: { ...mobileType.footnote, color: midnight.textSubtle, marginHorizontal: 4 },
-  older: { ...mobileType.footnote, color: midnight.textFaint, textAlign: "center", padding: 12 },
-  missing: { ...mobileType.callout, color: midnight.textSubtle, padding: 16 },
-});
+  return (
+    <SafeAreaView style={styles.screen}>
+      {header ?? (
+        <Header
+          title=""
+          line={{ state: "", rest: "" }}
+          celestial={null}
+          criticals={0}
+          onBack={onBack}
+        />
+      )}
+      <Text style={styles.missing}>{text}</Text>
+    </SafeAreaView>
+  );
+};
+
+// The arrow defers `makeStyles`, defined just below.
+const useStyles = themedStyles((colours) => makeStyles(colours));
+
+const makeStyles = (colours: MobileColours) =>
+  ({
+    screen: { flex: 1, backgroundColor: colours.ground },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      paddingTop: 4,
+      paddingBottom: 12,
+      paddingLeft: 14,
+      paddingRight: 16,
+    },
+    back: { width: 20, height: 36, justifyContent: "center" },
+    backGlyph: { fontSize: 32, lineHeight: 34, color: colours.starlight },
+    titles: { flex: 1, minWidth: 0, gap: 2 },
+    title: { ...mobileType.title, fontWeight: "600", color: colours.textStrong },
+    subtitle: { ...mobileType.index, color: colours.textSubtle },
+    subtitleState: { fontWeight: "500", color: colours.textDefault },
+    pill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      height: 30,
+      paddingHorizontal: 10,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colours.hairline,
+      backgroundColor: colours.panel,
+    },
+    pillLabel: { ...mobileType.footnote, fontWeight: "500", color: colours.textDefault },
+    list: { flex: 1 },
+    offline: { opacity: 0.55 },
+    listContent: { paddingHorizontal: 12, paddingTop: 16, paddingBottom: 12 },
+    finding: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      minHeight: 40,
+      paddingLeft: 12,
+      marginHorizontal: 6,
+      borderLeftWidth: 2,
+      borderLeftColor: colours.severityCritical,
+      marginBottom: 8,
+    },
+    findingTitle: {
+      ...mobileType.callout,
+      fontWeight: "500",
+      color: colours.textStrong,
+      flex: 1,
+    },
+    findingWhere: { ...mobileType.index, color: colours.textFaint },
+    // MX-E: the composer's foot sits on the home-indicator inset, with nothing added.
+    bottom: { gap: 10, paddingHorizontal: 10, paddingTop: 4 },
+    queued: { ...mobileType.footnote, color: colours.textSubtle, marginHorizontal: 4 },
+    older: { ...mobileType.footnote, color: colours.textFaint, textAlign: "center", padding: 12 },
+    missing: { ...mobileType.callout, color: colours.textSubtle, padding: 16 },
+  }) as const;

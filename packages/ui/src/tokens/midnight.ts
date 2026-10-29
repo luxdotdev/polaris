@@ -84,3 +84,6 @@ export const midnight = {
 } as const;
 
 export type MidnightColour = keyof typeof midnight;
+
+/** A theme's colours: Midnight's keys, each theme's values. */
+export type ThemeColours = { readonly [Name in MidnightColour]: string };

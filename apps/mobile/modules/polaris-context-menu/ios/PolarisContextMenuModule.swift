@@ -18,6 +18,14 @@ public class PolarisContextMenuModule: Module {
         view.setMenu(json)
       }
 
+      Prop("title") { (view: PolarisContextMenuView, title: String?) in
+        view.title = title ?? ""
+      }
+
+      Prop("previewInsetBottom") { (view: PolarisContextMenuView, inset: Double?) in
+        view.previewInsetBottom = CGFloat(inset ?? 0)
+      }
+
       Prop("previewColor") { (view: PolarisContextMenuView, color: UIColor?) in
         view.previewColor = color
       }
@@ -35,13 +43,18 @@ struct ContextMenuItem: Decodable {
   let title: String
   let subtitle: String?
   let disabled: Bool
+  let symbol: String?
 }
 
 final class PolarisContextMenuView: ExpoView, UIContextMenuInteractionDelegate {
   let onSelectItem = EventDispatcher()
   var previewColor: UIColor?
   var previewRadius: CGFloat = 12
+  var title = ""
+  var previewInsetBottom: CGFloat = 0
   private var sections: [[ContextMenuItem]] = []
+  /// Where the long press landed, so a tall row lifts only the part around it.
+  private var pressedAt: CGPoint = .zero
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -61,6 +74,7 @@ final class PolarisContextMenuView: ExpoView, UIContextMenuInteractionDelegate {
   ) -> UIContextMenuConfiguration? {
     // No items: no menu, and the long press stays the row's own.
     guard !sections.isEmpty else { return nil }
+    pressedAt = location
 
     return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
       self?.menu()
@@ -83,12 +97,21 @@ final class PolarisContextMenuView: ExpoView, UIContextMenuInteractionDelegate {
     preview()
   }
 
-  /// The row itself, lifted on the screen's ground with rounded corners.
+  /// The row itself, lifted on the screen's ground with rounded corners, less its inset foot.
+  /// A row taller than 40% of the window lifts only that much, around the press, never shrunk.
   private func preview() -> UITargetedPreview? {
-    guard window != nil else { return nil }
+    guard let window else { return nil }
     let parameters = UIPreviewParameters()
     parameters.backgroundColor = previewColor ?? .black
-    parameters.visiblePath = UIBezierPath(roundedRect: bounds, cornerRadius: previewRadius)
+    var shown = bounds
+    shown.size.height = max(0, bounds.height - min(previewInsetBottom, bounds.height))
+    let tallest = window.bounds.height * 0.4
+
+    if shown.height > tallest {
+      let top = min(max(0, pressedAt.y - tallest / 2), shown.height - tallest)
+      shown = CGRect(x: shown.minX, y: top, width: shown.width, height: tallest)
+    }
+    parameters.visiblePath = UIBezierPath(roundedRect: shown, cornerRadius: previewRadius)
 
     return UITargetedPreview(view: self, parameters: parameters)
   }
@@ -99,13 +122,14 @@ final class PolarisContextMenuView: ExpoView, UIContextMenuInteractionDelegate {
       UIMenu(title: "", options: .displayInline, children: items.map(action))
     }
 
-    return UIMenu(title: "", children: groups)
+    return UIMenu(title: title, children: groups)
   }
 
   private func action(_ item: ContextMenuItem) -> UIAction {
     let attributes: UIMenuElement.Attributes = item.disabled ? [.disabled] : []
 
-    let action = UIAction(title: item.title, attributes: attributes) { [weak self] _ in
+    let image = item.symbol.flatMap { UIImage(systemName: $0) }
+    let action = UIAction(title: item.title, image: image, attributes: attributes) { [weak self] _ in
       self?.onSelectItem(["id": item.id])
     }
     action.subtitle = item.subtitle

@@ -1,20 +1,23 @@
 /**
- * An approval answered in place under its row (Paper H4): Approve / Always here / Deny for a
- * command, file change or tool; choice chips and Reply… for a question.
+ * An approval answered in place (Paper MX-C, MX-H): Approve / Always here / Deny under the command,
+ * file change or tool; choice chips and Reply… for a question. Approve is filled white.
  */
 import type { ApprovalRequest } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileFont } from "@polaris/ui/tokens";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
+import { themedStyles, useTheme } from "../../theme/index.ts";
 import { approvalDetail, askLine, quickQuestion } from "../model/lines.ts";
+import { haptics } from "../../motion/index.ts";
 import type { Reply } from "../model/respond.ts";
+import { CONTENT_TEXT_SCALE } from "../../theme/textScale.ts";
 
 export interface ApprovalActionsProps {
   readonly approval: ApprovalRequest;
   /** False while the Host isn't connected: shown, not answerable. */
   readonly enabled: boolean;
   readonly onReply: (reply: Reply) => Promise<void>;
-  /** A question this row can't answer inline (several questions): open the agent session. */
+  /** A question this card can't answer inline (several questions): open the agent session. */
   readonly onOpen: () => void;
 }
 
@@ -27,6 +30,7 @@ const useSend = (onReply: ApprovalActionsProps["onReply"]) => {
   const [sending, setSending] = useState<Sending>({ kind: "idle" });
 
   const send = (reply: Reply) => {
+    if (reply.kind !== "deny") haptics.approve();
     setSending({ kind: "sending" });
     onReply(reply).then(
       () => setSending({ kind: "idle" }),
@@ -37,67 +41,94 @@ const useSend = (onReply: ApprovalActionsProps["onReply"]) => {
   return { sending, send };
 };
 
-const Ask = ({ approval }: { readonly approval: ApprovalRequest }) => {
-  const detail = approvalDetail(approval);
+const Failed = ({ sending }: { readonly sending: Sending }) =>
+  sending.kind === "failed" ? (
+    <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={useStyles().failed}>
+      Couldn't send. Try again.
+    </Text>
+  ) : null;
+
+/** Filled white for Approve and a first choice (never Starlight), outlined for other choices. */
+type ButtonKind = "filled" | "outlined" | "plain" | "quiet";
+
+const Button = ({
+  label,
+  kind = "plain",
+  disabled,
+  onPress,
+}: {
+  readonly label: string;
+  readonly kind?: ButtonKind;
+  readonly disabled: boolean;
+  readonly onPress: () => void;
+}) => {
+  const styles = useStyles();
+  const fill = { filled: styles.filled, outlined: styles.outlined, plain: null, quiet: null }[kind];
+
+  const ink = { filled: styles.filledLabel, outlined: null, plain: null, quiet: styles.quietLabel }[
+    kind
+  ];
 
   return (
-    <>
-      <Text style={styles.ask}>{askLine(approval)}</Text>
-      {detail === null ? null : (
-        <Text style={styles.command} numberOfLines={detail.tooLong ? 4 : undefined}>
-          {detail.text}
-        </Text>
-      )}
-    </>
+    <Pressable
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [styles.button, fill, pressed ? styles.pressed : null]}
+    >
+      <Text
+        maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+        style={[styles.label, ink]}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </Pressable>
   );
 };
 
 const Permission = ({ approval, enabled, onReply, onOpen }: ApprovalActionsProps) => {
+  const styles = useStyles();
   const { sending, send } = useSend(onReply);
+  const detail = approvalDetail(approval);
   const live = enabled && sending.kind !== "sending";
-
-  if (approvalDetail(approval)?.tooLong === true)
-    return (
-      <View style={styles.block}>
-        <Ask approval={approval} />
-        <Pressable accessibilityRole="button" onPress={onOpen} style={styles.reviewWhole}>
-          <Text style={styles.always}>Review it in the agent session</Text>
-        </Pressable>
-      </View>
-    );
 
   return (
     <View style={styles.block}>
-      <Ask approval={approval} />
-      <View style={[styles.buttons, live ? null : styles.waiting]}>
-        <Pressable
-          accessibilityRole="button"
-          disabled={!live}
-          onPress={() => send({ kind: "approve" })}
-          style={({ pressed }) => [styles.approve, pressed ? styles.pressed : null]}
-        >
-          <Text style={styles.approveLabel}>Approve</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          disabled={!live}
-          onPress={() => send({ kind: "always" })}
-          hitSlop={10}
-        >
-          <Text style={styles.always}>Always here</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          disabled={!live}
-          onPress={() => send({ kind: "deny" })}
-          hitSlop={10}
-        >
-          <Text style={styles.deny}>Deny</Text>
-        </Pressable>
-      </View>
-      {sending.kind === "failed" ? (
-        <Text style={styles.failed}>Couldn't send. Try again.</Text>
-      ) : null}
+      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.ask}>
+        {askLine(approval)}
+      </Text>
+      {detail === null ? null : (
+        <View style={styles.command}>
+          <Text
+            maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+            style={styles.commandText}
+            numberOfLines={detail.tooLong ? 4 : undefined}
+          >
+            {detail.text}
+          </Text>
+        </View>
+      )}
+      {detail?.tooLong === true ? (
+        <Button label="Review it in the agent session" disabled={false} onPress={onOpen} />
+      ) : (
+        <View style={[styles.buttons, styles.wrap, live ? null : styles.waiting]}>
+          <Button
+            label="Approve"
+            kind="filled"
+            disabled={!live}
+            onPress={() => send({ kind: "approve" })}
+          />
+          <Button label="Always here" disabled={!live} onPress={() => send({ kind: "always" })} />
+          <Button
+            label="Deny"
+            kind="quiet"
+            disabled={!live}
+            onPress={() => send({ kind: "deny" })}
+          />
+        </View>
+      )}
+      <Failed sending={sending} />
     </View>
   );
 };
@@ -109,16 +140,19 @@ const ReplyField = ({
   readonly onSend: (text: string) => void;
   readonly onCancel: () => void;
 }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
   const [text, setText] = useState("");
 
   return (
     <TextInput
+      maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
       autoFocus
       style={styles.reply}
       value={text}
       onChangeText={setText}
       placeholder="Reply…"
-      placeholderTextColor={midnight.textFaint}
+      placeholderTextColor={colours.textFaint}
       returnKeyType="send"
       onSubmitEditing={() => (text.trim() === "" ? onCancel() : onSend(text.trim()))}
       onBlur={() => {
@@ -129,6 +163,7 @@ const ReplyField = ({
 };
 
 const Question = ({ approval, enabled, onReply, onOpen }: ApprovalActionsProps) => {
+  const styles = useStyles();
   const { sending, send } = useSend(onReply);
   const [replying, setReplying] = useState(false);
   const quick = quickQuestion(approval);
@@ -136,8 +171,10 @@ const Question = ({ approval, enabled, onReply, onOpen }: ApprovalActionsProps) 
 
   return (
     <View style={styles.block}>
-      <Text style={styles.question}>
-        <Text style={styles.askInline}>Asks · </Text>
+      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.question}>
+        <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.ask}>
+          Asks ·{" "}
+        </Text>
         {quick?.text ?? approval.title}
       </Text>
       {replying ? (
@@ -149,37 +186,41 @@ const Question = ({ approval, enabled, onReply, onOpen }: ApprovalActionsProps) 
           }}
         />
       ) : (
-        <View style={[styles.chips, live ? null : styles.waiting]}>
+        <View style={[styles.buttons, styles.wrap, live ? null : styles.waiting]}>
           {(quick?.choices ?? []).map((choice, index) => (
-            <Pressable
+            <Button
               key={choice}
-              accessibilityRole="button"
+              label={choice}
+              kind={index === 0 ? "filled" : "outlined"}
               disabled={!live}
               onPress={() => send({ kind: "answer", text: choice })}
-              style={index === 0 ? styles.firstChoice : styles.choice}
-            >
-              <Text
-                style={index === 0 ? styles.firstChoiceLabel : styles.choiceLabel}
-                numberOfLines={1}
-              >
-                {choice}
-              </Text>
-            </Pressable>
+            />
           ))}
-          <Pressable
-            accessibilityRole="button"
+          <Button
+            label={quick === null ? "Answer…" : "Reply…"}
+            kind="quiet"
             disabled={!live}
             onPress={() => (quick === null ? onOpen() : setReplying(true))}
-            hitSlop={10}
-            style={styles.replyLink}
-          >
-            <Text style={styles.replyLabel}>{quick === null ? "Answer…" : "Reply…"}</Text>
-          </Pressable>
+          />
         </View>
       )}
-      {sending.kind === "failed" ? (
-        <Text style={styles.failed}>Couldn't send. Try again.</Text>
-      ) : null}
+      <Failed sending={sending} />
+    </View>
+  );
+};
+
+/** A session that needs you with no request in its feed: what it waits on is in the thread. */
+export const OpenToAnswer = ({ onOpen }: { readonly onOpen: () => void }) => {
+  const styles = useStyles();
+
+  return (
+    <View style={styles.block}>
+      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.ask}>
+        Waiting for your reply
+      </Text>
+      <View style={styles.buttons}>
+        <Button label="Open the agent session" kind="outlined" disabled={false} onPress={onOpen} />
+      </View>
     </View>
   );
 };
@@ -187,57 +228,78 @@ const Question = ({ approval, enabled, onReply, onOpen }: ApprovalActionsProps) 
 export const ApprovalActions = (props: ApprovalActionsProps) =>
   props.approval.kind === "question" ? <Question {...props} /> : <Permission {...props} />;
 
-const styles = StyleSheet.create({
-  block: { gap: 8, paddingLeft: 72 },
-  ask: { ...mobileType.subhead, color: midnight.needsYouText },
-  command: { ...mobileType.command, color: midnight.textDefault },
-  buttons: { flexDirection: "row", alignItems: "center", gap: 18, paddingTop: 2 },
+/** Paper MX-C's approval block: 14pt medium controls, 34pt pills, the command in a ground well. */
+const useStyles = themedStyles((colours) => ({
+  block: { gap: 8, paddingTop: 8 },
+  ask: {
+    fontFamily: mobileFont.sans,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: "500",
+    color: colours.needsYouText,
+  },
+  command: {
+    backgroundColor: colours.ground,
+    borderColor: colours.hairline,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+  },
+  commandText: {
+    fontFamily: mobileFont.mono,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colours.textDefault,
+  },
+  buttons: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 2 },
+  wrap: { flexWrap: "wrap" },
   waiting: { opacity: 0.55 },
-  approve: {
-    height: 36,
-    paddingHorizontal: 20,
+  button: {
+    minHeight: 34,
+    paddingHorizontal: 15,
     borderRadius: 999,
-    backgroundColor: midnight.textStrong,
     alignItems: "center",
     justifyContent: "center",
-  },
-  pressed: { opacity: 0.8 },
-  approveLabel: { ...mobileType.label, color: midnight.bg },
-  always: { ...mobileType.label, color: midnight.textDefault },
-  deny: { ...mobileType.label, color: midnight.textSubtle },
-  question: { ...mobileType.callout, color: midnight.textDefault },
-  askInline: { color: midnight.needsYouText },
-  chips: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
-  firstChoice: {
-    height: 34,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    backgroundColor: midnight.textStrong,
-    justifyContent: "center",
     maxWidth: "100%",
   },
-  firstChoiceLabel: { ...mobileType.subhead, fontWeight: "500", color: midnight.bg },
-  choice: {
-    height: 34,
-    paddingHorizontal: 14,
-    borderRadius: 999,
+  filled: { backgroundColor: colours.textStrong },
+  outlined: {
+    backgroundColor: colours.raised,
+    borderColor: colours.hairline,
     borderWidth: 1,
-    borderColor: "#ffffff1f",
-    justifyContent: "center",
-    maxWidth: "100%",
   },
-  choiceLabel: { ...mobileType.subhead, fontWeight: "500", color: midnight.textDefault },
-  replyLink: { paddingLeft: 6 },
-  reviewWhole: { paddingTop: 2 },
-  replyLabel: { ...mobileType.subhead, fontWeight: "500", color: midnight.textSubtle },
+  pressed: { opacity: 0.8, transform: [{ scale: 0.97 }] },
+  label: {
+    fontFamily: mobileFont.sans,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: "500",
+    color: colours.textDefault,
+  },
+  filledLabel: { color: colours.panel },
+  quietLabel: { color: colours.textSubtle },
+  question: {
+    fontFamily: mobileFont.sans,
+    fontSize: 14,
+    lineHeight: 19,
+    color: colours.textDefault,
+  },
   reply: {
-    ...mobileType.callout,
-    color: midnight.textStrong,
+    fontFamily: mobileFont.sans,
+    fontSize: 15,
+    lineHeight: 21,
+    color: colours.textStrong,
     borderWidth: 1,
-    borderColor: "#ffffff1f",
+    borderColor: colours.hairline,
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 7,
   },
-  failed: { ...mobileType.footnote, color: midnight.failedText },
-});
+  failed: {
+    fontFamily: mobileFont.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colours.failedText,
+  },
+}));

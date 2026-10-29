@@ -9,7 +9,15 @@ import {
 } from "@polaris/protocol";
 import type { ConstellationRow, SessionRow } from "../home/model/home.ts";
 import { commandApproval, constellation, question, session } from "../home/fixtures.testing.ts";
-import { commandOf, constellationMenu, hostMenu, type Menu, sessionMenu } from "./model.ts";
+import { DEVICE_COMMANDS } from "@polaris/protocol";
+import {
+  commandOf,
+  constellationMenu,
+  hostMenu,
+  type Menu,
+  sessionMenu,
+  turnMenu,
+} from "./model.ts";
 
 const row = (
   input: Parameters<typeof session>[0],
@@ -188,5 +196,23 @@ describe("every menu", () => {
       .filter((refusal) => refusal !== null);
 
     expect(refused).toEqual([]);
+  });
+});
+
+describe("a turn's menu (MX-J)", () => {
+  const where = { hostId: "mac", sessionId: "s1" };
+
+  test("copies the turn's output; fork waits until a linked device may send ForkSession", () => {
+    const [items = []] = turnMenu(where, { turnId: "t-3", output: "Split the page." });
+
+    expect(DEVICE_COMMANDS.ForkSession).toBe("local");
+    expect(items.map(({ title, disabled, action }) => [title, disabled, action])).toEqual([
+      ["Copy", false, { kind: "copy", text: "Split the page." }],
+      ["Fork from here", true, { kind: "fork", hostId: "mac", sessionId: "s1", turnId: "t-3" }],
+    ]);
+  });
+
+  test("a turn with nothing said offers no copy", () => {
+    expect(titles(turnMenu(where, { turnId: "t-3", output: "" }))).toEqual([["Fork from here"]]);
   });
 });

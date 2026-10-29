@@ -1,0 +1,41 @@
+import { describe, expect, test } from "bun:test";
+import {
+  HOME_TABS,
+  initialNavigation,
+  opened,
+  pushed,
+  selected,
+  topOf,
+  wentBack,
+} from "./navigationState.ts";
+
+describe("the tabs", () => {
+  test("the pill holds Sessions, Review and Settings; Hosts is no longer a tab", () => {
+    expect(HOME_TABS).toEqual(["sessions", "review", "settings"]);
+  });
+});
+
+describe("Settings → Hosts", () => {
+  test("Hosts pushes over Settings and back returns to the Settings tab", () => {
+    const onSettings = selected(initialNavigation, "settings");
+    const onHosts = pushed(onSettings, { screen: "hosts" });
+
+    expect(topOf(onHosts)).toEqual({ screen: "hosts" });
+
+    const back = wentBack(onHosts);
+
+    expect(topOf(back)).toEqual({ screen: "tabs" });
+    expect(back.tab).toBe("settings");
+  });
+
+  test("a widget link from Settings lands on Sessions", () => {
+    const onHosts = pushed(selected(initialNavigation, "settings"), { screen: "hosts" });
+    const linked = opened(onHosts, { screen: "thread", hostId: "h", sessionId: "s" });
+
+    expect(linked.tab).toBe("sessions");
+    expect(linked.stack).toEqual([
+      { screen: "tabs" },
+      { screen: "thread", hostId: "h", sessionId: "s" },
+    ]);
+  });
+});
