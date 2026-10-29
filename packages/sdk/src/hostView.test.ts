@@ -81,3 +81,19 @@ test("a session archived live moves from sessions to archived", () => {
   expect(view.sessions).toEqual([]);
   expect(view.archived.map((entry) => String(entry.session.id))).toEqual(["live", "newer", "old"]);
 });
+
+test("a removed Workspace takes its sessions, archived ones included", () => {
+  const removed = HostStreamItem.cases.Event.make({
+    envelope: new EventEnvelope({
+      sequence: Sequence.make(6),
+      occurredAt: "2026-10-04T00:00:00.000Z",
+      commandId: null,
+      event: DomainEvent.cases.WorkspaceRemoved.make({ workspaceId: WorkspaceId.make("w1") }),
+    }),
+  });
+
+  const view = viewOf([...start, removed]);
+
+  expect(view.sessions).toEqual([]);
+  expect(view.archived).toEqual([]);
+});

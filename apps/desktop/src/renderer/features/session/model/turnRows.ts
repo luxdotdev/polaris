@@ -6,7 +6,7 @@
 import type { TurnId, TurnItem } from "@polaris/protocol";
 import { Predicate } from "effect";
 import { entriesInStartOrder, type TurnEntry, type TurnView } from "../../../store/sessionModel.ts";
-import { triggerPhrase } from "./background.ts";
+import { quietOpening } from "./idleCompaction.ts";
 import type { Row } from "./conversation.ts";
 import { completedItemView, isUserShell, liveItemView, type ShellView } from "./items.ts";
 import { type Entry, groupItems } from "./runs.ts";
@@ -165,8 +165,9 @@ const endingRow = (view: TurnView, part: Part): ReadonlyArray<Row> => {
 
 const openingRow = (view: TurnView, part: Part): Row => {
   const { turn } = view;
+  const quiet = quietOpening(turn);
 
-  return turn.trigger === null
+  return quiet === null
     ? {
         kind: "prompt",
         key: `${turn.id}:prompt`,
@@ -186,7 +187,7 @@ const openingRow = (view: TurnView, part: Part): Row => {
         partId: turn.id,
         opensTurn: part.opens,
         number: part.number,
-        text: triggerPhrase(turn.trigger),
+        text: quiet,
         model: turn.model,
         effort: turn.effort,
         startedAt: turn.startedAt,

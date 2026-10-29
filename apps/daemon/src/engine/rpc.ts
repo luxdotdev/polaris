@@ -171,9 +171,29 @@ const SetAutoArchiveHandler = DaemonRpcs.toLayerHandler(
   })
 );
 
+const IdleCompactionHandler = DaemonRpcs.toLayerHandler(
+  "sessions.idleCompaction",
+  Effect.gen(function* () {
+    const engine = yield* Engine;
+
+    return () => engine.idleCompactionSettings;
+  })
+);
+
+const SetIdleCompactionHandler = DaemonRpcs.toLayerHandler(
+  "sessions.setIdleCompaction",
+  Effect.gen(function* () {
+    const engine = yield* Engine;
+
+    return ({ settings }) => engine.setIdleCompactionSettings(settings);
+  })
+);
+
 export const EngineRpcHandlers = Layer.mergeAll(
   AutoArchiveHandler,
   SetAutoArchiveHandler,
+  IdleCompactionHandler,
+  SetIdleCompactionHandler,
   DispatchHandler,
   SubscribeHostHandler,
   SubscribeSessionHandler,

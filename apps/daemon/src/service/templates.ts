@@ -3,10 +3,9 @@
  * The service always runs `~/.polaris/bin/current/polaris serve`, so an
  * upgrade only repoints the `current` symlink.
  */
+import { LAUNCHD_LABEL, SYSTEMD_UNIT } from "@polaris/protocol/endpoint";
 
-export const LAUNCHD_LABEL = "dev.lux.polaris";
-
-export const SYSTEMD_UNIT = "polaris.service";
+export { LAUNCHD_LABEL, SYSTEMD_UNIT };
 
 export interface ServiceSpec {
   /** Absolute path of the stable launcher, `~/.polaris/bin/current/polaris`. */

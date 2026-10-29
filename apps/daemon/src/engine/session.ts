@@ -229,7 +229,8 @@ type RecoverInput = Extract<SessionInput, { type: "daemon.recover" }>;
 const recover = (record: SessionRecord, event: RecoverInput, enq: Enqueue) => {
   const turn = workingTurn(record);
   const { state } = record.session;
-  const setup = interruptedSetup(record, event.at, event.cause);
+  const stoppedFor = event.stoppedFor ?? event.cause;
+  const setup = interruptedSetup(record, event.at, stoppedFor);
 
   if (setup.length > 0) return settle(enq, record, setup);
 
@@ -238,7 +239,7 @@ const recover = (record: SessionRecord, event: RecoverInput, enq: Enqueue) => {
   const events = [
     ...endBackgroundWork(record, event.at),
     ...(turn ? [endTurn(turn, "interrupted", event.at)] : []),
-    ...withdrawPending(record, "daemon", RECOVERY_REASON[event.cause]),
+    ...withdrawPending(record, "daemon", RECOVERY_REASON[stoppedFor]),
   ];
 
   if (turn !== undefined) {
@@ -255,7 +256,7 @@ const recover = (record: SessionRecord, event: RecoverInput, enq: Enqueue) => {
 
   return settle(enq, record, events, {
     state: "dormant",
-    reason: event.cause === "restart" ? "daemon-restart" : "daemon-upgrade",
+    reason: stoppedFor === "restart" ? "daemon-restart" : "daemon-upgrade",
   });
 };
 
@@ -773,10 +774,10 @@ export const sessionMachine = createMachine({
           const turn = workingTurn(record);
 
           return settle(enq, record, [
-            ...interruptedSetup(record, event.at, event.cause),
+            ...interruptedSetup(record, event.at, event.stoppedFor ?? event.cause),
             ...endBackgroundWork(record, event.at),
             ...(turn ? [endTurn(turn, "interrupted", event.at)] : []),
-            ...withdrawPending(record, "daemon", RECOVERY_REASON[event.cause]),
+            ...withdrawPending(record, "daemon", RECOVERY_REASON[event.stoppedFor ?? event.cause]),
           ]);
         },
       },

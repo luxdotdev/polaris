@@ -72,6 +72,7 @@ const turnFields = {
   serviceTier: null,
   feedback: null,
   shellCommand: null,
+  idleCompaction: null,
 } satisfies Turn;
 
 export const turn = new Turn(turnFields);

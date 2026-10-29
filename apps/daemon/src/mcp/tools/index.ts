@@ -14,11 +14,13 @@ import {
   errorResult,
   type BoundTool,
   type ConstellationCommands,
+  type LeadStarted,
+  type StartTarget,
 } from "./shared.ts";
 
 export { errorResult } from "./shared.ts";
 
-export type { BoundTool, ConstellationCommands, McpToolResult } from "./shared.ts";
+export type { BoundTool, ConstellationCommands, LeadStarted, McpToolResult } from "./shared.ts";
 
 export { unavailableCommands } from "./unavailable.ts";
 
@@ -42,10 +44,23 @@ export const attachSessionTools = (commands: ConstellationCommands, sessions: Se
   sessionsByCommands.set(commands, sessions);
 };
 
+/** A closed Lead binding starts its `next` Constellation; any other starts its own id. */
+const startTarget = (binding: McpBinding, started?: LeadStarted): StartTarget => {
+  const next = McpBinding.isAnyOf(["Lead"])(binding) ? binding.next : undefined;
+
+  if (next === undefined) return { constellationId: binding.constellationId, started: Effect.void };
+
+  return {
+    constellationId: next,
+    started: started === undefined ? Effect.void : started(binding.sessionId, next),
+  };
+};
+
 /** E reauthorizes the authenticated session under the store lock on every command. */
 export const constellationTools = (
   binding: McpBinding,
-  commands: ConstellationCommands
+  commands: ConstellationCommands,
+  started?: LeadStarted
 ): ReadonlyArray<BoundTool> => {
   const caller = sessionBinding(binding);
 
@@ -76,7 +91,7 @@ export const constellationTools = (
     const resolve = resolvers(binding, commands);
 
     return [
-      ...leadTools(binding, define, submit, resolve, status),
+      ...leadTools(binding, define, submit, resolve, status, startTarget(binding, started)),
       readWorkerTool(binding, commands, resolve, sessions),
     ];
   };

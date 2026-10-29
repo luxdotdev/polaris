@@ -22,13 +22,15 @@ import {
   type TurnId,
   TurnItem,
   Workspace,
+  type WorkspaceId,
   Worktree,
 } from "@polaris/protocol";
-import { Effect, Schema } from "effect";
+import { Effect, Predicate, Schema } from "effect";
 import type { SqlClient, SqlError } from "effect/sql";
 import { emptyResources, foldResources } from "../resources/model.ts";
 import { constellationOf } from "./constellation.ts";
 import { project } from "./model.ts";
+import { withoutConstellationsOf } from "./removal.ts";
 import { replyText } from "./userTurns.ts";
 import { storeError } from "./errors.ts";
 import { projectReviewEvent } from "./review.ts";
@@ -112,6 +114,31 @@ interface Projecting {
 }
 
 type Projection = (target: Projecting) => SqlWrite;
+
+/** The session-keyed tables a removed Workspace's sessions leave, children before `sessions`. */
+const SESSION_TABLES = [
+  "turn_items",
+  "turns",
+  "pending_approvals",
+  "subagents",
+  "session_reads",
+  "session_drafts",
+] as const;
+
+/** `WorkspaceRemoved`: every projection row of the Workspace and its sessions (`removal.ts`). */
+const purgeWorkspaceRows = (sql: SqlClient.SqlClient, workspaceId: WorkspaceId) =>
+  Effect.all(
+    [
+      ...SESSION_TABLES.map(
+        (table) =>
+          sql`DELETE FROM ${sql(table)} WHERE session_id IN (SELECT id FROM sessions WHERE workspace_id = ${workspaceId})`
+      ),
+      sql`DELETE FROM sessions WHERE workspace_id = ${workspaceId}`,
+      sql`DELETE FROM worktrees WHERE workspace_id = ${workspaceId}`,
+      sql`DELETE FROM workspaces WHERE id = ${workspaceId}`,
+    ],
+    { discard: true }
+  );
 
 const upsertSession = (sql: SqlClient.SqlClient, record: SessionRecord | undefined) =>
   record === undefined
@@ -243,10 +270,7 @@ const projectionOf: (event: DomainEvent) => Projection = DomainEvent.match<Proje
   WorkspaceRemoved:
     ({ workspaceId }) =>
     ({ sql }) =>
-      Effect.all([
-        sql`DELETE FROM workspaces WHERE id = ${workspaceId}`,
-        sql`DELETE FROM worktrees WHERE workspace_id = ${workspaceId}`,
-      ]),
+      purgeWorkspaceRows(sql, workspaceId),
   WorktreeDetected:
     ({ worktree }) =>
     ({ sql }) =>
@@ -337,6 +361,15 @@ export const writeProjection = (
 const byId = <A extends { readonly id: K }, K>(items: ReadonlyArray<A>) =>
   new Map(items.map((item) => [item.id, item]));
 
+/** A Constellation event, or a removal that drops the removed Workspace's Constellations. */
+const foldGraphRow = (model: ReadModel, envelope: EventEnvelope): ReadModel =>
+  Predicate.isTagged(envelope.event, "WorkspaceRemoved")
+    ? {
+        ...model,
+        constellations: withoutConstellationsOf(model.constellations, envelope.event.workspaceId),
+      }
+    : project(model, envelope);
+
 export const loadModel = (sql: SqlClient.SqlClient) =>
   Effect.gen(function* () {
     const [max] = yield* sql<{
@@ -422,12 +455,13 @@ export const loadModel = (sql: SqlClient.SqlClient) =>
       reviewCheckouts: byId(checkouts.map((row) => ReviewCheckoutJson.decode(row.data))),
     };
 
+    // Constellations fold from the log; a later WorkspaceRemoved drops them again.
     const graphEvents =
-      yield* sql<EventRow>`SELECT sequence, occurred_at, command_id, payload FROM events WHERE constellation_id IS NOT NULL ORDER BY sequence`;
+      yield* sql<EventRow>`SELECT sequence, occurred_at, command_id, payload FROM events WHERE constellation_id IS NOT NULL OR event_type = 'WorkspaceRemoved' ORDER BY sequence`;
 
     const cut = model.sequence;
 
-    for (const row of graphEvents) model = project(model, decodeEventRow(row));
+    for (const row of graphEvents) model = foldGraphRow(model, decodeEventRow(row));
 
     return { ...model, sequence: cut };
   });

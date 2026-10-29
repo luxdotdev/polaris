@@ -54,6 +54,7 @@ import { type ApprovalPrompt, approvalPrompts } from "./approvalPrompts.ts";
 import { codexError, Incoming, type RpcConnection } from "./RpcConnection.ts";
 import { ReasoningTimes } from "./reasoning.ts";
 import { CodexProcesses, terminateProcess } from "./processes.ts";
+import { CodexCompaction } from "./compaction.ts";
 import { CodexSteers } from "./steers.ts";
 import { CodexSubagents } from "./subagents.ts";
 import { requestCompat } from "./compat.ts";
@@ -270,6 +271,7 @@ export const openSession = (
     const endedTurns = new Set<string>();
     /** A review's Codex turn: Codex runs it under a second turn id, whose events join it. */
     let reviewTurn: string | null = null;
+    const compaction = new CodexCompaction();
     let errorCount = 0;
     const subagents = new CodexSubagents();
     const steers = new CodexSteers();
@@ -433,6 +435,8 @@ export const openSession = (
       if (p.threadId !== threadId) return onSubagentItem(p, false);
 
       if (p.item.type === "userMessage") return onUserMessage(p);
+
+      if (p.item.type === "contextCompaction") compaction.started();
       const turnId = turnFor(p.turnId);
       landSteers(turnId, steers.take(p.turnId));
       backgroundChanged(
@@ -459,6 +463,13 @@ export const openSession = (
       if (p.threadId !== threadId) return onSubagentItem(p, true);
 
       if (p.item.type === "userMessage") return onUserMessage(p);
+
+      if (p.item.type === "contextCompaction") {
+        const report = compaction.completed();
+
+        if (report !== null) emit(report);
+      }
+
       const turnId = turnFor(p.turnId);
       const item = toTurnItem(p.item);
 
@@ -616,6 +627,7 @@ export const openSession = (
 
           if (!ours(p)) return;
           const { last, modelContextWindow } = p.tokenUsage;
+          compaction.usageReported(last.totalTokens, modelContextWindow);
           emit(
             HarnessEvent.ContextUsed({
               usedTokens: last.totalTokens,
@@ -705,9 +717,16 @@ export const openSession = (
     /** `/compact` and `/review` (`slash.ts`): Codex's own calls, each running as a Turn. */
     const startHarnessCall = (turnId: TurnId, prompt: string, call: HarnessCall) =>
       Effect.gen(function* () {
-        const result = yield* conn
-          .request(call.method, call.params)
-          .pipe(Effect.onError(() => Effect.sync(() => (pendingLocalTurn = null))));
+        compaction.request(call.method === "thread/compact/start");
+
+        const result = yield* conn.request(call.method, call.params).pipe(
+          Effect.onError(() =>
+            Effect.sync(() => {
+              pendingLocalTurn = null;
+              compaction.request(false);
+            })
+          )
+        );
 
         // Compaction's Turn arrives as `turn/started` and takes the pending Turn there.
         if (call.method === "thread/compact/start") return;

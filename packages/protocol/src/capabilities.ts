@@ -16,6 +16,10 @@ export const Capability = Schema.Literals([
   /** `extensions.pair`, `extensions.list`, `extensions.revoke`, and `extensionToken` in `hello`. */
   "extensions",
   "host.resources",
+  /** `host.stats.watch`: the Host's CPU, load, memory and disk, sampled while watched (ENG-565). */
+  "host.stats",
+  /** `host.restartPreview` and `host.prepareRestart`: Restart daemon's confirm and clean stop (ADR 0087). */
+  "host.restart",
   /** `remoteAccess.status`, `remoteAccess.enable` and `remoteAccess.disable` (Tailscale, ADR 0076). */
   "remote-access",
   /** `relayRoute.*` and `devices.*`: the Relay route and Linked Devices (ADR 0080, 0082). */
@@ -134,6 +138,11 @@ export const Capability = Schema.Literals([
   "attachments.settings",
   /** `sessions.autoArchive` and `sessions.setAutoArchive`: archiving Dormant sessions in Settings. */
   "sessions.auto-archive",
+  /**
+   * Idle compaction (`idleCompaction.ts`): `sessions.idleCompaction`, `sessions.setIdleCompaction`,
+   * `CompactSession` and `Turn.idleCompaction`.
+   */
+  "sessions.idle-compaction",
   /** `continuity.watch`, `continuity.markRead`, `continuity.saveDraft`: read position and drafts. */
   "session.continuity",
   /** `presence.report`: a Desktop App's presence holds this Host's pushes to Linked Devices. */

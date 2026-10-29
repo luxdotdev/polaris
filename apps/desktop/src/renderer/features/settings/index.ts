@@ -26,4 +26,6 @@ export { HostResources } from "./ui/HostResources.tsx";
 
 export { ConstellationDefaultsPublisher } from "./defaultsSync.ts";
 
+export { IdleCompactionPublisher } from "./idleCompactionSync.ts";
+
 export { setResourcesClient, type ResourcesClient } from "./resources.ts";

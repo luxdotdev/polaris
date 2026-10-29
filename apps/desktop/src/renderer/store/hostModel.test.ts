@@ -192,6 +192,41 @@ describe("host model", () => {
     });
   });
 
+  test("idle compaction's Turn leaves the session's last prompt, user Turn and reply as they were", () => {
+    const answered = turnWith({
+      status: "completed",
+      replyPreview: "Parser split",
+      userTurnNumber: 1,
+    });
+
+    const fields = {
+      id: TurnId.make("t-compact"),
+      index: 1,
+      prompt: "/compact",
+      idleCompaction: true,
+      userTurnNumber: 1,
+      startedAt: "2026-10-19T10:30:00.000Z",
+    };
+
+    const model = applyHostItems(
+      emptyHostModel,
+      cloned([
+        snapshot,
+        event(4, E.TurnStarted.make({ turn })),
+        event(5, E.TurnEnded.make({ turn: answered })),
+        event(6, E.TurnStarted.make({ turn: turnWith(fields) })),
+        event(7, E.TurnEnded.make({ turn: turnWith({ ...fields, status: "completed" }) })),
+      ])
+    );
+
+    const entry = model.sessions.get(sessionId);
+
+    expect(entry?.lastTurnPreview).toBe("count to three");
+    expect(entry?.userTurn?.id).toBe(turn.id);
+    expect(entry?.session.lastReplyPreview).toBe("Parser split");
+    expect(entry?.session.turnCount).toBe(2);
+  });
+
   test("the Daemon's user Turn and reply preview reach the session (`session.user-turns`)", () => {
     const opened = { userTurnNumber: 1 };
 
@@ -281,6 +316,8 @@ describe("host model", () => {
 
     expect(visibleWorkspaces(removed)).toEqual([]);
     expect([...removed.worktrees.keys()]).toEqual(["theirs"]);
+    // Removal purges its sessions, archived ones included (docs/adr/0086).
+    expect(removed.sessions.has(sessionId)).toBe(false);
   });
 
   test("the cache holds only synchronized live models and paints them marked as cached", () => {

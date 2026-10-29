@@ -10,7 +10,7 @@ import {
 } from "@polaris/protocol";
 import { Effect, Schema } from "effect";
 import type { McpBinding } from "../binding.ts";
-import type { toolFactory, BoundTool } from "./shared.ts";
+import type { toolFactory, BoundTool, StartTarget } from "./shared.ts";
 import type { resolvers } from "./resolve.ts";
 import { FriendlyWorker, FriendlyReview, FriendlyAnswer } from "./inputs.ts";
 
@@ -27,7 +27,8 @@ export const leadTools = (
     command: ConstellationCommand
   ) => Effect.Effect<ConstellationResult, ConstellationRejected>,
   resolve: ReturnType<typeof resolvers>,
-  status: BoundTool
+  status: BoundTool,
+  start: StartTarget
 ): ReadonlyArray<BoundTool> => [
   define(
     "plan",
@@ -53,8 +54,12 @@ export const leadTools = (
       if (input.start === undefined) return submit(C.Plan.make(fields));
 
       return submit(
-        C.Plan.make({ ...fields, start: { ...input.start, leadSessionId: binding.sessionId } })
-      );
+        C.Plan.make({
+          ...fields,
+          constellationId: start.constellationId,
+          start: { ...input.start, leadSessionId: binding.sessionId },
+        })
+      ).pipe(Effect.tap(() => start.started));
     },
     { summary: "Plan recorded.", mutates: true }
   ),

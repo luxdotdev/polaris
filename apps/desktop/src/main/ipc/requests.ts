@@ -446,6 +446,10 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     onLive(hostKey, (s) => s.client["sessions.autoArchive"]({})),
   "sessions.setAutoArchive": ({ hostKey, settings }) =>
     onLive(hostKey, (s) => s.client["sessions.setAutoArchive"]({ settings })).pipe(done),
+  "sessions.idleCompaction": ({ hostKey }) =>
+    onLive(hostKey, (s) => s.client["sessions.idleCompaction"]({})),
+  "sessions.setIdleCompaction": ({ hostKey, settings }) =>
+    onLive(hostKey, (s) => s.client["sessions.setIdleCompaction"]({ settings })).pipe(done),
   "continuity.markRead": ({ hostKey, ...payload }) =>
     onLive(hostKey, (s) => s.client["continuity.markRead"](payload)),
   "continuity.saveDraft": ({ hostKey, ...payload }) =>
@@ -491,6 +495,8 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   "machines.dismiss": ({ hostKey }) => machines((m) => m.dismiss(hostKey)).pipe(done),
   "machines.takeOverTask": ({ hostKey }) => machines((m) => m.takeOverTask(hostKey)).pipe(done),
   "machines.startDaemon": ({ hostKey }) => machines((m) => m.startDaemon(hostKey)).pipe(done),
+  "machines.restartPreview": ({ hostKey }) => machines((m) => m.restartPreview(hostKey)),
+  "machines.restartDaemon": ({ hostKey }) => machines((m) => m.restartDaemon(hostKey)),
   "machines.setLocalEnabled": ({ enabled }) =>
     machines((m) => m.setLocalEnabled(enabled)).pipe(done),
   "machines.openSsh": ({ hostKey }) => machines((m) => m.openSsh(hostKey)).pipe(done),

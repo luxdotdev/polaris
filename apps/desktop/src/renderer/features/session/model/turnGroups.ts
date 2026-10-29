@@ -7,6 +7,7 @@
 import type { Turn, TurnId, TurnItem } from "@polaris/protocol";
 import { Predicate } from "effect";
 import type { TurnView } from "../../../store/sessionModel.ts";
+import { isIdleCompaction } from "./idleCompaction.ts";
 import { completedItemView, turnOutput } from "./items.ts";
 
 /** One Turn as the UI shows it: the user's Turn, then each Turn the Harness started after it. */
@@ -25,8 +26,9 @@ export interface TurnSpan {
   readonly last: TurnId;
 }
 
-/** A Turn the Harness began without the user (`Turn.trigger`). */
-export const harnessStarted = (turn: Turn): boolean => turn.trigger !== null;
+/** A Turn begun without the user: the Harness's (`Turn.trigger`) or idle compaction's. */
+export const harnessStarted = (turn: Turn): boolean =>
+  turn.trigger !== null || isIdleCompaction(turn);
 
 const cache = new WeakMap<ReadonlyArray<TurnView>, ReadonlyArray<TurnGroup>>();
 

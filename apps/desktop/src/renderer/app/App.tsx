@@ -13,7 +13,10 @@ import { LinkedPullsPublisher } from "../features/accept/index.ts";
 // The feeds module, not the feature index: the index pulls in the slots that this file renders.
 import { ConstellationFeeds } from "../features/constellation/feeds.tsx";
 import { NeedsYouPublisher } from "../features/needs-you/index.ts";
-import { ConstellationDefaultsPublisher } from "../features/settings/index.ts";
+import {
+  ConstellationDefaultsPublisher,
+  IdleCompactionPublisher,
+} from "../features/settings/index.ts";
 import { PullsPublisher } from "../features/pulls/index.ts";
 // Not the feature's index: that loads the Review view's chunk.
 import { CheckoutPublisher } from "../features/review/checkout/Publisher.tsx";
@@ -37,6 +40,7 @@ export const App = ({ value, onboarding = settled }: AppProps) => (
             <Shell />
             <NeedsYouPublisher />
             <ConstellationDefaultsPublisher />
+            <IdleCompactionPublisher />
             <PullsPublisher />
             <CheckoutPublisher />
             <LinkedPullsPublisher />

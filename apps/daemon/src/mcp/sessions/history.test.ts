@@ -240,3 +240,31 @@ test("sessions lists the Workspace's sessions by default and the Host's on reque
   expect(filtered).toStartWith("1 sessions:");
   expect(filtered).toContain(ELSEWHERE);
 });
+
+test("search_history no longer finds a removed Workspace's sessions", async () => {
+  const text = await run(
+    Effect.gen(function* () {
+      const tools = yield* world;
+      const store = yield* EventStore;
+
+      yield* store.commit({
+        commandId: null,
+        decide: () =>
+          Effect.succeed([DomainEvent.cases.WorkspaceRemoved.make({ workspaceId: AWAY })]),
+      });
+
+      return textOf(
+        yield* tools.searchHistory(SELF, {
+          query: "uber eats",
+          scope: "host",
+          session: null,
+          limit: 20,
+        })
+      );
+    })
+  );
+
+  expect(text).toContain(NEIGHBOUR);
+  expect(text).not.toContain(ELSEWHERE);
+  expect(text).not.toContain("deductible");
+});

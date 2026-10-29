@@ -39,6 +39,11 @@ module polaris {
   const REVIEW_COMMANDS: bool
   /** Harnesses also stop Turns at usage limits (the `current` instance; the mutants predate it). */
   const USAGE_LIMITS: bool
+  /**
+   * Clients also remove the Workspace, which holds every session (the `removal` instance).
+   * Removal purges the sessions from the read model; the log keeps their events (ADR 0086).
+   */
+  const WORKSPACE_REMOVAL: bool
   /** Client devices, each with a feed per stream. */
   const CLIENTS: Set[str]
   /** Agent Sessions; recovery visits them in this order (any order gives the same result). */
@@ -74,6 +79,7 @@ module polaris {
     | ApprovalWithdrawn({ req: str, by: str }) // by "harness" | "daemon"
     | TurnsAccepted(int) // accepted through this Turn number
     | ReviewRecorded // a Verdict or Risk Summary event: no session, and off the host stream
+    | WorkspaceRemoved // host stream: purges every session of the Workspace from the model
 
   /** A committed event. `cmd` is the command id, "" for events the Daemon records on its own. */
   type Event = { seq: int, session: str, cmd: str, kind: EventKind }
@@ -87,6 +93,7 @@ module polaris {
     | Unarchive(str)
     | AcceptTurns({ session: str, through: int })
     | RecordVerdict
+    | RemoveWorkspace
 
   type HarnessEvent =
     | HRequest(str)
@@ -140,6 +147,7 @@ module polaris {
    * one's number: a Continue resumes the same Turn, as it keeps its id).
    * `archivedSinceTurn`: archived after the last Turn started or ended.
    * `accepted`: the Turn number accepted through (0: none).
+   * `removed`: its Workspace was removed, so the read model no longer holds it.
    */
   type SessionView = {
     turn: str,
@@ -150,6 +158,7 @@ module polaris {
     turns: int,
     archivedSinceTurn: bool,
     accepted: int,
+    removed: bool,
   }
 
   type Decision = Accept(List[EventKind]) | Refuse
@@ -182,7 +191,7 @@ module polaris {
   pure val emptyView: SessionView =
     {
       turn: "none", autonomous: false, state: "dormant", pending: Set(), requested: [], turns: 0,
-      archivedSinceTurn: false, accepted: 0,
+      archivedSinceTurn: false, accepted: 0, removed: false,
     }
 
   pure def applyEvent(v: SessionView, e: Event): SessionView =
@@ -200,10 +209,13 @@ module polaris {
       | ApprovalWithdrawn(x) => { ...v, pending: v.pending.exclude(Set(x.req)) }
       | TurnsAccepted(n) => { ...v, accepted: n }
       | ReviewRecorded => v
+      | WorkspaceRemoved => { ...v, removed: true }
     }
 
+  /** A session's view; a `WorkspaceRemoved` (a host event) purges every session. */
   pure def viewOf(events: List[Event], s: str): SessionView =
-    events.foldl(emptyView, (v, e) => if (e.session == s) applyEvent(v, e) else v)
+    events.foldl(emptyView, (v, e) =>
+      if (e.session == s or e.kind == WorkspaceRemoved) applyEvent(v, e) else v)
 
   pure def inStream(e: Event, st: str): bool =
     if (st == HOST) e.kind != ItemCompleted and e.kind != ReviewRecorded else e.session == st
@@ -268,6 +280,23 @@ module polaris {
         else if (x.through == v.accepted) Accept([])
         else Accept([TurnsAccepted(x.through)])
       | RecordVerdict => Accept([ReviewRecorded])
+      | RemoveWorkspace => Refuse // decided by `decideRemoval`, against every session
+    }
+
+  /** `removeWorkspace` in decider.ts: only once, and only with every session Archived. */
+  pure def decideRemoval(events: List[Event]): Decision =
+    if (SESSIONS.forall(s => viewOf(events, s).state == "archived" and not(viewOf(events, s).removed)))
+      Accept([WorkspaceRemoved])
+    else Refuse
+
+  /** A purged session is not in the model, so every command for it is NotFound. */
+  pure def decideCommand(events: List[Event], cmd: Command, client: str): Decision =
+    match cmd {
+      | RemoveWorkspace => decideRemoval(events)
+      | RecordVerdict => decideClient(viewOf(events, ""), cmd, client)
+      | _ =>
+        val v = viewOf(events, sessionOfCmd(cmd))
+        if (v.removed) Refuse else decideClient(v, cmd, client)
     }
 
   pure def withdrawAll(v: SessionView, by: str): List[EventKind] =
@@ -330,6 +359,7 @@ module polaris {
       | Unarchive(s) => s
       | AcceptTurns(x) => x.session
       | RecordVerdict => ""
+      | RemoveWorkspace => HOST
     }
 
   /** Commands whose reactor then runs: a Turn opens the Harness, Archive stops it. */
@@ -343,6 +373,7 @@ module polaris {
       | Unarchive(_) => false
       | AcceptTurns(_) => false
       | RecordVerdict => false
+      | RemoveWorkspace => false
     }
 
   /** Append `kinds` to `events` with the next sequences (gapless by construction). */
@@ -358,7 +389,7 @@ module polaris {
    */
   pure def recoverSession(events: List[Event], s: str): List[Event] =
     val v = viewOf(events, s)
-    if (v.state == "dormant") events
+    if (v.state == "dormant" or v.removed) events
     else if (v.state == "archived")
       appendEvents(events, s, "",
         (if (v.turn == "working") [TurnEnded("interrupted")] else []).concat(withdrawAll(v, "daemon")))
@@ -389,7 +420,7 @@ module polaris {
           | Refused => { ...acc, settle: acc.settle.append({ id: c.id, outcome: Rejected }) }
           | NoReceipt =>
             val s = sessionOfCmd(c.cmd)
-            match decideClient(viewOf(acc.events, s), c.cmd, c.client) {
+            match decideCommand(acc.events, c.cmd, c.client) {
               | Refuse => {
                 ...acc,
                 receipts: acc.receipts.set(c.id, Refused),
@@ -408,7 +439,9 @@ module polaris {
             }
         }
       | HarnessEv(h) =>
-        val kinds = decideHarness(viewOf(acc.events, h.session), h.ev, h.turn)
+        val v = viewOf(acc.events, h.session)
+        // A late report about a purged session finds no session to record it in.
+        val kinds = if (v.removed) [] else decideHarness(v, h.ev, h.turn)
         { ...acc, events: appendEvents(acc.events, h.session, "", kinds) }
     }
 
@@ -717,6 +750,7 @@ module polaris {
       .union(SESSIONS.map(s => Archive(s)))
       .union(SESSIONS.map(s => Unarchive(s)))
       .union(if (REVIEW_COMMANDS) REVIEW_COMMAND_SET else Set())
+      .union(if (WORKSPACE_REMOVAL) Set(RemoveWorkspace) else Set())
 
   pure val REVIEW_COMMAND_SET: Set[Command] =
     Set(1, 2).map(n => AcceptTurns({ session: SESSION_LIST[0], through: n })).union(Set(RecordVerdict))
@@ -897,6 +931,20 @@ module polaris {
         | _ => true
       }))
 
+  /** A Workspace is removed only once every session in it is Archived. */
+  val removalNeedsArchived: bool =
+    log.indices().forall(i => log[i].kind == WorkspaceRemoved implies
+      SESSIONS.forall(s => viewOf(log.slice(0, i), s).state == "archived"))
+
+  /**
+   * Removal is final: nothing is recorded for a purged session afterwards (no command,
+   * Harness report or recovery reaches it), and the Workspace is removed once.
+   */
+  val removalIsFinal: bool =
+    log.indices().forall(i => log[i].kind == WorkspaceRemoved implies
+      log.indices().forall(j => j > i implies
+        (not(SESSIONS.contains(log[j].session)) and log[j].kind != WorkspaceRemoved)))
+
   val hostFeedCanProgress: bool =
     CLIENTS.forall(c => {
       val f = feeds.get((c, HOST))
@@ -921,6 +969,8 @@ module polaris {
     hostFeedCanProgress,
     acceptedNeverInFlight,
     acceptedOnlyForward,
+    removalNeedsArchived,
+    removalIsFinal,
   }
 
   // ── Witnesses: states the checks must actually reach (`quint run --witnesses`) ──
@@ -976,6 +1026,17 @@ module polaris {
     CMD_IDS.exists(id => match sentCmd.get(id) { | AcceptTurns(_) => true | _ => false }
       and sentBy.get(id) != "" and answers.get(id).indices().exists(i => answers.get(id)[i] == Rejected))
 
+  val witnessRemoved: bool = log.indices().exists(i => log[i].kind == WorkspaceRemoved)
+  val witnessRemoveRefused: bool =
+    CMD_IDS.exists(id => sentCmd.get(id) == RemoveWorkspace
+      and sentBy.get(id) != "" and answers.get(id).indices().exists(i => answers.get(id)[i] == Rejected))
+  /** A command for a session sent after its Workspace was removed, refused. */
+  val witnessPurgedRefused: bool =
+    log.indices().exists(i => log[i].kind == WorkspaceRemoved
+      and CMD_IDS.exists(id => sentBy.get(id) != "" and sentCmd.get(id) != RemoveWorkspace
+        and receipts.get(id) == Refused and not(log.slice(0, i).indices().exists(j => log[j].cmd == id))
+        and answers.get(id).indices().exists(k => answers.get(id)[k] == Rejected)))
+
   // ── Liveness ──────────────────────────────────────────────────────────────
 
   val vars = (
@@ -1015,6 +1076,7 @@ module current {
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = false,
     USAGE_LIMITS = true,
+    WORKSPACE_REMOVAL = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -1035,6 +1097,7 @@ module finding1 {
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = false,
     USAGE_LIMITS = false,
+    WORKSPACE_REMOVAL = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -1055,6 +1118,7 @@ module finding2 {
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = false,
     USAGE_LIMITS = false,
+    WORKSPACE_REMOVAL = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -1075,6 +1139,7 @@ module finding3 {
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = false,
     USAGE_LIMITS = false,
+    WORKSPACE_REMOVAL = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -1098,6 +1163,7 @@ module finding4 {
     CONTINUES_ACCEPTED = true,
     REVIEW_COMMANDS = true,
     USAGE_LIMITS = false,
+    WORKSPACE_REMOVAL = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -1121,6 +1187,7 @@ module review {
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = true,
     USAGE_LIMITS = false,
+    WORKSPACE_REMOVAL = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1"],
     CMD_IDS = Set("k1", "k2", "k3", "k4", "k5", "k6"),
@@ -1141,6 +1208,7 @@ module small {
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = false,
     USAGE_LIMITS = true,
+    WORKSPACE_REMOVAL = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1"],
     CMD_IDS = Set("k1", "k2"),
@@ -1148,6 +1216,30 @@ module small {
     REQUEST_SESSION = Map("r1" -> "s1"),
     CAPACITY = 1,
     MAX_LOG = 8,
+    MAX_CRASHES = 1,
+  ).*
+}
+
+/**
+ * The code as it is, with Clients also removing the Workspace (ADR 0086): two sessions in
+ * one Workspace, so removal needs both Archived first.
+ */
+module removal {
+  import polaris(
+    HOST_FEED_GAPLESS = false,
+    ARCHIVE_IGNORES_TURN = false,
+    RECORDS_LATE_REQUESTS = false,
+    CONTINUES_ACCEPTED = false,
+    REVIEW_COMMANDS = false,
+    USAGE_LIMITS = true,
+    WORKSPACE_REMOVAL = true,
+    CLIENTS = Set("mac", "phone"),
+    SESSION_LIST = ["s1", "s2"],
+    CMD_IDS = Set("k1", "k2", "k3", "k4", "k5", "k6"),
+    REQUESTS = Set("r1"),
+    REQUEST_SESSION = Map("r1" -> "s1"),
+    CAPACITY = 2,
+    MAX_LOG = 12,
     MAX_CRASHES = 1,
   ).*
 }

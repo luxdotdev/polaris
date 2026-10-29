@@ -150,9 +150,19 @@ const fold = (event: DomainEvent): Fold =>
       ...sessionFolds,
       WorkspaceRegistered: ({ workspace }) => withWorkspace(workspace),
       WorkspaceUpdated: ({ workspace }) => withWorkspace(workspace),
+      // A removed Workspace takes its sessions and constellations with it (docs/adr/0086).
       WorkspaceRemoved:
         ({ workspaceId }): Fold =>
-        (state) => ({ ...state, workspaces: withEntry(state.workspaces, workspaceId, undefined) }),
+        (state) => ({
+          ...state,
+          workspaces: withEntry(state.workspaces, workspaceId, undefined),
+          sessions: new Map(
+            [...state.sessions].filter(([, entry]) => entry.session.workspaceId !== workspaceId)
+          ),
+          constellations: new Map(
+            [...state.constellations].filter(([, c]) => c.workspaceId !== workspaceId)
+          ),
+        }),
       ConstellationStarted:
         ({ constellation }): Fold =>
         (state) => ({

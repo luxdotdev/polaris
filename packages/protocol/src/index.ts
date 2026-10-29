@@ -4,6 +4,8 @@ export * from "./attachments.ts";
 
 export * from "./autoArchive.ts";
 
+export * from "./idleCompaction.ts";
+
 export * from "./availability.ts";
 
 export * from "./bridge.ts";
@@ -16,6 +18,8 @@ export * from "./continuity.ts";
 
 export * from "./presence.ts";
 
+export * from "./hostStats.ts";
+
 export * from "./domain.ts";
 
 export * from "./events.ts";
@@ -23,6 +27,8 @@ export * from "./events.ts";
 export * from "./extensions.ts";
 
 export * from "./remoteAccess.ts";
+
+export * from "./restart.ts";
 
 export * from "./linkedDevices.ts";
 

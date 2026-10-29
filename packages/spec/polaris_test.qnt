@@ -11,6 +11,7 @@ module polaris_test {
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = true,
     USAGE_LIMITS = true,
+    WORKSPACE_REMOVAL = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -130,6 +131,7 @@ module polaris_test {
           turns: 1,
           archivedSinceTurn: false,
           accepted: 0,
+          removed: false,
         },
         harness == Set(),
         safety,
@@ -497,6 +499,44 @@ module polaris_test {
       .expect(viewOf(log, "s1").turns == 2 and viewOf(log, "s1").state == "working" and safety)
       .then(harnessReports("s1", HTurnEnded)).then(commitBatch).then(publishBatch)
       .expect(viewOf(log, "s1").state == "idle" and safety)
+
+  /** ADR 0086: a Workspace with a session that isn't Archived is not removed. */
+  run removalWaitsForEverySessionTest =
+    init
+      .then(clientSends("mac", "k1", Archive("s1")))
+      .then(clientSends("mac", "k2", RemoveWorkspace))
+      .then(commitBatch)
+      .then(publishBatch)
+      .expect(all {
+        answers.get("k1") == [Ok(1)],
+        answers.get("k2") == [Rejected],
+        not(viewOf(log, "s2").removed),
+        safety,
+      })
+
+  /**
+   * ADR 0086: removal purges every session; the log keeps their events, nothing reaches
+   * them again (Unarchive is NotFound), and a restart recovers nothing for them.
+   */
+  run removalPurgesAndIsFinalTest =
+    init
+      .then(clientSends("mac", "k1", Archive("s1")))
+      .then(clientSends("mac", "k2", Archive("s2")))
+      .then(clientSends("phone", "k3", RemoveWorkspace))
+      .then(commitBatch)
+      .then(publishBatch)
+      .expect(all {
+        answers.get("k3") == [Ok(3)],
+        log[2] == { seq: 3, session: HOST, cmd: "k3", kind: WorkspaceRemoved },
+        SESSIONS.forall(s => viewOf(log, s).removed),
+        safety,
+      })
+      .then(clientSends("mac", "k4", Unarchive("s1")))
+      .then(commitBatch)
+      .then(publishBatch)
+      .then(crash)
+      .then(restart)
+      .expect(all { answers.get("k4") == [Rejected], log.length() == 3, safety })
 }
 
 /** Finding 1: the host feed with the gap check `HostConnection` used before the fix. */
@@ -508,6 +548,7 @@ module polaris_finding1_test {
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = true,
     USAGE_LIMITS = true,
+    WORKSPACE_REMOVAL = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -556,6 +597,7 @@ module polaris_finding2_test {
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = true,
     USAGE_LIMITS = true,
+    WORKSPACE_REMOVAL = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -588,6 +630,7 @@ module polaris_finding2_test {
           turns: 1,
           archivedSinceTurn: true,
           accepted: 0,
+          removed: false,
         },
         not(archivedIsClosed),
       })
@@ -602,6 +645,7 @@ module polaris_finding3_test {
     CONTINUES_ACCEPTED = false,
     REVIEW_COMMANDS = true,
     USAGE_LIMITS = true,
+    WORKSPACE_REMOVAL = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),
@@ -650,6 +694,7 @@ module polaris_finding4_test {
     CONTINUES_ACCEPTED = true,
     REVIEW_COMMANDS = true,
     USAGE_LIMITS = true,
+    WORKSPACE_REMOVAL = false,
     CLIENTS = Set("mac", "phone"),
     SESSION_LIST = ["s1", "s2"],
     CMD_IDS = Set("k1", "k2", "k3", "k4"),

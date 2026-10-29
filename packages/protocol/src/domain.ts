@@ -378,6 +378,11 @@ export class Turn extends Schema.Class<Turn>("Turn")({
    * `session.shell-command`); `prompt` reads `! <command>`.
    */
   shellCommand: optionalNullable(Schema.String),
+  /**
+   * True when the Daemon sent `/compact` because the session sat Idle (`CompactSession`,
+   * capability `sessions.idle-compaction`): not the user's Turn, so it keeps the Turn number.
+   */
+  idleCompaction: optionalNullable(Schema.Boolean),
   /** `refs/polaris/checkpoints/<session>/<turn>` taken before and after the Turn. */
   checkpointBefore: Schema.NullOr(Schema.String),
   checkpointAfter: Schema.NullOr(Schema.String),

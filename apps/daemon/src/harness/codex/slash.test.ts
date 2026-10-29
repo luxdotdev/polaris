@@ -148,6 +148,10 @@ describe("Codex slash commands", () => {
         .filter((e) => e.turnId === turnId)
         .map((e) => e.item);
 
+    // The compaction item reports the window before and after, so the transcript can say so.
+    expect(ofTag(events, "ContextUsed").flatMap((e) => e.compacted ?? [])).toEqual([
+      { trigger: "manual", beforeTokens: 25410, afterTokens: 15579 },
+    ]);
     expect(itemsOf("turn-3").some(TurnItem.guards.CommandExecution)).toBe(true);
     expect(itemsOf("turn-3").filter(TurnItem.guards.AssistantMessage).at(-1)?.text).toContain(
       "hello, world"

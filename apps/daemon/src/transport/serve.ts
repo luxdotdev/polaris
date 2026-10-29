@@ -18,6 +18,7 @@ import { lazyConstellationHandlers, lazyHostResources } from "./lazy.ts";
 import { installDebugHooks, reportStartupModules } from "../debug.ts";
 import { Engine } from "../engine/Engine.ts";
 import { EngineRpcHandlers } from "../engine/rpc.ts";
+import { RestartRpcHandlers } from "../engine/restartRpc.ts";
 import { Continuity, ContinuityRpcsLive } from "../continuity/index.ts";
 import { FileSearchLive } from "../files/FileSearch.ts";
 import { PredictionRpcsLive } from "../prediction/index.ts";
@@ -49,6 +50,7 @@ import { DeepgramLive } from "../voice/deepgram.ts";
 import { HostSecrets } from "../secrets/index.ts";
 import { VoiceRpcsLive } from "../voice/VoiceRpcs.ts";
 import { ResourceRpcsLive } from "../resources/rpc.ts";
+import { HostStats, HostStatsRpcsLive } from "../hostStats/index.ts";
 import { paths } from "../paths.ts";
 import { startServer } from "./server.ts";
 import { configuredGatewayPort } from "../gateway/index.ts";
@@ -126,7 +128,9 @@ export const daemonHandlers = Layer.mergeAll(
   PredictionRpcsLive,
   CommitMessageRpcsLive,
   EngineRpcHandlers,
+  RestartRpcHandlers,
   ContinuityRpcsLive.pipe(Layer.provide(Continuity.layer)),
+  HostStatsRpcsLive.pipe(Layer.provide(HostStats.layer())),
   PushNotifierLive,
   ResourceRpcsLive,
   lazyConstellationHandlers,
@@ -170,6 +174,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "constellation.defaults",
   "extensions",
   "remote-access",
+  "host.restart",
   "linked-devices",
   "presence",
   "voice",
@@ -229,10 +234,12 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "attachments.read",
   "attachments.settings",
   "sessions.auto-archive",
+  "sessions.idle-compaction",
   "terminal",
   "terminal.binary",
   "usage",
   "host.resources",
+  "host.stats",
 ];
 
 /**

@@ -19,6 +19,7 @@ import type {
   Attachment,
   AttachmentSettings,
   AutoArchiveSettings,
+  IdleCompactionSettings,
   AttachmentUsage,
   StagedAmount,
   Capability,
@@ -54,6 +55,7 @@ import type {
   SessionStreamItem,
   ComposerDraft,
   ContinuityItem,
+  HostStatsItem,
   ReadPosition,
   TerminalId,
   TerminalLaunch,
@@ -74,6 +76,7 @@ import type { PullRef } from "./github.ts";
 import type { ConstellationDefaultsMethod, ConstellationMethod } from "./constellationContract.ts";
 import type { ResourceMethod } from "./resourcesContract.ts";
 import type { RemoteAccessMethod } from "./remoteAccessContract.ts";
+import type { RestartDaemonResult, RestartPreviewView } from "./restart.ts";
 import type { VoiceRequestOutputs } from "./voiceContract.ts";
 import type { LinkedDevicesRequestOutputs } from "./linkedDevicesContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
@@ -495,6 +498,8 @@ export interface RequestOutputs
   "extensions.revoke": Plain<Pairing>;
   "sessions.autoArchive": Plain<AutoArchiveSettings>;
   "sessions.setAutoArchive": null;
+  "sessions.idleCompaction": Plain<IdleCompactionSettings>;
+  "sessions.setIdleCompaction": null;
   "continuity.markRead": Plain<ReadPosition>;
   "continuity.saveDraft": Plain<ComposerDraft>;
   "review.runRiskSummary": Rpc.Success<typeof RunRiskSummary>;
@@ -522,6 +527,8 @@ export interface RequestOutputs
   "machines.dismiss": null;
   "machines.takeOverTask": null;
   "machines.startDaemon": null;
+  "machines.restartPreview": RestartPreviewView;
+  "machines.restartDaemon": RestartDaemonResult;
   "machines.setLocalEnabled": null;
   "machines.openSsh": null;
   "clipboard.write": null;
@@ -561,6 +568,7 @@ export interface SubscriptionItems extends GitHubSubscriptionItems, GitSubscript
   "harness.availability": Plain<HostHarnesses>;
   continuity: ContinuityItem;
   "plan-limits": Plain<PlanLimit>;
+  "host.stats": HostStatsItem;
   "review.watchRiskSummary": RiskSummary;
   "inline.propose": InlineStreamItem;
   constellation: ConstellationStreamItem;

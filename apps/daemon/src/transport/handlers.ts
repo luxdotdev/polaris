@@ -20,6 +20,7 @@ import {
   Sequence,
   Unsupported,
   ResourceError,
+  RestartError,
   encodePairingString,
   VoiceError,
   PROTOCOL_VERSION,
@@ -364,6 +365,8 @@ export const defaultHandlers = (options: {
     "remoteAccess.status": () => Effect.flatMap(RemoteAccessControl, (control) => control.status),
     "remoteAccess.enable": () => Effect.flatMap(RemoteAccessControl, (control) => control.enable),
     "remoteAccess.disable": () => Effect.flatMap(RemoteAccessControl, (control) => control.disable),
+    "host.restartPreview": () => Effect.fail(new RestartError({ message: notYet("Restart") })),
+    "host.prepareRestart": () => Effect.fail(new RestartError({ message: notYet("Restart") })),
 
     // Token-less Clients only: the Relay route and Linked Devices (ADR 0083).
     "relayRoute.status": () => Effect.flatMap(RelayRoute, (route) => route.status),
@@ -449,6 +452,7 @@ export const defaultHandlers = (options: {
         })
       ),
     "usage.watch": () => Stream.fail(new Unsupported({ capability: "usage" })),
+    "host.stats.watch": () => Stream.fail(new Unsupported({ capability: "host.stats" })),
     "commit.suggestMessage": () =>
       Stream.fail(
         new CommitMessageError({
@@ -519,6 +523,10 @@ export const defaultHandlers = (options: {
       Effect.fail(new Unsupported({ capability: "sessions.auto-archive" })),
     "sessions.setAutoArchive": () =>
       Effect.fail(new Unsupported({ capability: "sessions.auto-archive" })),
+    "sessions.idleCompaction": () =>
+      Effect.fail(new Unsupported({ capability: "sessions.idle-compaction" })),
+    "sessions.setIdleCompaction": () =>
+      Effect.fail(new Unsupported({ capability: "sessions.idle-compaction" })),
     "continuity.watch": () => Stream.fail(new Unsupported({ capability: "session.continuity" })),
     "continuity.markRead": () => Effect.fail(new Unsupported({ capability: "session.continuity" })),
     "continuity.saveDraft": () =>

@@ -32,3 +32,9 @@ export const isPipePath = (path: string): boolean => /^[\\/]{2}[.?][\\/]pipe[\\/
 /** The local endpoint of the Daemon whose Polaris home is `root`. */
 export const localEndpoint = (root: string, platform: string = process.platform): string =>
   platform === "win32" ? windowsPipeName(root) : posix.join(root, "daemon.sock");
+
+/** The LaunchAgent's label, for `polaris install` and a Client's Restart daemon (ADR 0087). */
+export const LAUNCHD_LABEL = "dev.lux.polaris";
+
+/** The `systemd --user` unit, for `polaris install` and a Client's Restart daemon. */
+export const SYSTEMD_UNIT = "polaris.service";

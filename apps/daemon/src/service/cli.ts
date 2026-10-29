@@ -33,7 +33,7 @@ const option = (args: ReadonlyArray<string>, name: string): string | undefined =
 const output = <Report>(json: boolean, value: Report, human: ReadonlyArray<string>) =>
   Effect.sync(() => console.log(json ? JSON.stringify(value) : human.join("\n")));
 
-/** `polaris install [--binary <path>] [--sha256 <hex>] [--replace-task] [--json]` */
+/** `polaris install [--binary <path>] [--sha256 <hex>] [--replace-task] [--restart] [--json]` (`--restart`: Windows only). */
 const installCommand = Effect.fn("installCommand")(function* (args: ReadonlyArray<string>) {
   const source = option(args, "--binary") ?? (isCompiled() ? process.execPath : undefined);
 
@@ -50,6 +50,7 @@ const installCommand = Effect.fn("installCommand")(function* (args: ReadonlyArra
     version: info.version,
     sha256: option(args, "--sha256"),
     replaceTask: flag(args, "--replace-task"),
+    restart: flag(args, "--restart"),
   });
 
   yield* output(flag(args, "--json"), { ok: true, action: "install", ...report }, [

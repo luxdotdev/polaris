@@ -29,7 +29,13 @@ const binary = (env: string, name: string): string | null =>
 
 /** What each driver declares; checked against the loaded drivers in registry.test.ts. */
 export const DRIVER_CAPABILITIES = {
-  codex: { steer: true, liveCoAttach: true, switchModel: true, stopBackground: true },
+  codex: {
+    steer: true,
+    liveCoAttach: true,
+    switchModel: true,
+    stopBackground: true,
+    compact: true,
+  },
   claude: {
     steer: true,
     liveCoAttach: false,
@@ -37,6 +43,7 @@ export const DRIVER_CAPABILITIES = {
     stopBackground: true,
     backgroundCommand: true,
     shellCommand: true,
+    compact: true,
   },
   opencode: { steer: true, liveCoAttach: true, switchModel: true },
   gemini: { steer: false, liveCoAttach: false, switchModel: true },

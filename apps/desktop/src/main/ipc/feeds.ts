@@ -4,7 +4,12 @@
  * subscription per stream: a new subscriber gets the cached Snapshot at once,
  * then events, and the feed survives reconnects.
  */
-import { attachTerminal, type HostConnection, type LiveSession } from "@polaris/client";
+import {
+  attachTerminal,
+  type HostConnection,
+  type LiveSession,
+  watchHostStats,
+} from "@polaris/client";
 import { Effect, flow, Predicate, Schema, Stream, SubscriptionRef } from "effect";
 import type { IpcError, SubscriptionItem } from "../../shared/api.ts";
 import {
@@ -90,6 +95,8 @@ const openers: Openers = {
         )
       )
     ),
+  // Ends at once, empty, on a Daemon without `host.stats`.
+  "host.stats": ({ hostKey }) => onLive(hostKey, watchHostStats),
   "review.watchRiskSummary": ({ hostKey, summaryId }) =>
     onLive(hostKey, (session) => session.client["review.watchRiskSummary"]({ summaryId })),
   "inline.propose": ({ hostKey, ...request }) =>

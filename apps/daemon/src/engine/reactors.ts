@@ -210,20 +210,25 @@ const make = Effect.gen(function* () {
       yield* rt.attachmentStore.onSessionArchived(sessionId);
     });
 
-  const removeWorkspace = (command: CommandOf<"RemoveWorkspace">, { result, before }: Committed) =>
+  const removeWorkspace = (command: CommandOf<"RemoveWorkspace">, { before }: Committed) =>
     Effect.suspend(() => {
-      // Look the Workspace up in the model before its removal.
+      // The removal purged the Workspace and its sessions, so look them up in the model before it.
       const workspace = before.workspaces.get(command.workspaceId);
+      const staged = rt.attachmentStore.onWorkspaceRemoved(command.workspaceId);
 
-      if (workspace === undefined || !workspace.isGitRepo) return Effect.void;
+      if (workspace === undefined || !workspace.isGitRepo) return staged;
 
-      const sessionIds = [...result.model.sessions.values()].flatMap((record) =>
+      const sessionIds = [...before.sessions.values()].flatMap((record) =>
         record.session.workspaceId === workspace.id ? [record.session.id] : []
       );
 
-      return Effect.andThen(
-        pruning.onWorkspaceRemoved(workspace, sessionIds),
-        checkouts.workspaceRemoved(workspace)
+      return Effect.all(
+        [
+          pruning.onWorkspaceRemoved(workspace, sessionIds),
+          checkouts.workspaceRemoved(workspace),
+          staged,
+        ],
+        { discard: true }
       );
     });
 
@@ -252,6 +257,7 @@ const make = Effect.gen(function* () {
       Continue: (command) => continueTurn(command.sessionId, committed),
       Retry: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
       RunShellCommand: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
+      CompactSession: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
       Steer: (command) =>
         Effect.suspend(() => {
           const shell = rt.shellJobs.get(command.sessionId);

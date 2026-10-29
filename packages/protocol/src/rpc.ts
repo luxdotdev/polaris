@@ -27,8 +27,10 @@ import {
 } from "./accept.ts";
 import { AttachmentSettings, AttachmentUsage, StagedAmount } from "./attachments.ts";
 import { AutoArchiveRpcs } from "./autoArchive.ts";
+import { IdleCompactionRpcs } from "./idleCompaction.ts";
 import { ContinuityRpcs } from "./continuity.ts";
 import { PresenceRpcs } from "./presence.ts";
+import { HostStatsRpcs } from "./hostStats.ts";
 import { HostHarnesses } from "./availability.ts";
 import { PredictionRpcs } from "./predictionRpcs.ts";
 import { InlinePropose } from "./inline.ts";
@@ -49,6 +51,7 @@ import { ExtensionRpcs, GrantGate, NotGranted } from "./extensions.ts";
 import { RemoteAccessRpcs } from "./remoteAccess.ts";
 import { LinkedDeviceRpcs } from "./linkedDevices.ts";
 import { VoiceRpcs } from "./voice.ts";
+import { RestartRpcs } from "./restart.ts";
 import { HarnessKind } from "./harnesses.ts";
 import { Hello } from "./hello.ts";
 import {
@@ -814,15 +817,11 @@ export class DaemonRpcs extends RpcGroup.make(
   TerminalResize,
   TerminalClose
 )
-  .merge(ConstellationHostRpcs)
-  .merge(ResourceRpcs)
-  .merge(EditorFileRpcs)
-  .merge(LanguageRpcs)
-  .merge(PredictionRpcs)
-  .merge(SessionTurnRpcs)
-  .merge(AutoArchiveRpcs, ContinuityRpcs, PresenceRpcs)
+  .merge(ConstellationHostRpcs, ResourceRpcs, EditorFileRpcs)
+  .merge(LanguageRpcs, PredictionRpcs, SessionTurnRpcs)
+  .merge(AutoArchiveRpcs, IdleCompactionRpcs, ContinuityRpcs, PresenceRpcs, HostStatsRpcs)
   .merge(GitWriteRpcs, GitWatchRpcs, CommitMessageRpcs)
-  .merge(ExtensionRpcs, RemoteAccessRpcs, LinkedDeviceRpcs, VoiceRpcs) {}
+  .merge(ExtensionRpcs, RemoteAccessRpcs, LinkedDeviceRpcs, VoiceRpcs, RestartRpcs) {}
 
 /**
  * `DaemonRpcs` as the Daemon serves it to Extensions: every RPC can fail with

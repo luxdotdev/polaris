@@ -197,6 +197,8 @@ export class AttachmentStore extends Context.Service<
     ) => Effect.Effect<ReadonlyArray<Attachment>, ServiceError>;
     /** Apply the cleanup policy for a session that was Archived. */
     readonly onSessionArchived: (sessionId: SessionId) => Effect.Effect<void, ServiceError>;
+    /** Delete a removed Workspace's staged attachments and its cleanup override. */
+    readonly onWorkspaceRemoved: (workspaceId: WorkspaceId) => Effect.Effect<void, ServiceError>;
   }
 >()("polaris/daemon/AttachmentStore") {}
 

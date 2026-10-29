@@ -2,10 +2,11 @@
  * A command in the conversation: its line with how it ended, and its output
  * tail in a well. Once it succeeds the output folds to that line after a
  * moment (`model/collapse.ts`); a click on the line opens or folds it, and
- * open, the line wraps to the whole command.
+ * open, the line wraps to the whole command. Folded, a line that hides part of it opens the
+ * whole command in a hover card (`commandCard.tsx`).
  */
 import { CheckIcon, ChevronDownIcon, ChevronRightIcon, cn, PixelFailedIcon } from "@polaris/ui";
-import { useEffect, useRef, useState } from "react";
+import { type ReactElement, type RefObject, useEffect, useRef, useState } from "react";
 import {
   chooseCollapse,
   COLLAPSE_DELAY_MS,
@@ -15,6 +16,7 @@ import {
 import { plural } from "../model/format.ts";
 import { type ItemView, outputTail } from "../model/items.ts";
 import { BackgroundAction } from "./backgroundAction.tsx";
+import { CommandCard } from "./commandCard.tsx";
 import { type Hue, LiveMark, WELL } from "./items.tsx";
 
 type CommandView = Extract<ItemView, { kind: "command" }>;
@@ -121,6 +123,8 @@ const Line = ({
   open,
   canFold,
   sigil,
+  textRef,
+  card,
 }: {
   readonly item: CommandView;
   readonly hue: Hue;
@@ -128,27 +132,38 @@ const Line = ({
   readonly open: boolean;
   readonly canFold: boolean;
   readonly sigil: string;
-}) => (
-  <>
-    <StatusMark item={item} failed={failed} hue={hue} />
+  readonly textRef: RefObject<HTMLSpanElement | null>;
+  /** Wraps the text as the hover card's trigger while the row itself isn't one. */
+  readonly card: ((text: ReactElement) => ReactElement) | null;
+}) => {
+  const text = (
     <span
+      ref={textRef}
+      tabIndex={card === null ? undefined : 0}
       className={cn(
-        "text-code-inline text-text-default min-w-0 flex-1 font-mono",
+        "text-code-inline text-text-default focus-visible:outline-starlight min-w-0 flex-1 font-mono focus-visible:outline-2",
         open ? "py-1.5 break-all whitespace-pre-wrap" : "truncate"
       )}
       data-testid="command-text"
     >
       {item.command === "" ? "Running a command" : `${sigil} ${item.command}`}
     </span>
-    {item.output !== "" && canFold && !open ? (
-      <span className="text-caption text-text-subtle tabular">
-        {plural(lineCount(item.output), "line")}
-      </span>
-    ) : null}
-    <span className="text-caption text-text-subtle tabular">{exitLabel(item)}</span>
-    {canFold ? <Chevron open={open} /> : null}
-  </>
-);
+  );
+
+  return (
+    <>
+      <StatusMark item={item} failed={failed} hue={hue} />
+      {card === null ? text : card(text)}
+      {item.output !== "" && canFold && !open ? (
+        <span className="text-caption text-text-subtle tabular">
+          {plural(lineCount(item.output), "line")}
+        </span>
+      ) : null}
+      <span className="text-caption text-text-subtle tabular">{exitLabel(item)}</span>
+      {canFold ? <Chevron open={open} /> : null}
+    </>
+  );
+};
 
 const Chevron = ({ open }: { readonly open: boolean }) =>
   open ? (
@@ -170,6 +185,13 @@ export const Command = ({
   const { running, failed, hasOutput, open, toggle, hover } = useFold(item);
   // Always, so a long command can be read whole even with no output.
   const canFold = !running;
+  const textRef = useRef<HTMLSpanElement>(null);
+
+  const withCard = (trigger: ReactElement) => (
+    <CommandCard command={item.command} status={exitLabel(item)} line={textRef} disabled={open}>
+      {trigger}
+    </CommandCard>
+  );
 
   const line = (
     <Line
@@ -179,6 +201,8 @@ export const Command = ({
       open={open}
       canFold={canFold}
       sigil={own ? "!" : "$"}
+      textRef={textRef}
+      card={canFold || item.command.trim() === "" ? null : withCard}
     />
   );
 
@@ -191,15 +215,16 @@ export const Command = ({
       {...hover}
     >
       {canFold ? (
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={toggle}
-          title={open ? undefined : item.command}
-          className="min-h-row gap-row-x hover:bg-fill-hover flex cursor-default items-center px-3 text-left"
-        >
-          {line}
-        </button>
+        withCard(
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={toggle}
+            className="min-h-row gap-row-x hover:bg-fill-hover flex cursor-default items-center px-3 text-left"
+          >
+            {line}
+          </button>
+        )
       ) : (
         <div className="min-h-row gap-row-x flex items-center px-3">
           {line}

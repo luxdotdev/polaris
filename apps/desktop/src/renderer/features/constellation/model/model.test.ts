@@ -218,6 +218,30 @@ describe("fold", () => {
     expect(listed.byId.size).toBe(0);
   });
 
+  test("a removed Workspace takes its graphs off the Host feed's listing", () => {
+    const c = constellationOf();
+
+    const listed = applyHostItems(emptyConstellations, [
+      HostStreamItem.cases.Snapshot.make({
+        sequence: Sequence.make(1),
+        workspaces: [],
+        worktrees: [],
+        sessions: [],
+        constellations: [constellationSummaryOf(c)],
+      }),
+      HostStreamItem.cases.Event.make({
+        envelope: new EventEnvelope({
+          sequence: Sequence.make(2),
+          occurredAt: "2026-10-01T12:00:00Z",
+          commandId: null,
+          event: E.WorkspaceRemoved.make({ workspaceId: c.workspaceId }),
+        }),
+      }),
+    ]);
+
+    expect(listed.listed.size).toBe(0);
+  });
+
   test("a stream Snapshot is the record: graph, projections and the owner's journal", () => {
     const record = c1Record();
 

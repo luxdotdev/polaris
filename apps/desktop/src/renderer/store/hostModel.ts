@@ -140,7 +140,7 @@ const onSession =
     updateSession({ model, sessionId, at, change });
 
 type TurnFacts = Pick<Turn, "id" | "sessionId" | "index" | "prompt" | "startedAt"> &
-  Partial<Pick<Turn, "trigger" | "userTurnNumber" | "replyPreview">>;
+  Partial<Pick<Turn, "trigger" | "userTurnNumber" | "replyPreview" | "idleCompaction">>;
 
 /** The Daemon's user Turn (`session.user-turns`): a Turn with a higher number opens the next one. */
 const currentUserTurn = (session: SessionData, turn: TurnFacts): CurrentUserTurn | null => {
@@ -152,7 +152,15 @@ const currentUserTurn = (session: SessionData, turn: TurnFacts): CurrentUserTurn
     : current;
 };
 
-const onTurn = (turn: TurnFacts, ended: boolean) =>
+/** Idle compaction's Turn moves nothing the user reads: the last prompt and reply stay. */
+const onCompactionTurn = (turn: TurnFacts) =>
+  onSession(turn.sessionId, (entry) => ({
+    ...entry,
+    lastTurnId: turn.id,
+    session: { ...entry.session, turnCount: Math.max(entry.session.turnCount, turn.index + 1) },
+  }));
+
+const onUserOrHarnessTurn = (turn: TurnFacts, ended: boolean) =>
   onSession(turn.sessionId, (entry) => ({
     ...entry,
     lastTurnPreview: turn.prompt.slice(0, 140),
@@ -171,12 +179,19 @@ const onTurn = (turn: TurnFacts, ended: boolean) =>
     },
   }));
 
+const onTurn = (turn: TurnFacts, ended: boolean) =>
+  turn.idleCompaction === true ? onCompactionTurn(turn) : onUserOrHarnessTurn(turn, ended);
+
 const removeWorkspace =
   (workspaceId: string): Fold =>
   (model) => ({
     ...model,
     workspaces: withEntry(model.workspaces, workspaceId, undefined),
     worktrees: new Map([...model.worktrees].filter(([, wt]) => wt.workspaceId !== workspaceId)),
+    // Removal purges its sessions, archived ones included (docs/adr/0086).
+    sessions: new Map(
+      [...model.sessions].filter(([, entry]) => entry.session.workspaceId !== workspaceId)
+    ),
   });
 
 const unchanged: Fold = (model) => model;

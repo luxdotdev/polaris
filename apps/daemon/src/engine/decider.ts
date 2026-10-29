@@ -72,6 +72,8 @@ export interface DecideContext {
   readonly runningCommands: ReadonlyArray<string>;
   /** For RunShellCommand: whether the session's Harness reads the user's shell commands. */
   readonly canRunShellCommand?: boolean;
+  /** For CompactSession: whether a `/compact` Turn compacts the session's Harness. */
+  readonly canCompact?: boolean;
   /**
    * The Turn the command names, looked up in memory or SQL (null if unknown):
    * ForkSession's `fromTurnId`, AcceptTurns' `throughTurnId`.
@@ -484,6 +486,31 @@ const runShellCommand = (d: Deciding, command: CommandOf<"RunShellCommand">): De
     return d.lifecycle(record, { type: "turn.send", turn });
   });
 
+/** What a Turn sends the Harness to compact its context window (Claude Code's and Codex's command). */
+export const COMPACT_PROMPT = "/compact";
+
+/**
+ * Idle compaction's Turn: `/compact`, marked `idleCompaction`. Only an Idle or Dormant session
+ * with nothing in flight or pending; anything else means the user came back first.
+ */
+const compactSession = (d: Deciding, command: CommandOf<"CompactSession">): Decision =>
+  d.withSession(command.sessionId, (record) => {
+    const { state } = record.session;
+
+    if (d.ctx.canCompact !== true) return d.reject(`${record.session.harness} can't compact`);
+
+    if (state !== "idle" && state !== "dormant") return d.reject(`the session is ${state}`);
+
+    if (workingTurn(record) !== undefined || record.pending.size > 0)
+      return d.reject("the session is working; wait for the Turn to end");
+
+    const turn = patchTurn(d.newTurn(record.session, COMPACT_PROMPT, []), {
+      idleCompaction: true,
+    });
+
+    return d.lifecycle(record, { type: "turn.send", turn });
+  });
+
 /** A lifecycle command of an existing session: the machine input it stands for. */
 const onSession = (d: Deciding, sessionId: SessionId, input: SessionInput): Decision =>
   d.withSession(sessionId, (record) => d.lifecycle(record, input));
@@ -529,6 +556,7 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
         d.lifecycle(record, { type: "turn.send", turn: d.newTurn(record.session, c.prompt) })
       ),
     RunShellCommand: (c) => runShellCommand(d, c),
+    CompactSession: (c) => compactSession(d, c),
     Continue: (c) => onSession(d, c.sessionId, { type: "turn.continue" }),
     Retry: (c) => retry(d, c),
     Steer: (c) => onSession(d, c.sessionId, { type: "turn.steer", canSteer: ctx.canSteer }),

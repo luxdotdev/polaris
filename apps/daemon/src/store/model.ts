@@ -34,6 +34,7 @@ import { emptyResources, foldResources, type ResourcesModel } from "../resources
 
 import { pickCelestial } from "./celestial.ts";
 import { foldConstellation, graphEvent, type ConstellationRecord } from "./constellation.ts";
+import { purgeWorkspace } from "./removal.ts";
 import { replyPreview } from "./replyPreview.ts";
 import { replyText, userTurnAfter } from "./userTurns.ts";
 
@@ -402,6 +403,7 @@ export const patchTurn = (turn: Turn, patch: TurnPatch): Turn =>
     status: turn.status,
     feedback: turn.feedback,
     shellCommand: turn.shellCommand,
+    idleCompaction: turn.idleCompaction,
     checkpointBefore: turn.checkpointBefore,
     checkpointAfter: turn.checkpointAfter,
     startedAt: turn.startedAt,
@@ -488,18 +490,8 @@ const setWorkspace =
 
 const removeWorkspace =
   (event: { readonly workspaceId: WorkspaceId }): Reducer =>
-  ({ model }) => {
-    const worktrees = new Map(model.worktrees);
-
-    for (const [id, wt] of worktrees)
-      if (wt.workspaceId === event.workspaceId) worktrees.delete(id);
-
-    return {
-      ...model,
-      workspaces: withMap(model.workspaces, event.workspaceId, undefined),
-      worktrees,
-    };
-  };
+  ({ model }) =>
+    purgeWorkspace(model, event.workspaceId);
 
 const createSession =
   (event: { readonly session: AgentSession }): Reducer =>
@@ -550,7 +542,7 @@ const recordTurn =
           ? userTurnAfter(r.session.currentUserTurn, {
               id: turn.id,
               startedAt: turn.startedAt,
-              harnessStarted: turn.trigger !== null,
+              harnessStarted: turn.trigger !== null || turn.idleCompaction === true,
             })
           : null;
 
@@ -559,12 +551,15 @@ const recordTurn =
         replyPreview: known?.replyPreview ?? turn.replyPreview,
       });
 
+      // Idle compaction's Turn leaves the reply the user last read.
+      const quiet = started || kept.idleCompaction === true;
+
       return {
         session: {
           // Turn indexes are dense from 0, so the count is one past the highest seen.
           turnCount: Math.max(r.session.turnCount, turn.index + 1),
           currentUserTurn: opened ?? r.session.currentUserTurn,
-          lastReplyPreview: started ? r.session.lastReplyPreview : kept.replyPreview,
+          lastReplyPreview: quiet ? r.session.lastReplyPreview : kept.replyPreview,
         },
         turns: upsertTurn(r.turns, kept),
       };

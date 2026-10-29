@@ -268,6 +268,32 @@ describe("AttachmentStore", () => {
     expect(existsSync(staging) ? readdirSync(staging) : []).toEqual([]);
   });
 
+  test("a removed Workspace loses its staged files and its override; others keep theirs", async () => {
+    const { run } = setup();
+    await run(stage(s1, ws, "a.txt", "12345"));
+    await run(stage(null, other, "b.txt", "123"));
+
+    const after = await run(
+      Effect.gen(function* () {
+        const maintenance = yield* AttachmentMaintenance;
+        const settings = yield* maintenance.settings;
+        yield* maintenance.setSettings({
+          ...settings,
+          workspaces: { [ws]: { kind: "never" }, [other]: { kind: "never" } },
+        });
+        yield* (yield* AttachmentStore).onWorkspaceRemoved(other);
+
+        return {
+          usage: yield* maintenance.usageByWorkspace,
+          overrides: Object.keys((yield* maintenance.settings).workspaces),
+        };
+      })
+    );
+
+    expect(Object.keys(after.usage)).toEqual([ws]);
+    expect(after.overrides).toEqual([ws]);
+  });
+
   test("attachments.stage takes the Client's blob and stages it", async () => {
     const { options } = setup();
     const blobs = makeFakeBlobChannel();
