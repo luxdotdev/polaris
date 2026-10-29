@@ -48,7 +48,7 @@ const Run = ({
         accessibilityLabel={row.summary}
       >
         <Text style={styles.check}>✓</Text>
-        <Text style={styles.runSummary} numberOfLines={1}>
+        <Text style={styles.runSummary} numberOfLines={2} maxFontSizeMultiplier={CHROME_SCALE}>
           {row.summary}
         </Text>
         <Text style={[styles.chevron, row.open ? styles.chevronOpen : null]}>›</Text>
@@ -97,6 +97,15 @@ const StepMark = ({
   );
 };
 
+/** Tool rows and receipts grow with Dynamic Type to twice their size; turn text has no cap. */
+export const CHROME_SCALE = 2;
+
+const TONE_WORDS = { done: "done", active: "running", failed: "failed" } as const;
+
+/** "bun test, exit 137": what VoiceOver reads for a step, instead of its ✓ or ✕ glyph. */
+const stepLabel = (row: Extract<ThreadRow, { kind: "step" }>) =>
+  `${row.label}, ${row.detail === "" ? TONE_WORDS[row.tone] : row.detail}`;
+
 const Step = ({
   row,
   critical,
@@ -125,6 +134,7 @@ const Step = ({
             paths: row.paths,
           })
         }
+        accessibilityLabel={stepLabel(row)}
         accessibilityRole={onFocus === undefined ? undefined : "button"}
         accessibilityState={onFocus === undefined ? undefined : { selected: focused }}
         style={[styles.step, focused ? styles.stepFocused : null]}
@@ -133,12 +143,17 @@ const Step = ({
         <Text
           style={[styles.stepLabel, row.tone === "active" ? styles.stepActive : null]}
           numberOfLines={1}
+          ellipsizeMode="middle"
+          maxFontSizeMultiplier={CHROME_SCALE}
         >
           {row.label}
         </Text>
         {critical ? <Diamond /> : null}
         {row.detail === "" ? null : (
-          <Text style={row.tone === "failed" ? styles.stepFailed : styles.stepDetail}>
+          <Text
+            style={row.tone === "failed" ? styles.stepFailed : styles.stepDetail}
+            maxFontSizeMultiplier={CHROME_SCALE}
+          >
             {row.detail}
           </Text>
         )}
@@ -254,7 +269,7 @@ const Reply = ({
       <View style={[styles.reply, row.receipt === null ? null : styles.turnEnd]}>
         <Markdown text={row.text} />
         {row.receipt === null ? null : (
-          <Text style={styles.receipt} onLayout={measure}>
+          <Text style={styles.receipt} onLayout={measure} maxFontSizeMultiplier={CHROME_SCALE}>
             {row.receipt}
           </Text>
         )}
@@ -304,7 +319,12 @@ const RowView = ({
     case "receipt":
       return (
         <TurnMenu turn={row.turn} session={session} onMenuAction={onMenuAction} receiptHeight={0}>
-          <Text style={[styles.receipt, styles.reply, styles.turnEnd]}>{row.text}</Text>
+          <Text
+            style={[styles.receipt, styles.reply, styles.turnEnd]}
+            maxFontSizeMultiplier={CHROME_SCALE}
+          >
+            {row.text}
+          </Text>
         </TurnMenu>
       );
     case "error":

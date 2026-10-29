@@ -52,6 +52,8 @@ final class PolarisContextMenuView: ExpoView, UIContextMenuInteractionDelegate {
   var title = ""
   var previewInsetBottom: CGFloat = 0
   private var sections: [[ContextMenuItem]] = []
+  /// Where the long press landed, so a tall row lifts only the part around it.
+  private var pressedAt: CGPoint = .zero
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -71,6 +73,7 @@ final class PolarisContextMenuView: ExpoView, UIContextMenuInteractionDelegate {
   ) -> UIContextMenuConfiguration? {
     // No items: no menu, and the long press stays the row's own.
     guard !sections.isEmpty else { return nil }
+    pressedAt = location
 
     return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
       self?.menu()
@@ -94,12 +97,19 @@ final class PolarisContextMenuView: ExpoView, UIContextMenuInteractionDelegate {
   }
 
   /// The row itself, lifted on the screen's ground with rounded corners, less its inset foot.
+  /// A row taller than 40% of the window lifts only that much, around the press, never shrunk.
   private func preview() -> UITargetedPreview? {
-    guard window != nil else { return nil }
+    guard let window else { return nil }
     let parameters = UIPreviewParameters()
     parameters.backgroundColor = previewColor ?? .black
     var shown = bounds
     shown.size.height = max(0, bounds.height - min(previewInsetBottom, bounds.height))
+    let tallest = window.bounds.height * 0.4
+
+    if shown.height > tallest {
+      let top = min(max(0, pressedAt.y - tallest / 2), shown.height - tallest)
+      shown = CGRect(x: shown.minX, y: top, width: shown.width, height: tallest)
+    }
     parameters.visiblePath = UIBezierPath(roundedRect: shown, cornerRadius: previewRadius)
 
     return UITargetedPreview(view: self, parameters: parameters)
