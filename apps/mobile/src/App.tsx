@@ -21,6 +21,7 @@ import { TabBar } from "./app/TabBar.tsx";
 import { DuoShell } from "./duo/DuoShell.tsx";
 import { FollowedHostsProvider } from "./home/feed/useFollowedHosts.ts";
 import { HomeScreen } from "./home/HomeScreen.tsx";
+import { InboxProvider } from "./inbox/index.ts";
 import { HostsScreen } from "./hosts/HostsScreen.tsx";
 import { LinkScreen } from "./link/LinkScreen.tsx";
 import { usePush, usePushLinks } from "./push/usePush.ts";
@@ -183,7 +184,9 @@ export const App = () => {
             <CheckAlive />
             <Push />
             <NavigationProvider>
-              <Shell />
+              <InboxProvider>
+                <Shell />
+              </InboxProvider>
             </NavigationProvider>
           </FollowedHostsProvider>
         </RelayProvider>
