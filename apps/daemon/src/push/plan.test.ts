@@ -58,7 +58,7 @@ describe("push plan", () => {
       requestId: "r1",
       category: "approval",
       title: "Claude Code needs you",
-      subtitle: "Fix the flaky test · studio",
+      subtitle: "studio · Fix the flaky test",
       body: "Run bun test\nbun test apps/daemon",
       sentAt: 10,
     });
@@ -86,8 +86,14 @@ describe("push plan", () => {
   test("a finished Turn pushes once its session stays settled for SETTLE_MS", () => {
     const sent = run([...start, [100, turnEnded("t1", "All green")]], 100_000);
 
-    expect(sent.map((m) => [m.kind, m.title, m.body, m.sentAt])).toEqual([
-      ["turn-ended", "Claude Code finished a turn", "All green", 100 + SETTLE_MS],
+    expect(sent.map((m) => [m.kind, m.title, m.subtitle, m.body, m.sentAt])).toEqual([
+      [
+        "turn-ended",
+        "Claude Code finished a turn",
+        "studio · Fix the flaky test",
+        "All green",
+        100 + SETTLE_MS,
+      ],
     ]);
   });
 
@@ -119,7 +125,7 @@ describe("push plan", () => {
     expect(sent.map((m) => m.sentAt)).toEqual([20_000 + SETTLE_MS]);
   });
 
-  test("an agent's notify pushes at once as a notify, its session's title as the subtitle", () => {
+  test("an agent's notify pushes at once as a notify, its host and session's title as the subtitle", () => {
     const [push, ...rest] = run([...start, [10, notified("n1", false)]], 10_000);
 
     expect(rest).toEqual([]);
@@ -129,7 +135,7 @@ describe("push plan", () => {
       requestId: null,
       category: null,
       title: "Done",
-      subtitle: "Fix the flaky test · studio",
+      subtitle: "studio · Fix the flaky test",
       body: "All green",
     });
     expect(push?.constellationId).toBeNull();

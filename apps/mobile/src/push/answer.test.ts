@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { ApprovalDecision, Command, RequestId, SessionId } from "@polaris/protocol";
-import { answerOf, DEFAULT_ACTION, PushAction, routeOf } from "./answer.ts";
+import { answerOf, DEFAULT_ACTION, PUSH_CATEGORIES, PushAction, routeOf } from "./answer.ts";
 
 const approval = {
   polaris: { kind: "needs-you", hostId: "h1", sessionId: "s1", requestId: "r1" },
@@ -8,6 +8,25 @@ const approval = {
 
 const respond = (actionIdentifier: string, userInfo: ReadonlyArray<unknown> = [approval]) =>
   answerOf({ actionIdentifier, userInfo });
+
+describe("the approval category", () => {
+  test("offers Approve, Always here and Deny, Deny destructive, each behind authentication", () => {
+    const approvalCategory = PUSH_CATEGORIES.find((category) => category.identifier === "approval");
+
+    expect(
+      approvalCategory?.actions.map((a) => [
+        a.buttonTitle,
+        a.options.isDestructive,
+        a.options.isAuthenticationRequired,
+        a.options.opensAppToForeground,
+      ])
+    ).toEqual([
+      ["Approve", false, true, false],
+      ["Always here", false, true, false],
+      ["Deny", true, true, false],
+    ]);
+  });
+});
 
 describe("answers from a notification", () => {
   test.each([
