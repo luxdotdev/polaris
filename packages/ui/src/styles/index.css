@@ -3,6 +3,7 @@
 @import "tw-animate-css";
 @import "./tokens.css";
 @import "./theme.css";
+@import "./chrome-tokens.pending.css";
 @import "./dither.css";
 @import "./assets.css";
 
