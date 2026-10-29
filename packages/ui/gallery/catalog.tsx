@@ -1,3 +1,6 @@
+import type { ReactNode } from "react";
+
+import { CelestialSection } from "./sections/celestial";
 import { CopySection } from "./sections/copy";
 import { CoverageSection } from "./sections/coverage";
 import { ControlsSection, TypeSection, ColourSection } from "./sections/basics";
@@ -15,6 +18,12 @@ export interface CatalogProps {
   readonly only?: string | null;
 }
 
+/** ?only=… renders one section alone, for screenshots. */
+const SOLO = new Map<string, ReactNode>([
+  ["coverage", <CoverageSection key="coverage" />],
+  ["celestial", <CelestialSection key="celestial" />],
+]);
+
 interface ColumnProps extends CatalogProps {
   readonly theme: "dark" | "midnight" | "light";
 }
@@ -31,9 +40,7 @@ function Column({ theme, density, textSize, palette, only }: ColumnProps) {
       <p className="text-caption text-text-subtle">
         {theme} · {density} · text {textSize} · {palette} diffs
       </p>
-      {only === "coverage" ? (
-        <CoverageSection />
-      ) : (
+      {(only == null ? undefined : SOLO.get(only)) ?? (
         <>
           <TypeSection />
           {theme === "midnight" ? <MobileTypeSection /> : null}
@@ -41,6 +48,7 @@ function Column({ theme, density, textSize, palette, only }: ColumnProps) {
           <ControlsSection />
           <CopySection />
           <IdentitySection />
+          <CelestialSection />
           <SignalSection />
           <ListSection />
           <ComposerSection />

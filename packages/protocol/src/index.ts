@@ -40,6 +40,8 @@ export * from "./frame.ts";
 
 export * from "./harnesses.ts";
 
+export * from "./celestial.ts";
+
 export * from "./ids.ts";
 
 export * from "./inline.ts";

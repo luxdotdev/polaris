@@ -351,6 +351,8 @@ export const LeadGroup = ({ hostKey, group, now }: GroupProps) => {
                   state={shownState(lead)}
                   harness={lead.session.harness}
                   density={density}
+                  celestial={lead.session.celestial}
+                  lead
                 />
               }
               title={

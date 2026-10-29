@@ -77,6 +77,8 @@ export * from "./components/polaris/approval-card";
 
 export * from "./components/polaris/badge";
 
+export * from "./components/polaris/celestial";
+
 export * from "./components/polaris/chip";
 
 export * from "./components/polaris/code-well";

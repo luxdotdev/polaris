@@ -5,7 +5,7 @@
  * Harness's Models (its newest four, the rest under "More models"), the effort bar, a refresh,
  * and its Plan Limits. Picks are staged while the menu is open and sent once when it closes.
  */
-import type { HarnessKind } from "@polaris/protocol";
+import type { CelestialBody, HarnessKind } from "@polaris/protocol";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -63,6 +63,8 @@ export interface HarnessChipProps {
   readonly serviceTier?: "default" | "priority" | null;
   readonly fastAvailable?: boolean | undefined;
   readonly working?: boolean;
+  /** The session's Celestial; unset on a new session, which shows the Harness tile. */
+  readonly celestial?: CelestialBody | undefined;
   readonly disabled?: boolean;
   /** Picking a Model: `SetModel`, a Fork on it, or the new session's choice. */
   readonly onModel: (choice: ModelChoice) => void;
@@ -381,6 +383,7 @@ export const HarnessChip = (props: HarnessChipProps) => {
               harness === "codex" && props.serviceTier === "priority" ? <FastIcon /> : undefined
             }
             working={working}
+            celestial={props.celestial}
             data-testid="model-picker"
           />
         </DropdownMenuTrigger>

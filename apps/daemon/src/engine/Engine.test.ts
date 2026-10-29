@@ -3,6 +3,7 @@ import { HarnessEvent } from "../harness/HarnessDriver.ts";
 import { join } from "node:path";
 import {
   ApprovalDecision,
+  CELESTIAL_PLANETS,
   Command,
   type HarnessKind,
   type HostStreamItem,
@@ -727,6 +728,9 @@ describe("fork and archive", () => {
           state: "dormant",
           harnessCursor: null,
         });
+        // A Fork gets its own Celestial, not its parent's.
+        expect(fork.celestial).not.toBe(after.sessions.get(parent)!.session.celestial);
+        expect(CELESTIAL_PLANETS.some((planet) => planet === fork.celestial)).toBe(true);
 
         const [snapshot] = yield* engine
           .subscribeHost(null)

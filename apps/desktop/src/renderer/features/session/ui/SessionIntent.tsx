@@ -9,7 +9,7 @@ import {
   isKnownHarness,
   type SessionId,
 } from "@polaris/protocol";
-import type { Harness } from "@polaris/ui";
+import { type Harness, sessionCelestial } from "@polaris/ui";
 import { useEffect, useState } from "react";
 import { Commands } from "../../../commands.ts";
 import { emptyHostModel } from "../../../store/hostModel.ts";
@@ -30,6 +30,7 @@ import {
   resumeAtResetCommand,
   retryCommand,
 } from "../model/intent.ts";
+import { useLeadConstellation } from "../../constellation/hooks.ts";
 import { useOutbox } from "../outbox.ts";
 import { useSessionContinuity } from "../continuity.ts";
 import { useForkRequest } from "../forkRequest.ts";
@@ -135,6 +136,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
   };
 
   useForkRequest(key, () => canFork && startFork());
+  const lead = useLeadConstellation(hostKey, sessionId) !== null;
 
   if (session === null) return <Placeholder>Loading the session…</Placeholder>;
   const harness: Harness | null = forkHarness;
@@ -156,6 +158,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
 
   const ctx: Omit<RowContext, "onLoadOlder"> = {
     harness,
+    celestial: sessionCelestial(session.celestial, lead),
     state: session.state,
     liveTurnId: lastTurn?.status === "working" && session.state === "working" ? lastTurn.id : null,
     where,

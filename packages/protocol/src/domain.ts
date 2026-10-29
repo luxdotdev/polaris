@@ -2,6 +2,7 @@
  * Domain model shared by the Daemon and every Client. Names follow CONTEXT.md.
  */
 import { Effect, Schema } from "effect";
+import { CelestialBody } from "./celestial.ts";
 import { HarnessKind } from "./harnesses.ts";
 import {
   AttachmentId,
@@ -288,6 +289,8 @@ export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
   /** The reasoning effort the next Turn runs with; null for the Model's default. */
   effort: addedNullable(ReasoningEffort),
   serviceTier: optionalNullable(ServiceTier),
+  /** Its Celestial: a planet the Daemon picks at creation, fixed for the session's life. */
+  celestial: optionalNullable(CelestialBody),
   /** Set when this session is a Fork. */
   parentSessionId: Schema.NullOr(SessionId),
   forkedFromTurnId: Schema.NullOr(TurnId),

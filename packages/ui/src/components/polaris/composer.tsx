@@ -1,3 +1,4 @@
+import type { CelestialBody } from "@polaris/protocol";
 import type { HTMLAttributes, ReactNode } from "react";
 
 import { ArrowUpIcon, ChevronDownIcon, PlusIcon } from "../../icons/chrome";
@@ -6,6 +7,7 @@ import type { CssVars } from "../../lib/css";
 import { harnessHue, harnessTextVar, hueVar, type Harness } from "../../lib/hue";
 import { Button } from "../ui/button";
 import { Textarea, type TextareaProps } from "../ui/textarea";
+import { Celestial } from "./celestial";
 import { Dither } from "./dither";
 import { DitherField } from "./dither/field";
 import { LiveDither } from "./dither/live";
@@ -19,6 +21,8 @@ export interface HarnessPickerProps extends HTMLAttributes<HTMLButtonElement> {
   readonly suffix?: ReactNode;
   /** While that Harness is Working the chip takes its hue on the text and a 30% border. */
   readonly working?: boolean;
+  /** A session's chip shows its Celestial, still; a new session's shows the Harness tile. */
+  readonly celestial?: CelestialBody | undefined;
 }
 
 /** DESIGN.md, Harness picker: a small tile, the handle, the model and a chevron; no dither. */
@@ -27,6 +31,7 @@ export function HarnessPicker({
   model,
   suffix,
   working = false,
+  celestial,
   className,
   style,
   ...props
@@ -52,7 +57,11 @@ export function HarnessPicker({
       style={vars}
       {...props}
     >
-      <Tile hue={harness} size={20} className="size-[18px] rounded-[5px]" />
+      {celestial === undefined ? (
+        <Tile hue={harness} size={20} className="size-[18px] rounded-[5px]" />
+      ) : (
+        <Celestial body={celestial} harness={harness} size={16} />
+      )}
       <span
         className={cn(
           "text-caption font-medium",

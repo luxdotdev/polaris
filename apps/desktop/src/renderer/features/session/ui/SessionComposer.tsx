@@ -6,11 +6,12 @@
 import { fastToggle } from "../../harness/model/fast.ts";
 import type { Command, SessionId } from "@polaris/protocol";
 import { useMemo, useState } from "react";
-import { type Harness, harnessHue } from "@polaris/ui";
+import { type Harness, harnessHue, sessionCelestial } from "@polaris/ui";
 import { Commands, newSessionId } from "../../../commands.ts";
 import type { SessionData } from "../../../store/plain.ts";
 import type { SessionModel } from "../../../store/sessionModel.ts";
 import { useUploads } from "../../attachments/index.ts";
+import { useLeadConstellation } from "../../constellation/hooks.ts";
 import { send } from "../dispatch.ts";
 import {
   HarnessChip,
@@ -166,6 +167,7 @@ export const SessionComposer = (props: SessionComposerProps) => {
   const { hostKey, uiKey, harness, session, model, branch } = props;
   const host = useHost(hostKey);
   const ui = useSessionUi(uiKey);
+  const lead = useLeadConstellation(hostKey, session.id) !== null;
   const lastTurn = model.turns.at(-1)?.turn ?? null;
   const isWorking = lastTurn?.status === "working";
   const elapsed = useElapsed(lastTurn?.startedAt ?? null, isWorking);
@@ -298,6 +300,7 @@ export const SessionComposer = (props: SessionComposerProps) => {
             serviceTier={session.serviceTier}
             fastAvailable={fastAvailable}
             working={isWorking && session.state === "working"}
+            celestial={sessionCelestial(session.celestial, lead)}
             modelNote={change.note}
             modelBlocked={change.blocked}
             onModel={change.onModel}
