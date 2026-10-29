@@ -115,7 +115,12 @@ const SpanView = ({ source, leadHarness, first, second, onBack, verdictsFor }: S
   const taskRows = rows.map((r) => r.row);
   const summary = spanSummary(taskRows);
   const chosen = picked ?? firstChosen(taskRows);
-  const pane = chosen === null ? null : claimPane(constellation, taskRows, chart, chosen, now);
+
+  const pane =
+    chosen === null
+      ? null
+      : claimPane(constellation, source.projections, taskRows, chart, chosen, now);
+
   const row = taskRows.find((r) => r.id === chosen) ?? null;
 
   return (

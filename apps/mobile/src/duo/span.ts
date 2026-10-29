@@ -2,7 +2,7 @@
  * The unfolded Duo's constellation span (Paper MX-AG): the star chart across the first half and
  * the chosen task's claim in the second. Pure; `ConstellationSpan` draws it.
  */
-import type { CheckReceipt, Constellation, TaskProjection } from "@polaris/protocol";
+import type { Attempt, CheckReceipt, Constellation, TaskProjection } from "@polaris/protocol";
 import { Match } from "effect";
 import { shortSha, elapsed } from "../constellation/copy.ts";
 import { type Check, type Tone, taskRow, type TaskRow } from "../constellation/model.ts";
@@ -189,13 +189,27 @@ const checkOf = (receipt: CheckReceipt): Check =>
     Match.exhaustive
   );
 
-const metaOf = (c: Constellation, row: TaskRow, now: number): string => {
-  const attempts = c.attempts.filter((a) => a.taskId === row.id);
-  const latest = attempts.at(-1);
-  const since = latest?.claimedAt ?? latest?.startedAt ?? null;
+/** The attempt the pane shows: the handed claim's, which a verdict answers, else the latest. */
+const shownAttempt = (
+  c: Constellation,
+  projections: ReadonlyArray<TaskProjection>,
+  row: TaskRow
+): Attempt | null => {
+  const id =
+    row.handed?.attemptId ?? projections.find((p) => p.taskId === row.id)?.latestAttemptId ?? null;
+
+  return id === null ? null : (c.attempts.find((a) => a.id === id) ?? null);
+};
+
+const metaOf = (c: Constellation, row: TaskRow, attempt: Attempt | null, now: number): string => {
+  const earlier = c.attempts.filter(
+    (a) => a.taskId === row.id && attempt !== null && a.startedAt <= attempt.startedAt
+  );
+
+  const since = attempt?.claimedAt ?? attempt?.startedAt ?? null;
 
   return [
-    attempts.length === 0 ? "no attempt yet" : `attempt ${attempts.length}`,
+    attempt === null ? "no attempt yet" : `attempt ${Math.max(1, earlier.length)}`,
     row.harness === null ? null : harnessName(row.harness),
     since === null ? null : elapsed(Date.parse(since), now),
   ]
@@ -205,6 +219,7 @@ const metaOf = (c: Constellation, row: TaskRow, now: number): string => {
 
 export const claimPane = (
   c: Constellation,
+  projections: ReadonlyArray<TaskProjection>,
   rows: ReadonlyArray<TaskRow>,
   chart: SpanChart,
   chosen: string,
@@ -214,7 +229,8 @@ export const claimPane = (
   const star = chart.tasks.find((t) => t.id === chosen);
 
   if (row === undefined || star === undefined) return null;
-  const claim = c.attempts.filter((a) => a.taskId === row.id).at(-1)?.claim ?? null;
+  const attempt = shownAttempt(c, projections, row);
+  const claim = attempt?.claim ?? null;
   const codeOf = new Map(chart.tasks.map((t) => [t.id, taskCode(t, chart.bands)]));
   const commits = claim?.commits.length ?? 0;
 
@@ -222,7 +238,7 @@ export const claimPane = (
     kicker: `Task ${taskCode(star, chart.bands)} · wave ${star.wave}`,
     pill: pillOf(row),
     title: row.title,
-    meta: metaOf(c, row, now),
+    meta: metaOf(c, row, attempt, now),
     claim:
       claim === null
         ? null

@@ -46,7 +46,7 @@ describe("the claim pane", () => {
   });
 
   test("shows the claim with its attempt, checks and head, and the other claim waiting", () => {
-    const pane = claimPane(source.constellation, taskRows, chart, "B3", NOW);
+    const pane = claimPane(source.constellation, source.projections, taskRows, chart, "B3", NOW);
 
     expect(pane).toEqual({
       kicker: "Task B3 · wave 3",
@@ -66,14 +66,32 @@ describe("the claim pane", () => {
     });
   });
 
+  test("shows the handed claim a verdict answers, not a later-listed attempt's", () => {
+    const lostLast = paperSpan(NOW, true);
+
+    const pane = claimPane(
+      lostLast.constellation,
+      lostLast.projections,
+      taskRows,
+      chart,
+      "B3",
+      NOW
+    );
+
+    expect(pane?.claim?.summary).toBe(B3_SUMMARY);
+    expect(pane?.meta).toBe("attempt 2 · Codex · 18m");
+  });
+
   test("a working task has no claim yet and reads as working", () => {
-    const pane = claimPane(source.constellation, taskRows, chart, "A3", NOW);
+    const pane = claimPane(source.constellation, source.projections, taskRows, chart, "A3", NOW);
 
     expect(pane?.claim).toBeNull();
     expect(pane?.pill).toEqual({ text: "Working", tone: "quiet" });
   });
 
   test("a task the chart doesn't show opens nothing", () => {
-    expect(claimPane(source.constellation, taskRows, chart, "Z9", NOW)).toBeNull();
+    expect(
+      claimPane(source.constellation, source.projections, taskRows, chart, "Z9", NOW)
+    ).toBeNull();
   });
 });

@@ -131,12 +131,16 @@ const handed = (id: string, now: number, summary: string, revision: number) =>
     claim: claim(summary),
   });
 
-export const paperSpan = (now: number): ConstellationSource => {
+/** `lostLast` lists B3's lost first attempt after its handed one, as a Host may order them. */
+export const paperSpan = (now: number, lostLast = false): ConstellationSource => {
+  const lost = attempt("B3", now, { revision: 0, state: "lost" });
+
   const attempts = [
-    attempt("B3", now, { revision: 0, state: "lost" }),
+    ...(lostLast ? [] : [lost]),
     handed("B3", now, B3_SUMMARY, 2),
     handed("C3", now, "The findings pager moves between findings, tinted by severity.", 1),
     ...["A3", "D3"].map((id) => attempt(id, now, {})),
+    ...(lostLast ? [lost] : []),
   ];
 
   const latest = new Map(attempts.map((a) => [String(a.taskId), a.id]));
