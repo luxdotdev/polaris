@@ -16,6 +16,8 @@ import {
   type TaskConflict,
   taskConflictOf,
   upgradeDue,
+  SshError,
+  type SshResult,
 } from "@polaris/client/install";
 import { type ChildProcessApi, childProcesses } from "@polaris/client/process";
 import { Effect, Match, Option, Predicate, Schema } from "effect";
@@ -180,4 +182,17 @@ export const startWindowsLocal = (
   }).pipe(
     Effect.flatMap((ran) => reportOf(ran, "start")),
     Effect.asVoid
+  );
+
+/** Runs this PC's installed `polaris.exe` with `args`, for Restart daemon's runner. */
+export const runInstalled = (
+  home: string,
+  args: ReadonlyArray<string>,
+  processes: ChildProcessApi = childProcesses
+): Effect.Effect<SshResult, SshError> =>
+  run(processes, { file: installedPaths(home, "win32").binary, args, step: "restart", home }).pipe(
+    Effect.map((ran) => ({ code: ran.code ?? 1, stdout: ran.stdout, stderr: ran.stderr })),
+    Effect.mapError(
+      (error) => new SshError({ alias: "local", failure: "spawn", message: error.message })
+    )
   );

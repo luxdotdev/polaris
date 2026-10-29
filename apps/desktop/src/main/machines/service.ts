@@ -48,6 +48,8 @@ import {
 } from "./installFlow.ts";
 import { channelActivity, unmanagedLocal, unsupportedMessage } from "./channels.ts";
 import { applyWork, failureMessage, planFor, startDaemon } from "./remote.ts";
+import { previewOver, restartOver } from "./restart.ts";
+import type { RestartDaemonResult, RestartPreviewView } from "../../shared/restart.ts";
 import { backgroundCheckKey, type InstallRecord, localUpgradeKey, machineViews } from "./views.ts";
 import { type UpdateFacts, updatePolicy } from "./updateFacts.ts";
 import { wslDistrosView } from "./wsl.ts";
@@ -147,6 +149,9 @@ export class Machines extends Context.Service<
     /** The user confirmed: rerun the install a held sign-in task stopped, with `--replace-task`. */
     readonly takeOverTask: (key: string) => Effect.Effect<void, MachineError>;
     readonly startDaemon: (key: string) => Effect.Effect<void, MachineError>;
+    /** Restart daemon: the Host's service manager restarts it (ADR 0086). */
+    readonly restartDaemon: (key: string) => Effect.Effect<RestartDaemonResult, MachineError>;
+    readonly restartPreview: (key: string) => Effect.Effect<RestartPreviewView, MachineError>;
     readonly setLocalEnabled: (enabled: boolean) => Effect.Effect<void, MachineError>;
     readonly openSsh: (key: string) => Effect.Effect<void, MachineError>;
   }
@@ -699,6 +704,17 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
       yield* localListening(to.home).pipe(Effect.ensuring(retryConnection(key)));
     });
 
+  const restartTarget = (key: string) =>
+    Effect.gen(function* () {
+      const channel = yield* channelFor(key);
+      const connection = yield* dir.connection(key).pipe(Effect.mapError(asMachineError));
+      const name = dir.entry(key)?.label ?? key;
+      const windowsShell = (remoteSetting(key)?.windowsShell ?? null) !== null;
+      const platform = input.platform ?? process.platform;
+
+      return { name, channel, connection, windowsShell, platform, processes: input.processes };
+    });
+
   const setLocalEnabled = (enabled: boolean) =>
     Effect.gen(function* () {
       if (!local.supported) return yield* fail(copy.localHostUnsupported);
@@ -782,6 +798,8 @@ const makeMachines = Effect.fnUntraced(function* (input: MachinesInput) {
     dismiss: (key) => Effect.asVoid(step(key, { type: "dismiss" })),
     takeOverTask,
     startDaemon: restart,
+    restartDaemon: (key) => Effect.flatMap(restartTarget(key), restartOver),
+    restartPreview: (key) => Effect.flatMap(restartTarget(key), previewOver),
     setLocalEnabled,
     wslDistros:
       input.discoverWsl === undefined

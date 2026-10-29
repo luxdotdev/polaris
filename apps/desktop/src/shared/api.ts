@@ -76,6 +76,7 @@ import type { PullRef } from "./github.ts";
 import type { ConstellationDefaultsMethod, ConstellationMethod } from "./constellationContract.ts";
 import type { ResourceMethod } from "./resourcesContract.ts";
 import type { RemoteAccessMethod } from "./remoteAccessContract.ts";
+import type { RestartDaemonResult, RestartPreviewView } from "./restart.ts";
 import type { VoiceRequestOutputs } from "./voiceContract.ts";
 import type { LinkedDevicesRequestOutputs } from "./linkedDevicesContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
@@ -526,6 +527,8 @@ export interface RequestOutputs
   "machines.dismiss": null;
   "machines.takeOverTask": null;
   "machines.startDaemon": null;
+  "machines.restartPreview": RestartPreviewView;
+  "machines.restartDaemon": RestartDaemonResult;
   "machines.setLocalEnabled": null;
   "machines.openSsh": null;
   "clipboard.write": null;

@@ -463,6 +463,10 @@ export const RequestInputs = {
   "machines.takeOverTask": onHost({}),
   /** Restart the installed Daemon's service (`polaris install` with the current build). */
   "machines.startDaemon": onHost({}),
+  /** Restart daemon's confirm: whether it may run now and what it would interrupt. */
+  "machines.restartPreview": onHost({}),
+  /** Restart daemon: through the Host's service manager; answers once it's back or failed. */
+  "machines.restartDaemon": onHost({}),
   /** Switch the local Host on or off on this machine. */
   "machines.setLocalEnabled": Schema.Struct({ enabled: Schema.Boolean }),
   /**
