@@ -1,12 +1,14 @@
 /**
  * A development-only instrument sheet with a long scrolling body and a text field, opened by
- * `polaris://dev/sheet` (`xcrun simctl openurl booted polaris://dev/sheet`).
+ * `polaris://dev/sheet`, or on launch by `-polarisDevSheet medium|large` (with `-polarisDevTheme
+ * moonlit` and `-polarisDevMotion reduced`), which skips iOS's open-link prompt for screenshots.
  */
 import { mobileFont, mobileType } from "@polaris/ui/tokens";
+import { Schema } from "effect";
 import { useEffect, useState } from "react";
-import { Linking, StyleSheet, Text, TextInput, View } from "react-native";
+import { Linking, Platform, Settings, StyleSheet, Text, TextInput, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
-import { useTheme } from "../theme";
+import { MotionPreference, ThemeName, useMotionPreference, useTheme } from "../theme";
 import { InstrumentSheet } from "./host.tsx";
 import { HeroWell, SheetHeader, SheetKicker, StatusFooter, StatusItem, Well } from "./parts.tsx";
 
@@ -68,10 +70,42 @@ const DemoBody = () => {
   );
 };
 
+const LaunchDetent = Schema.Literals(["medium", "large"]);
+
+const LAUNCH_INDEX: Record<typeof LaunchDetent.Type, number> = { medium: 0, large: 1 };
+
+/** A launch argument parsed by `is`, or null when it is absent or not one of its values. */
+const launchArgument = <A,>(key: string, is: (value: unknown) => value is A): A | null => {
+  const value: unknown = Platform.OS === "ios" ? Settings.get(key) : undefined;
+
+  return is(value) ? value : null;
+};
+
+/** The launch arguments' detent, theme and motion, applied once. */
+const useLaunchArguments = (): number | null => {
+  const { setTheme } = useTheme();
+  const { setMotion } = useMotionPreference();
+
+  const [detent] = useState(() => launchArgument("polarisDevSheet", Schema.is(LaunchDetent)));
+
+  useEffect(() => {
+    const theme = launchArgument("polarisDevTheme", Schema.is(ThemeName));
+    const motion = launchArgument("polarisDevMotion", Schema.is(MotionPreference));
+
+    if (theme !== null) setTheme(theme);
+
+    if (motion !== null) setMotion(motion);
+    // Launch arguments are read once.
+  }, []);
+
+  return detent === null ? null : LAUNCH_INDEX[detent];
+};
+
 /** Mounted once in development; opens the demo sheet when its link arrives. */
 export const SheetDemo = () => {
   const { colours } = useTheme();
-  const [open, setOpen] = useState(false);
+  const launchIndex = useLaunchArguments();
+  const [open, setOpen] = useState(launchIndex !== null);
 
   useEffect(() => {
     const follow = (url: string | null | undefined) => {
@@ -85,7 +119,7 @@ export const SheetDemo = () => {
   }, []);
 
   return (
-    <InstrumentSheet open={open} onClose={() => setOpen(false)}>
+    <InstrumentSheet open={open} onClose={() => setOpen(false)} initialIndex={launchIndex ?? 0}>
       <SheetHeader
         title="Instrument sheet"
         kicker={ROWS.length}

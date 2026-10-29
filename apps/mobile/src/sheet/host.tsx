@@ -19,8 +19,10 @@ import { SheetFrame } from "./frame.tsx";
 export interface InstrumentSheetProps {
   readonly open: boolean;
   readonly onClose: () => void;
-  /** Resting heights, lowest first once resolved; it opens at the lowest. Default medium, large. */
+  /** Resting heights, lowest first once resolved. Default medium, large. */
   readonly detents?: readonly Detent[];
+  /** The detent it opens at, as an index into the resolved heights. Default 0, the lowest. */
+  readonly initialIndex?: number;
   /** False keeps a drag from dismissing it; close and the scrim still do. Default true. */
   readonly dismissible?: boolean;
   /** Called with the detent's index each time the sheet comes to rest. */
