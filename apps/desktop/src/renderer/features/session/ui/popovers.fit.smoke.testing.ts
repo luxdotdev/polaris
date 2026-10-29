@@ -1,6 +1,6 @@
 /**
- * The model picker and the Session context card fit a 1280×720 window (ENG-517,
- * rule/popover-fits-window): each card stays 12px clear of the window's edges in every theme.
+ * Paper X-F's menus and popovers fit a 1280×720 window (ENG-517, rule/popover-fits-window):
+ * each stays 12px clear of the window's edges in Moonlit, Midnight and light.
  *
  *   node src/renderer/features/session/ui/popovers.fit.smoke.testing.ts [--out <dir>]
  */
@@ -38,14 +38,46 @@ interface Box {
   readonly right: number;
 }
 
-const CARDS = [
-  { name: "context", trigger: "session-context", card: "context-card" },
-  { name: "picker", trigger: "model-picker", card: "model-card" },
-] as const;
+interface Surface {
+  readonly name: string;
+  /** What shows it, as a user would. */
+  readonly open: (page: Page) => Promise<void>;
+  readonly card: string;
+}
+
+const click = (testId: string) => (page: Page) => page.getByTestId(testId).first().click();
+
+/** Paper X-F's rows, each opened as a user would. */
+const SURFACES: ReadonlyArray<Surface> = [
+  { name: "context", open: click("session-context"), card: "context-card" },
+  { name: "picker", open: click("model-picker"), card: "model-card" },
+  { name: "hosts", open: click("hosts-trigger"), card: "hosts-card" },
+  { name: "needs-you", open: click("needs-you-trigger"), card: "needs-you-inbox" },
+  {
+    name: "session-menu",
+    open: (page) => page.locator("[data-session-row]").first().click({ button: "right" }),
+    card: "session-context-menu",
+  },
+  {
+    name: "jump",
+    open: async (page) => {
+      await page.getByText("Jump to a session or workspace").click();
+      await page.keyboard.type("pol");
+    },
+    card: "jump-menu",
+  },
+  {
+    name: "toast",
+    open: async (page) => {
+      await page.evaluate("window.__showToast()");
+    },
+    card: "toast",
+  },
+];
 
 const measure = (page: Page, testId: string) =>
   page.evaluate<Box>(
-    `(() => { const r = document.querySelector('[data-testid="${testId}"]').getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }; })()`
+    `(() => { const r = document.querySelector('[data-testid="${testId}"], [data-slot="${testId}"]').getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right }; })()`
   );
 
 try {
@@ -70,11 +102,11 @@ try {
     await page.setViewportSize({ width: WIDTH, height: HEIGHT });
 
     for (const theme of ["moonlit", "midnight", "light"])
-      for (const { name, trigger, card } of CARDS) {
+      for (const { name, open, card } of SURFACES) {
         await page.goto(`${base}?theme=${theme}`);
         await page.getByTestId("session-panel").waitFor();
-        await page.getByTestId(trigger).first().click();
-        await page.getByTestId(card).waitFor();
+        await open(page);
+        await page.locator(`[data-testid="${card}"], [data-slot="${card}"]`).first().waitFor();
         await page.waitForTimeout(400);
 
         const box = await measure(page, card);
@@ -98,7 +130,7 @@ try {
 
     assert.deepEqual(errors, []);
     console.log(
-      `The model picker and the context card at ${WIDTH}×${HEIGHT}: each stays ${EDGE}px clear of the window in every theme.`
+      `${SURFACES.length} menus and popovers at ${WIDTH}×${HEIGHT}: each stays ${EDGE}px clear of the window in every theme.`
     );
   } finally {
     await app.close();

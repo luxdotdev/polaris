@@ -18,7 +18,7 @@ import {
   shownState,
   summarize,
 } from "../../routes/topBar.ts";
-import { connectionLabel, plural, sessionStateLabel } from "../../shell/copy.ts";
+import { connectionLabel, homePath, plural, sessionStateLabel } from "../../shell/copy.ts";
 import type { HostModel } from "../../store/hostModel.ts";
 import type { Searchable } from "./ranking.ts";
 
@@ -80,8 +80,10 @@ export const sessionItems = ({ bar, models }: JumpData): ReadonlyArray<JumpItem>
         target: { kind: "session", hostKey: host.key, sessionId: session.id },
         title: session.title || "Untitled session",
         keywords: [workspace, host.label, sessionStateLabel[state], harness, session.harness],
-        detail: `${host.label} / ${workspace}`,
-        meta: `${capitalized(sessionStateLabel[state])} · ${harness}`,
+        detail: "",
+        meta: [capitalized(sessionStateLabel[state]), workspace, host.label]
+          .filter((part) => part !== "")
+          .join(" · "),
         state,
         harness: session.harness,
         needsYou: state === "needs-you",
@@ -92,14 +94,16 @@ export const sessionItems = ({ bar, models }: JumpData): ReadonlyArray<JumpItem>
 const capitalized = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const workspaceItem = (bar: ReadonlyArray<BarHost>, w: BarWorkspace, meta: string): JumpItem => {
-  const host = bar.find((h) => h.host.key === w.hostKey)?.host.label ?? "";
+  const view = bar.find((h) => h.host.key === w.hostKey)?.host;
+  const host = view?.label ?? "";
+  const path = homePath(w.workspace.path, view?.status.host?.homeDir ?? null);
 
   return {
     id: recentKey("workspace", w.hostKey, w.workspace.id),
     target: { kind: "workspace", hostKey: w.hostKey, workspaceId: w.workspace.id },
     title: w.workspace.name,
     keywords: [host, "workspace", ...(w.hidden ? ["hidden"] : [])],
-    detail: `${host} · ${plural(w.summary.sessions, "session")}`,
+    detail: `${host} · ${path}`,
     meta,
     state: w.summary.state,
     harness: w.summary.harness,

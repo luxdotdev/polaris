@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * The sidebar's sections against Paper 12, 12b and 13, in both themes: on a real Daemon with
- * bench sessions, right-click → Pin to top, Reviews folded and open, Dismiss all in the inbox
+ * bench sessions, right-click → Pin, Reviews folded and open, Dismiss all in the inbox
  * header (and the chip's count after it); on `#constellations/sidebar`, the Space preview.
  *
  *   node scripts/sidebarScreens.ts --out <dir> [--build]
@@ -110,7 +110,7 @@ try {
   // Pin through the menu: the Daemon commits SessionPinned and the row moves to Pinned.
   await theme(page, "dark");
   await row(page, "Polaris planning").click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Pin to top" }).click();
+  await page.getByRole("menuitem", { name: "Pin", exact: true }).click();
   await sidebar(page).getByText("Pinned", { exact: true }).waitFor();
   await page.waitForTimeout(300);
 

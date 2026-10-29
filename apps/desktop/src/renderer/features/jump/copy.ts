@@ -3,11 +3,9 @@ export const jumpCopy = (mode: string) =>
   mode === "review"
     ? {
         placeholder: "Jump to a PR, file, or finding",
-        hint: "Pull requests, files, findings, sessions",
         label: "Jump to a pull request, file, finding or session",
       }
     : {
         placeholder: "Jump to a session or workspace",
-        hint: "Sessions, workspaces, hosts",
         label: "Jump to a session, workspace, worktree or machine",
       };

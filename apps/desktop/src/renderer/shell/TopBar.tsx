@@ -243,6 +243,8 @@ const WorkspaceBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
         </Fragment>
       ))}
       <AddWorkspaceChip hostKey={selection.hostKey} />
+      <span className="flex-1" />
+      <HostsButton />
     </nav>
   );
 };

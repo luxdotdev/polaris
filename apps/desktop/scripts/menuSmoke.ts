@@ -166,16 +166,16 @@ try {
     target: row("Glossary first pass"),
     menu: "session-context-menu",
     expected: [
-      "Pin to top",
-      "Rename…",
-      "—",
+      "Open ↵",
       "Open in Review",
       "Open in terminal",
+      "Rename…",
       "Fork…",
-      "—",
-      "Copy session ID",
+      "Pin",
       "—",
       "Archive",
+      "—",
+      "Copy session ID",
     ],
   });
 
