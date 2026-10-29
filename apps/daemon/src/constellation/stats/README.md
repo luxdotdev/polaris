@@ -22,8 +22,10 @@ totals independently of graph revisions. Open intervals advance only on a view.
   Missing start history makes digest means unknown, with a coverage reason.
 - Claim-to-review ends at the first user approval, acceptance, rejection, or
   settlement after the Claim. Acceptance rate counts accepted first Claims / all
-  terminally resolved first Claims of their Tasks. Approval alone does not count
-  a Task accepted. Send-back counts group retry Attempts by `SentBack` and
+  terminally resolved first Claims of their Tasks: one per Task that carried an
+  Attempt (Gates included, Parents never). A re-claim on the same Attempt amends
+  its Claim, so it stays the first, and its review time runs from the first.
+  Approval alone does not count a Task accepted. Send-back counts group retry Attempts by `SentBack` and
   `MergeConflict`, excluding initial, recovery, and follow-up Attempts.
 - Worker working/idle time integrates recorded Session states within the
   Attempt's working phase, ending at Claim or another terminal transition.

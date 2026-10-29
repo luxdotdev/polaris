@@ -24,10 +24,13 @@ const recordClaim = (
   const attempt = graph.attempts.find((a) => a.id === event.attemptId);
 
   if (attempt === undefined) return;
+  const amended = claims.get(attempt.id);
+
+  // A re-claim in review amends the same Attempt's Claim: it stays its Task's first.
   claims.set(attempt.id, {
-    at: Date.parse(occurredAt),
-    first: !firstTasks.has(attempt.taskId),
-    reviewed: false,
+    at: amended?.at ?? Date.parse(occurredAt),
+    first: amended?.first ?? !firstTasks.has(attempt.taskId),
+    reviewed: amended?.reviewed ?? false,
   });
   firstTasks.add(attempt.taskId);
 };
