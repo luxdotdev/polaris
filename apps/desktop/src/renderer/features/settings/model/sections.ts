@@ -52,6 +52,8 @@ const GROUPS: ReadonlyArray<GroupSource> = [
           "needs you",
           "review requested",
           "archive",
+          "hidden",
+          "remove workspace",
           "accept",
           "commit",
           "main",
