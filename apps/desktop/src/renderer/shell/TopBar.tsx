@@ -13,6 +13,7 @@ import {
   UpgradeHover,
   useUpgradeCaption,
 } from "../features/machines/updates/UpgradeStatus.tsx";
+import { HostsButton } from "../features/machines/hostsCard/HostsCard.tsx";
 import { slots } from "../app/slots.tsx";
 import { useQuietSessions } from "../features/needs-you/index.ts";
 import { plural } from "./copy.ts";
@@ -321,6 +322,7 @@ const MachineBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
           </UpgradeHover>
         );
       })}
+      <HostsButton />
       <button
         type="button"
         onClick={() => openSettings("hosts", { adding: true })}
