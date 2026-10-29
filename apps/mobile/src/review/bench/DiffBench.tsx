@@ -3,16 +3,16 @@
  * the patch with Pierre's parser, then records frame intervals while the list scrolls, driven
  * from JS at a fast fling's speed ("auto") or by real swipes ("manual"), and shows the numbers.
  */
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type FlatList,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
+import { themedStyles } from "../../theme/index.ts";
 import { type DiffFileInput, type DiffRow, diffRows } from "../diffRows.ts";
 import { acceptState } from "../model.ts";
 import { parsePatch } from "../patch.ts";
@@ -92,6 +92,7 @@ export const DiffBench = ({
   mode?: BenchMode;
   colourblind?: boolean;
 }) => {
+  const styles = useStyles();
   const prepared = useMemo(() => prepare(lines), [lines]);
   const list = useRef<FlatList<DiffRow>>(null);
   const events: Array<number> = [];
@@ -213,7 +214,7 @@ export const DiffBench = ({
   );
 };
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((colours) => ({
   screen: { flex: 1 },
   report: {
     position: "absolute",
@@ -222,7 +223,7 @@ const styles = StyleSheet.create({
     bottom: 96,
     padding: 8,
     borderRadius: 8,
-    backgroundColor: `${midnight.surfaceRaised}e6`,
+    backgroundColor: `${colours.raised}e6`,
   },
-  reportText: { ...mobileType.index, fontSize: 11, lineHeight: 14, color: midnight.textStrong },
-});
+  reportText: { ...mobileType.index, fontSize: 11, lineHeight: 14, color: colours.textStrong },
+}));

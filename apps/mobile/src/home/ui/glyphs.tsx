@@ -1,9 +1,10 @@
 /**
- * Home's pixel glyphs drawn with Views: the needs you hand, section marks and the constellation
- * mark, from Paper H4's vectors. The Working dither is src/dither.
+ * Home's glyphs: the section marks drawn with Views (Paper H4) and the needs you star (MX-C).
+ * Celestials are src/celestial, the Working dither src/dither.
  */
-import { midnight } from "@polaris/ui/tokens";
 import { View } from "react-native";
+import Svg, { Path } from "react-native-svg";
+import { useTheme } from "../../theme/index.ts";
 
 type Rect = readonly [x: number, y: number, width: number, height: number, alpha?: number];
 
@@ -36,34 +37,6 @@ const Pixels = ({
   </View>
 );
 
-/** A 2-wide square-capped stroke from (x1, y1) to (x2, y2), axis-aligned, in a 24 grid. */
-const stroke = (x1: number, y1: number, x2: number, y2: number): Rect => [
-  Math.min(x1, x2) - 1,
-  Math.min(y1, y2) - 1,
-  Math.abs(x2 - x1) + 2,
-  Math.abs(y2 - y1) + 2,
-];
-
-const HAND: ReadonlyArray<Rect> = [
-  stroke(19, 21, 19, 7),
-  stroke(16, 10, 16, 5),
-  stroke(16, 5, 17, 5),
-  stroke(13, 10, 13, 3),
-  stroke(13, 3, 14, 3),
-  stroke(10, 10, 10, 1),
-  stroke(10, 1, 11, 1),
-  stroke(7, 12, 7, 3),
-  stroke(7, 3, 10, 3),
-  stroke(4, 10, 4, 16),
-  stroke(6, 18, 6, 18),
-  stroke(8, 20, 8, 21),
-];
-
-/** The raised hand on a needs you tile. */
-export const NeedsYouGlyph = () => (
-  <Pixels rects={HAND} size={18} unit={18 / 24} color={midnight.needsYou} />
-);
-
 const NEEDS_YOU_MARK: ReadonlyArray<Rect> = [
   [4, 0, 2, 10, 0.7],
   [0, 4, 10, 2, 0.7],
@@ -83,54 +56,19 @@ const WORKING_MARK: ReadonlyArray<Rect> = [
 ];
 
 export const NeedsYouMark = () => (
-  <Pixels rects={NEEDS_YOU_MARK} size={10} unit={1} color={midnight.needsYou} />
+  <Pixels rects={NEEDS_YOU_MARK} size={10} unit={1} color={useTheme().colours.needsYou} />
 );
 
 export const WorkingMark = () => (
-  <Pixels rects={WORKING_MARK} size={10} unit={1} color={midnight.textSubtle} />
+  <Pixels rects={WORKING_MARK} size={10} unit={1} color={useTheme().colours.textSubtle} />
 );
 
-const Line = ({
-  from,
-  to,
-}: {
-  readonly from: readonly [number, number];
-  readonly to: readonly [number, number];
-}) => {
-  const dx = to[0] - from[0];
-  const dy = to[1] - from[1];
-  const length = Math.hypot(dx, dy);
-
-  return (
-    <View
-      style={{
-        position: "absolute",
-        left: (from[0] + to[0]) / 2 - length / 2,
-        top: (from[1] + to[1]) / 2 - 0.5,
-        width: length,
-        height: 1,
-        backgroundColor: midnight.starlight,
-        opacity: 0.35,
-        transform: [{ rotate: `${Math.atan2(dy, dx)}rad` }],
-      }}
+/** The four-point star by the needs you count: the header badge, the hero kicker, the inbox. */
+export const NeedsYouStar = ({ size }: { readonly size: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 12 12">
+    <Path
+      d="M6 0.5 L7.1 4.9 L11.5 6 L7.1 7.1 L6 11.5 L4.9 7.1 L0.5 6 L4.9 4.9 Z"
+      fill={useTheme().colours.needsYou}
     />
-  );
-};
-
-/** The constellation mark: three stars, the third dim, joined by faint lines. */
-export const ConstellationGlyph = () => (
-  <View style={{ width: 20, height: 20 }}>
-    <Line from={[4.5, 13.5]} to={[10.5, 6.5]} />
-    <Line from={[10.5, 6.5]} to={[15.5, 14.5]} />
-    <Pixels
-      rects={[
-        [3, 12, 3, 3],
-        [9, 5, 3, 3],
-        [14, 13, 3, 3, 0.45],
-      ]}
-      size={20}
-      unit={1}
-      color={midnight.starlight}
-    />
-  </View>
+  </Svg>
 );

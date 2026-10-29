@@ -1,23 +1,8 @@
-/** Contract stub for the native celestial (ENG-534, T3 replaces it with the pixel renderer). */
+/** The native celestial (DESIGN.md, Mobile chrome redesign): the shared cells, drawn with SVG. */
 import type { CelestialBody } from "@polaris/protocol";
-import { sessionCelestial, subagentMoon, leadStar } from "@polaris/ui/celestial";
-import { View } from "react-native";
-import { useTheme } from "../theme";
 
-export { sessionCelestial, subagentMoon, leadStar, type CelestialBody };
+export { leadStar, sessionCelestial, subagentMoon } from "@polaris/ui/celestial";
 
-export interface CelestialProps {
-  readonly body: CelestialBody;
-  readonly size: number;
-  readonly working?: boolean;
-}
+export type { CelestialBody };
 
-export const Celestial = ({ size }: CelestialProps) => {
-  const { colours } = useTheme();
-
-  return (
-    <View
-      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colours.raised }}
-    />
-  );
-};
+export { Celestial, type CelestialProps } from "./Celestial.tsx";

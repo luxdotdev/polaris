@@ -1,8 +1,9 @@
 /** The composer at the foot of the constellation (Paper C2): addressed to the lead. */
 import type { HarnessKind } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { mobileType } from "@polaris/ui/tokens";
+import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
 import type { useLeadInput } from "../duo/kept.ts";
+import { themedStyles, useTheme } from "../theme/index.ts";
 import { harnessHue } from "./glyphs.tsx";
 
 export const LeadComposer = ({
@@ -20,9 +21,11 @@ export const LeadComposer = ({
   /** The draft and its Send, kept above this composer so every arrangement sees the same. */
   readonly input: ReturnType<typeof useLeadInput>;
 }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
   const { text, sending, error } = input;
   const ready = text.trim() !== "" && !sending && disabled === null;
-  const hue = harnessHue(harness);
+  const hue = harnessHue(colours, harness);
 
   const send = () => {
     if (ready) input.send(onSend);
@@ -35,11 +38,11 @@ export const LeadComposer = ({
         value={text}
         onChangeText={input.type}
         placeholder="Message the lead"
-        placeholderTextColor={midnight.textFaint}
+        placeholderTextColor={colours.textFaint}
         multiline
       />
       {error === null && disabled === null ? null : (
-        <Text style={[styles.note, error !== null && { color: midnight.failedText }]}>
+        <Text style={[styles.note, error !== null && { color: colours.failedText }]}>
           {error ?? disabled}
         </Text>
       )}
@@ -58,9 +61,9 @@ export const LeadComposer = ({
           onPress={send}
         >
           {sending ? (
-            <ActivityIndicator size="small" color={midnight.textSubtle} />
+            <ActivityIndicator size="small" color={colours.textSubtle} />
           ) : (
-            <Text style={[styles.arrow, ready && { color: midnight.bg }]}>↑</Text>
+            <Text style={[styles.arrow, ready && { color: colours.ground }]}>↑</Text>
           )}
         </Pressable>
       </View>
@@ -68,18 +71,18 @@ export const LeadComposer = ({
   );
 };
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((colours) => ({
   box: {
-    backgroundColor: midnight.surfaceSunken,
-    borderColor: midnight.hairline,
+    backgroundColor: colours.panel,
+    borderColor: colours.hairline,
     borderWidth: 1,
     borderRadius: 18,
     paddingVertical: 12,
     paddingHorizontal: 14,
     gap: 10,
   },
-  input: { ...mobileType.body, fontSize: 16, color: midnight.textStrong, maxHeight: 120 },
-  note: { ...mobileType.footnote, color: midnight.textSubtle },
+  input: { ...mobileType.body, fontSize: 16, color: colours.textStrong, maxHeight: 120 },
+  note: { ...mobileType.footnote, color: colours.textSubtle },
   foot: { flexDirection: "row", alignItems: "center", gap: 10 },
   chip: {
     flexDirection: "row",
@@ -90,10 +93,10 @@ const styles = StyleSheet.create({
     paddingRight: 10,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: midnight.hairline,
+    borderColor: colours.hairline,
   },
   avatar: { width: 22, height: 22, borderRadius: 6, opacity: 0.6 },
-  chipText: { ...mobileType.footnote, lineHeight: 16, color: midnight.textSubtle },
+  chipText: { ...mobileType.footnote, lineHeight: 16, color: colours.textSubtle },
   spacer: { flex: 1 },
   send: {
     width: 34,
@@ -101,8 +104,8 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: midnight.surfaceRaised,
+    backgroundColor: colours.raised,
   },
-  sendReady: { backgroundColor: midnight.textStrong },
-  arrow: { ...mobileType.label, color: midnight.textFaint },
-});
+  sendReady: { backgroundColor: colours.textStrong },
+  arrow: { ...mobileType.label, color: colours.textFaint },
+}));
