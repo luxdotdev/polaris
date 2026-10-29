@@ -37,16 +37,31 @@ const OPENERS = {
   rest: async () => undefined,
   context: click("session-context"),
   picker: click("model-picker"),
+  // The first model has eight efforts, two of them unknown to this build.
+  "picker-efforts": async (page: Page) => {
+    await click("model-picker")(page);
+    await page.getByTestId("model-option").first().click();
+  },
   permission: click("composer-permission"),
   subagents: click("composer-subagents"),
   notices: click("notice-more"),
   hosts: click("hosts-trigger"),
   "needs-you": click("needs-you-trigger"),
+  // The oldest requests: the long and the multi-line command.
+  "needs-you-end": async (page: Page) => {
+    await click("needs-you-trigger")(page);
+    await page.getByTestId("needs-you-inbox").locator("li").last().scrollIntoViewIfNeeded();
+  },
   jump: async (page: Page) => {
     await page.getByText("Jump to a session or workspace").click();
     await page.keyboard.type("zzqx nothing matches this");
   },
   toasts: (page: Page) => page.evaluate<void>("window.__showToasts()"),
+  "toasts-hover": async (page: Page) => {
+    await page.evaluate<void>("window.__showToasts()");
+    await page.waitForTimeout(400);
+    await page.locator("[data-sonner-toast]").first().hover();
+  },
 } satisfies Record<string, (page: Page) => Promise<void>>;
 
 const opens = (option("--open") ?? Object.keys(OPENERS).join(",")).split(",");

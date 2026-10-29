@@ -354,7 +354,7 @@ const answer = (
       ok: true,
       value: {
         harness,
-        models: scene === "worst-turns" ? worstModels(harness) : MODELS[harness],
+        models: scene.startsWith("worst-") ? worstModels(harness) : MODELS[harness],
         switchesModel: true,
         backgroundsCommands: true,
         fetchedAt: "",

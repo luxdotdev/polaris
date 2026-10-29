@@ -10,7 +10,32 @@ const LEVELS = ["low", "medium", "high", "max"];
 const litIn = (from: number, to: number, width = 316) =>
   effortCells(width).filter((c) => c.x >= from && c.x < to).length;
 
+const labels = (levels: readonly string[], value: number) =>
+  [
+    ...render(
+      <EffortTrack levels={levels} value={value} hue="claude" />
+    ).container.querySelectorAll("[aria-hidden] > span"),
+  ].map((span) => span.textContent);
+
 describe("the effort track", () => {
+  test("every level is labelled while the labels fit", () => {
+    expect(labels(["low", "medium", "high", "xhigh", "max"], 2)).toEqual([
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+    ]);
+  });
+
+  test("crowded labels give way to the chosen level's and the ends that still fit", () => {
+    const many = ["minimal", "low", "medium", "high", "xhigh", "max", "ultra", "ludicrous"];
+
+    expect(labels(many, 3)).toEqual(["minimal", "high", "ludicrous"]);
+    // Beside an end, the chosen level's label wins and that end's gives way.
+    expect(labels(many, 1)).toEqual(["low", "ludicrous"]);
+  });
+
   test("the field thickens along the track, sparse at low and full at max", () => {
     const quarters = [0, 1, 2, 3].map((q) => litIn(q * 79, (q + 1) * 79));
 

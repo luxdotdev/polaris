@@ -65,6 +65,56 @@ export const effortThumbX = (index: number, count: number, width: number) => {
 export const effortNearest = (x: number, count: number, width: number) =>
   Math.min(count - 1, Math.max(0, Math.round((x / Math.max(1, width)) * (count - 1))));
 
+/** A 10px mono label's advance per character, and the least room between two labels. */
+const LABEL_CHAR = 6;
+
+const LABEL_GAP = 6;
+
+const labelSpan = (level: string, i: number, count: number, width: number) => {
+  const w = level.length * LABEL_CHAR;
+
+  if (i === 0) return [0, w] as const;
+
+  if (i === count - 1) return [width - w, width] as const;
+  const centre = effortThumbX(i, count, width) + 1;
+
+  return [centre - w / 2, centre + w / 2] as const;
+};
+
+/**
+ * Which labels show: all when they fit; when they'd collide, the chosen level's, then each end's
+ * that doesn't touch a shown one.
+ */
+export const effortLabelsShown = (
+  levels: readonly string[],
+  value: number,
+  width: number
+): ReadonlyArray<boolean> => {
+  const count = levels.length;
+  const spans = levels.map((level, i) => labelSpan(level, i, count, width));
+
+  const clear = (a: readonly [number, number], b: readonly [number, number]) =>
+    a[1] + LABEL_GAP <= b[0] || b[1] + LABEL_GAP <= a[0];
+
+  const fits = spans.every((span, i) => i === 0 || clear(spans[i - 1] ?? span, span));
+
+  if (fits) return levels.map(() => true);
+  const shown: number[] = [];
+
+  for (const i of [value, 0, count - 1]) {
+    const span = spans[i];
+
+    if (
+      span !== undefined &&
+      !shown.includes(i) &&
+      shown.every((j) => clear(spans[j] ?? span, span))
+    )
+      shown.push(i);
+  }
+
+  return levels.map((_, i) => shown.includes(i));
+};
+
 const MOVES = new Map<string, (value: number, count: number) => number>([
   ["ArrowRight", (value) => value + 1],
   ["ArrowUp", (value) => value + 1],
@@ -141,6 +191,7 @@ export function EffortTrack({
   const count = levels.length;
   const { ref, width } = useWidth();
   const thumb = effortThumbX(value, count, width);
+  const labelled = effortLabelsShown(levels, value, width);
 
   const [lit, unlit] = useMemo(() => {
     const cells = effortCells(width);
@@ -215,18 +266,20 @@ export function EffortTrack({
         </svg>
       </div>
       <div className="relative h-3" aria-hidden>
-        {levels.map((level, i) => (
-          <span
-            key={level}
-            className={cn(
-              "absolute top-0 font-mono text-[10px] leading-3 whitespace-nowrap",
-              i === value ? "text-text-strong" : "text-text-subtle"
-            )}
-            style={labelPosition(i, count, width)}
-          >
-            {level}
-          </span>
-        ))}
+        {levels.map((level, i) =>
+          labelled[i] === true ? (
+            <span
+              key={level}
+              className={cn(
+                "absolute top-0 font-mono text-[10px] leading-3 whitespace-nowrap",
+                i === value ? "text-text-strong" : "text-text-subtle"
+              )}
+              style={labelPosition(i, count, width)}
+            >
+              {level}
+            </span>
+          ) : null
+        )}
       </div>
     </div>
   );

@@ -117,7 +117,10 @@ const HostLabel = ({ item }: { readonly item: Placed }) => {
       >
         {host.label}
       </span>
-      <Kicker className="max-w-full truncate" parts={stateParts(host, since, isSlowLink(host))} />
+      <Kicker
+        className="max-w-full text-center"
+        parts={stateParts(host, since, isSlowLink(host))}
+      />
     </div>
   );
 };
@@ -126,7 +129,7 @@ const HostLabel = ({ item }: { readonly item: Placed }) => {
 const LocalKicker = ({ local }: { readonly local: HostView }) => {
   const since = useSince(local);
 
-  return <Kicker className="truncate" parts={["you", ...stateParts(local, since, false)]} />;
+  return <Kicker parts={["you", ...stateParts(local, since, false)]} />;
 };
 
 const LocalLabel = ({
@@ -142,7 +145,10 @@ const LocalLabel = ({
     className="absolute flex flex-col gap-0.5"
     style={{ left: x + 44, top: top + 20, width: WIDTH - x - 52 }}
   >
-    <span className="text-caption text-text-strong truncate font-medium">
+    <span
+      className="text-caption text-text-strong truncate font-medium"
+      title={local?.label ?? clientCopy().localHost}
+    >
       {local?.label ?? clientCopy().localHost}
     </span>
     {local === undefined ? (

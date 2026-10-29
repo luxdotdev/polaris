@@ -54,7 +54,9 @@ const ModelRow = ({
     onClick={onPick}
     data-testid="model-option"
   >
-    <span className="min-w-0 flex-1 truncate">{model.name}</span>
+    <span className="min-w-0 flex-1 truncate" title={model.name}>
+      {model.name}
+    </span>
     {model.isDefault ? <span className={KICKER}>default</span> : null}
     <span className="flex w-4 shrink-0 justify-center">
       {checked ? <CheckIcon size={14} /> : null}
