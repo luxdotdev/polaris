@@ -17,6 +17,7 @@ import {
 import { Schema } from "effect";
 import { useEffect, useState } from "react";
 import { Platform, Settings } from "react-native";
+import { rememberModels } from "../composer/modelNames.ts";
 import { GalleryHosts } from "../runtime/hosts.tsx";
 import { ThemeName, useTheme } from "../theme";
 import { type GalleryHost, galleryHost } from "../thread/galleryHost.testing.ts";
@@ -56,7 +57,7 @@ const workspace = (id: string, path: string, isGitRepo = true) =>
 const used = (workspaceId: string, hoursAgo: number) => ({
   workspaceId,
   harness: "claude",
-  model: "claude-opus-5",
+  model: "claude-opus-5-5",
   updatedAt: new Date(Date.now() - hoursAgo * 3_600_000).toISOString(),
 });
 
@@ -128,7 +129,7 @@ const NONE = HostHarnesses.make({
 
 const MODELS = [
   new Model({
-    id: ModelId.make("claude-opus-5"),
+    id: ModelId.make("claude-opus-5-5"),
     name: "Opus 5",
     description: "Most capable",
     efforts: ["low", "medium", "high", "max"],
@@ -170,6 +171,8 @@ const Started = () => {
   useEffect(() => {
     let opened: GalleryHost | null = null;
 
+    // What the new session listed before the hand-off; the fake Host lists nothing itself.
+    rememberModels("gallery-started", "claude", MODELS);
     void galleryHost("gallery-started", "mac-studio", DATASETS.started()).then((made) => {
       opened = made;
       setHost(made);
