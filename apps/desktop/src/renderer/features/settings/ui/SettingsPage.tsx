@@ -112,10 +112,7 @@ const SettingsNav = ({ current }: { readonly current: SettingsSection }) => {
   const update = useUpdates((s) => s.view);
 
   return (
-    <nav
-      aria-label="Settings"
-      className="px-gap flex w-[264px] shrink-0 flex-col overflow-y-auto py-3"
-    >
+    <nav aria-label="Settings" className="px-gap flex w-[264px] shrink-0 flex-col py-3">
       <div className="px-gap flex flex-col gap-3.5 pt-1 pb-[18px]">
         <button
           type="button"
@@ -128,20 +125,22 @@ const SettingsNav = ({ current }: { readonly current: SettingsSection }) => {
         </button>
         <h1 className="text-title text-text-strong font-medium">Settings</h1>
       </div>
-      {SECTION_GROUPS.map((group) => (
-        <div key={group.title} className="pb-panel flex flex-col">
-          <h2 className="text-caption text-text-subtle px-row-x pb-1.5">{group.title}</h2>
-          {group.sections.map((section) => (
-            <NavItem
-              key={section}
-              section={section}
-              selected={section === current}
-              onSelect={() => openSettings(section)}
-            />
-          ))}
-        </div>
-      ))}
-      <span className="flex-1" />
+      {/* As the sidebar's list: it fades out above the horizon, so no row sits on its moon. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto [mask-image:linear-gradient(to_bottom,black_calc(100%-96px),transparent_calc(100%-40px))] pb-20">
+        {SECTION_GROUPS.map((group) => (
+          <div key={group.title} className="pb-panel flex flex-col">
+            <h2 className="text-caption text-text-subtle px-row-x pb-1.5">{group.title}</h2>
+            {group.sections.map((section) => (
+              <NavItem
+                key={section}
+                section={section}
+                selected={section === current}
+                onSelect={() => openSettings(section)}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
       <button
         type="button"
         onClick={() => openSettings("about")}
