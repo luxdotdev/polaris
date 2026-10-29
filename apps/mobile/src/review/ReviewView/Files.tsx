@@ -2,9 +2,10 @@
 import { mobileType } from "@polaris/ui/tokens";
 import { Pressable, Text, View } from "react-native";
 import { themedStyles } from "../../theme/index.ts";
-import { CONTENT_TEXT_SCALE } from "../../theme/textScale.ts";
+import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../../theme/textScale.ts";
 import type { DiffFileInput } from "../diffRows.ts";
 import type { DiffPalette } from "../palette.ts";
+import { grouped } from "../../home/model/format.ts";
 
 export interface FilesProps {
   readonly files: ReadonlyArray<DiffFileInput>;
@@ -35,8 +36,18 @@ export const Files = ({ files, palette, onOpen }: FilesProps) => {
           >
             {file.diff.name}
           </Text>
-          <Text style={[styles.count, { color: palette.addedText }]}>+{file.added}</Text>
-          <Text style={[styles.count, { color: palette.removedText }]}>−{file.removed}</Text>
+          <Text
+            maxFontSizeMultiplier={CHROME_TEXT_SCALE}
+            style={[styles.count, { color: palette.addedText }]}
+          >
+            +{grouped(file.added)}
+          </Text>
+          <Text
+            maxFontSizeMultiplier={CHROME_TEXT_SCALE}
+            style={[styles.count, { color: palette.removedText }]}
+          >
+            −{grouped(file.removed)}
+          </Text>
         </Pressable>
       ))}
     </View>

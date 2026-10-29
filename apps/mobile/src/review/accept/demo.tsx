@@ -51,6 +51,7 @@ const Demo = ({ count }: { readonly count: number }) => {
   const [accepted, setAccepted] = useState(0);
 
   const review = useAcceptReview({
+    scope: "demo",
     state: { kind: "paused", critical: count },
     findings,
     onAccept: () => setAccepted((n) => n + 1),

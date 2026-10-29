@@ -134,6 +134,7 @@ export const ReviewScreen = ({
 
   return (
     <ReviewView
+      scope={`${hostId}/${sessionId}`}
       turnNumber={turn === null ? 0 : (turn.userTurnNumber ?? turn.index + 1)}
       sessionTitle={session === null || session.title === "" ? "Untitled" : session.title}
       harnessName={

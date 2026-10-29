@@ -25,8 +25,13 @@ export const shortHostName = (name: string): string =>
   /^[a-z][\w-]*\./i.test(name) ? (name.split(".")[0] ?? name) : name;
 
 /** "1 host", "4 hosts". */
+const GROUPED = new Intl.NumberFormat("en-US");
+
+/** 1,284: a count with thousands separators. */
+export const grouped = (count: number): string => GROUPED.format(count);
+
 export const counted = (count: number, one: string, many = `${one}s`): string =>
-  `${count} ${count === 1 ? one : many}`;
+  `${grouped(count)} ${count === 1 ? one : many}`;
 
 /** The Harness's product name ("Claude Code"), or its kind when the catalogue doesn't know it. */
 export const harnessName = (kind: string): string => harnessEntry(kind)?.name ?? kind;

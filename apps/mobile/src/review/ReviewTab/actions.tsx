@@ -53,6 +53,7 @@ export const QueueAccept = ({ item }: { readonly item: QueueItem }) => {
   }, [slot, turnId, sessionId, submissions]);
 
   const review = useAcceptReview({
+    scope: item.row.key,
     state,
     findings: item.turn?.risk.kind === "summary" ? item.turn.risk.summary.findings : [],
     onAccept,

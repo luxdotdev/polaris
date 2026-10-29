@@ -6,15 +6,19 @@
 import type { RiskFinding, VerdictReason } from "@polaris/protocol";
 import { mobileType } from "@polaris/ui/tokens";
 import { memo, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text, useWindowDimensions, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { HunkView } from "../../diff/index.ts";
 import { themedStyles, useTheme } from "../../theme/index.ts";
-import { CONTENT_TEXT_SCALE, CONTROL_TEXT_SCALE } from "../../theme/textScale.ts";
+import {
+  ACCESSIBILITY_SCALE,
+  CONTENT_TEXT_SCALE,
+  CONTROL_TEXT_SCALE,
+} from "../../theme/textScale.ts";
 import { findingMeta, VERDICT_REASONS } from "../copy.ts";
 import { isDimmed } from "../model.ts";
 import type { DiffPalette } from "../palette.ts";
-import { SeverityGlyph } from "../severity.tsx";
+import { LeadGlyph, SeverityGlyph } from "../severity.tsx";
 import type { FindingHunk } from "./hunk.ts";
 
 export interface WellActions {
@@ -170,22 +174,28 @@ export const FindingWell = memo(function FindingWell({
 }) {
   const styles = useStyles();
   const [asking, setAsking] = useState(false);
+  const wraps = useWindowDimensions().fontScale >= ACCESSIBILITY_SCALE;
 
   return (
     <View style={[styles.well, isDimmed(finding) && styles.dimmed]}>
       <View style={styles.head}>
-        <View style={styles.titleRow}>
-          <SeverityGlyph severity={finding.severity} size={9} />
+        <View style={[styles.titleRow, wraps && styles.wraps]}>
+          <LeadGlyph severity={finding.severity} size={9} lineHeight={20} />
           <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.title}>
             {finding.title}
           </Text>
-          <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.meta}>
+          <Text
+            maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+            style={[styles.meta, wraps && styles.under]}
+          >
             {findingMeta(finding)}
           </Text>
         </View>
-        <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.reason}>
-          {finding.reason}
-        </Text>
+        {finding.reason === "" ? null : (
+          <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.reason}>
+            {finding.reason}
+          </Text>
+        )}
       </View>
       <Hunk finding={finding} hunk={hunk} palette={palette} onOpen={actions.openFile} />
       <Actions finding={finding} actions={actions} onNotAProblem={() => setAsking((o) => !o)} />
@@ -231,7 +241,12 @@ export const FoldedFinding = memo(function FoldedFinding({
         >
           {finding.title}
         </Text>
-        <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} numberOfLines={1} style={styles.place}>
+        <Text
+          maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+          numberOfLines={1}
+          ellipsizeMode="middle"
+          style={styles.place}
+        >
           {findingPlace(finding)}
         </Text>
       </View>
@@ -249,9 +264,12 @@ const useStyles = themedStyles((colours) => ({
   },
   dimmed: { opacity: 0.55 },
   head: { gap: 3, paddingTop: 12, paddingBottom: 10, paddingHorizontal: 14 },
-  titleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  titleRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  /** At accessibility sizes the meta goes under the title, which keeps the row's width. */
+  wraps: { flexWrap: "wrap" },
+  under: { width: "100%", paddingLeft: 17, marginTop: 0 },
   title: { ...mobileType.label, lineHeight: 20, flex: 1, color: colours.textStrong },
-  meta: { ...mobileType.index, color: colours.textSubtle },
+  meta: { ...mobileType.index, marginTop: 2, color: colours.textSubtle },
   reason: { ...mobileType.footnote, color: colours.textSubtle },
   hunk: {
     borderTopWidth: 1,

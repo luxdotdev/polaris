@@ -104,6 +104,19 @@ export const hunkRows = (
   return rowsOf(file, [hunk], shown, "unified");
 };
 
+/** What a file page says when it has no lines: a pure rename, a mode change, a binary file. */
+export const noLinesNote = (file: FileDiffMetadata): string | null => {
+  if (file.hunks.length > 0) return null;
+
+  if (file.prevName !== undefined && file.prevName !== file.name)
+    return `Renamed from ${file.prevName}. Its contents didn't change.`;
+
+  if (file.prevMode !== undefined && file.mode !== undefined && file.prevMode !== file.mode)
+    return `Mode changed from ${file.prevMode} to ${file.mode}. Its contents didn't change.`;
+
+  return "No line changes to show. It may be a binary file.";
+};
+
 /** The largest line number `file` shows, for its gutter. */
 export const largestNumber = (file: FileDiffMetadata): number =>
   Math.max(

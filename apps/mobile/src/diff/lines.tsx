@@ -11,8 +11,8 @@ import { themedStyles, useTheme } from "../theme/index.ts";
 import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 import { type Span, segments } from "./align.ts";
 
-/** JetBrains Mono's advance at 12pt, for a gutter that fits its numbers exactly. */
-const DIGIT_WIDTH = 7.2;
+/** The mono face's measured advance at 12pt (7.35), rounded up so a gutter never ellipsizes. */
+const DIGIT_WIDTH = 7.4;
 
 /** The gutter's width for numbers up to `largest`: never under two digits. */
 export const gutterWidth = (largest: number): number =>
@@ -173,7 +173,8 @@ export const mono = {
 } as const;
 
 const useStyles = themedStyles((colours) => ({
-  row: { flexDirection: "row", gap: 6, paddingLeft: 10, paddingRight: 12 },
+  /** The right padding clears MX-Q's edge tab, which sits over the list's right edge. */
+  row: { flexDirection: "row", gap: 6, paddingLeft: 10, paddingRight: 20 },
   number: { ...mono, color: colours.textFaint },
   sign: { ...mono, width: DIGIT_WIDTH },
   code: { ...mono, flex: 1, minHeight: 19 },

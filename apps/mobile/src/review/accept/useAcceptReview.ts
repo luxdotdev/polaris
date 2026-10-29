@@ -3,14 +3,16 @@ import { useCallback, useMemo, useState } from "react";
 import { haptics } from "../../motion/index.ts";
 import type { AcceptState } from "../model.ts";
 import {
-  type Acknowledged,
-  acknowledge,
+  acknowledgedIn,
   canAccept,
   needsConfirmation,
   openCriticals,
+  rememberAcknowledged,
 } from "./confirmation.ts";
 
 export interface AcceptReviewInput {
+  /** The agent session, `hostId/sessionId`: what was accepted despite is remembered per session. */
+  readonly scope: string;
   readonly state: AcceptState;
   /** The reviewed Turn's findings; the open Criticals among them decide the confirmation. */
   readonly findings: ReadonlyArray<RiskFinding>;
@@ -32,27 +34,31 @@ export interface AcceptReview {
  * Accept through MX-T: it asks once per set of open Criticals, with a warning haptic, and asks
  * again only when a Critical opens that the user hasn't accepted despite.
  */
-export const useAcceptReview = ({ state, findings, onAccept }: AcceptReviewInput): AcceptReview => {
+export const useAcceptReview = ({
+  scope,
+  state,
+  findings,
+  onAccept,
+}: AcceptReviewInput): AcceptReview => {
   const [asking, setAsking] = useState(false);
-  const [acknowledged, setAcknowledged] = useState<Acknowledged>(() => new Set());
   const criticals = useMemo(() => openCriticals(findings), [findings]);
   const ready = canAccept(state);
 
   const accept = useCallback(() => {
     if (!ready) return;
 
-    if (needsConfirmation(criticals, acknowledged)) {
+    if (needsConfirmation(criticals, acknowledgedIn(scope))) {
       setAsking(true);
       haptics.warning();
     } else onAccept();
-  }, [ready, criticals, acknowledged, onAccept]);
+  }, [ready, criticals, scope, onAccept]);
 
   const confirm = useCallback(() => {
     setAsking(false);
-    setAcknowledged((current) => acknowledge(current, criticals));
+    rememberAcknowledged(scope, criticals);
 
     if (ready) onAccept();
-  }, [criticals, ready, onAccept]);
+  }, [criticals, scope, ready, onAccept]);
 
   const dismiss = useCallback(() => setAsking(false), []);
 

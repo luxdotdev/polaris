@@ -18,6 +18,7 @@ import { themedStyles } from "../../theme/index.ts";
 import { type ReadyEmpty, type ReadyToReview, readyToReview } from "../ready.ts";
 import { QueueHeader } from "./Header.tsx";
 import { paperQueueHosts, paperQueueTurns } from "./paperQueue.testing.ts";
+import { devQueues, type DevQueue } from "./worstQueue.testing.ts";
 import { type HeroActions, ReviewHero } from "./Hero.tsx";
 import { buildQueue, queueItem, turnKey } from "./queue.ts";
 import { useQueueTurns } from "./useQueueTurns.tsx";
@@ -28,11 +29,22 @@ interface Ready {
   readonly ready: ReadyToReview;
 }
 
+const DEV_QUEUES = {
+  ...devQueues,
+  paper: { hosts: paperQueueHosts, turns: paperQueueTurns },
+} satisfies Record<string, DevQueue>;
+
+/** The queue a development build's data toggle chose, or null for the live Hosts. */
+const useDevQueue = (): DevQueue | null => {
+  const data = useDevHomeData();
+
+  return data === "live" ? null : DEV_QUEUES[data];
+};
+
 const useReady = (): Ready => {
   const followed = useFollowedHosts();
   const live = useSettledHosts(useMemo(() => homeHostsOf(followed), [followed]));
-  const paper = useDevHomeData() === "paper";
-  const hosts = paper ? paperQueueHosts : live;
+  const hosts = useDevQueue()?.hosts ?? live;
 
   return { hosts, ready: useMemo(() => readyToReview(hosts), [hosts]) };
 };
@@ -111,8 +123,8 @@ export const ReviewTab = ({ tabBarHeight, onOpen, onLink, onHosts }: ReviewTabPr
   const onMenu = useMenuActions();
   const [workspace, setWorkspace] = useState<string | null>(null);
   const read = useQueueTurns(hosts, ready.rows);
-  const paper = useDevHomeData() === "paper";
-  const turns = paper ? paperQueueTurns : read.turns;
+  const dev = useDevQueue();
+  const turns = dev?.turns ?? read.turns;
 
   const workspaces = useMemo(
     () => [...new Set(ready.rows.map((row) => row.workspaceName).filter((name) => name !== ""))],
@@ -142,7 +154,7 @@ export const ReviewTab = ({ tabBarHeight, onOpen, onLink, onHosts }: ReviewTabPr
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      {paper ? null : read.loaders}
+      {dev === null ? read.loaders : null}
       <QueueHeader
         queue={ready.empty === null ? queue : null}
         hostCount={hosts.length}

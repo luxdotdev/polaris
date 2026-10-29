@@ -11,7 +11,13 @@ import Svg, { Path } from "react-native-svg";
 import { InstrumentSheet } from "../../sheet/index.tsx";
 import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../../theme/textScale.ts";
 import { themedStyles, useTheme } from "../../theme/index.ts";
-import { confirmationBody, confirmationTitle } from "./confirmation.ts";
+import {
+  askLabel,
+  confirmationBody,
+  confirmationTitle,
+  LISTED_CRITICALS,
+  moreCriticals,
+} from "./confirmation.ts";
 import type { AcceptReview } from "./useAcceptReview.ts";
 
 export interface CriticalConfirmationProps extends Pick<
@@ -50,7 +56,12 @@ const CriticalRow = ({ finding }: { readonly finding: RiskFinding }) => {
           {finding.title}
         </Text>
       </View>
-      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.path}>
+      <Text
+        maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+        numberOfLines={1}
+        ellipsizeMode="middle"
+        style={styles.path}
+      >
         {`${finding.path}:${finding.lines.start}`}
       </Text>
     </View>
@@ -65,6 +76,7 @@ const Content = ({ criticals, confirm, dismiss, turnNumber, agentName, onAsk }: 
   const styles = useStyles();
   const { colours } = useTheme();
   const asks = onAsk !== undefined && agentName !== undefined;
+  const more = moreCriticals(criticals.length);
 
   return (
     <>
@@ -83,9 +95,14 @@ const Content = ({ criticals, confirm, dismiss, turnNumber, agentName, onAsk }: 
           {confirmationBody(criticals.length, asks ? agentName : undefined)}
         </Text>
       </View>
-      {criticals.map((finding) => (
+      {criticals.slice(0, LISTED_CRITICALS).map((finding) => (
         <CriticalRow key={finding.id} finding={finding} />
       ))}
+      {more === null ? null : (
+        <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.more}>
+          {more}
+        </Text>
+      )}
       <View style={styles.actions}>
         {asks ? (
           <Pressable
@@ -97,7 +114,7 @@ const Content = ({ criticals, confirm, dismiss, turnNumber, agentName, onAsk }: 
             }}
           >
             <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.askText}>
-              {`Ask ${agentName} about it`}
+              {askLabel(criticals.length, agentName)}
             </Text>
           </Pressable>
         ) : null}
@@ -182,18 +199,20 @@ const useStyles = themedStyles((colours) => ({
     borderColor: `${colours.severityCritical}40`,
     backgroundColor: `${colours.severityCritical}14`,
   },
-  criticalHead: { flexDirection: "row", alignItems: "center", gap: 8 },
+  criticalHead: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
   kicker: {
     fontFamily: mobileFont.mono,
     fontSize: 11,
     lineHeight: 16,
     fontWeight: "500",
+    marginTop: 2,
     letterSpacing: 0.88,
     textTransform: "uppercase",
     color: colours.severityCriticalText,
   },
   criticalTitle: { ...mobileType.label, lineHeight: 20, flex: 1, color: colours.textStrong },
   path: { ...mobileType.index, fontSize: 12, lineHeight: 17, color: colours.textSubtle },
+  more: { ...mobileType.footnote, paddingHorizontal: 14, color: colours.textSubtle },
   actions: { gap: 10, paddingTop: 4 },
   button: { height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center" },
   ask: { backgroundColor: colours.textStrong },

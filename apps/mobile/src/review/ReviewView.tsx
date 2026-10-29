@@ -19,6 +19,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import { FileDiffScreen } from "../diff/index.ts";
+import { grouped } from "../home/model/format.ts";
 import { themedStyles, useTheme } from "../theme/index.ts";
 import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 import { CriticalConfirmation, openCriticals, useAcceptReview } from "./accept/index.ts";
@@ -38,6 +39,8 @@ import { walkthroughLine } from "./ReviewView/walkthrough.ts";
 import { WalkthroughSheet } from "./ReviewView/WalkthroughSheet.tsx";
 
 export interface ReviewViewProps {
+  /** The agent session, `hostId/sessionId`, which keeps what Accept was confirmed despite. */
+  readonly scope: string;
   readonly turnNumber: number;
   readonly sessionTitle: string;
   readonly harnessName: string;
@@ -103,8 +106,18 @@ const Header = ({ props }: { readonly props: ReviewViewProps }) => {
           <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} numberOfLines={1} style={styles.meta}>
             {props.sessionTitle} · {files.length} {files.length === 1 ? "file" : "files"}
           </Text>
-          <Text style={[styles.count, { color: palette.addedText }]}>+{added}</Text>
-          <Text style={[styles.count, { color: palette.removedText }]}>−{removed}</Text>
+          <Text
+            maxFontSizeMultiplier={CHROME_TEXT_SCALE}
+            style={[styles.count, { color: palette.addedText }]}
+          >
+            +{grouped(added)}
+          </Text>
+          <Text
+            maxFontSizeMultiplier={CHROME_TEXT_SCALE}
+            style={[styles.count, { color: palette.removedText }]}
+          >
+            −{grouped(removed)}
+          </Text>
         </View>
       </View>
     </View>
@@ -143,7 +156,13 @@ export const ReviewView = (props: ReviewViewProps) => {
   const counts = useMemo(() => tally(all), [all]);
   const pager = usePager(findings, scroll);
   const overlays = useOverlays();
-  const accept = useAcceptReview({ state: props.accept, findings: all, onAccept: props.onAccept });
+
+  const accept = useAcceptReview({
+    scope: props.scope,
+    state: props.accept,
+    findings: all,
+    onAccept: props.onAccept,
+  });
 
   const askToFix = useCallback(
     (finding: RiskFinding) => onAskToFix(finding, fileLines(files, finding.path)),

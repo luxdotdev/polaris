@@ -10,10 +10,17 @@ import type { DiffFileInput } from "../review/diffRows.ts";
 import type { DiffPalette } from "../review/palette.ts";
 import { severityColour } from "../review/severity.tsx";
 import { themedStyles, useTheme } from "../theme/index.ts";
-import { CHROME_TEXT_SCALE } from "../theme/textScale.ts";
+import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 import { DiffFindingCard } from "./FindingCard.tsx";
 import { gutterWidth, SplitLine, UnifiedLine } from "./lines.tsx";
-import { fileRows, hunkStarts, largestNumber, type Layout, type ScreenRow } from "./rows.ts";
+import {
+  fileRows,
+  hunkStarts,
+  largestNumber,
+  type Layout,
+  noLinesNote,
+  type ScreenRow,
+} from "./rows.ts";
 import type { DiffFindingActions } from "./types.ts";
 
 export interface FilePageHandle {
@@ -131,6 +138,11 @@ export const FilePage = forwardRef<FilePageHandle, FilePageProps>(function FileP
             paddingBottom: bottomInset,
           }}
           indicatorStyle="white"
+          ListEmptyComponent={
+            <Text style={styles.empty} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
+              {noLinesNote(file.diff)}
+            </Text>
+          }
         />
       </View>
     </View>
@@ -159,6 +171,7 @@ const useStyles = themedStyles((colours) => ({
     paddingBottom: 8,
     color: colours.textFaint,
   },
+  empty: { ...mobileType.footnote, padding: 16, color: colours.textSubtle },
   sides: { flexDirection: "row", gap: 1, backgroundColor: colours.hairline },
   side: {
     ...mobileType.index,
