@@ -7,9 +7,12 @@ Polaris learned on top of it.
 ## File and structure
 
 - File "Polaris — Orchestrator" (id `01M3JV1J857QNW61TGHZYR6GMZ`). Pages:
-  Orchestrator, Review, Editor, Brand, Brand deck. Artboards are 1440×900
-  desktop, named `<n> · <surface> · <state> · <Dark|Light>` (Editor uses
-  `E1`, Review `R1`).
+  Orchestrator, Review, Editor, Brand, Brand deck, Mobile, Mobile chrome
+  exploration. Artboards are 1440×900 desktop, named
+  `<n> · <surface> · <state> · <Dark|Light>` (Editor uses `E1`, Review
+  `R1`). Mobile pages are iPhone frames: "Mobile" holds the first app
+  (H4, D6–D8), "Mobile chrome exploration" its redesign at 393×852, named
+  `MX-<letter> · <surface> · <variant> · <Midnight|Moonlit>`.
 - Start new artboards by duplicating the nearest accepted one (artboard 5
   "Orchestrate · Elevated" for anything in the Orchestrator, E1 for the
   Editor, R1 for Review) or by cloning its title bar, workspace bar or
