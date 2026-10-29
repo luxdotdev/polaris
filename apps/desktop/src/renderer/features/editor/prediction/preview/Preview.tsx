@@ -1,7 +1,8 @@
 /**
  * `#completion-card/<scene>`: the tab completion status card on fixtures, for screenshots.
  * `states` lays out the card for every state side by side; `bar` puts the real status item in a
- * status bar over a fixture bridge, for opening the card by hover, focus or click. Its own chunk.
+ * status bar over a fixture bridge, for opening the card by hover, focus or click; `worst` the
+ * break-UI cases (many models, none, long names and figures). Its own chunk.
  */
 import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
@@ -13,7 +14,7 @@ import { AppProvider } from "../../../../shell/hooks.ts";
 import { type AppState, type Connection, initialState } from "../../../../store/store.ts";
 import { standInBridge } from "../../../bridge.ts";
 import { CompletionCard, type CompletionCardProps } from "../card/CompletionCard.tsx";
-import { BASE, INSPECTION, SCENES, SERVED } from "../card/fixtures.ts";
+import { BASE, INSPECTION, SCENES, SERVED, WORST_SCENES } from "../card/fixtures.ts";
 import { completionCard } from "../card/model.ts";
 import { PredictionStatus } from "../Status.tsx";
 import { predictionStore } from "../store.ts";
@@ -41,6 +42,15 @@ const Card = ({
 );
 
 const serving = completionCard({ ...BASE, result: SERVED });
+
+/** The worst cases alone (ENG-499). */
+const Worst = () => (
+  <div className="bg-ground flex min-h-screen flex-wrap items-start gap-8 p-8">
+    {WORST_SCENES.map(([name, input]) => (
+      <Card key={name} name={name} view={completionCard(input)} running={null} outcome={null} />
+    ))}
+  </div>
+);
 
 const States = () => (
   <div className="bg-ground flex min-h-screen flex-wrap items-start gap-8 p-8">
@@ -110,6 +120,11 @@ const Bar = () => (
   </div>
 );
 
+const VIEWS = new Map([
+  ["bar", <Bar key="bar" />],
+  ["worst", <Worst key="worst" />],
+]);
+
 export const mountCompletionCardPreview = (root: HTMLElement, hash: string) => {
   const scene = hash.replace(/^#completion-card\//, "");
   const store = createStore<AppState>(() => ({ ...initialState, hosts: [host("pi", "Pi 4")] }));
@@ -138,7 +153,7 @@ export const mountCompletionCardPreview = (root: HTMLElement, hash: string) => {
         commands: createCommandRegistry({ platform: "mac" }),
       }}
     >
-      {scene === "bar" ? <Bar /> : <States />}
+      {VIEWS.get(scene) ?? <States />}
     </AppProvider>
   );
 

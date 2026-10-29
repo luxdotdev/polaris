@@ -136,7 +136,9 @@ export interface CompletionCardView {
   readonly host: string;
 }
 
-const capitalized = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+/** A Host's name at a sentence's start: "this Mac" becomes "This Mac"; a given name stays as named. */
+export const capitalized = (text: string) =>
+  text.startsWith("this ") ? `T${text.slice(1)}` : text;
 
 const nextEdit = (model: string) => editModelFormat(model) !== null;
 

@@ -13,6 +13,7 @@ import { followingText } from "../model/agent.ts";
 import { fileKey, workspaceKey } from "../model/drafts.ts";
 import { type Cursor, useEditor } from "../runtime/store.ts";
 import { PredictionStatus } from "../prediction/Status.tsx";
+import { FIT_YIELDS } from "./useStatusFit.ts";
 
 export interface EditorStatusProps {
   readonly hostKey: string;
@@ -78,18 +79,20 @@ export const EditorStatus = ({ hostKey, workspaceId }: EditorStatusProps) => {
 
   return (
     <div
-      className="text-caption text-text-subtle tabular flex shrink-0 items-center gap-4 whitespace-nowrap"
+      className="text-caption text-text-subtle tabular flex min-w-0 items-center gap-4 whitespace-nowrap"
       data-testid="editor-status"
     >
       {vimMode === null ? null : <VimBadge mode={vimMode} />}
       {following !== null && active !== null ? (
-        <span data-testid="following">
+        <span data-testid="following" data-fit={FIT_YIELDS} className="min-w-0 truncate">
           {followingText(following, agentCaretLine(active.view.state))}
         </span>
       ) : cursor === null ? null : (
-        <span>{positionText(cursor)}</span>
+        <span data-fit={FIT_YIELDS} className="min-w-0 truncate" title={positionText(cursor)}>
+          {positionText(cursor)}
+        </span>
       )}
-      <span>{indent}</span>
+      <span className="shrink-0">{indent}</span>
       {language === null ? null : (
         <LanguageStatus
           hostKey={hostKey}

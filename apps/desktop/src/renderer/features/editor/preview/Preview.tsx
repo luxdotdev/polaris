@@ -3,11 +3,13 @@
  * budgets: `#editor/<scene>` renders the pane, a stand-in explorer column and
  * the status row on in-memory files (`?terminal` opens a stand-in terminal). Scenes: e1, e3, close, conflict, compare, reload,
  * vim, find, tabs20, readonly, binary, empty, big (`?persist` keeps drafts in localStorage). Its own chunk.
+ * Worst cases (ENG-499): tabs40, worst (40 tabs, vim, a selection); `?git=worst` a 121-character
+ * branch, `?host=remote|reconnecting|offline` a far Host.
  */
 import { openSearchPanel } from "@codemirror/search";
 import type { EditorView } from "@codemirror/view";
 import { Horizon, Toaster, TooltipProvider } from "@polaris/ui";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EditorColumn, TerminalChip } from "../../terminal/index.ts";
 import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
@@ -37,8 +39,8 @@ import { EditorPane } from "../ui/EditorPane.tsx";
 import { EditorStatus } from "../ui/EditorStatus.tsx";
 import { StatusBar } from "../explorer/ui/StatusBar.tsx";
 import type { GitFacts } from "../explorer/data/store.ts";
-import { HOSTS } from "../../needs-you/preview/fixtures.ts";
 import { FILES, HOST, path, ROOT, WORKSPACE } from "./fixtures.ts";
+import { statusHost, WORST_GIT, WORST_TABS, worstFiles } from "./worst.ts";
 
 const bridge: PolarisApi = {
   request: () => Promise.resolve({ ok: false, error: { code: "Unsupported", message: "preview" } }),
@@ -138,6 +140,16 @@ const tabs20 = () => {
   }
 };
 
+/** 40 tabs, one with unsaved edits and one an agent is writing, the first one active. */
+const tabs40 = async () => {
+  for (const file of WORST_TABS) openFile({ hostKey: HOST, workspaceId: WORKSPACE, path: file });
+  setAgentFiles(HOST, WORKSPACE, new Map([[WORST_TABS[2] ?? "", "codex"]]));
+  openFile({ hostKey: HOST, workspaceId: WORKSPACE, path: WORST_TABS[1] ?? "" });
+  const view = await activeView();
+
+  view.dispatch({ changes: { from: 0, insert: "// draft\n" }, userEvent: "input.type" });
+};
+
 type Scene = (files: FakeFiles) => Promise<void> | void;
 
 const SCENES = new Map<string, Scene>(
@@ -187,6 +199,15 @@ const SCENES = new Map<string, Scene>(
       openSearchPanel(await activeView());
     },
     tabs20,
+    tabs40,
+    worst: async () => {
+      await tabs40();
+      const view = await activeView();
+
+      view.dispatch({
+        selection: { anchor: view.state.doc.line(10).from, head: view.state.doc.line(19).to },
+      });
+    },
     readonly: () => openFile({ hostKey: HOST, workspaceId: WORKSPACE, path: RECONNECT }),
     binary: () =>
       openFile({ hostKey: HOST, workspaceId: WORKSPACE, path: path("design/assets/logo.png") }),
@@ -203,10 +224,8 @@ const seed = () => {
     ])
   );
 
-  return { [HOST]: { ...FILES, ...generated }, pi: FILES };
+  return { [HOST]: { ...FILES, ...generated, ...worstFiles() }, pi: FILES };
 };
-
-const STATUS_HOST = { ...HOSTS[0]!, key: HOST };
 
 /** A long branch, so a narrow window shows Completions' glyph and the middle truncation. */
 const GIT: GitFacts = {
@@ -239,9 +258,14 @@ const StandInTerminal = () => (
 );
 
 /** X-I's Variant C: the stand-in explorer on the ground, the editor and terminal as panels. */
-const Frame = ({ terminal }: { readonly terminal: boolean }) => {
+const Frame = ({ terminal, hash }: { readonly terminal: boolean; readonly hash: string }) => {
   const [shown, setShown] = useState(terminal);
   const dock = useRef<HTMLDivElement>(null);
+
+  // The screenshot script toggles the terminal as fast as ⌃` would, mid-morph.
+  useEffect(() => {
+    Object.assign(window, { __polarisTerminal: () => setShown((s) => !s) });
+  }, []);
 
   return (
     <div className="bg-ground text-text-default flex h-full flex-col">
@@ -259,9 +283,9 @@ const Frame = ({ terminal }: { readonly terminal: boolean }) => {
           chip={<TerminalChip onToggle={() => setShown(true)} count={1} />}
           status={
             <StatusBar
-              host={STATUS_HOST}
+              host={statusHost(hash)}
               place={{ key: "preview", hostKey: HOST, workspaceId: WORKSPACE, root: ROOT }}
-              git={GIT}
+              git={hash.includes("git=worst") ? WORST_GIT : GIT}
               right={<EditorStatus hostKey={HOST} workspaceId={WORKSPACE} />}
             />
           }
@@ -291,7 +315,7 @@ export const mountEditorPreview = (root: HTMLElement, hash: string) => {
   standInBridge(bridge);
   installKeyboard({ actions: navigation.actions, registry: commands });
 
-  if (scene === "vim") {
+  if (scene === "vim" || scene === "worst") {
     settingsStore.setState((s) => ({ sessions: { ...s.sessions, editorVim: true } }));
   }
 
@@ -307,7 +331,7 @@ export const mountEditorPreview = (root: HTMLElement, hash: string) => {
   createRoot(root).render(
     <AppProvider value={{ connection, navigation, commands }}>
       <TooltipProvider>
-        <Frame terminal={hash.includes("?terminal")} />
+        <Frame terminal={hash.includes("terminal")} hash={hash} />
         <Toaster />
       </TooltipProvider>
     </AppProvider>

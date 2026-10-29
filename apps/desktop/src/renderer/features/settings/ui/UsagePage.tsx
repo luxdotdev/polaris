@@ -208,7 +208,9 @@ const ModelTable = ({ summary }: { readonly summary: UsageSummary }) => (
     </div>
     {summary.byModel.map((row) => (
       <div key={`${row.harness}/${row.model}`} className="px-panel flex h-9 shrink-0 items-center">
-        <span className="text-label text-text-default flex-1 truncate">{row.model}</span>
+        <span className="text-label text-text-default flex-1 truncate" title={row.model}>
+          {row.model}
+        </span>
         <span className="text-caption text-text-subtle flex w-[120px] shrink-0 items-center gap-1.5">
           <span className="size-2 shrink-0" style={{ background: hueVar(row.harness) }} />
           {harnessHue(row.harness).name}

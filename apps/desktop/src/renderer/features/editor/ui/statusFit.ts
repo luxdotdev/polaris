@@ -1,6 +1,6 @@
 /**
- * How the Editor's status row fits its width (DESIGN.md, Chrome redesign → Editor): the branch is
- * the only item that shrinks, in the middle, and Completions drops to its glyph before it does.
+ * How the Editor's status row fits its width (DESIGN.md, Chrome redesign → Editor): Completions
+ * drops to its glyph, the branch shrinks in the middle, then the Host name at its end.
  */
 
 export const ELLIPSIS = "…";
@@ -39,27 +39,53 @@ export const middleTruncate = (
 };
 
 export interface StatusFitInput {
-  /** The row's width for the branch once every other item has its natural width. */
+  /** The row's width for the branch once every other item (the Host whole) has its natural width. */
   readonly room: number;
   /** The branch's natural width. */
   readonly branch: number;
   /** The width Completions gives back by dropping its label for its glyph. */
   readonly completionsLabel: number;
+  /** The Host name's natural width. */
+  readonly host: number;
 }
 
 export interface StatusFit {
   readonly completions: "label" | "glyph";
   /** The branch's width cap, or null when it shows in full. */
   readonly branchRoom: number | null;
+  /** The Host name's width cap, or null when it shows in full. */
+  readonly hostRoom: number | null;
 }
 
-export const statusFit = ({ room, branch, completionsLabel }: StatusFitInput): StatusFit => {
-  if (branch <= room) return { completions: "label", branchRoom: null };
+/** The branch shrinks to this before the Host name gives way ("lucas/eng…vim"). */
+export const BRANCH_FLOOR = 96;
+
+/** The Host name keeps this much ("build-farm-e…") once the branch is at its floor. */
+export const HOST_FLOOR = 80;
+
+/**
+ * What gives way, in order: Completions' label, the branch down to its floor, the Host name down
+ * to its floor, then the branch to its ellipsis.
+ */
+export const statusFit = ({ room, branch, completionsLabel, host }: StatusFitInput): StatusFit => {
+  if (branch <= room) return { completions: "label", branchRoom: null, hostRoom: null };
 
   const glyphRoom = room + completionsLabel;
 
+  if (branch <= glyphRoom) return { completions: "glyph", branchRoom: null, hostRoom: null };
+  const branchFloor = Math.min(branch, BRANCH_FLOOR);
+
+  if (glyphRoom >= branchFloor)
+    return { completions: "glyph", branchRoom: glyphRoom, hostRoom: null };
+  const hostFloor = Math.min(host, HOST_FLOOR);
+  const short = branchFloor - glyphRoom;
+
+  if (host - short >= hostFloor)
+    return { completions: "glyph", branchRoom: branchFloor, hostRoom: host - short };
+
   return {
     completions: "glyph",
-    branchRoom: branch <= glyphRoom ? null : Math.max(0, glyphRoom),
+    branchRoom: Math.max(0, glyphRoom + host - hostFloor),
+    hostRoom: host > hostFloor ? hostFloor : null,
   };
 };

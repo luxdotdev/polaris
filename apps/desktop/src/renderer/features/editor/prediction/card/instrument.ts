@@ -5,9 +5,7 @@
 import { Match } from "effect";
 import type { Fact } from "../../status/model.ts";
 import { modelName } from "../store.ts";
-import type { CardAction, CardKind, CompletionCardView } from "./model.ts";
-
-const capitalized = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+import { type CardAction, type CardKind, capitalized, type CompletionCardView } from "./model.ts";
 
 /** The header's mono state word after "Tab completion". */
 export const stateWord = (view: CompletionCardView): string =>

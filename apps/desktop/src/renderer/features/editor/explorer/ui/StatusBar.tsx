@@ -1,11 +1,18 @@
 /**
  * The Editor's status row (DESIGN.md, Chrome redesign → Editor): the editor card's foot, or its
  * own strip under the terminal. Left: the Host (latency when remote), branch, pull and push, and
- * change count; right: the editor's own part. Only the branch shrinks, in the middle.
+ * change count; right: the editor's own part. The branch shrinks in the middle, then the Host name.
  */
 import { BranchIcon, cn } from "@polaris/ui";
 import { type ReactNode, useRef } from "react";
-import { CompletionsFit, FIT_BRANCH, FIT_SPACER, useStatusFit } from "../../ui/useStatusFit.ts";
+import {
+  CompletionsFit,
+  FIT_BRANCH,
+  FIT_HOST,
+  FIT_SPACER,
+  FIT_YIELDS,
+  useStatusFit,
+} from "../../ui/useStatusFit.ts";
 import type { HostView } from "../../../../../shared/api.ts";
 import type { Place } from "../data/actions.ts";
 import type { GitFacts } from "../data/store.ts";
@@ -49,7 +56,7 @@ const GitItems = ({
   <>
     {branch === null ? null : (
       <span
-        className="flex min-w-0 shrink items-center gap-1.5"
+        className="flex shrink-0 items-center gap-1.5"
         data-testid="status-branch"
         title={branch.shown === branch.full ? undefined : branch.full}
       >
@@ -66,7 +73,12 @@ const GitItems = ({
         <SyncStatus controls={sync} />
       </span>
     )}
-    <span data-testid="status-changed" className="shrink-0 whitespace-nowrap">
+    {/* Truncates first once the fit has nothing left, then the editor's cursor text. */}
+    <span
+      data-testid="status-changed"
+      data-fit={FIT_YIELDS}
+      className="min-w-0 shrink-1000 truncate"
+    >
       {git.marks.changed > 0 ? `${git.marks.changed} changed` : "No changes"}
     </span>
   </>
@@ -78,7 +90,7 @@ export const StatusBar = ({ host, place, git, right }: StatusBarProps) => {
   const sync = useSync(place, host, git);
   const row = useRef<HTMLElement>(null);
   const full = branchText(git);
-  const fit = useStatusFit(row, full);
+  const fit = useStatusFit(row, full, host.label);
 
   return (
     <footer
@@ -92,8 +104,16 @@ export const StatusBar = ({ host, place, git, right }: StatusBarProps) => {
           away && "opacity-(--opacity-dimmed)"
         )}
       >
-        <span className="bg-text-subtle size-1.5 rounded-full" />
-        {host.label}
+        <span className="bg-text-subtle size-1.5 shrink-0 rounded-full" />
+        <span
+          data-fit={FIT_HOST}
+          data-testid="status-host"
+          className="truncate"
+          style={fit.host === null ? undefined : { maxWidth: fit.host }}
+          title={fit.host === null ? undefined : host.label}
+        >
+          {host.label}
+        </span>
         {note === null ? null : <span className="ml-1">{note}</span>}
       </span>
       {git === null || git === "none" ? null : (

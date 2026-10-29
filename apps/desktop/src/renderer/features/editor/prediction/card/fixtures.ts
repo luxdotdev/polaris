@@ -269,3 +269,95 @@ export const SCENES: ReadonlyArray<readonly [string, CardInput]> = [
       ] as const
   ),
 ];
+
+/** 28 models on two servers: long tags, a duplicate across them, quantisation suffixes. */
+const MANY_MODELS = [
+  MELLUM,
+  QWEN,
+  "qwen3-coder-30b-a3b-instruct-ud-q4_k_xl",
+  "qwen2.5-coder-32b-instruct-128k-gguf-q8_0",
+  "deepseek-coder-v2-lite-instruct-q5_k_m",
+  "codestral-22b-v0.1-q4_k_m",
+  "starcoder2-15b-instruct-v0.1-q6_k",
+  "granite-code-34b-instruct-8k-q4_0",
+  "zeta-1.5b-next-edit-preview-2026-09",
+  "sweep-next-edit-1.5b-q8_0",
+  ...Array.from(
+    { length: 18 },
+    (_, i) => `hf.co/bartowski/model-${i + 1}-coder-7b-instruct-GGUF:Q4_K_M`
+  ),
+];
+
+const MANY: PredictionInspection = {
+  ...INSPECTION,
+  client: {
+    ...INSPECTION.client,
+    endpoints: [endpoint("http://127.0.0.1:8080", ...MANY_MODELS.slice(0, 14))],
+  },
+  host: {
+    machine: machine(512, "AMD Ryzen Threadripper PRO 7995WX 96-Cores"),
+    endpoints: [
+      endpoint("http://build-farm-eu-west-2.internal.example.com:11434/v1", ...MANY_MODELS),
+    ],
+  },
+};
+
+const LONG_HOST = "build-farm-eu-west-2.internal.example.com";
+
+/** Worst cases for the break-UI pass (ENG-499): many models, no models, long names and figures. */
+export const WORST_SCENES: ReadonlyArray<readonly [string, CardInput]> = [
+  ["many-models", { ...BASE, hostName: LONG_HOST, inspection: MANY, result: SERVED }],
+  [
+    "many-models-huge",
+    {
+      ...BASE,
+      hostName: LONG_HOST,
+      inspection: MANY,
+      result: {
+        ...SERVED,
+        model: "hf.co/bartowski/model-18-coder-7b-instruct-GGUF:Q4_K_M",
+        machine: LONG_HOST,
+        side: "host",
+        endpoint: {
+          kind: "openai",
+          url: "http://build-farm-eu-west-2.internal.example.com:11434/v1",
+        },
+        elapsedMs: 12_840,
+        latency: { p50: 9_876, last: 12_840, count: 1_284_000 },
+        context: { pieces: 1284, languageServer: 312, tokens: 1_048_576 },
+      },
+      metrics: {
+        ...METRICS,
+        shown: 1_284_000,
+        accepted: 999_999,
+        keystrokes: 98_765_432,
+        undoneWithin30s: 12_345,
+      },
+      memory:
+        "On build-farm-eu-west-2.internal.example.com: llama-server 412.8 GB · counted apart from Polaris",
+    },
+  ],
+  ["no-models", { ...BASE, hostName: LONG_HOST, inspection: EMPTY }],
+  ["no-models-offline", { ...BASE, hostName: LONG_HOST, inspection: EMPTY, connection: "offline" }],
+  [
+    "failed-long",
+    {
+      ...BASE,
+      hostName: LONG_HOST,
+      result: SERVED,
+      failure:
+        "Completion endpoint http://build-farm-eu-west-2.internal.example.com:11434/v1/completions returned HTTP 413: request entity too large (prompt of 1048576 tokens exceeds n_ctx_slot 32768)",
+    },
+  ],
+  [
+    "one-model",
+    {
+      ...BASE,
+      inspection: {
+        ...INSPECTION,
+        client: { ...INSPECTION.client, endpoints: [endpoint("http://127.0.0.1:8080", QWEN)] },
+      },
+      result: { ...SERVED, model: QWEN },
+    },
+  ],
+];

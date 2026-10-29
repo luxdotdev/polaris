@@ -332,8 +332,11 @@ const headerOf = ({
     ),
     control:
       toggle === null ? undefined : (
-        <label className="text-caption text-text-subtle flex shrink-0 items-center gap-2">
-          {toggle.label}
+        <label className="text-caption text-text-subtle flex min-w-0 items-center gap-2">
+          {/* A long Host name truncates, so the state word keeps its room. */}
+          <span className="max-w-32 truncate" title={toggle.label}>
+            {toggle.label}
+          </span>
           <Switch
             checked={toggle.on}
             disabled={running !== null}

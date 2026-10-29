@@ -54,6 +54,12 @@ test("Connection State comes before settings, and the status label keeps its thr
   expect(card({ hostName: "this Mac", connection: "offline" }).title).toBe("This Mac is offline");
 });
 
+test("A Host named in lower case keeps its name at the start of a sentence", () => {
+  expect(card({ hostName: "build-farm-eu.example.com", connection: "offline" }).title).toBe(
+    "build-farm-eu.example.com is offline"
+  );
+});
+
 test("Serving names the model, machine, placement reason, endpoint, latency and context", () => {
   const view = card({ result: SERVED });
   expect(view.kind).toBe("serving");
