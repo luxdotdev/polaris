@@ -139,7 +139,7 @@ export const DEVICE_RPCS = {
   "review.stopWalkthrough": "local",
   "review.riskSummary": "device",
   "review.watchRiskSummary": "device",
-  "review.askFinding": "local",
+  "review.askFinding": "device",
   "review.verdicts": "local",
   "review.reviewerSettings": "local",
   "review.setReviewerSettings": "local",

@@ -5,9 +5,12 @@ import { App } from "./src/App.tsx";
 import { celestialPreviewRoot } from "./src/celestial/dev.tsx";
 import { diffPreviewRoot } from "./src/diff/dev.tsx";
 import { diffBenchRoot } from "./src/review/dev.tsx";
+import { reviewPreviewRoot } from "./src/review/ReviewView/dev.tsx";
 import { runNativeProbe } from "./src/runtime/nativeProbe.ts";
 
-registerRootComponent(diffBenchRoot() ?? celestialPreviewRoot() ?? diffPreviewRoot() ?? App);
+registerRootComponent(
+  diffBenchRoot() ?? celestialPreviewRoot() ?? diffPreviewRoot() ?? reviewPreviewRoot() ?? App
+);
 
 // scripts/simulatorCheck.ts sets this ("1", or a link string to link with); read whole for Expo.
 const nativeCheck: unknown = process.env.EXPO_PUBLIC_POLARIS_NATIVE_CHECK;
