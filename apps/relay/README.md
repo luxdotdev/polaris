@@ -189,7 +189,9 @@ device's Live Activity, sealed to the device; `slice: null` leaves the activity.
 the device's live ticket (`signLiveTicket`, context `polaris-live-ticket/1`), checked on every
 frame; a bad one is answered `live-gone {token, outcome: "unlinked"}`. The relay keeps the
 latest slice per (token, host) in memory only and sends the merged ContentState `{v: 1,
-slices}`, ordered by host address, to the push service as `{token, environment, live: {event,
+slices}`, ordered by host address, per (device, environment, token): a ticket from another
+device for the same token makes another activity, so a host can't add to or evict a device's
+slices. It sends that to the push service as `{token, environment, live: {event,
 timestamp, state, alert}}`:
 
 - routine updates at most once every 5 s per token (APNs priority 5);

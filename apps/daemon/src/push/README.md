@@ -71,5 +71,8 @@ socket; nothing is queued while it is down.
   operator, a Host the device registered with) could mint its own ticket for that token. Without
   the device's push key it can only cause the generic "Open Polaris" alert, which the extension
   can't open. Binding tokens to devices at the push service is a follow-up.
+- Live Activity slices are sealed like pushes, under their own info, and the relay merges only
+  slices whose ticket comes from the same device. A party that learns an activity token can
+  still send its own (unreadable) slice to it, as with wakes, but not join the device's.
 - A push names the Host, session and request ids in its sealed body; the app answers over its
   own end-to-end session, never through the push path.

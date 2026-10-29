@@ -22,8 +22,10 @@ export interface LiveSlot {
 }
 
 interface Activity {
+  /** `keyOf`: one device's activity, so a host can't join or evict another device's. */
+  readonly key: string;
   readonly token: string;
-  environment: PushEnvironment;
+  readonly environment: PushEnvironment;
   readonly slots: Map<RelayAddress, LiveSlot>;
   /** When the last push went, in ms; 0 before any. */
   lastSent: number;
@@ -76,9 +78,13 @@ export const mergeSlots = (slots: ReadonlyMap<RelayAddress, LiveSlot>): Readonly
   return byAddress.filter(([host]) => kept.has(host)).map(([, slot]) => slot.slice);
 };
 
+/** An activity is its device's: a token another device's ticket names is another activity. */
+const keyOf = (put: Pick<LivePut, "peer" | "environment" | "token">) =>
+  `${put.peer}\0${put.environment}\0${put.token}`;
+
 export class LiveActivities {
   private readonly activities = new Map<string, Activity>();
-  private readonly tokensOf = new Map<RelayAddress, Set<string>>();
+  private readonly keysOf = new Map<RelayAddress, Set<string>>();
   private readonly intervalMs: number;
   private readonly now: () => number;
 
@@ -89,13 +95,12 @@ export class LiveActivities {
 
   /** Stores a host's slice and sends, or schedules, the merged update. */
   put(put: LivePut): void {
-    if (put.slice === null) return this.leave(put.host, put.token, put.peer);
+    if (put.slice === null) return this.leave(put.host, keyOf(put));
     const activity = this.activityFor(put);
 
     if (activity === null) return;
-    activity.environment = put.environment;
     activity.slots.set(put.host, { peer: put.peer, slice: put.slice, active: put.active });
-    this.tokens(put.host).add(put.token);
+    this.keys(put.host).add(activity.key);
 
     if (put.alert) this.send(activity, true);
     else this.schedule(activity);
@@ -103,10 +108,10 @@ export class LiveActivities {
 
   /** Drops `host`'s slices in activities of devices it no longer lists. */
   unlisted(host: RelayAddress, listed: ReadonlySet<RelayAddress>): void {
-    for (const token of Array.from(this.tokensOf.get(host) ?? [])) {
-      const slot = this.activities.get(token)?.slots.get(host);
+    for (const key of Array.from(this.keysOf.get(host) ?? [])) {
+      const slot = this.activities.get(key)?.slots.get(host);
 
-      if (slot !== undefined && !listed.has(slot.peer)) this.leave(host, token, slot.peer);
+      if (slot !== undefined && !listed.has(slot.peer)) this.leave(host, key);
     }
   }
 
@@ -117,25 +122,27 @@ export class LiveActivities {
   stop(): void {
     for (const activity of this.activities.values()) this.cancel(activity);
     this.activities.clear();
-    this.tokensOf.clear();
+    this.keysOf.clear();
   }
 
   private activityFor(put: LivePut): Activity | null {
-    const existing = this.activities.get(put.token);
+    const key = keyOf(put);
+    const existing = this.activities.get(key);
 
     if (existing !== undefined) {
       const known = existing.slots.has(put.host);
 
-      return known || this.tokens(put.host).size < this.deps.maxPerHost ? existing : null;
+      return known || this.keys(put.host).size < this.deps.maxPerHost ? existing : null;
     }
 
     if (
       this.activities.size >= this.deps.maxActivities ||
-      this.tokens(put.host).size >= this.deps.maxPerHost
+      this.keys(put.host).size >= this.deps.maxPerHost
     )
       return null;
 
     const activity: Activity = {
+      key,
       token: put.token,
       environment: put.environment,
       slots: new Map(),
@@ -143,42 +150,40 @@ export class LiveActivities {
       timer: null,
     };
 
-    this.activities.set(put.token, activity);
+    this.activities.set(key, activity);
 
     return activity;
   }
 
-  private tokens(host: RelayAddress): Set<string> {
-    const tokens = this.tokensOf.get(host) ?? new Set<string>();
-    this.tokensOf.set(host, tokens);
+  private keys(host: RelayAddress): Set<string> {
+    const keys = this.keysOf.get(host) ?? new Set<string>();
+    this.keysOf.set(host, keys);
 
-    return tokens;
+    return keys;
   }
 
-  private leave(host: RelayAddress, token: string, peer: RelayAddress): void {
-    const activity = this.activities.get(token);
-    const slot = activity?.slots.get(host);
+  private leave(host: RelayAddress, key: string): void {
+    const activity = this.activities.get(key);
 
-    if (activity === undefined || slot === undefined || slot.peer !== peer) return;
-    activity.slots.delete(host);
-    this.forgetToken(host, token);
+    if (activity === undefined || !activity.slots.delete(host)) return;
+    this.forgetKey(host, key);
 
     if (activity.slots.size === 0) this.remove(activity);
     else this.schedule(activity);
   }
 
-  private forgetToken(host: RelayAddress, token: string): void {
-    const tokens = this.tokensOf.get(host);
-    tokens?.delete(token);
+  private forgetKey(host: RelayAddress, key: string): void {
+    const keys = this.keysOf.get(host);
+    keys?.delete(key);
 
-    if (tokens?.size === 0) this.tokensOf.delete(host);
+    if (keys?.size === 0) this.keysOf.delete(host);
   }
 
   private remove(activity: Activity): void {
     this.cancel(activity);
-    this.activities.delete(activity.token);
+    this.activities.delete(activity.key);
 
-    for (const host of activity.slots.keys()) this.forgetToken(host, activity.token);
+    for (const host of activity.slots.keys()) this.forgetKey(host, activity.key);
   }
 
   private cancel(activity: Activity): void {
@@ -194,7 +199,7 @@ export class LiveActivities {
     activity.timer = setTimeout(() => {
       activity.timer = null;
 
-      if (this.activities.get(activity.token) === activity) this.send(activity, false);
+      if (this.activities.get(activity.key) === activity) this.send(activity, false);
     }, wait);
     activity.timer.unref?.();
   }
@@ -219,7 +224,7 @@ export class LiveActivities {
       this.deps.delivered(outcome, hosts, alert);
 
       // APNs no longer knows the token: the activity ended, so every host stops sending to it.
-      if (outcome !== "unregistered" || this.activities.get(activity.token) !== activity) return;
+      if (outcome !== "unregistered" || this.activities.get(activity.key) !== activity) return;
       // Hosts that joined while this push was out hear it too.
       const current = [...activity.slots.keys()];
       this.remove(activity);

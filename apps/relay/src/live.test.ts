@@ -123,6 +123,19 @@ describe("dropping", () => {
     live.stop();
   });
 
+  test("another device's ticket for the same token is another activity: it can't join or evict this one", async () => {
+    const { live, slices } = activities();
+
+    live.put(put(1, "mine"));
+    live.put(put(2, "theirs", { peer: address(98), alert: true }));
+    live.put(put(1, "mine", { peer: address(98), slice: null }));
+    await Bun.sleep(80);
+
+    expect(slices()).toEqual([["mine"], ["theirs"]]);
+    expect(live.size).toBe(2);
+    live.stop();
+  });
+
   test("a host holds slices in at most its share of activities", () => {
     const { live, sent } = activities("sent", 1);
 
