@@ -56,6 +56,7 @@ const SHOT_SCENES = new Map([
   ["commands", "interrupted"],
   ["chip", "interrupted"],
   ["subagent-open", "subagents"],
+  ["subagent-hover", "subagents"],
   ["background-hover", "background"],
   ["background-row", "background"],
   ["background-open", "background"],
@@ -121,9 +122,18 @@ const openPolaris = async (page: Page, scene: string) => {
   await page.mouse.move(0, 0);
 };
 
-/** The subagents scene's first run and Subagent, opened. */
-const openSubagent = async (page: Page) => {
-  for (const target of ['[data-testid="tool-run"] > button', '[data-testid="subagent"] > button'])
+/** The subagents scene's first run and Subagent, opened; or the working one's activity hovered. */
+const openSubagent = async (page: Page, scene: string) => {
+  if (scene === "subagent-hover") {
+    await page.locator('[data-testid="subagent-activity"]').first().hover();
+
+    return;
+  }
+
+  for (const target of [
+    '[data-testid="tool-run"] > button',
+    '[data-testid="subagent-head"] > button',
+  ])
     if ((await page.locator(`${target}[aria-expanded="true"]`).count()) === 0)
       await page.locator(target).first().click();
   await page.getByTestId("subagent-transcript").first().waitFor();
@@ -132,7 +142,11 @@ const openSubagent = async (page: Page) => {
 /** The background scene's shots: a hover listing the tasks, or the reported Subagent opened. */
 const openBackground = async (page: Page, scene: string) => {
   if (scene === "background-open") {
-    const card = page.locator('[data-testid="subagent"][data-status="completed"] > button').first();
+    const card = page
+      .locator(
+        '[data-testid="subagent"][data-status="completed"] [data-testid="subagent-head"] > button'
+      )
+      .first();
 
     if ((await card.getAttribute("aria-expanded")) !== "true") await card.click();
     await page.getByTestId("subagent-transcript").first().waitFor();
@@ -205,8 +219,8 @@ const open = async (page: Page, scene: string) => {
     await (scene === "commands"
       ? page.getByTestId("command-menu").waitFor()
       : page.locator(".composer-chip").first().waitFor());
-  } else if (scene === "subagent-open") {
-    await openSubagent(page);
+  } else if (scene.startsWith("subagent-")) {
+    await openSubagent(page, scene);
   } else if (scene.startsWith("background-")) {
     await openBackground(page, scene);
   } else if (POLARIS_OPEN.has(scene)) {

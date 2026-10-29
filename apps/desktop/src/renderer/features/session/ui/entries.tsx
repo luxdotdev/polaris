@@ -103,33 +103,38 @@ const Subagent = ({ card, ctx }: { card: SubagentCard; ctx: Context }) => {
       data-testid="subagent"
       data-status={subagent.status}
     >
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={toggle}
-        className="h-row gap-row-x hover:bg-fill-hover flex min-w-0 cursor-default items-center px-3 text-left"
-      >
-        <StatusMark card={card} hue={ctx.hue} />
-        <span className="text-caption text-text-default shrink-0 font-medium">
-          {subagent.agent ?? "Subagent"}
-        </span>
-        <span className="text-body text-text-subtle min-w-0 flex-1 truncate">{subagent.title}</span>
-        <Elapsed card={card} />
-        {subagent.status === "working" ? null : (
-          <span className="text-caption text-text-subtle shrink-0">
-            {STATUS_LABEL[subagent.status]}
-          </span>
-        )}
-        <Chevron open={open} />
-      </button>
-      {card.activity === null ? null : (
-        <p
-          className="text-caption text-text-subtle -mt-1.5 truncate px-3 pb-2 pl-[38px] font-mono"
-          data-testid="subagent-activity"
+      {/* The hover fill spans the header and its activity line; the button's ::after covers both. */}
+      <div className="hover:bg-fill-hover relative flex flex-col" data-testid="subagent-head">
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={toggle}
+          className="h-row gap-row-x flex min-w-0 cursor-default items-center px-3 text-left after:absolute after:inset-0"
         >
-          {card.activity}
-        </p>
-      )}
+          <StatusMark card={card} hue={ctx.hue} />
+          <span className="text-caption text-text-default shrink-0 font-medium">
+            {subagent.agent ?? "Subagent"}
+          </span>
+          <span className="text-body text-text-subtle min-w-0 flex-1 truncate">
+            {subagent.title}
+          </span>
+          <Elapsed card={card} />
+          {subagent.status === "working" ? null : (
+            <span className="text-caption text-text-subtle shrink-0">
+              {STATUS_LABEL[subagent.status]}
+            </span>
+          )}
+          <Chevron open={open} />
+        </button>
+        {card.activity === null ? null : (
+          <p
+            className="text-caption text-text-subtle -mt-1.5 truncate px-3 pb-2 pl-[38px] font-mono"
+            data-testid="subagent-activity"
+          >
+            {card.activity}
+          </p>
+        )}
+      </div>
       {open ? (
         <div
           className="border-hairline flex flex-col gap-1.5 border-t px-3 py-2"
