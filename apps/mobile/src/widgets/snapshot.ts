@@ -103,7 +103,7 @@ const summaryOf = (home: Home, stale: boolean): ReadonlyArray<SummaryPart> => {
 const emptyOf = (home: Home): string | null =>
   Match.value(home.empty).pipe(
     Match.when("no-hosts", () => "Link this iPhone from Polaris on your Mac"),
-    Match.when("unreachable", () => "Can't reach your hosts"),
+    Match.whenOr("unreachable", "loading", () => "Can't reach your hosts"),
     Match.when("no-sessions", () => "No agent sessions yet"),
     Match.orElse(() => null)
   );
