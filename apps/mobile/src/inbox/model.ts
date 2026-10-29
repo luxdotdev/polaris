@@ -3,7 +3,7 @@
  * sheet and Home's hero card never disagree. Derived from the feeds, so a resolved request leaves it.
  */
 import type { ConnectionState } from "@polaris/protocol";
-import { counted } from "../home/model/format.ts";
+import { counted, shortHostName } from "../home/model/format.ts";
 import { buildHome, type HomeHost, type SessionRow } from "../home/model/home.ts";
 
 export interface FooterHost {
@@ -31,10 +31,6 @@ const stateWord: Record<ConnectionState, string> = {
   offline: " offline",
 };
 
-/** "lucas-mac-studio.tail0.ts.net" → "lucas-mac-studio", so the state word after it stays in view. */
-const shortName = (name: string) =>
-  /^[a-z][\w-]*\./i.test(name) ? (name.split(".")[0] ?? name) : name;
-
 const workingLine = (home: ReturnType<typeof buildHome>, hostCount: number) =>
   home.working === 0
     ? null
@@ -51,7 +47,7 @@ export const inboxOf = (hosts: ReadonlyArray<HomeHost>): Inbox => {
     working: workingLine(home, Math.max(busyHosts.size, 1)),
     hosts: hosts.map((host) => ({
       hostId: host.hostId,
-      label: `${shortName(host.name)}${stateWord[host.connection]}`,
+      label: `${shortHostName(host.name)}${stateWord[host.connection]}`,
       connection: host.connection,
     })),
     away: items.some((row) => row.stale),

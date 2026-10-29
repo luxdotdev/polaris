@@ -4,6 +4,7 @@ import { Pressable, Text } from "react-native";
 import { useTheme } from "../../theme/index.ts";
 import { NeedsYouStar } from "./glyphs.tsx";
 import { badgeCount } from "./rowLook.ts";
+import { CHROME_TEXT_SCALE } from "./textScale.ts";
 
 export const NeedsYouBadge = ({
   count,
@@ -26,7 +27,7 @@ export const NeedsYouBadge = ({
         flexDirection: "row",
         alignItems: "center",
         gap: 6,
-        height: 32,
+        minHeight: 32,
         paddingHorizontal: 12,
         borderRadius: 999,
         borderWidth: 1,
@@ -37,6 +38,7 @@ export const NeedsYouBadge = ({
     >
       <NeedsYouStar size={12} />
       <Text
+        maxFontSizeMultiplier={CHROME_TEXT_SCALE}
         style={{
           fontFamily: mobileFont.sans,
           fontSize: 14,

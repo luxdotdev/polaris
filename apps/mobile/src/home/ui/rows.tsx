@@ -14,6 +14,7 @@ import type { ConstellationRow, SessionRow as Row } from "../model/home.ts";
 import { type ConstellationProgress, progressLine, sevenSegments } from "../model/taskBar.ts";
 import { type RowMenu, titleOf } from "./NeedsYouCard.tsx";
 import { celestialLook, harnessHue, type MetaTone, metaLine } from "./rowLook.ts";
+import { CONTENT_TEXT_SCALE } from "./textScale.ts";
 
 const WASH_WIDTH = 168;
 
@@ -105,10 +106,12 @@ const Top = ({
 
   return (
     <View style={styles.top}>
-      <Text style={styles.title} numberOfLines={1}>
+      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.title} numberOfLines={1}>
         {title}
       </Text>
-      <Text style={styles.age}>{age(since, now)}</Text>
+      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.age}>
+        {age(since, now)}
+      </Text>
     </View>
   );
 };
@@ -148,9 +151,14 @@ export const SessionRow = ({ row, now, withHost, onOpen, menu }: SessionRowProps
         </View>
         <View style={styles.text}>
           <Top title={titleOf(row.session.title)} since={row.since} now={now} />
-          <Text style={styles.meta} numberOfLines={1}>
+          <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.meta} numberOfLines={1}>
             {line.lead === null ? null : (
-              <Text style={leadStyle(styles, line.lead.tone)}>{line.lead.text}</Text>
+              <Text
+                maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+                style={leadStyle(styles, line.lead.tone)}
+              >
+                {line.lead.text}
+              </Text>
             )}
             {line.lead !== null && line.rest !== "" ? " · " : null}
             {line.rest}
@@ -187,6 +195,9 @@ export const TaskBar = ({
   );
 };
 
+/** Before the task counts arrive, or while the Host is away: the bar, all dark. */
+const UNKNOWN_PROGRESS: ConstellationProgress = { done: 0, working: 0, total: 0 };
+
 export const ConstellationListRow = ({
   row,
   progress,
@@ -217,8 +228,8 @@ export const ConstellationListRow = ({
         <View style={styles.text}>
           <Top title={row.constellation.name} since={row.since} now={now} />
           <View style={styles.progress}>
-            {progress === null ? null : <TaskBar progress={progress} harness={harness} />}
-            <Text style={styles.meta} numberOfLines={1}>
+            <TaskBar progress={progress ?? UNKNOWN_PROGRESS} harness={harness} />
+            <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.meta} numberOfLines={1}>
               {progressLine(progress)}
             </Text>
           </View>
@@ -260,11 +271,13 @@ const useStyles = themedStyles((colours) => ({
     color: colours.textSubtle,
     fontVariant: ["tabular-nums"],
   },
+  // A right-to-left reply preview first would otherwise flip the whole line's order.
   meta: {
     fontFamily: mobileFont.sans,
     fontSize: 13,
     lineHeight: 18,
     color: colours.textSubtle,
+    writingDirection: "ltr",
   },
   leadNeedsYou: { color: colours.needsYouText, fontWeight: "500" },
   leadFailed: { color: colours.failedText, fontWeight: "500" },

@@ -47,6 +47,8 @@ export interface SessionInput {
   readonly lastError?: string | null;
   readonly acceptedThroughIndex?: number | null;
   readonly pinnedAt?: string | null;
+  readonly celestial?: string | null;
+  readonly lastReplyPreview?: string | null;
 }
 
 export const session = (input: SessionInput) =>
@@ -69,23 +71,37 @@ export const session = (input: SessionInput) =>
     lastError: input.lastError ?? null,
     acceptedThroughIndex: input.acceptedThroughIndex ?? null,
     pinnedAt: input.pinnedAt ?? null,
+    celestial: input.celestial ?? null,
+    lastReplyPreview: input.lastReplyPreview ?? null,
     createdAt: AT,
     updatedAt: input.updatedAt ?? AT,
   });
 
-export const commandApproval = (sessionId: string, id: string, command: string, openedAt = AT) =>
+export const commandApproval = (
+  sessionId: string,
+  id: string,
+  command: string,
+  openedAt = AT,
+  kind: ApprovalRequest["kind"] = "command"
+) =>
   new ApprovalRequest({
     id: RequestId.make(id),
     sessionId: SessionId.make(sessionId),
     turnId: TurnId.make(`${sessionId}-t1`),
-    kind: "command",
+    kind,
     title: command,
     detail: command,
     options: [],
     openedAt,
   });
 
-export const question = (sessionId: string, id: string, text: string, choices: string[]) =>
+export const question = (
+  sessionId: string,
+  id: string,
+  text: string,
+  choices: string[],
+  openedAt = AT
+) =>
   new ApprovalRequest({
     id: RequestId.make(id),
     sessionId: SessionId.make(sessionId),
@@ -102,7 +118,7 @@ export const question = (sessionId: string, id: string, text: string, choices: s
         multiSelect: false,
       }),
     ],
-    openedAt: AT,
+    openedAt,
   });
 
 export const summary = (s: AgentSession, pending: ReadonlyArray<ApprovalRequest> = []) =>

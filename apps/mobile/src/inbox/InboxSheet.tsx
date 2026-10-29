@@ -21,6 +21,7 @@ import {
 } from "../sheet/index.tsx";
 import { type MobileColours, themedStyles, useTheme } from "../theme/index.ts";
 import type { FooterHost, Inbox } from "./model.ts";
+import { CHROME_TEXT_SCALE } from "../home/ui/textScale.ts";
 
 const DETENTS = ["medium", "large"] as const;
 
@@ -44,8 +45,14 @@ const Empty = ({ working }: { readonly working: string | null }) => {
 
   return (
     <View style={styles.empty}>
-      <Text style={styles.emptyTitle}>Nothing needs you</Text>
-      {working === null ? null : <Text style={styles.emptyLine}>{working}</Text>}
+      <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.emptyTitle}>
+        Nothing needs you
+      </Text>
+      {working === null ? null : (
+        <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.emptyLine}>
+          {working}
+        </Text>
+      )}
     </View>
   );
 };
@@ -75,7 +82,7 @@ const Requests = ({ inbox, now }: { readonly inbox: Inbox; readonly now: number 
   return (
     <>
       <HeroWell>
-        <Card item={first} now={now} />
+        <Card key={first.key} item={first} now={now} />
       </HeroWell>
       {rest.length === 0 ? null : <SheetKicker parts={["Also waiting on you", rest.length]} />}
       {rest.map((item) => (
