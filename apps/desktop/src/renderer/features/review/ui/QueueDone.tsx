@@ -2,7 +2,7 @@
  * The pane once a review or a merge emptied its queue group (DESIGN.md, Review → Queue):
  * what moved to Reviewed or merged, and the way back to it. Opening any row leaves it.
  */
-import { Button, EmptyState, PixelCheckIcon } from "@polaris/ui";
+import { Button, EmptyState, Panel, PixelCheckIcon } from "@polaris/ui";
 import type { OpenPull } from "../../../../shared/api.ts";
 import type { Moved, QueueGroup } from "../model/queue.ts";
 
@@ -27,19 +27,18 @@ export interface QueueDoneProps {
 }
 
 export const QueueDone = ({ pull, group, moved = "reviewed", onBack }: QueueDoneProps) => (
-  <section
-    data-testid="review-queue-done"
-    className="bg-bg flex min-w-0 flex-1 items-center justify-center"
-  >
-    <EmptyState
-      icon={<PixelCheckIcon size={24} />}
-      title={TITLES[group] ?? "Nothing left here"}
-      fact={FACTS[moved](pull.number)}
-      action={
-        <Button size="sm" variant="secondary" onClick={onBack}>
-          Show #{pull.number}
-        </Button>
-      }
-    />
-  </section>
+  <Panel asChild className="mb-2 min-w-0 flex-1 items-center justify-center">
+    <section data-testid="review-queue-done">
+      <EmptyState
+        icon={<PixelCheckIcon size={24} />}
+        title={TITLES[group] ?? "Nothing left here"}
+        fact={FACTS[moved](pull.number)}
+        action={
+          <Button size="sm" variant="secondary" onClick={onBack}>
+            Show #{pull.number}
+          </Button>
+        }
+      />
+    </section>
+  </Panel>
 );

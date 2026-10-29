@@ -113,28 +113,33 @@ export const PullReview = ({ subject }: { readonly subject: PullSubject }) => {
     <section
       data-testid="pull-review"
       data-pull={pull.pullId ?? ""}
-      className="flex min-h-0 min-w-0 flex-1 flex-col"
+      className="flex min-h-0 min-w-0 flex-1 gap-2"
     >
-      <PullHeader
-        name={name}
-        number={pull.number}
-        detail={loaded}
-        url={url}
-        actions={
-          <HeaderActions
-            pull={pull}
+      <ReviewBody
+        header={
+          <PullHeader
+            name={name}
+            number={pull.number}
             detail={loaded}
-            checkout={
-              slotProps.checkout === null
-                ? null
-                : { ...slotProps.checkout, hostLabel: labelOf(hosts, slotProps.checkout.hostKey) }
+            url={url}
+            actions={
+              <HeaderActions
+                pull={pull}
+                detail={loaded}
+                checkout={
+                  slotProps.checkout === null
+                    ? null
+                    : {
+                        ...slotProps.checkout,
+                        hostLabel: labelOf(hosts, slotProps.checkout.hostKey),
+                      }
+                }
+                chip={<CheckoutChip {...slotProps} />}
+                primary={<PrimaryAction {...slotProps} />}
+              />
             }
-            chip={<CheckoutChip {...slotProps} />}
-            primary={<PrimaryAction {...slotProps} />}
           />
         }
-      />
-      <ReviewBody
         subjectKey={key}
         slotProps={slotProps}
         place={
