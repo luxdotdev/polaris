@@ -14,6 +14,10 @@ export const useKeyboard = (active: boolean): KeyboardFrame => {
 
   useEffect(() => {
     if (!active) return;
+    // A keyboard already up when the sheet opens sends no show event: start from where it is.
+    const up = Keyboard.metrics();
+
+    setFrame(up == null ? HIDDEN : { height: up.height, duration: 0 });
 
     const ios = Platform.OS === "ios";
 

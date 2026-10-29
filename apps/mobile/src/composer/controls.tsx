@@ -162,7 +162,11 @@ const ChipView = ({ chip, onRemove }: { readonly chip: Chip; readonly onRemove: 
       {chip.thumbnailUri === null ? null : (
         <Image source={{ uri: chip.thumbnailUri }} style={styles.thumb} />
       )}
-      <Text style={[styles.chipName, { color: colours.textDefault }]} numberOfLines={1}>
+      <Text
+        style={[styles.chipName, { color: colours.textDefault }]}
+        numberOfLines={1}
+        ellipsizeMode="middle"
+      >
         {chip.name}
       </Text>
       {chip.size === null ? null : (

@@ -40,7 +40,8 @@ export interface ContextRing {
 export const formatTokens = (tokens: number): string => {
   if (tokens < 1000) return `${tokens}`;
 
-  if (tokens < 1_000_000) return `${Math.round(tokens / 1000)}k`;
+  // 999,800 rounds up to a thousand thousands: that reads as "1M", never "1000k".
+  if (tokens < 999_500) return `${Math.round(tokens / 1000)}k`;
 
   return `${(tokens / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
 };
@@ -61,3 +62,87 @@ export const RING_SEGMENTS = 20;
 
 export const litSegments = (share: number): number =>
   share <= 0 ? 0 : Math.max(1, Math.round(share * RING_SEGMENTS));
+
+/** The most the row's own words grow with Dynamic Type; the field and the strip's text grow on. */
+export const CHROME_SCALE = 1.4;
+
+/** What the row has to hold besides the chip and Send. */
+export interface RowParts {
+  readonly running: number;
+  readonly queue: boolean;
+  readonly attach: boolean;
+  readonly mic: boolean;
+}
+
+/** What fits: the chip keeps room for a name and Send stays inside the composer. */
+export interface RowFit {
+  readonly moons: number;
+  readonly ring: boolean;
+  readonly ringWords: boolean;
+  readonly mic: boolean;
+}
+
+const GAP = 6;
+
+const BUTTON = 32;
+
+/** Approximate widths at a text scale, from ControlRow's styles. */
+const widthOf = (fit: RowFit, parts: RowParts, scale: number): number => {
+  const chip = 58 + 48 * scale;
+  const send = 34;
+
+  const moons =
+    fit.moons === 0 ? 0 : 4 + fit.moons * 16 + 4 + 8 * `${parts.running}`.length * scale;
+
+  const ring = fit.ring ? 18 + (fit.ringWords ? 4 + 30 * scale : 0) : 0;
+  const queue = parts.queue ? 8 + 40 * scale : 0;
+  const shown = [moons, ring, parts.attach ? BUTTON : 0, fit.mic ? BUTTON : 0, queue];
+
+  return chip + send + shown.reduce((sum, w) => sum + w + (w > 0 ? GAP : 0), GAP);
+};
+
+/** Drops the least needed first: the ring's words, all but one moon, the ring, then the mic. */
+const DROPS: ReadonlyArray<(fit: RowFit) => RowFit> = [
+  (fit) => ({ ...fit, ringWords: false }),
+  (fit) => ({ ...fit, moons: Math.min(fit.moons, 1) }),
+  (fit) => ({ ...fit, ring: false }),
+  (fit) => ({ ...fit, mic: false }),
+];
+
+/** The row's readouts that fit `width`; everything while the width isn't measured yet. */
+export const fitControlRow = (width: number | null, fontScale: number, parts: RowParts): RowFit => {
+  const scale = Math.min(Math.max(fontScale, 1), CHROME_SCALE);
+
+  let fit: RowFit = {
+    moons: Math.min(parts.running, MOONS_SHOWN),
+    ring: true,
+    ringWords: true,
+    mic: parts.mic,
+  };
+
+  for (const drop of DROPS) {
+    if (width === null || widthOf(fit, parts, scale) <= width) return fit;
+    fit = drop(fit);
+  }
+
+  return fit;
+};
+
+/** How long Stop ignores a tap after Send: a double tap must not interrupt what it just sent. */
+export const STOP_GRACE_MS = 600;
+
+/** What a tap on Send does: send, stop the Turn, or nothing while Stop has just appeared. */
+export const sendPress = ({
+  stop,
+  now,
+  sentAt,
+}: {
+  readonly stop: boolean;
+  readonly now: number;
+  /** When Send last sent; null before it has. */
+  readonly sentAt: number | null;
+}): "send" | "stop" | "ignore" => {
+  if (!stop) return "send";
+
+  return sentAt !== null && now - sentAt < STOP_GRACE_MS ? "ignore" : "stop";
+};

@@ -6,10 +6,19 @@
 import type { CelestialBody, ContextUsage, HarnessKind, Subagent } from "@polaris/protocol";
 import type { DraftStatus } from "@polaris/client/continuity";
 import { mobileType } from "@polaris/ui/tokens";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useRef, useState } from "react";
+import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { ContextRing, ModelChip, SendButton, SubagentMoons } from "../composer/ControlRow.tsx";
 import { ModelControl } from "../composer/ModelControl.tsx";
-import { contextRing, moonsOf } from "../composer/controlRow.ts";
+import {
+  CHROME_SCALE,
+  contextRing,
+  fitControlRow,
+  moonsOf,
+  type RowFit,
+  type RowParts,
+  sendPress,
+} from "../composer/controlRow.ts";
 import {
   AttachButton,
   type AttachInput,
@@ -96,6 +105,74 @@ const noticeOf = (props: ComposerProps): { text: string; failed: boolean } | nul
   return props.draftStatus === "unsaved" ? { text: "Draft not saved", failed: false } : null;
 };
 
+/** The ring, attach and the mic, as many as the row has room for. */
+const Tools = ({
+  fit,
+  usage,
+  attach,
+  voice,
+}: {
+  readonly fit: RowFit;
+  readonly usage: ContextUsage | null;
+  readonly attach: AttachInput | null;
+  readonly voice: VoiceInput | null;
+}) => (
+  <>
+    {fit.ring ? <ContextRing ring={contextRing(usage)} words={fit.ringWords} /> : null}
+    {attach === null ? null : <AttachButton onPress={attach.pick} compact />}
+    {voice === null || !fit.mic ? null : <MicButton voice={voice} large />}
+  </>
+);
+
+const QueueButton = ({ onQueue }: { readonly onQueue: () => void }) => {
+  const { colours } = useTheme();
+
+  return (
+    <Pressable
+      onPress={() => {
+        haptics.send();
+        onQueue();
+      }}
+      accessibilityRole="button"
+      hitSlop={8}
+    >
+      <Text
+        style={[styles.queue, { color: colours.textDefault }]}
+        maxFontSizeMultiplier={CHROME_SCALE}
+      >
+        Queue
+      </Text>
+    </Pressable>
+  );
+};
+
+/** What the control row has room for, at its measured width and the text size. */
+const useRowFit = (parts: RowParts) => {
+  const [width, setWidth] = useState<number | null>(null);
+  const { fontScale } = useWindowDimensions();
+
+  return [fitControlRow(width, fontScale, parts), setWidth] as const;
+};
+
+/** Send or Stop, with Stop deaf for a moment after a send (`sendPress`). */
+const useSend = (stop: boolean, props: Pick<ComposerProps, "onSend" | "onStop">) => {
+  const sentAt = useRef<number | null>(null);
+
+  return () => {
+    const now = Date.now();
+    const press = sendPress({ stop, now, sentAt: sentAt.current });
+
+    if (press === "stop") {
+      haptics.stop();
+      props.onStop();
+    } else if (press === "send") {
+      sentAt.current = now;
+      haptics.send();
+      props.onSend();
+    }
+  };
+};
+
 export const Composer = (props: ComposerProps) => {
   const { colours } = useTheme();
   const { mode, text, harness, workingSince, attach = null, voice = null, sheet = null } = props;
@@ -105,16 +182,17 @@ export const Composer = (props: ComposerProps) => {
   const stop = working && text.trim() === "";
   const notice = noticeOf(props);
   const fieldId = usePastedImages(attach, !blocked);
+  const moons = moonsOf(props.subagents ?? []);
+  const queue = mode.kind === "steer" && !empty;
 
-  const send = () => {
-    if (stop) {
-      haptics.stop();
-      props.onStop();
-    } else {
-      haptics.send();
-      props.onSend();
-    }
-  };
+  const [fit, measure] = useRowFit({
+    running: moons.running,
+    queue,
+    attach: attach !== null && !blocked,
+    mic: voice !== null && !blocked,
+  });
+
+  const send = useSend(stop, props);
 
   return (
     <View style={[styles.box, { backgroundColor: colours.panel, borderColor: colours.hairline }]}>
@@ -145,7 +223,7 @@ export const Composer = (props: ComposerProps) => {
           nativeID={fieldId}
         />
       </View>
-      <View style={styles.row}>
+      <View style={styles.row} onLayout={({ nativeEvent }) => measure(nativeEvent.layout.width)}>
         {sheet === null ? (
           <ModelChip
             harness={harness}
@@ -157,23 +235,15 @@ export const Composer = (props: ComposerProps) => {
         ) : (
           <ModelControl context={sheet} celestial={props.celestial ?? null} working={working} />
         )}
-        <SubagentMoons harness={harness} moons={moonsOf(props.subagents ?? [])} />
+        <SubagentMoons harness={harness} moons={moons} shown={fit.moons} />
         <View style={styles.spring} />
-        <ContextRing ring={contextRing(props.contextUsage ?? null)} />
-        {attach === null || blocked ? null : <AttachButton onPress={attach.pick} compact />}
-        {voice === null || blocked ? null : <MicButton voice={voice} large />}
-        {mode.kind === "steer" && !empty ? (
-          <Pressable
-            onPress={() => {
-              haptics.send();
-              props.onQueue();
-            }}
-            accessibilityRole="button"
-            hitSlop={8}
-          >
-            <Text style={[styles.queue, { color: colours.textDefault }]}>Queue</Text>
-          </Pressable>
-        ) : null}
+        <Tools
+          fit={fit}
+          usage={props.contextUsage ?? null}
+          attach={blocked ? null : attach}
+          voice={blocked ? null : voice}
+        />
+        {queue ? <QueueButton onQueue={props.onQueue} /> : null}
         <SendButton
           stop={stop}
           disabled={!stop && (empty || blocked)}

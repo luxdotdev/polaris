@@ -15,6 +15,12 @@ const WANTS: Readonly<Record<ApprovalRequest["kind"], string>> = {
 /** What fits beside Approve and Deny on the narrowest iPhone; longer opens to the whole request. */
 export const COMPACT_CHARACTERS = 20;
 
+/** Past this Dynamic Type scale, Approve and Deny go under the request, never beside it. */
+export const COMPACT_TEXT_SCALE = 1.25;
+
+/** How much of the screen every open request may take, opened from "+n", before it scrolls. */
+export const EXPANDED_SHARE = 0.45;
+
 /** Printable ASCII only: no line breaks, controls, bidi or zero-width marks that hide text. */
 const PLAIN = /^[\x20-\x7e]*$/;
 
@@ -38,18 +44,29 @@ export interface Strip {
   readonly more: number;
 }
 
+/** Bidi controls and zero-width marks: they reorder or hide what a command really says. */
+const HIDDEN_MARKS = /[\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/gu;
+
+/** Names each hidden mark ("⟨U+202E⟩") so the text reads in the order it runs. */
+export const revealHidden = (text: string): string =>
+  text.replace(
+    HIDDEN_MARKS,
+    (mark) => `⟨U+${(mark.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0")}⟩`
+  );
+
 const fitsOneLine = (text: string) => PLAIN.test(text) && text.length <= COMPACT_CHARACTERS;
 
 const noticeOf = (request: ApprovalRequest, harness: string): StripNotice => {
   if (request.kind === "question") return { kind: "question", request };
-  const detail = approvalDetail(request)?.text ?? null;
+  const raw = approvalDetail(request)?.text ?? null;
+  const detail = raw === null ? null : revealHidden(raw);
 
   return {
     kind: "approval",
     request,
     headline: `${harness} ${WANTS[request.kind]}`,
     detail,
-    compact: detail === null || fitsOneLine(detail),
+    compact: raw === null || fitsOneLine(raw),
   };
 };
 

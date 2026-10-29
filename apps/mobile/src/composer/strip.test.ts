@@ -64,4 +64,17 @@ describe("the composer's notice strip", () => {
 
     expect(strip?.notice).toMatchObject({ kind: "approval", compact: false });
   });
+
+  test("a right-to-left override can't disguise a command: each hidden mark is named", () => {
+    const strip = stripOf({
+      requests: [request({ kind: "command", detail: "cat \u202Egnp.exe" })],
+      working: true,
+      harness: "Claude Code",
+    });
+
+    expect(strip?.notice).toMatchObject({
+      detail: "$ cat ⟨U+202E⟩gnp.exe",
+      compact: false,
+    });
+  });
 });

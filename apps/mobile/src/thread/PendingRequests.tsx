@@ -5,10 +5,26 @@
  */
 import type { ApprovalDecision, ApprovalRequest, HarnessKind, RequestId } from "@polaris/protocol";
 import { mobileType } from "@polaris/ui/tokens";
-import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  Pressable,
+  ScrollView,
+  type ScrollViewInstance,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import Svg, { Path } from "react-native-svg";
-import { noticesOf, type Strip, stripOf, type StripNotice } from "../composer/strip.ts";
+import { CHROME_SCALE } from "../composer/controlRow.ts";
+import {
+  COMPACT_TEXT_SCALE,
+  EXPANDED_SHARE,
+  noticesOf,
+  type Strip,
+  stripOf,
+  type StripNotice,
+} from "../composer/strip.ts";
 import { Dither } from "../dither/index.ts";
 import { decisionOf } from "../home/model/respond.ts";
 import { haptics } from "../motion";
@@ -76,9 +92,12 @@ const Answer = ({
       disabled={!live}
       onPress={onPress}
       hitSlop={6}
-      style={[styles.answer, filled ? { backgroundColor: colours.textStrong } : null]}
+      style={[styles.answer, filled ? { backgroundColor: colours.textStrong } : styles.quiet]}
     >
-      <Text style={[styles.answerLabel, { color: filled ? colours.bg : colours.textSubtle }]}>
+      <Text
+        style={[styles.answerLabel, { color: filled ? colours.bg : colours.textSubtle }]}
+        maxFontSizeMultiplier={CHROME_SCALE}
+      >
         {label}
       </Text>
     </Pressable>
@@ -99,7 +118,9 @@ const Permission = ({
   const { colours } = useTheme();
   // A compact command that still wraps opens to the whole: Approve is never beside cut-off text.
   const [wraps, setWraps] = useState(false);
-  const whole = open || !notice.compact || wraps;
+  // Large text leaves no room beside Approve: the buttons go under the request.
+  const roomy = useWindowDimensions().fontScale <= COMPACT_TEXT_SCALE;
+  const whole = open || !notice.compact || wraps || !roomy;
 
   const approve = () => {
     haptics.approve();
@@ -131,7 +152,7 @@ const Permission = ({
 
   return (
     <View style={[styles.column, card.live ? null : styles.waiting]}>
-      <View style={styles.row}>
+      <View style={[styles.row, styles.tight]}>
         <Spark colour={colours.needsYou} />
         <Pressable
           style={styles.text}
@@ -172,51 +193,66 @@ const Questions = ({ request, live, onRespond }: CardProps) => {
   const card = requestCard(request);
   const questions = card.kind === "questions" ? card.questions : [];
   const ready = live && answered(request, picks);
+  const scroll = useRef<ScrollViewInstance>(null);
+
+  // A long question hides options below the fold: show that it scrolls.
+  useEffect(() => {
+    const timer = setTimeout(() => scroll.current?.flashScrollIndicators(), 400);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
-    <ScrollView style={styles.questions} contentContainerStyle={styles.column} nestedScrollEnabled>
-      {questions.map((question, index) => (
-        <View key={`${index}:${question.question}`} style={styles.question}>
-          <Text style={[styles.questionText, { color: colours.textDefault }]}>
-            <Text style={[styles.headline, { color: colours.needsYouText }]}>
-              {question.header === "" ? "Asks · " : `${question.header} · `}
+    <View style={styles.column}>
+      <ScrollView
+        ref={scroll}
+        style={styles.questions}
+        contentContainerStyle={styles.column}
+        nestedScrollEnabled
+      >
+        {questions.map((question, index) => (
+          <View key={`${index}:${question.question}`} style={styles.question}>
+            <Text style={[styles.questionText, { color: colours.textDefault }]}>
+              <Text style={[styles.headline, { color: colours.needsYouText }]}>
+                {question.header === "" ? "Asks · " : `${question.header} · `}
+              </Text>
+              {question.question}
             </Text>
-            {question.question}
-          </Text>
-          <View style={[styles.chips, live ? null : styles.waiting]}>
-            {question.options.map((option) => {
-              const chosen = (picks[index] ?? []).includes(option.label);
+            <View style={[styles.chips, live ? null : styles.waiting]}>
+              {question.options.map((option) => {
+                const chosen = (picks[index] ?? []).includes(option.label);
 
-              return (
-                <Pressable
-                  key={option.label}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: chosen }}
-                  disabled={!live}
-                  onPress={() =>
-                    setPicks((held) => pick(held, index, option.label, question.multiSelect))
-                  }
-                  style={[
-                    styles.choice,
-                    chosen
-                      ? { backgroundColor: colours.textStrong, borderColor: colours.textStrong }
-                      : { borderColor: colours.hairline },
-                  ]}
-                >
-                  <Text
+                return (
+                  <Pressable
+                    key={option.label}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: chosen }}
+                    disabled={!live}
+                    onPress={() =>
+                      setPicks((held) => pick(held, index, option.label, question.multiSelect))
+                    }
                     style={[
-                      styles.choiceLabel,
-                      { color: chosen ? colours.bg : colours.textDefault },
+                      styles.choice,
+                      chosen
+                        ? { backgroundColor: colours.textStrong, borderColor: colours.textStrong }
+                        : { borderColor: colours.hairline },
                     ]}
                   >
-                    {option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+                    <Text
+                      style={[
+                        styles.choiceLabel,
+                        { color: chosen ? colours.bg : colours.textDefault },
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
-        </View>
-      ))}
+        ))}
+      </ScrollView>
       <View style={[styles.buttons, ready ? null : styles.waiting]}>
         <Answer
           label="Send answers"
@@ -228,7 +264,7 @@ const Questions = ({ request, live, onRespond }: CardProps) => {
           }}
         />
       </View>
-    </ScrollView>
+    </View>
   );
 };
 
@@ -265,7 +301,10 @@ const More = ({
       hitSlop={8}
       style={[styles.more, { backgroundColor: colours.fillHover }]}
     >
-      <Text style={[styles.moreLabel, { color: colours.textSubtle }]}>
+      <Text
+        style={[styles.moreLabel, { color: colours.textSubtle }]}
+        maxFontSizeMultiplier={CHROME_SCALE}
+      >
         {open ? "Less" : `+${count}`}
       </Text>
     </Pressable>
@@ -319,6 +358,7 @@ const panel = (colours: MobileColours) => ({
 export const PendingRequests = (props: NoticeStripProps) => {
   const { colours } = useTheme();
   const [all, setAll] = useState(false);
+  const { height } = useWindowDimensions();
 
   const harness = harnessName(props.harness);
 
@@ -329,19 +369,31 @@ export const PendingRequests = (props: NoticeStripProps) => {
   });
 
   if (strip === null) return null;
-  const shown = all && strip.more > 0 ? noticesOf(props.requests, harness) : [strip.notice];
+  const opened = all && strip.more > 0;
+  const shown = opened ? noticesOf(props.requests, harness) : [strip.notice];
+
+  const notices = shown.map((notice) => (
+    <Notice
+      key={notice.kind === "working" ? "working" : notice.request.id}
+      notice={notice}
+      props={props}
+    />
+  ));
 
   return (
     <View style={[styles.strip, panel(colours)]}>
-      <View style={styles.notices}>
-        {shown.map((notice) => (
-          <Notice
-            key={notice.kind === "working" ? "working" : notice.request.id}
-            notice={notice}
-            props={props}
-          />
-        ))}
-      </View>
+      {opened ? (
+        <ScrollView
+          style={[styles.notices, { maxHeight: height * EXPANDED_SHARE }]}
+          contentContainerStyle={styles.noticeList}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
+        >
+          {notices}
+        </ScrollView>
+      ) : (
+        <View style={[styles.notices, styles.noticeList]}>{notices}</View>
+      )}
       {strip.more > 0 ? <More count={strip.more} open={all} onToggle={() => setAll(!all)} /> : null}
     </View>
   );
@@ -358,9 +410,11 @@ const styles = StyleSheet.create({
     paddingLeft: 14,
     paddingRight: 8,
   },
-  notices: { flex: 1, gap: 12 },
+  notices: { flex: 1 },
+  noticeList: { gap: 12 },
   column: { gap: 8 },
   row: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 30 },
+  tight: { gap: 6 },
   text: { flex: 1, minWidth: 0 },
   headline: { ...mobileType.footnote, fontSize: 12, lineHeight: 16, fontWeight: "500" },
   detail: { ...mobileType.index },
@@ -368,12 +422,13 @@ const styles = StyleSheet.create({
   time: { ...mobileType.footnote, fontSize: 12, lineHeight: 16, flex: 1 },
   buttons: { flexDirection: "row", alignItems: "center", gap: 4 },
   answer: {
-    height: 30,
+    minHeight: 30,
     paddingHorizontal: 12,
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
   },
+  quiet: { paddingHorizontal: 7 },
   answerLabel: { ...mobileType.footnote, lineHeight: 16, fontWeight: "500" },
   waiting: { opacity: 0.55 },
   questions: { maxHeight: 260 },
@@ -391,7 +446,7 @@ const styles = StyleSheet.create({
   },
   choiceLabel: { ...mobileType.subhead, fontWeight: "500" },
   more: {
-    height: 24,
+    minHeight: 24,
     paddingHorizontal: 8,
     borderRadius: 999,
     alignItems: "center",

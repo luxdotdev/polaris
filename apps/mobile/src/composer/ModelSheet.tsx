@@ -4,8 +4,8 @@
  */
 import type { Model } from "@polaris/protocol";
 import { mobileType } from "@polaris/ui/tokens";
-import type { ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { type ReactNode, useEffect } from "react";
+import { Keyboard, Pressable, StyleSheet, Text, View } from "react-native";
 import { InstrumentSheet, SheetHeader, SheetKicker, Well } from "../sheet";
 import { type MobileColours, useTheme } from "../theme";
 import { harnessName } from "../thread/labels.ts";
@@ -116,6 +116,11 @@ export const ModelSheet = ({ input }: { readonly input: ModelSheetInput }) => {
   const { colours } = useTheme();
   const close = () => input.setOpen(false);
   const locked = input.change.kind === "blocked";
+
+  // Nothing here is typed: the composer's keyboard goes down rather than hide the choices.
+  useEffect(() => {
+    if (input.open) Keyboard.dismiss();
+  }, [input.open]);
 
   return (
     <InstrumentSheet open={input.open} onClose={close} detents={["medium", "large"]}>

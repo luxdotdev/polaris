@@ -9,7 +9,13 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { Celestial, sessionCelestial, subagentMoon } from "../celestial";
 import { useTheme } from "../theme";
-import { type ContextRing as Ring, litSegments, type Moons, RING_SEGMENTS } from "./controlRow.ts";
+import {
+  CHROME_SCALE,
+  type ContextRing as Ring,
+  litSegments,
+  type Moons,
+  RING_SEGMENTS,
+} from "./controlRow.ts";
 
 const Chevron = ({ colour }: { readonly colour: string }) => (
   <Svg width={10} height={10} viewBox="0 0 10 10">
@@ -50,7 +56,11 @@ export const ModelChip = ({
       style={[styles.chip, { backgroundColor: colours.raised, borderColor: colours.hairline }]}
     >
       <Celestial body={sessionCelestial(celestial)} harness={harness} size={16} working={working} />
-      <Text style={[styles.chipLabel, { color: colours.textDefault }]} numberOfLines={1}>
+      <Text
+        style={[styles.chipLabel, { color: colours.textDefault }]}
+        numberOfLines={1}
+        maxFontSizeMultiplier={CHROME_SCALE}
+      >
         {label}
       </Text>
       <Chevron colour={colours.textFaint} />
@@ -61,9 +71,12 @@ export const ModelChip = ({
 export const SubagentMoons = ({
   harness,
   moons,
+  shown,
 }: {
   readonly harness: HarnessKind;
   readonly moons: Moons;
+  /** How many moons the row has room for; the count still says them all. */
+  readonly shown: number;
 }) => {
   const { colours } = useTheme();
 
@@ -76,7 +89,7 @@ export const SubagentMoons = ({
       accessibilityLabel={`${moons.running} ${moons.running === 1 ? "subagent" : "subagents"} running`}
     >
       <View style={styles.moonRow}>
-        {moons.moons.map((moon) => (
+        {moons.moons.slice(0, shown).map((moon) => (
           <Celestial
             key={moon.id}
             body={subagentMoon(moon.index)}
@@ -86,7 +99,12 @@ export const SubagentMoons = ({
           />
         ))}
       </View>
-      <Text style={[styles.count, { color: colours.textSubtle }]}>{moons.running}</Text>
+      <Text
+        style={[styles.count, { color: colours.textSubtle }]}
+        maxFontSizeMultiplier={CHROME_SCALE}
+      >
+        {moons.running}
+      </Text>
     </View>
   );
 };
@@ -112,7 +130,14 @@ const RING_PATHS = Array.from(
     `M${point(i * SEGMENT + GAP)}A${RADIUS} ${RADIUS} 0 0 1 ${point((i + 1) * SEGMENT - GAP)}`
 );
 
-export const ContextRing = ({ ring }: { readonly ring: Ring }) => {
+export const ContextRing = ({
+  ring,
+  words,
+}: {
+  readonly ring: Ring;
+  /** "17%" beside the ring, where the row has room; VoiceOver hears it either way. */
+  readonly words: boolean;
+}) => {
   const { colours } = useTheme();
   const lit = litSegments(ring.share);
 
@@ -136,7 +161,14 @@ export const ContextRing = ({ ring }: { readonly ring: Ring }) => {
           />
         ))}
       </Svg>
-      <Text style={[styles.ringWords, { color: colours.textFaint }]}>{ring.words}</Text>
+      {words ? (
+        <Text
+          style={[styles.ringWords, { color: colours.textFaint }]}
+          maxFontSizeMultiplier={CHROME_SCALE}
+        >
+          {ring.words}
+        </Text>
+      ) : null}
     </View>
   );
 };
@@ -194,21 +226,29 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    height: 32,
+    minHeight: 32,
     paddingLeft: 8,
     paddingRight: 10,
     borderRadius: 999,
     borderWidth: 1,
     flexShrink: 1,
     minWidth: 0,
+    maxWidth: "100%",
   },
   chipLabel: { ...mobileType.footnote, lineHeight: 16, fontWeight: "500", flexShrink: 1 },
-  moons: { flexDirection: "row", alignItems: "center", gap: 4, height: 32, paddingHorizontal: 2 },
+  moons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    minHeight: 32,
+    paddingHorizontal: 2,
+  },
   moonRow: { flexDirection: "row", gap: 0 },
   count: { ...mobileType.index, fontSize: 13, fontWeight: "500" },
   ring: { flexDirection: "row", alignItems: "center", gap: 4 },
   ringWords: { ...mobileType.index, fontSize: 11, lineHeight: 14 },
   send: {
+    flexShrink: 0,
     width: 34,
     height: 34,
     borderRadius: 17,
