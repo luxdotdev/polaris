@@ -1,8 +1,17 @@
 /**
  * Settings → Usage's daily chart: stacked bars in Harness hues, and on hover or keyboard
  * focus (← → Home End) a tooltip listing the day's Models with tokens and cost, then its total.
+ * The tooltip is a popover in its own layer, so the card never clips it and it stays in the window.
  */
-import { cn, harnessHue, hueVar, Kicker } from "@polaris/ui";
+import {
+  cn,
+  harnessHue,
+  hueVar,
+  Kicker,
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@polaris/ui";
 import { type KeyboardEvent, memo, type PointerEvent, useId, useState } from "react";
 import { type Day, type DayTipRow, dayTip, type UsageSummary } from "../model/usage.ts";
 
@@ -129,26 +138,28 @@ const DayTooltip = ({
   day,
   today,
   split,
-  at,
 }: {
   readonly id: string;
   readonly day: Day;
   readonly today: boolean;
   readonly split: boolean;
-  /** 0–1 across the chart: the tooltip slides with it so it never leaves the chart. */
-  readonly at: number;
 }) => {
   const tip = dayTip(day, split);
   const inside = tip.rows.filter((r) => !r.outside);
   const outside = tip.rows.filter((r) => r.outside);
 
   return (
-    <div
+    <PopoverContent
       id={id}
       role="tooltip"
       data-testid="usage-tooltip"
-      className="rounded-control border-hairline bg-surface-raised shadow-float text-caption pointer-events-none absolute bottom-full z-10 mb-2 flex w-[260px] flex-col gap-1 border px-2.5 py-2"
-      style={{ left: `${at * 100}%`, transform: `translateX(-${at * 100}%)` }}
+      side="top"
+      sideOffset={8}
+      // The chart keeps focus, so ← → and esc still reach it; esc is the chart's to handle.
+      onOpenAutoFocus={(event) => event.preventDefault()}
+      onCloseAutoFocus={(event) => event.preventDefault()}
+      onEscapeKeyDown={(event) => event.preventDefault()}
+      className="rounded-control bg-surface-raised text-caption pointer-events-none flex w-[260px] flex-col gap-1 px-2.5 py-2"
     >
       <span className="text-text-default font-medium">{today ? "Today" : shortDate(tip.date)}</span>
       {tip.rows.length === 0 ? (
@@ -165,7 +176,7 @@ const DayTooltip = ({
           <TipLine label="Total" tokens={tip.tokens} cost={tip.cost} />
         </>
       )}
-    </div>
+    </PopoverContent>
   );
 };
 
@@ -228,15 +239,20 @@ export const UsageChart = ({
             <Bar key={day.date} day={day} max={max} split={split} active={i === active} />
           ))}
         </div>
-        {shown === undefined || active === null ? null : (
-          <DayTooltip
-            id={tipId}
-            day={shown}
-            today={active === last}
-            split={split}
-            at={(active + 0.5) / days.length}
-          />
-        )}
+        <Popover open={shown !== undefined}>
+          {shown === undefined || active === null ? null : (
+            <>
+              {/* A new anchor per day: the popover re-places itself on the day it points at. */}
+              <PopoverAnchor
+                key={active}
+                aria-hidden
+                className="pointer-events-none absolute inset-y-0 w-px"
+                style={{ left: `${((active + 0.5) / days.length) * 100}%` }}
+              />
+              <DayTooltip id={tipId} day={shown} today={active === last} split={split} />
+            </>
+          )}
+        </Popover>
       </div>
       <div className="gap-panel flex items-center">
         <span className="shrink-0 whitespace-nowrap">

@@ -191,10 +191,24 @@ const PlanLimits = ({
   );
 };
 
-const Figure = ({ value, caption }: { readonly value: string; readonly caption: string }) => (
-  <div className="flex flex-col gap-1">
-    <span className="text-display text-text-strong tabular font-medium">{value}</span>
-    <Kicker>{caption}</Kicker>
+/** One line each: a caption too long for the row truncates and keeps its words in a title. */
+const Figure = ({
+  value,
+  caption,
+  shrinks = false,
+}: {
+  readonly value: string;
+  readonly caption: string;
+  /** Gives way first when the row is narrow (the cost caption, the longest). */
+  readonly shrinks?: boolean;
+}) => (
+  <div className={cn("flex flex-col gap-1", shrinks ? "min-w-0" : "shrink-0")}>
+    <span className="text-display text-text-strong tabular font-medium whitespace-nowrap">
+      {value}
+    </span>
+    <Kicker className="truncate whitespace-nowrap" title={caption}>
+      {caption}
+    </Kicker>
   </div>
 );
 
@@ -282,7 +296,7 @@ const Tokens = ({
         <>
           <div className="flex gap-12" data-testid="usage-figures">
             <Figure value={compactTokens(summary.tokens)} caption={`tokens · ${hosts}`} />
-            <Figure value={costLabel(summary.cost)} caption={costCaption(summary.cost)} />
+            <Figure value={costLabel(summary.cost)} caption={costCaption(summary.cost)} shrinks />
             <Figure value={formatShare(share)} caption="in Polaris sessions" />
           </div>
           <UsageChart summary={summary} split={split} />
