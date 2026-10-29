@@ -15,7 +15,7 @@ import { buildHome, type SessionRow } from "../home/model/home.ts";
 import { age, harnessName, rowIndex } from "../home/model/format.ts";
 import { approvalDetail, askLine, quickQuestion } from "../home/model/lines.ts";
 import { type Reply, respond } from "../home/model/respond.ts";
-import { Horizon } from "../home/ui/Horizon.tsx";
+import { Horizon } from "../horizon";
 import { NeedsYouMark } from "../home/ui/glyphs.tsx";
 import { useHosts } from "../runtime/hosts.tsx";
 import { themedStyles, useTheme } from "../theme/index.ts";
@@ -98,7 +98,7 @@ const Sky = ({
   return (
     <View style={[styles.sky, { height: rect.height }]}>
       <View style={styles.dusk} />
-      <Horizon hour={now.getHours()} />
+      <Horizon />
       <Text style={styles.time} accessibilityRole="header">
         {clock(now)}
       </Text>

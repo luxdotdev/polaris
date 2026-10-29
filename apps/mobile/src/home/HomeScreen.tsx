@@ -30,7 +30,7 @@ import {
 import { EmptyHome } from "./ui/EmptyHome.tsx";
 import { NeedsYouMark, WorkingMark } from "./ui/glyphs.tsx";
 import { Header } from "./ui/Header.tsx";
-import { HORIZON_HEIGHT, Horizon } from "./ui/Horizon.tsx";
+import { HORIZON_HEIGHT, Horizon } from "../horizon";
 import { useConstellationProgress } from "./ui/constellationProgress.ts";
 import { ConstellationListRow, NeedsYouRow, SessionListRow } from "./ui/rows.tsx";
 
@@ -236,7 +236,7 @@ export const HomeScreen = ({
           onAll={() => setWorkspace(null)}
         />
       )}
-      <Horizon hour={new Date(now).getHours()} />
+      <Horizon />
     </View>
   );
 };
