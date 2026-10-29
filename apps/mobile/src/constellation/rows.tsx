@@ -2,46 +2,50 @@
  * The rail list's rows (Paper C2): group headers that fold once finished, and task rows with
  * a glyph, a mono id, the title and state word, then a second line or the handed-up claim.
  */
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { HandedClaimActions, Checks, type SendVerdict } from "./claim.tsx";
 import type { Delivery } from "./outbox.ts";
 import type { Unsent } from "./unsent.ts";
+import { type MobileColours, themedStyles, useTheme } from "../theme/index.ts";
 import { GateDeps, GroupGlyph, TaskGlyph } from "./glyphs.tsx";
 import type { GroupRow, SecondLine, TaskRow, Tone } from "./model.ts";
 
 /** DESIGN.md, Rail glyphs: rail lines are white at ~14%. */
 const RAIL = "#ffffff24";
 
-const idColour = (tone: Tone): string => {
-  const colours: Readonly<Record<Tone, string>> = {
-    "needs-you": midnight.needsYouText,
-    done: midnight.acceptedText,
-    failed: midnight.failedText,
-    waiting: midnight.textFaint,
-    ended: midnight.textFaint,
-    working: midnight.textSubtle,
-    review: midnight.textSubtle,
-    blocked: midnight.textSubtle,
+const idColour = (colours: MobileColours, tone: Tone): string => {
+  const byTone: Readonly<Record<Tone, string>> = {
+    "needs-you": colours.needsYouText,
+    done: colours.acceptedText,
+    failed: colours.failedText,
+    waiting: colours.textFaint,
+    ended: colours.textFaint,
+    working: colours.textSubtle,
+    review: colours.textSubtle,
+    blocked: colours.textSubtle,
   };
 
-  return colours[tone];
+  return byTone[tone];
 };
 
-const wordColour = (tone: Tone): string => {
-  if (tone === "needs-you") return midnight.needsYouText;
+const wordColour = (colours: MobileColours, tone: Tone): string => {
+  if (tone === "needs-you") return colours.needsYouText;
 
-  if (tone === "done") return midnight.acceptedText;
+  if (tone === "done") return colours.acceptedText;
 
-  if (tone === "failed") return midnight.failedText;
+  if (tone === "failed") return colours.failedText;
 
-  return tone === "waiting" || tone === "ended" ? midnight.textFaint : midnight.textSubtle;
+  return tone === "waiting" || tone === "ended" ? colours.textFaint : colours.textSubtle;
 };
 
 const quiet = (tone: Tone) => tone === "waiting" || tone === "ended";
 
 /** "1 needs you · 1 working", or "3 done · show" for a finished group. */
 const GroupCounts = ({ group }: { readonly group: GroupRow }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
+
   if (group.finished)
     return (
       <Text style={styles.groupCount}>
@@ -56,9 +60,9 @@ const GroupCounts = ({ group }: { readonly group: GroupRow }) => {
   ].filter((p) => p !== null);
 
   return (
-    <Text style={[styles.groupCount, { color: midnight.textSubtle }]}>
+    <Text style={[styles.groupCount, { color: colours.textSubtle }]}>
       {group.needsYou > 0 ? (
-        <Text style={{ color: midnight.needsYouText }}>{group.needsYou} needs you · </Text>
+        <Text style={{ color: colours.needsYouText }}>{group.needsYou} needs you · </Text>
       ) : null}
       {parts.join(" · ")}
     </Text>
@@ -71,21 +75,25 @@ export const GroupHeader = ({
 }: {
   readonly group: GroupRow;
   readonly onToggle: () => void;
-}) => (
-  <Pressable
-    accessibilityRole="button"
-    accessibilityState={{ expanded: group.open }}
-    style={styles.group}
-    onPress={onToggle}
-  >
-    <View style={styles.rail} />
-    <GroupGlyph finished={group.finished} />
-    <Text style={styles.groupName} numberOfLines={1}>
-      {group.name}
-    </Text>
-    <GroupCounts group={group} />
-  </Pressable>
-);
+}) => {
+  const styles = useStyles();
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ expanded: group.open }}
+      style={styles.group}
+      onPress={onToggle}
+    >
+      <View style={styles.rail} />
+      <GroupGlyph finished={group.finished} />
+      <Text style={styles.groupName} numberOfLines={1}>
+        {group.name}
+      </Text>
+      <GroupCounts group={group} />
+    </Pressable>
+  );
+};
 
 const Second = ({
   second,
@@ -94,6 +102,9 @@ const Second = ({
   readonly second: SecondLine | null;
   readonly worker: string | null;
 }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
+
   if (second === null) return worker === null ? null : <Text style={styles.faint}>{worker}</Text>;
 
   if (second.kind === "activity")
@@ -114,7 +125,7 @@ const Second = ({
   if (second.kind === "after")
     return (
       <Text style={styles.faint}>
-        after <Text style={{ color: midnight.textSubtle }}>{second.ids}</Text>
+        after <Text style={{ color: colours.textSubtle }}>{second.ids}</Text>
       </Text>
     );
 
@@ -145,39 +156,44 @@ export const TaskRowView = ({
   /** The claim's unsent choice and answer, kept by the caller (see `HandedClaimActions`). */
   readonly unsent: Unsent | null;
   readonly onUnsent: (next: Unsent) => void;
-}) => (
-  <View style={[styles.task, !first && styles.divided]}>
-    <View style={[styles.rail, last && styles.railEnd]} />
-    <TaskGlyph tone={row.tone} harness={row.harness} gate={row.gate} />
-    <Text style={[styles.id, { color: idColour(row.tone) }]}>{row.id}</Text>
-    <View style={styles.body}>
-      <View style={styles.titleLine}>
-        {row.gate && row.deps.length > 0 ? <GateDeps deps={row.deps} /> : null}
-        <Text
-          style={[styles.title, quiet(row.tone) && { color: midnight.textDefault }]}
-          numberOfLines={2}
-        >
-          {row.title}
-        </Text>
-        <Text style={[styles.word, { color: wordColour(row.tone) }]}>{row.word}</Text>
-      </View>
-      {row.handed === null && delivery === null ? (
-        <Second second={row.second} worker={row.worker} />
-      ) : (
-        <HandedClaimActions
-          claim={row.handed}
-          delivery={delivery}
-          onVerdict={onVerdict}
-          onCancel={onCancel}
-          unsent={unsent}
-          onUnsent={onUnsent}
-        />
-      )}
-    </View>
-  </View>
-);
+}) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
 
-const styles = StyleSheet.create({
+  return (
+    <View style={[styles.task, !first && styles.divided]}>
+      <View style={[styles.rail, last && styles.railEnd]} />
+      <TaskGlyph tone={row.tone} harness={row.harness} gate={row.gate} />
+      <Text style={[styles.id, { color: idColour(colours, row.tone) }]}>{row.id}</Text>
+      <View style={styles.body}>
+        <View style={styles.titleLine}>
+          {row.gate && row.deps.length > 0 ? <GateDeps deps={row.deps} /> : null}
+          <Text
+            style={[styles.title, quiet(row.tone) && { color: colours.textDefault }]}
+            numberOfLines={2}
+          >
+            {row.title}
+          </Text>
+          <Text style={[styles.word, { color: wordColour(colours, row.tone) }]}>{row.word}</Text>
+        </View>
+        {row.handed === null && delivery === null ? (
+          <Second second={row.second} worker={row.worker} />
+        ) : (
+          <HandedClaimActions
+            claim={row.handed}
+            delivery={delivery}
+            onVerdict={onVerdict}
+            onCancel={onCancel}
+            unsent={unsent}
+            onUnsent={onUnsent}
+          />
+        )}
+      </View>
+    </View>
+  );
+};
+
+const useStyles = themedStyles((colours) => ({
   rail: {
     position: "absolute",
     left: 7.25,
@@ -188,16 +204,16 @@ const styles = StyleSheet.create({
   },
   railEnd: { bottom: "50%" },
   group: { flexDirection: "row", alignItems: "center", gap: 12, height: 36 },
-  groupName: { ...mobileType.footnote, flex: 1, color: midnight.textSubtle },
-  groupCount: { ...mobileType.footnote, color: midnight.textDefault },
+  groupName: { ...mobileType.footnote, flex: 1, color: colours.textSubtle },
+  groupCount: { ...mobileType.footnote, color: colours.textDefault },
   task: { flexDirection: "row", gap: 12, paddingVertical: 12 },
-  divided: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: midnight.hairline },
+  divided: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colours.hairline },
   id: { ...mobileType.index, fontSize: 13, lineHeight: 20, width: 26 },
   body: { flex: 1, minWidth: 0, gap: 3 },
   titleLine: { flexDirection: "row", alignItems: "center", gap: 8 },
-  title: { ...mobileType.heading, flex: 1, color: midnight.textStrong },
+  title: { ...mobileType.heading, flex: 1, color: colours.textStrong },
   word: { ...mobileType.footnote },
-  command: { ...mobileType.index, color: midnight.textSubtle },
-  faint: { ...mobileType.footnote, color: midnight.textFaint },
+  command: { ...mobileType.index, color: colours.textSubtle },
+  faint: { ...mobileType.footnote, color: colours.textFaint },
   claimLine: { paddingTop: 2 },
-});
+}));

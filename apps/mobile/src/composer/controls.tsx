@@ -2,9 +2,10 @@
  * Attach, the mic and the attachment chips (Paper M6), shared by the thread's composer and the
  * new agent session sheet; each screen renders them only when it is given the capability.
  */
-import { midnight, mobileType } from "@polaris/ui/tokens";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { mobileType } from "@polaris/ui/tokens";
+import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Path, Rect } from "react-native-svg";
+import { themedStyles, useTheme } from "../theme/index.ts";
 import { type Chip, type Picked, sizeLabel } from "./attach.ts";
 
 /** What a composer needs to offer Attach; given only where the Host stages attachments. */
@@ -28,17 +29,21 @@ export interface VoiceInput {
   readonly release: () => void;
 }
 
-const Paperclip = () => (
-  <Svg width={14} height={14} viewBox="0 0 16 16">
-    <Path
-      d="M10.5 4.5 5.8 9.2a1.5 1.5 0 0 0 2.1 2.1l5-5a3 3 0 0 0-4.2-4.2l-5 5a4.5 4.5 0 0 0 6.4 6.4l4.4-4.4"
-      fill="none"
-      stroke={midnight.textSubtle}
-      strokeWidth={1.4}
-      strokeLinecap="round"
-    />
-  </Svg>
-);
+const Paperclip = () => {
+  const { colours } = useTheme();
+
+  return (
+    <Svg width={14} height={14} viewBox="0 0 16 16">
+      <Path
+        d="M10.5 4.5 5.8 9.2a1.5 1.5 0 0 0 2.1 2.1l5-5a3 3 0 0 0-4.2-4.2l-5 5a4.5 4.5 0 0 0 6.4 6.4l4.4-4.4"
+        fill="none"
+        stroke={colours.textSubtle}
+        strokeWidth={1.4}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+};
 
 const Mic = ({ colour }: { readonly colour: string }) => (
   <Svg width={15} height={15} viewBox="0 0 16 16">
@@ -69,55 +74,70 @@ export const AttachButton = ({
 }: {
   readonly onPress: () => void;
   readonly compact?: boolean;
-}) => (
-  <Pressable
-    style={compact ? styles.round : styles.pill}
-    onPress={onPress}
-    accessibilityRole="button"
-    accessibilityLabel="Attach a photo or file"
-    hitSlop={6}
-  >
-    <Paperclip />
-    {compact ? null : <Text style={styles.pillLabel}>Attach</Text>}
-  </Pressable>
-);
+}) => {
+  const styles = useStyles();
 
-export const MicButton = ({ voice }: { readonly voice: VoiceInput }) => (
-  <Pressable
-    style={[styles.round, voice.listening ? styles.listening : null]}
-    onPress={voice.toggle}
-    accessibilityRole="button"
-    accessibilityLabel={voice.listening ? "Stop dictating" : "Dictate"}
-    accessibilityState={{ selected: voice.listening }}
-    hitSlop={6}
-  >
-    <Mic colour={voice.listening ? midnight.textStrong : midnight.textSubtle} />
-  </Pressable>
-);
-
-const ChipView = ({ chip, onRemove }: { readonly chip: Chip; readonly onRemove: () => void }) => (
-  <View style={[styles.chip, chip.status === "failed" ? styles.chipFailed : null]}>
-    {chip.thumbnailUri === null ? null : (
-      <Image source={{ uri: chip.thumbnailUri }} style={styles.thumb} />
-    )}
-    <Text style={styles.chipName} numberOfLines={1}>
-      {chip.name}
-    </Text>
-    {chip.size === null ? null : <Text style={styles.chipSize}>{sizeLabel(chip.size)}</Text>}
+  return (
     <Pressable
-      onPress={onRemove}
+      style={compact ? styles.round : styles.pill}
+      onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`Remove ${chip.name}`}
-      hitSlop={8}
+      accessibilityLabel="Attach a photo or file"
+      hitSlop={6}
     >
-      <Text style={styles.remove}>×</Text>
+      <Paperclip />
+      {compact ? null : <Text style={styles.pillLabel}>Attach</Text>}
     </Pressable>
-  </View>
-);
+  );
+};
+
+export const MicButton = ({ voice }: { readonly voice: VoiceInput }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
+
+  return (
+    <Pressable
+      style={[styles.round, voice.listening ? styles.listening : null]}
+      onPress={voice.toggle}
+      accessibilityRole="button"
+      accessibilityLabel={voice.listening ? "Stop dictating" : "Dictate"}
+      accessibilityState={{ selected: voice.listening }}
+      hitSlop={6}
+    >
+      <Mic colour={voice.listening ? colours.textStrong : colours.textSubtle} />
+    </Pressable>
+  );
+};
+
+const ChipView = ({ chip, onRemove }: { readonly chip: Chip; readonly onRemove: () => void }) => {
+  const styles = useStyles();
+
+  return (
+    <View style={[styles.chip, chip.status === "failed" ? styles.chipFailed : null]}>
+      {chip.thumbnailUri === null ? null : (
+        <Image source={{ uri: chip.thumbnailUri }} style={styles.thumb} />
+      )}
+      <Text style={styles.chipName} numberOfLines={1}>
+        {chip.name}
+      </Text>
+      {chip.size === null ? null : <Text style={styles.chipSize}>{sizeLabel(chip.size)}</Text>}
+      <Pressable
+        onPress={onRemove}
+        accessibilityRole="button"
+        accessibilityLabel={`Remove ${chip.name}`}
+        hitSlop={8}
+      >
+        <Text style={styles.remove}>×</Text>
+      </Pressable>
+    </View>
+  );
+};
 
 /** The source chips over the field, in the order attached; nothing when there are none. */
-export const AttachmentChips = ({ attach }: { readonly attach: AttachInput }) =>
-  attach.chips.length === 0 ? null : (
+export const AttachmentChips = ({ attach }: { readonly attach: AttachInput }) => {
+  const styles = useStyles();
+
+  return attach.chips.length === 0 ? null : (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
@@ -129,8 +149,9 @@ export const AttachmentChips = ({ attach }: { readonly attach: AttachInput }) =>
       ))}
     </ScrollView>
   );
+};
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((colours) => ({
   pill: {
     flexDirection: "row",
     alignItems: "center",
@@ -141,7 +162,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ffffff1f",
   },
-  pillLabel: { ...mobileType.subhead, color: midnight.textDefault },
+  pillLabel: { ...mobileType.subhead, color: colours.textDefault },
   round: {
     width: 32,
     height: 32,
@@ -149,7 +170,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  listening: { backgroundColor: midnight.fillSelected },
+  listening: { backgroundColor: colours.fillSelected },
   chips: { gap: 8 },
   chip: {
     flexDirection: "row",
@@ -161,12 +182,12 @@ const styles = StyleSheet.create({
     paddingRight: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: midnight.hairline,
-    backgroundColor: midnight.surfaceRaised,
+    borderColor: colours.hairline,
+    backgroundColor: colours.raised,
   },
-  chipFailed: { borderColor: `${midnight.failed}66` },
+  chipFailed: { borderColor: `${colours.failed}66` },
   thumb: { width: 16, height: 16, borderRadius: 3 },
-  chipName: { ...mobileType.index, color: midnight.textDefault, flexShrink: 1 },
-  chipSize: { ...mobileType.footnote, fontSize: 12, color: midnight.textSubtle },
-  remove: { ...mobileType.subhead, color: midnight.textSubtle },
-});
+  chipName: { ...mobileType.index, color: colours.textDefault, flexShrink: 1 },
+  chipSize: { ...mobileType.footnote, fontSize: 12, color: colours.textSubtle },
+  remove: { ...mobileType.subhead, color: colours.textSubtle },
+}));
