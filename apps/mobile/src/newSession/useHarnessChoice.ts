@@ -1,5 +1,5 @@
 /** The chosen Host's Harnesses and the chosen Harness's Models, loaded when the Host changes. */
-import type { HarnessKind, Model } from "@polaris/protocol";
+import type { HarnessKind, Model, ReasoningEffort } from "@polaris/protocol";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { NewSessionApi } from "./api.ts";
 import {
@@ -9,7 +9,7 @@ import {
   type NotReadyHarness,
   notReadyHarnesses,
 } from "./harness.ts";
-import { failureText, lastUsedHarnesses, type SheetHost } from "./model.ts";
+import { failureText, lastUsedHarnesses, lastUsedModel, type SheetHost } from "./model.ts";
 
 export type HarnessLoad =
   | { readonly kind: "loading" }
@@ -27,9 +27,12 @@ export interface HarnessChoice {
   readonly setHarness: (harness: HarnessKind) => void;
   /** The Harness's Models; empty until they arrive or when it won't say. */
   readonly models: ReadonlyArray<Model>;
-  /** Null: the Harness's default. */
+  /** Null: the Harness's default. Opens on the Model the Host's last session on it ran. */
   readonly model: Model | null;
   readonly setModel: (model: Model | null) => void;
+  /** Null: the Model's default. */
+  readonly effort: ReasoningEffort | null;
+  readonly setEffort: (effort: ReasoningEffort | null) => void;
   /** Asks the Host to probe its Harnesses again ("Check again"). */
   readonly refresh: () => void;
 }
@@ -39,6 +42,7 @@ export const useHarnessChoice = (api: NewSessionApi, host: SheetHost | null): Ha
   const [harness, setHarnessState] = useState<HarnessKind | null>(null);
   const [models, setModels] = useState<ReadonlyArray<Model>>([]);
   const [model, setModel] = useState<Model | null>(null);
+  const [effort, setEffort] = useState<ReasoningEffort | null>(null);
   // 0 reads the Daemon's cache; each "Check again" bumps it and asks for a fresh probe.
   const [probe, setProbe] = useState(0);
   const hostId = host?.hostId ?? null;
@@ -86,11 +90,16 @@ export const useHarnessChoice = (api: NewSessionApi, host: SheetHost | null): Ha
 
     setModels([]);
     setModel(null);
+    setEffort(null);
+    const last = latestHost.current === null ? null : lastUsedModel(latestHost.current, harness);
+
     // A Harness that won't list its Models still starts on its default.
     void api
       .models(hostId, harness)
       .then((listed) => {
-        if (live) setModels(listed.models);
+        if (!live) return;
+        setModels(listed.models);
+        setModel(listed.models.find((m) => m.id === last) ?? null);
       })
       .catch(() => undefined);
 
@@ -101,5 +110,15 @@ export const useHarnessChoice = (api: NewSessionApi, host: SheetHost | null): Ha
 
   const refresh = useCallback(() => setProbe((n) => n + 1), []);
 
-  return { load, harness, setHarness: setHarnessState, models, model, setModel, refresh };
+  return {
+    load,
+    harness,
+    setHarness: setHarnessState,
+    models,
+    model,
+    setModel,
+    effort,
+    setEffort,
+    refresh,
+  };
 };

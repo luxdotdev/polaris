@@ -34,6 +34,7 @@ const HOST_NAMES: Readonly<Record<Dataset, string>> = {
   worst: "aleksandra-wisniewska-kowalczyk-macbook-pro-16-northwind",
   one: "pi",
   empty: "mac-studio",
+  started: "mac-studio",
 };
 
 const useGalleryHost = (dataset: Dataset) => {

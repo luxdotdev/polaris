@@ -2,7 +2,15 @@
 export type Route =
   | { readonly screen: "tabs" }
   | { readonly screen: "hosts" }
-  | { readonly screen: "thread"; readonly hostId: string; readonly sessionId: string }
+  | {
+      readonly screen: "thread";
+      readonly hostId: string;
+      readonly sessionId: string;
+      /** Just started from New session: its celestial rises into the header (MX-AS). */
+      readonly rise?: true;
+    }
+  /** A new agent session; `workspaceId` preselects one. */
+  | { readonly screen: "newSession"; readonly workspaceId: string | null }
   | { readonly screen: "constellation"; readonly hostId: string; readonly constellationId: string }
   | {
       readonly screen: "review";

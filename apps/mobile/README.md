@@ -63,21 +63,26 @@ that lifts the row as its preview, and the pasteboard for the Copy items. It is 
 rebuild the development client (`bun run --cwd apps/mobile ios`); a build without it draws the
 rows with no menu.
 
-## New agent session (M6)
+## New agent session (MX-AO)
 
-`src/newSession/` is the sheet that starts an agent session: `NewSessionSheet({ onClose,
-workspaceId?, onStarted? })`, which reads Home's followed feeds (`useFollowedHosts`) and calls the
-Host's `DaemonRpcs` through its `HostConnection`. It follows the Desktop App's new-session rules:
-the last used workspace with its Host, the most recently used ready Harness, the Models'
-shortlist, in place unless New worktree is on (a branch from the prompt and the session's id).
-The prompt draft stays on the phone until Start. Plan first starts in `plan` where the Host
-announces `session.plan-mode`, and says "Asks before every edit" and sends `supervised` where it
-doesn't (`permissionModeFor`, ENG-466). `scripts/newSession.test.ts` starts a real session on a
-test Daemon through the dev bridge.
+`src/newSession/` is New: a blank thread (`NewSessionScreen`, the `newSession` route) headed "New
+session" over the horizon, whose first send creates the session. It reads Home's followed feeds
+(`useFollowedHosts`) and calls the Host's `DaemonRpcs` through its `HostConnection`, following the
+Desktop App's new-session rules: the last used workspace with its Host, the most recently used ready
+Harness and that Harness's last Model, the Models' shortlist, in place unless New worktree is on (a
+branch from the prompt and the session's id). The composer's place line opens the workspace sheet
+(MX-AQ: workspaces by Host, Connection State and round trip, New worktree); the model chip opens the
+composer's model sheet. With no Harness ready the setup panel takes the sky (MX-AR). Drafts stay on
+the phone, one per Host and Workspace, until the send. Once started, the thread replaces the screen
+and the celestial rises into its header (MX-AS; `src/thread/Rise.tsx`). Plan first starts in `plan`
+where the Host announces `session.plan-mode`, and sends `supervised` where it doesn't
+(`permissionModeFor`, ENG-466). `scripts/newSession.test.ts` starts a real session on a test Daemon
+through the dev bridge. `-polarisDevNewSession <ao|aq|ar|as>` (with `-polarisDevTheme`, and
+`-polarisDevSlowRise 10` to slow the rise) opens the states from fixtures in a development build.
 
 ## Attach and the mic
 
-`src/composer/` is shared by the thread's composer (M4) and the new agent session sheet (M6); each
+`src/composer/` is shared by the thread's composer (M4) and a new agent session (MX-AO); each
 renders Attach and the mic only when given them, and they are given only where the Host announces
 `attachments.stage` and `voice`. `useAttachments` picks a photo or file (expo-image-picker,
 expo-document-picker), stages it at once with `attachments.stage`, the bytes sent as a Wire blob,

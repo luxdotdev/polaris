@@ -212,6 +212,7 @@ const sheetInput = (
     change: { kind: "set" },
     note: CHANGE_NOTES.set,
     forkTo: [{ kind: "codex", name: "Codex", status: "ready", startable: true }],
+    harnessPick: "fork",
     permission: "auto-edits",
     permissions: PERMISSION_MODES,
     error: null,

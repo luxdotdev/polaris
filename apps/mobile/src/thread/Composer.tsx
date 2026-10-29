@@ -6,7 +6,7 @@
 import type { CelestialBody, ContextUsage, HarnessKind, Subagent } from "@polaris/protocol";
 import type { DraftStatus } from "@polaris/client/continuity";
 import { mobileType } from "@polaris/ui/tokens";
-import { useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { ContextRing, ModelChip, SendButton, SubagentMoons } from "../composer/ControlRow.tsx";
 import { ModelControl } from "../composer/ModelControl.tsx";
@@ -96,6 +96,17 @@ export interface ComposerProps {
   readonly attaching?: boolean;
   /** The mic, where the Host transcribes voice; null hides it. */
   readonly voice?: VoiceInput | null;
+  /** Over the field: a new session's place line (MX-AO). */
+  readonly head?: ReactNode;
+  /** In the model chip's place: a new session's own chip and sheet. */
+  readonly control?: ReactNode;
+  /** The field's placeholder, when the mode's own doesn't fit. */
+  readonly placeholder?: string;
+  /** A session not started yet: there is no context to ring. */
+  readonly unstarted?: boolean;
+  /** False keeps Send off though there is text: a new session with nowhere to start yet. */
+  readonly canSend?: boolean;
+  readonly autoFocus?: boolean;
   readonly onChange: (text: string) => void;
   readonly onSend: () => void;
   readonly onQueue: () => void;
@@ -133,6 +144,23 @@ const Tools = ({
     {voice === null || !fit.mic ? null : <MicButton voice={voice} large />}
   </>
 );
+
+/** The session's model chip, opening its sheet where the Host can change it. */
+const SessionChip = (props: ComposerProps & { readonly working: boolean }) => {
+  const celestial = props.celestial ?? null;
+
+  return props.sheet == null ? (
+    <ModelChip
+      harness={props.harness}
+      celestial={celestial}
+      label={props.model ?? "Default"}
+      working={props.working}
+      onPress={null}
+    />
+  ) : (
+    <ModelControl context={props.sheet} celestial={celestial} working={props.working} />
+  );
+};
 
 const QueueButton = ({ onQueue }: { readonly onQueue: () => void }) => {
   const { colours } = useTheme();
@@ -185,10 +213,10 @@ const useSend = (stop: boolean, props: Pick<ComposerProps, "onSend" | "onStop">)
 
 export const Composer = (props: ComposerProps) => {
   const { colours } = useTheme();
-  const { mode, text, harness, workingSince, attach = null, voice = null, sheet = null } = props;
+  const { mode, text, harness, workingSince, attach = null, voice = null } = props;
   const blocked = mode.kind === "blocked";
   const working = workingSince !== null;
-  const empty = text.trim() === "" || props.attaching === true;
+  const empty = text.trim() === "" || props.attaching === true || props.canSend === false;
   const stop = working && text.trim() === "";
   const notice = noticeOf(props);
   const fieldId = usePastedImages(attach, !blocked);
@@ -209,6 +237,7 @@ export const Composer = (props: ComposerProps) => {
       {props.requests == null ? null : (
         <PendingRequests {...props.requests} harness={harness} workingSince={workingSince} />
       )}
+      {props.head}
       <View style={styles.field}>
         {attach === null ? null : <AttachmentChips attach={attach} />}
         {notice === null ? null : (
@@ -226,9 +255,10 @@ export const Composer = (props: ComposerProps) => {
           style={[styles.input, { color: colours.textStrong }]}
           value={text}
           onChangeText={props.onChange}
-          placeholder={placeholderFor(mode)}
+          placeholder={props.placeholder ?? placeholderFor(mode)}
           placeholderTextColor={colours.textFaint}
           editable={!blocked}
+          autoFocus={props.autoFocus}
           multiline
           accessibilityLabel="Message"
           nativeID={fieldId}
@@ -236,21 +266,11 @@ export const Composer = (props: ComposerProps) => {
         />
       </View>
       <View style={styles.row} onLayout={({ nativeEvent }) => measure(nativeEvent.layout.width)}>
-        {sheet === null ? (
-          <ModelChip
-            harness={harness}
-            celestial={props.celestial ?? null}
-            label={props.model ?? "Default"}
-            working={working}
-            onPress={null}
-          />
-        ) : (
-          <ModelControl context={sheet} celestial={props.celestial ?? null} working={working} />
-        )}
+        {props.control ?? <SessionChip {...props} working={working} />}
         <SubagentMoons harness={harness} moons={moons} shown={fit.moons} />
         <View style={styles.spring} />
         <Tools
-          fit={fit}
+          fit={props.unstarted === true ? { ...fit, ring: false } : fit}
           usage={props.contextUsage ?? null}
           attach={blocked ? null : attach}
           voice={blocked ? null : voice}

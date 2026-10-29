@@ -12,7 +12,7 @@ import { useTheme } from "../theme";
 import { CONTROL_TEXT_SCALE } from "../theme/textScale.ts";
 import { type ContextRing as Ring, litSegments, type Moons, RING_SEGMENTS } from "./controlRow.ts";
 
-const Chevron = ({ colour }: { readonly colour: string }) => (
+export const Chevron = ({ colour }: { readonly colour: string }) => (
   <Svg width={10} height={10} viewBox="0 0 10 10">
     <Path
       d="M2 3.5l3 3 3-3"
@@ -60,6 +60,28 @@ export const ModelChip = ({
       </Text>
       <Chevron colour={colours.textFaint} />
     </Pressable>
+  );
+};
+
+/** The chip greyed while there is no Harness to pick: "No harness" (MX-AR), "Checking…". */
+export const QuietChip = ({ label }: { readonly label: string }) => {
+  const { colours } = useTheme();
+
+  return (
+    <View
+      accessible
+      accessibilityLabel={`Model: ${label}`}
+      style={[styles.chip, styles.bare, { borderColor: colours.hairline }]}
+    >
+      <Text
+        style={[styles.chipLabel, { color: colours.textFaint }]}
+        numberOfLines={1}
+        maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
+      >
+        {label}
+      </Text>
+      <Chevron colour={colours.textFaint} />
+    </View>
   );
 };
 
@@ -231,6 +253,7 @@ const styles = StyleSheet.create({
     maxWidth: "100%",
   },
   chipLabel: { ...mobileType.footnote, lineHeight: 16, fontWeight: "500", flexShrink: 1 },
+  bare: { paddingLeft: 12 },
   moons: {
     flexDirection: "row",
     alignItems: "center",

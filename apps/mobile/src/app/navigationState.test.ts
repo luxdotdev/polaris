@@ -4,6 +4,7 @@ import {
   initialNavigation,
   opened,
   pushed,
+  replaced,
   selected,
   topOf,
   wentBack,
@@ -37,5 +38,18 @@ describe("Settings → Hosts", () => {
       { screen: "tabs" },
       { screen: "thread", hostId: "h", sessionId: "s" },
     ]);
+  });
+});
+
+describe("New session", () => {
+  test("once it starts, its thread takes its place: back returns to the tab it opened from", () => {
+    const onReview = selected(initialNavigation, "review");
+    const writing = pushed(onReview, { screen: "newSession", workspaceId: null });
+    const thread = { screen: "thread", hostId: "h", sessionId: "s", rise: true } as const;
+    const started = replaced(writing, thread);
+
+    expect(started.stack).toEqual([{ screen: "tabs" }, thread]);
+    expect(topOf(wentBack(started))).toEqual({ screen: "tabs" });
+    expect(wentBack(started).tab).toBe("review");
   });
 });

@@ -131,7 +131,7 @@ export const ModelSheet = ({ input }: { readonly input: ModelSheetInput }) => {
           <Option
             key={option.kind}
             title={option.name}
-            detail={`Fork on ${option.name}`}
+            detail={input.harnessPick === "fork" ? `Fork on ${option.name}` : null}
             on={false}
             onPress={() => input.forkOn(option.kind)}
           />

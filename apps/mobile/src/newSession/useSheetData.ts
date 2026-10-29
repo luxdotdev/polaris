@@ -1,4 +1,4 @@
-/** The sheet's Hosts and calls: Home's followed feeds over the app's HostConnections. */
+/** A new session's Hosts and calls: Home's followed feeds over the app's HostConnections. */
 import { useMemo } from "react";
 import type { HostFeedState } from "../home/feed/fold.ts";
 import { useFollowedHosts } from "../home/feed/useFollowedHosts.ts";

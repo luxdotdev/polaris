@@ -9,12 +9,13 @@ import {
 import {
   branchFromPrompt,
   defaultTarget,
+  lastUsedModel,
   newSessionId,
   parsePermissionModes,
   permissionModeOn,
   permissionModesOn,
   type PermissionModes,
-  routeLine,
+  recentChips,
   type SheetHost,
   startCommand,
   worktreeCaption,
@@ -34,6 +35,8 @@ const workspace = (id: string, path: string, hidden = false) =>
 const host = (patch: Partial<SheetHost> & Pick<SheetHost, "hostId">): SheetHost => ({
   hostName: patch.hostId,
   connected: true,
+  state: "connected",
+  latencyMs: 4,
   route: null,
   homeDir: "/Users/lucas",
   workspaces: [],
@@ -92,12 +95,62 @@ describe("defaultTarget", () => {
   });
 });
 
-test.each([
-  ["relay", "Runs on Mac Studio · via Polaris Relay"],
-  ["network", "Runs on Mac Studio · on this network"],
-  [null, "Runs on Mac Studio"],
-] as const)("the route line for %s", (route, line) => {
-  expect(routeLine({ ...studio, route })).toBe(line);
+describe("recentChips", () => {
+  test("the newest sessions' workspaces, once each, without the current one", () => {
+    const busy = {
+      ...studio,
+      sessions: [
+        ...studio.sessions,
+        { workspaceId: "dcai", harness: "claude", updatedAt: "2026-10-27T12:00:00Z" },
+      ],
+    };
+
+    expect(
+      recentChips([busy, vm], { hostId: "studio", workspaceId: "polaris" }).map((c) => c.name)
+    ).toEqual(["dcai", "nj-homes"]);
+  });
+
+  test("a workspace on another host names that host; one on the current host doesn't", () => {
+    expect(recentChips([studio, vm], { hostId: "studio", workspaceId: "polaris" })).toEqual([
+      { target: { hostId: "vm", workspaceId: "homes" }, name: "nj-homes", hostName: "vm" },
+      { target: { hostId: "studio", workspaceId: "dcai" }, name: "dcai", hostName: null },
+    ]);
+  });
+
+  test("leaves out hosts that aren't connected and hidden workspaces", () => {
+    const hidden = { ...studio, workspaces: [workspace("dcai", "/srv/dcai", true)] };
+
+    expect(recentChips([hidden, { ...vm, connected: false }], null)).toEqual([]);
+  });
+});
+
+test("a new session opens on the model the host's newest session on that harness ran", () => {
+  const used = host({
+    hostId: "studio",
+    sessions: [
+      {
+        workspaceId: "polaris",
+        harness: "claude",
+        model: "claude-opus-5-5",
+        updatedAt: "2026-10-27T09:00:00Z",
+      },
+      {
+        workspaceId: "polaris",
+        harness: "claude",
+        model: "claude-sonnet-5-5",
+        updatedAt: "2026-10-26T09:00:00Z",
+      },
+      {
+        workspaceId: "polaris",
+        harness: "codex",
+        model: "gpt-6",
+        updatedAt: "2026-10-28T09:00:00Z",
+      },
+    ],
+  });
+
+  expect(lastUsedModel(used, "claude")).toBe("claude-opus-5-5");
+  expect(lastUsedModel(used, "opencode")).toBeNull();
 });
 
 const planning: SheetHost = { ...studio, capabilities: ["session.plan-mode"] };
