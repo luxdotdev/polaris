@@ -69,6 +69,7 @@ import { lazyAcceptHandlers } from "./lazyAccept.ts";
 import { languagesAvailable, lazyLanguageHandlers } from "./lazyLanguages.ts";
 import { lazyReviewer } from "./lazyReviewer.ts";
 import { lazyUsage } from "./lazyUsage.ts";
+import { LiveNotifierLive } from "../push/liveNotifier.ts";
 import { PushNotifierLive } from "../push/notifier.ts";
 
 /** Exit status when another Daemon already holds the lock or answers on the socket. */
@@ -132,6 +133,7 @@ export const daemonHandlers = Layer.mergeAll(
   ContinuityRpcsLive.pipe(Layer.provide(Continuity.layer)),
   HostStatsRpcsLive.pipe(Layer.provide(HostStats.layer())),
   PushNotifierLive,
+  LiveNotifierLive,
   ResourceRpcsLive,
   lazyConstellationHandlers,
   FilesRpcsLive.pipe(Layer.provide(FileSearchLive())),

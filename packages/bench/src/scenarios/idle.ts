@@ -76,18 +76,30 @@ export const idle: Scenario = {
             )
           : 0;
 
+      // ADR 0088: a device with a Live Activity registered keeps the Host stream followed.
+      const liveActivities =
+        process.env.POLARIS_BENCH_LIVE_ACTIVITY === "1"
+          ? yield* Effect.promise(() => import("../idleConstellations.ts")).pipe(
+              Effect.flatMap((module) => module.seedIdleLiveActivity(home))
+            )
+          : 0;
+
       // Restart onto the same store: the sessions come back Dormant.
       const daemon = yield* ctx.launch({ home });
       yield* awaitReady(daemon);
       const sampler = yield* ctx.sample(daemon, 500);
       const metrics: Record<string, Metric> = {};
 
-      const notes: Array<string> =
-        constellations === 0
+      const notes: Array<string> = [
+        ...(constellations === 0
           ? []
           : [
               `${constellations} running Constellations with Dormant worker sessions re-folded from the event log; no worker Turns started during measurement`,
-            ];
+            ]),
+        ...(liveActivities === 0
+          ? []
+          : [`${liveActivities} Live Activity registered (Relay route off); no work`]),
+      ];
 
       yield* Effect.scoped(
         Effect.gen(function* () {

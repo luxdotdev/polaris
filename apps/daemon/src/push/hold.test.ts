@@ -68,6 +68,11 @@ const withNotifier = (
           unregisterPush: () => unused,
           pushTargets: () => [target],
           watchPush: () => () => {},
+          registerLiveActivity: () => unused,
+          unregisterLiveActivity: () => unused,
+          liveTargets: () => [],
+          watchLive: () => () => {},
+          sendLive: () => false,
           host: { hostId: "host-1", hostName: "studio" },
           wake: (_, message) => Effect.sync(() => (woken.push(message), "sent" as const)),
         });

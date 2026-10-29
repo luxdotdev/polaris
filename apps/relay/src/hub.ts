@@ -87,6 +87,11 @@ export class Hub {
     return this.devicesOf.get(host)?.has(device) === true ? target : undefined;
   }
 
+  /** The online host at `address`, if any. */
+  host(address: RelayAddress): Endpoint | undefined {
+    return this.endpoint(address, "host");
+  }
+
   get size(): number {
     return this.online.size;
   }

@@ -18,12 +18,14 @@ import {
   RelayRouteStatus,
 } from "@polaris/protocol";
 import {
+  type LiveActivityRegistration,
   MAX_WAKE_PAYLOAD_CHARS,
   type PushMessage,
   type PushRegistration,
   type RelayAddress,
   relayAddress,
   toBase64Url,
+  verifyLiveTicket,
   verifyPushTicket,
   type WakeOutcome,
 } from "@polaris/protocol/relay";
@@ -35,7 +37,7 @@ import { type Admission, RelayLink } from "./link.ts";
 import type { DeviceSession } from "./session.ts";
 import { isRelayUrl, readSetting, writeSetting } from "./settings.ts";
 import { pushSuite, sealPush } from "../push/seal.ts";
-import { LinkedDevices, type PushTarget } from "./store.ts";
+import { LinkedDevices, type LiveTarget, type PushTarget } from "./store.ts";
 
 /** How long a self-unlinking device's session outlives the answer to it. */
 const SELF_UNLINK_DROP = "300 millis";
@@ -62,6 +64,13 @@ interface OpenLink {
   /** Its address stays a peer until the reply to the device went out. */
   listed: boolean;
   readonly timer: ReturnType<typeof setTimeout>;
+}
+
+/** A sealed slice for the relay, with what the relay may read of it; `sealed: null` leaves. */
+export interface LiveSlice {
+  readonly sealed: string | null;
+  readonly active: boolean;
+  readonly alert: boolean;
 }
 
 /** How the server serves a Linked Device's session: a connection acting as that device. */
@@ -101,6 +110,19 @@ export class RelayRoute extends Context.Service<
     readonly watchPush: (listener: () => void) => () => void;
     /** This Host, as pushes name it. */
     readonly host: { readonly hostId: string; readonly hostName: string };
+    /** Stores `device`'s Live Activity once its ticket signs this Host's relay address. */
+    readonly registerLiveActivity: (
+      device: LinkedDevice,
+      registration: LiveActivityRegistration
+    ) => Effect.Effect<void, PushRegistrationError>;
+    /** Forgets it and tells the relay to drop this Host's slice of it. */
+    readonly unregisterLiveActivity: (device: LinkedDevice) => Effect.Effect<void>;
+    /** Every device with a Live Activity registered; read synchronously. */
+    readonly liveTargets: () => ReadonlyArray<LiveTarget>;
+    /** Calls `listener` when the registrations change and on every relay connect. */
+    readonly watchLive: (listener: () => void) => () => void;
+    /** Sends this Host's sealed slice (null: none) to the relay; false while it can't. */
+    readonly sendLive: (target: LiveTarget, slice: LiveSlice) => boolean;
     /** Seals `message` to the device and wakes it; an `unregistered` token is dropped. */
     readonly wake: (target: PushTarget, message: PushMessage) => Effect.Effect<WakeOutcome>;
   }
@@ -136,6 +158,37 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
   let cachedKeys: HostRelayKeys | null = null;
   const pushListeners = new Set<() => void>();
   const pushChanged = () => pushListeners.forEach((listener) => listener());
+  const liveListeners = new Set<() => void>();
+  const liveChanged = () => liveListeners.forEach((listener) => listener());
+
+  const sendLive = ({ device, registration }: LiveTarget, slice: LiveSlice) =>
+    link?.live({
+      peer: device.relayAddress,
+      token: registration.token,
+      environment: registration.environment,
+      ticket: registration.ticket,
+      slice: slice.sealed,
+      active: slice.active,
+      alert: slice.alert,
+    }) ?? false;
+
+  const leave = (target: LiveTarget | undefined) => {
+    if (target !== undefined) sendLive(target, { sealed: null, active: false, alert: false });
+  };
+
+  const liveOf = (device: LinkedDevice) =>
+    store.liveTargets().find((target) => target.device.id === device.id);
+
+  const onLiveGone = ({ token }: { readonly token: string }) => {
+    const gone = store.liveTargets().filter((target) => target.registration.token === token);
+
+    if (gone.length === 0) return;
+    runFork(
+      Effect.forEach(gone, (target) => Effect.ignore(store.clearLive(target.device.id, token)), {
+        discard: true,
+      }).pipe(Effect.andThen(Effect.sync(liveChanged)))
+    );
+  };
 
   const refusePush = (message: string) => new PushRegistrationError({ reason: "failed", message });
 
@@ -249,7 +302,13 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
       peers,
       admit,
       serve,
-      onConnectedChange: (connected) => log(connected ? "connected" : "disconnected"),
+      onConnectedChange: (connected) => {
+        log(connected ? "connected" : "disconnected");
+
+        // The relay keeps slices in memory only: each connect sends them again (ADR 0088).
+        if (connected) liveChanged();
+      },
+      onLiveGone,
       log,
     });
   });
@@ -364,6 +423,7 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
       link?.peersChanged();
       link?.drop(device.relayAddress);
       pushChanged();
+      liveChanged();
 
       return device;
     }, Effect.uninterruptible),
@@ -372,6 +432,7 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
 
       if (device === null) return yield* new NotFound({ what: "linked device", id });
       pushChanged();
+      liveChanged();
       // The key is refused from now; the open session closes after its answer is sent.
       runFork(
         Effect.delay(
@@ -402,6 +463,47 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
     }),
     unregisterPush: (device) =>
       store.clearPush(device.id).pipe(Effect.orDie, Effect.andThen(Effect.sync(pushChanged))),
+    registerLiveActivity: Effect.fn("RelayRoute.registerLiveActivity")(
+      function* (device, registration) {
+        const loaded = yield* Effect.mapError(keys, (error) => refusePush(error.message));
+        const { ticket, environment, token } = registration;
+
+        const signed = yield* Effect.promise(() =>
+          verifyLiveTicket(ticket, device.relayAddress, loaded.address, environment, token)
+        );
+
+        if (!signed) return yield* refusePush("The live ticket doesn't sign this Host's address");
+        yield* validPushKey(registration.pushKey);
+        const previous = liveOf(device);
+        yield* Effect.mapError(store.setLive(device.id, registration), (error) =>
+          refusePush(error.message)
+        );
+
+        if (previous?.registration.token !== token) leave(previous);
+        liveChanged();
+      }
+    ),
+    unregisterLiveActivity: (device) =>
+      Effect.suspend(() => {
+        const previous = liveOf(device);
+
+        return store.clearLive(device.id).pipe(
+          Effect.orDie,
+          Effect.andThen(
+            Effect.sync(() => {
+              leave(previous);
+              liveChanged();
+            })
+          )
+        );
+      }),
+    liveTargets: store.liveTargets,
+    watchLive: (listener) => {
+      liveListeners.add(listener);
+
+      return () => liveListeners.delete(listener);
+    },
+    sendLive,
     host: { hostId: options.hostInfo.hostId, hostName: options.hostInfo.hostname },
     pushTargets: store.pushTargets,
     watchPush: (listener) => {

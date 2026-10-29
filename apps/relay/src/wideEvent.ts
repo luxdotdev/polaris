@@ -42,7 +42,15 @@ export interface WakeEvent {
   readonly durationMs: number;
 }
 
-export type WideEvent = ConnectionEvent | RefusedEvent | StartEvent | WakeEvent;
+/** One merged Live Activity push: its outcome, how many hosts it carried, and whether it alerted. */
+export interface LiveEvent {
+  readonly event: "relay.live";
+  readonly outcome: string;
+  readonly hosts: number;
+  readonly alert: boolean;
+}
+
+export type WideEvent = ConnectionEvent | RefusedEvent | StartEvent | WakeEvent | LiveEvent;
 
 export type EmitWideEvent = (event: WideEvent) => void;
 

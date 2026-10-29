@@ -22,6 +22,8 @@ export interface RelayConfig extends GateLimits {
   readonly wakeBurst: number;
   /** Wakes waiting on the push service at once, across all hosts. */
   readonly maxWakesInFlight: number;
+  /** Live Activities the relay holds slices for at once (ADR 0088). */
+  readonly maxLiveActivities: number;
 }
 
 export const defaultRelayConfig: RelayConfig = {
@@ -42,6 +44,7 @@ export const defaultRelayConfig: RelayConfig = {
   wakesPerMinute: 60,
   wakeBurst: 20,
   maxWakesInFlight: 256,
+  maxLiveActivities: 10_000,
 };
 
 const int = (name: string, fallback: number) => Config.Int(name).pipe(Config.withDefault(fallback));
@@ -87,4 +90,5 @@ export const relayConfig: Config.Config<RelayConfig> = Config.all({
   wakesPerMinute: int("POLARIS_RELAY_WAKES_PER_MINUTE", d.wakesPerMinute),
   wakeBurst: int("POLARIS_RELAY_WAKE_BURST", d.wakeBurst),
   maxWakesInFlight: int("POLARIS_RELAY_MAX_WAKES_IN_FLIGHT", d.maxWakesInFlight),
+  maxLiveActivities: int("POLARIS_RELAY_MAX_LIVE_ACTIVITIES", d.maxLiveActivities),
 });

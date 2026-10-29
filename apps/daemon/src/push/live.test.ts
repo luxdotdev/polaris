@@ -1,14 +1,16 @@
 import { expect, test } from "bun:test";
-import { fromBase64Url, PUSH_ENC_BYTES, toBase64Url } from "@polaris/protocol/relay";
-import { Option, Schema } from "effect";
 import {
+  fromBase64Url,
   HostSlice,
   LIVE_HPKE_INFO,
   liveActivityBody,
   MAX_LIVE_HOSTS,
   MAX_LIVE_SLICE_CHARS,
-  sealSlice,
-} from "./live.ts";
+  PUSH_ENC_BYTES,
+  toBase64Url,
+} from "@polaris/protocol/relay";
+import { Option, Schema } from "effect";
+import { sealSlice } from "./live.ts";
 import { pushSuite } from "./seal.ts";
 
 const keys = await pushSuite.kem.generateKeyPair();

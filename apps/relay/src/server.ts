@@ -6,6 +6,8 @@
 import {
   type Auth,
   decodeClientControl,
+  type Live,
+  verifyLiveTicket,
   type Wake,
   type WakeOutcome,
   verifyPushTicket,
@@ -30,6 +32,7 @@ import type { Server, ServerWebSocket } from "bun";
 import type { RelayConfig } from "./config.ts";
 import { type Endpoint, Hub } from "./hub.ts";
 import { ConnectionGate, TokenBucket, WakeLimiter } from "./limits.ts";
+import { LiveActivities } from "./live.ts";
 import { type Deliver, pushClient } from "./push.ts";
 import type { EmitWideEvent } from "./wideEvent.ts";
 
@@ -139,6 +142,29 @@ export const startRelay = (
   let wakesInFlight = 0;
   const wakeLimits = new WakeLimiter(config.wakesPerMinute, config.wakeBurst);
 
+  /** Hands one request to the push service, within the in-flight cap wakes share. */
+  const deliverBounded: Deliver = async (request) => {
+    if (deliver === null || wakesInFlight >= config.maxWakesInFlight) return "unavailable";
+    wakesInFlight++;
+
+    try {
+      return await deliver(request);
+    } finally {
+      wakesInFlight--;
+    }
+  };
+
+  const live = new LiveActivities({
+    deliver: deliverBounded,
+    gone: (hosts, token, outcome) => {
+      for (const host of hosts)
+        hub.host(host)?.send(encodeControl({ t: "live-gone", token, outcome }));
+    },
+    delivered: (outcome, hosts, alert) => emit({ event: "relay.live", outcome, hosts, alert }),
+    maxActivities: config.maxLiveActivities,
+    maxPerHost: config.maxPeers,
+  });
+
   const limits = {
     maxMessageBytes: MAX_RELAY_MESSAGE_BYTES,
     maxPeers: config.maxPeers,
@@ -195,15 +221,26 @@ export const startRelay = (
     if (!(await verifyPushTicket(ticket, peer, endpoint.address, environment, token)))
       return answerWake(ws, wake, "unlinked", started);
 
-    if (deliver === null || wakesInFlight >= config.maxWakesInFlight)
-      return answerWake(ws, wake, "unavailable", started);
-    wakesInFlight++;
+    answerWake(ws, wake, await deliverBounded({ token, environment, payload }), started);
+  };
 
-    try {
-      answerWake(ws, wake, await deliver({ token, environment, payload }), started);
-    } finally {
-      wakesInFlight--;
+  /**
+   * Keeps a host's slice of a device's Live Activity when the device's live ticket lets this
+   * host update it at that token. An alert spends the host's wake budget, or goes as routine.
+   */
+  const onLive = async (ws: Socket, endpoint: Endpoint, frame: Live) => {
+    const { token, environment, ticket, peer } = frame;
+
+    if (!(await verifyLiveTicket(ticket, peer, endpoint.address, environment, token))) {
+      if (ws.readyState === WebSocket.OPEN)
+        ws.send(encodeControl({ t: "live-gone", token, outcome: "unlinked" }));
+
+      return;
     }
+
+    if (deliver === null) return;
+    const alert = frame.alert && frame.slice !== null && wakeLimits.take(endpoint.address);
+    live.put({ ...frame, host: endpoint.address, alert });
   };
 
   const onControl = (ws: Socket, text: string) => {
@@ -226,10 +263,15 @@ export const startRelay = (
           if (peers.length > config.maxPeers)
             return end(ws, RelayClose.BadMessage, "too-many-peers");
           hub.setPeers(endpoint, peers);
+          live.unlisted(endpoint.address, new Set(peers));
         },
         wake: (wake) => {
           if (endpoint?.role !== "host") return end(ws, RelayClose.BadMessage, "wake-not-host");
           void onWake(ws, endpoint, wake);
+        },
+        live: (frame) => {
+          if (endpoint?.role !== "host") return end(ws, RelayClose.BadMessage, "live-not-host");
+          void onLive(ws, endpoint, frame);
         },
       })
     );
@@ -362,6 +404,7 @@ export const startRelay = (
     connections: () => gate.connections,
     stop: async () => {
       clearInterval(sweep);
+      live.stop();
       await server.stop(true);
     },
   };

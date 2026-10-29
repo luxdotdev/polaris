@@ -9,6 +9,7 @@ import { Rpc, RpcGroup } from "effect/rpc";
 import { NotFound } from "./errors.ts";
 import { HostId, LinkedDeviceId, Timestamp } from "./ids.ts";
 import { packEnvelope, unpackEnvelope } from "./linkBody.ts";
+import { LiveActivityRegistration } from "./relay/live.ts";
 import { PushRegistration } from "./relay/push.ts";
 import { RelayAddress } from "./relay/wire.ts";
 
@@ -142,6 +143,20 @@ export const UnregisterPush = Rpc.make("devices.unregisterPush", {
   error: PushRegistrationError,
 });
 
+/**
+ * The calling Linked Device's Live Activity (ADR 0088): its update token, environment, push
+ * key and this Host's ticket. A new registration replaces the last; the Host sends its slice.
+ */
+export const RegisterLiveActivity = Rpc.make("devices.registerLiveActivity", {
+  payload: LiveActivityRegistration,
+  error: PushRegistrationError,
+});
+
+/** Stops this Host's slices to the calling device's activity, and drops its slice at the relay. */
+export const UnregisterLiveActivity = Rpc.make("devices.unregisterLiveActivity", {
+  error: PushRegistrationError,
+});
+
 export class LinkedDeviceRpcs extends RpcGroup.make(
   GetRelayRoute,
   EnableRelayRoute,
@@ -154,7 +169,9 @@ export class LinkedDeviceRpcs extends RpcGroup.make(
   UnlinkDevice,
   UnlinkSelf,
   RegisterPush,
-  UnregisterPush
+  UnregisterPush,
+  RegisterLiveActivity,
+  UnregisterLiveActivity
 ) {}
 
 export const LINK_STRING_PREFIX = "polaris-link:v1:";

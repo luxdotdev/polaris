@@ -4,6 +4,7 @@
  * (README: Push). The relay passes the sealed payload on unchanged and never logs it.
  */
 import {
+  type LivePushRequest,
   PushHeaders,
   type PushRequest,
   signPushRequest,
@@ -19,7 +20,8 @@ export interface PushServiceConfig {
   readonly secret: string;
 }
 
-export type Deliver = (request: PushRequest) => Promise<WakeOutcome>;
+/** Delivers a wake (`PushRequest`) or a merged Live Activity update (`LivePushRequest`). */
+export type Deliver = (request: PushRequest | LivePushRequest) => Promise<WakeOutcome>;
 
 export type Fetcher = (url: string, init: RequestInit) => Promise<Response>;
 

@@ -14,6 +14,7 @@ import {
 } from "sodium-universal";
 import {
   authMessage,
+  liveTicketMessage,
   type PushEnvironment,
   type PushTicket,
   pushTicketMessage,
@@ -72,4 +73,15 @@ export const signPushTicket = (
 ): PushTicket => ({
   key: toBase64Url(identity.publicKey),
   sig: toBase64Url(signEd25519(identity, pushTicketMessage(hostAddress, environment, token))),
+});
+
+/** A device's consent for the Host at `hostAddress` to update its Live Activity at `token`. */
+export const signLiveTicket = (
+  identity: RelayIdentity,
+  hostAddress: RelayAddress,
+  environment: PushEnvironment,
+  token: string
+): PushTicket => ({
+  key: toBase64Url(identity.publicKey),
+  sig: toBase64Url(signEd25519(identity, liveTicketMessage(hostAddress, environment, token))),
 });

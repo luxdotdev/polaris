@@ -193,11 +193,82 @@ export const Woken = Schema.Struct({
   outcome: WakeOutcome,
 });
 
-export const ClientControl = Schema.Union([Auth, Peers, Wake]);
+/** A sealed Live Activity slice's longest base64url form, so six Hosts and `aps` fit APNs' 4 KB. */
+export const MAX_LIVE_SLICE_CHARS = 560;
+
+const LIVE_TICKET_CONTEXT = "polaris-live-ticket/1\0";
+
+/** The bytes a device signs to let `hostAddress` update its Live Activity at `token`. */
+export const liveTicketMessage = (
+  hostAddress: string,
+  environment: PushEnvironment,
+  token: string
+): Uint8Array =>
+  new TextEncoder().encode(`${LIVE_TICKET_CONTEXT}${hostAddress}\0${environment}\0${token}`);
+
+/** Whether `ticket` is `peer`'s consent for `hostAddress` to update the activity at `token`. */
+export const verifyLiveTicket = async (
+  ticket: PushTicket,
+  peer: RelayAddress,
+  hostAddress: RelayAddress,
+  environment: PushEnvironment,
+  token: string
+): Promise<boolean> => {
+  const key = fromBase64Url(ticket.key);
+  const sig = fromBase64Url(ticket.sig);
+
+  if (Option.isNone(key) || Option.isNone(sig) || key.value.byteLength !== 32) return false;
+
+  if ((await relayAddress(key.value)) !== peer) return false;
+
+  return verifyEd25519(key.value, liveTicketMessage(hostAddress, environment, token), sig.value);
+};
+
+/**
+ * A host's latest slice of a device's Live Activity (ADR 0088), or `slice: null` to leave it.
+ * `active` (work or Needs You) and `alert` (a new Needs You) are all the relay reads of it.
+ */
+export const Live = Schema.Struct({
+  t: Schema.Literal("live"),
+  peer: RelayAddress,
+  /** The activity's APNs update token. */
+  token: ApnsToken,
+  environment: PushEnvironment,
+  ticket: PushTicket,
+  slice: Schema.NullOr(
+    Schema.String.check(
+      Schema.isPattern(/^[A-Za-z0-9_-]+$/),
+      Schema.isMaxLength(MAX_LIVE_SLICE_CHARS)
+    )
+  ),
+  active: Schema.Boolean,
+  alert: Schema.Boolean,
+});
+
+export type Live = typeof Live.Type;
+
+/**
+ * Sent to each host with a slice on `token` when its activity is gone: `unregistered` (APNs
+ * no longer knows it) or `unlinked` (the ticket no longer verifies). The host drops it.
+ */
+export const LiveGone = Schema.Struct({
+  t: Schema.Literal("live-gone"),
+  token: ApnsToken,
+  outcome: Schema.Literals(["unregistered", "unlinked"]),
+});
+
+export const ClientControl = Schema.Union([Auth, Peers, Wake, Live]);
 
 export type ClientControl = typeof ClientControl.Type;
 
-export const RelayControl = Schema.Union([Challenge, Ready, Presence, Unreachable, Woken]);
+export const RelayControl = Schema.Union([
+  Challenge,
+  Ready,
+  Presence,
+  Unreachable,
+  Woken,
+  LiveGone,
+]);
 
 export type RelayControl = typeof RelayControl.Type;
 

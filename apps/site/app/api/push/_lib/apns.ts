@@ -1,7 +1,7 @@
 /**
  * Sends one notification to APNs over HTTP/2, keeping one session per endpoint open across
- * requests in the instance (a new connection costs ~200 ms). The body carries only a generic
- * alert and the sealed payload; the app's Notification Service Extension replaces the alert.
+ * requests in the instance (a new connection costs ~200 ms). An alert carries only a generic
+ * alert and the sealed payload; a Live Activity update only sealed slices.
  */
 import { type ClientHttp2Session, connect } from "node:http2";
 import { Option, Schema } from "effect";
@@ -11,7 +11,11 @@ export interface ApnsRequest {
   readonly providerToken: string;
   readonly deviceToken: string;
   readonly topic: string;
-  readonly payload: string;
+  /** `alert` for a sealed notification, `liveactivity` for a Live Activity update (ADR 0088). */
+  readonly pushType: "alert" | "liveactivity";
+  readonly priority: 5 | 10;
+  /** The JSON body: `apnsBody` for an alert, `liveActivityBody` for an update. */
+  readonly body: string;
   /** Unix seconds after which APNs stops trying to deliver. */
   readonly expiration: number;
 }
@@ -69,8 +73,8 @@ export const http2Apns = (): SendToApns => {
         ":path": `/3/device/${request.deviceToken}`,
         authorization: `bearer ${request.providerToken}`,
         "apns-topic": request.topic,
-        "apns-push-type": "alert",
-        "apns-priority": "10",
+        "apns-push-type": request.pushType,
+        "apns-priority": String(request.priority),
         "apns-expiration": String(request.expiration),
         "content-type": "application/json",
       });
@@ -91,6 +95,6 @@ export const http2Apns = (): SendToApns => {
           reason: Option.getOrNull(Option.map(decodeReason(text), (r) => r.reason)),
         });
       });
-      stream.end(apnsBody(request.payload));
+      stream.end(request.body);
     });
 };
