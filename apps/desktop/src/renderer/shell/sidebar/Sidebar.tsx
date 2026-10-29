@@ -467,8 +467,8 @@ interface FrameProps {
 const SidebarFrame = ({ header, footer, children }: FrameProps) => (
   <aside aria-label="Sessions" className="flex w-[288px] shrink-0 flex-col pt-2 pr-1 pl-2">
     {header}
-    {/* The list fades out above the horizon, so no legible row sits on its stars. */}
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto [mask-image:linear-gradient(to_bottom,black_calc(100%-64px),transparent)] pb-16">
+    {/* The list fades out above the horizon, so no legible row sits on its moon or stars. */}
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto [mask-image:linear-gradient(to_bottom,black_calc(100%-128px),transparent_calc(100%-72px))] pb-32">
       {children}
     </div>
     <Footer caption={footer} />
