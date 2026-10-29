@@ -2,15 +2,17 @@
  * A row's long-press menu: the native iOS context menu (`modules/polaris-context-menu`), the row
  * lifted as its preview. A development client built before the module draws the row alone.
  */
-import { midnight } from "@polaris/ui/tokens";
 import { requireNativeView, requireOptionalNativeModule } from "expo";
 import type { ComponentType, ReactNode } from "react";
 import { type NativeSyntheticEvent, StyleSheet } from "react-native";
+import { useTheme } from "../theme";
 import type { Menu, MenuAction } from "./model.ts";
 
 interface NativeProps {
   readonly menu: string;
+  readonly title: string;
   readonly previewColor: string;
+  readonly previewInsetBottom: number;
   readonly previewRadius: number;
   readonly onSelectItem: (event: NativeSyntheticEvent<{ readonly id: string }>) => void;
   readonly style?: object;
@@ -43,13 +45,21 @@ const encode = (menu: Menu) =>
 
 export const LongPressMenu = ({
   menu,
+  title = "",
+  previewInsetBottom = 0,
   onAction,
   children,
 }: {
   readonly menu: Menu;
+  /** The menu's header, above its items (MX-J: a turn's receipt). */
+  readonly title?: string;
+  /** Points cut from the lifted preview's foot, so what the header repeats isn't lifted twice. */
+  readonly previewInsetBottom?: number;
   readonly onAction: (action: MenuAction) => void;
   readonly children: ReactNode;
 }) => {
+  const { colours } = useTheme();
+
   if (NativeMenu === null || menu.length === 0) return children;
 
   const onSelectItem = ({ nativeEvent }: NativeSyntheticEvent<{ readonly id: string }>) => {
@@ -61,7 +71,9 @@ export const LongPressMenu = ({
   return (
     <NativeMenu
       menu={encode(menu)}
-      previewColor={midnight.bg}
+      title={title}
+      previewColor={colours.bg}
+      previewInsetBottom={previewInsetBottom}
       previewRadius={PREVIEW_RADIUS}
       onSelectItem={onSelectItem}
       style={styles.lift}

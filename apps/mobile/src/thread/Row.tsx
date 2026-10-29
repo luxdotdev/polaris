@@ -1,14 +1,42 @@
-/** One row of the thread (M4): a message, a numbered tool step, or a run of them. */
-import type { Attachment } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
-import { memo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+/**
+ * One row of the thread (MX-E): turn text on the open ground, a message, a tool step or a run of
+ * them in a well, and a finished Turn's receipt; a finished Turn's long-press menu (MX-J).
+ */
+import type { Attachment, CelestialBody, HarnessKind } from "@polaris/protocol";
+import { mobileType } from "@polaris/ui/tokens";
+import { memo, type ReactNode, useState } from "react";
+import { type LayoutChangeEvent, Pressable, StyleSheet, Text, View } from "react-native";
 import { Thumbnails } from "../attachments/index.ts";
+import { Celestial } from "../celestial";
 import { Markdown } from "../markdown/index.ts";
-import type { ThreadRow } from "./rows.ts";
+import { LongPressMenu, type MenuAction, turnMenu } from "../menus/index.ts";
+import { type MobileColours, useTheme } from "../theme";
+import { type ThreadRow, type TurnFacts, turnHeading } from "./rows.ts";
+
+type Styles = ReturnType<typeof makeStyles>;
+
+const sheets = new WeakMap<MobileColours, Styles>();
+
+const useStyles = (): Styles => {
+  const { colours } = useTheme();
+  const held = sheets.get(colours);
+
+  if (held !== undefined) return held;
+  const made = makeStyles(colours);
+  sheets.set(colours, made);
+
+  return made;
+};
 
 /** The Critical diamond: an 8pt square turned 45°. */
-export const Diamond = () => <View style={styles.diamond} />;
+export const Diamond = () => <View style={useStyles().diamond} />;
+
+/** The well a group of steps sits in: its first row opens it, its last closes it. */
+const wellOf = (styles: Styles, row: { readonly first: boolean; readonly last: boolean }) => [
+  styles.well,
+  row.first ? styles.wellFirst : null,
+  row.last ? styles.wellLast : null,
+];
 
 /** Finished calls folded into one line (DESIGN.md, Tool runs): a faint check, the summary, a chevron. */
 const Run = ({
@@ -17,21 +45,27 @@ const Run = ({
 }: {
   readonly row: Extract<ThreadRow, { kind: "run" }>;
   readonly onToggle: (key: string) => void;
-}) => (
-  <Pressable
-    style={[styles.step, row.last && !row.open ? styles.stepLast : null]}
-    onPress={() => onToggle(row.key)}
-    accessibilityRole="button"
-    accessibilityState={{ expanded: row.open }}
-    accessibilityLabel={row.summary}
-  >
-    <Text style={styles.runCheck}>✓</Text>
-    <Text style={styles.runSummary} numberOfLines={1}>
-      {row.summary}
-    </Text>
-    <Text style={[styles.runChevron, row.open ? styles.runChevronOpen : null]}>›</Text>
-  </Pressable>
-);
+}) => {
+  const styles = useStyles();
+
+  return (
+    <View style={wellOf(styles, row)}>
+      <Pressable
+        style={styles.step}
+        onPress={() => onToggle(row.key)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: row.open }}
+        accessibilityLabel={row.summary}
+      >
+        <Text style={styles.check}>✓</Text>
+        <Text style={styles.runSummary} numberOfLines={1}>
+          {row.summary}
+        </Text>
+        <Text style={[styles.chevron, row.open ? styles.chevronOpen : null]}>›</Text>
+      </Pressable>
+    </View>
+  );
+};
 
 /** What a tapped step or finding puts in focus, for the iPhone Duo's second half (D6). */
 export interface ThreadFocus {
@@ -42,47 +76,86 @@ export interface ThreadFocus {
   readonly paths: ReadonlyArray<string>;
 }
 
+/** The session's celestial, which works beside the step in flight. */
+export interface RowSession {
+  readonly hostId: string;
+  readonly sessionId: string;
+  readonly body: CelestialBody;
+  readonly harness: HarnessKind;
+}
+
+const StepMark = ({
+  row,
+  session,
+}: {
+  readonly row: Extract<ThreadRow, { kind: "step" }>;
+  readonly session: RowSession | undefined;
+}) => {
+  const styles = useStyles();
+
+  if (row.tone === "active" && session !== undefined)
+    return (
+      <View style={styles.markSlot}>
+        <Celestial body={session.body} harness={session.harness} size={16} working />
+      </View>
+    );
+
+  return (
+    <Text style={[styles.check, row.tone === "failed" ? styles.failed : null]}>
+      {row.tone === "failed" ? "✕" : "✓"}
+    </Text>
+  );
+};
+
 const Step = ({
   row,
   critical,
   focused,
   onFocus,
+  session,
 }: {
   readonly row: Extract<ThreadRow, { kind: "step" }>;
   readonly critical: boolean;
   readonly focused: boolean;
   readonly onFocus: ((focus: ThreadFocus) => void) | undefined;
-}) => (
-  <Pressable
-    disabled={onFocus === undefined}
-    onPress={() =>
-      onFocus?.({
-        key: row.key,
-        turnId: row.turnId,
-        kind: "step",
-        label: row.label,
-        paths: row.paths,
-      })
-    }
-    accessibilityRole={onFocus === undefined ? undefined : "button"}
-    accessibilityState={onFocus === undefined ? undefined : { selected: focused }}
-    style={[styles.step, row.last ? styles.stepLast : null, focused ? styles.stepFocused : null]}
-  >
-    <Text style={styles.stepIndex}>{row.index}</Text>
-    <Text
-      style={[styles.stepLabel, row.tone === "active" ? styles.stepActive : null]}
-      numberOfLines={1}
-    >
-      {row.label}
-    </Text>
-    {critical ? <Diamond /> : null}
-    {row.detail === "" ? null : (
-      <Text style={row.tone === "failed" ? styles.stepFailed : styles.stepDetail}>
-        {row.detail}
-      </Text>
-    )}
-  </Pressable>
-);
+  readonly session: RowSession | undefined;
+}) => {
+  const styles = useStyles();
+
+  return (
+    <View style={wellOf(styles, row)}>
+      <Pressable
+        disabled={onFocus === undefined}
+        onPress={() =>
+          onFocus?.({
+            key: row.key,
+            turnId: row.turnId,
+            kind: "step",
+            label: row.label,
+            paths: row.paths,
+          })
+        }
+        accessibilityRole={onFocus === undefined ? undefined : "button"}
+        accessibilityState={onFocus === undefined ? undefined : { selected: focused }}
+        style={[styles.step, focused ? styles.stepFocused : null]}
+      >
+        <StepMark row={row} session={session} />
+        <Text
+          style={[styles.stepLabel, row.tone === "active" ? styles.stepActive : null]}
+          numberOfLines={1}
+        >
+          {row.label}
+        </Text>
+        {critical ? <Diamond /> : null}
+        {row.detail === "" ? null : (
+          <Text style={row.tone === "failed" ? styles.stepFailed : styles.stepDetail}>
+            {row.detail}
+          </Text>
+        )}
+      </Pressable>
+    </View>
+  );
+};
 
 export interface RowProps {
   readonly row: ThreadRow;
@@ -97,6 +170,10 @@ export interface RowProps {
   readonly onEditSteer?: ((id: string) => void) | undefined;
   /** The session's Host, which holds the images its messages carried. */
   readonly hostId: string;
+  /** The session, for the step in flight and a finished Turn's menu. */
+  readonly session?: RowSession | undefined;
+  /** Runs what a finished Turn's long-press menu chose. */
+  readonly onMenuAction?: ((action: MenuAction) => void) | undefined;
 }
 
 const Bubble = ({
@@ -113,21 +190,88 @@ const Bubble = ({
   readonly attachments?: ReadonlyArray<Attachment>;
   readonly faded?: boolean;
   readonly failed?: boolean;
-}) => (
-  <View style={[styles.promptLine, faded ? styles.faded : null]}>
-    <Thumbnails hostId={hostId} attachments={attachments} />
-    {text.trim() === "" ? null : (
-      <View style={styles.prompt}>
-        <Text style={styles.message} selectable>
-          {text}
-        </Text>
+}) => {
+  const styles = useStyles();
+
+  return (
+    <View style={[styles.promptLine, faded ? styles.faded : null]}>
+      <Thumbnails hostId={hostId} attachments={attachments} />
+      {text.trim() === "" ? null : (
+        <View style={styles.prompt}>
+          <Text style={styles.promptText} selectable>
+            {text}
+          </Text>
+        </View>
+      )}
+      {note === null ? null : (
+        <Text style={[styles.note, failed ? styles.noteFailed : null]}>{note}</Text>
+      )}
+    </View>
+  );
+};
+
+/** Its Turn's menu around a finished Turn's text; the lifted text leaves its receipt behind. */
+const TurnMenu = ({
+  turn,
+  session,
+  onMenuAction,
+  receiptHeight,
+  children,
+}: {
+  readonly turn: TurnFacts | null;
+  readonly session: RowSession | undefined;
+  readonly onMenuAction: ((action: MenuAction) => void) | undefined;
+  readonly receiptHeight: number;
+  readonly children: ReactNode;
+}) =>
+  turn === null || session === undefined || onMenuAction === undefined ? (
+    children
+  ) : (
+    <LongPressMenu
+      menu={turnMenu(session, turn)}
+      title={[turnHeading(turn), turn.receipt].filter((line) => line !== "").join("\n")}
+      previewInsetBottom={receiptHeight}
+      onAction={onMenuAction}
+    >
+      {children}
+    </LongPressMenu>
+  );
+
+const RECEIPT_GAP = 8;
+
+const Reply = ({
+  row,
+  session,
+  onMenuAction,
+}: {
+  readonly row: Extract<ThreadRow, { kind: "reply" }>;
+  readonly session: RowSession | undefined;
+  readonly onMenuAction: ((action: MenuAction) => void) | undefined;
+}) => {
+  const styles = useStyles();
+  const [receiptHeight, setReceiptHeight] = useState(0);
+
+  const measure = (event: LayoutChangeEvent) =>
+    setReceiptHeight(event.nativeEvent.layout.height + RECEIPT_GAP);
+
+  return (
+    <TurnMenu
+      turn={row.turn}
+      session={session}
+      onMenuAction={onMenuAction}
+      receiptHeight={row.receipt === null ? 0 : receiptHeight}
+    >
+      <View style={[styles.reply, row.receipt === null ? null : styles.turnEnd]}>
+        <Markdown text={row.text} />
+        {row.receipt === null ? null : (
+          <Text style={styles.receipt} onLayout={measure}>
+            {row.receipt}
+          </Text>
+        )}
       </View>
-    )}
-    {note === null ? null : (
-      <Text style={[styles.note, failed ? styles.noteFailed : null]}>{note}</Text>
-    )}
-  </View>
-);
+    </TurnMenu>
+  );
+};
 
 const RowView = ({
   row,
@@ -137,7 +281,11 @@ const RowView = ({
   focused = false,
   onEditSteer,
   hostId,
+  session,
+  onMenuAction,
 }: RowProps) => {
+  const styles = useStyles();
+
   switch (row.kind) {
     case "prompt":
       return <Bubble text={row.text} note={null} hostId={hostId} attachments={row.attachments} />;
@@ -162,7 +310,13 @@ const RowView = ({
         />
       );
     case "reply":
-      return <Markdown text={row.text} style={styles.reply} />;
+      return <Reply row={row} session={session} onMenuAction={onMenuAction} />;
+    case "receipt":
+      return (
+        <TurnMenu turn={row.turn} session={session} onMenuAction={onMenuAction} receiptHeight={0}>
+          <Text style={[styles.receipt, styles.reply, styles.turnEnd]}>{row.text}</Text>
+        </TurnMenu>
+      );
     case "error":
       return <Text style={[styles.message, styles.error]}>{row.text}</Text>;
     case "run":
@@ -174,6 +328,7 @@ const RowView = ({
           critical={row.paths.some((path) => criticalPaths.has(path))}
           focused={focused}
           onFocus={onFocus}
+          session={session}
         />
       );
   }
@@ -181,55 +336,76 @@ const RowView = ({
 
 export const Row = memo(RowView);
 
-const styles = StyleSheet.create({
-  diamond: {
-    width: 6,
-    height: 6,
-    margin: 1,
-    backgroundColor: midnight.severityCritical,
-    transform: [{ rotate: "45deg" }],
-  },
-  promptLine: { alignItems: "flex-end", gap: 4, marginBottom: 12 },
-  faded: { opacity: 0.6 },
-  note: { ...mobileType.footnote, color: midnight.textSubtle, marginHorizontal: 4 },
-  noteFailed: { color: midnight.failedText },
-  prompt: {
-    backgroundColor: midnight.surfaceRaised,
-    borderRadius: 18,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    maxWidth: "88%",
-  },
-  message: { ...mobileType.callout, color: midnight.textDefault },
-  reply: { marginBottom: 12 },
-  error: { color: midnight.failedText, marginBottom: 12 },
-  step: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    height: 38,
-    paddingHorizontal: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: midnight.hairline,
-  },
-  stepLast: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: midnight.hairline,
-    marginBottom: 12,
-  },
-  stepFocused: {
-    backgroundColor: midnight.surfaceRaised,
-    borderRadius: 10,
-    borderLeftWidth: 2,
-    borderLeftColor: midnight.starlight,
-  },
-  stepIndex: { ...mobileType.index, color: midnight.textFaint, width: 20 },
-  stepLabel: { ...mobileType.subhead, color: midnight.textSubtle, flex: 1 },
-  stepActive: { color: midnight.textDefault, fontWeight: "500" },
-  stepDetail: { ...mobileType.footnote, color: midnight.textFaint },
-  stepFailed: { ...mobileType.footnote, color: midnight.failedText },
-  runCheck: { ...mobileType.index, color: midnight.textFaint, width: 20 },
-  runSummary: { ...mobileType.footnote, color: midnight.textSubtle, flex: 1 },
-  runChevron: { ...mobileType.subhead, color: midnight.textFaint },
-  runChevronOpen: { transform: [{ rotate: "90deg" }] },
-});
+/** Space between items of a Turn, and after a Turn's end (MX-E). */
+const ITEM_GAP = 8;
+
+const TURN_GAP = 18;
+
+const makeStyles = (colours: MobileColours) =>
+  StyleSheet.create({
+    diamond: {
+      width: 6,
+      height: 6,
+      margin: 1,
+      backgroundColor: colours.severityCritical,
+      transform: [{ rotate: "45deg" }],
+    },
+    promptLine: { alignItems: "flex-end", gap: 4, paddingLeft: 56, marginBottom: TURN_GAP },
+    faded: { opacity: 0.6 },
+    note: { ...mobileType.footnote, color: colours.textSubtle, marginHorizontal: 4 },
+    noteFailed: { color: colours.failedText },
+    prompt: {
+      backgroundColor: colours.raised,
+      borderWidth: 1,
+      borderColor: colours.hairline,
+      borderRadius: 18,
+      borderBottomRightRadius: 6,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+    },
+    promptText: { ...mobileType.callout, lineHeight: 20, color: colours.textStrong },
+    message: { ...mobileType.callout, color: colours.textDefault },
+    reply: { paddingHorizontal: 6, marginBottom: ITEM_GAP, gap: RECEIPT_GAP },
+    turnEnd: { marginBottom: TURN_GAP },
+    receipt: { ...mobileType.index, color: colours.textFaint },
+    error: { color: colours.failedText, paddingHorizontal: 6, marginBottom: ITEM_GAP },
+    well: {
+      backgroundColor: colours.panel,
+      borderColor: colours.hairline,
+      borderLeftWidth: 1,
+      borderRightWidth: 1,
+      paddingHorizontal: 12,
+    },
+    wellFirst: {
+      borderTopWidth: 1,
+      borderTopLeftRadius: 14,
+      borderTopRightRadius: 14,
+      paddingTop: 6,
+    },
+    wellLast: {
+      borderBottomWidth: 1,
+      borderBottomLeftRadius: 14,
+      borderBottomRightRadius: 14,
+      paddingBottom: 6,
+      marginBottom: ITEM_GAP,
+    },
+    step: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 30 },
+    stepFocused: {
+      backgroundColor: colours.raised,
+      borderRadius: 10,
+      borderLeftWidth: 2,
+      borderLeftColor: colours.starlight,
+      marginHorizontal: -8,
+      paddingHorizontal: 6,
+    },
+    markSlot: { width: 16, alignItems: "center" },
+    check: { ...mobileType.footnote, color: colours.textSubtle, width: 16, textAlign: "center" },
+    failed: { color: colours.failedText },
+    stepLabel: { ...mobileType.footnote, color: colours.textSubtle, flex: 1 },
+    stepActive: { ...mobileType.subhead, fontWeight: "500", color: colours.textStrong },
+    stepDetail: { ...mobileType.index, color: colours.textFaint },
+    stepFailed: { ...mobileType.index, color: colours.failedText },
+    runSummary: { ...mobileType.footnote, color: colours.textSubtle, flex: 1 },
+    chevron: { ...mobileType.subhead, color: colours.textFaint },
+    chevronOpen: { transform: [{ rotate: "90deg" }] },
+  });

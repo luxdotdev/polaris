@@ -66,6 +66,8 @@ export const useMenuActions = (): ((action: MenuAction) => void) => {
             navigation.push({ screen: "constellation", hostId, constellationId }),
           copy: ({ text }) => void copyText(text),
           "retry-host": ({ hostId }) => followed(hostId)?.connection.retryNow(),
+          // Offered disabled; the native menu never hands it back.
+          fork: () => undefined,
           reply: (sending) =>
             dispatch(sending.hostId, failureTitle(sending.reply), replyCommand(sending)),
           send: ({ hostId, command, failure }) => dispatch(hostId, failure, command),

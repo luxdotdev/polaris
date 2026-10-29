@@ -52,7 +52,14 @@ export type MenuAction =
       readonly action: SetConstellationStateAction;
       readonly failure: string;
     }
-  | { readonly kind: "retry-host"; readonly hostId: string };
+  | { readonly kind: "retry-host"; readonly hostId: string }
+  /** Fork the session from a Turn: the Desktop App's; a Linked Device can't send ForkSession yet. */
+  | {
+      readonly kind: "fork";
+      readonly hostId: string;
+      readonly sessionId: string;
+      readonly turnId: string;
+    };
 
 export interface MenuItem {
   /** Unique within its menu: what the native menu hands back when it is chosen. */
@@ -252,3 +259,19 @@ export const replyCommand = (action: Extract<MenuAction, { readonly kind: "reply
 /** The alert's title when a reply the menu sent is refused. */
 export const failureTitle = (reply: Reply): string =>
   reply.kind === "deny" ? "Couldn't deny" : "Couldn't approve";
+
+/** A finished Turn in the thread (MX-J): its receipt heads the menu, then Copy and Fork. */
+export const turnMenu = (
+  where: { readonly hostId: string; readonly sessionId: string },
+  turn: { readonly turnId: string; readonly output: string }
+): Menu => [
+  [
+    ...(turn.output === "" ? [] : [item("copy", "Copy", { kind: "copy", text: turn.output })]),
+    {
+      ...item("fork", "Fork from here", { kind: "fork", ...where, turnId: turn.turnId }),
+      // ForkSession is "local" in DEVICE_COMMANDS: the Daemon refuses it from a phone.
+      subtitle: "From the desktop app for now",
+      disabled: true,
+    },
+  ],
+];

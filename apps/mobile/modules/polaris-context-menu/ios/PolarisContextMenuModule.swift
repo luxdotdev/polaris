@@ -18,6 +18,14 @@ public class PolarisContextMenuModule: Module {
         view.setMenu(json)
       }
 
+      Prop("title") { (view: PolarisContextMenuView, title: String?) in
+        view.title = title ?? ""
+      }
+
+      Prop("previewInsetBottom") { (view: PolarisContextMenuView, inset: Double?) in
+        view.previewInsetBottom = CGFloat(inset ?? 0)
+      }
+
       Prop("previewColor") { (view: PolarisContextMenuView, color: UIColor?) in
         view.previewColor = color
       }
@@ -41,6 +49,8 @@ final class PolarisContextMenuView: ExpoView, UIContextMenuInteractionDelegate {
   let onSelectItem = EventDispatcher()
   var previewColor: UIColor?
   var previewRadius: CGFloat = 12
+  var title = ""
+  var previewInsetBottom: CGFloat = 0
   private var sections: [[ContextMenuItem]] = []
 
   required init(appContext: AppContext? = nil) {
@@ -83,12 +93,14 @@ final class PolarisContextMenuView: ExpoView, UIContextMenuInteractionDelegate {
     preview()
   }
 
-  /// The row itself, lifted on the screen's ground with rounded corners.
+  /// The row itself, lifted on the screen's ground with rounded corners, less its inset foot.
   private func preview() -> UITargetedPreview? {
     guard window != nil else { return nil }
     let parameters = UIPreviewParameters()
     parameters.backgroundColor = previewColor ?? .black
-    parameters.visiblePath = UIBezierPath(roundedRect: bounds, cornerRadius: previewRadius)
+    var shown = bounds
+    shown.size.height = max(0, bounds.height - min(previewInsetBottom, bounds.height))
+    parameters.visiblePath = UIBezierPath(roundedRect: shown, cornerRadius: previewRadius)
 
     return UITargetedPreview(view: self, parameters: parameters)
   }
@@ -99,7 +111,7 @@ final class PolarisContextMenuView: ExpoView, UIContextMenuInteractionDelegate {
       UIMenu(title: "", options: .displayInline, children: items.map(action))
     }
 
-    return UIMenu(title: "", children: groups)
+    return UIMenu(title: title, children: groups)
   }
 
   private func action(_ item: ContextMenuItem) -> UIAction {
