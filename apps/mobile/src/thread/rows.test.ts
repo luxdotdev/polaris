@@ -1,7 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { Attachment, AttachmentId, DomainEvent, SessionId, TurnItem } from "@polaris/protocol";
 import { applySessionItem, type SessionFold } from "./fold.ts";
-import { newestEndedOnScreen, outgoingRows, threadRows, type ThreadRow } from "./rows.ts";
+import {
+  headerLine,
+  newestEndedOnScreen,
+  outgoingRows,
+  threadRows,
+  type ThreadRow,
+  turnHeading,
+} from "./rows.ts";
 import { event, snapshot, turn } from "./daemon.testing.ts";
 import { SessionStreamItem, TurnId } from "@polaris/protocol";
 
@@ -145,8 +152,8 @@ describe("thread rows", () => {
     const before = foldOf([snapshot(turns)]);
     const rowsBefore = threadRows(before?.turns ?? [], new Set());
 
-    // Each Turn: its prompt, and its 30 edits as one run.
-    expect(rowsBefore.length).toBe(1000 * 2);
+    // Each Turn: its prompt, its 30 edits as one run, and its receipt once finished.
+    expect(rowsBefore.length).toBe(1000 * 3 - 1);
 
     const after = applySessionItem(
       before,
@@ -163,7 +170,7 @@ describe("thread rows", () => {
 
     expect(rowsAfter.at(-1)).toMatchObject({ kind: "reply", text: "Still going" });
     expect(rowsAfter[0]).toBe(rowsBefore[0]);
-    expect(rowsAfter[1997]).toBe(rowsBefore[1997]);
+    expect(rowsAfter[2996]).toBe(rowsBefore[2996]);
   });
 });
 
@@ -272,5 +279,101 @@ describe("read position", () => {
 
     expect(newestEndedOnScreen(fold?.turns ?? [], ["t-0", "t-1", "t-2"])?.turn.index).toBe(1);
     expect(newestEndedOnScreen(fold?.turns ?? [], ["t-2"])).toBeNull();
+  });
+});
+
+describe("a finished turn's receipt (MX-E)", () => {
+  const finished = (items: ReadonlyArray<TurnItem>, fields: Parameters<typeof turn>[1] = {}) =>
+    threadRows(
+      foldOf([
+        snapshot([
+          {
+            turn: turn(0, {
+              startedAt: "2026-10-27T12:00:00.000Z",
+              endedAt: "2026-10-27T12:01:41.000Z",
+              ...fields,
+            }),
+            items,
+          },
+        ]),
+      ])?.turns ?? [],
+      new Set()
+    );
+
+  test("sits under the turn's last reply: each file once, its commands, how long it took", () => {
+    const rows = finished([
+      reply("a", "Looking at the planning page."),
+      edit("b", "src/planning.tsx"),
+      edit("c", "src/planning.tsx"),
+      edit("d", "src/hosts.tsx"),
+      command("e", "bun run build", 0),
+      command("f", "bun test", 0),
+      reply("g", "Split the planning page into three sections."),
+    ]);
+
+    expect(rows.flatMap((row) => (row.kind === "reply" ? [row.receipt] : []))).toEqual([
+      null,
+      "2 files · 2 commands · 1m 41s",
+    ]);
+  });
+
+  test("leaves out what the turn didn't do, and stands alone when no reply ends the turn", () => {
+    const rows = finished([read("a", "Read the README")], {
+      endedAt: "2026-10-27T12:00:12.000Z",
+    });
+
+    expect(rows.at(-1)).toMatchObject({ kind: "receipt", text: "12s" });
+  });
+
+  test("a working turn has none, and its replies offer no menu yet", () => {
+    const rows = threadRows(
+      foldOf([working([reply("a", "Still going"), command("b", "bun test", 0)])])?.turns ?? [],
+      new Set()
+    );
+
+    expect(rows.map((row) => row.kind)).not.toContain("receipt");
+    expect(rows.find((row) => row.kind === "reply")).toMatchObject({ turn: null, receipt: null });
+  });
+
+  test("copy takes every reply of the turn as Markdown, a blank line apart", () => {
+    const rows = finished([reply("a", "First, **this**."), reply("b", "Then that.\n")], {
+      userTurnNumber: 23,
+    });
+
+    expect(rows.find((row) => row.kind === "reply")).toMatchObject({
+      turn: { number: 23, output: "First, **this**.\n\nThen that." },
+    });
+  });
+
+  test("a group of steps opens and closes one well", () => {
+    const rows = finished([
+      reply("a", "Reading first."),
+      edit("b", "src/a.ts", "running"),
+      command("c", "bun test", 1, "failed"),
+      reply("d", "Done."),
+    ]);
+
+    expect(rows.flatMap((row) => (row.kind === "step" ? [[row.first, row.last]] : []))).toEqual([
+      [true, false],
+      [false, true],
+    ]);
+  });
+});
+
+describe("the thread header", () => {
+  test("says the state, then the turn and where it runs", () => {
+    expect(
+      headerLine({ state: "working", turnCount: 24, currentUserTurn: null }, "polaris")
+    ).toEqual({ state: "Working", rest: "turn 24 · polaris" });
+    expect(headerLine({ state: "idle", turnCount: 0, currentUserTurn: null }, null)).toEqual({
+      state: "Idle",
+      rest: "",
+    });
+  });
+
+  test("a turn's menu heading names it and when it started, in the phone's time", () => {
+    const startedAt = new Date(2026, 9, 27, 9, 5).toISOString();
+
+    expect(turnHeading({ number: 23, startedAt })).toBe("Turn 23 · 09:05");
   });
 });
