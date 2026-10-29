@@ -85,6 +85,22 @@ export const HostsProvider = ({ children }: { readonly children: ReactNode }) =>
   return <Hosts.Provider value={registry}>{children}</Hosts.Provider>;
 };
 
+/** Development galleries: these Hosts in place of the app's, for the screens below. */
+export const GalleryHosts = ({
+  hosts,
+  children,
+}: {
+  readonly hosts: ReadonlyArray<HostConnection>;
+  readonly children: ReactNode;
+}) => {
+  const registry = useMemo<HostRegistry>(
+    () => ({ hosts, addHost: () => undefined, removeHost: () => undefined }),
+    [hosts]
+  );
+
+  return <Hosts.Provider value={registry}>{children}</Hosts.Provider>;
+};
+
 export const useHostRegistry = (): HostRegistry => {
   const registry = useContext(Hosts);
 

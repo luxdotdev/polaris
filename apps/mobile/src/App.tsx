@@ -33,6 +33,7 @@ import { CheckAlive } from "./runtime/CheckAlive.tsx";
 import { HostsProvider } from "./runtime/hosts.tsx";
 import { useReadyToReview } from "./review/index.ts";
 import { SettingsScreen } from "./settings/index.ts";
+import { ThreadGallery, threadGalleryOn } from "./thread/ThreadGallery.tsx";
 import { useWidgetLinks } from "./widgets/useWidgetLinks.ts";
 import { WidgetSync } from "./widgets/WidgetSync.ts";
 import { ThemeProvider, themedStyles } from "./theme/index.ts";
@@ -168,6 +169,8 @@ const Shell = () => {
   usePushLinks(navigation.open);
 
   if (galleryOn()) return <RowGallery />;
+
+  if (threadGalleryOn()) return <ThreadGallery />;
 
   return (
     <SheetHost>
