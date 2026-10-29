@@ -8,6 +8,7 @@ import {
   latestTurnOpen,
   noFolds,
   summarize,
+  turnReceipt,
   turnStartRow,
   turnTime,
 } from "./conversation.ts";
@@ -235,6 +236,39 @@ describe("conversation rows", () => {
     expect(turnTime(new Date(2026, 8, 20, 14, 2).toISOString(), now)).toBe("Sep 20 14:02");
     expect(turnTime(new Date(2025, 11, 31, 23, 59).toISOString(), now)).toBe("Dec 31, 2025 23:59");
     expect(turnTime("not a time", now)).toBe("");
+  });
+
+  test("a finished Turn's receipt counts files and commands and how long it took", () => {
+    const run = (id: string) =>
+      I.CommandExecution.make({
+        id,
+        command: "bun test",
+        cwd: "/r",
+        output: "",
+        exitCode: 0,
+        status: "completed",
+      });
+
+    const done = view(3, [
+      files("f1", ["a.ts", "b.ts"]),
+      files("f2", ["a.ts"]),
+      run("c1"),
+      run("c2"),
+    ]);
+
+    const timed: TurnView = {
+      ...done,
+      turn: turnWith({
+        id: done.turn.id,
+        index: done.turn.index,
+        prompt: done.turn.prompt,
+        startedAt: "2026-10-28T14:00:00.000Z",
+        endedAt: "2026-10-28T14:01:41.000Z",
+      }),
+    };
+
+    expect(turnReceipt(summarize(solo(timed)))).toBe("2 files · 2 commands · 1m 41s");
+    expect(turnReceipt(summarize(solo(view(4, [message("m1", "Looked")]))))).toBe("");
   });
 
   test("a summary falls back to the prompt", () => {

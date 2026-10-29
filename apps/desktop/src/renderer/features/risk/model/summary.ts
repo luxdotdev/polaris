@@ -236,10 +236,14 @@ export const reviewerLine = (summary: Summary, names: CostNames | null): string 
 };
 
 /** The Ask box's placeholder: you can ask only a Reviewer that ran. */
-export const askPlaceholder = (summary: Summary, aboutFinding: boolean): string => {
+export const askPlaceholder = (summary: Summary, aboutFinding: boolean, name?: string): string => {
   switch (reviewerState(summary)) {
     case "ran":
-      return aboutFinding ? "Ask about this finding" : "Ask the reviewer about this change";
+      if (aboutFinding) return "Ask about this finding";
+
+      return name === undefined
+        ? "Ask the reviewer about this change"
+        : `Ask ${name} about this review…`;
     case "none":
       return "Rules only: there’s no reviewer to ask";
     case "running":
@@ -259,3 +263,37 @@ export const canAskReviewer = (summary: Summary): boolean =>
 /** The finding a stale selection pointed at, else null (a refreshed summary may drop it). */
 export const findingById = (summary: Summary | null, id: string | null): Finding | null =>
   id === null ? null : (summary?.findings.find((f) => f.id === id) ?? null);
+
+/** The card's footer status line: "12 files · 10 findings · 2 resolved". */
+export const footerStatus = (files: number, groups: FindingGroups): string => {
+  const count = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const parts = [count(files, "file"), count(groups.listed.length, "finding")];
+
+  if (groups.dismissed.length > 0) parts.push(`${groups.dismissed.length} dismissed`);
+
+  if (groups.resolved.length > 0) parts.push(`${groups.resolved.length} resolved`);
+
+  return parts.join(" · ");
+};
+
+/** The Walkthrough entry's line: its first sentence of prose once ready, else where it is. */
+export const walkthroughLine = (walkthrough: Summary["walkthrough"]): string | null => {
+  if (walkthrough === undefined || walkthrough.state === "off") return null;
+
+  switch (walkthrough.state) {
+    case "waiting":
+      return "Waiting to run";
+    case "writing":
+      return "Writing…";
+    case "failed":
+      return "Couldn’t write the walkthrough";
+    case "ready": {
+      const line = walkthrough.markdown
+        .split("\n")
+        .map((l) => l.trim())
+        .find((l) => l !== "" && !l.startsWith("#") && !l.startsWith("|") && !l.startsWith("```"));
+
+      return line?.replace(/[*_`]/g, "") ?? "Ready";
+    }
+  }
+};

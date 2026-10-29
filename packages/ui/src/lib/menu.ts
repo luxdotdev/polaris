@@ -21,13 +21,14 @@ export const MENU_INDICATOR =
 export const KICKER =
   "font-mono text-[10px] leading-[14px] font-medium tracking-[0.08em] uppercase text-text-subtle tabular";
 
-/** A group header: a kicker ("MOVE"), never a sentence. */
-export const MENU_LABEL = `flex h-[26px] items-center px-row-x pt-1 ${KICKER}`;
+/** A group header: a kicker ("MOVE"), never a sentence; a long one truncates on its one line. */
+export const MENU_LABEL = `block h-[26px] truncate px-row-x pt-1 ${KICKER} leading-[22px]`;
 
 export const MENU_SEPARATOR = "mx-2 my-1 h-px bg-hairline";
 
+/** A key hint, or a disabled entry's reason, which truncates before the label gives way. */
 export const MENU_SHORTCUT =
-  "ml-auto shrink-0 font-sans text-caption tracking-[0.04em] tabular text-text-subtle";
+  "ml-auto min-w-0 max-w-1/2 shrink-0 truncate font-sans text-caption tracking-[0.04em] tabular text-text-subtle";
 
 /** The one ellipsis a menu label may end in (U+2026), never three dots. */
 export const ELLIPSIS = "…";

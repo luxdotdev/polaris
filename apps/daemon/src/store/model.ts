@@ -32,6 +32,7 @@ import {
 
 import { emptyResources, foldResources, type ResourcesModel } from "../resources/model.ts";
 
+import { pickCelestial } from "./celestial.ts";
 import { foldConstellation, graphEvent, type ConstellationRecord } from "./constellation.ts";
 import { replyPreview } from "./replyPreview.ts";
 import { replyText, userTurnAfter } from "./userTurns.ts";
@@ -359,6 +360,7 @@ export const patchSession = (session: AgentSession, patch: SessionPatch): AgentS
     model: session.model,
     effort: session.effort,
     serviceTier: session.serviceTier,
+    celestial: session.celestial,
     parentSessionId: session.parentSessionId,
     forkedFromTurnId: session.forkedFromTurnId,
     harnessCursor: session.harnessCursor,
@@ -504,7 +506,13 @@ const createSession =
   ({ model }) => ({
     ...model,
     sessions: withMap(model.sessions, event.session.id, {
-      session: event.session,
+      // A session logged before Celestials gets the planet it would have been given.
+      session:
+        event.session.celestial == null
+          ? patchSession(event.session, {
+              celestial: pickCelestial(model.sessions.values(), event.session),
+            })
+          : event.session,
       titleLocked: false,
       turns: [],
       pending: new Map(),

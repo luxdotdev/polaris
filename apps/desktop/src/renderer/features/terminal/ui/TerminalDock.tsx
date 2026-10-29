@@ -34,7 +34,7 @@ export interface TerminalDockProps {
   readonly tuckable?: boolean;
 }
 
-const toggleHint = () => shortcutLabel(TERMINAL_TOGGLE);
+export const toggleHint = () => shortcutLabel(TERMINAL_TOGGLE);
 
 const useWorkspace = (hostKey: string, workspaceId: string) =>
   useApp((s) => (s.hostModels[hostKey] ?? emptyHostModel).workspaces.get(workspaceId));
@@ -164,9 +164,19 @@ interface OpenDrawerProps {
   readonly where: string;
   readonly onHide: () => void;
   readonly dock: React.RefObject<HTMLDivElement | null>;
+  /** "panel": its own card (the Editor), so no rule above it and the card's fill. */
+  readonly variant?: "drawer" | "panel";
 }
 
-const OpenDrawer = ({ place, drawer, home, where, onHide, dock }: OpenDrawerProps) => {
+export const OpenDrawer = ({
+  place,
+  drawer,
+  home,
+  where,
+  onHide,
+  dock,
+  variant = "drawer",
+}: OpenDrawerProps) => {
   const tab = activeTab(drawer);
   const onResize = useResize(place, dock);
   const available = dock.current?.getBoundingClientRect().height ?? Number.POSITIVE_INFINITY;
@@ -174,7 +184,10 @@ const OpenDrawer = ({ place, drawer, home, where, onHide, dock }: OpenDrawerProp
   return (
     <section
       aria-label="Terminal"
-      className="border-hairline bg-bg relative flex shrink-0 flex-col border-t"
+      className={cn(
+        "relative flex shrink-0 flex-col",
+        variant === "drawer" ? "border-hairline bg-bg border-t" : "bg-panel"
+      )}
       style={{ height: clampHeight(drawer.height, available) }}
       data-testid="terminal-drawer"
     >
@@ -225,12 +238,8 @@ const OpenDrawer = ({ place, drawer, home, where, onHide, dock }: OpenDrawerProp
   );
 };
 
-export const TerminalDock = ({
-  hostKey,
-  workspaceId,
-  children,
-  tuckable = false,
-}: TerminalDockProps) => {
+/** One Workspace's terminal: whether it shows, its toggle, and the drawer's parts. */
+export const useTerminalDock = (hostKey: string, workspaceId: string, tuckable = false) => {
   const place: TerminalPlace = { hostKey, workspaceId };
   const drawer = useDrawer(drawerKey(hostKey, workspaceId));
   const workspace = useWorkspace(hostKey, workspaceId);
@@ -238,21 +247,39 @@ export const TerminalDock = ({
   const dock = useRef<HTMLDivElement>(null);
   const cwd = workspace?.path ?? null;
   const shown = drawer.open && drawer.tabs.length > 0 && !(tuckable && drawer.tucked === true);
+  const title = workspace?.name ?? "Terminal";
 
   const toggle = () => {
-    if (cwd !== null) toggleTerminal(place, cwd, workspace?.name ?? "Terminal", shown);
+    if (cwd !== null) toggleTerminal(place, cwd, title, shown);
   };
 
   useToggleTarget(toggle);
   useReattach(hostKey);
 
-  const tab = activeTab(drawer);
-  const shownCwd = tab?.cwd ?? cwd ?? "";
+  const shownCwd = activeTab(drawer)?.cwd ?? cwd ?? "";
 
   const where =
     homeDir !== undefined && shownCwd.startsWith(homeDir)
       ? `~${shownCwd.slice(homeDir.length)}`
       : shownCwd;
+
+  const drawerProps =
+    cwd === null ? null : { place, drawer, home: { cwd, title }, where, onHide: toggle, dock };
+
+  return { dock, shown, toggle, count: drawer.tabs.length, drawerProps };
+};
+
+export const TerminalDock = ({
+  hostKey,
+  workspaceId,
+  children,
+  tuckable = false,
+}: TerminalDockProps) => {
+  const { dock, shown, toggle, count, drawerProps } = useTerminalDock(
+    hostKey,
+    workspaceId,
+    tuckable
+  );
 
   return (
     <div
@@ -263,17 +290,10 @@ export const TerminalDock = ({
       data-testid="terminal-dock"
     >
       <div className="flex min-h-0 flex-1 flex-col">{children}</div>
-      {cwd === null ? null : shown ? (
-        <OpenDrawer
-          place={place}
-          drawer={drawer}
-          home={{ cwd, title: workspace?.name ?? "Terminal" }}
-          where={where}
-          onHide={toggle}
-          dock={dock}
-        />
+      {drawerProps === null ? null : shown ? (
+        <OpenDrawer {...drawerProps} />
       ) : (
-        <Strip onToggle={toggle} count={drawer.tabs.length} />
+        <Strip onToggle={toggle} count={count} />
       )}
     </div>
   );

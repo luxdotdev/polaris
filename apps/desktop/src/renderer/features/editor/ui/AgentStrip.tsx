@@ -1,11 +1,28 @@
 /**
- * The Working strip across an editor an agent is changing (Paper E3, 3Z7-0):
- * the Harness's dither and "Claude Code is editing this file" in its hue,
- * "{session} · turn N · elapsed", Follow (on by default) and Open session ⌘O.
+ * The Working strip across an editor an agent is changing (DESIGN.md, Chrome redesign → Editor;
+ * Paper X-I): the live dither, "Claude Code is editing this file" in its hue, "{session} · turn N
+ * · elapsed", Follow (on by default) and Stop, with Open session ⌘O in its ⋯ menu.
  */
-import { Button, Dither, harnessHue, harnessTextVar, hueVar, Kbd } from "@polaris/ui";
+import {
+  Button,
+  Dither,
+  DotsIcon,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+  harnessHue,
+  harnessTextVar,
+  hueVar,
+  IconButton,
+  LiveDither,
+  StopIcon,
+} from "@polaris/ui";
 import { useEffect, useState } from "react";
+import { Commands } from "../../../commands.ts";
 import { useCommands, useShellActions } from "../../../shell/hooks.ts";
+import { send } from "../../session/dispatch.ts";
 import { type AgentEdit, stripCaption, stripTitle } from "../model/agent.ts";
 import { setFollow } from "../runtime/actions.ts";
 import { useEditor } from "../runtime/store.ts";
@@ -33,7 +50,7 @@ const FollowToggle = () => {
   const follow = useEditor((s) => s.follow);
 
   return (
-    <label className="text-label text-text-default hover:bg-fill-hover rounded-control flex h-7 cursor-default items-center gap-1.5 px-2.5">
+    <label className="text-label text-text-default hover:bg-fill-hover flex h-7 cursor-default items-center gap-1.5 rounded-full px-2.5">
       <input
         type="checkbox"
         checked={follow}
@@ -63,6 +80,24 @@ const FollowToggle = () => {
   );
 };
 
+/** Stop interrupts the Turn in flight, as Esc in its composer does. */
+const stop = (hostKey: string, edit: AgentEdit) =>
+  void send(hostKey, Commands.Interrupt({ sessionId: edit.sessionId }), "Couldn't stop");
+
+const More = ({ onOpen }: { readonly onOpen: () => void }) => (
+  <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <IconButton size="sm" label="More" icon={<DotsIcon size={14} />} data-testid="agent-more" />
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end">
+      <DropdownMenuItem onSelect={onOpen} data-testid="agent-open-session">
+        Open session
+        <DropdownMenuShortcut>{commandShortcut("workspace.add")}</DropdownMenuShortcut>
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
+);
+
 export const AgentStrip = ({ hostKey, edit }: AgentStripProps) => {
   const now = useNow();
   const { selectSession } = useShellActions();
@@ -84,10 +119,14 @@ export const AgentStrip = ({ hostKey, edit }: AgentStripProps) => {
     <div
       role="status"
       data-testid="agent-strip"
-      className="bg-surface-raised flex h-10 shrink-0 items-center gap-2.5 border-b pr-3 pl-5"
-      style={{ borderColor: `color-mix(in srgb, ${hueVar(edit.harness)} 20%, transparent)` }}
+      className="relative isolate flex h-[42px] shrink-0 items-center gap-2.5 overflow-clip border-y pr-2 pl-4"
+      style={{
+        borderTopColor: `color-mix(in srgb, ${hueVar(edit.harness)} 12%, transparent)`,
+        borderBottomColor: `color-mix(in srgb, ${hueVar(edit.harness)} 20%, transparent)`,
+      }}
     >
-      <Dither hue={edit.harness} size={16} moving />
+      <LiveDither harness={edit.harness} active className="-z-10" />
+      <Dither hue={edit.harness} size={12} moving />
       <span className="text-label shrink-0" style={{ color: harnessTextVar(edit.harness) }}>
         {stripTitle(name)}
       </span>
@@ -96,10 +135,17 @@ export const AgentStrip = ({ hostKey, edit }: AgentStripProps) => {
       </span>
       <span className="flex-1" />
       <FollowToggle />
-      <Button variant="secondary" onClick={open}>
-        Open session
-        <Kbd variant="plain">{commandShortcut("workspace.add")}</Kbd>
+      <Button
+        variant="secondary"
+        size="sm"
+        className="rounded-full"
+        onClick={() => stop(hostKey, edit)}
+        data-testid="agent-stop"
+      >
+        <StopIcon size={10} />
+        Stop
       </Button>
+      <More onOpen={open} />
     </div>
   );
 };

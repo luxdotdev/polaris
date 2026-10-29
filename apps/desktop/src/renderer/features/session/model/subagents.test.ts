@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { SessionId, Subagent, SubagentId, TurnId, TurnItem } from "@polaris/protocol";
 import type { SubagentView } from "../../../store/sessionModel.ts";
-import { resultText, subagentCard } from "./subagents.ts";
+import { resultText, subagentCard, subagentRoster } from "./subagents.ts";
 
 const I = TurnItem.cases;
 
@@ -124,5 +124,19 @@ describe("subagent cards", () => {
       })
     ).toBe("a\n\nb");
     expect(resultText({ status: "completed" })).toBeNull();
+  });
+});
+
+describe("the composer's Subagent roster", () => {
+  test("lists running Subagents first with what they do, finished ones with how long they took", () => {
+    const done = view("completed", [ls]);
+    const running = view("working", [ls]);
+    const roster = subagentRoster([done, running]);
+
+    expect(roster).toMatchObject({ running: 1, done: 1 });
+    expect(roster.rows.map((r) => [r.index, r.agent, r.task, r.status])).toEqual([
+      [1, "general-purpose", "List files and report back", "Running ls -la"],
+      [0, "general-purpose", "List files and report back", "done · 12s"],
+    ]);
   });
 });

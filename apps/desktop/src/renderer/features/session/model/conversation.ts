@@ -19,6 +19,7 @@ import type {
 import { Predicate } from "effect";
 import type { TurnView } from "../../../store/sessionModel.ts";
 import { triggerPhrase } from "./background.ts";
+import { formatElapsed, plural } from "./format.ts";
 import type { ShellView } from "./items.ts";
 import type { Outgoing } from "./outbox.ts";
 import type { Entry } from "./runs.ts";
@@ -64,8 +65,12 @@ export interface TurnSummary {
   /** The last assistant message's first line, else the prompt's. */
   readonly summary: string;
   readonly files: number;
+  /** Commands it ran (shell commands, not tool calls). */
+  readonly commands: number;
   /** When the Turn started (ISO). */
   readonly startedAt: string;
+  /** When its last Turn ended (ISO); null while it runs. */
+  readonly endedAt: string | null;
 }
 
 export type Row =
@@ -183,8 +188,26 @@ export const summarize = (group: TurnGroup): TurnSummary => {
     status: last.status,
     summary: firstLine(lastMessage === undefined ? turnOpening(opening) : lastMessage.text),
     files: touchedFiles(items),
+    commands: items.filter((item) => Predicate.isTagged(item, "CommandExecution")).length,
     startedAt: opening.startedAt,
+    endedAt: last.endedAt,
   };
+};
+
+/** A finished Turn's receipt: "4 files · 2 commands · 1m 41s", leaving out what it didn't do. */
+export const turnReceipt = (summary: TurnSummary): string => {
+  const took =
+    summary.endedAt === null
+      ? Number.NaN
+      : Date.parse(summary.endedAt) - Date.parse(summary.startedAt);
+
+  return [
+    summary.files === 0 ? null : plural(summary.files, "file"),
+    summary.commands === 0 ? null : plural(summary.commands, "command"),
+    Number.isNaN(took) ? null : formatElapsed(took),
+  ]
+    .filter((part) => part !== null)
+    .join(" · ");
 };
 
 interface Folded {

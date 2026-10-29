@@ -3,16 +3,24 @@
  * item (the first one carries the Harness avatar), an inline approval or
  * question, how an interrupted or failed Turn ended, and background waits.
  */
-import type { ApprovalDecision, ApprovalRequest, SessionId, SessionState } from "@polaris/protocol";
+import type {
+  ApprovalDecision,
+  ApprovalRequest,
+  CelestialBody,
+  SessionId,
+  SessionState,
+} from "@polaris/protocol";
 import {
   ApprovalCard,
+  BranchIcon,
   Button,
   ChevronDownIcon,
   ChevronRightIcon,
   cn,
+  CopyIcon,
   type Harness,
   harnessHue,
-  HarnessMark,
+  Celestial,
   PixelFailedIcon,
   PixelHandIcon,
   QuestionCard,
@@ -22,7 +30,7 @@ import { age } from "../../../shell/copy.ts";
 import { SentAttachments } from "../../attachments/index.ts";
 import { useNow } from "../../../shell/useNow.ts";
 import { Decisions } from "../../../commands.ts";
-import { type Row, turnTime } from "../model/conversation.ts";
+import { type Row, turnReceipt, turnTime } from "../model/conversation.ts";
 import { totals } from "../model/diff.ts";
 import { plural } from "../model/format.ts";
 import { useTurnDiff } from "../turnDiff.ts";
@@ -42,6 +50,8 @@ import type { SessionChrome } from "../chrome.ts";
 
 export interface RowContext {
   readonly harness: Harness | null;
+  /** The session's Celestial, on the agent's Turns. */
+  readonly celestial: CelestialBody;
   readonly state: SessionState;
   /** The Daemon's Turn in flight, whose avatar shimmers; null between Turns. */
   readonly liveTurnId: string | null;
@@ -65,6 +75,11 @@ export interface RowContext {
   readonly diff: { readonly hostKey: string; readonly cwd: string; readonly sessionId: SessionId };
   /** Polaris-authored Turns and the closing row, from the session's chrome (`chrome.ts`). */
   readonly chrome: SessionChrome;
+  /** The latest finished Turn: its folded row keeps its actions at rest. */
+  readonly latestDoneTurnId: string | null;
+  readonly onCopyTurn: (turnId: string) => void;
+  /** Forks from a Turn; null when the Host or Harness can't. */
+  readonly onForkTurn: ((turnId: string) => void) | null;
 }
 
 const AVATAR = "w-6 shrink-0";
@@ -102,25 +117,97 @@ const SummaryCounts = ({
   );
 };
 
-const Summary = ({ row, ctx }: { row: Extract<Row, { kind: "summary" }>; ctx: RowContext }) => (
-  <button
-    type="button"
-    onClick={() => ctx.onSetTurnOpen(row.turnId, true)}
-    aria-label={`Turn ${row.number}: ${row.summary}`}
-    className="rounded-row border-hairline bg-surface-raised/50 hover:bg-fill-hover gap-row-x flex h-10 w-full cursor-default items-center border px-3 text-left"
-    data-testid="turn-summary"
-  >
-    <span className="text-caption text-text-subtle tabular shrink-0 font-medium">
-      Turn {row.number}
-    </span>
-    <span className="text-body text-text-subtle flex-1 truncate">{row.summary}</span>
-    {row.status === "completed" ? null : (
-      <span className="text-caption text-text-subtle">{row.status}</span>
+const ACTION =
+  "text-text-subtle hover:text-text-default hover:bg-fill-hover grid size-[26px] shrink-0 cursor-default place-items-center rounded-full";
+
+/** Shown on hover or keyboard focus within the row, and always for the latest finished Turn. */
+const RECEIPT_SHOWN =
+  "hidden group-hover/summary:flex group-focus-within/summary:flex group-data-[rest=true]/summary:flex";
+
+/** Copy and fork, quiet until the row is hovered or focused; the latest finished Turn keeps them. */
+const SummaryActions = ({
+  row,
+  ctx,
+  rest,
+}: {
+  row: Extract<Row, { kind: "summary" }>;
+  ctx: RowContext;
+  rest: boolean;
+}) => (
+  <span className={cn("flex shrink-0 items-center gap-0.5", !rest && RECEIPT_SHOWN)}>
+    <TurnTime iso={row.startedAt} />
+    <button
+      type="button"
+      aria-label={`Copy turn ${row.number} output`}
+      title="Copy turn output"
+      className={cn(ACTION, "ml-2")}
+      onClick={() => ctx.onCopyTurn(row.turnId)}
+    >
+      <CopyIcon size={13} />
+    </button>
+    {ctx.onForkTurn === null ? null : (
+      <button
+        type="button"
+        aria-label={`Fork from turn ${row.number}`}
+        title="Fork from this turn"
+        className={ACTION}
+        onClick={() => ctx.onForkTurn?.(row.lastTurnId)}
+      >
+        <BranchIcon size={13} />
+      </button>
     )}
-    <SummaryCounts row={row} ctx={ctx} />
-    <ChevronRightIcon size={10} className="text-text-faint shrink-0" />
-  </button>
+  </span>
 );
+
+/** A folded Turn: its summary line at rest; hovered, its receipt, time and actions (Paper X-D). */
+const Summary = ({ row, ctx }: { row: Extract<Row, { kind: "summary" }>; ctx: RowContext }) => {
+  const receipt = row.status === "working" ? "" : turnReceipt(row);
+  const rest = row.lastTurnId === ctx.latestDoneTurnId;
+
+  return (
+    <div
+      className="group/summary rounded-card text-caption text-text-subtle hover:bg-fill-hover flex h-10 w-full items-center gap-3 bg-[light-dark(#00000008,#ffffff0e)] pr-4 pl-3.5"
+      data-rest={rest}
+      data-testid="turn-summary"
+    >
+      <button
+        type="button"
+        onClick={() => ctx.onSetTurnOpen(row.turnId, true)}
+        aria-label={`Turn ${row.number}: ${row.summary}`}
+        className="flex h-full min-w-0 flex-1 cursor-default items-center gap-3 text-left"
+      >
+        {ctx.harness === null ? null : (
+          <Celestial body={ctx.celestial} harness={ctx.harness} size={16} dormant />
+        )}
+        <span className="text-body text-text-subtle tabular shrink-0 font-medium">
+          Turn {row.number}
+        </span>
+        <span
+          className={cn(
+            "text-body text-text-subtle min-w-0 flex-1 truncate",
+            receipt !== "" && "group-hover/summary:hidden group-focus-within/summary:hidden"
+          )}
+        >
+          {row.summary}
+        </span>
+        {receipt === "" ? null : (
+          <span
+            className="text-caption text-text-subtle tabular hidden min-w-0 flex-1 truncate font-mono group-focus-within/summary:block group-hover/summary:block"
+            data-testid="turn-receipt"
+          >
+            {receipt}
+          </span>
+        )}
+        {row.status === "completed" ? null : <span className="shrink-0">{row.status}</span>}
+        <span className="group-focus-within/summary:hidden group-hover/summary:hidden">
+          <SummaryCounts row={row} ctx={ctx} />
+        </span>
+      </button>
+      <SummaryActions row={row} ctx={ctx} rest={rest} />
+      <ChevronRightIcon size={10} className="text-text-faint shrink-0" />
+    </div>
+  );
+};
 
 /** When the Turn started; the full date and time on hover. */
 const TurnTime = ({ iso }: { iso: string }) => {
@@ -235,10 +322,11 @@ const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowCont
       <ReplyTime row={row} />
       <div className={AVATAR}>
         {row.lead && ctx.harness !== null ? (
-          <HarnessMark
+          <Celestial
+            body={ctx.celestial}
             harness={ctx.harness}
             size={24}
-            {...(row.partId === ctx.liveTurnId ? { state: "working" as const } : {})}
+            working={row.partId === ctx.liveTurnId}
           />
         ) : null}
       </div>

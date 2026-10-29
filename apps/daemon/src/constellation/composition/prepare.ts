@@ -11,6 +11,7 @@ import {
   type HostId,
   type PermissionMode,
 } from "@polaris/protocol";
+import { pickCelestial } from "../../store/celestial.ts";
 import type { ReadModel } from "../../store/model.ts";
 import { Effect, Predicate } from "effect";
 import { decideSession } from "../../engine/session.ts";
@@ -102,6 +103,10 @@ export const prepareSession = Effect.fn("Constellation.prepareSession")(function
       title: `${input.task.id} · ${input.task.title}`,
       state: "dormant",
       permissionMode: workerMode(ceiling),
+      celestial: pickCelestial(model.sessions.values(), {
+        id: sessionId,
+        workspaceId: input.graph.workspaceId,
+      }),
       parentSessionId: null,
       forkedFromTurnId: null,
       harnessCursor: null,

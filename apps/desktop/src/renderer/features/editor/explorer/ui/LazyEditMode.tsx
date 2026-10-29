@@ -7,7 +7,7 @@ import { lazy, Suspense } from "react";
 const View = lazy(() => import("./EditMode.tsx").then((m) => ({ default: m.EditMode })));
 
 export const EditMode = () => (
-  <Suspense fallback={<div className="bg-bg flex-1" />}>
+  <Suspense fallback={<div className="bg-ground flex-1" />}>
     <View />
   </Suspense>
 );

@@ -5,6 +5,7 @@ import {
   captionOf,
   costLine,
   type Finding,
+  footerStatus,
   groupFindings,
   notesOf,
   placeOf,
@@ -16,6 +17,7 @@ import {
   reviewerLine,
   reviewerState,
   type Summary,
+  walkthroughLine,
 } from "./summary.ts";
 
 const finding = (id: string, patch: Partial<Finding> = {}): Finding =>
@@ -258,5 +260,36 @@ describe("the Reviewer's state, said the same way everywhere", () => {
       "Reviewed by Codex · GPT-6.1-Sol · high · 182k tokens · ~$0.40"
     );
     expect(canAskReviewer(ran)).toBe(true);
+    expect(askPlaceholder(ran, false, "Claude Code")).toBe("Ask Claude Code about this review…");
+    expect(askPlaceholder(ran, true, "Claude Code")).toBe("Ask about this finding");
+  });
+});
+
+describe("the card's footer and walkthrough entry", () => {
+  test("the status line counts files and listed findings, and only the folds that hold some", () => {
+    const groups = groupFindings([
+      finding("a"),
+      finding("b", { status: "dismissed" }),
+      finding("c", { severity: "critical", status: "dismissed" }),
+    ]);
+
+    // A dismissed critical stays listed: nothing hides it.
+    expect(footerStatus(12, groups)).toBe("12 files · 2 findings · 1 dismissed");
+    expect(footerStatus(1, groupFindings([]))).toBe("1 file · 0 findings");
+  });
+
+  test("the walkthrough entry reads its first line of prose, or where it is", () => {
+    const walkthrough = (state: "off" | "writing" | "ready", markdown = "") =>
+      // SAFETY: test fixture; only state and markdown are read.
+      ({ state, markdown }) as NonNullable<Summary["walkthrough"]>;
+
+    expect(walkthroughLine(undefined)).toBeNull();
+    expect(walkthroughLine(walkthrough("off"))).toBeNull();
+    expect(walkthroughLine(walkthrough("writing"))).toBe("Writing…");
+    expect(
+      walkthroughLine(
+        walkthrough("ready", "## Why the change\n\nAnnual income replaces **monthly** income.\n")
+      )
+    ).toBe("Annual income replaces monthly income.");
   });
 });

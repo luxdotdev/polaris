@@ -110,8 +110,11 @@ describe("the choice of dark", () => {
   const moonlit = flavour(String.raw`\[data-theme-dark="moonlit"\]`);
   const midnight = flavour(String.raw`\[data-theme="midnight"\],\s*\[data-theme-dark="midnight"\]`);
 
-  test("both flavours set the chrome's surfaces and the hairline", () => {
-    for (const block of [moonlit, midnight]) {
+  test("both flavours set the chrome's surfaces and the hairline; Midnight also its diff fills", () => {
+    for (const [block, extra] of [
+      [moonlit, []],
+      [midnight, ["diff-added-bg", "diff-removed-bg"]],
+    ] as const) {
       expect([...block.keys()].sort()).toEqual(
         [
           "bg",
@@ -123,6 +126,7 @@ describe("the choice of dark", () => {
           "surface-sunken",
           "well",
           "well-raised",
+          ...extra,
         ].sort()
       );
     }

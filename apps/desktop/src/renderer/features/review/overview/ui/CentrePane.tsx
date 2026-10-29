@@ -308,7 +308,11 @@ export const CentrePane = (props: CentrePaneProps) => {
   const panels = { tab, subjectKey, subject, detail, overview, paths, now, mergeBase, pick };
 
   return (
-    <div className="bg-bg flex min-w-0 flex-1 flex-col" data-testid="review-centre" data-tab={tab}>
+    <div
+      className="flex min-h-0 min-w-0 flex-1 flex-col"
+      data-testid="review-centre"
+      data-tab={tab}
+    >
       <TabBar
         tabs={tabs}
         current={tab}

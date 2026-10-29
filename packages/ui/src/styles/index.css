@@ -4,6 +4,7 @@
 @import "./tokens.css";
 @import "./theme.css";
 @import "./dither.css";
+@import "./celestial.css";
 @import "./assets.css";
 
 /* Scan this package's components; the consuming app adds its own @source. */

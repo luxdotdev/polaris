@@ -9,11 +9,12 @@ import {
   isKnownHarness,
   type SessionId,
 } from "@polaris/protocol";
-import type { Harness } from "@polaris/ui";
+import { type Harness, sessionCelestial } from "@polaris/ui";
 import { useEffect, useState } from "react";
 import { Commands } from "../../../commands.ts";
 import { emptyHostModel } from "../../../store/hostModel.ts";
 import type { SessionData } from "../../../store/plain.ts";
+import type { SessionModel } from "../../../store/sessionModel.ts";
 import { useApp, useShellActions } from "../../../shell/hooks.ts";
 import { modelLabel, useHarnessModels } from "../../harness/index.ts";
 import { InTerminalBar } from "../../terminal/index.ts";
@@ -21,7 +22,8 @@ import { send } from "../dispatch.ts";
 import { useHost, useSession, hasCapability } from "../hooks.ts";
 import { waitingOn } from "../model/background.ts";
 import { conversationRows } from "../model/conversation.ts";
-import { turnNumber } from "../model/turnGroups.ts";
+import { copyableOutput, groupOf, groupTurns, turnNumber } from "../model/turnGroups.ts";
+import { copyWithToast } from "../../../shell/menu/index.ts";
 import { tildePath } from "../model/format.ts";
 import {
   composerMode,
@@ -30,6 +32,7 @@ import {
   resumeAtResetCommand,
   retryCommand,
 } from "../model/intent.ts";
+import { useLeadConstellation } from "../../constellation/hooks.ts";
 import { useOutbox } from "../outbox.ts";
 import { useSessionContinuity } from "../continuity.ts";
 import { useForkRequest } from "../forkRequest.ts";
@@ -60,6 +63,23 @@ const useWhere = (hostKey: string, session: SessionData | null) => {
 
   return { where: parts.join(" · "), branch: worktree?.branch ?? undefined };
 };
+
+/** A folded Turn's Copy: every reply across it, as Copy turn output does. */
+const copyTurnOutput = (turns: SessionModel["turns"], turnId: string) => {
+  const group = groupOf(groupTurns(turns), turnId);
+  const output = group === undefined ? null : copyableOutput(group, null, false);
+
+  if (output !== null) copyWithToast(output, "turn output");
+};
+
+/** The Turn a fork starts from: the one asked for, else the latest finished. */
+const forkFrom = (
+  turns: SessionModel["turns"],
+  turnId: string | undefined,
+  lastDone: SessionModel["turns"][number]["turn"] | undefined
+) => (turnId === undefined ? lastDone : turns.find((t) => t.turn.id === turnId)?.turn);
+
+const forkAction = (canFork: boolean, start: (turnId: string) => void) => (canFork ? start : null);
 
 const Placeholder = ({ children }: { readonly children: string }) => (
   <section className="text-body text-text-subtle grid flex-1 place-items-center">
@@ -120,12 +140,14 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
   const canFork =
     forkHarness !== null && lastDone !== undefined && hasCapability(host, "session.fork");
 
-  const startFork = (): boolean => {
-    if (session === null || forkHarness === null || lastDone === undefined) return false;
+  const startFork = (turnId?: string): boolean => {
+    const from = forkFrom(model.turns, turnId, lastDone);
+
+    if (session === null || forkHarness === null || from === undefined) return false;
     setForking({
       sessionId,
-      turnId: lastDone.id,
-      turnNumber: turnNumber(model.turns, lastDone.id) ?? lastDone.index + 1,
+      turnId: from.id,
+      turnNumber: turnNumber(model.turns, from.id) ?? from.index + 1,
       harness: forkHarness,
       model: session.model,
       effort: session.effort,
@@ -135,6 +157,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
   };
 
   useForkRequest(key, () => canFork && startFork());
+  const lead = useLeadConstellation(hostKey, sessionId) !== null;
 
   if (session === null) return <Placeholder>Loading the session…</Placeholder>;
   const harness: Harness | null = forkHarness;
@@ -156,6 +179,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
 
   const ctx: Omit<RowContext, "onLoadOlder"> = {
     harness,
+    celestial: sessionCelestial(session.celestial, lead),
     state: session.state,
     liveTurnId: lastTurn?.status === "working" && session.state === "working" ? lastTurn.id : null,
     where,
@@ -187,6 +211,9 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
     canSteer: mode?.kind === "steer",
     outbox,
     chrome,
+    latestDoneTurnId: lastDone?.id ?? null,
+    onCopyTurn: (turnId) => copyTurnOutput(model.turns, turnId),
+    onForkTurn: forkAction(canFork, (turnId) => void startFork(turnId)),
   };
 
   const place = { hostKey, root: session.cwd, workspaceId: session.workspaceId };
@@ -206,6 +233,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
             turnNumber={lastTurn === null ? null : turnNumber(model.turns, lastTurn.id)}
             canFork={canFork}
             onFork={() => void startFork()}
+            branch={branch}
           />
         )}
         {chrome.body ?? (

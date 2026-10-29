@@ -1,15 +1,15 @@
 /**
  * The pull request's status pill, its branch chips and its stack chip with the stack's
- * popover (DESIGN.md, Review → Stacks). Neutral: a pull request's status isn't a signal
- * colour; only failing checks use the Failed text colour.
+ * popover (DESIGN.md, Review → Stacks; Chrome redesign → Review). A state takes its hue
+ * lightly (12% fill, 30% hairline, hued glyph and text), never solid; draft stays neutral.
  */
 import {
   cn,
   COPIED,
   COPY_FAILED,
+  InstrumentPopoverContent,
   Popover,
   PopoverAnchor,
-  PopoverContent,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -29,10 +29,13 @@ import {
   checksText,
   layerText,
   shortBranch,
+  STATUS_HUES,
   STATUS_LABELS,
+  stackStatus,
   stackTitle,
   topDown,
 } from "../model/stack.ts";
+import { StackHero } from "./StackHero.tsx";
 import { ClosedGlyph, DraftGlyph, MergedGlyph, PullGlyph, StackGlyph } from "./glyphs.tsx";
 
 const STATUS_GLYPHS: Readonly<Record<PullStatus, (props: { size?: number }) => ReactNode>> = {
@@ -51,25 +54,42 @@ export const StatusGlyph = ({
 }) => {
   const Glyph = STATUS_GLYPHS[status];
 
-  return <Glyph size={size} />;
+  return (
+    <span
+      className="inline-flex shrink-0"
+      style={{ color: STATUS_HUES[status] ?? "var(--color-text-subtle)" }}
+    >
+      <Glyph size={size} />
+    </span>
+  );
 };
 
-/** Open, Draft, Merged or Closed: a neutral pill with the status glyph. */
-export const StatusPill = ({ status }: { readonly status: PullStatus }) => (
-  <span
-    data-testid="pull-status"
-    data-status={status}
-    className={cn(
-      "rounded-control text-caption inline-flex h-[22px] shrink-0 items-center gap-1.5 px-2 font-medium",
-      status === "open" || status === "draft"
-        ? "bg-fill-selected text-text-default"
-        : "border-hairline text-text-subtle border"
-    )}
-  >
-    <StatusGlyph status={status} size={13} />
-    {STATUS_LABELS[status]}
-  </span>
-);
+/** The pill's light tint of a state's hue. */
+const pillStyle = (hue: string) => ({
+  color: hue,
+  backgroundColor: `color-mix(in oklab, ${hue} 12%, transparent)`,
+  boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${hue} 30%, transparent)`,
+});
+
+/** Open, Merged or Closed in their hue's light tint; Draft a neutral dashed pill. */
+export const StatusPill = ({ status }: { readonly status: PullStatus }) => {
+  const hue = STATUS_HUES[status];
+
+  return (
+    <span
+      data-testid="pull-status"
+      data-status={status}
+      className={cn(
+        "rounded-control text-caption inline-flex h-[22px] shrink-0 items-center gap-1.5 px-2 font-medium",
+        hue === null && "border-hairline text-text-subtle border border-dashed"
+      )}
+      style={hue === null ? undefined : pillStyle(hue)}
+    >
+      <StatusGlyph status={status} size={13} />
+      {STATUS_LABELS[status]}
+    </span>
+  );
+};
 
 /** A branch name cut after 20 characters; hover shows it whole, a click copies it. */
 export const BranchChip = ({ name }: { readonly name: string }) => {
@@ -134,19 +154,15 @@ const Member = ({
       current ? "bg-fill-selected" : "hover:bg-fill-hover"
     )}
   >
-    <span
-      className={cn(
-        "mt-0.5",
-        member.status === "merged" ? "text-text-subtle" : "text-text-default"
-      )}
-    >
+    <span className="mt-0.5">
       <StatusGlyph status={member.status} />
     </span>
     <span className="flex min-w-0 flex-1 flex-col gap-px">
       <span
         className={cn(
           "text-label truncate font-medium",
-          current ? "text-text-strong" : "text-text-default"
+          current && "text-text-strong",
+          !current && (member.status === "merged" ? "text-text-subtle" : "text-text-default")
         )}
       >
         {member.title}
@@ -237,37 +253,44 @@ export const StackChip = ({ stack, repo, compact = false }: StackChipProps) => {
           {layerText(stack)}
         </button>
       </PopoverAnchor>
-      <PopoverContent
+      <InstrumentPopoverContent
         align="start"
         data-testid="stack-popover"
-        className="flex w-[440px] flex-col gap-1 p-2"
+        className="w-[440px]"
         onClick={(event) => event.stopPropagation()}
         onOpenAutoFocus={(event) => {
           if (byHover.current) event.preventDefault();
         }}
         {...hover}
-      >
-        <div className="px-row-x flex items-baseline gap-2 pt-1 pb-1.5">
-          <span className="text-label text-text-strong font-medium">{stackTitle(stack)}</span>
-          <span className="text-caption text-text-subtle">
-            {stack.size} pull requests · layer {stack.position}
-          </span>
-        </div>
-        {topDown(stack).map((member) => (
-          <Member
-            key={member.number}
-            member={member}
-            current={member.number === current?.number}
-            onOpen={choose}
-          />
-        ))}
-        <div className="px-row-x flex items-center gap-2.5 py-1.5" data-testid="stack-trunk">
-          <span aria-hidden className="border-text-subtle mx-[3px] size-2 rounded-full border" />
-          <span className="bg-row-selected text-text-default text-micro rounded-[4px] px-1.5 py-px font-mono">
-            {stack.trunk}
-          </span>
-        </div>
-      </PopoverContent>
+        header={{
+          title: stackTitle(stack),
+          state: `${stack.size} pull requests · layer ${stack.position}`,
+        }}
+        hero={<StackHero stack={stack} />}
+        heroMaxHeight={200}
+        wells={[
+          <div key="layers" className="flex flex-col gap-0.5 p-1">
+            {topDown(stack).map((member) => (
+              <Member
+                key={member.number}
+                member={member}
+                current={member.number === current?.number}
+                onOpen={choose}
+              />
+            ))}
+            <div className="px-row-x flex items-center gap-2.5 py-1.5" data-testid="stack-trunk">
+              <span
+                aria-hidden
+                className="border-text-subtle mx-[3px] size-2 rounded-full border"
+              />
+              <span className="bg-row-selected text-text-default text-micro rounded-[4px] px-1.5 py-px font-mono">
+                {stack.trunk}
+              </span>
+            </div>
+          </div>,
+        ]}
+        footer={{ status: stackStatus(stack) }}
+      />
     </Popover>
   );
 };

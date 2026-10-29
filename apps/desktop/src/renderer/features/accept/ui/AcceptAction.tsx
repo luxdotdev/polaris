@@ -6,6 +6,7 @@
  */
 import type { TurnId } from "@polaris/protocol";
 import {
+  Celestial,
   cn,
   DropdownMenu,
   DropdownMenuContent,
@@ -15,8 +16,8 @@ import {
   harnessHue,
   Popover,
   PopoverAnchor,
-  PixelCheckIcon,
   PopoverContent,
+  sessionCelestial,
   showToast,
 } from "@polaris/ui";
 import { useState } from "react";
@@ -147,7 +148,9 @@ const SessionAccept = ({ subject }: { readonly subject: SessionSubject }) => {
 
     showToast({
       source: session.harness,
-      icon: <PixelCheckIcon size={16} />,
+      icon: (
+        <Celestial body={sessionCelestial(session.celestial)} harness={session.harness} size={32} />
+      ),
       title:
         sent === 0
           ? "No new review comments"

@@ -100,8 +100,16 @@ const Header = ({ title, caption, canStart, host, workspace }: HeaderProps) => {
 
   const heading = (
     <div className="flex min-w-0 flex-1 flex-col gap-0.5" data-testid="sidebar-heading">
-      <h1 className="text-heading text-text-strong truncate">{inbox === null ? title : "Inbox"}</h1>
-      <p className="text-caption text-text-subtle tabular truncate">
+      <h1
+        className="text-heading text-text-strong truncate"
+        title={inbox === null ? title : undefined}
+      >
+        {inbox === null ? title : "Inbox"}
+      </h1>
+      <p
+        className="text-caption text-text-subtle tabular truncate"
+        title={inbox === null ? caption : undefined}
+      >
         {inbox === null ? caption : inbox.caption}
       </p>
     </div>
