@@ -39,7 +39,7 @@ const CheckLine = ({ check }: { readonly check: Check }) => {
   return (
     <View style={styles.check}>
       <Text style={[styles.mark, { color: colour }]}>{MARK[check.result]}</Text>
-      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.checkLabel} numberOfLines={1}>
+      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.checkLabel} numberOfLines={2}>
         {check.label}
       </Text>
     </View>
@@ -106,6 +106,7 @@ const Actions = ({ row, verdicts }: { readonly row: TaskRow; readonly verdicts: 
           maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
           numberOfLines={1}
           adjustsFontSizeToFit
+          minimumFontScale={0.8}
           style={styles.sendBackLabel}
         >
           Send back…
@@ -120,6 +121,7 @@ const Actions = ({ row, verdicts }: { readonly row: TaskRow; readonly verdicts: 
           maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
           numberOfLines={1}
           adjustsFontSizeToFit
+          minimumFontScale={0.8}
           style={styles.acceptLabel}
         >
           Accept
@@ -134,11 +136,45 @@ export interface ClaimPaneProps {
   readonly row: TaskRow | null;
   readonly verdicts: PaneVerdicts | null;
   readonly onChoose: (taskId: string) => void;
+  /** The pane's width once clear of the window's insets; a narrow pane lays out tighter. */
+  readonly width: number;
 }
 
-export const ClaimPane = ({ pane, row, verdicts, onChoose }: ClaimPaneProps) => {
+const ClaimBody = ({ claim }: { readonly claim: NonNullable<Pane["claim"]> }) => {
+  const styles = useStyles();
+
+  return (
+    <>
+      <View style={styles.claim}>
+        {claim.summary === "" ? null : (
+          <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.summary} numberOfLines={8}>
+            {claim.summary}
+          </Text>
+        )}
+        {claim.checks.length === 0 ? null : (
+          <View style={[styles.checks, claim.summary === "" ? null : styles.divided]}>
+            {claim.checks.map((check) => (
+              <CheckLine key={check.label} check={check} />
+            ))}
+          </View>
+        )}
+      </View>
+      <View style={styles.headWell}>
+        <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.headText}>
+          {claim.head}
+        </Text>
+      </View>
+    </>
+  );
+};
+
+/** Below this the pane takes the narrow layout: tighter margins and a smaller title. */
+const NARROW = 300;
+
+export const ClaimPane = ({ pane, row, verdicts, onChoose, width }: ClaimPaneProps) => {
   const styles = useStyles();
   const { colours } = useTheme();
+  const narrow = width < NARROW;
 
   if (pane === null || row === null)
     return (
@@ -151,46 +187,26 @@ export const ClaimPane = ({ pane, row, verdicts, onChoose }: ClaimPaneProps) => 
 
   return (
     <View style={styles.pane}>
-      <ScrollView style={styles.fill} contentContainerStyle={styles.content}>
-        <View style={styles.head}>
+      <ScrollView
+        style={styles.fill}
+        contentContainerStyle={[styles.content, narrow ? styles.narrowSides : null]}
+      >
+        <View style={[styles.head, narrow ? styles.narrowHead : null]}>
           <Text maxFontSizeMultiplier={CONTROL_TEXT_SCALE} style={styles.kicker} numberOfLines={1}>
             {pane.kicker}
           </Text>
           <Pill pill={pane.pill} />
         </View>
-        <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.title}>
+        <Text
+          maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+          style={[styles.title, narrow ? styles.narrowTitle : null]}
+        >
           {pane.title}
         </Text>
         <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.meta}>
           {pane.meta}
         </Text>
-        {pane.claim === null ? null : (
-          <>
-            <View style={styles.claim}>
-              {pane.claim.summary === "" ? null : (
-                <Text
-                  maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
-                  style={styles.summary}
-                  numberOfLines={8}
-                >
-                  {pane.claim.summary}
-                </Text>
-              )}
-              {pane.claim.checks.length === 0 ? null : (
-                <View style={[styles.checks, pane.claim.summary === "" ? null : styles.divided]}>
-                  {pane.claim.checks.map((check) => (
-                    <CheckLine key={check.label} check={check} />
-                  ))}
-                </View>
-              )}
-            </View>
-            <View style={styles.headWell}>
-              <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.headText}>
-                {pane.claim.head}
-              </Text>
-            </View>
-          </>
-        )}
+        {pane.claim === null ? null : <ClaimBody claim={pane.claim} />}
         {row.handed?.question == null ? null : (
           <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.question}>
             <Text style={{ color: colours.needsYouText }}>Asks · </Text>
@@ -198,7 +214,7 @@ export const ClaimPane = ({ pane, row, verdicts, onChoose }: ClaimPaneProps) => 
           </Text>
         )}
       </ScrollView>
-      <View style={styles.foot}>
+      <View style={[styles.foot, narrow ? styles.narrowSides : null]}>
         {next === undefined ? null : (
           <Pressable accessibilityRole="button" onPress={() => onChoose(next.id)} hitSlop={8}>
             <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.next}>
@@ -234,7 +250,8 @@ const useStyles = themedStyles((c) => ({
   head: { flexDirection: "row", alignItems: "center", gap: 8 },
   kicker: {
     ...mono(11, 14),
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
     fontWeight: mobileWeight.medium,
     letterSpacing: 0.88,
     textTransform: "uppercase",
@@ -252,6 +269,9 @@ const useStyles = themedStyles((c) => ({
   pillDot: { width: 6, height: 6, borderRadius: 3 },
   pillText: sans(12, 16, true),
   title: { ...sans(20, 26, true), color: c.textStrong },
+  narrowTitle: sans(17, 22, true),
+  narrowSides: { paddingHorizontal: 14 },
+  narrowHead: { flexDirection: "column", alignItems: "flex-start", gap: 8 },
   meta: { ...sans(13, 18), marginTop: -6, color: c.textSubtle },
   claim: {
     gap: 8,
@@ -279,10 +299,12 @@ const useStyles = themedStyles((c) => ({
   question: { ...sans(14, 20), color: c.textDefault },
   foot: { gap: 14, paddingHorizontal: 20, paddingBottom: 24 },
   next: { ...sans(12, 16), color: c.textFaint },
-  buttons: { flexDirection: "row", gap: 10 },
+  /** Side by side when both fit at their label size; stacked full width when not. */
+  buttons: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   button: {
-    flex: 1,
-    height: 48,
+    flexGrow: 1,
+    flexBasis: 128,
+    minHeight: 48,
     borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
@@ -291,6 +313,6 @@ const useStyles = themedStyles((c) => ({
   sendBack: { borderWidth: 1, borderColor: EDGE, backgroundColor: c.raised },
   accept: { backgroundColor: c.textStrong },
   pressed: { opacity: 0.8, transform: [{ scale: 0.97 }] },
-  sendBackLabel: { ...sans(16, 20, true), color: c.textDefault },
-  acceptLabel: { ...sans(16, 20, true), color: c.panel },
+  sendBackLabel: { ...mobileType.label, color: c.textDefault },
+  acceptLabel: { ...mobileType.label, color: c.panel },
 }));

@@ -169,6 +169,7 @@ const SpanView = ({ source, leadHarness, first, second, onBack, verdictsFor }: S
           row={row}
           verdicts={chosen === null ? null : verdictsFor(chosen)}
           onChoose={setPicked}
+          width={second.width - secondEdges.left - secondEdges.right}
         />
       </View>
     </View>
