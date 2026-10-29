@@ -56,12 +56,16 @@ const Row = ({ copy, children, hint }: RowProps) => (
     <Celestial body={copy.body} harness={copy.harness} size={24} className="shrink-0" />
     <div className="flex min-w-0 flex-1 flex-col gap-1">
       <Kicker parts={copy.kicker} className="truncate" />
-      <p className="text-body text-text-default line-clamp-4 wrap-anywhere">
-        {copy.text}
-        {copy.code === null ? null : (
-          <span className="text-caption text-text-strong font-mono"> {copy.code}</span>
-        )}
-      </p>
+      <p className="text-body text-text-default line-clamp-4 wrap-anywhere">{copy.text}</p>
+      {copy.code === null ? null : (
+        // Never clamped: what Approve answers is always there in full, scrolling if long.
+        <pre
+          className="text-caption text-text-strong max-h-32 overflow-y-auto font-mono wrap-anywhere whitespace-pre-wrap"
+          data-testid="needs-you-request"
+        >
+          {copy.code}
+        </pre>
+      )}
       <div className="flex items-center gap-1.5 pt-1">
         {children}
         {hint === undefined ? null : (
