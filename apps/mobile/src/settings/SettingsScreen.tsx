@@ -18,6 +18,7 @@ import { useMotionPreference, useTheme } from "../theme";
 import { Chevron, HostsGlyph, MotionGlyph, NotificationsGlyph } from "./icons.tsx";
 import { hostsLine, MOTION_CHOICES, motionLine, THEME_CARDS } from "./model.ts";
 import { ThemeCard } from "./ThemeCard.tsx";
+import { InboxBadge } from "../inbox/index.ts";
 
 const Row = ({
   Glyph,
@@ -100,9 +101,12 @@ export const SettingsScreen = ({
       style={styles.fill}
       contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: tabBarHeight + 24 }}
     >
-      <Text style={[styles.large, { color: colours.textStrong }]} accessibilityRole="header">
-        Settings
-      </Text>
+      <View style={styles.titleRow}>
+        <Text style={[styles.large, { color: colours.textStrong }]} accessibilityRole="header">
+          Settings
+        </Text>
+        <InboxBadge />
+      </View>
       <View style={styles.panels}>
         <View style={[styles.panel, styles.appearance, panel]}>
           <Text style={[styles.kicker, { color: colours.textSubtle }]} accessibilityRole="header">
@@ -143,6 +147,12 @@ export const SettingsScreen = ({
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    paddingRight: 16,
+  },
   large: { ...mobileType.largeTitle, paddingHorizontal: 16, paddingBottom: 14 },
   panels: { paddingHorizontal: 10, gap: 10 },
   panel: { borderRadius: 22, borderWidth: 1 },

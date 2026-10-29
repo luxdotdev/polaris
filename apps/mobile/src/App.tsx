@@ -21,8 +21,10 @@ import { TabBar } from "./app/TabBar.tsx";
 import { DuoShell } from "./duo/DuoShell.tsx";
 import { FollowedHostsProvider } from "./home/feed/useFollowedHosts.ts";
 import { HomeScreen } from "./home/HomeScreen.tsx";
+import { ComposerGallery, composerGalleryOn } from "./composer/Gallery.tsx";
 import { galleryOn, RowGallery } from "./home/ui/Gallery.tsx";
 import { HorizonScreen } from "./horizon";
+import { InboxProvider } from "./inbox/index.ts";
 import { HostsScreen } from "./hosts/HostsScreen.tsx";
 import { LinkScreen } from "./link/LinkScreen.tsx";
 import { usePush, usePushLinks } from "./push/usePush.ts";
@@ -172,17 +174,26 @@ const Shell = () => {
 
   if (threadGalleryOn()) return <ThreadGallery />;
 
+  if (composerGalleryOn())
+    return (
+      <SheetHost>
+        <ComposerGallery />
+      </SheetHost>
+    );
+
   return (
     <SheetHost>
-      <View style={styles.fill}>
-        <DuoShell>
-          <Screen />
-        </DuoShell>
-        {navigation.newSession.open ? (
-          <NewSessionSheet onClose={navigation.closeNewSession} />
-        ) : null}
-        {__DEV__ ? <SheetDemo /> : null}
-      </View>
+      <InboxProvider>
+        <View style={styles.fill}>
+          <DuoShell>
+            <Screen />
+          </DuoShell>
+          {navigation.newSession.open ? (
+            <NewSessionSheet onClose={navigation.closeNewSession} />
+          ) : null}
+          {__DEV__ ? <SheetDemo /> : null}
+        </View>
+      </InboxProvider>
     </SheetHost>
   );
 };

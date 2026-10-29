@@ -27,6 +27,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "../app/navigation.tsx";
 import { Celestial, sessionCelestial } from "../celestial";
 import { useAttachments } from "../composer/useAttachments.ts";
+import { sheetContextOf } from "../composer/useModelSheet.ts";
 import { useVoiceInput } from "../composer/useVoiceInput.ts";
 import type { HostConnection } from "../runtime/hostConnection.ts";
 import { useHost, useLiveHost } from "../runtime/hosts.tsx";
@@ -36,12 +37,12 @@ import { openThread, type ThreadController } from "./controller.ts";
 import { hostThreadSource } from "./hostSource.ts";
 import { useMenuActions } from "../menus/index.ts";
 import { type MobileColours, themedStyles } from "../theme/index.ts";
-import { PendingRequests } from "./PendingRequests.tsx";
 import { CHROME_SCALE, Diamond, Row, type RowSession, type ThreadFocus } from "./Row.tsx";
 import { type HeaderLine, headerLine, outgoingRows, threadRows, type ThreadRow } from "./rows.ts";
 import { chipAction, openCritical, type Suggestion, suggestions } from "./suggestions.ts";
 import { threadKey, threads } from "./threads.ts";
 import { useAfter } from "../runtime/useAfter.ts";
+import { InboxBadge } from "../inbox/index.ts";
 
 export interface ThreadScreenProps {
   readonly hostId: string;
@@ -167,6 +168,7 @@ const Header = ({
           <Text style={styles.pillLabel}>{criticals} critical</Text>
         </View>
       )}
+      <InboxBadge />
     </View>
   );
 };
@@ -408,13 +410,6 @@ export const ThreadScreen = ({
           )}
           ListHeaderComponent={
             <>
-              <PendingRequests
-                requests={fold.pendingApprovals}
-                answering={state.answering}
-                errors={state.requestErrors}
-                enabled={live}
-                onRespond={(requestId, decision) => void controller?.respond(requestId, decision)}
-              />
               {critical === null ? null : (
                 <FindingRow
                   finding={critical}
@@ -461,6 +456,17 @@ export const ThreadScreen = ({
             text={state.text}
             harness={session.harness}
             model={session.model}
+            celestial={session.celestial}
+            requests={{
+              requests: fold.pendingApprovals,
+              answering: state.answering,
+              errors: state.requestErrors,
+              enabled: live,
+              onRespond: (requestId, decision) => void controller?.respond(requestId, decision),
+            }}
+            subagents={fold.subagents}
+            contextUsage={session.contextUsage}
+            sheet={sheetContextOf(connection, live, fold)}
             workingSince={last?.status === "working" ? last.startedAt : null}
             draftStatus={state.draftStatus}
             error={state.error}
