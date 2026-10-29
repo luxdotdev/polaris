@@ -11,6 +11,7 @@ import { useConstellationProgress } from "../home/ui/constellationProgress.ts";
 import { CHROME_TEXT_SCALE } from "../theme/textScale.ts";
 import { themedStyles, useTheme } from "../theme/index.ts";
 import type { skyLine, Star } from "./monitor.ts";
+import type { Edges } from "./edges.ts";
 import type { Rect as Box } from "./posture.ts";
 import { ridgePath, ridgeRise, SKY_FRAME, SKY_PALETTES, SKY_STARS } from "./sky.ts";
 
@@ -81,12 +82,21 @@ const LeadCount = ({ lead }: { readonly lead: NonNullable<Star["lead"]> }) => {
   return progress === null ? null : ` ${progress.done}/${progress.total}`;
 };
 
-const StarView = ({ star, sky }: { readonly star: Star; readonly sky: Box }) => {
+const StarView = ({
+  star,
+  sky,
+  edges,
+}: {
+  readonly star: Star;
+  readonly sky: Box;
+  readonly edges: Edges;
+}) => {
   const styles = useStyles();
   const { colours } = useTheme();
   const size = star.lead === null ? SESSION_SIZE : LEAD_SIZE;
-  const x = star.x * sky.width;
-  const slot = Math.min(sky.width / 2, 120);
+  const clear = sky.width - edges.left - edges.right;
+  const x = edges.left + star.x * clear;
+  const slot = Math.min(clear / 2, 120);
 
   return (
     <>
@@ -119,15 +129,22 @@ export interface MonitorSkyProps {
   readonly stars: ReadonlyArray<Star>;
   readonly now: Date;
   readonly line: ReturnType<typeof skyLine>;
+  /** The window's insets on this half's edges: the scene bleeds under them, its words don't. */
+  readonly edges: Edges;
 }
 
-export const MonitorSky = ({ rect, stars, now, line }: MonitorSkyProps) => {
+export const MonitorSky = ({ rect, stars, now, line, edges }: MonitorSkyProps) => {
   const styles = useStyles();
   const { colours } = useTheme();
   const calm = line.working === "" && line.needsYou === "";
 
   return (
-    <View style={[styles.sky, { height: rect.height }]}>
+    <View
+      style={[
+        styles.sky,
+        { height: rect.height, paddingLeft: edges.left, paddingRight: edges.right },
+      ]}
+    >
       <Scene width={rect.width} height={rect.height} />
       <Text style={styles.time} accessibilityRole="header" maxFontSizeMultiplier={1}>
         {clock(now)}
@@ -138,7 +155,7 @@ export const MonitorSky = ({ rect, stars, now, line }: MonitorSkyProps) => {
         <Text style={{ color: colours.needsYouText }}>{line.needsYou}</Text>
       </Text>
       {stars.map((star) => (
-        <StarView key={star.key} star={star} sky={rect} />
+        <StarView key={star.key} star={star} sky={rect} edges={edges} />
       ))}
     </View>
   );

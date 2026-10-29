@@ -64,7 +64,7 @@ export const ContextGallery = () => {
       <View style={[styles.first, { width: Math.round(width / 2), paddingTop: insets.top + 20 }]}>
         <Text style={styles.note}>The thread stands here.</Text>
       </View>
-      <View style={{ flex: 1 }}>
+      <View style={[styles.second, { paddingRight: insets.right, paddingTop: insets.top }]}>
         <ContextView
           key={data}
           context={context}
@@ -85,5 +85,6 @@ export const ContextGallery = () => {
 const useStyles = themedStyles((colours) => ({
   screen: { flex: 1, flexDirection: "row", backgroundColor: colours.ground },
   first: { paddingHorizontal: 20 },
+  second: { flex: 1, backgroundColor: colours.panel },
   note: { ...mobileType.callout, color: colours.textFaint },
 }));

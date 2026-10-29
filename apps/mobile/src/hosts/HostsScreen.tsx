@@ -9,7 +9,7 @@ import Svg, { Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackBar } from "../app/BackBar.tsx";
 import { type FollowedHostState, useFollowedHosts } from "../home/feed/useFollowedHosts.ts";
-import { HORIZON_INSET, HorizonScreen } from "../horizon";
+import { EdgeFade, HORIZON_CLEAR, HorizonScreen } from "../horizon";
 import { hostMenu, LongPressMenu, useMenuActions } from "../menus/index.ts";
 import { useRelay } from "../relay/RelayProvider.tsx";
 import { Chevron } from "../settings/icons.tsx";
@@ -181,6 +181,12 @@ const LinkRow = ({ onLink }: { readonly onLink: () => void }) => {
   );
 };
 
+/** The list ends above the moon (DESIGN.md: no row sits on the horizon); this lifts its last row past the fade. */
+const LIST_FOOT = 40;
+
+/** Room under the last row for the development toggle that stands at the list's foot. */
+const DEV_TOGGLE_ROOM = 40;
+
 const DEV_CHOICES: ReadonlyArray<readonly [DevHostsData, string]> = [
   ["paper", "Paper"],
   ["worst", "Worst case"],
@@ -233,45 +239,54 @@ export const HostsScreen = ({
     <HorizonScreen>
       <View style={[styles.screen, { paddingTop: insets.top }]}>
         <BackBar label="Settings" onBack={onBack} />
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: HORIZON_INSET }]}>
-          <View style={styles.head}>
-            <Text
-              style={styles.title}
-              accessibilityRole="header"
-              maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
-            >
-              Hosts
-            </Text>
-            <Text style={styles.summary} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
-              {model.summary}
-            </Text>
-          </View>
-          <View style={styles.sections}>
-            {model.sections.map((section, index) => (
-              <Section
-                key={section.title}
-                section={section}
-                first={index === 0}
-                onOpen={setOpenId}
-              />
-            ))}
-            <LinkRow onLink={onLink} />
-            {unlinkLeft === null ? null : <Text style={styles.note}>{unlinkLeft}</Text>}
-          </View>
-        </ScrollView>
+        <View style={styles.list}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: dev === null ? LIST_FOOT : LIST_FOOT + DEV_TOGGLE_ROOM },
+            ]}
+          >
+            <View style={styles.head}>
+              <Text
+                style={styles.title}
+                accessibilityRole="header"
+                maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+              >
+                Hosts
+              </Text>
+              <Text style={styles.summary} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
+                {model.summary}
+              </Text>
+            </View>
+            <View style={styles.sections}>
+              {model.sections.map((section, index) => (
+                <Section
+                  key={section.title}
+                  section={section}
+                  first={index === 0}
+                  onOpen={setOpenId}
+                />
+              ))}
+              <LinkRow onLink={onLink} />
+              {unlinkLeft === null ? null : <Text style={styles.note}>{unlinkLeft}</Text>}
+            </View>
+          </ScrollView>
+          <EdgeFade />
+        </View>
       </View>
       <HostSheet
         details={open === null ? null : hostDetails(open, now)}
         onClose={() => setOpenId(null)}
         onUnlink={open !== null && relayLinked(open) ? unlink(open.hostId) : null}
       />
-      <DevHostsToggle bottom={insets.bottom + 4} />
+      <DevHostsToggle bottom={HORIZON_CLEAR + 4} />
     </HorizonScreen>
   );
 };
 
 const useStyles = themedStyles((colours) => ({
   screen: { flex: 1 },
+  list: { flex: 1, marginBottom: HORIZON_CLEAR },
   content: { paddingTop: 4 },
   head: { paddingHorizontal: 16, paddingBottom: 12, gap: 6 },
   title: { ...mobileType.largeTitle, fontWeight: "600", lineHeight: 41, color: colours.textStrong },

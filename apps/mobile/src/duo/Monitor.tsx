@@ -7,7 +7,7 @@ import type { ApprovalRequest } from "@polaris/protocol";
 import { mobileFont, mobileType, mobileWeight } from "@polaris/ui/tokens";
 import { useMemo, useState } from "react";
 import { Platform, Pressable, ScrollView, Settings, Text, View } from "react-native";
-import { useHomeHosts } from "../home/feed/useHomeHosts.ts";
+import { devHomeDataOn, useHomeHosts } from "../home/feed/useHomeHosts.ts";
 import { DevDataToggle } from "../home/ui/DevDataToggle.tsx";
 import { buildHome, type SessionRow } from "../home/model/home.ts";
 import { age, harnessName, shortHostName } from "../home/model/format.ts";
@@ -29,6 +29,7 @@ import {
 } from "./monitor.ts";
 import { MonitorSky, useMinute } from "./MonitorSky.tsx";
 import type { Rect } from "./posture.ts";
+import { useEdgeInsets } from "./useEdgeInsets.ts";
 
 /** MX-AF's hero edge and lift, as Home's (MX-C). */
 const HERO_EDGE = "#ffffff1f";
@@ -42,6 +43,9 @@ const DEV_NIGHT: boolean | null = (() => {
 
   return value === "1" || value === "0" ? value === "1" : null;
 })();
+
+/** Room under the last target for the development data toggle, so it never covers a row. */
+const DEV_TOGGLE_ROOM = 48;
 
 type Send = (row: SessionRow, approval: ApprovalRequest, reply: Reply) => Promise<void>;
 
@@ -132,7 +136,7 @@ const Permission = ({
               maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
               numberOfLines={1}
               adjustsFontSizeToFit
-              minimumFontScale={0.8}
+              minimumFontScale={0.9}
               style={index === 0 ? styles.approveLabel : styles.buttonLabel}
             >
               {choice.label}
@@ -280,7 +284,10 @@ export const Monitor = ({ top, bottom, division, onReply }: MonitorProps) => {
   const connections = useHosts();
   const now = useMinute();
   const home = useMemo(() => buildHome(hosts, null), [hosts]);
-  const stars = useMemo(() => starsOf(home, starLimit(top.width)), [home, top.width]);
+  const skyEdges = useEdgeInsets(top);
+  const footEdges = useEdgeInsets(bottom);
+  const skyWidth = top.width - skyEdges.left - skyEdges.right;
+  const stars = useMemo(() => starsOf(home, starLimit(skyWidth)), [home, skyWidth]);
   const targets = targetsOf(home, 4);
   const night = DEV_NIGHT ?? isNight(now.getHours());
 
@@ -294,11 +301,18 @@ export const Monitor = ({ top, bottom, division, onReply }: MonitorProps) => {
 
   return (
     <View style={styles.monitor}>
-      <MonitorSky rect={top} stars={stars} now={now} line={skyLine(home)} />
+      <MonitorSky rect={top} stars={stars} now={now} line={skyLine(home)} edges={skyEdges} />
       <View style={{ height: division.height }} />
       <ScrollView
         style={[{ height: bottom.height }, night ? styles.night : null]}
-        contentContainerStyle={styles.bottom}
+        contentContainerStyle={[
+          styles.bottom,
+          {
+            paddingLeft: 24 + footEdges.left,
+            paddingRight: 24 + footEdges.right,
+            paddingBottom: 32 + footEdges.bottom + (devHomeDataOn() ? DEV_TOGGLE_ROOM : 0),
+          },
+        ]}
       >
         {targets.length === 0 ? (
           home.working === 0 ? null : (
@@ -327,7 +341,7 @@ export const Monitor = ({ top, bottom, division, onReply }: MonitorProps) => {
           </>
         )}
       </ScrollView>
-      <DevDataToggle bottom={24} />
+      <DevDataToggle bottom={footEdges.bottom + 8} />
     </View>
   );
 };
@@ -392,19 +406,21 @@ const useStyles = themedStyles((c) => ({
   wants: { ...sans(14, 19), color: c.needsYouText },
   commandText: { fontFamily: mobileFont.mono, fontSize: 14, lineHeight: 19, color: c.textDefault },
   ask: { ...sans(14, 20), color: c.textDefault },
-  buttons: { flexDirection: "row", gap: 10 },
+  /** Narrow halves wrap Deny under the two that answer, rather than shrinking their words. */
+  buttons: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   waiting: { opacity: 0.55 },
   button: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 120,
     height: 52,
     borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 10,
   },
-  approve: { flex: 1.2, backgroundColor: c.textStrong },
+  approve: { flexBasis: 112, backgroundColor: c.textStrong },
   outline: { borderWidth: 1, borderColor: HERO_EDGE, backgroundColor: c.well },
-  deny: { flex: 0, width: 96 },
+  deny: { flexBasis: 96 },
   pressed: { opacity: 0.8, transform: [{ scale: 0.97 }] },
   approveLabel: { ...sans(17, 22, true), color: c.panel },
   buttonLabel: { ...sans(17, 22, true), color: c.textDefault },
