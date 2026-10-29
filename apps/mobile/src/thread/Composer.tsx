@@ -11,7 +11,6 @@ import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } fro
 import { ContextRing, ModelChip, SendButton, SubagentMoons } from "../composer/ControlRow.tsx";
 import { ModelControl } from "../composer/ModelControl.tsx";
 import {
-  CHROME_SCALE,
   contextRing,
   fitControlRow,
   moonsOf,
@@ -30,9 +29,10 @@ import type { ModelSheetContext } from "../composer/useModelSheet.ts";
 import { usePastedImages } from "../composer/usePastedImages.ts";
 import { haptics } from "../motion";
 import { useTheme } from "../theme";
+import { CONTENT_TEXT_SCALE, CONTROL_TEXT_SCALE } from "../theme/textScale.ts";
 import { type ComposerMode, placeholderFor } from "./composer.ts";
 import { PendingRequests, type PendingRequestsProps } from "./PendingRequests.tsx";
-import { CHROME_SCALE as TEXT_SCALE, Diamond } from "./Row.tsx";
+import { Diamond } from "./Row.tsx";
 import type { Suggestion } from "./suggestions.ts";
 
 export const Suggestions = ({
@@ -48,7 +48,7 @@ export const Suggestions = ({
     <View style={styles.suggested}>
       <Text
         style={[styles.suggestedLabel, { color: colours.textFaint }]}
-        maxFontSizeMultiplier={TEXT_SCALE}
+        maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
       >
         Suggested
       </Text>
@@ -63,7 +63,7 @@ export const Suggestions = ({
             {item.kind === "fix" ? <Diamond /> : null}
             <Text
               style={[styles.chipLabel, { color: colours.textDefault }]}
-              maxFontSizeMultiplier={TEXT_SCALE}
+              maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
             >
               {item.label}
             </Text>
@@ -148,7 +148,7 @@ const QueueButton = ({ onQueue }: { readonly onQueue: () => void }) => {
     >
       <Text
         style={[styles.queue, { color: colours.textDefault }]}
-        maxFontSizeMultiplier={CHROME_SCALE}
+        maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
       >
         Queue
       </Text>
@@ -217,7 +217,7 @@ export const Composer = (props: ComposerProps) => {
               styles.notice,
               { color: notice.failed ? colours.failedText : colours.textSubtle },
             ]}
-            maxFontSizeMultiplier={TEXT_SCALE}
+            maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
           >
             {notice.text}
           </Text>
@@ -232,7 +232,7 @@ export const Composer = (props: ComposerProps) => {
           multiline
           accessibilityLabel="Message"
           nativeID={fieldId}
-          maxFontSizeMultiplier={TEXT_SCALE}
+          maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
         />
       </View>
       <View style={styles.row} onLayout={({ nativeEvent }) => measure(nativeEvent.layout.width)}>

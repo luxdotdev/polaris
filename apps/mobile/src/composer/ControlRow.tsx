@@ -9,13 +9,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { Celestial, sessionCelestial, subagentMoon } from "../celestial";
 import { useTheme } from "../theme";
-import {
-  CHROME_SCALE,
-  type ContextRing as Ring,
-  litSegments,
-  type Moons,
-  RING_SEGMENTS,
-} from "./controlRow.ts";
+import { CONTROL_TEXT_SCALE } from "../theme/textScale.ts";
+import { type ContextRing as Ring, litSegments, type Moons, RING_SEGMENTS } from "./controlRow.ts";
 
 const Chevron = ({ colour }: { readonly colour: string }) => (
   <Svg width={10} height={10} viewBox="0 0 10 10">
@@ -59,7 +54,7 @@ export const ModelChip = ({
       <Text
         style={[styles.chipLabel, { color: colours.textDefault }]}
         numberOfLines={1}
-        maxFontSizeMultiplier={CHROME_SCALE}
+        maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
       >
         {label}
       </Text>
@@ -101,7 +96,7 @@ export const SubagentMoons = ({
       </View>
       <Text
         style={[styles.count, { color: colours.textSubtle }]}
-        maxFontSizeMultiplier={CHROME_SCALE}
+        maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
       >
         {moons.running}
       </Text>
@@ -164,7 +159,7 @@ export const ContextRing = ({
       {words ? (
         <Text
           style={[styles.ringWords, { color: colours.textFaint }]}
-          maxFontSizeMultiplier={CHROME_SCALE}
+          maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
         >
           {ring.words}
         </Text>

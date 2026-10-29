@@ -20,7 +20,7 @@ import { useMotionPreference, useTheme } from "../theme";
 import { Chevron, HostsGlyph, MotionGlyph, NotificationsGlyph } from "./icons.tsx";
 import { hostsLine, MOTION_CHOICES, motionLine, THEME_CARDS } from "./model.ts";
 import { ThemeCard } from "./ThemeCard.tsx";
-import { ACCESSIBILITY_SCALE, TYPE_CAP } from "./type.ts";
+import { ACCESSIBILITY_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 import { InboxBadge } from "../inbox/index.ts";
 
 const Row = ({
@@ -62,14 +62,14 @@ const Row = ({
       <View style={styles.rowText}>
         <Text
           style={[styles.rowTitle, { color: colours.textStrong }]}
-          maxFontSizeMultiplier={TYPE_CAP}
+          maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
         >
           {title}
         </Text>
         <View style={styles.lineRow}>
           <Text
             style={[lineStyle, styles.names]}
-            maxFontSizeMultiplier={TYPE_CAP}
+            maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
             numberOfLines={wraps ? 0 : 1}
           >
             {line}
@@ -79,7 +79,7 @@ const Row = ({
           {wraps ? null : (
             <Text
               style={[lineStyle, styles.kept]}
-              maxFontSizeMultiplier={TYPE_CAP}
+              maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
               numberOfLines={1}
             >
               {kept[0]}
@@ -139,7 +139,7 @@ export const SettingsScreen = ({
         <Text
           style={[styles.large, { color: colours.textStrong }]}
           accessibilityRole="header"
-          maxFontSizeMultiplier={TYPE_CAP}
+          maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
         >
           Settings
         </Text>
@@ -151,7 +151,7 @@ export const SettingsScreen = ({
             style={[styles.kicker, { color: colours.textSubtle }]}
             accessibilityRole="header"
             accessibilityLabel="Appearance"
-            maxFontSizeMultiplier={TYPE_CAP}
+            maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
           >
             APPEARANCE
           </Text>

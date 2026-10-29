@@ -7,7 +7,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import Svg, { Path, Rect } from "react-native-svg";
 import { useTheme } from "../theme";
 import { type Chip, type Picked, sizeLabel } from "./attach.ts";
-import { CHROME_SCALE } from "./controlRow.ts";
+import { CONTROL_TEXT_SCALE } from "../theme/textScale.ts";
 
 /** What a composer needs to offer Attach; given only where the Host stages attachments. */
 export interface AttachInput {
@@ -167,14 +167,14 @@ const ChipView = ({ chip, onRemove }: { readonly chip: Chip; readonly onRemove: 
         style={[styles.chipName, { color: colours.textDefault }]}
         numberOfLines={1}
         ellipsizeMode="middle"
-        maxFontSizeMultiplier={CHROME_SCALE}
+        maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
       >
         {chip.name}
       </Text>
       {chip.size === null ? null : (
         <Text
           style={[styles.chipSize, { color: colours.textSubtle }]}
-          maxFontSizeMultiplier={CHROME_SCALE}
+          maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
         >
           {sizeLabel(chip.size)}
         </Text>
@@ -187,7 +187,7 @@ const ChipView = ({ chip, onRemove }: { readonly chip: Chip; readonly onRemove: 
       >
         <Text
           style={[styles.remove, { color: colours.textSubtle }]}
-          maxFontSizeMultiplier={CHROME_SCALE}
+          maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
         >
           ×
         </Text>

@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-na
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg";
 import { type ThemeName, useTheme } from "../theme";
 import { MOON, MOON_HALO, RIDGE_PATHS, SKIES } from "./sky.ts";
-import { ACCESSIBILITY_SCALE, TYPE_CAP } from "./type.ts";
+import { ACCESSIBILITY_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 
 const SkyArt = ({ name }: { readonly name: ThemeName }) => {
   const sky = SKIES[name];
@@ -93,13 +93,13 @@ export const ThemeCard = ({
       <View style={styles.text}>
         <Text
           style={[styles.title, { color: colours.textStrong }]}
-          maxFontSizeMultiplier={TYPE_CAP}
+          maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
         >
           {title}
         </Text>
         <Text
           style={[styles.caption, { color: colours.textSubtle }]}
-          maxFontSizeMultiplier={TYPE_CAP}
+          maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
           numberOfLines={wraps ? 0 : 1}
         >
           {caption}

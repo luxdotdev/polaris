@@ -9,7 +9,7 @@ import { themedStyles, useTheme } from "../../theme/index.ts";
 import { counted } from "../model/format.ts";
 import type { Home } from "../model/home.ts";
 import { NeedsYouBadge } from "./NeedsYouBadge.tsx";
-import { CHROME_TEXT_SCALE } from "./textScale.ts";
+import { CHROME_TEXT_SCALE } from "../../theme/textScale.ts";
 
 const useStyles = themedStyles((c) => ({
   header: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 14, gap: 8 },

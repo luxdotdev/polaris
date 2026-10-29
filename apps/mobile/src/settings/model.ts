@@ -1,6 +1,7 @@
 /** Settings (Paper MX-G) as data: the theme cards' copy and the Hosts and Motion rows' lines. */
 import type { ConnectionState } from "@polaris/protocol";
 import { Match } from "effect";
+import { shortHostName } from "../home/model/format.ts";
 import type { MotionPreference, ThemeName } from "../theme";
 
 export const THEME_CARDS: ReadonlyArray<{
@@ -22,17 +23,13 @@ export interface HostsLine {
 
 const SHOWN = 2;
 
-/** "lucas-mac-studio.taild0d828.ts.net" → "lucas-mac-studio"; an IP address stays whole. */
-const shortName = (name: string) =>
-  /^[a-z][\w-]*\./i.test(name) ? (name.split(".")[0] ?? name) : name;
-
 /** "mac-studio, lucas-rpi" "+ 2" "1 reconnecting": the first names, the rest counted. */
 export const hostsLine = (
   hosts: ReadonlyArray<{ readonly name: string; readonly state: ConnectionState }>
 ): HostsLine => {
   if (hosts.length === 0) return { names: "No hosts yet", more: null, note: null };
 
-  const names = hosts.slice(0, SHOWN).map((host) => shortName(host.name));
+  const names = hosts.slice(0, SHOWN).map((host) => shortHostName(host.name));
   const rest = hosts.length - SHOWN;
   const count = (state: ConnectionState) => hosts.filter((host) => host.state === state).length;
 

@@ -4,7 +4,7 @@ import { Pressable, Text } from "react-native";
 import { useTheme } from "../../theme/index.ts";
 import { NeedsYouStar } from "./glyphs.tsx";
 import { badgeCount } from "./rowLook.ts";
-import { CHROME_TEXT_SCALE } from "./textScale.ts";
+import { CHROME_TEXT_SCALE } from "../../theme/textScale.ts";
 
 export const NeedsYouBadge = ({
   count,

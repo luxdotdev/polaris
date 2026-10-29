@@ -12,7 +12,7 @@ import { age } from "../model/format.ts";
 import { type SessionRow, whereLine } from "../model/home.ts";
 import { type Reply, respond } from "../model/respond.ts";
 import { ApprovalActions, OpenToAnswer } from "./ApprovalActions.tsx";
-import { CONTENT_TEXT_SCALE } from "./textScale.ts";
+import { CONTENT_TEXT_SCALE } from "../../theme/textScale.ts";
 
 export interface RowMenu {
   readonly menu: Menu;

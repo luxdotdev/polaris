@@ -14,7 +14,7 @@ import type { ConstellationRow, SessionRow as Row } from "../model/home.ts";
 import { type ConstellationProgress, progressLine, sevenSegments } from "../model/taskBar.ts";
 import { type RowMenu, titleOf } from "./NeedsYouCard.tsx";
 import { celestialLook, harnessHue, type MetaTone, metaLine } from "./rowLook.ts";
-import { CONTENT_TEXT_SCALE } from "./textScale.ts";
+import { CONTENT_TEXT_SCALE } from "../../theme/textScale.ts";
 
 const WASH_WIDTH = 168;
 

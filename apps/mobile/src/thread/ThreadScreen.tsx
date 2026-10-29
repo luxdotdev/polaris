@@ -37,12 +37,13 @@ import { openThread, type ThreadController } from "./controller.ts";
 import { hostThreadSource } from "./hostSource.ts";
 import { useMenuActions } from "../menus/index.ts";
 import { type MobileColours, themedStyles } from "../theme/index.ts";
-import { CHROME_SCALE, Diamond, Row, type RowSession, type ThreadFocus } from "./Row.tsx";
+import { Diamond, Row, type RowSession, type ThreadFocus } from "./Row.tsx";
 import { type HeaderLine, headerLine, outgoingRows, threadRows, type ThreadRow } from "./rows.ts";
 import { chipAction, openCritical, type Suggestion, suggestions } from "./suggestions.ts";
 import { threadKey, threads } from "./threads.ts";
 import { useAfter } from "../runtime/useAfter.ts";
 import { InboxBadge } from "../inbox/index.ts";
+import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 
 export interface ThreadScreenProps {
   readonly hostId: string;
@@ -154,10 +155,10 @@ const Header = ({
         />
       )}
       <View style={styles.titles}>
-        <Text style={styles.title} numberOfLines={1} maxFontSizeMultiplier={CHROME_SCALE}>
+        <Text style={styles.title} numberOfLines={1} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
           {title}
         </Text>
-        <Text style={styles.subtitle} numberOfLines={1} maxFontSizeMultiplier={CHROME_SCALE}>
+        <Text style={styles.subtitle} numberOfLines={1} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
           <Text style={styles.subtitleState}>{line.state}</Text>
           {line.rest === "" ? "" : ` · ${line.rest}`}
         </Text>

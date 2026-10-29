@@ -16,7 +16,6 @@ import {
   View,
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
-import { CHROME_SCALE } from "../composer/controlRow.ts";
 import {
   COMPACT_TEXT_SCALE,
   EXPANDED_SHARE,
@@ -29,8 +28,8 @@ import { Dither } from "../dither/index.ts";
 import { decisionOf } from "../home/model/respond.ts";
 import { haptics } from "../motion";
 import { type MobileColours, useTheme } from "../theme";
+import { CONTENT_TEXT_SCALE, CONTROL_TEXT_SCALE } from "../theme/textScale.ts";
 import { elapsed, harnessHue, harnessName } from "./labels.ts";
-import { CHROME_SCALE as TEXT_SCALE } from "./Row.tsx";
 import { answered, answersDecision, pick, type Picks, requestCard } from "./requests.ts";
 
 export interface PendingRequestsProps {
@@ -97,7 +96,7 @@ const Answer = ({
     >
       <Text
         style={[styles.answerLabel, { color: filled ? colours.bg : colours.textSubtle }]}
-        maxFontSizeMultiplier={CHROME_SCALE}
+        maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
       >
         {label}
       </Text>
@@ -164,7 +163,7 @@ const Permission = ({
         >
           <Text
             style={[styles.headline, { color: colours.needsYouText }]}
-            maxFontSizeMultiplier={TEXT_SCALE}
+            maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
           >
             {notice.headline}
           </Text>
@@ -174,7 +173,7 @@ const Permission = ({
               onTextLayout={(event) => {
                 if (event.nativeEvent.lines.length > 1) setWraps(true);
               }}
-              maxFontSizeMultiplier={TEXT_SCALE}
+              maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
             >
               {notice.detail}
             </Text>
@@ -187,7 +186,7 @@ const Permission = ({
           <Text
             style={[styles.detail, { color: colours.textDefault }]}
             selectable
-            maxFontSizeMultiplier={TEXT_SCALE}
+            maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
           >
             {notice.detail}
           </Text>
@@ -225,11 +224,11 @@ const Questions = ({ request, live, onRespond }: CardProps) => {
           <View key={`${index}:${question.question}`} style={styles.question}>
             <Text
               style={[styles.questionText, { color: colours.textDefault }]}
-              maxFontSizeMultiplier={TEXT_SCALE}
+              maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
             >
               <Text
                 style={[styles.headline, { color: colours.needsYouText }]}
-                maxFontSizeMultiplier={TEXT_SCALE}
+                maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
               >
                 {question.header === "" ? "Asks · " : `${question.header} · `}
               </Text>
@@ -260,7 +259,7 @@ const Questions = ({ request, live, onRespond }: CardProps) => {
                         styles.choiceLabel,
                         { color: chosen ? colours.bg : colours.textDefault },
                       ]}
-                      maxFontSizeMultiplier={TEXT_SCALE}
+                      maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
                     >
                       {option.label}
                     </Text>
@@ -297,11 +296,14 @@ const Working = ({ harness, since }: { readonly harness: HarnessKind; readonly s
       <Text
         style={[styles.headline, styles.working, { color: hue }]}
         numberOfLines={2}
-        maxFontSizeMultiplier={TEXT_SCALE}
+        maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
       >
         {harnessName(harness)} is working
       </Text>
-      <Text style={[styles.time, { color: colours.textFaint }]} maxFontSizeMultiplier={TEXT_SCALE}>
+      <Text
+        style={[styles.time, { color: colours.textFaint }]}
+        maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+      >
         · {time}
       </Text>
     </View>
@@ -329,7 +331,7 @@ const More = ({
     >
       <Text
         style={[styles.moreLabel, { color: colours.textSubtle }]}
-        maxFontSizeMultiplier={CHROME_SCALE}
+        maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
       >
         {open ? "Less" : `+${count}`}
       </Text>
@@ -369,7 +371,7 @@ const Notice = ({
       {props.errors.has(request.id) ? (
         <Text
           style={[styles.failed, { color: colours.failedText }]}
-          maxFontSizeMultiplier={TEXT_SCALE}
+          maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
         >
           Couldn't send. Try again.
         </Text>

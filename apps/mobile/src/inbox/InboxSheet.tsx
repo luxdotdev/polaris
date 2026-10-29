@@ -21,7 +21,7 @@ import {
 } from "../sheet/index.tsx";
 import { type MobileColours, themedStyles, useTheme } from "../theme/index.ts";
 import type { FooterHost, Inbox } from "./model.ts";
-import { CHROME_TEXT_SCALE } from "../home/ui/textScale.ts";
+import { CHROME_TEXT_SCALE } from "../theme/textScale.ts";
 
 const DETENTS = ["medium", "large"] as const;
 

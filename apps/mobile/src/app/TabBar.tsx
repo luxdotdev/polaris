@@ -6,6 +6,7 @@ import { mobileType } from "@polaris/ui/tokens";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 import { useTheme } from "../theme";
+import { TAB_TEXT_SCALE } from "../theme/textScale.ts";
 import { HOME_TABS, type HomeTab } from "./navigationState.ts";
 
 type Icon = (props: { readonly color: string }) => React.JSX.Element;
@@ -41,9 +42,6 @@ const SettingsIcon: Icon = ({ color }) => (
     />
   </Svg>
 );
-
-/** The pill's height is fixed, so its labels grow only a little with Dynamic Type, as a UITabBar's. */
-const LABEL_CAP = 1.2;
 
 const TABS: Record<HomeTab, { readonly label: string; readonly Icon: Icon }> = {
   sessions: { label: "Sessions", Icon: SessionsIcon },
@@ -88,7 +86,7 @@ export const TabBar = ({
               <Icon color={color} />
               <Text
                 style={[styles.label, { color }]}
-                maxFontSizeMultiplier={LABEL_CAP}
+                maxFontSizeMultiplier={TAB_TEXT_SCALE}
                 numberOfLines={1}
               >
                 {counted ? `${label} · ${reviewCount}` : label}

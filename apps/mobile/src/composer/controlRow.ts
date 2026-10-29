@@ -3,6 +3,7 @@
  * the context ring, as the Desktop App's composer reads them (`ComposerStatus.tsx`).
  */
 import type { ContextUsage, Subagent } from "@polaris/protocol";
+import { CONTROL_TEXT_SCALE } from "../theme/textScale.ts";
 
 /** Moons drawn before the count says the rest. */
 export const MOONS_SHOWN = 3;
@@ -63,9 +64,6 @@ export const RING_SEGMENTS = 20;
 export const litSegments = (share: number): number =>
   share <= 0 ? 0 : Math.max(1, Math.round(share * RING_SEGMENTS));
 
-/** The most the row's own words grow with Dynamic Type; the field and the strip's text grow on. */
-export const CHROME_SCALE = 1.4;
-
 /** What the row has to hold besides the chip and Send. */
 export interface RowParts {
   readonly running: number;
@@ -111,7 +109,7 @@ const DROPS: ReadonlyArray<(fit: RowFit) => RowFit> = [
 
 /** The row's readouts that fit `width`; everything while the width isn't measured yet. */
 export const fitControlRow = (width: number | null, fontScale: number, parts: RowParts): RowFit => {
-  const scale = Math.min(Math.max(fontScale, 1), CHROME_SCALE);
+  const scale = Math.min(Math.max(fontScale, 1), CONTROL_TEXT_SCALE);
 
   let fit: RowFit = {
     moons: Math.min(parts.running, MOONS_SHOWN),

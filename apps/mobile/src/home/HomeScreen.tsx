@@ -38,7 +38,7 @@ import { Header } from "./ui/Header.tsx";
 import { NeedsYouCard, titleOf } from "./ui/NeedsYouCard.tsx";
 import { ConstellationListRow, SessionRow } from "./ui/rows.tsx";
 import { useInbox } from "../inbox/index.ts";
-import { CHROME_TEXT_SCALE } from "./ui/textScale.ts";
+import { CHROME_TEXT_SCALE } from "../theme/textScale.ts";
 
 export interface HomeActions {
   readonly openSession: (hostId: string, sessionId: string) => void;

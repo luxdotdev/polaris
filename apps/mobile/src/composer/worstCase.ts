@@ -200,8 +200,9 @@ export const MANY_CHIPS: ReadonlyArray<Chip> = NAMES.map((name, n) => ({
   failure: n === 4 ? "The Host refused the file: it's larger than 25 MB" : null,
 }));
 
+/** A dropped send as the controller reports it: nothing resends it, so it is a failure until Send. */
 export const LONG_ERROR =
-  "Couldn't send: mac-studio-of-aleksandra.northwind.example.com closed the connection while the Turn was on its way. It will be sent again when the Host is back.";
+  "Couldn't send: the Daemon on mac-studio-of-aleksandra closed the connection while the Turn was on its way. Send again once the Host is back.";
 
 /** Models with long names and descriptions, and one with many efforts. */
 export const LONG_MODELS = [

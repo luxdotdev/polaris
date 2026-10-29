@@ -12,6 +12,7 @@ import { Markdown } from "../markdown/index.ts";
 import { LongPressMenu, type MenuAction, turnMenu } from "../menus/index.ts";
 import { type MobileColours, themedStyles } from "../theme/index.ts";
 import { type ThreadRow, type TurnFacts, turnHeading } from "./rows.ts";
+import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 
 // The arrow defers `makeStyles`, which is defined at the foot of the module.
 const useStyles = themedStyles((colours) => makeStyles(colours));
@@ -48,7 +49,11 @@ const Run = ({
         accessibilityLabel={row.summary}
       >
         <Text style={styles.check}>✓</Text>
-        <Text style={styles.runSummary} numberOfLines={2} maxFontSizeMultiplier={CHROME_SCALE}>
+        <Text
+          style={styles.runSummary}
+          numberOfLines={2}
+          maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+        >
           {row.summary}
         </Text>
         <Text style={[styles.chevron, row.open ? styles.chevronOpen : null]}>›</Text>
@@ -97,9 +102,6 @@ const StepMark = ({
   );
 };
 
-/** Tool rows and receipts grow with Dynamic Type to twice their size; turn text has no cap. */
-export const CHROME_SCALE = 2;
-
 const TONE_WORDS = { done: "done", active: "running", failed: "failed" } as const;
 
 /** "bun test, exit 137": what VoiceOver reads for a step, instead of its ✓ or ✕ glyph. */
@@ -144,7 +146,7 @@ const Step = ({
           style={[styles.stepLabel, row.tone === "active" ? styles.stepActive : null]}
           numberOfLines={1}
           ellipsizeMode="middle"
-          maxFontSizeMultiplier={CHROME_SCALE}
+          maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
         >
           {row.label}
         </Text>
@@ -152,7 +154,7 @@ const Step = ({
         {row.detail === "" ? null : (
           <Text
             style={row.tone === "failed" ? styles.stepFailed : styles.stepDetail}
-            maxFontSizeMultiplier={CHROME_SCALE}
+            maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
           >
             {row.detail}
           </Text>
@@ -269,7 +271,11 @@ const Reply = ({
       <View style={[styles.reply, row.receipt === null ? null : styles.turnEnd]}>
         <Markdown text={row.text} />
         {row.receipt === null ? null : (
-          <Text style={styles.receipt} onLayout={measure} maxFontSizeMultiplier={CHROME_SCALE}>
+          <Text
+            style={styles.receipt}
+            onLayout={measure}
+            maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+          >
             {row.receipt}
           </Text>
         )}
@@ -321,7 +327,7 @@ const RowView = ({
         <TurnMenu turn={row.turn} session={session} onMenuAction={onMenuAction} receiptHeight={0}>
           <Text
             style={[styles.receipt, styles.reply, styles.turnEnd]}
-            maxFontSizeMultiplier={CHROME_SCALE}
+            maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
           >
             {row.text}
           </Text>

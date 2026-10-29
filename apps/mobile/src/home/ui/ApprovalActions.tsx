@@ -10,7 +10,7 @@ import { themedStyles, useTheme } from "../../theme/index.ts";
 import { approvalDetail, askLine, quickQuestion } from "../model/lines.ts";
 import { haptics } from "../../motion/index.ts";
 import type { Reply } from "../model/respond.ts";
-import { CONTENT_TEXT_SCALE } from "./textScale.ts";
+import { CONTENT_TEXT_SCALE } from "../../theme/textScale.ts";
 
 export interface ApprovalActionsProps {
   readonly approval: ApprovalRequest;
