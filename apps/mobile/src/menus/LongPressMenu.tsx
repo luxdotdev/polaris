@@ -5,7 +5,7 @@
 import { requireNativeView, requireOptionalNativeModule } from "expo";
 import type { ComponentType, ReactNode } from "react";
 import { type NativeSyntheticEvent, StyleSheet } from "react-native";
-import { useTheme } from "../theme";
+import { useTheme } from "../theme/index.ts";
 import type { Menu, MenuAction } from "./model.ts";
 
 interface NativeProps {
@@ -72,7 +72,7 @@ export const LongPressMenu = ({
     <NativeMenu
       menu={encode(menu)}
       title={title}
-      previewColor={colours.bg}
+      previewColor={colours.ground}
       previewInsetBottom={previewInsetBottom}
       previewRadius={PREVIEW_RADIUS}
       onSelectItem={onSelectItem}

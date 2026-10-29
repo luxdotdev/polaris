@@ -8,7 +8,7 @@ import {
   type Workspace,
   WorkspaceId,
 } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { type ReactNode, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -30,6 +30,7 @@ import { useAttachments } from "../composer/useAttachments.ts";
 import { usePastedImages } from "../composer/usePastedImages.ts";
 import { useVoiceInput } from "../composer/useVoiceInput.ts";
 import type { HostConnection } from "../runtime/hostConnection.ts";
+import { themedStyles, useTheme } from "../theme/index.ts";
 import type { NewSessionApi } from "./api.ts";
 import { type Draft, type DraftStore, useDraft } from "./draft.ts";
 import { modelLabel } from "./harness.ts";
@@ -49,7 +50,7 @@ import {
   worktreeCaption,
 } from "./model.ts";
 import { startLatch, takePrompt } from "./latch.ts";
-import { HarnessChip, PickerRow, SwitchRow, styles as rowStyles } from "./parts.tsx";
+import { HarnessChip, PickerRow, SwitchRow, useRowStyles } from "./parts.tsx";
 import { NotReadyPanel } from "./NotReadyPanel.tsx";
 import { type PermissionModeStore, usePermissionChoice } from "./permissionModes.ts";
 import { HarnessPicker, PermissionPicker, WorkspacePicker } from "./pickers.tsx";
@@ -78,6 +79,7 @@ const TITLES: Readonly<Record<Pane, string>> = {
 
 /** The Permissions row: the mode and what it means. */
 const PermissionValue = ({ mode }: { readonly mode: PermissionMode }) => {
+  const rowStyles = useRowStyles();
   const option = permissionOption(mode);
 
   return (
@@ -114,15 +116,19 @@ const startBlocker = (
   return harnessBlocker(choice) ?? (prompt.trim() === "" ? "" : null);
 };
 
-const Header = ({ pane, onLeave }: { readonly pane: Pane; readonly onLeave: () => void }) => (
-  <View style={styles.header}>
-    <Pressable onPress={onLeave} accessibilityRole="button" hitSlop={8}>
-      <Text style={styles.cancel}>{pane === "form" ? "Cancel" : "Back"}</Text>
-    </Pressable>
-    <Text style={styles.headerTitle}>{TITLES[pane]}</Text>
-    <Text style={[styles.cancel, styles.hidden]}>Cancel</Text>
-  </View>
-);
+const Header = ({ pane, onLeave }: { readonly pane: Pane; readonly onLeave: () => void }) => {
+  const styles = useStyles();
+
+  return (
+    <View style={styles.header}>
+      <Pressable onPress={onLeave} accessibilityRole="button" hitSlop={8}>
+        <Text style={styles.cancel}>{pane === "form" ? "Cancel" : "Back"}</Text>
+      </Pressable>
+      <Text style={styles.headerTitle}>{TITLES[pane]}</Text>
+      <Text style={[styles.cancel, styles.hidden]}>Cancel</Text>
+    </View>
+  );
+};
 
 const Prompt = ({
   draft,
@@ -133,6 +139,8 @@ const Prompt = ({
   readonly attach: AttachInput | null;
   readonly voice: VoiceInput | null;
 }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
   const notice = voice?.failure ?? attach?.caption ?? null;
   const fieldId = usePastedImages(attach);
 
@@ -143,10 +151,10 @@ const Prompt = ({
         value={draft.text}
         onChangeText={draft.setText}
         placeholder="What should happen next?"
-        placeholderTextColor={midnight.textFaint}
+        placeholderTextColor={colours.textFaint}
         multiline
         autoFocus
-        selectionColor={midnight.textSubtle}
+        selectionColor={colours.textSubtle}
         accessibilityLabel="Prompt"
         nativeID={fieldId}
       />
@@ -171,8 +179,10 @@ const WorkspaceValue = ({
   readonly host: SheetHost | null;
   readonly workspace: Workspace | null;
   readonly lastUsed: boolean;
-}) =>
-  workspace === null || host === null ? (
+}) => {
+  const rowStyles = useRowStyles();
+
+  return workspace === null || host === null ? (
     <Text style={rowStyles.caption}>No workspace yet</Text>
   ) : (
     <>
@@ -184,6 +194,7 @@ const WorkspaceValue = ({
       </Text>
     </>
   );
+};
 
 const HarnessValue = ({
   choice,
@@ -191,8 +202,10 @@ const HarnessValue = ({
 }: {
   readonly choice: HarnessChoice;
   readonly onOpen: () => void;
-}) =>
-  choice.harness === null ? (
+}) => {
+  const rowStyles = useRowStyles();
+
+  return choice.harness === null ? (
     <Text style={rowStyles.caption}>{harnessBlocker(choice)}</Text>
   ) : (
     <HarnessChip
@@ -201,6 +214,7 @@ const HarnessValue = ({
       onPress={onOpen}
     />
   );
+};
 
 /** The Harness row, and with none ready, each Harness's reason and fix under it. */
 const HarnessRows = ({
@@ -211,24 +225,28 @@ const HarnessRows = ({
   readonly host: SheetHost | null;
   readonly choice: HarnessChoice;
   readonly onOpen: () => void;
-}) => (
-  <>
-    <PickerRow label="Harness">
-      {host === null ? (
-        <Text style={rowStyles.caption}>Choose a workspace first</Text>
-      ) : (
-        <HarnessValue choice={choice} onOpen={onOpen} />
-      )}
-    </PickerRow>
-    {host !== null && choice.load.kind === "loaded" && choice.harness === null ? (
-      <NotReadyPanel
-        hostName={host.hostName}
-        harnesses={choice.load.notReady}
-        onCheckAgain={choice.refresh}
-      />
-    ) : null}
-  </>
-);
+}) => {
+  const rowStyles = useRowStyles();
+
+  return (
+    <>
+      <PickerRow label="Harness">
+        {host === null ? (
+          <Text style={rowStyles.caption}>Choose a workspace first</Text>
+        ) : (
+          <HarnessValue choice={choice} onOpen={onOpen} />
+        )}
+      </PickerRow>
+      {host !== null && choice.load.kind === "loaded" && choice.harness === null ? (
+        <NotReadyPanel
+          hostName={host.hostName}
+          harnesses={choice.load.notReady}
+          onCheckAgain={choice.refresh}
+        />
+      ) : null}
+    </>
+  );
+};
 
 const StartFooter = ({
   host,
@@ -243,6 +261,8 @@ const StartFooter = ({
   readonly busy: boolean;
   readonly onStart: () => void;
 }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
   const off = why !== null || busy;
 
   return (
@@ -258,7 +278,7 @@ const StartFooter = ({
         accessibilityHint={why === null || why === "" ? undefined : why}
       >
         {busy ? (
-          <ActivityIndicator color={midnight.bg} />
+          <ActivityIndicator color={colours.ground} />
         ) : (
           <Text style={styles.startLabel}>Start</Text>
         )}
@@ -267,9 +287,11 @@ const StartFooter = ({
   );
 };
 
-const Sheet = ({ children }: { readonly children: ReactNode }) => (
-  <View style={styles.sheet}>{children}</View>
-);
+const Sheet = ({ children }: { readonly children: ReactNode }) => {
+  const styles = useStyles();
+
+  return <View style={styles.sheet}>{children}</View>;
+};
 
 export const NewSessionForm = ({
   hosts,
@@ -281,6 +303,7 @@ export const NewSessionForm = ({
   permissionModeStore,
   connectionFor,
 }: NewSessionFormProps) => {
+  const styles = useStyles();
   const [picked, setPicked] = useState<Target | null>(null);
   const target = picked ?? defaultTarget(hosts, workspaceId);
   const host = hosts.find((h) => h.hostId === target?.hostId) ?? null;
@@ -440,10 +463,10 @@ export const NewSessionForm = ({
   );
 };
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((colours) => ({
   sheet: {
     flex: 1,
-    backgroundColor: midnight.surfaceSunken,
+    backgroundColor: colours.panel,
     paddingHorizontal: 20,
     paddingBottom: 34,
     paddingTop: 8,
@@ -454,40 +477,40 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     height: 44,
   },
-  cancel: { ...mobileType.body, color: midnight.textSubtle },
+  cancel: { ...mobileType.body, color: colours.textSubtle },
   hidden: { opacity: 0 },
-  headerTitle: { ...mobileType.title, color: midnight.textStrong },
+  headerTitle: { ...mobileType.title, color: colours.textStrong },
   prompt: {
     gap: 14,
     paddingTop: 18,
     paddingBottom: 20,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: midnight.hairline,
+    borderBottomColor: colours.hairline,
   },
   promptInput: {
     fontFamily: mobileType.body.fontFamily,
     fontSize: 24,
     lineHeight: 31,
-    color: midnight.textStrong,
+    color: colours.textStrong,
     minHeight: 93,
     maxHeight: 186,
     padding: 0,
     textAlignVertical: "top",
   },
   promptBar: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 32 },
-  draft: { ...mobileType.footnote, color: midnight.textFaint, flex: 1 },
-  noticeFailed: { color: midnight.failedText },
+  draft: { ...mobileType.footnote, color: colours.textFaint, flex: 1 },
+  noticeFailed: { color: colours.failedText },
   body: { flex: 1 },
   footer: { gap: 12, paddingTop: 12 },
-  route: { ...mobileType.footnote, lineHeight: 17, color: midnight.textFaint, textAlign: "center" },
-  error: { ...mobileType.footnote, color: midnight.failedText, textAlign: "center" },
+  route: { ...mobileType.footnote, lineHeight: 17, color: colours.textFaint, textAlign: "center" },
+  error: { ...mobileType.footnote, color: colours.failedText, textAlign: "center" },
   start: {
     height: 52,
     borderRadius: 999,
-    backgroundColor: midnight.textStrong,
+    backgroundColor: colours.textStrong,
     alignItems: "center",
     justifyContent: "center",
   },
   startOff: { opacity: 0.4 },
-  startLabel: { ...mobileType.title, color: midnight.bg },
-});
+  startLabel: { ...mobileType.title, color: colours.ground },
+}));

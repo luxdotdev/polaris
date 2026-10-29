@@ -3,10 +3,12 @@
  * command, file change or tool; choice chips and Reply… for a question.
  */
 import type { ApprovalRequest } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
+import { themedStyles, useTheme } from "../../theme/index.ts";
 import { approvalDetail, askLine, quickQuestion } from "../model/lines.ts";
+import { haptics } from "../../motion/index.ts";
 import type { Reply } from "../model/respond.ts";
 
 export interface ApprovalActionsProps {
@@ -27,6 +29,7 @@ const useSend = (onReply: ApprovalActionsProps["onReply"]) => {
   const [sending, setSending] = useState<Sending>({ kind: "idle" });
 
   const send = (reply: Reply) => {
+    if (reply.kind !== "deny") haptics.approve();
     setSending({ kind: "sending" });
     onReply(reply).then(
       () => setSending({ kind: "idle" }),
@@ -38,6 +41,7 @@ const useSend = (onReply: ApprovalActionsProps["onReply"]) => {
 };
 
 const Ask = ({ approval }: { readonly approval: ApprovalRequest }) => {
+  const styles = useStyles();
   const detail = approvalDetail(approval);
 
   return (
@@ -53,6 +57,7 @@ const Ask = ({ approval }: { readonly approval: ApprovalRequest }) => {
 };
 
 const Permission = ({ approval, enabled, onReply, onOpen }: ApprovalActionsProps) => {
+  const styles = useStyles();
   const { sending, send } = useSend(onReply);
   const live = enabled && sending.kind !== "sending";
 
@@ -109,6 +114,8 @@ const ReplyField = ({
   readonly onSend: (text: string) => void;
   readonly onCancel: () => void;
 }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
   const [text, setText] = useState("");
 
   return (
@@ -118,7 +125,7 @@ const ReplyField = ({
       value={text}
       onChangeText={setText}
       placeholder="Reply…"
-      placeholderTextColor={midnight.textFaint}
+      placeholderTextColor={colours.textFaint}
       returnKeyType="send"
       onSubmitEditing={() => (text.trim() === "" ? onCancel() : onSend(text.trim()))}
       onBlur={() => {
@@ -129,6 +136,7 @@ const ReplyField = ({
 };
 
 const Question = ({ approval, enabled, onReply, onOpen }: ApprovalActionsProps) => {
+  const styles = useStyles();
   const { sending, send } = useSend(onReply);
   const [replying, setReplying] = useState(false);
   const quick = quickQuestion(approval);
@@ -187,36 +195,36 @@ const Question = ({ approval, enabled, onReply, onOpen }: ApprovalActionsProps) 
 export const ApprovalActions = (props: ApprovalActionsProps) =>
   props.approval.kind === "question" ? <Question {...props} /> : <Permission {...props} />;
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((colours) => ({
   block: { gap: 8, paddingLeft: 72 },
-  ask: { ...mobileType.subhead, color: midnight.needsYouText },
-  command: { ...mobileType.command, color: midnight.textDefault },
+  ask: { ...mobileType.subhead, color: colours.needsYouText },
+  command: { ...mobileType.command, color: colours.textDefault },
   buttons: { flexDirection: "row", alignItems: "center", gap: 18, paddingTop: 2 },
   waiting: { opacity: 0.55 },
   approve: {
     height: 36,
     paddingHorizontal: 20,
     borderRadius: 999,
-    backgroundColor: midnight.textStrong,
+    backgroundColor: colours.textStrong,
     alignItems: "center",
     justifyContent: "center",
   },
   pressed: { opacity: 0.8 },
-  approveLabel: { ...mobileType.label, color: midnight.bg },
-  always: { ...mobileType.label, color: midnight.textDefault },
-  deny: { ...mobileType.label, color: midnight.textSubtle },
-  question: { ...mobileType.callout, color: midnight.textDefault },
-  askInline: { color: midnight.needsYouText },
+  approveLabel: { ...mobileType.label, color: colours.ground },
+  always: { ...mobileType.label, color: colours.textDefault },
+  deny: { ...mobileType.label, color: colours.textSubtle },
+  question: { ...mobileType.callout, color: colours.textDefault },
+  askInline: { color: colours.needsYouText },
   chips: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
   firstChoice: {
     height: 34,
     paddingHorizontal: 14,
     borderRadius: 999,
-    backgroundColor: midnight.textStrong,
+    backgroundColor: colours.textStrong,
     justifyContent: "center",
     maxWidth: "100%",
   },
-  firstChoiceLabel: { ...mobileType.subhead, fontWeight: "500", color: midnight.bg },
+  firstChoiceLabel: { ...mobileType.subhead, fontWeight: "500", color: colours.ground },
   choice: {
     height: 34,
     paddingHorizontal: 14,
@@ -226,18 +234,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     maxWidth: "100%",
   },
-  choiceLabel: { ...mobileType.subhead, fontWeight: "500", color: midnight.textDefault },
+  choiceLabel: { ...mobileType.subhead, fontWeight: "500", color: colours.textDefault },
   replyLink: { paddingLeft: 6 },
   reviewWhole: { paddingTop: 2 },
-  replyLabel: { ...mobileType.subhead, fontWeight: "500", color: midnight.textSubtle },
+  replyLabel: { ...mobileType.subhead, fontWeight: "500", color: colours.textSubtle },
   reply: {
     ...mobileType.callout,
-    color: midnight.textStrong,
+    color: colours.textStrong,
     borderWidth: 1,
     borderColor: "#ffffff1f",
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 7,
   },
-  failed: { ...mobileType.footnote, color: midnight.failedText },
-});
+  failed: { ...mobileType.footnote, color: colours.failedText },
+}));

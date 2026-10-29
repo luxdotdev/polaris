@@ -22,15 +22,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import {
-  AppState,
-  FlatList,
-  KeyboardAvoidingView,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { AppState, FlatList, KeyboardAvoidingView, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "../app/navigation.tsx";
 import { Celestial, sessionCelestial } from "../celestial";
@@ -43,7 +35,7 @@ import { Composer, Suggestions } from "./Composer.tsx";
 import { openThread, type ThreadController } from "./controller.ts";
 import { hostThreadSource } from "./hostSource.ts";
 import { useMenuActions } from "../menus/index.ts";
-import { type MobileColours, useTheme } from "../theme";
+import { type MobileColours, themedStyles } from "../theme/index.ts";
 import { PendingRequests } from "./PendingRequests.tsx";
 import { Diamond, Row, type RowSession, type ThreadFocus } from "./Row.tsx";
 import { type HeaderLine, headerLine, outgoingRows, threadRows, type ThreadRow } from "./rows.ts";
@@ -529,22 +521,12 @@ const Missing = ({
   );
 };
 
-const sheets = new WeakMap<MobileColours, ReturnType<typeof makeStyles>>();
-
-const useStyles = () => {
-  const { colours } = useTheme();
-  const held = sheets.get(colours);
-
-  if (held !== undefined) return held;
-  const made = makeStyles(colours);
-  sheets.set(colours, made);
-
-  return made;
-};
+// The arrow defers `makeStyles`, defined just below.
+const useStyles = themedStyles((colours) => makeStyles(colours));
 
 const makeStyles = (colours: MobileColours) =>
-  StyleSheet.create({
-    screen: { flex: 1, backgroundColor: colours.bg },
+  ({
+    screen: { flex: 1, backgroundColor: colours.ground },
     header: {
       flexDirection: "row",
       alignItems: "center",
@@ -597,4 +579,4 @@ const makeStyles = (colours: MobileColours) =>
     queued: { ...mobileType.footnote, color: colours.textSubtle, marginHorizontal: 4 },
     older: { ...mobileType.footnote, color: colours.textFaint, textAlign: "center", padding: 12 },
     missing: { ...mobileType.callout, color: colours.textSubtle, padding: 16 },
-  });
+  }) as const;

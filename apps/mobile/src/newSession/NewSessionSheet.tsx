@@ -1,8 +1,8 @@
 /** The new agent session sheet: iOS's page sheet over home, its content the M6 form. */
-import { midnight } from "@polaris/ui/tokens";
-import { KeyboardAvoidingView, Modal, StyleSheet } from "react-native";
+import { KeyboardAvoidingView, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHosts } from "../runtime/hosts.tsx";
+import { themedStyles } from "../theme/index.ts";
 import { NewSessionForm } from "./NewSessionForm.tsx";
 import { useSheetData } from "./useSheetData.ts";
 
@@ -14,6 +14,7 @@ export interface NewSessionSheetProps {
 }
 
 export const NewSessionSheet = ({ onClose, workspaceId, onStarted }: NewSessionSheetProps) => {
+  const styles = useStyles();
   const { hosts, api } = useSheetData();
   const connections = useHosts();
   // A page sheet starts one top inset down the window; the keyboard is measured from the window.
@@ -35,6 +36,6 @@ export const NewSessionSheet = ({ onClose, workspaceId, onStarted }: NewSessionS
   );
 };
 
-const styles = StyleSheet.create({
-  fill: { flex: 1, backgroundColor: midnight.surfaceSunken },
-});
+const useStyles = themedStyles((colours) => ({
+  fill: { flex: 1, backgroundColor: colours.panel },
+}));

@@ -5,28 +5,18 @@
 import type { Attachment, CelestialBody, HarnessKind } from "@polaris/protocol";
 import { mobileType } from "@polaris/ui/tokens";
 import { memo, type ReactNode, useState } from "react";
-import { type LayoutChangeEvent, Pressable, StyleSheet, Text, View } from "react-native";
+import { type LayoutChangeEvent, Pressable, Text, View } from "react-native";
 import { Thumbnails } from "../attachments/index.ts";
 import { Celestial } from "../celestial";
 import { Markdown } from "../markdown/index.ts";
 import { LongPressMenu, type MenuAction, turnMenu } from "../menus/index.ts";
-import { type MobileColours, useTheme } from "../theme";
+import { type MobileColours, themedStyles } from "../theme/index.ts";
 import { type ThreadRow, type TurnFacts, turnHeading } from "./rows.ts";
 
-type Styles = ReturnType<typeof makeStyles>;
+// The arrow defers `makeStyles`, which is defined at the foot of the module.
+const useStyles = themedStyles((colours) => makeStyles(colours));
 
-const sheets = new WeakMap<MobileColours, Styles>();
-
-const useStyles = (): Styles => {
-  const { colours } = useTheme();
-  const held = sheets.get(colours);
-
-  if (held !== undefined) return held;
-  const made = makeStyles(colours);
-  sheets.set(colours, made);
-
-  return made;
-};
+type Styles = ReturnType<typeof useStyles>;
 
 /** The Critical diamond: an 8pt square turned 45°. */
 export const Diamond = () => <View style={useStyles().diamond} />;
@@ -342,7 +332,7 @@ const ITEM_GAP = 8;
 const TURN_GAP = 18;
 
 const makeStyles = (colours: MobileColours) =>
-  StyleSheet.create({
+  ({
     diamond: {
       width: 6,
       height: 6,
@@ -408,4 +398,4 @@ const makeStyles = (colours: MobileColours) =>
     runSummary: { ...mobileType.footnote, color: colours.textSubtle, flex: 1 },
     chevron: { ...mobileType.subhead, color: colours.textFaint },
     chevronOpen: { transform: [{ rotate: "90deg" }] },
-  });
+  }) as const;

@@ -1,9 +1,9 @@
 /**
- * The diff's colours on Midnight: DESIGN.md's diff fills over `surface-sunken`, or the colourblind
+ * The diff's colours in the current theme: DESIGN.md's diff fills over the panel, or the colourblind
  * (`-cvd`) blue and orange pair with its own text colours. Fills are blended to opaque colours
  * up front, so a line needs one background and no overlay.
  */
-import { midnight } from "@polaris/ui/tokens";
+import type { MobileColours } from "../theme/index.ts";
 
 export interface DiffPalette {
   readonly addedText: string;
@@ -28,17 +28,17 @@ export const over = (colour: string, alpha: number, ground: string): string => {
 /** DESIGN.md: line fills at about 10%. */
 const FILL = 0.1;
 
-export const diffPalette = (colourblind: boolean): DiffPalette =>
+export const diffPalette = (colours: MobileColours, colourblind: boolean): DiffPalette =>
   colourblind
     ? {
-        addedText: midnight.diffAddedCvdText,
-        removedText: midnight.diffRemovedCvdText,
-        addedBg: over(midnight.diffAddedCvd, FILL, midnight.surfaceSunken),
-        removedBg: over(midnight.diffRemovedCvd, FILL, midnight.surfaceSunken),
+        addedText: colours.diffAddedCvdText,
+        removedText: colours.diffRemovedCvdText,
+        addedBg: over(colours.diffAddedCvd, FILL, colours.panel),
+        removedBg: over(colours.diffRemovedCvd, FILL, colours.panel),
       }
     : {
-        addedText: midnight.diffAddedText,
-        removedText: midnight.diffRemovedText,
-        addedBg: over(midnight.diffAdded, FILL, midnight.surfaceSunken),
-        removedBg: over(midnight.diffRemoved, FILL, midnight.surfaceSunken),
+        addedText: colours.diffAddedText,
+        removedText: colours.diffRemovedText,
+        addedBg: over(colours.diffAdded, FILL, colours.panel),
+        removedBg: over(colours.diffRemoved, FILL, colours.panel),
       };
