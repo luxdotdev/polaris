@@ -37,7 +37,7 @@ import { hostThreadSource } from "./hostSource.ts";
 import { useMenuActions } from "../menus/index.ts";
 import { type MobileColours, themedStyles } from "../theme/index.ts";
 import { PendingRequests } from "./PendingRequests.tsx";
-import { Diamond, Row, type RowSession, type ThreadFocus } from "./Row.tsx";
+import { CHROME_SCALE, Diamond, Row, type RowSession, type ThreadFocus } from "./Row.tsx";
 import { type HeaderLine, headerLine, outgoingRows, threadRows, type ThreadRow } from "./rows.ts";
 import { chipAction, openCritical, type Suggestion, suggestions } from "./suggestions.ts";
 import { threadKey, threads } from "./threads.ts";
@@ -140,7 +140,9 @@ const Header = ({
         accessibilityRole="button"
         accessibilityLabel="Back"
       >
-        <Text style={styles.backGlyph}>‹</Text>
+        <Text style={styles.backGlyph} allowFontScaling={false}>
+          ‹
+        </Text>
       </Pressable>
       {celestial === null ? null : (
         <Celestial
@@ -151,10 +153,10 @@ const Header = ({
         />
       )}
       <View style={styles.titles}>
-        <Text style={styles.title} numberOfLines={1}>
+        <Text style={styles.title} numberOfLines={1} maxFontSizeMultiplier={CHROME_SCALE}>
           {title}
         </Text>
-        <Text style={styles.subtitle} numberOfLines={1}>
+        <Text style={styles.subtitle} numberOfLines={1} maxFontSizeMultiplier={CHROME_SCALE}>
           <Text style={styles.subtitleState}>{line.state}</Text>
           {line.rest === "" ? "" : ` · ${line.rest}`}
         </Text>
