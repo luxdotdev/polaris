@@ -1,77 +1,74 @@
-// The widgets' pixel glyphs, from Paper W2 and Home's (apps/mobile/src/home/ui/glyphs.tsx): the
-// needs you hand, a still Working dither in the Harness's hue, and done's dot.
+// The widgets' glyphs, from Paper MX-AX: needs you's four-point star (NeedsYouStar in
+// apps/mobile/src/home/ui/glyphs.tsx), a dot in the Harness's hue while working, and done's dot.
 import SwiftUI
 
-/// Rects on a grid of `size` cells, drawn at the frame's size.
-struct Pixels: View {
+/// A closed polygon on a square grid of `size` units, drawn at the frame's size.
+struct GridShape: Shape {
   let size: CGFloat
-  let rects: [(CGFloat, CGFloat, CGFloat, CGFloat, Double)]
-  let color: Color
+  let points: [(CGFloat, CGFloat)]
 
-  var body: some View {
-    Canvas { context, canvas in
-      let unit = min(canvas.width, canvas.height) / size
-      let origin = CGPoint(
-        x: (canvas.width - unit * size) / 2, y: (canvas.height - unit * size) / 2)
-      for (x, y, w, h, alpha) in rects {
-        context.fill(
-          Path(
-            CGRect(x: origin.x + x * unit, y: origin.y + y * unit, width: w * unit, height: h * unit)),
-          with: .color(color.opacity(alpha)))
-      }
-    }
+  func path(in rect: CGRect) -> Path {
+    let unit = min(rect.width, rect.height) / size
+    let origin = CGPoint(x: rect.midX - unit * size / 2, y: rect.midY - unit * size / 2)
+    var path = Path()
+    path.addLines(points.map { CGPoint(x: origin.x + $0.0 * unit, y: origin.y + $0.1 * unit) })
+    path.closeSubpath()
+    return path
   }
 }
 
-/// A 2-wide square-capped stroke in the hand's 24 grid, as `stroke` in glyphs.tsx.
-private func stroke(_ x1: CGFloat, _ y1: CGFloat, _ x2: CGFloat, _ y2: CGFloat) -> (
-  CGFloat, CGFloat, CGFloat, CGFloat, Double
-) {
-  (min(x1, x2) - 1, min(y1, y2) - 1, abs(x2 - x1) + 2, abs(y2 - y1) + 2, 1)
+/// A four-point star centred on a `size` grid, its arms `arm` from the centre and its waist `waist`.
+private func fourPoint(size: CGFloat, arm: CGFloat, waist: CGFloat) -> GridShape {
+  let c = size / 2
+  return GridShape(
+    size: size,
+    points: [
+      (c, c - arm), (c + waist, c - waist), (c + arm, c), (c + waist, c + waist), (c, c + arm),
+      (c - waist, c + waist), (c - arm, c), (c - waist, c - waist),
+    ])
 }
-
-private let hand = [
-  stroke(19, 21, 19, 7), stroke(16, 10, 16, 5), stroke(16, 5, 17, 5), stroke(13, 10, 13, 3),
-  stroke(13, 3, 14, 3), stroke(10, 10, 10, 1), stroke(10, 1, 11, 1), stroke(7, 12, 7, 3),
-  stroke(7, 3, 10, 3), stroke(4, 10, 4, 16), stroke(6, 18, 6, 18), stroke(8, 20, 8, 21),
-]
-
-/// The 12-point Working dither's first frame (@polaris/ui/dither), still: widgets don't animate.
-/// src/dither/strip.test.ts checks it against ditherFrameAt.
-private let dither: [(CGFloat, CGFloat, CGFloat, CGFloat, Double)] = [
-  (0, 0, 2, 2, 0.70), (2, 0, 2, 2, 0.77), (4, 0, 2, 2, 0.83), (6, 0, 2, 2, 0.87),
-  (8, 0, 2, 2, 0.88), (10, 0, 2, 2, 0.86), (2, 2, 2, 2, 0.81), (6, 2, 2, 2, 0.88),
-  (8, 2, 2, 2, 0.87), (10, 2, 2, 2, 0.83), (0, 4, 2, 2, 0.79), (2, 4, 2, 2, 0.85),
-  (4, 4, 2, 2, 0.88), (6, 4, 2, 2, 0.88), (8, 4, 2, 2, 0.85), (2, 6, 2, 2, 0.87),
-  (6, 6, 2, 2, 0.86), (10, 6, 2, 2, 0.75), (0, 8, 2, 2, 0.86), (2, 8, 2, 2, 0.88),
-  (4, 8, 2, 2, 0.87), (6, 8, 2, 2, 0.83), (8, 8, 2, 2, 0.77), (0, 10, 2, 2, 0.88),
-  (2, 10, 2, 2, 0.88), (6, 10, 2, 2, 0.79), (10, 10, 2, 2, 0.65),
-]
 
 struct Glyph: View {
   let row: WidgetRow
+  let palette: ThemePalette
 
   var body: some View {
     switch row.glyph {
     case "needs-you":
-      Pixels(size: 24, rects: hand, color: Palette.needsYou).frame(width: 20, height: 20)
-    case "working", "starting":
-      Pixels(size: 12, rects: dither, color: Palette.harness(row.harness))
+      fourPoint(size: 12, arm: 5.5, waist: 1.1).fill(palette.needsYou.color)
         .frame(width: 12, height: 12)
+    case "working", "starting":
+      Circle().fill(palette.harness(row.harness).color).frame(width: 8, height: 8)
         .opacity(row.glyph == "starting" ? 0.5 : 1)
     case "failed":
-      Circle().fill(Palette.failed).frame(width: 6, height: 6)
+      Circle().fill(palette.failed.color).frame(width: 6, height: 6)
     default:
-      Circle().fill(Palette.textFaint).frame(width: 6, height: 6)
+      Circle().fill(palette.textFaint.color).frame(width: 6, height: 6)
     }
   }
 }
 
-/// The needs you section's star: Starlight arms around a full core.
+/// The summary's mark: the app icon's star, a pale blue outer star round a Starlight one.
 struct StarMark: View {
+  let palette: ThemePalette
+
   var body: some View {
-    Pixels(
-      size: 10, rects: [(4, 0, 2, 10, 0.7), (0, 4, 10, 2, 0.7), (3, 3, 4, 4, 1)],
-      color: Palette.starlight)
+    ZStack {
+      fourPoint(size: 16, arm: 8, waist: 1.4).fill(ThemeColour(0x7C9FE8).color)
+      fourPoint(size: 16, arm: 5, waist: 0.9).fill(palette.starlight.color)
+      Circle().fill(Color.white).scaleEffect(2.8 / 16)
+    }
+  }
+}
+
+extension ThemePalette {
+  /// A Harness's hue, as `harnessHue` in apps/mobile/src/home/ui/rowLook.ts; unknown is neutral.
+  func harness(_ kind: String) -> ThemeColour {
+    switch kind {
+    case "claude": harnessClaudeCode
+    case "codex": harnessCodex
+    case "opencode": harnessOpencode
+    default: textSubtle
+    }
   }
 }
