@@ -1,5 +1,5 @@
 /**
- * The diff bench (ENG-458): Review on a synthetic 2,000-line Turn, timed on the device. It parses
+ * The diff bench (ENG-458): Review's diff list on a synthetic 2,000-line Turn, timed on the device. It parses
  * the patch with Pierre's parser, then records frame intervals while the list scrolls, driven
  * from JS at a fast fling's speed ("auto") or by real swipes ("manual"), and shows the numbers.
  */
@@ -12,11 +12,12 @@ import {
   Text,
   View,
 } from "react-native";
-import { themedStyles } from "../../theme/index.ts";
+import { themedStyles, useTheme } from "../../theme/index.ts";
+import { DiffList } from "../DiffList.tsx";
 import { type DiffFileInput, type DiffRow, diffRows } from "../diffRows.ts";
-import { acceptState } from "../model.ts";
+import type { FindingActions } from "../FindingCard.tsx";
+import { diffPalette } from "../palette.ts";
 import { parsePatch } from "../patch.ts";
-import { ReviewView } from "../ReviewView.tsx";
 import { benchPatch, benchSummary } from "./fixture.ts";
 import { displayBudget, frameStats, statsLine } from "./frames.ts";
 
@@ -32,6 +33,15 @@ const MANUAL_MS = 15_000;
 const IDLE_FRAMES = 90;
 
 const noop = () => {};
+
+const NONE: ReadonlySet<string> = new Set();
+
+const actions: FindingActions = {
+  harnessName: "Claude Code",
+  askToFix: noop,
+  verdict: noop,
+  sent: NONE,
+};
 
 const prepare = (lines: number) => {
   const start = performance.now();
@@ -51,6 +61,7 @@ const prepare = (lines: number) => {
   return {
     files,
     summary,
+    list: rows,
     rows: rows.length,
     lines: rows.filter((r) => r.kind === "line").length,
     bytes: patch.length,
@@ -93,6 +104,7 @@ export const DiffBench = ({
   colourblind?: boolean;
 }) => {
   const styles = useStyles();
+  const { colours } = useTheme();
   const prepared = useMemo(() => prepare(lines), [lines]);
   const list = useRef<FlatList<DiffRow>>(null);
   const events: Array<number> = [];
@@ -157,7 +169,7 @@ export const DiffBench = ({
 
           setReport(text);
           console.log(
-            `POLARIS_DIFF_BENCH ${JSON.stringify({ mode, prepared: { ...prepared, files: undefined, summary: undefined }, js, native, content: scroll.current.content })}`
+            `POLARIS_DIFF_BENCH ${JSON.stringify({ mode, prepared: { ...prepared, files: undefined, summary: undefined, list: undefined }, js, native, content: scroll.current.content })}`
           );
         }
       );
@@ -183,28 +195,15 @@ export const DiffBench = ({
 
   return (
     <View style={styles.screen}>
-      <ReviewView
-        turnNumber={24}
-        sessionTitle="Diff bench"
-        harnessName="Claude Code"
-        files={prepared.files}
-        diffProblem={null}
-        summary={prepared.summary}
-        accept={acceptState({
-          risk: { kind: "ready", value: prepared.summary },
-          turnEnded: true,
-          accepted: false,
-          sending: false,
-        })}
-        colourblind={colourblind}
-        openAll
-        notice={null}
-        sent={new Set()}
-        onAccept={noop}
-        onSendBack={noop}
-        onAskToFix={noop}
-        onVerdict={noop}
-        listRef={list}
+      <DiffList
+        ref={list}
+        rows={prepared.list}
+        palette={diffPalette(colours, colourblind)}
+        expanded={NONE}
+        actions={actions}
+        onToggleFile={noop}
+        onToggleFinding={noop}
+        bottomInset={40}
         onScroll={onScroll}
       />
       <View pointerEvents="none" style={styles.report}>

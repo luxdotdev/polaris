@@ -1,7 +1,7 @@
 /**
- * Review on iPhone (Paper M5; DESIGN.md Review and Mobile App) for one agent session's Turn, over
- * the Host's shared connection: `ReviewView` fed by `useReview`, with Accept, Send back, "Ask
- * {harness} to fix" and verdicts sent to the Host.
+ * A turn's Review on iPhone (Paper MX-N) for one agent session's Turn, over the Host's shared
+ * connection: `ReviewView` fed by `useReview`, with Accept, Send back, "Ask {harness} to fix",
+ * verdicts and questions to the reviewer sent to the Host.
  */
 import {
   type Command,
@@ -18,8 +18,10 @@ import {
   sendBackCommand,
   verdictCommand,
 } from "./actions.ts";
+import { canAccept } from "./accept/index.ts";
 import type { LineRow } from "./diffRows.ts";
 import { acceptState } from "./model.ts";
+import { useAsks } from "./ReviewScreen/useAsks.ts";
 import { ReviewView } from "./ReviewView.tsx";
 import { reviewSlot } from "./submissions.ts";
 import { useReview } from "./useReview.ts";
@@ -49,6 +51,7 @@ export const ReviewScreen = ({
   const submissions = useReviewSubmissions(hostId, live);
   const session = review.session.kind === "ready" ? review.session.value.session : null;
   const summary = review.risk.kind === "ready" ? review.risk.value : null;
+  const asks = useAsks(live, summary);
 
   const submit = useCallback(
     (slot: string, payload: string, build: (itemId: string) => Command) => {
@@ -70,10 +73,12 @@ export const ReviewScreen = ({
     sending: acceptSlot !== null && submissions.state(acceptSlot)?.kind === "sending",
   });
 
+  const acceptable = canAccept(accept);
+
   const onAccept = useCallback(() => {
-    if (turn === null || acceptSlot === null || accept.kind !== "ready") return;
+    if (turn === null || acceptSlot === null || !acceptable) return;
     submit(acceptSlot, "", () => acceptCommand(sessionId, turn.id));
-  }, [accept.kind, acceptSlot, submit, sessionId, turn]);
+  }, [acceptable, acceptSlot, submit, sessionId, turn]);
 
   const onSendBack = useCallback(
     (reply: string) => {
@@ -108,6 +113,11 @@ export const ReviewScreen = ({
     [submit, summary]
   );
 
+  const onAskReviewer = useCallback(
+    (finding: RiskFinding, question: string) => asks.ask(finding.id, question),
+    [asks.ask]
+  );
+
   const sent = new Set(
     (summary?.findings ?? [])
       .filter((f) => submissions.state(reviewSlot.fix(sessionId, f.id))?.kind === "sent")
@@ -136,11 +146,14 @@ export const ReviewScreen = ({
       colourblind={colourblind}
       notice={notice ?? (review.risk.kind === "failed" ? review.risk.message : null)}
       sent={sent}
+      asks={asks.asks}
+      askBlocked={asks.blocked}
       onBack={onBack}
       onAccept={onAccept}
       onSendBack={onSendBack}
       onAskToFix={onAskToFix}
       onVerdict={onVerdict}
+      onAskReviewer={onAskReviewer}
     />
   );
 };
