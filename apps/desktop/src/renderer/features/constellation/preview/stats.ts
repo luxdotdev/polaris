@@ -137,7 +137,16 @@ const COVERAGE = [
   },
 ];
 
-export const statsFixture = (revision: number): ConstellationStatsView => ({
+/** `tasks` replaces the five Tasks' Usage with that many (the break-UI pass: 0 or hundreds). */
+const perTask = (tasks: number | undefined) =>
+  tasks === undefined
+    ? PER_TASK
+    : Array.from({ length: tasks }, (_, i) => ({
+        taskId: TaskId.make(i === 0 ? "northwind-portal-migration-wave-12-gate" : `T${i + 1}`),
+        usage: priced(1_000 + i * 37, 200 + i, 0.01 + i / 1000),
+      }));
+
+export const statsFixture = (revision: number, tasks?: number): ConstellationStatsView => ({
   stats: new ConstellationStats({
     constellationId: CONSTELLATION,
     revision,
@@ -186,11 +195,11 @@ export const statsFixture = (revision: number): ConstellationStatsView => ({
     },
     usage: {
       total: raw(TOTAL),
-      perTask: PER_TASK.map((t) => ({ taskId: t.taskId, usage: raw(t.usage) })),
+      perTask: perTask(tasks).map((t) => ({ taskId: t.taskId, usage: raw(t.usage) })),
       perRole: ROLES.map((r) => ({ role: r.role, usage: raw(r.usage) })),
     },
     coverage: COVERAGE,
   }),
-  usage: { total: TOTAL, perTask: PER_TASK, perRole: ROLES, perDigest: DIGESTS },
+  usage: { total: TOTAL, perTask: perTask(tasks), perRole: ROLES, perDigest: DIGESTS },
   pricesFetchedAt: new Date().toISOString(),
 });

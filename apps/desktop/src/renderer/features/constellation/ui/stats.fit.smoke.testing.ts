@@ -2,7 +2,7 @@
  * The Stats popover fits a 1280×720 window (ENG-507, rule/popover-fits-window): its header and
  * status line stay on screen and its body scrolls to the last row.
  *
- *   node src/renderer/features/constellation/ui/stats.fit.smoke.testing.ts [--out <dir>]
+ *   node src/renderer/features/constellation/ui/stats.fit.smoke.testing.ts [--out <dir>] [--tasks <n>]
  */
 import { strict as assert } from "node:assert";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -21,6 +21,10 @@ const EDGE = 12;
 const at = process.argv.indexOf("--out");
 
 const out = at === -1 ? null : (process.argv[at + 1] ?? null);
+
+const tasksAt = process.argv.indexOf("--tasks");
+
+const tasks = tasksAt === -1 ? "" : `&tasks=${process.argv[tasksAt + 1] ?? ""}`;
 
 const root = await mkdtemp(join(tmpdir(), "stats-fit-"));
 
@@ -58,7 +62,7 @@ try {
     await page.setViewportSize({ width: WIDTH, height: HEIGHT });
 
     for (const theme of ["dark", "midnight", "light"]) {
-      await page.goto(`${base}?theme=${theme}`);
+      await page.goto(`${base}?theme=${theme}${tasks}`);
       await page.getByTestId("stats-work").waitFor();
       await page.waitForTimeout(400);
 
@@ -73,7 +77,9 @@ try {
 
       if (out !== null) {
         await mkdir(out, { recursive: true });
-        await page.screenshot({ path: join(out, `stats-1280x720-${theme}.png`) });
+        await page.screenshot({
+          path: join(out, `stats${tasks.replace(/\W+/g, "-")}-1280x720-${theme}.png`),
+        });
       }
 
       // Scrolls whichever element scrolls, then checks the last well is inside it.
@@ -97,7 +103,9 @@ try {
       assert.ok(title !== null && title.y >= card.top, `${theme}: the header scrolled away`);
 
       if (out !== null)
-        await page.screenshot({ path: join(out, `stats-1280x720-${theme}-end.png`) });
+        await page.screenshot({
+          path: join(out, `stats${tasks.replace(/\W+/g, "-")}-1280x720-${theme}-end.png`),
+        });
     }
 
     assert.deepEqual(errors, []);

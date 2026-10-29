@@ -8,7 +8,11 @@ import { c1Record } from "../preview/graph.ts";
 import { statsFixture } from "../preview/stats.ts";
 import { Header } from "./header.tsx";
 
-const theme = new URLSearchParams(location.search).get("theme") ?? "dark";
+const query = new URLSearchParams(location.search);
+
+const theme = query.get("theme") ?? "dark";
+
+const tasks = query.get("tasks");
 
 document.documentElement.dataset["theme"] = theme;
 
@@ -17,7 +21,7 @@ standInBridge({
     // SAFETY: only constellation.stats is answered, with its own output type.
     Promise.resolve(
       (method === "constellation.stats"
-        ? { ok: true, value: statsFixture(37) }
+        ? { ok: true, value: statsFixture(37, tasks === null ? undefined : Number(tasks)) }
         : { ok: false, error: { code: "Unsupported", message: "fixture" } }) as never
     ),
   subscribe: () => () => undefined,
