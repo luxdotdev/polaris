@@ -1,7 +1,8 @@
 /**
  * Desktop test preload: the Client's copy reads as macOS on every runner, Vite's `?worker`
- * imports load as a Worker that can't start (tests parse on the main thread), and happy-dom
- * never replaces Bun's fetch primitives, which main-process tests serve and read.
+ * imports load as a Worker that can't start (tests parse on the main thread), happy-dom
+ * never replaces Bun's fetch primitives, which main-process tests serve and read, and the DOM
+ * exists before any test file loads, whatever order the runner's filesystem lists them in.
  */
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { plugin } from "bun";
@@ -38,3 +39,6 @@ GlobalRegistrator.register = (...args: Parameters<typeof GlobalRegistrator.regis
 
   Object.assign(globalThis, native);
 };
+
+// Before any test file loads: Radix and react-dom check for a DOM once, when their modules load.
+GlobalRegistrator.register();
