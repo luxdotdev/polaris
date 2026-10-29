@@ -81,6 +81,51 @@ describe.skipIf(!enabled)("Claude driver against the real claude", () => {
   );
 
   test(
+    "suggests the title Claude Code generates for the session",
+    async () => {
+      const driver = makeClaudeDriver();
+      const cwd = tempDirectory(join(tmpdir(), "polaris-e2e-claude-title-"));
+      const scope = Effect.runSync(Scope.make());
+
+      const session = await Effect.runPromise(
+        driver
+          .open({
+            sessionId: SessionId.make("e2e-title"),
+            cwd,
+            permissionMode: "supervised",
+            model: "haiku",
+            effort: null,
+            resumeCursor: null,
+          })
+          .pipe(Scope.provide(scope))
+      );
+
+      const events: HarnessEvent[] = [];
+      Effect.runFork(Stream.runForEach(session.events, (e) => Effect.sync(() => events.push(e))));
+      await Effect.runPromise(
+        session.sendTurn({
+          turnId: TurnId.make("e2e-title-turn"),
+          prompt:
+            "I want to plan a migration of a Postgres database from version 14 to 16. For now, reply with the single word ok and nothing else. Do not use any tools.",
+          attachments: [],
+          model: null,
+          effort: null,
+        })
+      );
+
+      for (let i = 0; i < 1200 && !events.some(HarnessEvent.$is("TitleSuggested")); i++)
+        await Bun.sleep(100);
+
+      const title = events.find(HarnessEvent.$is("TitleSuggested"))?.title ?? "";
+      expect(title.toLowerCase()).toContain("postgres");
+      expect(title).not.toContain("I want to plan");
+      await Effect.runPromise(Scope.close(scope, Exit.void));
+      console.log("e2e title:", title);
+    },
+    { timeout: 180_000 }
+  );
+
+  test(
     "lists a Workspace's own Skill and command, and runs the command from its /name",
     async () => {
       const driver = makeClaudeDriver();

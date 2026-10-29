@@ -3,6 +3,7 @@
  * reads: Agent SDK content blocks, tool inputs and results, and the bodies of In
  * Terminal hooks. Fields the driver doesn't read are ignored.
  */
+import type { SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { TurnItem } from "@polaris/protocol";
 import { Effect, Option, Schema } from "effect";
 
@@ -123,9 +124,20 @@ export const toolFields = (payload: ToolPayload): ToolFields =>
   Option.getOrElse(decodeToolFields(payload), () => NO_FIELDS);
 
 /** A result's `modelUsage`: each Model's context window (older CLIs may leave it out). */
-export const decodeModelUsage = Schema.decodeUnknownOption(
+const decodeModelUsage = Schema.decodeUnknownOption(
   Schema.Record(Schema.String, Schema.Struct({ contextWindow: Schema.Number }))
 );
+
+/** The largest context window among the Models a result used: the Turn's own Model. */
+export const contextWindowOf = (result: Pick<SDKResultMessage, "modelUsage">): number | null => {
+  const usage = decodeModelUsage(result.modelUsage);
+
+  const windows = Option.isSome(usage)
+    ? Object.values(usage.value).map((model) => model.contextWindow)
+    : [];
+
+  return windows.length === 0 ? null : Math.max(...windows);
+};
 
 const Todo = Schema.Struct({
   content: Schema.String,
@@ -169,6 +181,7 @@ export const HookBody = Schema.Struct({
   notification_type: StringOrNull,
   message: StringOrNull,
   last_assistant_message: StringOrNull,
+  transcript_path: StringOrNull,
 });
 
 export type HookBody = typeof HookBody.Type;
