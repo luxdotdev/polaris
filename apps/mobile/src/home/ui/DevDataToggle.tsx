@@ -16,36 +16,51 @@ const CHOICES: ReadonlyArray<readonly [DevHomeData, string]> = [
   ["paper", "Paper"],
 ];
 
+/** A plain segmented control pinned near the foot: development chrome, never product UI. */
+export const DevSegments = <T extends string>({
+  choices,
+  value,
+  onChoose,
+  bottom,
+}: {
+  readonly choices: ReadonlyArray<readonly [T, string]>;
+  readonly value: T;
+  readonly onChoose: (value: T) => void;
+  readonly bottom: number;
+}) => (
+  <View
+    pointerEvents="box-none"
+    style={{ position: "absolute", left: 0, right: 0, bottom, alignItems: "center" }}
+  >
+    <View style={{ flexDirection: "row", padding: 2, borderRadius: 8, backgroundColor: "#888" }}>
+      {choices.map(([choice, label]) => (
+        <Pressable
+          key={choice}
+          accessibilityRole="button"
+          accessibilityState={{ selected: choice === value }}
+          onPress={() => onChoose(choice)}
+          style={{
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 6,
+            backgroundColor: choice === value ? "#fff" : "transparent",
+          }}
+        >
+          <Text maxFontSizeMultiplier={1} style={{ fontSize: 12, color: "#000" }}>
+            {label}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  </View>
+);
+
 export const DevDataToggle = ({ bottom }: { readonly bottom: number }) => {
   const data = useDevHomeData();
 
   if (!devHomeDataOn()) return null;
 
   return (
-    <View
-      pointerEvents="box-none"
-      style={{ position: "absolute", left: 0, right: 0, bottom, alignItems: "center" }}
-    >
-      <View style={{ flexDirection: "row", padding: 2, borderRadius: 8, backgroundColor: "#888" }}>
-        {CHOICES.map(([value, label]) => (
-          <Pressable
-            key={value}
-            accessibilityRole="button"
-            accessibilityState={{ selected: value === data }}
-            onPress={() => chooseDevHomeData(value)}
-            style={{
-              paddingHorizontal: 8,
-              paddingVertical: 4,
-              borderRadius: 6,
-              backgroundColor: value === data ? "#fff" : "transparent",
-            }}
-          >
-            <Text maxFontSizeMultiplier={1} style={{ fontSize: 12, color: "#000" }}>
-              {label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-    </View>
+    <DevSegments choices={CHOICES} value={data} onChoose={chooseDevHomeData} bottom={bottom} />
   );
 };

@@ -15,7 +15,14 @@ import { useRelay } from "../relay/RelayProvider.tsx";
 import { Chevron } from "../settings/icons.tsx";
 import { themedStyles, useTheme } from "../theme/index.ts";
 import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
-import { DEV_HOST_SHEET, DEV_HOSTS } from "./dev.ts";
+import { DevSegments } from "../home/ui/DevDataToggle.tsx";
+import {
+  chooseDevHosts,
+  DEV_HOST_SHEET,
+  type DevHostsData,
+  useDevHosts,
+  useDevHostsData,
+} from "./dev.ts";
 import { HostSheet } from "./HostSheet.tsx";
 import {
   buildHosts,
@@ -83,6 +90,7 @@ const HostRow = ({
         <Text
           style={[styles.name, offline ? styles.offlineName : null]}
           numberOfLines={1}
+          ellipsizeMode="middle"
           maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
         >
           {row.name}
@@ -173,6 +181,23 @@ const LinkRow = ({ onLink }: { readonly onLink: () => void }) => {
   );
 };
 
+const DEV_CHOICES: ReadonlyArray<readonly [DevHostsData, string]> = [
+  ["paper", "Paper"],
+  ["worst", "Worst case"],
+  ["offline", "All offline"],
+  ["one", "One"],
+  ["huge", "64"],
+  ["empty", "None"],
+];
+
+const DevHostsToggle = ({ bottom }: { readonly bottom: number }) => {
+  const data = useDevHostsData();
+
+  return data === null ? null : (
+    <DevSegments choices={DEV_CHOICES} value={data} onChoose={chooseDevHosts} bottom={bottom} />
+  );
+};
+
 export const HostsScreen = ({
   onBack,
   onLink,
@@ -184,7 +209,8 @@ export const HostsScreen = ({
   const insets = useSafeAreaInsets();
   const relay = useRelay();
   const followed = useFollowedHosts();
-  const hosts = DEV_HOSTS ?? followed.map(toInput);
+  const dev = useDevHosts();
+  const hosts = dev ?? followed.map(toInput);
   const [openId, setOpenId] = useState<string | null>(DEV_HOST_SHEET);
   const [unlinkLeft, setUnlinkLeft] = useState<string | null>(null);
   const now = useTicking(hosts.some(({ state }) => state === "reconnecting"));
@@ -192,12 +218,12 @@ export const HostsScreen = ({
   const open = hosts.find((host) => host.hostId === openId) ?? null;
 
   const relayLinked = (host: HostInput) =>
-    DEV_HOSTS === null ? relay.routeOf(host.hostId) === "relay" : host.route === "relay";
+    dev === null ? relay.routeOf(host.hostId) === "relay" : host.route === "relay";
 
   const unlink = (hostId: string) => () => {
     setOpenId(null);
 
-    if (DEV_HOSTS !== null) return;
+    if (dev !== null) return;
     void relay
       .unlinkHost(hostId)
       .then((kept) => setUnlinkLeft(unlinkNote(kept.map((host) => host.hostName))));
@@ -239,6 +265,7 @@ export const HostsScreen = ({
         onClose={() => setOpenId(null)}
         onUnlink={open !== null && relayLinked(open) ? unlink(open.hostId) : null}
       />
+      <DevHostsToggle bottom={insets.bottom + 4} />
     </HorizonScreen>
   );
 };

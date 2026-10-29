@@ -6,8 +6,9 @@
 import type { ApprovalRequest } from "@polaris/protocol";
 import { mobileFont, mobileType, mobileWeight } from "@polaris/ui/tokens";
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, Settings, Text, View } from "react-native";
 import { useHomeHosts } from "../home/feed/useHomeHosts.ts";
+import { DevDataToggle } from "../home/ui/DevDataToggle.tsx";
 import { buildHome, type SessionRow } from "../home/model/home.ts";
 import { age, harnessName, shortHostName } from "../home/model/format.ts";
 import { approvalDetail, quickQuestion } from "../home/model/lines.ts";
@@ -21,6 +22,7 @@ import {
   skyLine,
   starLimit,
   starsOf,
+  moreLine,
   targetsOf,
   wantsDetail,
   wantsLine,
@@ -32,6 +34,14 @@ import type { Rect } from "./posture.ts";
 const HERO_EDGE = "#ffffff1f";
 
 const HERO_SHADOW = "#000000a0";
+
+/** A development build launched with `-polarisDevNight 1|0` forces the night dimming on or off. */
+const DEV_NIGHT: boolean | null = (() => {
+  if (!__DEV__ || Platform.OS !== "ios") return null;
+  const value: unknown = Settings.get("polarisDevNight");
+
+  return value === "1" || value === "0" ? value === "1" : null;
+})();
 
 type Send = (row: SessionRow, approval: ApprovalRequest, reply: Reply) => Promise<void>;
 
@@ -121,6 +131,8 @@ const Permission = ({
             <Text
               maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
               numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
               style={index === 0 ? styles.approveLabel : styles.buttonLabel}
             >
               {choice.label}
@@ -241,7 +253,7 @@ const Target = ({
         >
           {row.session.title === "" ? "Untitled agent session" : row.session.title}
         </Text>
-        <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.meta}>
+        <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} numberOfLines={1} style={styles.meta}>
           {[
             harnessName(row.session.harness),
             shortHostName(row.hostName),
@@ -270,7 +282,7 @@ export const Monitor = ({ top, bottom, division, onReply }: MonitorProps) => {
   const home = useMemo(() => buildHome(hosts, null), [hosts]);
   const stars = useMemo(() => starsOf(home, starLimit(top.width)), [home, top.width]);
   const targets = targetsOf(home, 4);
-  const night = isNight(now.getHours());
+  const night = DEV_NIGHT ?? isNight(now.getHours());
 
   const send: Send = (row, approval, reply) => {
     const connection = connections.find((c) => c.hostId === row.hostId);
@@ -289,7 +301,9 @@ export const Monitor = ({ top, bottom, division, onReply }: MonitorProps) => {
         contentContainerStyle={styles.bottom}
       >
         {targets.length === 0 ? (
-          <Text style={styles.calm}>Nothing needs you.</Text>
+          home.working === 0 ? null : (
+            <Text style={styles.calm}>Nothing needs you.</Text>
+          )
         ) : (
           <>
             <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.kicker}>
@@ -305,9 +319,15 @@ export const Monitor = ({ top, bottom, division, onReply }: MonitorProps) => {
                 onReply={(r) => onReply(r.hostId, r.session.id)}
               />
             ))}
+            {home.needsYou > targets.length ? (
+              <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.more}>
+                {moreLine(home.needsYou - targets.length)}
+              </Text>
+            ) : null}
           </>
         )}
       </ScrollView>
+      <DevDataToggle bottom={24} />
     </View>
   );
 };
@@ -354,10 +374,11 @@ const useStyles = themedStyles((c) => ({
     borderColor: c.hairline,
     backgroundColor: c.well,
   },
-  titleLine: { flexDirection: "row", alignItems: "baseline", gap: 10 },
-  title: { ...sans(17, 22, true), flex: 1, color: c.textStrong },
+  titleLine: { flexDirection: "row", flexWrap: "wrap", alignItems: "baseline", columnGap: 10 },
+  title: { ...sans(17, 22, true), flexGrow: 1, flexShrink: 1, flexBasis: 160, color: c.textStrong },
   heroTitle: { fontSize: 19, lineHeight: 24 },
-  meta: { ...sans(13, 18), color: c.textSubtle },
+  meta: { ...sans(13, 18), flexShrink: 1, color: c.textSubtle },
+  more: { ...sans(13, 18), color: c.textSubtle, alignSelf: "center" },
   command: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -379,7 +400,7 @@ const useStyles = themedStyles((c) => ({
     borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
   },
   approve: { flex: 1.2, backgroundColor: c.textStrong },
   outline: { borderWidth: 1, borderColor: HERO_EDGE, backgroundColor: c.well },
