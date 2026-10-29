@@ -7,8 +7,10 @@ import { useEffect, useMemo } from "react";
 import { Platform } from "react-native";
 import { homeHostsOf, useFollowedHosts } from "../home/feed/useFollowedHosts.ts";
 import { buildHome } from "../home/model/home.ts";
+import { useTheme } from "../theme/index.ts";
 import { APP_GROUP, SNAPSHOT_KEY, widgetPublisher } from "./publish.ts";
 import { widgetSnapshot } from "./snapshot.ts";
+import { THEME_KEY, themePublisher } from "./theme.ts";
 
 /** `modules/polaris-widgets`: absent off iOS and in builds made before it was added. */
 interface PolarisWidgetsModule {
@@ -20,6 +22,11 @@ const native = requireOptionalNativeModule<PolarisWidgetsModule>("PolarisWidgets
 
 const publisher = widgetPublisher({
   write: (json) => native?.write(APP_GROUP, SNAPSHOT_KEY, json),
+  reload: () => native?.reload(),
+});
+
+const publishTheme = themePublisher({
+  write: (theme) => native?.write(APP_GROUP, THEME_KEY, theme),
   reload: () => native?.reload(),
 });
 
@@ -46,6 +53,13 @@ export const WidgetSync = (): null => {
   useEffect(() => {
     if (snapshot !== null) publisher.publish(snapshot);
   }, [snapshot]);
+
+  const { name } = useTheme();
+
+  // On every launch too: the extensions read Midnight until the app has written its theme.
+  useEffect(() => {
+    if (native !== null && Platform.OS === "ios") publishTheme(name);
+  }, [name]);
 
   return null;
 };

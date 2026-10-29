@@ -25,6 +25,8 @@ export interface InstrumentSheetProps {
   readonly initialIndex?: number;
   /** False keeps a drag from dismissing it; close and the scrim still do. Default true. */
   readonly dismissible?: boolean;
+  /** False draws no scrim: the screen behind stays lit and takes touches (MX-AH). Default true. */
+  readonly scrim?: boolean;
   /** Called with the detent's index each time the sheet comes to rest. */
   readonly onDetentChange?: (index: number) => void;
   /**

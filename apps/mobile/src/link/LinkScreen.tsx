@@ -1,18 +1,14 @@
 /**
- * Link this iPhone (Paper M8): scan the code the Desktop App shows in Settings → Devices,
- * or paste its link, then link once through the Polaris Relay. The link holds a one-time
- * secret: it goes only to `link`, never to a log or the screen.
+ * Link this iPhone (Paper M8, MX-AH): the night sky over the scan sheet, which scans the code the
+ * Desktop App shows in Settings → Devices, or takes its pasted link, and links once.
  */
 import type { LinkedHost } from "@polaris/client/relay";
-import { decodeLinkString } from "@polaris/protocol";
 import { mobileType } from "@polaris/ui/tokens";
-import { Option } from "effect";
-import { type BarcodeScanningResult, CameraView, useCameraPermissions } from "expo-camera";
-import { useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRelay } from "../relay/RelayProvider.tsx";
-import { themedStyles, useTheme } from "../theme/index.ts";
+import { themedStyles } from "../theme/index.ts";
+import { PAIRING_COPY, ScanSheet } from "./ScanSheet.tsx";
 import { Sky } from "./Sky.tsx";
 
 export interface LinkScreenProps {
@@ -21,185 +17,30 @@ export interface LinkScreenProps {
   readonly onCancel?: (() => void) | undefined;
 }
 
-type Step =
-  | { readonly kind: "scan" }
-  | { readonly kind: "paste" }
-  | { readonly kind: "linking"; readonly hostName: string; readonly count: number }
-  | { readonly kind: "linked"; readonly hostName: string; readonly count: number }
-  | { readonly kind: "failed"; readonly message: string };
-
-const hostsLine = (count: number, hostName: string) =>
-  `Found ${count} ${count === 1 ? "host" : "hosts"} on ${hostName}`;
-
-const StatusRow = ({ step }: { readonly step: Step }) => {
-  const styles = useStyles();
-
-  if (step.kind === "linking" || step.kind === "linked")
-    return (
-      <View style={styles.status} accessibilityLiveRegion="polite">
-        <Text style={styles.statusMark}>{step.kind === "linked" ? "✓" : "·"}</Text>
-        <View style={styles.statusText}>
-          <Text style={styles.statusTitle} numberOfLines={1}>
-            {hostsLine(step.count, step.hostName)}
-          </Text>
-          <Text style={styles.statusDetail}>
-            {step.kind === "linked" ? "Linked this iPhone" : "Linking through the Polaris Relay…"}
-          </Text>
-        </View>
-      </View>
-    );
-
-  if (step.kind === "failed")
-    return (
-      <View style={styles.status} accessibilityLiveRegion="assertive">
-        <Text style={[styles.statusMark, styles.failedMark]}>!</Text>
-        <Text style={[styles.statusTitle, styles.statusText]}>{step.message}</Text>
-      </View>
-    );
-
-  return null;
-};
-
-const Scanner = ({ onCode }: { readonly onCode: (text: string) => void }) => {
-  const styles = useStyles();
-  const [permission, request] = useCameraPermissions();
-
-  if (permission?.granted === true)
-    return (
-      <CameraView
-        style={StyleSheet.absoluteFill}
-        facing="back"
-        barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-        onBarcodeScanned={(result: BarcodeScanningResult) => onCode(result.data)}
-      />
-    );
-
-  return (
-    <Pressable
-      style={styles.cameraOff}
-      accessibilityRole="button"
-      onPress={() => void request()}
-      disabled={permission?.canAskAgain === false}
-    >
-      <Text style={styles.cameraOffText}>
-        {permission?.canAskAgain === false
-          ? "Camera access is off. Turn it on in Settings, or paste the link."
-          : "Allow the camera to scan the code"}
-      </Text>
-    </Pressable>
-  );
-};
-
 export const LinkScreen = ({ onLinked, onCancel }: LinkScreenProps) => {
   const styles = useStyles();
-  const { colours } = useTheme();
   const relay = useRelay();
-  const [step, setStep] = useState<Step>({ kind: "scan" });
-  const [pasted, setPasted] = useState("");
-  const busy = useRef(false);
-
-  const start = (text: string) => {
-    if (busy.current) return;
-    const envelope = Option.getOrNull(decodeLinkString(text));
-
-    // A QR code that isn't a Polaris link is ignored while scanning.
-    if (envelope === null) {
-      if (step.kind === "paste") setStep({ kind: "failed", message: "That isn't a Polaris link." });
-
-      return;
-    }
-
-    busy.current = true;
-    const hostName = envelope.link.hostName;
-    const count = 1 + envelope.hosts.length;
-    setStep({ kind: "linking", hostName, count });
-
-    const failed = (message: string) => {
-      busy.current = false;
-      setStep({ kind: "failed", message });
-    };
-
-    relay.link(text).then(
-      (outcome) => {
-        if (!outcome.linked) return failed(outcome.message);
-        setStep({ kind: "linked", hostName, count });
-        onLinked(outcome.hosts);
-      },
-      // The Keychain refused the keys; the link itself was used.
-      () => failed("Couldn't save the link on this iPhone. Make a new one and try again.")
-    );
-  };
-
-  const pasting = step.kind === "paste";
 
   return (
     <View style={styles.screen}>
       <Sky />
-      <SafeAreaView style={styles.content} edges={["top", "bottom"]}>
+      <SafeAreaView style={styles.content} edges={["top"]}>
         <View style={styles.heading}>
           <Text style={styles.title} accessibilityRole="header">
             Link this iPhone
           </Text>
           <Text style={styles.lead}>
-            On your Mac, open Polaris → Settings → Devices and scan the code.
+            Your agent sessions run on your Mac. Link it to follow them and answer from here.
           </Text>
         </View>
-
-        {pasting ? (
-          <View style={styles.pasteCard}>
-            <TextInput
-              style={styles.input}
-              value={pasted}
-              onChangeText={setPasted}
-              placeholder="polaris-link:…"
-              placeholderTextColor={colours.textFaint}
-              autoCapitalize="none"
-              autoCorrect={false}
-              multiline
-              accessibilityLabel="Link from the Desktop App"
-            />
-            <Pressable
-              style={styles.button}
-              accessibilityRole="button"
-              onPress={() => start(pasted)}
-              disabled={pasted.trim() === ""}
-            >
-              <Text style={styles.buttonText}>Link</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <View style={styles.scanCard}>
-            {step.kind === "scan" ? <Scanner onCode={start} /> : null}
-            <View style={styles.frame} pointerEvents="none" />
-          </View>
-        )}
-
-        <StatusRow step={step} />
-        <View style={styles.spacer} />
-
-        <View style={styles.footer}>
-          {step.kind === "failed" ? (
-            <Pressable accessibilityRole="button" onPress={() => setStep({ kind: "scan" })}>
-              <Text style={styles.footerAction}>Scan again</Text>
-            </Pressable>
-          ) : null}
-          {step.kind === "scan" || step.kind === "paste" || step.kind === "failed" ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setStep({ kind: pasting ? "scan" : "paste" })}
-            >
-              <Text style={styles.footerAction}>
-                {pasting ? "Scan the code instead" : "Paste a link instead"}
-              </Text>
-            </Pressable>
-          ) : null}
-          {onCancel === undefined || step.kind === "linking" ? null : (
-            <Pressable accessibilityRole="button" onPress={onCancel}>
-              <Text style={styles.footerAction}>Cancel</Text>
-            </Pressable>
-          )}
-        </View>
       </SafeAreaView>
+      <ScanSheet
+        open
+        {...PAIRING_COPY}
+        onClose={onCancel}
+        onLink={relay.link}
+        onLinked={onLinked}
+      />
     </View>
   );
 };
@@ -207,78 +48,7 @@ export const LinkScreen = ({ onLinked, onCancel }: LinkScreenProps) => {
 const useStyles = themedStyles((colours) => ({
   screen: { flex: 1, backgroundColor: colours.ground },
   content: { flex: 1 },
-  heading: { marginTop: 242, paddingHorizontal: 28, paddingTop: 8, paddingBottom: 24, gap: 10 },
-  title: { ...mobileType.largeTitle, color: colours.textStrong },
-  lead: { ...mobileType.body, lineHeight: 24, color: colours.textSubtle },
-  scanCard: {
-    marginHorizontal: 28,
-    height: 250,
-    borderRadius: 22,
-    overflow: "hidden",
-    backgroundColor: colours.raised,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  frame: {
-    width: 170,
-    height: 170,
-    borderRadius: 12,
-    borderWidth: 3,
-    borderColor: colours.textStrong,
-  },
-  cameraOff: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "flex-end" },
-  cameraOffText: {
-    ...mobileType.footnote,
-    color: colours.textSubtle,
-    textAlign: "center",
-    paddingHorizontal: 24,
-    paddingBottom: 14,
-  },
-  pasteCard: {
-    marginHorizontal: 28,
-    borderRadius: 22,
-    padding: 16,
-    gap: 12,
-    backgroundColor: colours.raised,
-  },
-  input: {
-    ...mobileType.command,
-    color: colours.textDefault,
-    minHeight: 120,
-    textAlignVertical: "top",
-  },
-  button: {
-    alignSelf: "flex-end",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: colours.fillSelected,
-  },
-  buttonText: { ...mobileType.label, color: colours.textStrong },
-  status: {
-    marginHorizontal: 28,
-    marginTop: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colours.hairline,
-    backgroundColor: colours.panel,
-  },
-  statusMark: {
-    ...mobileType.callout,
-    width: 16,
-    textAlign: "center",
-    color: colours.textDefault,
-  },
-  failedMark: { color: colours.failedText },
-  statusText: { flex: 1, gap: 2 },
-  statusTitle: { ...mobileType.callout, lineHeight: 20, color: colours.textStrong },
-  statusDetail: { ...mobileType.footnote, lineHeight: 17, color: colours.textFaint },
-  spacer: { flex: 1 },
-  footer: { alignItems: "center", gap: 14, paddingBottom: 48 },
-  footerAction: { ...mobileType.body, fontSize: 16, lineHeight: 21, color: colours.textSubtle },
+  heading: { paddingHorizontal: 36, paddingTop: 56, gap: 10, alignItems: "center" },
+  title: { ...mobileType.largeTitle, color: colours.textStrong, textAlign: "center" },
+  lead: { ...mobileType.callout, lineHeight: 20, color: colours.textSubtle, textAlign: "center" },
 }));

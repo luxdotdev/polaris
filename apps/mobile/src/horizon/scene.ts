@@ -3,7 +3,7 @@
  * the shared 1440-wide art: a window of the art at 1:1 points, centred where Paper's 393 crop is.
  */
 import { STARS } from "@polaris/ui/horizon";
-import type { ThemeName } from "../theme";
+import type { ThemeName } from "../theme/appearance.ts";
 
 /** The horizon's box: 60pt of scroll-edge fade over 140pt of sky, the ridges in its foot. */
 export const HORIZON_HEIGHT = 200;

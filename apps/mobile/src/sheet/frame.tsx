@@ -82,6 +82,7 @@ export const SheetFrame = ({
   detents = DEFAULT_DETENTS,
   initialIndex = 0,
   dismissible = true,
+  scrim = true,
   onDetentChange,
   children,
 }: InstrumentSheetProps) => {
@@ -126,15 +127,20 @@ export const SheetFrame = ({
   const { header, body, footer } = sections(children);
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents={open ? "auto" : "none"}>
-      <Animated.View style={[StyleSheet.absoluteFill, scrimStyle]}>
-        <Pressable
-          accessible={false}
-          importantForAccessibility="no"
-          onPress={onClose}
-          style={[StyleSheet.absoluteFill, { backgroundColor: SCRIM[name] }]}
-        />
-      </Animated.View>
+    <View
+      style={StyleSheet.absoluteFill}
+      pointerEvents={open ? (scrim ? "auto" : "box-none") : "none"}
+    >
+      {scrim ? (
+        <Animated.View style={[StyleSheet.absoluteFill, scrimStyle]}>
+          <Pressable
+            accessible={false}
+            importantForAccessibility="no"
+            onPress={onClose}
+            style={[StyleSheet.absoluteFill, { backgroundColor: SCRIM[name] }]}
+          />
+        </Animated.View>
+      ) : null}
       <GestureDetector gesture={gesture.pan}>
         <Animated.View
           accessibilityViewIsModal
