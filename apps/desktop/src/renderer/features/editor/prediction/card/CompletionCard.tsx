@@ -187,7 +187,7 @@ const Readout = ({ view }: { readonly view: CompletionCardView }) => {
               <span className="text-text-strong tabular text-[22px] leading-7 font-medium">
                 {cell.value}
               </span>
-              <span className="text-caption text-text-subtle truncate">{cell.note}</span>
+              <span className="text-caption text-text-subtle">{cell.note}</span>
             </div>
           ))}
         </div>
@@ -289,7 +289,7 @@ const FooterStatus = ({
   readonly onRun: (action: CardAction) => void;
 }) => (
   <span className="flex min-w-0 flex-col items-start gap-1 py-1">
-    <span className="max-w-full truncate" data-testid="completion-status-line">
+    <span className="max-w-full whitespace-normal" data-testid="completion-status-line">
       {footerStatus(view)}
     </span>
     <span className="flex flex-wrap gap-x-3 gap-y-0.5 font-sans tracking-normal normal-case">

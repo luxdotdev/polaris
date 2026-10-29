@@ -35,6 +35,9 @@ import { ensureEditor } from "../runtime/app.ts";
 import { getActiveEditor } from "../runtime/hooks.ts";
 import { EditorPane } from "../ui/EditorPane.tsx";
 import { EditorStatus } from "../ui/EditorStatus.tsx";
+import { StatusBar } from "../explorer/ui/StatusBar.tsx";
+import type { GitFacts } from "../explorer/data/store.ts";
+import { HOSTS } from "../../needs-you/preview/fixtures.ts";
 import { FILES, HOST, path, ROOT, WORKSPACE } from "./fixtures.ts";
 
 const bridge: PolarisApi = {
@@ -203,6 +206,21 @@ const seed = () => {
   return { [HOST]: { ...FILES, ...generated }, pi: FILES };
 };
 
+const STATUS_HOST = { ...HOSTS[0]!, key: HOST };
+
+/** A long branch, so a narrow window shows Completions' glyph and the middle truncation. */
+const GIT: GitFacts = {
+  toplevel: ROOT,
+  worktree: false,
+  head: "a0afe434",
+  branch: "lucas/eng-499-desktop-chrome-redesign-moonlit-midnight",
+  ahead: 2,
+  behind: 0,
+  tracking: null,
+  marks: { files: new Map(), dirtyFolders: new Set(), changed: 5 },
+  entries: [],
+};
+
 /** A stand-in terminal card: the preview has no Daemon to run a shell. */
 const StandInTerminal = () => (
   <div className="flex h-[232px] flex-col" data-testid="terminal-drawer">
@@ -240,12 +258,12 @@ const Frame = ({ terminal }: { readonly terminal: boolean }) => {
           terminal={shown ? <StandInTerminal /> : null}
           chip={<TerminalChip onToggle={() => setShown(true)} count={1} />}
           status={
-            <div className="text-caption text-text-subtle flex h-full min-w-0 flex-1 items-center gap-4 px-3.5">
-              <span>Mac Studio</span>
-              <span>main</span>
-              <span className="flex-1" />
-              <EditorStatus hostKey={HOST} workspaceId={WORKSPACE} />
-            </div>
+            <StatusBar
+              host={STATUS_HOST}
+              place={{ key: "preview", hostKey: HOST, workspaceId: WORKSPACE, root: ROOT }}
+              git={GIT}
+              right={<EditorStatus hostKey={HOST} workspaceId={WORKSPACE} />}
+            />
           }
         >
           <EditorPane hostKey={HOST} workspaceId={WORKSPACE} root={ROOT} />

@@ -26,13 +26,13 @@ const Editor = () => (
 const Server = ({ answering }: { readonly answering: boolean }) => (
   <g className={LINE} fill="none" strokeWidth="1" strokeDasharray={answering ? undefined : "3 2"}>
     <rect x="238.5" y="50.5" width="104" height="58" />
-    <rect x="266.5" y="64.5" width="48" height="24" strokeDasharray={undefined} />
-    <path d="M276 76.5h28" strokeDasharray={undefined} />
+    <rect x="266.5" y="64.5" width="48" height="24" strokeDasharray="none" />
+    <path d="M276 76.5h28" strokeDasharray="none" />
     <path
       d="M274 60v4M282 60v4M290 60v4M298 60v4M306 60v4M274 89v4M282 89v4M290 89v4M298 89v4M306 89v4"
-      strokeDasharray={undefined}
+      strokeDasharray="none"
     />
-    <path d="M318 101.5h16" strokeDasharray={undefined} />
+    <path d="M318 101.5h16" strokeDasharray="none" />
   </g>
 );
 

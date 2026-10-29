@@ -22,7 +22,10 @@ const textWidth = (element: Element, text: string) => {
   canvas ??= document.createElement("canvas").getContext("2d");
 
   if (canvas === null) return 0;
-  canvas.font = getComputedStyle(element).font;
+  const style = getComputedStyle(element);
+
+  // Chromium leaves the `font` shorthand empty when a longhand (tabular numerals) can't be expressed.
+  canvas.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
 
   return canvas.measureText(text).width;
 };
@@ -35,20 +38,35 @@ interface Shown {
   readonly branch: string | null;
 }
 
+/** The row's width left for the branch's text once every other item has its natural width. */
+const roomFor = (row: HTMLElement, slot: HTMLElement) => {
+  const group = slot.parentElement;
+  const style = getComputedStyle(row);
+  const gap = Number.parseFloat(style.columnGap) || 0;
+  const padding = Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.paddingRight);
+  const items = [...row.children].filter((child) => child instanceof HTMLElement);
+  let taken = padding + gap * Math.max(0, items.length - 1);
+
+  for (const item of items) {
+    if (item.dataset.fit === FIT_SPACER) continue;
+
+    // The branch's icon and counts keep their width; only its text gives way.
+    taken += item === group ? item.offsetWidth - slot.offsetWidth : item.offsetWidth;
+  }
+
+  return row.clientWidth - taken;
+};
+
 const measure = (row: HTMLElement, branch: string | null, shown: Shown): Shown => {
   const slot = part(row, FIT_BRANCH);
-  const spacer = part(row, FIT_SPACER);
   const completions = part(row, FIT_COMPLETIONS);
   const label = completions?.dataset.fitLabel ?? "";
   const labelWidth = completions === null ? 0 : textWidth(completions, label);
 
-  if (branch === null || slot === null || spacer === null)
-    return { completions: "label", branch: null };
+  if (branch === null || slot === null) return { completions: "label", branch: null };
 
-  // The branch may use its own width and the spacer's, less any overflow, plus the label's if hidden.
-  const overflow = Math.max(0, row.scrollWidth - row.clientWidth);
-  const free = slot.offsetWidth + spacer.offsetWidth - overflow;
-  const room = free - (shown.completions === "glyph" ? labelWidth : 0);
+  // While Completions shows its glyph, its label's width is part of what the row gave back.
+  const room = roomFor(row, slot) - (shown.completions === "glyph" ? labelWidth : 0);
   const fit = statusFit({ room, branch: textWidth(slot, branch), completionsLabel: labelWidth });
 
   return {
