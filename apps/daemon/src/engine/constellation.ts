@@ -83,15 +83,35 @@ export const constellationTransition = (
   return result[0].value;
 };
 
+/** A closed Constellation's refusal names it and points its Lead at the next one. */
+const refuseLifecycle = (d: GraphDecision, input: LifecycleInput) => {
+  const { name, state } = d.record.graph;
+  const start = "start a new Constellation with plan start { name, workspaceId }";
+
+  if (state === "archived")
+    d.reject(
+      "E-ARCHIVED",
+      `Constellation "${name}" is archived`,
+      `Its tools are closed; ${start}. status still reads it.`
+    );
+  else if (state === "completed")
+    d.reject(
+      "E-COMPLETED",
+      `Constellation "${name}" is completed`,
+      `Archive it with set_state, or ${start}.`
+    );
+  else
+    d.reject(
+      "E-STATE",
+      `Cannot ${input.type} a ${state} Constellation`,
+      "Use a lifecycle action available in the current state."
+    );
+};
+
 const lifecycle = (d: GraphDecision, input: LifecycleInput) => {
   const state = constellationTransition(d.record.graph.state, input);
 
-  if (state === null)
-    d.reject(
-      "E-STATE",
-      `Cannot ${input.type} a ${d.record.graph.state} Constellation`,
-      "Use a lifecycle action available in the current state."
-    );
+  if (state === null) refuseLifecycle(d, input);
   else if (state !== d.record.graph.state)
     d.emit(ConstellationEvent.cases.ConstellationStateChanged.make({ ...d.fields(), state }));
 };

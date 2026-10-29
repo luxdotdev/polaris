@@ -2,7 +2,12 @@ import { Effect, Option, Schema } from "effect";
 import type { McpBinding } from "./binding.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { type Notifier, notifier, sessionTools } from "./sessions/index.ts";
-import { type ConstellationCommands, attachSessionTools, constellationTools } from "./tools.ts";
+import {
+  type ConstellationCommands,
+  type LeadStarted,
+  attachSessionTools,
+  constellationTools,
+} from "./tools.ts";
 import { McpTokens } from "./tokens.ts";
 
 const Message = Schema.Struct({
@@ -52,7 +57,8 @@ const safeOrigin = (request: Request) => {
 const responseFor = async (
   binding: McpBinding,
   message: typeof Message.Type,
-  commands: ConstellationCommands
+  commands: ConstellationCommands,
+  started: LeadStarted
 ): Promise<Response> => {
   const id = message.id;
 
@@ -83,18 +89,20 @@ const responseFor = async (
       return result({});
     case "tools/list":
       return result({
-        tools: constellationTools(binding, commands).map(({ name, description, inputSchema }) => ({
-          name,
-          description,
-          inputSchema,
-        })),
+        tools: constellationTools(binding, commands, started).map(
+          ({ name, description, inputSchema }) => ({
+            name,
+            description,
+            inputSchema,
+          })
+        ),
       });
     case "tools/call": {
       const params = decodeCall(message.params);
 
       if (Option.isNone(params)) return rpcError(id, -32602, "Invalid tool call parameters");
 
-      const tool = constellationTools(binding, commands).find(
+      const tool = constellationTools(binding, commands, started).find(
         (item) => item.name === params.value.name
       );
 
@@ -113,6 +121,9 @@ export const mcpHttp = (commands: ConstellationCommands, port = 0) =>
   Effect.gen(function* () {
     const tokens = yield* McpTokens;
     const store = yield* Effect.serviceOption(EventStore);
+
+    const started: LeadStarted = (sessionId, id) =>
+      Effect.ignore(tokens.advanceLeads(sessionId, id));
 
     const notifications: Notifier | null = Option.isSome(store) ? notifier(store.value) : null;
 
@@ -154,7 +165,7 @@ export const mcpHttp = (commands: ConstellationCommands, port = 0) =>
 
             if (Option.isNone(message)) return rpcError(null, -32600, "Invalid JSON-RPC message");
 
-            return responseFor(binding, message.value, commands);
+            return responseFor(binding, message.value, commands, started);
           },
           error: () => new Response("MCP request failed", { status: 500 }),
         })

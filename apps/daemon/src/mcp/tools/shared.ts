@@ -31,6 +31,18 @@ export interface ConstellationCommands {
   ) => Effect.Effect<string, ConstellationRejected>;
 }
 
+/** Where a Lead's `plan` start goes, and what follows a successful start. */
+export interface StartTarget {
+  readonly constellationId: ConstellationId;
+  readonly started: Effect.Effect<void>;
+}
+
+/** Moves a closed Lead binding onto the Constellation it started (`McpTokens.advanceLeads`). */
+export type LeadStarted = (
+  sessionId: SessionBinding["sessionId"],
+  constellationId: ConstellationId
+) => Effect.Effect<void>;
+
 export interface McpToolResult {
   readonly content: Array<{ type: "text"; text: string }>;
   readonly isError?: boolean;

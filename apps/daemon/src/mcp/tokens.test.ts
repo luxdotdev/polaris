@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { DomainEvent, SessionId, WorkspaceId } from "@polaris/protocol";
+import { ConstellationId, DomainEvent, SessionId, WorkspaceId } from "@polaris/protocol";
 import { McpBinding } from "./binding.ts";
 import { revokeMcpBindings } from "./revoke.ts";
 import { Effect } from "effect";
@@ -67,7 +67,7 @@ test("only token hashes persist; restart keeps credentials and revocation", asyn
   }
 });
 
-test("committed lifecycle events revoke only matching bindings and replay safely", async () => {
+test("committed lifecycle events revoke only matching bindings, keep a closed Lead and replay safely", async () => {
   const root = mkdtempSync(shortTemp("polaris-mcp-events-"));
 
   try {
@@ -109,15 +109,37 @@ test("committed lifecycle events revoke only matching bindings and replay safely
           })
         );
         expect(yield* tokens.authenticate(archived)).toBeNull();
-        const archivedGraph = yield* tokens.issue(leadBinding);
-        yield* revokeMcpBindings(
-          DomainEvent.cases.ConstellationStateChanged.make({
-            constellationId: leadBinding.constellationId,
-            revision: 6,
-            state: "archived",
+        const archivedLead = yield* tokens.issue(leadBinding);
+        const archivedWorker = yield* tokens.issue(workerBinding);
+
+        const archive = DomainEvent.cases.ConstellationStateChanged.make({
+          constellationId: leadBinding.constellationId,
+          revision: 6,
+          state: "archived",
+        });
+
+        yield* revokeMcpBindings(archive);
+        expect(yield* tokens.authenticate(archivedWorker)).toBeNull();
+
+        const closed = yield* tokens.authenticate(archivedLead);
+
+        const next = ConstellationId.make(
+          closed !== null && McpBinding.isAnyOf(["Lead"])(closed) ? (closed.next ?? "") : ""
+        );
+
+        expect(next).not.toBe(leadBinding.constellationId);
+        expect(closed).toEqual(McpBinding.cases.Lead.make({ ...leadBinding, next }));
+        yield* revokeMcpBindings(archive);
+        expect(yield* tokens.authenticate(archivedLead)).toEqual(closed);
+        yield* tokens.advanceLeads(leadBinding.sessionId, ConstellationId.make("other"));
+        expect(yield* tokens.authenticate(archivedLead)).toEqual(closed);
+        yield* tokens.advanceLeads(leadBinding.sessionId, next);
+        expect(yield* tokens.authenticate(archivedLead)).toEqual(
+          McpBinding.cases.Lead.make({
+            sessionId: leadBinding.sessionId,
+            constellationId: next,
           })
         );
-        expect(yield* tokens.authenticate(archivedGraph)).toBeNull();
       }).pipe(Effect.provide(McpTokens.layer(join(root, "tokens.sqlite"))))
     );
   } finally {

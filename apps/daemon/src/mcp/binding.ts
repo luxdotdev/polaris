@@ -3,7 +3,12 @@ import { Schema } from "effect";
 
 export const McpBinding = Schema.TaggedUnion({
   Plain: { sessionId: SessionId, constellationId: ConstellationId, workspaceId: WorkspaceId },
-  Lead: { sessionId: SessionId, constellationId: ConstellationId },
+  /** `next` is set once the Constellation completes or is archived: the id `plan` starts next. */
+  Lead: {
+    sessionId: SessionId,
+    constellationId: ConstellationId,
+    next: Schema.optionalKey(ConstellationId),
+  },
   Worker: { sessionId: SessionId, constellationId: ConstellationId, attemptId: AttemptId },
 });
 
