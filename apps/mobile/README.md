@@ -104,8 +104,9 @@ pulling them in, rebuild the development client (`bun run --cwd apps/mobile ios`
 
 ## Widgets
 
-Paper W1 and W2: the inline lock-screen widget ("✦ 2 need you · 3 working") and the medium
-home-screen widget (Home's top three agent sessions with their glyphs, and the horizon). They are
+Paper MX-AW and MX-AX: the inline lock-screen widget ("✦ 2 need you · 3 working" beside the
+date) and the medium home-screen widget (Home's top three agent sessions with their glyphs, and
+the horizon), in the app's theme. They are
 WidgetKit in Swift (ADR 0081) under `targets/widgets/`, a target `@bacons/apple-targets` (a
 devDependency, its config plugin only) adds to the Xcode project at prebuild.
 
@@ -126,6 +127,9 @@ devDependency, its config plugin only) adds to the Xcode project at prebuild.
 - **Checks.** `scripts/widgets.swift.test.ts` compiles `Snapshot.swift` with `swiftc` and feeds
   it the app's real snapshot, so the Swift reader, its merge of pushes, its ages and its links
   can't drift from the TypeScript (skipped where there is no `swiftc`).
+  `scripts/widgets.render.test.ts` draws W2 on macOS through `scripts/widgetsDriver/render.swift`
+  and checks it takes each theme's colours; `render.swift <midnight|moonlit> <out.png>` saves a
+  render to look at.
 
 ## Phase 3's shared pieces
 

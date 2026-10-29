@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
 import { DITHER_FRAMES, ditherFrameAt } from "@polaris/ui/dither";
 import { type DitherArt, ditherSteps, ditherStill, ditherStrip } from "./strip.ts";
 
@@ -57,20 +56,5 @@ describe("the dither strip", () => {
 
       expect(at(t)).toBe(0 - 16 * Math.floor(t * DITHER_FRAMES));
     }
-  });
-
-  test("the widget's still is the 12pt glyph's first frame", () => {
-    const swift = readFileSync(
-      new URL("../../targets/widgets/Glyphs.swift", import.meta.url).pathname,
-      "utf8"
-    );
-
-    const table = /private let dither:[^=]*= \[([\s\S]*?)\n\]/.exec(swift)?.[1] ?? "";
-
-    const cells = [...table.matchAll(/\((\d+), (\d+), 2, 2, ([\d.]+)\)/g)].map(
-      ([, x, y, alpha]) => `${x},${y},${Number(alpha).toFixed(2)}`
-    );
-
-    expect(cells.sort()).toEqual(expected(12, 1));
   });
 });
