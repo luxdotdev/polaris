@@ -7,6 +7,7 @@
 import { Option, Predicate, Schema } from "effect";
 import type { Subagent, TurnItem } from "@polaris/protocol";
 import type { SubagentView } from "../../../store/sessionModel.ts";
+import { formatElapsed } from "./format.ts";
 import { completedItemView, type ItemView, liveItemView } from "./items.ts";
 import { type Entry, groupItems } from "./runs.ts";
 
@@ -103,5 +104,55 @@ export const subagentCard = (view: SubagentView, call: ToolCall | undefined): Su
     entries: groupItems([...shown, ...live]),
     report,
     activity: working ? activityOf(live, done) : null,
+  };
+};
+
+/** One Subagent in the composer's popover: agent type, task, and what it is doing or how it ended. */
+export interface RosterRow {
+  readonly id: string;
+  /** Its place among the Turn's Subagents: its moon. */
+  readonly index: number;
+  readonly agent: string;
+  readonly task: string;
+  readonly status: string;
+  readonly working: boolean;
+}
+
+const ENDED: Record<Exclude<Subagent["status"], "working">, string> = {
+  completed: "done",
+  failed: "failed",
+  interrupted: "stopped",
+};
+
+const statusOf = (view: SubagentView): string => {
+  const { subagent } = view;
+
+  if (subagent.status === "working") return subagentCard(view, undefined).activity ?? "Working";
+
+  const took =
+    subagent.endedAt === null
+      ? null
+      : Date.parse(subagent.endedAt) - Date.parse(subagent.startedAt);
+
+  return took === null || Number.isNaN(took)
+    ? ENDED[subagent.status]
+    : `${ENDED[subagent.status]} · ${formatElapsed(took)}`;
+};
+
+/** The Turn's Subagents, running first, for the footer's moons and their popover. */
+export const subagentRoster = (views: ReadonlyArray<SubagentView>) => {
+  const rows: ReadonlyArray<RosterRow> = views.map((view, index) => ({
+    id: view.subagent.id,
+    index,
+    agent: view.subagent.agent ?? "Subagent",
+    task: view.subagent.title,
+    status: statusOf(view),
+    working: view.subagent.status === "working",
+  }));
+
+  return {
+    rows: [...rows.filter((r) => r.working), ...rows.filter((r) => !r.working)],
+    running: rows.filter((r) => r.working).length,
+    done: rows.filter((r) => !r.working).length,
   };
 };

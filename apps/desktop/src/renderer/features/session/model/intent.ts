@@ -185,10 +185,10 @@ export const PERMISSION_MODES: ReadonlyArray<{
   readonly label: string;
   readonly detail: string;
 }> = [
-  { mode: "plan", label: "Plan", detail: "Reads and plans, asks before any edit" },
+  { mode: "plan", label: "Plan", detail: "Reads and plans, asks before editing" },
   { mode: "supervised", label: "Supervised", detail: "Asks before edits and commands" },
-  { mode: "auto-edits", label: "Auto edits", detail: "Edits freely, asks before commands" },
-  { mode: "auto", label: "Auto", detail: "Asks only for risky actions" },
+  { mode: "auto-edits", label: "Auto-edits", detail: "Edits freely, asks before commands" },
+  { mode: "auto", label: "Auto", detail: "Runs freely, asks for risky actions" },
   { mode: "full-access", label: "Full access", detail: "Never asks" },
 ];
 
