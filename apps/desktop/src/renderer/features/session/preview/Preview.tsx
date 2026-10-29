@@ -57,7 +57,14 @@ import { polarisTools, PREVIEW_NOTICE } from "./polarisScene.ts";
 import { background, waitingSidebar } from "./background.ts";
 import { MODELS, PATCH } from "./fixtureData.ts";
 import { recordBanner } from "../banners.ts";
-import { WORST_SCENES, type WorstScene, worstState } from "./worstScene.ts";
+import { WORST_SCENES, worstState } from "./worstScene.ts";
+import {
+  WORST_CONVERSATION_SCENES,
+  type WorstConversationScene,
+  worstConversationState,
+  worstModels,
+  worstOutbox,
+} from "./worstConversation.ts";
 
 const HOST = "local";
 
@@ -176,6 +183,7 @@ const SCENE_NAMES = [
   "no-host",
   "windows",
   ...WORST_SCENES,
+  ...WORST_CONVERSATION_SCENES,
 ] as const;
 
 type Scene = (typeof SCENE_NAMES)[number];
@@ -346,7 +354,7 @@ const answer = (
       ok: true,
       value: {
         harness,
-        models: MODELS[harness],
+        models: scene === "worst-turns" ? worstModels(harness) : MODELS[harness],
         switchesModel: true,
         backgroundsCommands: true,
         fetchedAt: "",
@@ -504,7 +512,11 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
   const scene = sceneOf(hash);
   const worst = WORST_SCENES.find((name) => name === scene);
 
-  if (worst !== undefined) return mountWorst(root, worst);
+  if (worst !== undefined) return mountWorst(root, worstState(worst), "session");
+  const conversation = WORST_CONVERSATION_SCENES.find((name) => name === scene);
+
+  if (conversation !== undefined)
+    return mountWorst(root, worstConversationState(conversation, host), conversation);
   // Sidebar-only sessions follow the scenes, so a scene's index still finds its model.
   const models = [...Object.values(SCENES), ...waitingSidebar].map((make) => make());
 
@@ -580,8 +592,11 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
 };
 
 /** The break-UI scenes (worstScene.ts): the selected Workspace's first session, or its page. */
-const mountWorst = (root: HTMLElement, scene: WorstScene) => {
-  const { state, hostKey, shown } = worstState(scene);
+const mountWorst = (
+  root: HTMLElement,
+  { state, hostKey, shown }: ReturnType<typeof worstState>,
+  scene: "session" | WorstConversationScene
+) => {
   // Navigation follows the Host feed, so the bar's mode is decided once the state arrives.
   const store = createStore<AppState>(() => initialState);
 
@@ -594,8 +609,11 @@ const mountWorst = (root: HTMLElement, scene: WorstScene) => {
 
   const navigation = createNavigation({ app: store, storage: null });
 
-  standInBridge(bridgeFor("session"));
+  standInBridge(bridgeFor(scene));
   store.setState(state);
+
+  if (scene === "worst-turns" && shown !== null)
+    patchSessionUi(uiKey(hostKey, shown), () => ({ outbox: worstOutbox() }));
 
   if (shown === null) {
     navigation.actions.selectWorkspace({ hostKey, workspaceId });
