@@ -117,7 +117,10 @@ export const runKind = (item: TurnItem): RunKind | null =>
     Match.orElse((): RunKind | null => null)
   );
 
-const count = (n: number, singular: string) => `${n} ${n === 1 ? singular : `${singular}s`}`;
+const GROUPED = new Intl.NumberFormat("en-US");
+
+const count = (n: number, singular: string) =>
+  `${GROUPED.format(n)} ${n === 1 ? singular : `${singular}s`}`;
 
 /** Fixed phrase order whatever the call order; edits count distinct files. */
 const PHRASES: ReadonlyArray<
@@ -161,7 +164,7 @@ const mcpPhrases = (items: ReadonlyArray<TurnItem>): ReadonlyArray<string> => {
   }
 
   return [...servers].map(([server, n]) =>
-    n === 1 ? `called ${server} once` : `called ${server} ${n} times`
+    n === 1 ? `called ${server} once` : `called ${server} ${count(n, "time")}`
   );
 };
 

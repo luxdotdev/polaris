@@ -159,7 +159,7 @@ const planStep = (item: Extract<TurnItem, { _tag: "Plan" }>): Step => {
   return {
     kind: "step",
     label: "Updated the plan",
-    detail: `${done} of ${item.steps.length}`,
+    detail: item.steps.length === 0 ? "" : `${done} of ${item.steps.length}`,
     tone: done === item.steps.length ? "done" : "active",
     paths: [],
   };
@@ -189,6 +189,9 @@ const pieceOf = (item: TurnItem): Piece =>
     })
   );
 
+/** Thousands grouped as the rest of the copy is written: "1,284 files". */
+const GROUPED = new Intl.NumberFormat("en-US");
+
 const pad = (n: number) => n.toString().padStart(2, "0");
 
 interface Placed {
@@ -196,6 +199,15 @@ interface Placed {
   readonly item: TurnItem | null;
   readonly piece: Exclude<Piece, null>;
 }
+
+/** An ended Turn has nothing in flight: its unfinished plan reads as done, a running call stopped. */
+const settled = (piece: Piece, item: TurnItem): Piece => {
+  if (piece === null || piece.kind !== "step" || piece.tone !== "active") return piece;
+
+  return Predicate.isTagged(item, "Plan")
+    ? { ...piece, tone: "done" }
+    : { ...piece, tone: "failed", detail: "stopped" };
+};
 
 /** Its items in order, then what is still live, then text streaming into no item yet. */
 const placedOf = (entry: TurnEntry): ReadonlyArray<Placed> => {
@@ -210,9 +222,11 @@ const placedOf = (entry: TurnEntry): ReadonlyArray<Placed> => {
       piece: { kind: "text", row: "reply", text: text.text } as const,
     }));
 
+  const ended = entry.turn.status !== "working";
+
   return [
     ...items.flatMap((item) => {
-      const piece = pieceOf(item);
+      const piece = ended ? settled(pieceOf(item), item) : pieceOf(item);
 
       // A live item is still running whatever its status says: never folded.
       return piece === null ? [] : [{ id: item.id, item: live.has(item.id) ? null : item, piece }];
@@ -320,7 +334,16 @@ const grouped = (rows: ReadonlyArray<ThreadRow>): Array<ThreadRow> =>
       : row
   );
 
-const plural = (count: number, one: string) => `${count} ${count === 1 ? one : `${one}s`}`;
+const plural = (count: number, one: string) =>
+  `${GROUPED.format(count)} ${count === 1 ? one : `${one}s`}`;
+
+/** How a Turn that didn't complete ended, first on its receipt. */
+const ENDINGS: Readonly<Record<TurnEntry["turn"]["status"], string | null>> = {
+  working: null,
+  completed: null,
+  interrupted: "Stopped",
+  failed: "Failed",
+};
 
 /** A finished Turn's receipt as the Desktop App words it, leaving out what it didn't do. */
 export const turnReceipt = (entry: TurnEntry): string => {
@@ -338,6 +361,7 @@ export const turnReceipt = (entry: TurnEntry): string => {
     turn.endedAt === null ? Number.NaN : Date.parse(turn.endedAt) - Date.parse(turn.startedAt);
 
   return [
+    ENDINGS[turn.status],
     files === 0 ? null : plural(files, "file"),
     commands === 0 ? null : plural(commands, "command"),
     Number.isNaN(took) ? null : elapsed(took),
@@ -358,7 +382,8 @@ const factsOf = (entry: TurnEntry, rows: ReadonlyArray<ThreadRow>): TurnFacts =>
 const withReceipt = (entry: TurnEntry, rows: Array<ThreadRow>): ReadonlyArray<ThreadRow> => {
   if (entry.turn.status === "working") return rows;
   const turn = factsOf(entry, rows);
-  const summary = rows.findLastIndex((row) => row.kind === "reply");
+  // The receipt ends the Turn: under its last reply only when nothing follows that reply.
+  const summary = rows.at(-1)?.kind === "reply" ? rows.length - 1 : -1;
 
   const out = rows.map((row, index) =>
     row.kind === "reply"
