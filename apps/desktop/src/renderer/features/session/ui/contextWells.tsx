@@ -94,25 +94,27 @@ const LegendRow = ({
   const line = (
     <>
       <span className={cn("size-gap shrink-0", look.className)} style={look.style} />
-      <Kicker className={cn("min-w-0 flex-1 truncate", focused && "text-text-strong")}>
+      <Kicker
+        className={cn("min-w-0 flex-1 truncate tracking-[0.04em]", focused && "text-text-strong")}
+      >
         {segment.short}
       </Kicker>
       <span
         className={cn(
           "text-caption tabular shrink-0",
-          focused ? "text-text-strong font-medium" : "text-text-default"
+          focused ? "text-text-strong" : "text-text-default"
         )}
       >
         {rowTokens(segment.tokens)}
       </span>
-      <span className="text-text-subtle tabular w-7 shrink-0 text-right font-mono text-[10px] leading-[14px]">
+      <span className="text-text-subtle tabular w-6 shrink-0 text-right font-mono text-[10px] leading-[14px]">
         {rowShare(segment.tokens, window)}
       </span>
     </>
   );
 
   const className = cn(
-    "flex h-5 min-w-0 items-center gap-1.5 rounded-[2px] px-1 text-left",
+    "flex h-5 min-w-0 items-center gap-1.5 rounded-[2px] text-left",
     focused && "bg-fill-hover"
   );
 
@@ -218,7 +220,7 @@ export const UsageWell = ({ card, kicker, spend, focus, notes }: UsageWellProps)
     </div>
     {card.window === null ? null : <Waffle card={card} focus={focus.focus} />}
     {card.window === null ? null : (
-      <div className="-mx-1 grid grid-cols-2 gap-x-2 gap-y-[3px]" data-testid="context-breakdown">
+      <div className="grid grid-cols-2 gap-x-2 gap-y-[3px]" data-testid="context-breakdown">
         {card.legend.map((segment) => (
           <LegendRow
             key={segment.key}
