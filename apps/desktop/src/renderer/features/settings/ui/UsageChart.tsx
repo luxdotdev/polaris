@@ -1,7 +1,7 @@
 /**
  * Settings → Usage's daily chart: stacked bars in Harness hues, and on hover or keyboard
  * focus (← → Home End) a tooltip listing the day's Models with tokens and cost, then its total.
- * The tooltip is a popover in its own layer, so the card never clips it and it stays in the window.
+ * A click, ↵ or Space pins the day for the by-model table; esc or another click unpins. The tooltip is a popover in its own layer, so the card never clips it and it stays in the window.
  */
 import {
   cn,
@@ -13,17 +13,10 @@ import {
   PopoverContent,
 } from "@polaris/ui";
 import { type KeyboardEvent, memo, type PointerEvent, useId, useState } from "react";
-import { type Day, type DayTipRow, dayTip, type UsageSummary } from "../model/usage.ts";
+import { type Day, type DayTipRow, dayTip, shortDate, type UsageSummary } from "../model/usage.ts";
 
 /** Usage outside Polaris at ~32% of the Harness hue (DESIGN.md, Settings). */
 const outsideFill = (harness: string) => `color-mix(in oklab, ${hueVar(harness)} 32%, transparent)`;
-
-/** A local `YYYY-MM-DD` read as that local day, not as UTC midnight. */
-const shortDate = (date: string) => {
-  const [y = 0, m = 1, d = 1] = date.split("-").map(Number);
-
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-};
 
 const Bar = memo(
   ({
@@ -31,17 +24,26 @@ const Bar = memo(
     max,
     split,
     active,
+    pinned,
   }: {
     readonly day: Day;
     readonly max: number;
     readonly split: boolean;
     readonly active: boolean;
+    readonly pinned: boolean;
   }) => (
     <div
-      className={cn("flex h-full min-w-0 flex-1 flex-col-reverse", active && "bg-fill-hover")}
+      className={cn(
+        "relative flex h-full min-w-0 flex-1 flex-col-reverse",
+        pinned ? "bg-fill-selected" : active && "bg-fill-hover"
+      )}
       data-testid="usage-bar"
+      data-date={day.date}
       data-active={active || undefined}
+      data-pinned={pinned || undefined}
     >
+      {/* Selection is a grey fill, never Starlight (rule/starlight-is-rare); the cap marks it. */}
+      {pinned ? <span className="bg-text-strong absolute inset-x-0 top-0 h-0.5" /> : null}
       {day.series.flatMap((s) => {
         const parts = split
           ? [
@@ -187,12 +189,22 @@ const KEY_STEPS = new Map([
   ["End", (_: number, last: number) => last],
 ]);
 
+/** The day a click landed on: its bar, or in the gap between two the day under the pointer. */
+const clickedDate = (target: EventTarget, hovered: Day | undefined) =>
+  (target instanceof Element ? target.closest<HTMLElement>("[data-date]")?.dataset.date : null) ??
+  hovered?.date;
+
 export const UsageChart = ({
   summary,
   split,
+  pinned = null,
+  onPin = () => undefined,
 }: {
   readonly summary: UsageSummary;
   readonly split: boolean;
+  /** The pinned day's `YYYY-MM-DD`, or null for the whole range. */
+  readonly pinned?: string | null;
+  readonly onPin?: (date: string | null) => void;
 }) => {
   const [active, setActive] = useState<number | null>(null);
   const tipId = useId();
@@ -210,8 +222,24 @@ export const UsageChart = ({
     setActive(Math.min(last, Math.max(0, i)));
   };
 
+  const toggle = (date: string | undefined) => {
+    if (date !== undefined) onPin(date === pinned ? null : date);
+  };
+
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Escape") return setActive(null);
+    if (event.key === "Escape") {
+      // Unpin first; the next esc hides the tooltip, the one after leaves Settings.
+      event.stopPropagation();
+
+      return pinned === null ? setActive(null) : onPin(null);
+    }
+
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+
+      return toggle(days[active ?? last]?.date);
+    }
+
     const step = KEY_STEPS.get(event.key);
 
     if (step === undefined) return;
@@ -225,7 +253,9 @@ export const UsageChart = ({
         <div
           className="border-hairline flex h-[120px] items-end gap-[3px] border-t pt-2"
           role="group"
-          aria-label="Tokens per day"
+          aria-label={
+            pinned === null ? "Tokens per day" : `Tokens per day, ${shortDate(pinned)} pinned`
+          }
           aria-describedby={shown === undefined ? undefined : tipId}
           tabIndex={0}
           data-testid="usage-chart"
@@ -234,9 +264,17 @@ export const UsageChart = ({
           onFocus={() => setActive((i) => i ?? last)}
           onBlur={() => setActive(null)}
           onKeyDown={onKeyDown}
+          onClick={(event) => toggle(clickedDate(event.target, shown))}
         >
           {days.map((day, i) => (
-            <Bar key={day.date} day={day} max={max} split={split} active={i === active} />
+            <Bar
+              key={day.date}
+              day={day}
+              max={max}
+              split={split}
+              active={i === active}
+              pinned={day.date === pinned}
+            />
           ))}
         </div>
         <Popover open={shown !== undefined}>

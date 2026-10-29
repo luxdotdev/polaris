@@ -246,6 +246,13 @@ export const usageSummary = ({
   };
 };
 
+/** "Sep 29": a local `YYYY-MM-DD` read as that local day, not as UTC midnight. */
+export const shortDate = (date: string): string => {
+  const [y = 0, m = 1, d = 1] = date.split("-").map(Number);
+
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+};
+
 /** "48.2M", "912K", "640". */
 const UNITS = [
   [1e12, "T", 1],

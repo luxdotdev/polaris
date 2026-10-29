@@ -175,6 +175,22 @@ const usageTooltip = async (page: Page) => {
   await page.keyboard.press("ArrowLeft");
   await page.getByTestId("usage-tooltip").waitFor({ timeout: 5_000 });
   await shoot(page, "usage-tooltip-keyboard-moonlit");
+  await usagePinned(page);
+};
+
+/** ↵ pins the focused day (ENG-528): the table names it; the tooltip still shows, then esc unpins. */
+const usagePinned = async (page: Page) => {
+  await page.keyboard.press("Enter");
+  await page.getByTestId("usage-pinned").waitFor({ timeout: 5_000 });
+  await page.evaluate(`${USAGE_SCROLLER}.scrollTo(0, 400)`);
+  await shoot(page, "usage-pinned-moonlit");
+  await setAppearance(page, { theme: "dark", darkTheme: "midnight" });
+  await page.getByTestId("usage-chart").focus();
+  await shoot(page, "usage-pinned-midnight");
+  await page.keyboard.press("Escape");
+  await page.getByTestId("usage-pinned").waitFor({ state: "detached", timeout: 5_000 });
+  await setAppearance(page, { theme: "dark", darkTheme: "moonlit" });
+  await page.evaluate(`${USAGE_SCROLLER}.scrollTo(0, 0)`);
 };
 
 const SKIES = [
