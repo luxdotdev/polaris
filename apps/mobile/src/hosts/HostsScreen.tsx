@@ -2,10 +2,10 @@
  * Hosts (Paper M7, M9): each Host's Connection State, round trip and route, read only, and this
  * iPhone's notification switch. Routes are chosen on the Mac; no dither on Reconnecting.
  */
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import type { ConnectionState } from "@polaris/protocol";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BackBar } from "../app/BackBar.tsx";
 import { useFollowedHosts } from "../home/feed/useFollowedHosts.ts";
@@ -15,6 +15,7 @@ import {
   constellationNotifications,
   useConstellationNotifications,
 } from "../push/constellations.ts";
+import { themedStyles } from "../theme/index.ts";
 import { buildHosts, type HostRowModel, unlinkNote } from "./model.ts";
 
 /** Re-renders each second while a Host reconnects, so "42s" counts. */
@@ -30,20 +31,25 @@ const useTicking = (active: boolean) => {
   return now;
 };
 
-const StateDot = ({ state }: { readonly state: ConnectionState }) => (
-  <View style={styles.dotSlot}>
-    <View
-      style={[
-        styles.dot,
-        state === "connected" || state === "needs-attention" ? styles.dotFilled : null,
-        state === "reconnecting" ? styles.dotRing : null,
-        state === "offline" ? styles.dotDashed : null,
-      ]}
-    />
-  </View>
-);
+const StateDot = ({ state }: { readonly state: ConnectionState }) => {
+  const styles = useStyles();
+
+  return (
+    <View style={styles.dotSlot}>
+      <View
+        style={[
+          styles.dot,
+          state === "connected" || state === "needs-attention" ? styles.dotFilled : null,
+          state === "reconnecting" ? styles.dotRing : null,
+          state === "offline" ? styles.dotDashed : null,
+        ]}
+      />
+    </View>
+  );
+};
 
 const HostRow = ({ row }: { readonly row: HostRowModel }) => {
+  const styles = useStyles();
   const offline = row.state === "offline";
 
   return (
@@ -67,6 +73,7 @@ const HostRow = ({ row }: { readonly row: HostRowModel }) => {
 
 /** Paper M9: Polaris's own notifications when a constellation needs you, per device. */
 const Notifications = () => {
+  const styles = useStyles();
   const on = useConstellationNotifications();
 
   return (
@@ -102,16 +109,20 @@ const FooterRow = ({
   readonly label: string;
   readonly action: string;
   readonly onPress: () => void;
-}) => (
-  <View style={styles.footerRow}>
-    <Text style={styles.footerTitle} numberOfLines={1}>
-      {label}
-    </Text>
-    <Pressable accessibilityRole="button" onPress={onPress} hitSlop={10}>
-      <Text style={styles.footerAction}>{action}</Text>
-    </Pressable>
-  </View>
-);
+}) => {
+  const styles = useStyles();
+
+  return (
+    <View style={styles.footerRow}>
+      <Text style={styles.footerTitle} numberOfLines={1}>
+        {label}
+      </Text>
+      <Pressable accessibilityRole="button" onPress={onPress} hitSlop={10}>
+        <Text style={styles.footerAction}>{action}</Text>
+      </Pressable>
+    </View>
+  );
+};
 
 export const HostsScreen = ({
   onBack,
@@ -122,6 +133,7 @@ export const HostsScreen = ({
   readonly onLink: () => void;
   readonly linkedTo?: LinkedTo | null;
 }) => {
+  const styles = useStyles();
   const insets = useSafeAreaInsets();
   const hosts = useFollowedHosts();
   const onMenu = useMenuActions();
@@ -194,18 +206,18 @@ export const HostsScreen = ({
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: midnight.bg },
+const useStyles = themedStyles((colours) => ({
+  screen: { flex: 1, backgroundColor: colours.ground },
   head: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 18, gap: 6 },
-  title: { ...mobileType.largeTitle, lineHeight: 41, color: midnight.textStrong },
+  title: { ...mobileType.largeTitle, lineHeight: 41, color: colours.textStrong },
   summary: {
     ...mobileType.callout,
     lineHeight: 20,
-    color: midnight.textSubtle,
+    color: colours.textSubtle,
     fontVariant: ["tabular-nums"],
   },
-  emphasis: { color: midnight.textDefault },
-  list: { flex: 1, borderTopWidth: 1, borderTopColor: midnight.hairline },
+  emphasis: { color: colours.textDefault },
+  list: { flex: 1, borderTopWidth: 1, borderTopColor: colours.hairline },
   listContent: { paddingHorizontal: 20 },
   row: {
     flexDirection: "row",
@@ -213,38 +225,38 @@ const styles = StyleSheet.create({
     gap: 14,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: midnight.hairline,
+    borderBottomColor: colours.hairline,
   },
   dimmed: { opacity: 0.55 },
   dotSlot: { width: 12, height: 12, alignItems: "center", justifyContent: "center" },
   dot: { width: 8, height: 8, borderRadius: 999 },
-  dotFilled: { backgroundColor: midnight.textSubtle },
-  dotRing: { borderWidth: 1.5, borderColor: midnight.textSubtle },
-  dotDashed: { borderWidth: 1.5, borderColor: midnight.textFaint, borderStyle: "dashed" },
+  dotFilled: { backgroundColor: colours.textSubtle },
+  dotRing: { borderWidth: 1.5, borderColor: colours.textSubtle },
+  dotDashed: { borderWidth: 1.5, borderColor: colours.textFaint, borderStyle: "dashed" },
   text: { flex: 1, minWidth: 0, gap: 3 },
-  name: { ...mobileType.title, color: midnight.textStrong },
-  offlineName: { color: midnight.textSubtle },
-  line: { ...mobileType.subhead, color: midnight.textSubtle, fontVariant: ["tabular-nums"] },
-  offlineLine: { color: midnight.textFaint },
+  name: { ...mobileType.title, color: colours.textStrong },
+  offlineName: { color: colours.textSubtle },
+  line: { ...mobileType.subhead, color: colours.textSubtle, fontVariant: ["tabular-nums"] },
+  offlineLine: { color: colours.textFaint },
   count: { width: 72, alignItems: "flex-end", gap: 3 },
   countValue: {
     ...mobileType.body,
-    color: midnight.textDefault,
+    color: colours.textDefault,
     fontVariant: ["tabular-nums"],
   },
-  countLabel: { ...mobileType.footnote, fontSize: 12, lineHeight: 16, color: midnight.textFaint },
+  countLabel: { ...mobileType.footnote, fontSize: 12, lineHeight: 16, color: colours.textFaint },
   footer: {
     borderTopWidth: 1,
-    borderTopColor: midnight.hairline,
+    borderTopColor: colours.hairline,
     paddingHorizontal: 20,
     paddingTop: 16,
     gap: 6,
   },
   footerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  footerTitle: { ...mobileType.callout, lineHeight: 20, color: midnight.textDefault },
-  footerAction: { ...mobileType.callout, lineHeight: 20, color: midnight.textSubtle },
-  footerNote: { ...mobileType.footnote, color: midnight.textFaint },
+  footerTitle: { ...mobileType.callout, lineHeight: 20, color: colours.textDefault },
+  footerAction: { ...mobileType.callout, lineHeight: 20, color: colours.textSubtle },
+  footerNote: { ...mobileType.footnote, color: colours.textFaint },
   notifications: { paddingTop: 28, gap: 8 },
-  sectionLabel: { ...mobileType.footnote, color: midnight.textSubtle },
-  switchBorder: { borderTopWidth: 1, borderBottomWidth: 1, borderColor: midnight.hairline },
-});
+  sectionLabel: { ...mobileType.footnote, color: colours.textSubtle },
+  switchBorder: { borderTopWidth: 1, borderBottomWidth: 1, borderColor: colours.hairline },
+}));

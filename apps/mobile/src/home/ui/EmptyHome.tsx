@@ -1,7 +1,8 @@
 /** Home with nothing to list: no Host yet, none reachable, no agent sessions, or none in a workspace. */
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { Match } from "effect";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import { themedStyles } from "../../theme/index.ts";
 import type { HomeEmpty } from "../model/home.ts";
 
 interface Copy {
@@ -23,6 +24,8 @@ export const EmptyHome = ({
   readonly onHosts: () => void;
   readonly onAll: () => void;
 }) => {
+  const styles = useStyles();
+
   const copy = Match.value(empty).pipe(
     Match.when("no-hosts", (): Copy => ({
       title: "No hosts yet",
@@ -60,16 +63,16 @@ export const EmptyHome = ({
   );
 };
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((colours) => ({
   empty: {
     borderTopWidth: 1,
-    borderTopColor: midnight.hairline,
+    borderTopColor: colours.hairline,
     marginHorizontal: 20,
     paddingTop: 28,
     gap: 8,
   },
-  title: { ...mobileType.title, color: midnight.textStrong },
-  body: { ...mobileType.callout, color: midnight.textSubtle, maxWidth: 320 },
+  title: { ...mobileType.title, color: colours.textStrong },
+  body: { ...mobileType.callout, color: colours.textSubtle, maxWidth: 320 },
   action: {
     alignSelf: "flex-start",
     marginTop: 8,
@@ -80,5 +83,5 @@ const styles = StyleSheet.create({
     borderColor: "#ffffff1f",
     justifyContent: "center",
   },
-  actionLabel: { ...mobileType.label, color: midnight.textDefault },
-});
+  actionLabel: { ...mobileType.label, color: colours.textDefault },
+}));
