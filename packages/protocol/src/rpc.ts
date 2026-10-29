@@ -816,12 +816,8 @@ export class DaemonRpcs extends RpcGroup.make(
   TerminalResize,
   TerminalClose
 )
-  .merge(ConstellationHostRpcs)
-  .merge(ResourceRpcs)
-  .merge(EditorFileRpcs)
-  .merge(LanguageRpcs)
-  .merge(PredictionRpcs)
-  .merge(SessionTurnRpcs)
+  .merge(ConstellationHostRpcs, ResourceRpcs, EditorFileRpcs)
+  .merge(LanguageRpcs, PredictionRpcs, SessionTurnRpcs)
   .merge(AutoArchiveRpcs, IdleCompactionRpcs, ContinuityRpcs, PresenceRpcs, HostStatsRpcs)
   .merge(GitWriteRpcs, GitWatchRpcs, CommitMessageRpcs)
   .merge(ExtensionRpcs, RemoteAccessRpcs, LinkedDeviceRpcs, VoiceRpcs) {}
