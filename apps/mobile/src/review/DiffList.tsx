@@ -3,7 +3,7 @@
  * bands, unified lines on the diff fills (or the colourblind pair), the flagged line's glyph and
  * 2px rule, and Risk Findings under the line they flag.
  */
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { forwardRef, memo, useCallback } from "react";
 import {
   FlatList,
@@ -15,14 +15,17 @@ import {
   Text,
   View,
 } from "react-native";
+import { themedStyles, useTheme } from "../theme/index.ts";
 import type { DiffRow, FileRow, LineRow } from "./diffRows.ts";
 import { type FindingActions, FindingRowView } from "./FindingCard.tsx";
 import type { DiffPalette } from "./palette.ts";
 import { SeverityBadge, severityColour, SeverityGlyph } from "./severity.tsx";
 
-const Chevron = ({ open }: { readonly open: boolean }) => (
-  <Text style={[styles.chevron, open && styles.chevronOpen]}>›</Text>
-);
+const Chevron = ({ open }: { readonly open: boolean }) => {
+  const styles = useStyles();
+
+  return <Text style={[styles.chevron, open && styles.chevronOpen]}>›</Text>;
+};
 
 const FileHeader = memo(function FileHeader({
   row,
@@ -33,6 +36,8 @@ const FileHeader = memo(function FileHeader({
   readonly palette: DiffPalette;
   readonly onToggle: (path: string) => void;
 }) {
+  const styles = useStyles();
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -68,6 +73,8 @@ const Line = memo(function Line({
   readonly row: LineRow;
   readonly palette: DiffPalette;
 }) {
+  const styles = useStyles();
+  const { colours } = useTheme();
   const fill = FILL[row.line](palette);
   const signColour = row.line === "add" ? palette.addedText : palette.removedText;
   const number = row.line === "remove" ? null : row.newNumber;
@@ -81,7 +88,7 @@ const Line = memo(function Line({
       <Text style={[styles.sign, { color: signColour }]}>{SIGN[row.line]}</Text>
       <Text style={styles.code}>{row.text}</Text>
       {row.mark === null ? null : (
-        <View style={[styles.rule, { backgroundColor: severityColour[row.mark] }]} />
+        <View style={[styles.rule, { backgroundColor: severityColour(colours, row.mark) }]} />
       )}
     </View>
   );
@@ -104,6 +111,8 @@ export const DiffList = forwardRef<FlatList<DiffRow>, DiffListProps>(function Di
   { rows, palette, expanded, actions, onToggleFile, onToggleFinding, bottomInset, onScroll },
   ref
 ) {
+  const styles = useStyles();
+
   const render = useCallback<ListRenderItem<DiffRow>>(
     ({ item }) => {
       switch (item.kind) {
@@ -130,7 +139,7 @@ export const DiffList = forwardRef<FlatList<DiffRow>, DiffListProps>(function Di
           );
       }
     },
-    [palette, expanded, actions, onToggleFile, onToggleFinding]
+    [styles, palette, expanded, actions, onToggleFile, onToggleFinding]
   );
 
   return (
@@ -154,7 +163,7 @@ export const DiffList = forwardRef<FlatList<DiffRow>, DiffListProps>(function Di
 
 const mono = { fontFamily: mobileType.command.fontFamily, fontSize: 12, lineHeight: 16 } as const;
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((colours) => ({
   file: {
     flexDirection: "row",
     alignItems: "center",
@@ -162,11 +171,11 @@ const styles = StyleSheet.create({
     height: 48,
     paddingHorizontal: 20,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: midnight.hairline,
+    borderTopColor: colours.hairline,
   },
-  chevron: { ...mobileType.subhead, width: 10, color: midnight.textSubtle },
+  chevron: { ...mobileType.subhead, width: 10, color: colours.textSubtle },
   chevronOpen: { transform: [{ rotate: "90deg" }] },
-  path: { ...mono, fontSize: 13, color: midnight.textDefault, flex: 1 },
+  path: { ...mono, fontSize: 13, color: colours.textDefault, flex: 1 },
   count: { ...mobileType.footnote, lineHeight: 16 },
   hunk: {
     ...mono,
@@ -174,28 +183,28 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     height: 22,
     paddingHorizontal: 14,
-    color: midnight.textFaint,
-    backgroundColor: midnight.bg,
+    color: colours.textFaint,
+    backgroundColor: colours.ground,
   },
   line: {
     flexDirection: "row",
     alignItems: "flex-start",
     minHeight: 22,
     paddingVertical: 3,
-    backgroundColor: midnight.surfaceSunken,
+    backgroundColor: colours.panel,
   },
   markLane: { width: 14, height: 16, alignItems: "center", justifyContent: "center" },
-  number: { ...mono, width: 30, textAlign: "right", color: midnight.textFaint },
+  number: { ...mono, width: 30, textAlign: "right", color: colours.textFaint },
   sign: { ...mono, width: 22, textAlign: "center" },
-  code: { ...mono, flex: 1, paddingRight: 12, color: midnight.textDefault },
+  code: { ...mono, flex: 1, paddingRight: 12, color: colours.textDefault },
   rule: { position: "absolute", left: 0, top: 0, bottom: 0, width: 2 },
   note: {
     ...mobileType.footnote,
     lineHeight: 16,
     paddingHorizontal: 20,
     paddingVertical: 14,
-    color: midnight.textSubtle,
+    color: colours.textSubtle,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: midnight.hairline,
+    borderTopColor: colours.hairline,
   },
-});
+}));

@@ -1,6 +1,6 @@
 /** M8's night sky: still pixel stars and the Starlight mark above the horizon (Paper M8). */
-import { midnight } from "@polaris/ui/tokens";
-import { StyleSheet, View } from "react-native";
+import { View } from "react-native";
+import { themedStyles } from "../theme/index.ts";
 
 /** x, y and opacity of each star, from the artboard. */
 const STARS: ReadonlyArray<readonly [number, number, number]> = [
@@ -30,26 +30,30 @@ const MARK: ReadonlyArray<readonly [number, number, number]> = [
   [16, 4, 0.5],
 ];
 
-export const Sky = () => (
-  <View style={styles.sky} pointerEvents="none" accessibilityElementsHidden>
-    {STARS.map(([x, y, opacity]) => (
-      <View key={`${x}:${y}`} style={[styles.star, { left: x, top: y, opacity }]} />
-    ))}
-    <View style={styles.mark}>
-      {MARK.map(([x, y, opacity]) => (
-        <View key={`${x}:${y}`} style={[styles.markPixel, { left: x, top: y, opacity }]} />
-      ))}
-      <View style={[styles.markPixel, styles.markCentre]} />
-    </View>
-    <View style={styles.horizon} />
-  </View>
-);
+export const Sky = () => {
+  const styles = useStyles();
 
-const styles = StyleSheet.create({
+  return (
+    <View style={styles.sky} pointerEvents="none" accessibilityElementsHidden>
+      {STARS.map(([x, y, opacity]) => (
+        <View key={`${x}:${y}`} style={[styles.star, { left: x, top: y, opacity }]} />
+      ))}
+      <View style={styles.mark}>
+        {MARK.map(([x, y, opacity]) => (
+          <View key={`${x}:${y}`} style={[styles.markPixel, { left: x, top: y, opacity }]} />
+        ))}
+        <View style={[styles.markPixel, styles.markCentre]} />
+      </View>
+      <View style={styles.horizon} />
+    </View>
+  );
+};
+
+const useStyles = themedStyles((colours) => ({
   sky: { position: "absolute", top: 0, left: 0, right: 0, height: 280, overflow: "hidden" },
-  star: { position: "absolute", width: 2, height: 2, backgroundColor: midnight.textDefault },
+  star: { position: "absolute", width: 2, height: 2, backgroundColor: colours.textDefault },
   mark: { position: "absolute", top: 110, left: "50%", marginLeft: -6, width: 12, height: 12 },
-  markPixel: { position: "absolute", width: 4, height: 4, backgroundColor: midnight.starlight },
+  markPixel: { position: "absolute", width: 4, height: 4, backgroundColor: colours.starlight },
   markCentre: { left: 4, top: 4, backgroundColor: "#ffffff" },
   horizon: {
     position: "absolute",
@@ -57,6 +61,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: 1,
-    backgroundColor: midnight.hairline,
+    backgroundColor: colours.hairline,
   },
-});
+}));

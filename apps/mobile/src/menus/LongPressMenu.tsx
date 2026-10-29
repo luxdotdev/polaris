@@ -2,10 +2,10 @@
  * A row's long-press menu: the native iOS context menu (`modules/polaris-context-menu`), the row
  * lifted as its preview. A development client built before the module draws the row alone.
  */
-import { midnight } from "@polaris/ui/tokens";
 import { requireNativeView, requireOptionalNativeModule } from "expo";
 import type { ComponentType, ReactNode } from "react";
 import { type NativeSyntheticEvent, StyleSheet } from "react-native";
+import { useTheme } from "../theme/index.ts";
 import type { Menu, MenuAction } from "./model.ts";
 
 interface NativeProps {
@@ -50,6 +50,8 @@ export const LongPressMenu = ({
   readonly onAction: (action: MenuAction) => void;
   readonly children: ReactNode;
 }) => {
+  const { colours } = useTheme();
+
   if (NativeMenu === null || menu.length === 0) return children;
 
   const onSelectItem = ({ nativeEvent }: NativeSyntheticEvent<{ readonly id: string }>) => {
@@ -61,7 +63,7 @@ export const LongPressMenu = ({
   return (
     <NativeMenu
       menu={encode(menu)}
-      previewColor={midnight.bg}
+      previewColor={colours.ground}
       previewRadius={PREVIEW_RADIUS}
       onSelectItem={onSelectItem}
       style={styles.lift}

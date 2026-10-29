@@ -2,8 +2,8 @@
  * Home's pixel glyphs drawn with Views: the needs you hand, section marks and the constellation
  * mark, from Paper H4's vectors. The Working dither is src/dither.
  */
-import { midnight } from "@polaris/ui/tokens";
 import { View } from "react-native";
+import { useTheme } from "../../theme/index.ts";
 
 type Rect = readonly [x: number, y: number, width: number, height: number, alpha?: number];
 
@@ -60,9 +60,11 @@ const HAND: ReadonlyArray<Rect> = [
 ];
 
 /** The raised hand on a needs you tile. */
-export const NeedsYouGlyph = () => (
-  <Pixels rects={HAND} size={18} unit={18 / 24} color={midnight.needsYou} />
-);
+export const NeedsYouGlyph = () => {
+  const { colours } = useTheme();
+
+  return <Pixels rects={HAND} size={18} unit={18 / 24} color={colours.needsYou} />;
+};
 
 const NEEDS_YOU_MARK: ReadonlyArray<Rect> = [
   [4, 0, 2, 10, 0.7],
@@ -82,13 +84,17 @@ const WORKING_MARK: ReadonlyArray<Rect> = [
   [7, 7, 1, 1, 0.6],
 ];
 
-export const NeedsYouMark = () => (
-  <Pixels rects={NEEDS_YOU_MARK} size={10} unit={1} color={midnight.needsYou} />
-);
+export const NeedsYouMark = () => {
+  const { colours } = useTheme();
 
-export const WorkingMark = () => (
-  <Pixels rects={WORKING_MARK} size={10} unit={1} color={midnight.textSubtle} />
-);
+  return <Pixels rects={NEEDS_YOU_MARK} size={10} unit={1} color={colours.needsYou} />;
+};
+
+export const WorkingMark = () => {
+  const { colours } = useTheme();
+
+  return <Pixels rects={WORKING_MARK} size={10} unit={1} color={colours.textSubtle} />;
+};
 
 const Line = ({
   from,
@@ -97,6 +103,7 @@ const Line = ({
   readonly from: readonly [number, number];
   readonly to: readonly [number, number];
 }) => {
+  const { colours } = useTheme();
   const dx = to[0] - from[0];
   const dy = to[1] - from[1];
   const length = Math.hypot(dx, dy);
@@ -109,7 +116,7 @@ const Line = ({
         top: (from[1] + to[1]) / 2 - 0.5,
         width: length,
         height: 1,
-        backgroundColor: midnight.starlight,
+        backgroundColor: colours.starlight,
         opacity: 0.35,
         transform: [{ rotate: `${Math.atan2(dy, dx)}rad` }],
       }}
@@ -118,19 +125,23 @@ const Line = ({
 };
 
 /** The constellation mark: three stars, the third dim, joined by faint lines. */
-export const ConstellationGlyph = () => (
-  <View style={{ width: 20, height: 20 }}>
-    <Line from={[4.5, 13.5]} to={[10.5, 6.5]} />
-    <Line from={[10.5, 6.5]} to={[15.5, 14.5]} />
-    <Pixels
-      rects={[
-        [3, 12, 3, 3],
-        [9, 5, 3, 3],
-        [14, 13, 3, 3, 0.45],
-      ]}
-      size={20}
-      unit={1}
-      color={midnight.starlight}
-    />
-  </View>
-);
+export const ConstellationGlyph = () => {
+  const { colours } = useTheme();
+
+  return (
+    <View style={{ width: 20, height: 20 }}>
+      <Line from={[4.5, 13.5]} to={[10.5, 6.5]} />
+      <Line from={[10.5, 6.5]} to={[15.5, 14.5]} />
+      <Pixels
+        rects={[
+          [3, 12, 3, 3],
+          [9, 5, 3, 3],
+          [14, 13, 3, 3, 0.45],
+        ]}
+        size={20}
+        unit={1}
+        color={colours.starlight}
+      />
+    </View>
+  );
+};

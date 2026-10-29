@@ -1,8 +1,7 @@
 /**
  * The Mobile App's shell: the Hosts (one HostConnection each), the navigation stack, the tabs
- * with New, and the screen on top. Midnight throughout.
+ * with New, and the screen on top, in the chosen theme.
  */
-import { midnight } from "@polaris/ui/tokens";
 import { Match } from "effect";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
@@ -32,10 +31,12 @@ import { HostsProvider } from "./runtime/hosts.tsx";
 import { useReadyToReview } from "./review/index.ts";
 import { useWidgetLinks } from "./widgets/useWidgetLinks.ts";
 import { WidgetSync } from "./widgets/WidgetSync.ts";
+import { ThemeProvider, themedStyles } from "./theme/index.ts";
 
 const TAB_BAR = 58;
 
 const Tabs = () => {
+  const styles = useStyles();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const bottom = Math.max(insets.bottom, 20);
@@ -145,6 +146,7 @@ const Push = () => {
 };
 
 const Shell = () => {
+  const styles = useStyles();
   const navigation = useNavigation();
 
   useWidgetLinks(navigation.open);
@@ -175,26 +177,30 @@ export const App = () => {
   }, []);
 
   return (
-    <GestureHandlerRootView style={styles.fill}>
-      <SafeAreaProvider>
-        <StatusBar style="light" />
-        <HostsProvider>
-          <RelayProvider>
-            <FollowedHostsProvider>
-              <WidgetSync />
-              <CheckAlive />
-              <Push />
-              <NavigationProvider>
-                <Shell />
-              </NavigationProvider>
-            </FollowedHostsProvider>
-          </RelayProvider>
-        </HostsProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <ThemeProvider>
+      <GestureHandlerRootView style={rootStyles.root}>
+        <SafeAreaProvider>
+          <StatusBar style="light" />
+          <HostsProvider>
+            <RelayProvider>
+              <FollowedHostsProvider>
+                <WidgetSync />
+                <CheckAlive />
+                <Push />
+                <NavigationProvider>
+                  <Shell />
+                </NavigationProvider>
+              </FollowedHostsProvider>
+            </RelayProvider>
+          </HostsProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ThemeProvider>
   );
 };
 
-const styles = StyleSheet.create({
-  fill: { flex: 1, backgroundColor: midnight.bg },
-});
+const useStyles = themedStyles((colours) => ({
+  fill: { flex: 1, backgroundColor: colours.ground },
+}));
+
+const rootStyles = StyleSheet.create({ root: { flex: 1 } });

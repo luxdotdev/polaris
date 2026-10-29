@@ -4,7 +4,7 @@
  * sheet across the foot. Built from the constellation view's own model and pieces.
  */
 import type { Constellation, TaskProjection } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { useEffect, useMemo, useState } from "react";
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { HandedClaimActions } from "../constellation/claim.tsx";
@@ -16,6 +16,7 @@ import { useVerdicts } from "../constellation/useVerdicts.ts";
 import { messageLead } from "../constellation/verdict.ts";
 import type { HostConnection } from "../runtime/hostConnection.ts";
 import { useHost } from "../runtime/hosts.tsx";
+import { themedStyles, useTheme } from "../theme/index.ts";
 import { claimChoices, constellationKey, taskKey, useKept, useLeadInput } from "./kept.ts";
 import { claimLeft, type Edge, foldOf, graphLayout, NODE_HEIGHT, NODE_WIDTH } from "./graph.ts";
 import type { Rect } from "./posture.ts";
@@ -39,6 +40,7 @@ const rowsOf = (c: Constellation, projections: ReadonlyArray<TaskProjection>, no
 };
 
 const Line = ({ edge }: { readonly edge: Edge }) => {
+  const styles = useStyles();
   const dx = edge.x2 - edge.x1;
   const dy = edge.y2 - edge.y1;
   const length = Math.hypot(dx, dy);
@@ -65,34 +67,39 @@ const secondOf = (row: TaskRow): string => {
   return row.second?.kind === "after" ? `${row.word} · after ${row.second.ids}` : row.word;
 };
 
-const Node = ({ row, x, y }: { readonly row: TaskRow; readonly x: number; readonly y: number }) => (
-  <View
-    style={[
-      styles.node,
-      { left: x, top: y },
-      row.tone === "needs-you" ? styles.nodeNeedsYou : null,
-      row.tone === "waiting" ? styles.nodeWaiting : null,
-    ]}
-  >
-    <TaskGlyph tone={row.tone} harness={row.harness} gate={row.gate} />
-    <Text style={[styles.nodeId, row.tone === "needs-you" && { color: midnight.needsYouText }]}>
-      {row.id}
-    </Text>
-    <View style={styles.nodeText}>
-      <Text style={styles.nodeTitle} numberOfLines={1}>
-        {row.title}
+const Node = ({ row, x, y }: { readonly row: TaskRow; readonly x: number; readonly y: number }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
+
+  return (
+    <View
+      style={[
+        styles.node,
+        { left: x, top: y },
+        row.tone === "needs-you" ? styles.nodeNeedsYou : null,
+        row.tone === "waiting" ? styles.nodeWaiting : null,
+      ]}
+    >
+      <TaskGlyph tone={row.tone} harness={row.harness} gate={row.gate} />
+      <Text style={[styles.nodeId, row.tone === "needs-you" && { color: colours.needsYouText }]}>
+        {row.id}
       </Text>
-      {row.tone === "done" ? null : (
-        <Text
-          style={[styles.nodeSecond, row.tone === "needs-you" && { color: midnight.needsYouText }]}
-          numberOfLines={1}
-        >
-          {secondOf(row)}
+      <View style={styles.nodeText}>
+        <Text style={styles.nodeTitle} numberOfLines={1}>
+          {row.title}
         </Text>
-      )}
+        {row.tone === "done" ? null : (
+          <Text
+            style={[styles.nodeSecond, row.tone === "needs-you" && { color: colours.needsYouText }]}
+            numberOfLines={1}
+          >
+            {secondOf(row)}
+          </Text>
+        )}
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 const Header = ({
   name,
@@ -105,6 +112,8 @@ const Header = ({
   readonly rows: ReadonlyArray<TaskRow>;
   readonly onBack: (() => void) | undefined;
 }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
   const bar = taskBar(rows);
 
   return (
@@ -132,7 +141,7 @@ const Header = ({
               key={i}
               style={[
                 styles.segment,
-                { backgroundColor: segmentColour(tone, bar.harnesses[i] ?? null) },
+                { backgroundColor: segmentColour(colours, tone, bar.harnesses[i] ?? null) },
               ]}
             />
           ))}
@@ -165,6 +174,8 @@ const Live = ({
   readonly division: Rect;
   readonly onBack: (() => void) | undefined;
 }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
   const feed = useConstellation(connection, constellationId);
   const verdicts = useVerdicts(connection, constellationId);
   const now = useNow();
@@ -230,7 +241,7 @@ const Live = ({
           {handed === null ? null : (
             <View style={[styles.claim, { left, top: layout.height + 8 }]}>
               <Text style={styles.claimTitle}>
-                <Text style={{ color: midnight.needsYouText }}>{handed.id}</Text> Claim · handed to
+                <Text style={{ color: colours.needsYouText }}>{handed.id}</Text> Claim · handed to
                 you
               </Text>
               <HandedClaimActions
@@ -290,6 +301,7 @@ export const ConstellationSpan = ({
   division,
   onBack,
 }: ConstellationSpanProps) => {
+  const styles = useStyles();
   const connection = useHost(hostId);
 
   return (
@@ -308,10 +320,10 @@ export const ConstellationSpan = ({
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: midnight.bg },
+const useStyles = themedStyles((colours) => ({
+  screen: { flex: 1, backgroundColor: colours.ground },
   fill: { flex: 1 },
-  note: { ...mobileType.footnote, color: midnight.textSubtle, padding: 24 },
+  note: { ...mobileType.footnote, color: colours.textSubtle, padding: 24 },
   header: { flexDirection: "row", alignItems: "center", gap: 12, padding: 20, maxWidth: 440 },
   back: {
     width: 36,
@@ -320,13 +332,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: midnight.hairline,
+    borderColor: colours.hairline,
   },
-  backGlyph: { fontSize: 22, lineHeight: 24, color: midnight.textDefault },
+  backGlyph: { fontSize: 22, lineHeight: 24, color: colours.textDefault },
   titles: { flex: 1, gap: 2 },
-  name: { ...mobileType.title, fontSize: 19, color: midnight.textStrong },
+  name: { ...mobileType.title, fontSize: 19, color: colours.textStrong },
   barLine: { flexDirection: "row", alignItems: "center", gap: 3 },
-  meta: { ...mobileType.footnote, color: midnight.textSubtle, marginRight: 6 },
+  meta: { ...mobileType.footnote, color: colours.textSubtle, marginRight: 6 },
   segment: { width: 10, height: 4 },
   edge: { position: "absolute", height: 1, backgroundColor: "#ffffff2e" },
   node: {
@@ -339,15 +351,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: midnight.hairline,
-    backgroundColor: midnight.surfaceSunken,
+    borderColor: colours.hairline,
+    backgroundColor: colours.panel,
   },
-  nodeNeedsYou: { borderColor: midnight.needsYou },
-  nodeWaiting: { borderStyle: "dashed", backgroundColor: midnight.bg },
-  nodeId: { ...mobileType.index, color: midnight.textSubtle },
+  nodeNeedsYou: { borderColor: colours.needsYou },
+  nodeWaiting: { borderStyle: "dashed", backgroundColor: colours.ground },
+  nodeId: { ...mobileType.index, color: colours.textSubtle },
   nodeText: { flex: 1, minWidth: 0 },
-  nodeTitle: { ...mobileType.subhead, color: midnight.textStrong },
-  nodeSecond: { ...mobileType.index, fontSize: 11, lineHeight: 14, color: midnight.textSubtle },
+  nodeTitle: { ...mobileType.subhead, color: colours.textStrong },
+  nodeSecond: { ...mobileType.index, fontSize: 11, lineHeight: 14, color: colours.textSubtle },
   claim: {
     position: "absolute",
     width: CLAIM_WIDTH,
@@ -355,10 +367,10 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: midnight.hairline,
-    backgroundColor: midnight.surfaceSunken,
+    borderColor: colours.hairline,
+    backgroundColor: colours.panel,
   },
-  claimTitle: { ...mobileType.subhead, color: midnight.textStrong },
+  claimTitle: { ...mobileType.subhead, color: colours.textStrong },
   sheet: {
     marginHorizontal: 12,
     paddingHorizontal: 16,
@@ -367,8 +379,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     borderWidth: 1,
-    borderColor: midnight.hairline,
-    backgroundColor: midnight.surfaceSunken,
+    borderColor: colours.hairline,
+    backgroundColor: colours.panel,
   },
   grabber: {
     alignSelf: "center",
@@ -376,7 +388,7 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     marginTop: 8,
-    backgroundColor: midnight.textFaint,
+    backgroundColor: colours.textFaint,
   },
-  leadLine: { ...mobileType.callout, color: midnight.textDefault },
-});
+  leadLine: { ...mobileType.callout, color: colours.textDefault },
+}));
