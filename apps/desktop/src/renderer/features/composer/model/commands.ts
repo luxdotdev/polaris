@@ -6,14 +6,15 @@
 import type { SlashCommand } from "@polaris/protocol";
 import type { Plain } from "../../../../shared/api.ts";
 import { type FrecencyTable, frecencyScore, topFrecent } from "./frecency.ts";
+import { tokenStarts } from "./trigger.ts";
 
 export type CommandOption = Plain<SlashCommand>;
 
 export type Sigil = CommandOption["sigil"];
 
-/** A chip in the draft: which command it stands for. */
+/** A chip in the draft: which command (or, with `@`, which file) it stands for. */
 export interface CommandToken {
-  readonly sigil: Sigil;
+  readonly sigil: Sigil | "@";
   readonly name: string;
 }
 
@@ -51,12 +52,19 @@ export const RECENT_LIMIT = 5;
 export const frecencyKey = (option: Pick<CommandOption, "sigil" | "name">) =>
   `${option.sigil}${option.name}`;
 
+/** Whether the word leads the message: only chips and whitespace before it, and no `/` chip yet. */
+export const commandHead = (atHead: boolean, tokens: ReadonlyArray<CommandToken>) =>
+  atHead && !tokens.some((t) => t.sigil === "/");
+
 /**
- * Where a sigil may open: `/` commands only lead the message, as the Harness
- * reads them only there, and only one may; a Codex `$` Skill goes anywhere.
+ * Whether an option may go where the word is. At the head of the message
+ * every command may; anywhere else only what a Harness reads mid-message: a
+ * Skill sent as text (Claude Code runs it there), or a Codex `$` Skill.
  */
-export const sigilOpen = (sigil: Sigil, atHead: boolean, tokens: ReadonlyArray<CommandToken>) =>
-  sigil === "$" || (atHead && !tokens.some((t) => t.sigil === "/"));
+export const placeable = (option: CommandOption, head: boolean) =>
+  option.sigil === "$" ||
+  head ||
+  (option.kind === "skill" && option.run === "text" && option.template === null);
 
 /**
  * 0 for a prefix of the name, 1 for a prefix of a part (`codex:re` → `codex:review`),
@@ -120,10 +128,10 @@ export const matchMenu = (
   // SAFETY: TYPING's first group only matches "/" or "$".
   const sigil = match[1] as Sigil;
   const query = (match[2] ?? "").toLowerCase();
+  const head = commandHead(atHead, tokens);
+  const here = options.filter((o) => placeable(o, head));
 
-  if (!sigilOpen(sigil, atHead, tokens)) return null;
-
-  if (query === "") return bareMenu(sigil, options, frecency, now);
+  if (query === "") return bareMenu(sigil, here, frecency, now);
 
   const ranked: Array<{
     readonly option: CommandOption;
@@ -131,7 +139,7 @@ export const matchMenu = (
     readonly frecent: number;
   }> = [];
 
-  for (const option of options) {
+  for (const option of here) {
     if (option.sigil !== sigil) continue;
     const r = rank(option, query);
 
@@ -164,26 +172,28 @@ export interface CompleteToken {
 
 /**
  * The first typed-through word (`/compact ` with its trailing space) naming a
- * listed command, which becomes a chip. `startsAtBoundary` and `atHead` say
- * where the scanned text sits; only what the editor can see decides them.
+ * listed command, which becomes a chip. `before` (the draft ahead of the
+ * scanned text) and `atHead` say where it sits, as the editor sees them.
  */
 export const findComplete = (
   text: string,
   options: ReadonlyArray<CommandOption>,
   tokens: ReadonlyArray<CommandToken>,
-  context: { readonly startsAtBoundary: boolean; readonly atHead: boolean }
+  context: { readonly before: string; readonly atHead: boolean }
 ): CompleteToken | null => {
   for (const match of text.matchAll(COMPLETE)) {
     const start = match.index;
     const before = text.slice(0, start);
-    const boundary = start === 0 ? context.startsAtBoundary : /\s$/.test(before);
     // SAFETY: COMPLETE's first group only matches "/" or "$".
     const sigil = match[1] as Sigil;
     const name = match[2] ?? "";
-    const atHead = context.atHead && before.trim() === "";
+    const head = commandHead(context.atHead && before.trim() === "", tokens);
 
-    if (!boundary || !sigilOpen(sigil, atHead, tokens)) continue;
-    const option = options.find((o) => o.sigil === sigil && o.name === name && insertsChip(o));
+    if (!tokenStarts(context.before + before)) continue;
+
+    const option = options.find(
+      (o) => o.sigil === sigil && o.name === name && insertsChip(o) && placeable(o, head)
+    );
 
     if (option !== undefined) return { option, start, length: 1 + name.length };
   }

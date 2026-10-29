@@ -66,15 +66,29 @@ describe("chips in the editor", () => {
     });
   });
 
-  test("a / command only at the head; a $ Skill anywhere", () => {
+  test("a / command only at the head; a / Skill and a $ Skill anywhere", () => {
     expect(chips(editorWith("please /compact now"))).toEqual([]);
+    expect(chips(editorWith("please /simplify now"))).toEqual(["/simplify"]);
     expect(chips(editorWith("use $tdd here"))).toEqual(["$tdd"]);
+  });
+
+  test("a sigil word mid-message, on a later line, opens; inside a word, path, URL or code it doesn't", () => {
+    const typed = (text: string) => editorWith(text).getEditorState().read($readTypedWord);
+
+    expect(typed("fix the parser /sim")).toMatchObject({ word: "/sim", atHead: false });
+    expect(typed("first line\n@src/a")).toMatchObject({ sigil: "@", query: "src/a" });
+
+    for (const text of ["a/b", "see ./src", "http://x", "me@example.com", "run `/sim", "x `@a"])
+      expect(typed(text)).toBeNull();
   });
 
   test("picking from the menu swaps the typed word for the chip and a space", () => {
     const editor = editorWith("/sim");
 
-    expect(editor.getEditorState().read($readTypedWord)).toEqual({ word: "/sim", atHead: true });
+    expect(editor.getEditorState().read($readTypedWord)).toMatchObject({
+      word: "/sim",
+      atHead: true,
+    });
     editor.update(() => $insertChip(OPTIONS[1] ?? option("x")), { discrete: true });
 
     expect(chips(editor)).toEqual(["/simplify"]);

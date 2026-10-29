@@ -1,13 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { recordPick } from "./frecency.ts";
-import {
-  type CommandOption,
-  findComplete,
-  matchMenu,
-  MENU_LIMIT,
-  promptFor,
-  sigilOpen,
-} from "./commands.ts";
+import { type CommandOption, findComplete, matchMenu, MENU_LIMIT, promptFor } from "./commands.ts";
 
 const option = (name: string, extra: Partial<CommandOption> = {}): CommandOption => ({
   name,
@@ -61,10 +54,22 @@ describe("the / menu", () => {
     expect(matchMenu("plain", true, OPTIONS, [])).toBeNull();
   });
 
-  test("/ only leads the message, once; $ goes anywhere", () => {
-    expect(matchMenu("/", false, OPTIONS, [])).toBeNull();
-    expect(matchMenu("/", true, OPTIONS, [{ sigil: "/", name: "compact" }])).toBeNull();
-    expect(sigilOpen("$", false, [{ sigil: "/", name: "compact" }])).toBe(true);
+  test("mid-message, / lists only the Skills a Harness reads there; $ goes anywhere (ENG-544)", () => {
+    const skills = ["simplify", "security-review", "codex:review"];
+
+    expect(names(matchMenu("/", false, OPTIONS, []))).toEqual(skills);
+    expect(names(matchMenu("/", true, OPTIONS, [{ sigil: "/", name: "compact" }]))).toEqual(skills);
+    expect(matchMenu("/comp", false, OPTIONS, [])).toBeNull();
+    expect(names(matchMenu("$", false, OPTIONS, [{ sigil: "/", name: "compact" }]))).toEqual([
+      "tdd",
+    ]);
+  });
+
+  test("a Codex custom prompt only expands at the head, so it isn't offered mid-message", () => {
+    const prompt = option("prompts:fix", { template: "Fix $ARGUMENTS" });
+
+    expect(names(matchMenu("/pro", true, [prompt], []))).toEqual(["prompts:fix"]);
+    expect(matchMenu("/pro", false, [prompt], [])).toBeNull();
   });
 
   test("draws at most MENU_LIMIT rows and counts the rest", () => {
@@ -77,7 +82,7 @@ describe("the / menu", () => {
 });
 
 describe("typed-through chips", () => {
-  const at = { startsAtBoundary: true, atHead: true };
+  const at = { before: "", atHead: true };
 
   test("a listed name followed by a space becomes a chip", () => {
     expect(findComplete("/compact ", OPTIONS, [], at)).toMatchObject({
@@ -97,6 +102,15 @@ describe("typed-through chips", () => {
     expect(findComplete("src/compact ", OPTIONS, [], at)).toBeNull();
     expect(findComplete("please /compact ", OPTIONS, [], at)).toBeNull();
     expect(findComplete("/compact", OPTIONS, [], at)).toBeNull();
+  });
+
+  test("a Skill typed through mid-message becomes a chip, but not inside code (ENG-544)", () => {
+    expect(findComplete("then /simplify it", OPTIONS, [], at)).toMatchObject({
+      option: { name: "simplify" },
+      start: 5,
+    });
+    expect(findComplete("run `/simplify it`", OPTIONS, [], at)).toBeNull();
+    expect(findComplete("/simplify ", OPTIONS, [], { before: "see `", atHead: false })).toBeNull();
   });
 });
 

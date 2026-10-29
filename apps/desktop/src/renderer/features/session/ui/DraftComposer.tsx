@@ -1,7 +1,8 @@
 /**
  * `@polaris/ui`'s Composer wired for typing: ↵ sends, ⇧↵ breaks the line, esc
  * stops a Working Turn, ↑/↓ bring back sent messages, pasted or dropped files
- * become attachment chips, and `/` lists the Harness's Skills and Slash Commands.
+ * become attachment chips, `/` lists the Harness's Skills and Slash Commands,
+ * and `@` picks a file or folder to mention.
  */
 import type { PolarisAction } from "@polaris/protocol";
 import { Composer, type Harness, harnessHue } from "@polaris/ui";
@@ -16,6 +17,7 @@ import {
   type CommandNotice,
   type CommandOption,
   type FrecencyTable,
+  type MentionSearch,
   Prompt,
 } from "../../composer/index.ts";
 import type { StagedAttachment } from "../state.ts";
@@ -92,6 +94,8 @@ export interface DraftComposerProps {
   readonly strip?: ReactNode;
   /** The footer's right side before Send (`ComposerStatus`). */
   readonly status?: ReactNode;
+  /** The `@` picker's file search (`useMentionSearch`); unset, `@` is just text. */
+  readonly mentions?: MentionSearch | null;
 }
 
 /** The paperclip's file picker: a hidden input whose picks are attached like dropped files. */
@@ -156,6 +160,7 @@ export const DraftComposer = ({
   shell,
   strip,
   status,
+  mentions = null,
 }: DraftComposerProps) => {
   const filePicker = useRef<HTMLInputElement>(null);
   // The menu draws in this box, above the card (which clips what it holds).
@@ -234,6 +239,7 @@ export const DraftComposer = ({
                   menuSlot={menuSlot}
                   history={history}
                   mono={shell !== undefined}
+                  mentions={shell === undefined ? mentions : null}
                 />
               </ComposerMenu>
             }

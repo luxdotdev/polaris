@@ -40,7 +40,7 @@ import {
 } from "../model/intent.ts";
 import { patchSessionUi, useSessionUi } from "../state.ts";
 import type { OutboxActions } from "../outbox.ts";
-import { promptFor, sentMessages, shellDraft } from "../../composer/index.ts";
+import { promptFor, sentMessages, shellDraft, useMentionSearch } from "../../composer/index.ts";
 import { RotatingVerb, useWorkingVerbs } from "../verbs/index.ts";
 import { type ComposerCommands, DraftComposer } from "./DraftComposer.tsx";
 import { useComposerCommands } from "./useComposerCommands.ts";
@@ -224,6 +224,7 @@ export const SessionComposer = (props: SessionComposerProps) => {
   });
 
   const shownCwd = tildePath(session.cwd, host?.status.host?.homeDir ?? null);
+  const mentions = useMentionSearch(hostKey, session.cwd, hasCapability(host, "files.search"));
 
   const shell = useShellMode({
     hostKey,
@@ -391,6 +392,7 @@ export const SessionComposer = (props: SessionComposerProps) => {
         patchSessionUi(uiKey, (u) => ({ attachments: u.attachments.filter((x) => x !== a) }))
       }
       commands={commands}
+      mentions={mentions}
       history={history}
     />
   );

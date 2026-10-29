@@ -1,7 +1,7 @@
 /**
  * The composer's prompt (R6): a Lexical editor whose `/` menu lists the
- * session's Harness's Skills and Slash Commands (`harness.commands`) and
- * inserts each as a chip. The session feature mounts it in `DraftComposer`.
+ * session's Harness's Skills and Slash Commands (`harness.commands`) and whose
+ * `@` picker finds files; each becomes a chip. Mounted in `DraftComposer`.
  */
 export { Prompt, preloadPrompt } from "./ui/Prompt.tsx";
 
@@ -14,6 +14,10 @@ export { sentMessages } from "./model/history.ts";
 export { isShellDraft, leaveShell, shellCommandOf, shellDraft } from "./model/shell.ts";
 
 export { useHarnessCommands } from "./live.ts";
+
+export { useMentionSearch } from "./mentionSearch.ts";
+
+export type { MentionSearch } from "./model/mentions.ts";
 
 export { type CommandNotice, daemonNotice } from "./model/notice.ts";
 

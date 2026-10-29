@@ -44,7 +44,7 @@ import {
 } from "../model/newSession.ts";
 import { permissionModesOn } from "../model/intent.ts";
 import { patchSessionUi, type SessionUi, uiKey, useSessionUi } from "../state.ts";
-import { promptFor } from "../../composer/index.ts";
+import { promptFor, useMentionSearch } from "../../composer/index.ts";
 import { DraftComposer } from "./DraftComposer.tsx";
 import { useComposerCommands } from "./useComposerCommands.ts";
 import { ForkSource, type ForkSourceValue } from "./ForkSource.tsx";
@@ -225,6 +225,12 @@ export const NewSessionPage = ({
       (next) => setModels({ ...models, codex: next })
     ),
   });
+
+  const mentions = useMentionSearch(
+    hostKey,
+    workspace?.path ?? null,
+    hasCapability(host, "files.search")
+  );
   // What the session's first Turn sends: a Codex custom prompt goes expanded.
 
   const sent = { ...ui, draft: promptFor(ui.draft, commandList.options) };
@@ -365,6 +371,7 @@ export const NewSessionPage = ({
           branch={branchLabel(shown, choice, ui.draft, head)}
           prominentSend
           commands={commandList}
+          mentions={mentions}
         />
         <HarnessChoiceRow
           hostKey={hostKey}

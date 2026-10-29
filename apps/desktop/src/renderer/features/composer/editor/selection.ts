@@ -129,7 +129,7 @@ export const $selectionText = (): string | null => {
   for (const node of selection.getNodes()) {
     if ($isCommandNode(node)) {
       chips = true;
-      parts.push(`${node.getSigil()}${node.getTextContent()}`);
+      parts.push(node.getSentText());
     } else if ($isLineBreakNode(node)) {
       parts.push("\n");
     } else if ($isElementNode(node)) {

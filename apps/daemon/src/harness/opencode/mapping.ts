@@ -1,6 +1,6 @@
 /**
  * Pure translations between Polaris and `opencode serve`: permission rulesets,
- * Model ids, parts → `TurnItem`s, approvals and prompts.
+ * Model ids, parts → `TurnItem`s, approvals and prompts (with their `@path` mentions).
  */
 import {
   ApprovalDecision,
@@ -15,6 +15,7 @@ import {
   TurnItem,
 } from "@polaris/protocol";
 import { Match } from "effect";
+import { basename, resolve, sep } from "node:path";
 import * as P from "./protocol.ts";
 
 type Rule = P.PermissionRuleset[number];
@@ -102,10 +103,45 @@ export const toModels = (
   );
 };
 
-/** The body of a Turn's prompt: text, then an image part per image attachment. */
+/** What a path in the session's directory is, for a mention; null when there's nothing there. */
+export type PathKind = (path: string) => "file" | "folder" | null;
+
+/** A composer mention: `@path` or `@"path with spaces"` at a token start. */
+const MENTION = /(?<=^|\s)@(?:"([^"]+)"|(\S+))/g;
+
+/**
+ * A file part per `@path` mention naming something in `cwd`, as OpenCode's own
+ * TUI attaches one: the source points back at the mention's span in the text.
+ */
+export const mentionParts = (prompt: string, cwd: string, kindOf: PathKind) =>
+  [...prompt.matchAll(MENTION)].flatMap((match) => {
+    const path = (match[1] ?? match[2] ?? "").replace(/\/$/, "");
+    const absolute = resolve(cwd, path);
+    const inside = absolute === cwd || absolute.startsWith(cwd.endsWith(sep) ? cwd : cwd + sep);
+    const kind = path === "" || !inside ? null : kindOf(absolute);
+
+    if (kind === null) return [];
+
+    return [
+      {
+        type: "file" as const,
+        mime: kind === "folder" ? "application/x-directory" : "text/plain",
+        filename: basename(absolute),
+        url: Bun.pathToFileURL(absolute).href,
+        source: {
+          type: "file" as const,
+          path,
+          text: { value: match[0], start: match.index, end: match.index + match[0].length },
+        },
+      },
+    ];
+  });
+
+/** The body of a Turn's prompt: text, then an image part per image attachment and a file part per mention. */
 export const promptParts = (
   prompt: string,
-  attachments: ReadonlyArray<Attachment>
+  attachments: ReadonlyArray<Attachment>,
+  mentions: { readonly cwd: string; readonly kindOf: PathKind } | null = null
 ): P.PromptAsyncBody["parts"] => {
   const images = attachments.filter((a) => a.mimeType.startsWith("image/"));
   const others = attachments.filter((a) => !a.mimeType.startsWith("image/"));
@@ -123,6 +159,7 @@ export const promptParts = (
       filename: a.name,
       url: Bun.pathToFileURL(a.hostPath).href,
     })),
+    ...(mentions === null ? [] : mentionParts(prompt, mentions.cwd, mentions.kindOf)),
   ];
 };
 
