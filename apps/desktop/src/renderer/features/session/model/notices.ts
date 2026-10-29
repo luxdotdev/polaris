@@ -47,3 +47,34 @@ export const notices = (input: NoticeInput): ReadonlyArray<Notice> => {
     input.limited ? { kind: "limited" as const, resetsAt: input.resetsAt } : null,
   ].filter((n) => n !== null);
 };
+
+const WANTS: Readonly<Record<ApprovalRequest["kind"], string>> = {
+  command: "wants to run",
+  "file-change": "wants to change files",
+  tool: "wants to use a tool",
+  question: "has a question",
+};
+
+/** Longer than this, a command can't be read whole in the strip. */
+const STRIP_COMMAND_MAX = 60;
+
+/**
+ * How the strip shows a request. Approve sits there only for a one-line command short enough
+ * to be read whole; anything else is approved from the full card in the conversation.
+ */
+export const approvalNotice = (request: ApprovalRequest) => {
+  const full = request.kind === "question" ? null : (request.detail ?? request.title);
+
+  const whole =
+    request.kind === "command" &&
+    full !== null &&
+    !full.includes("\n") &&
+    full.length <= STRIP_COMMAND_MAX;
+
+  return {
+    wants: WANTS[request.kind],
+    shown: request.kind === "command" ? full : null,
+    full,
+    decide: whole,
+  };
+};

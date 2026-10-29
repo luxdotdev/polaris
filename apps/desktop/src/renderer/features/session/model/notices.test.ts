@@ -1,6 +1,6 @@
 import { ApprovalRequest, RequestId, SessionId, TurnId } from "@polaris/protocol";
 import { describe, expect, test } from "bun:test";
-import { type NoticeInput, notices } from "./notices.ts";
+import { approvalNotice, type NoticeInput, notices } from "./notices.ts";
 import { type Outgoing, queuedOutgoing } from "./outbox.ts";
 
 const request = new ApprovalRequest({
@@ -58,5 +58,33 @@ describe("the composer's notice strip", () => {
     expect(kinds({ contextShare: 0.9, contextDismissedAt: 0.9 })).toEqual([]);
     expect(kinds({ contextShare: 0.93, contextDismissedAt: 0.9 })).toEqual(["context"]);
     expect(kinds({ contextShare: null })).toEqual([]);
+  });
+});
+
+describe("an approval in the strip", () => {
+  const asking = (kind: ApprovalRequest["kind"], detail: string | null) =>
+    new ApprovalRequest({
+      id: request.id,
+      sessionId: request.sessionId,
+      turnId: request.turnId,
+      kind,
+      title: "A request",
+      detail,
+      options: [],
+      openedAt: request.openedAt,
+    });
+
+  test("names what each kind wants", () => {
+    expect(approvalNotice(asking("file-change", null)).wants).toBe("wants to change files");
+    expect(approvalNotice(asking("tool", null)).wants).toBe("wants to use a tool");
+  });
+
+  test("offers Approve only for a one-line command shown whole", () => {
+    expect(approvalNotice(asking("command", "cargo build --release")).decide).toBe(true);
+    expect(approvalNotice(asking("command", "cargo build && \\\n  rm -rf target")).decide).toBe(
+      false
+    );
+    expect(approvalNotice(asking("command", `echo ${"x".repeat(80)}`)).decide).toBe(false);
+    expect(approvalNotice(asking("file-change", "src/a.ts")).decide).toBe(false);
   });
 });

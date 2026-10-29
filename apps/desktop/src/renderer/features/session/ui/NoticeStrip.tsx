@@ -18,7 +18,7 @@ import {
 import { type ReactNode, useState } from "react";
 import { Decisions } from "../../../commands.ts";
 import { capacityReset } from "../../constellation/model/failure.ts";
-import type { Notice } from "../model/notices.ts";
+import { approvalNotice, type Notice } from "../model/notices.ts";
 
 export interface NoticeStripProps {
   readonly harness: Harness;
@@ -84,6 +84,33 @@ interface RowProps {
   readonly more: ReactNode;
 }
 
+const Decide = ({
+  request,
+  props,
+}: {
+  readonly request: ApprovalRequest;
+  readonly props: NoticeStripProps;
+}) => (
+  <>
+    <Button
+      variant="secondary"
+      size="sm"
+      className="rounded-full"
+      onClick={() => props.onRespond(request, Decisions.Deny({ reason: null }))}
+    >
+      Deny
+    </Button>
+    <Button
+      variant="primary"
+      size="sm"
+      className="rounded-full"
+      onClick={() => props.onRespond(request, Decisions.Allow({ remember: false }))}
+    >
+      Approve
+    </Button>
+  </>
+);
+
 const Approval = ({
   request,
   props,
@@ -93,8 +120,7 @@ const Approval = ({
   readonly props: NoticeStripProps;
   readonly more: ReactNode;
 }) => {
-  const who = harnessHue(props.harness).name;
-  const question = request.kind === "question";
+  const view = approvalNotice(request);
 
   return (
     <div
@@ -103,34 +129,22 @@ const Approval = ({
     >
       <PixelHandIcon size={14} className="text-needs-you shrink-0" />
       <span className="text-body text-needs-you-text shrink-0 font-medium">
-        {question ? `${who} has a question` : `${who} wants to run`}
+        {harnessHue(props.harness).name} {view.wants}
       </span>
-      {question ? null : (
-        <code className="text-code-inline bg-well text-text-default min-w-0 truncate rounded-[5px] px-1.5 py-0.5 font-mono">
-          {request.detail ?? request.title}
+      {view.shown === null ? null : (
+        <code
+          title={view.full ?? undefined}
+          className="text-code-inline bg-well text-text-default min-w-0 truncate rounded-[5px] px-1.5 py-0.5 font-mono"
+        >
+          {view.shown}
         </code>
       )}
       <span className="flex-1" />
       {more}
-      {question ? null : (
-        <>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="rounded-full"
-            onClick={() => props.onRespond(request, Decisions.Deny({ reason: null }))}
-          >
-            Deny
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            className="rounded-full"
-            onClick={() => props.onRespond(request, Decisions.Allow({ remember: false }))}
-          >
-            Approve
-          </Button>
-        </>
+      {view.decide ? (
+        <Decide request={request} props={props} />
+      ) : (
+        <span className="text-caption text-text-subtle shrink-0">Answer above</span>
       )}
     </div>
   );
