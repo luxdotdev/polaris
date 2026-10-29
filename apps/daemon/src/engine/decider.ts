@@ -39,6 +39,7 @@ import {
   type SessionRecord,
   workingTurn,
 } from "../store/model.ts";
+import { pickCelestial } from "../store/celestial.ts";
 import { userTurn } from "./session.turns.ts";
 import { reviewDeciders } from "./review.ts";
 import { decideSession, type SessionInput } from "./session.ts";
@@ -306,6 +307,10 @@ const startSession = (d: Deciding, command: CommandOf<"StartSession">): Decision
     model: command.model,
     effort: command.effort,
     serviceTier: command.harness === "codex" ? (command.serviceTier ?? null) : null,
+    celestial: pickCelestial(d.model.sessions.values(), {
+      id: command.sessionId,
+      workspaceId: workspace.id,
+    }),
     parentSessionId: null,
     forkedFromTurnId: null,
     harnessCursor: null,
@@ -370,6 +375,10 @@ const forkSession = (d: Deciding, command: CommandOf<"ForkSession">): Decision =
         command.harness === "codex"
           ? (command.serviceTier ?? (inherits ? parent.session.serviceTier : null))
           : null,
+      celestial: pickCelestial(d.model.sessions.values(), {
+        id: command.sessionId,
+        workspaceId: parent.session.workspaceId,
+      }),
       parentSessionId: parent.session.id,
       forkedFromTurnId: turn.id,
       harnessCursor: null,

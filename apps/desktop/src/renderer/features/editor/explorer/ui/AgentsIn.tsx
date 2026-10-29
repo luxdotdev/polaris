@@ -49,7 +49,14 @@ const AgentRow = ({
       }}
       variant="session"
       tone={needsYou(entry) ? "needs-you" : session.state === "dormant" ? "quiet" : "default"}
-      leading={<SessionTile state={state} harness={session.harness} density={density} />}
+      leading={
+        <SessionTile
+          state={state}
+          harness={session.harness}
+          density={density}
+          celestial={session.celestial}
+        />
+      }
       title={session.title || "Untitled session"}
       description={sessionLine(entry, activity)}
       meta={<span aria-label={sessionStateLabel[state]}>{age(session.createdAt, now)}</span>}

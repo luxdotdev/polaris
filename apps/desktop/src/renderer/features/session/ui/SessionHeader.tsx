@@ -20,10 +20,12 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
+  Celestial,
   type Harness,
   harnessHue,
+  harnessTextVar,
   Input,
-  Tile,
+  sessionCelestial,
 } from "@polaris/ui";
 import { useState } from "react";
 import { Commands } from "../../../commands.ts";
@@ -44,6 +46,7 @@ import { contextLabel } from "../model/meta.ts";
 import { BackgroundTasksHover } from "./background.tsx";
 import { ContextReadout } from "./ContextCard.tsx";
 import { settingsStore } from "../../settings/index.ts";
+import { useLeadConstellation } from "../../constellation/hooks.ts";
 
 export interface SessionHeaderProps {
   readonly hostKey: string;
@@ -185,6 +188,7 @@ const setPermission = (hostKey: string, session: SessionData, mode: PermissionMo
 export const SessionHeader = (props: SessionHeaderProps) => {
   const { hostKey, session, harness, turnNumber } = props;
   const waiting = waitingOn(session);
+  const lead = useLeadConstellation(hostKey, session.id) !== null;
 
   const state =
     waiting.length > 0
@@ -210,6 +214,14 @@ export const SessionHeader = (props: SessionHeaderProps) => {
   return (
     <header className="border-hairline gap-row-x pt-panel flex shrink-0 flex-col border-b px-5 pb-3.5">
       <div className="flex min-w-0 items-center gap-2">
+        <Celestial
+          body={sessionCelestial(session.celestial, lead)}
+          harness={session.harness}
+          size={24}
+          working={session.state === "working"}
+          dormant={session.state === "dormant" || session.state === "archived"}
+          data-testid="session-celestial"
+        />
         <div className="min-w-0 flex-1">
           <Title hostKey={hostKey} session={session} />
         </div>
@@ -219,8 +231,7 @@ export const SessionHeader = (props: SessionHeaderProps) => {
         {harness === null ? (
           <span className="text-label text-text-default">{session.harness}</span>
         ) : (
-          <span className="text-label text-text-default inline-flex shrink-0 items-center gap-1.5">
-            <Tile hue={harness} size={20} />
+          <span className="text-label shrink-0" style={{ color: harnessTextVar(harness) }}>
             {harnessHue(harness).name}
           </span>
         )}

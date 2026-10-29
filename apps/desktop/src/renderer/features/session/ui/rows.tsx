@@ -3,7 +3,13 @@
  * item (the first one carries the Harness avatar), an inline approval or
  * question, how an interrupted or failed Turn ended, and background waits.
  */
-import type { ApprovalDecision, ApprovalRequest, SessionId, SessionState } from "@polaris/protocol";
+import type {
+  ApprovalDecision,
+  ApprovalRequest,
+  CelestialBody,
+  SessionId,
+  SessionState,
+} from "@polaris/protocol";
 import {
   ApprovalCard,
   Button,
@@ -12,7 +18,7 @@ import {
   cn,
   type Harness,
   harnessHue,
-  HarnessMark,
+  Celestial,
   PixelFailedIcon,
   PixelHandIcon,
   QuestionCard,
@@ -42,6 +48,8 @@ import type { SessionChrome } from "../chrome.ts";
 
 export interface RowContext {
   readonly harness: Harness | null;
+  /** The session's Celestial, on the agent's Turns. */
+  readonly celestial: CelestialBody;
   readonly state: SessionState;
   /** The Daemon's Turn in flight, whose avatar shimmers; null between Turns. */
   readonly liveTurnId: string | null;
@@ -235,10 +243,11 @@ const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowCont
       <ReplyTime row={row} />
       <div className={AVATAR}>
         {row.lead && ctx.harness !== null ? (
-          <HarnessMark
+          <Celestial
+            body={ctx.celestial}
             harness={ctx.harness}
             size={24}
-            {...(row.partId === ctx.liveTurnId ? { state: "working" as const } : {})}
+            working={row.partId === ctx.liveTurnId}
           />
         ) : null}
       </div>

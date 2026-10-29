@@ -1,6 +1,18 @@
 /** Session State glyphs for chips, tabs and rows, tolerant of Harnesses this build doesn't know. */
-import { type HarnessKind, isKnownHarness, type SessionState } from "@polaris/protocol";
-import { HarnessMark, hueVar, STATE_LABELS, StateIcon, type TileSize } from "@polaris/ui";
+import {
+  type CelestialBody,
+  type HarnessKind,
+  isKnownHarness,
+  type SessionState,
+} from "@polaris/protocol";
+import {
+  Celestial,
+  type CelestialSize,
+  hueVar,
+  sessionCelestial,
+  STATE_LABELS,
+  StateIcon,
+} from "@polaris/ui";
 import type { Density } from "../../shared/api.ts";
 import type { Summary } from "../routes/topBar.ts";
 
@@ -61,25 +73,32 @@ export const SummaryGlyph = ({ summary }: { readonly summary: Summary }) => {
   return <SessionGlyph state={state} harness={harness} size={12} />;
 };
 
-/** DESIGN.md, Density: the session row's Harness tile per step. */
-export const TILE_SIZE: Readonly<Record<Density, TileSize>> = {
-  calm: 28,
-  balanced: 24,
-  compact: 20,
+/** DESIGN.md, Celestials: the session row's Celestial per density step. */
+export const CELESTIAL_SIZE: Readonly<Record<Density, CelestialSize>> = {
+  calm: 24,
+  balanced: 16,
+  compact: 16,
 };
 
 interface TileProps {
   readonly state: SessionState;
   readonly harness: HarnessKind;
   readonly density: Density;
+  /** The session's planet (`session.celestial`); null from a Daemon before Celestials. */
+  readonly celestial: CelestialBody | null | undefined;
+  /** A Lead shows its star. */
+  readonly lead?: boolean;
 }
 
-/** A session row's tile: who (the wash) and what (the glyph). */
-export const SessionTile = ({ state, harness, density }: TileProps) =>
-  isKnownHarness(harness) ? (
-    <HarnessMark harness={harness} size={TILE_SIZE[density]} state={state} />
-  ) : (
-    <span className="size-harness-tile flex items-center justify-center">
-      <SessionGlyph state={state} harness={harness} />
-    </span>
-  );
+/** A session's Celestial, centred in the row's mark slot. */
+export const SessionTile = ({ state, harness, density, celestial, lead = false }: TileProps) => (
+  <span className="size-harness-tile flex shrink-0 items-center justify-center">
+    <Celestial
+      body={sessionCelestial(celestial, lead)}
+      harness={harness}
+      size={CELESTIAL_SIZE[density]}
+      working={state === "working"}
+      dormant={state === "dormant" || state === "archived"}
+    />
+  </span>
+);

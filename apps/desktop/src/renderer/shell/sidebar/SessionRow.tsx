@@ -109,6 +109,7 @@ export const SessionRow = ({ hostKey, entry, now }: SessionRowProps) => {
   );
 
   const rename = useRenaming();
+  const lead = useLeadConstellation(hostKey, session.id) !== null;
 
   return (
     <WithHover hostKey={hostKey} entry={entry}>
@@ -120,7 +121,15 @@ export const SessionRow = ({ hostKey, entry, now }: SessionRowProps) => {
           variant="session"
           selected={selected}
           tone={needsYou(entry) ? "needs-you" : session.state === "dormant" ? "quiet" : "default"}
-          leading={<SessionTile state={state} harness={session.harness} density={density} />}
+          leading={
+            <SessionTile
+              state={state}
+              harness={session.harness}
+              density={density}
+              celestial={session.celestial}
+              lead={lead}
+            />
+          }
           title={
             rename.renaming ? (
               <RenameField hostKey={hostKey} entry={entry} onDone={rename.stop} />

@@ -1,0 +1,85 @@
+/* Celestials (DESIGN.md, Celestials): tones of the Harness hue, a strip stepped at 12 fps. */
+:root,
+[data-theme="dark"],
+[data-theme="midnight"] {
+  --celestial-dormant: 0.45;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --celestial-dormant: 0.6;
+  }
+}
+
+[data-theme="light"] {
+  --celestial-dormant: 0.6;
+}
+
+.polaris-celestial {
+  display: inline-block;
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
+  contain: strict;
+}
+
+.polaris-celestial svg {
+  display: block;
+  shape-rendering: crispEdges;
+}
+
+.polaris-celestial[data-dormant] {
+  opacity: var(--celestial-dormant);
+}
+
+.polaris-celestial-light {
+  fill: color-mix(in oklab, var(--celestial-hue) 62%, white);
+}
+
+.polaris-celestial-hue {
+  fill: var(--celestial-hue);
+}
+
+.polaris-celestial-shade {
+  fill: color-mix(in oklab, var(--celestial-hue) 62%, black);
+}
+
+.polaris-celestial-glint {
+  fill: color-mix(in oklab, var(--celestial-hue) 22%, white);
+}
+
+.polaris-celestial-live {
+  position: absolute;
+  inset: 0 auto 0 0;
+}
+
+.polaris-celestial-live > svg {
+  animation: polaris-dither-step calc(var(--celestial-frames) * var(--celestial-frame-ms))
+    steps(var(--celestial-frames)) infinite;
+  will-change: transform;
+}
+
+.polaris-celestial[data-working] > .polaris-celestial-still {
+  visibility: hidden;
+}
+
+/* Reduce Motion: the still body, never the strip. */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-reduce-motion="false"]) .polaris-celestial-live {
+    display: none;
+  }
+
+  :root:not([data-reduce-motion="false"])
+    .polaris-celestial[data-working]
+    > .polaris-celestial-still {
+    visibility: visible;
+  }
+}
+
+[data-reduce-motion="true"] .polaris-celestial-live {
+  display: none;
+}
+
+[data-reduce-motion="true"] .polaris-celestial[data-working] > .polaris-celestial-still {
+  visibility: visible;
+}
