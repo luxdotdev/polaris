@@ -3,7 +3,7 @@
  * the star and a short label; hover or focus opens the card after 300ms, click or ↵ at once
  * with focus on its first action, as the Session context card does.
  */
-import { cn, HoverCard, HoverCardContent, HoverCardTrigger, PixelPolarisIcon } from "@polaris/ui";
+import { HoverCard, HoverCardContent, HoverCardTrigger, PixelPolarisIcon } from "@polaris/ui";
 import { type FocusEvent, useEffect, useId, useRef, useState } from "react";
 import { hostInSentence } from "../../../shell/hostCopy.ts";
 import { useApp, useCommands } from "../../../shell/hooks.ts";
@@ -11,9 +11,10 @@ import { polaris } from "../../bridge.ts";
 import { DEFAULT_PREDICTION_PREFERENCES } from "../../../../shared/predictionPlacement.ts";
 import { inSentence } from "../../settings/editor/placementRows.ts";
 import { fileKey } from "../model/drafts.ts";
+import { basename } from "../explorer/model/paths.ts";
 import { useTrustStatus } from "../trust/store.ts";
 import { runCardAction } from "./card/actions.ts";
-import { CARD_WIDTH, CompletionCard, type Outcome } from "./card/CompletionCard.tsx";
+import { CompletionCard, type Outcome } from "./card/CompletionCard.tsx";
 import { useMemoryLine, useMetrics, useServerReport } from "./card/hooks.ts";
 import { gb } from "./card/managed.ts";
 import { completionCard, type CardAction, type CardActionId } from "./card/model.ts";
@@ -61,7 +62,7 @@ export const PredictionStatus = ({ hostKey, path }: PredictionStatusProps) => {
     if (!open || !focusIn) return;
 
     const frame = requestAnimationFrame(() =>
-      content.current?.querySelector<HTMLElement>("[role=menuitem]")?.focus()
+      content.current?.querySelector<HTMLElement>("[data-action]:not([role=switch])")?.focus()
     );
 
     return () => cancelAnimationFrame(frame);
@@ -184,9 +185,13 @@ export const PredictionStatus = ({ hostKey, path }: PredictionStatusProps) => {
         onBlur={(event) => {
           if (!within(event) && running === null) setOpen(false);
         }}
-        className={cn("rounded-row flex flex-col overflow-hidden p-0 outline-none", CARD_WIDTH)}
+        collisionPadding={12}
+        className="flex w-auto flex-col overflow-visible border-0 bg-transparent p-0 shadow-none outline-none"
       >
+        {/* Sized to the room above the status row; only the card's body scrolls (rule/popover-fits-window). */}
         <CompletionCard
+          className="shadow-float max-h-(--radix-hover-card-content-available-height)"
+          file={path === undefined ? null : basename(path)}
           view={view}
           running={running}
           outcome={outcome}

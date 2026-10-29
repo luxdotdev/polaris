@@ -132,6 +132,8 @@ export interface CompletionCardView {
   readonly managed: ManagedView | null;
   /** The download's share, 0..1, while one runs. */
   readonly progress: number | null;
+  /** The Host's name in a sentence, for the header's switch. */
+  readonly host: string;
 }
 
 const capitalized = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
@@ -579,5 +581,6 @@ export const completionCard = (input: CardInput): CompletionCardView => {
     actions: actionsOf(kind, input, target, managed),
     managed,
     progress: kind === "downloading" ? progress : null,
+    host: input.hostName,
   };
 };

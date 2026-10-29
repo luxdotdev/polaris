@@ -1,12 +1,14 @@
 /**
  * The editor on fixtures, for screenshots against Paper E1–E3 and the editor
  * budgets: `#editor/<scene>` renders the pane, a stand-in explorer column and
- * the status bar on in-memory files. Scenes: e1, e3, close, conflict, compare, reload,
+ * the status row on in-memory files (`?terminal` opens a stand-in terminal). Scenes: e1, e3, close, conflict, compare, reload,
  * vim, find, tabs20, readonly, binary, empty, big (`?persist` keeps drafts in localStorage). Its own chunk.
  */
 import { openSearchPanel } from "@codemirror/search";
 import type { EditorView } from "@codemirror/view";
-import { Toaster, TooltipProvider } from "@polaris/ui";
+import { Horizon, Toaster, TooltipProvider } from "@polaris/ui";
+import { useRef, useState } from "react";
+import { EditorColumn, TerminalChip } from "../../terminal/index.ts";
 import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
 import type { Density, PolarisApi } from "../../../../shared/api.ts";
@@ -201,26 +203,57 @@ const seed = () => {
   return { [HOST]: { ...FILES, ...generated }, pi: FILES };
 };
 
-const Frame = () => (
-  <div className="bg-bg text-text-default flex h-full flex-col">
-    <div className="flex min-h-0 flex-1">
-      <aside
-        aria-label="Explorer (stand-in)"
-        className="border-hairline bg-surface-sunken flex w-[264px] shrink-0 flex-col border-r px-4 py-3"
-      >
-        <p className="text-heading-sm text-text-strong">polaris</p>
-        <p className="text-caption text-text-subtle">Mac Studio · ~/code/polaris</p>
-      </aside>
-      <EditorPane hostKey={HOST} workspaceId={WORKSPACE} root={ROOT} />
-    </div>
-    <footer className="border-hairline bg-surface-sunken text-caption text-text-subtle flex h-[26px] shrink-0 items-center gap-4 border-t px-3">
-      <span>Mac Studio</span>
-      <span>main</span>
+/** A stand-in terminal card: the preview has no Daemon to run a shell. */
+const StandInTerminal = () => (
+  <div className="flex h-[232px] flex-col" data-testid="terminal-drawer">
+    <div className="text-label flex h-[42px] shrink-0 items-center gap-2 px-3">
+      <span className="bg-fill-selected text-text-strong rounded-full px-3 py-1">bun test</span>
+      <span className="text-text-subtle px-2">zsh</span>
       <span className="flex-1" />
-      <EditorStatus hostKey={HOST} workspaceId={WORKSPACE} />
-    </footer>
+      <span className="text-code-inline text-text-subtle font-mono">~/code/polaris</span>
+    </div>
+    <pre className="text-code text-text-default px-4 font-mono">
+      {
+        "~/code/polaris main ❯ bun test src/orchestrator\nbun test v1.3.9\n✓ SessionRow > shows the title"
+      }
+    </pre>
   </div>
 );
+
+/** X-I's Variant C: the stand-in explorer on the ground, the editor and terminal as panels. */
+const Frame = ({ terminal }: { readonly terminal: boolean }) => {
+  const [shown, setShown] = useState(terminal);
+  const dock = useRef<HTMLDivElement>(null);
+
+  return (
+    <div className="bg-ground text-text-default flex h-full flex-col">
+      <div className="flex min-h-0 flex-1 gap-1.5 pt-1.5 pr-1.5 pb-1.5">
+        <div className="relative isolate flex w-[270px] shrink-0 flex-col px-4 py-3">
+          <p className="text-heading text-text-strong">polaris</p>
+          <p className="text-caption text-text-subtle">Mac Studio · ~/code/polaris</p>
+          <Horizon />
+        </div>
+        <EditorColumn
+          dock={dock}
+          hostKey={HOST}
+          workspaceId={WORKSPACE}
+          terminal={shown ? <StandInTerminal /> : null}
+          chip={<TerminalChip onToggle={() => setShown(true)} count={1} />}
+          status={
+            <div className="text-caption text-text-subtle flex h-full min-w-0 flex-1 items-center gap-4 px-3.5">
+              <span>Mac Studio</span>
+              <span>main</span>
+              <span className="flex-1" />
+              <EditorStatus hostKey={HOST} workspaceId={WORKSPACE} />
+            </div>
+          }
+        >
+          <EditorPane hostKey={HOST} workspaceId={WORKSPACE} root={ROOT} />
+        </EditorColumn>
+      </div>
+    </div>
+  );
+};
 
 export const mountEditorPreview = (root: HTMLElement, hash: string) => {
   const scene = hash.replace(/^#editor\//, "").split("?")[0] ?? "e1";
@@ -256,7 +289,7 @@ export const mountEditorPreview = (root: HTMLElement, hash: string) => {
   createRoot(root).render(
     <AppProvider value={{ connection, navigation, commands }}>
       <TooltipProvider>
-        <Frame />
+        <Frame terminal={hash.includes("?terminal")} />
         <Toaster />
       </TooltipProvider>
     </AppProvider>
