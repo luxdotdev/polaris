@@ -3,7 +3,8 @@ import { TaskId } from "@polaris/protocol";
 import { c1Record } from "../preview/graph.ts";
 import { chromeTasks } from "../preview/chrome.ts";
 import { largeRecord } from "../preview/large.ts";
-import { CHART, type ChartTask, type StarChart, starChart } from "./chart.ts";
+import { worstRecords } from "../preview/worst.ts";
+import { CHART, type ChartTask, labelWidth, type StarChart, starChart } from "./chart.ts";
 
 interface Spec {
   readonly deps?: ReadonlyArray<string>;
@@ -103,6 +104,7 @@ const graphs: ReadonlyArray<readonly [string, ReadonlyArray<ChartTask>]> = [
   ["Chrome redesign", chromeTasks],
   ["C1", c1Record().constellation.tasks],
   ["C8, 128 Tasks", largeRecord().constellation.tasks],
+  ["worst case, 80 Tasks over 15 waves", worstRecords["worst-80"]().constellation.tasks],
 ];
 
 describe.each(graphs)("the %s graph", (_, tasks) => {
@@ -142,6 +144,22 @@ describe.each(graphs)("the %s graph", (_, tasks) => {
     for (const s of chart.stars) {
       expect(s.x).toBeLessThanOrEqual(chart.width);
       expect(s.y).toBeLessThan(chart.height);
+    }
+  });
+
+  test("keeps labels in neighbouring columns apart", () => {
+    expect(labelWidth(chart.step)).toBeLessThan(chart.step);
+  });
+
+  // The hero draws a gate's label 18px under it, two 14px lines; a star's glyph rises 8px.
+  const gateLabel = 18 + 2 * 14;
+
+  test("keeps a floating gate's two-line label off the next star in its column and the legend", () => {
+    for (const g of chart.stars.filter((s) => s.gate && s.band === null)) {
+      for (const s of chart.stars)
+        if (s !== g && s.x === g.x && s.y > g.y)
+          expect(s.y - g.y).toBeGreaterThanOrEqual(gateLabel + 8);
+      expect(g.y + gateLabel).toBeLessThanOrEqual(chart.height - CHART.bottom + 10);
     }
   });
 });
@@ -251,6 +269,6 @@ describe("the layout", () => {
       t("G2", { kind: "gate", deps: ["A"] }),
     ]);
 
-    expect(Math.abs(star(chart, "G1").y - star(chart, "G2").y)).toBe(CHART.row);
+    expect(Math.abs(star(chart, "G1").y - star(chart, "G2").y)).toBe(CHART.gateRow);
   });
 });

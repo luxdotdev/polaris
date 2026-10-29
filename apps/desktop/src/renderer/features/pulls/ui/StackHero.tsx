@@ -4,7 +4,7 @@
  * dark tint of its state's hue with a 60% outline and the state word beside it; the base neutral.
  */
 import type { StackMemberView, StackView } from "../../../../shared/github.ts";
-import { slabLabel, STATUS_HUES } from "../model/stack.ts";
+import { shortBranch, slabLabel, STATUS_HUES } from "../model/stack.ts";
 
 const LEFT = 20;
 
@@ -24,6 +24,9 @@ const TOP = 30;
 const FOOT = 38;
 
 const LABEL_X = 244;
+
+/** What fits from LABEL_X to the hero's 400px edge in 11px mono; the base branch is cut to it. */
+const LABEL_CHARS = 22;
 
 /** Slabs closer together once the stack grows, so up to ~8 layers fit the hero's cap. */
 const stepFor = (slabs: number) => (slabs <= 5 ? 26 : Math.max(14, Math.round(130 / slabs)));
@@ -85,7 +88,11 @@ const labelColour = (slab: Slab) => {
 /** Bottom (the base) to top, each slab's y, the current one lifted off the one under it. */
 const slabsOf = (stack: StackView): ReadonlyArray<Slab> => {
   const step = stepFor(stack.members.length + 1);
-  const rows: Array<Slab> = [{ y: 0, label: stack.trunk, current: false, member: null }];
+
+  const rows: Array<Slab> = [
+    { y: 0, label: shortBranch(stack.trunk, LABEL_CHARS), current: false, member: null },
+  ];
+
   let y = 0;
 
   stack.members.forEach((member, index) => {
@@ -132,6 +139,7 @@ const LayerSlab = ({ slab }: { readonly slab: Slab }) => {
         aria-hidden
       />
       <text
+        data-testid={slab.member === null ? "stack-hero-base" : undefined}
         x={LABEL_X}
         y={y + 4}
         className="font-mono"
@@ -156,10 +164,13 @@ export const StackHero = ({ stack }: { readonly stack: StackView }) => {
         viewBox={`0 0 400 ${height}`}
         className="[shape-rendering:crispEdges]"
         role="img"
-        aria-label={slabs
-          .toReversed()
-          .map((s) => s.label)
-          .join(", ")}
+        aria-label={[
+          ...slabs
+            .slice(1)
+            .toReversed()
+            .map((s) => s.label),
+          stack.trunk,
+        ].join(", ")}
       >
         {slabs.map((slab) => (
           <LayerSlab key={slab.label} slab={slab} />
