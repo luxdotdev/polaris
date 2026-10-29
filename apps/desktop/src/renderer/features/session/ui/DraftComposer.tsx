@@ -5,7 +5,7 @@
  */
 import type { PolarisAction } from "@polaris/protocol";
 import { Composer, type Harness, harnessHue } from "@polaris/ui";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, type RefObject, useRef, useState } from "react";
 import {
   AttachmentDrop,
   AttachmentTray,
@@ -87,7 +87,35 @@ export interface DraftComposerProps {
   readonly history?: ReadonlyArray<string>;
   /** Shell mode (a `!` draft): where the command runs, and whether it waits for this Turn. */
   readonly shell?: { readonly where: string; readonly queued: boolean } | undefined;
+  /** The notice strip, when there is something to know (`NoticeStrip`). */
+  readonly strip?: ReactNode;
+  /** The footer's right side before Send (`ComposerStatus`). */
+  readonly status?: ReactNode;
 }
+
+/** The paperclip's file picker: a hidden input whose picks are attached like dropped files. */
+const FilePicker = ({
+  onFiles,
+  inputRef,
+}: {
+  readonly onFiles: (files: ReadonlyArray<File>) => void;
+  readonly inputRef: RefObject<HTMLInputElement | null>;
+}) => (
+  <input
+    ref={inputRef}
+    type="file"
+    multiple
+    hidden
+    data-testid="paperclip-input"
+    onChange={(event) => {
+      const files = [...(event.currentTarget.files ?? [])];
+
+      event.currentTarget.value = "";
+
+      if (files.length > 0) onFiles(files);
+    }}
+  />
+);
 
 /** Shell mode's strip line: where the command runs, and whether it waits for this Turn. */
 const shellWhere = (where: string, queued: boolean) => (
@@ -125,7 +153,10 @@ export const DraftComposer = ({
   commands = NO_COMMANDS,
   history,
   shell,
+  strip,
+  status,
 }: DraftComposerProps) => {
+  const filePicker = useRef<HTMLInputElement>(null);
   // The menu draws in this box, above the card (which clips what it holds).
   const [menuSlot, setMenuSlot] = useState<HTMLDivElement | null>(null);
 
@@ -151,8 +182,11 @@ export const DraftComposer = ({
             model=""
             picker={picker}
             working={working}
+            strip={strip}
+            status={status}
             branch={branch}
             tools={tools}
+            onAttach={onFiles === undefined ? undefined : () => filePicker.current?.click()}
             shell={
               shell === undefined
                 ? undefined
@@ -201,6 +235,9 @@ export const DraftComposer = ({
             }
           />
         </AttachmentDrop>
+        {onFiles === undefined ? null : (
+          <FilePicker inputRef={filePicker} onFiles={(files) => onFiles(files, "attach")} />
+        )}
       </div>
     </div>
   );

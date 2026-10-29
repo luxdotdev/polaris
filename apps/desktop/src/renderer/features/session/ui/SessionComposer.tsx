@@ -6,6 +6,7 @@
 import { fastToggle } from "../../harness/model/fast.ts";
 import type { Command, SessionId } from "@polaris/protocol";
 import { useMemo, useState } from "react";
+import { turnNumber } from "../model/turnGroups.ts";
 import { type Harness, harnessHue, sessionCelestial } from "@polaris/ui";
 import { Commands, newSessionId } from "../../../commands.ts";
 import type { SessionData } from "../../../store/plain.ts";
@@ -41,6 +42,10 @@ import { promptFor, sentMessages, shellDraft } from "../../composer/index.ts";
 import { RotatingVerb, useWorkingVerbs } from "../verbs/index.ts";
 import { type ComposerCommands, DraftComposer } from "./DraftComposer.tsx";
 import { useComposerCommands } from "./useComposerCommands.ts";
+import { ComposerStatus } from "./ComposerStatus.tsx";
+import { useCompact } from "./ContextCard.tsx";
+import { NoticeStrip } from "./NoticeStrip.tsx";
+import { notices } from "../model/notices.ts";
 import { type ShellMode, useShellMode } from "./useShellMode.ts";
 import { polarisAuthored, type SessionChrome, useSessionChrome } from "../chrome.ts";
 
@@ -163,8 +168,17 @@ const canSubmit = (input: {
   return input.command !== null || (input.mode.kind === "queue" && input.draft.trim() !== "");
 };
 
+/** The share of the context window in use; null until the Harness says how large it is. */
+const contextShare = (session: SessionData): number | null => {
+  const usage = session.contextUsage;
+
+  return usage === null || usage.windowTokens === null || usage.windowTokens <= 0
+    ? null
+    : usage.usedTokens / usage.windowTokens;
+};
+
 export const SessionComposer = (props: SessionComposerProps) => {
-  const { hostKey, uiKey, harness, session, model, branch } = props;
+  const { hostKey, uiKey, harness, session, model } = props;
   const host = useHost(hostKey);
   const ui = useSessionUi(uiKey);
   const lead = useLeadConstellation(hostKey, session.id) !== null;
@@ -188,6 +202,8 @@ export const SessionComposer = (props: SessionComposerProps) => {
   });
 
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [contextDismissedAt, setContextDismissedAt] = useState<number | null>(null);
+  const compact = useCompact(hostKey, session);
   const chrome = useSessionChrome();
 
   const history = useMemo(() => sentHistory(model.turns, chrome), [model.turns, chrome]);
@@ -285,6 +301,43 @@ export const SessionComposer = (props: SessionComposerProps) => {
     if (interrupt !== null) void send(hostKey, interrupt, "Couldn't stop");
   };
 
+  const working =
+    isWorking && session.state === "working"
+      ? {
+          elapsed: formatElapsed(elapsed),
+          detail: runningPhrase(runningCommands(model.turns.at(-1), session.backgroundTasks)),
+          onStop: stop,
+          label: <RotatingVerb verbs={verbs} spoken={`${harnessHue(harness).name} is working`} />,
+        }
+      : undefined;
+
+  const strip = (
+    <NoticeStrip
+      harness={harness}
+      notices={notices({
+        approvals: model.pendingApprovals,
+        working: working !== undefined,
+        outbox: ui.outbox,
+        contextShare: contextShare(session),
+        contextDismissedAt,
+        limited: session.state === "limited",
+        resetsAt: session.limitResetsAt ?? null,
+      })}
+      working={working}
+      onRespond={(request, decision) =>
+        void send(
+          hostKey,
+          Commands.RespondToApproval({ sessionId: session.id, requestId: request.id, decision }),
+          "Couldn't answer"
+        )
+      }
+      onUnqueue={props.outbox.edit}
+      onCompact={compact.can ? compact.compact : null}
+      onDismissContext={setContextDismissedAt}
+      onSwitchModel={() => setPickerOpen(true)}
+    />
+  );
+
   return (
     <DraftComposer
       className="px-panel pb-panel"
@@ -317,17 +370,16 @@ export const SessionComposer = (props: SessionComposerProps) => {
       onQueue={canQueue(mode) ? queue : undefined}
       canSubmit={canSubmit({ chrome, shell, command, mode, draft: ui.draft })}
       placeholder={chrome.composer?.placeholder ?? placeholderFor(mode)}
-      working={
-        isWorking && session.state === "working"
-          ? {
-              elapsed: formatElapsed(elapsed),
-              detail: runningPhrase(runningCommands(model.turns.at(-1), session.backgroundTasks)),
-              onStop: stop,
-              label: (
-                <RotatingVerb verbs={verbs} spoken={`${harnessHue(harness).name} is working`} />
-              ),
-            }
-          : undefined
+      working={working}
+      strip={strip}
+      status={
+        <ComposerStatus
+          hostKey={hostKey}
+          harness={harness}
+          session={session}
+          subagents={model.turns.at(-1)?.subagents ?? []}
+          turnNumber={lastTurn === null ? null : turnNumber(model.turns, lastTurn.id)}
+        />
       }
       onEscape={isWorking ? stop : shell.escape}
       shell={shell.cue}
@@ -338,7 +390,6 @@ export const SessionComposer = (props: SessionComposerProps) => {
       onRemoveAttachment={(a) =>
         patchSessionUi(uiKey, (u) => ({ attachments: u.attachments.filter((x) => x !== a) }))
       }
-      branch={branch}
       commands={commands}
       history={history}
     />
