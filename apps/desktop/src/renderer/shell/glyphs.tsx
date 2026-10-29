@@ -1,6 +1,6 @@
 /** Session State glyphs for chips, tabs and rows, tolerant of Harnesses this build doesn't know. */
 import { type HarnessKind, isKnownHarness, type SessionState } from "@polaris/protocol";
-import { HarnessMark, StateIcon, type TileSize } from "@polaris/ui";
+import { HarnessMark, hueVar, STATE_LABELS, StateIcon, type TileSize } from "@polaris/ui";
 import type { Density } from "../../shared/api.ts";
 import type { Summary } from "../routes/topBar.ts";
 
@@ -22,13 +22,44 @@ export const SessionGlyph = ({ state, harness, size = 16 }: GlyphProps) =>
     />
   );
 
+/** A still dot in the Harness hue for Starting and Working: chips carry no dither. */
+const HueDot = ({
+  state,
+  harness,
+}: {
+  readonly state: SessionState;
+  readonly harness: HarnessKind;
+}) => (
+  <span
+    role="img"
+    aria-label={STATE_LABELS[state]}
+    data-slot="state-icon"
+    data-state={state}
+    data-glyph="dot-hue"
+    className="inline-flex size-3 shrink-0 items-center justify-center"
+  >
+    <span
+      className="size-[5px] rounded-full"
+      style={{
+        background: isKnownHarness(harness) ? hueVar(harness) : "var(--color-text-subtle)",
+        opacity: state === "starting" ? 0.5 : undefined,
+      }}
+    />
+  </span>
+);
+
 /** The 12px glyph on a Workspace chip or machine tab: its loudest session, or an empty ring. */
-export const SummaryGlyph = ({ summary }: { readonly summary: Summary }) =>
-  summary.state === null || summary.harness === null ? (
-    <StateIcon state="dormant" harness="claude" size={12} />
-  ) : (
-    <SessionGlyph state={summary.state} harness={summary.harness} size={12} />
-  );
+export const SummaryGlyph = ({ summary }: { readonly summary: Summary }) => {
+  const { state, harness } = summary;
+
+  if (state === null || harness === null)
+    return <StateIcon state="dormant" harness="claude" size={12} />;
+
+  if (state === "working" || state === "starting")
+    return <HueDot state={state} harness={harness} />;
+
+  return <SessionGlyph state={state} harness={harness} size={12} />;
+};
 
 /** DESIGN.md, Density: the session row's Harness tile per step. */
 export const TILE_SIZE: Readonly<Record<Density, TileSize>> = {
