@@ -57,6 +57,7 @@ const SHOT_SCENES = new Map([
   ["chip", "interrupted"],
   ["subagent-open", "subagents"],
   ["subagent-hover", "subagents"],
+  ["subagent-tab", "subagents"],
   ["background-hover", "background"],
   ["background-row", "background"],
   ["background-open", "background"],
@@ -126,6 +127,14 @@ const openPolaris = async (page: Page, scene: string) => {
 const openSubagent = async (page: Page, scene: string) => {
   if (scene === "subagent-hover") {
     await page.locator('[data-testid="subagent-activity"]').first().hover();
+
+    return;
+  }
+
+  if (scene === "subagent-tab") {
+    if ((await page.getByTestId("subagent-pane").count()) === 0)
+      await page.locator('[data-testid="composer-moon"]:visible').first().click();
+    await page.getByTestId("subagent-pane").waitFor();
 
     return;
   }
