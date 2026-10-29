@@ -60,7 +60,7 @@ export const highest = (severities: ReadonlyArray<Severity>): Severity | null =>
 
 export type AcceptState =
   | { readonly kind: "ready" }
-  /** Open Critical findings pause it; a dismissed one doesn't. */
+  /** Ready, but open Critical findings (a dismissed one doesn't count) ask first (MX-T). */
   | { readonly kind: "paused"; readonly critical: number }
   /** The risk summary is loading or still reading, so a Critical may yet arrive. */
   | { readonly kind: "checking" }
@@ -77,15 +77,11 @@ export interface AcceptInput {
   readonly sending: boolean;
 }
 
-/** Accept waits until the reviewed Turn's risk summary has finished with no open Critical. */
+/** Accept waits until the reviewed Turn's risk summary has finished; open Criticals then ask first. */
 export const acceptState = (input: AcceptInput): AcceptState => {
   if (input.accepted) return { kind: "accepted" };
   const { risk } = input;
   const findings = risk.kind === "ready" ? risk.value.findings : [];
-
-  const critical = findings.filter((f) => f.severity === "critical" && f.status === "open").length;
-
-  if (critical > 0) return { kind: "paused", critical };
 
   if (!input.turnEnded) return { kind: "working" };
 
@@ -98,5 +94,9 @@ export const acceptState = (input: AcceptInput): AcceptState => {
   if (risk.value.status === "failed")
     return { kind: "unchecked", reason: risk.value.note ?? "The risk summary failed" };
 
-  return input.sending ? { kind: "sending" } : { kind: "ready" };
+  if (input.sending) return { kind: "sending" };
+
+  const critical = findings.filter((f) => f.severity === "critical" && f.status === "open").length;
+
+  return critical > 0 ? { kind: "paused", critical } : { kind: "ready" };
 };
