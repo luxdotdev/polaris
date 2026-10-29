@@ -4,6 +4,7 @@
 @import "./features/session/output/output.css";
 @import "./features/session/verbs/verbs.css";
 @import "./features/constellation/ui/stats.css";
+@import "./features/constellation/ui/chart.css";
 @import "./shell/windows.css";
 
 @source "./";
