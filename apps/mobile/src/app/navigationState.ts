@@ -1,8 +1,10 @@
 /** The navigation's state and its moves, pure, so the shell and its tests share them. */
 import type { Route } from "./route.ts";
 
-/** The tabs under the stack; Hosts is a pushed screen, not one of them. */
-export type HomeTab = "sessions" | "review";
+/** The tabs under the stack, in the pill's order; Hosts is a pushed screen, reached from Settings. */
+export const HOME_TABS = ["sessions", "review", "settings"] as const;
+
+export type HomeTab = (typeof HOME_TABS)[number];
 
 export interface NewSessionSheet {
   readonly open: boolean;
@@ -30,6 +32,11 @@ export const topOf = (state: NavigationState): Route => state.stack.at(-1) ?? HO
 export const pushed = (state: NavigationState, route: Route): NavigationState => ({
   ...state,
   stack: [...state.stack, route],
+});
+
+export const selected = (state: NavigationState, tab: HomeTab): NavigationState => ({
+  ...state,
+  tab,
 });
 
 export const wentBack = (state: NavigationState): NavigationState =>
