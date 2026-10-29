@@ -10,8 +10,8 @@ import { Platform, ScrollView, Settings, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Celestial, sessionCelestial } from "../celestial/index.tsx";
 import { DevSegments } from "../home/ui/DevDataToggle.tsx";
-import { LINK_ANOTHER_COPY, PAIRING_COPY, ScanSheet } from "../link/ScanSheet.tsx";
-import { Sky } from "../link/Sky.tsx";
+import { Pairing } from "../link/LinkScreen.tsx";
+import { LINK_ANOTHER_COPY, ScanSheet, useLinking } from "../link/ScanSheet.tsx";
 import type { LinkOutcome } from "../link/linking.ts";
 import { ThemeName, themedStyles, useTheme } from "../theme/index.ts";
 import { StatePanel } from "./StatePanel.tsx";
@@ -49,6 +49,8 @@ const refuse = (): Promise<LinkOutcome> =>
   );
 
 const noop = () => undefined;
+
+const PairingRefused = () => <Pairing linking={useLinking({ onLink: refuse })} />;
 
 const Title = ({ text }: { readonly text: string }) => {
   const styles = useStyles();
@@ -113,9 +115,7 @@ const Body = ({ data }: { readonly data: DevStates }) => {
     case "pair":
       return (
         <>
-          <Sky />
-          <Title text="Link this iPhone" />
-          <ScanSheet open {...PAIRING_COPY} onLink={refuse} />
+          <PairingRefused />
         </>
       );
     case "another":
