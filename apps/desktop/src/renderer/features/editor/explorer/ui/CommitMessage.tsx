@@ -76,7 +76,7 @@ const WriteButton = ({ blocked, onWrite }: { blocked: string | null; onWrite: ()
       <TooltipContent>
         {blocked ?? "Write a message"}
         {blocked === null && shortcut !== "" ? (
-          <span className="text-text-faint ml-2">{shortcut}</span>
+          <span className="text-text-subtle ml-2">{shortcut}</span>
         ) : null}
       </TooltipContent>
     </Tooltip>
@@ -108,7 +108,7 @@ const Writing = ({
       >
         <span className="size-2 rounded-[1.5px] bg-current" aria-hidden />
         Stop
-        <span className="text-text-faint font-normal">esc</span>
+        <span className="text-text-subtle font-normal">esc</span>
       </Button>
     </>
   );

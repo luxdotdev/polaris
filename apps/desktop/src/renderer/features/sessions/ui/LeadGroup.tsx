@@ -223,7 +223,7 @@ const DoneLine = ({ group, onShow }: { readonly group: Group; readonly onShow: (
 const SectionHeading = ({ section }: { readonly section: WorkerSection }) => (
   <div
     data-testid="worker-section"
-    className="h-tree-row gap-gap px-row-x text-caption text-text-faint flex items-center"
+    className="h-tree-row gap-gap px-row-x text-caption text-text-subtle flex items-center"
   >
     <span aria-hidden className="w-4 shrink-0" />
     <span className="min-w-0 flex-1 truncate">{section.label}</span>
@@ -250,7 +250,7 @@ const ParentHeading = ({
   <div
     data-testid="worker-parent"
     data-parent={item.parent.id}
-    className="h-tree-row gap-gap px-row-x text-caption text-text-faint flex items-center"
+    className="h-tree-row gap-gap px-row-x text-caption text-text-subtle flex items-center"
     style={indent(item.depth)}
     title={`${item.parent.id} · ${item.parent.title}`}
   >

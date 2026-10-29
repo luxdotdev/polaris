@@ -290,7 +290,7 @@ const ReplyTime = ({ row }: { row: Extract<Row, { kind: "item" }> }) =>
   row.startedAt === null || entryKind(row.entry) !== "message" ? null : (
     <span
       className={cn(
-        "text-caption text-text-faint pointer-events-none absolute -left-5 w-11 pr-2 text-right opacity-0 group-hover/item:opacity-100",
+        "text-caption text-text-subtle pointer-events-none absolute -left-5 w-11 pr-2 text-right opacity-0 group-hover/item:opacity-100",
         row.lead ? "top-7" : "top-0.5"
       )}
       data-testid="reply-time"

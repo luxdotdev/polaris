@@ -5,7 +5,7 @@
  * shows inline, never as a modal.
  */
 import { Badge, Chip, cn, Kbd, PlusIcon } from "@polaris/ui";
-import { Fragment, type RefObject, useLayoutEffect, useMemo, useRef } from "react";
+import { Fragment, type ReactNode, type RefObject, useLayoutEffect, useMemo, useRef } from "react";
 import type { HostView } from "../../shared/api.ts";
 import { type BarHost, barHosts, edgeFade, revealOffset, shortcutLabel } from "../routes/topBar.ts";
 import {
@@ -105,6 +105,23 @@ const useBarScroll = (bar: RefObject<HTMLElement | null>, key: string) => {
 const EDGE_FADE =
   "data-[fade=start]:[mask-image:linear-gradient(to_right,transparent,black_24px)] data-[fade=end]:[mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)] data-[fade=both]:[mask-image:linear-gradient(to_right,transparent,black_24px,black_calc(100%-24px),transparent)]";
 
+const SCROLLER =
+  "flex h-full min-w-0 flex-1 [scrollbar-width:none] items-center overflow-x-auto px-4";
+
+/** A bar: its chips scroll, and the Hosts trigger stays pinned at the right edge, never clipped. */
+const BarRow = ({
+  height,
+  children,
+}: {
+  readonly height: string;
+  readonly children: ReactNode;
+}) => (
+  <div className={cn(height, "flex shrink-0 items-center pr-4 pb-1")}>
+    {children}
+    <HostsButton />
+  </div>
+);
+
 const connected = (host: HostView) => host.status.state === "connected";
 
 /** The Host's chips show last known state, dimmed, while it isn't connected (rule/remote-is-normal). */
@@ -188,64 +205,63 @@ const WorkspaceBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
   useBarScroll(nav, `${selection.hostKey}:${selection.workspaceId}`);
 
   return (
-    <nav
-      ref={nav}
-      aria-label="Workspaces"
-      className={cn(
-        EDGE_FADE,
-        "flex h-11 shrink-0 [scrollbar-width:none] items-center gap-1 overflow-x-auto px-4 pb-1"
-      )}
-    >
-      {bar.map((group, groupIndex) => (
-        <Fragment key={group.host.key}>
-          {groupIndex === 0 ? null : <span className="bg-text-faint/25 mx-1.5 h-4 w-px shrink-0" />}
-          <HostLabel group={group} />
-          {group.workspaces.map((item) => {
-            const { hostKey, workspace, summary } = item;
-            // A hidden chip (open, or needs you) takes no ⌃N, so the others keep theirs.
-            const shortcut = item.hidden ? undefined : shortcutLabel(index++);
-            const extra: ChipShortcut = {};
+    <BarRow height="h-11">
+      <nav ref={nav} aria-label="Workspaces" className={cn(EDGE_FADE, SCROLLER, "gap-1")}>
+        {bar.map((group, groupIndex) => (
+          <Fragment key={group.host.key}>
+            {groupIndex === 0 ? null : (
+              <span className="bg-text-faint/25 mx-1.5 h-4 w-px shrink-0" />
+            )}
+            <HostLabel group={group} />
+            {group.workspaces.map((item) => {
+              const { hostKey, workspace, summary } = item;
+              // A hidden chip (open, or needs you) takes no ⌃N, so the others keep theirs.
+              const shortcut = item.hidden ? undefined : shortcutLabel(index++);
+              const extra: ChipShortcut = {};
 
-            const selected =
-              hostKey === selection.hostKey && workspace.id === selection.workspaceId;
+              const selected =
+                hostKey === selection.hostKey && workspace.id === selection.workspaceId;
 
-            if (shortcut !== undefined) extra.shortcut = shortcut;
+              if (shortcut !== undefined) extra.shortcut = shortcut;
 
-            return (
-              <slots.NeedsYouHover key={workspace.id} hostKey={hostKey} workspaceId={workspace.id}>
-                <WorkspaceChipMenu item={item} current={selected}>
-                  <Chip
-                    title={item.hidden ? hiddenTitle(workspace.path, selected) : workspace.path}
-                    // Pills on the ground; the open one is raised (DESIGN.md, Chrome redesign).
-                    className={cn(
-                      "h-[30px] rounded-full pr-3 pl-2.5",
-                      selected && "bg-raised hover:bg-raised",
-                      dimmed(group.host) && "opacity-(--opacity-dimmed)"
-                    )}
-                    data-hidden={item.hidden ? "" : undefined}
-                    selected={selected}
-                    needsYou={summary.needsYou}
-                    {...extra}
-                    leading={<SummaryGlyph summary={summary} />}
-                    onClick={(event) =>
-                      selectWorkspace({ hostKey, workspaceId: workspace.id }, event.timeStamp)
-                    }
-                  >
-                    <span className="max-w-60 truncate">{workspace.name}</span>
-                    {item.hidden ? (
-                      <span className="text-caption text-text-faint">hidden</span>
-                    ) : null}
-                  </Chip>
-                </WorkspaceChipMenu>
-              </slots.NeedsYouHover>
-            );
-          })}
-        </Fragment>
-      ))}
-      <AddWorkspaceChip hostKey={selection.hostKey} />
-      <span className="flex-1" />
-      <HostsButton />
-    </nav>
+              return (
+                <slots.NeedsYouHover
+                  key={workspace.id}
+                  hostKey={hostKey}
+                  workspaceId={workspace.id}
+                >
+                  <WorkspaceChipMenu item={item} current={selected}>
+                    <Chip
+                      title={item.hidden ? hiddenTitle(workspace.path, selected) : workspace.path}
+                      // Pills on the ground; the open one is raised (DESIGN.md, Chrome redesign).
+                      className={cn(
+                        "h-[30px] rounded-full pr-3 pl-2.5",
+                        selected && "bg-raised hover:bg-raised",
+                        dimmed(group.host) && "opacity-(--opacity-dimmed)"
+                      )}
+                      data-hidden={item.hidden ? "" : undefined}
+                      selected={selected}
+                      needsYou={summary.needsYou}
+                      {...extra}
+                      leading={<SummaryGlyph summary={summary} />}
+                      onClick={(event) =>
+                        selectWorkspace({ hostKey, workspaceId: workspace.id }, event.timeStamp)
+                      }
+                    >
+                      <span className="max-w-60 truncate">{workspace.name}</span>
+                      {item.hidden ? (
+                        <span className="text-caption text-text-subtle">hidden</span>
+                      ) : null}
+                    </Chip>
+                  </WorkspaceChipMenu>
+                </slots.NeedsYouHover>
+              );
+            })}
+          </Fragment>
+        ))}
+        <AddWorkspaceChip hostKey={selection.hostKey} />
+      </nav>
+    </BarRow>
   );
 };
 
@@ -271,70 +287,64 @@ const MachineBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
   useBarScroll(nav, `${selection.hostKey}`);
 
   return (
-    <nav
-      ref={nav}
-      aria-label="Machines"
-      className={cn(
-        EDGE_FADE,
-        "flex h-13 shrink-0 [scrollbar-width:none] items-center gap-1.5 overflow-x-auto px-4 pb-1"
-      )}
-    >
-      {bar.map((group, index) => {
-        const selected = group.host.key === selection.hostKey;
-        const shortcut = shortcutLabel(index);
+    <BarRow height="h-13">
+      <nav ref={nav} aria-label="Machines" className={cn(EDGE_FADE, SCROLLER, "gap-1.5")}>
+        {bar.map((group, index) => {
+          const selected = group.host.key === selection.hostKey;
+          const shortcut = shortcutLabel(index);
 
-        return (
-          <UpgradeHover key={group.host.key} hostKey={group.host.key}>
-            <HostMenu host={group.host}>
-              <button
-                type="button"
-                aria-pressed={selected}
-                data-host={group.host.key}
-                data-connection={group.host.status.state}
-                onClick={(event) => {
-                  acknowledgeUpgrade(group.host.key);
-                  selectHost(group.host.key, event.timeStamp);
-                }}
-                className={cn(
-                  "gap-gap flex h-[38px] shrink-0 cursor-default items-center rounded-full border border-transparent pr-3 pl-3",
-                  selected ? "border-hairline bg-raised" : "hover:bg-fill-hover"
-                )}
-              >
-                <SummaryGlyph summary={group.summary} />
-                <span className="flex min-w-0 flex-col gap-0.5">
-                  <span
-                    title={group.host.label}
-                    className={cn(
-                      "text-label max-w-48 truncate",
-                      selected ? "text-text-strong" : "text-text-default"
-                    )}
-                  >
-                    {group.host.label}
+          return (
+            <UpgradeHover key={group.host.key} hostKey={group.host.key}>
+              <HostMenu host={group.host}>
+                <button
+                  type="button"
+                  aria-pressed={selected}
+                  data-host={group.host.key}
+                  data-connection={group.host.status.state}
+                  onClick={(event) => {
+                    acknowledgeUpgrade(group.host.key);
+                    selectHost(group.host.key, event.timeStamp);
+                  }}
+                  className={cn(
+                    "gap-gap flex h-[38px] shrink-0 cursor-default items-center rounded-full border border-transparent pr-3 pl-3",
+                    selected ? "border-hairline bg-raised" : "hover:bg-fill-hover"
+                  )}
+                >
+                  <SummaryGlyph summary={group.summary} />
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span
+                      title={group.host.label}
+                      className={cn(
+                        "text-label max-w-48 truncate",
+                        selected ? "text-text-strong" : "text-text-default"
+                      )}
+                    >
+                      {group.host.label}
+                    </span>
+                    <MachineCaption group={group} />
                   </span>
-                  <MachineCaption group={group} />
-                </span>
-                {group.summary.needsYou > 0 ? (
-                  <Badge tone="needs-you" size="count">
-                    {group.summary.needsYou}
-                  </Badge>
-                ) : null}
-                {shortcut === undefined ? null : <Kbd variant="plain">{shortcut}</Kbd>}
-              </button>
-            </HostMenu>
-          </UpgradeHover>
-        );
-      })}
-      <HostsButton />
-      <button
-        type="button"
-        onClick={() => openSettings("hosts", { adding: true })}
-        data-testid="add-machine"
-        className="hover:bg-fill-hover flex h-[38px] shrink-0 cursor-default items-center gap-1.5 rounded-full px-3"
-      >
-        <PlusIcon size={14} className="text-text-subtle" />
-        <span className="text-label font-regular text-text-subtle">Add machine</span>
-      </button>
-    </nav>
+                  {group.summary.needsYou > 0 ? (
+                    <Badge tone="needs-you" size="count">
+                      {group.summary.needsYou}
+                    </Badge>
+                  ) : null}
+                  {shortcut === undefined ? null : <Kbd variant="plain">{shortcut}</Kbd>}
+                </button>
+              </HostMenu>
+            </UpgradeHover>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => openSettings("hosts", { adding: true })}
+          data-testid="add-machine"
+          className="hover:bg-fill-hover flex h-[38px] shrink-0 cursor-default items-center gap-1.5 rounded-full px-3"
+        >
+          <PlusIcon size={14} className="text-text-subtle" />
+          <span className="text-label font-regular text-text-subtle">Add machine</span>
+        </button>
+      </nav>
+    </BarRow>
   );
 };
 

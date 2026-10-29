@@ -47,7 +47,7 @@ export const Segments = ({
     </span>
   );
 
-const LABEL = "text-caption text-text-faint w-24 shrink-0";
+const LABEL = "text-caption text-text-subtle w-24 shrink-0";
 
 const Check = ({ check }: { readonly check: CheckMark }) => (
   <span className="text-caption text-text-default flex items-center gap-1">
@@ -93,7 +93,7 @@ const Fields = ({ well }: { readonly well: Extract<Well, { kind: "fields" }> }) 
 const Tasks = ({ well }: { readonly well: Extract<Well, { kind: "tasks" }> }) => (
   <>
     {well.heading === null ? null : (
-      <span className="text-caption text-text-faint">{well.heading}</span>
+      <span className="text-caption text-text-subtle">{well.heading}</span>
     )}
     {well.rows.map((row) => (
       <div key={row.id} className="text-caption flex min-w-0 items-center gap-2">
@@ -106,7 +106,7 @@ const Tasks = ({ well }: { readonly well: Extract<Well, { kind: "tasks" }> }) =>
         >
           {row.title}
         </span>
-        <Segments segments={row.note} className="text-text-faint min-w-0" />
+        <Segments segments={row.note} className="text-text-subtle min-w-0" />
         <span className="flex-1" />
         <Segments segments={row.change} className="text-text-subtle shrink-0" />
       </div>
@@ -132,7 +132,7 @@ const Banner = ({
 const Turns = ({ well }: { readonly well: Extract<Well, { kind: "turns" }> }) =>
   well.turns.map((turn, i) => (
     <div key={i} className="flex min-w-0 flex-col gap-0.5">
-      <span className="text-caption text-text-faint">{turn.heading}</span>
+      <span className="text-caption text-text-subtle">{turn.heading}</span>
       {turn.reply === null ? null : (
         <span className="text-caption text-text-default">{turn.reply}</span>
       )}

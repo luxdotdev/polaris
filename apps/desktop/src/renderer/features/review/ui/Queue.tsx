@@ -330,7 +330,7 @@ export const Queue = ({
       <div className="gap-gap flex h-12 shrink-0 items-center">
         <ByUrl onOpen={onOpenPull} />
         <span className="flex-1" />
-        <span className="text-caption text-text-faint tabular shrink-0 whitespace-nowrap">
+        <span className="text-caption text-text-subtle tabular shrink-0 whitespace-nowrap">
           {shortcutLabel(0)}–9 to jump
         </span>
       </div>

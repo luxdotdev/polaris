@@ -20,6 +20,7 @@ import {
 } from "../../composer/index.ts";
 import type { StagedAttachment } from "../state.ts";
 import { ComposerMenu } from "./ComposerMenu.tsx";
+import { useToastsClear } from "./toastClearance.ts";
 
 /** The `/` menu's list, and what to do for a command Polaris runs itself. */
 export interface ComposerCommands {
@@ -159,6 +160,9 @@ export const DraftComposer = ({
   const filePicker = useRef<HTMLInputElement>(null);
   // The menu draws in this box, above the card (which clips what it holds).
   const [menuSlot, setMenuSlot] = useState<HTMLDivElement | null>(null);
+  const composerBox = useRef<HTMLDivElement>(null);
+
+  useToastsClear(composerBox);
 
   const submit = (queue: boolean) => {
     if (queue && onQueue !== undefined) onQueue();
@@ -174,7 +178,7 @@ export const DraftComposer = ({
   return (
     <div className={className}>
       {notice}
-      <div className="relative">
+      <div ref={composerBox} className="relative">
         <div ref={setMenuSlot} className="absolute inset-x-0 bottom-full z-20" />
         <AttachmentDrop onFiles={onFiles} copyTo={copyTo}>
           <Composer

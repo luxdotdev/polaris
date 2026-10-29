@@ -41,7 +41,7 @@ export const PillMark = ({ mark }: { readonly mark: Mark }) =>
 
 const CommandRow = ({ command }: { readonly command: InstallCommand }) => (
   <>
-    <span className="text-caption text-text-faint">{command.label}</span>
+    <span className="text-caption text-text-subtle">{command.label}</span>
     <div className="rounded-control border-hairline bg-surface-sunken flex h-8 items-center justify-between border pr-1.5 pl-2.5">
       <code className="text-caption text-text-default truncate font-mono">{command.command}</code>
       <CopyButton text={command.command} />
@@ -360,7 +360,7 @@ export const LanguageStatus = ({
           titleId={titleId}
         />
         {languageMode === undefined ? null : (
-          <div className="border-hairline text-caption text-text-faint flex items-center gap-2 border-t px-4 py-2">
+          <div className="border-hairline text-caption text-text-subtle flex items-center gap-2 border-t px-4 py-2">
             {languageMode}
           </div>
         )}

@@ -75,7 +75,7 @@ const Waiting = ({
           </span>
           <CopyLink link={offer.linkString} />
         </div>
-        <p className="text-caption text-text-faint">
+        <p className="text-caption text-text-subtle">
           No camera? Paste the link into the phone instead. Polaris clears it from the clipboard
           after a minute.
         </p>

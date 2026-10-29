@@ -84,3 +84,26 @@ export const contextLabel = (usage: Plain<ContextUsage> | null): ContextLabel | 
     detail: `${formatTokens(usage.usedTokens)} of ${formatTokens(usage.windowTokens)} tokens in context`,
   };
 };
+
+export interface ContextChipReadout {
+  /** The ring's fill, 0–1; 0 (empty) while unknown. */
+  readonly share: number;
+  /** "17%", "84k" while the window is unknown, or "—" before any report. */
+  readonly words: string;
+  readonly nearlyFull: boolean;
+}
+
+/** The composer's context chip: an empty ring and "—" until the Harness reports usage, never 0%. */
+export const contextChip = (usage: Plain<ContextUsage> | null): ContextChipReadout => {
+  if (usage === null) return { share: 0, words: "—", nearlyFull: false };
+
+  if (usage.windowTokens === null || usage.windowTokens <= 0)
+    return { share: 0, words: formatTokens(usage.usedTokens), nearlyFull: false };
+  const share = Math.min(1, Math.max(0, usage.usedTokens / usage.windowTokens));
+
+  return {
+    share,
+    words: `${Math.round(share * 100)}%`,
+    nearlyFull: share >= CONTEXT_NEARLY_FULL,
+  };
+};

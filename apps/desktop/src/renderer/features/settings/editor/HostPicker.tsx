@@ -51,7 +51,7 @@ export const HostPicker = ({
             <DropdownMenuRadioItem key={host.key} value={host.key} disabled={!pickable(host)}>
               <span className="flex-1">{host.label}</span>
               {!pickable(host) && (
-                <span className="text-caption text-text-faint">
+                <span className="text-caption text-text-subtle">
                   {stateWords(host.status.state) ?? "not connected"}
                 </span>
               )}

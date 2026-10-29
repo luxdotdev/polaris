@@ -53,7 +53,7 @@ const Label = ({ item, hue }: { readonly item: ReasoningView; readonly hue: Hue 
       <span className="tabular" data-testid="thought-label">
         {label}
       </span>
-      {elapsed === null ? null : <span className="text-text-faint tabular">{elapsed}</span>}
+      {elapsed === null ? null : <span className="text-text-subtle tabular">{elapsed}</span>}
     </>
   );
 };

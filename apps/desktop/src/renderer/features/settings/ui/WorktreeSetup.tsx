@@ -117,7 +117,7 @@ export const WorktreeSetupSettings = () => {
         .filter((host) => hasCapability(host, "workspace.setup"))
         .map((host) => (
           <div key={host.key}>
-            <p className="px-panel text-caption text-text-faint pt-2">{host.label}</p>
+            <p className="px-panel text-caption text-text-subtle pt-2">{host.label}</p>
             {[...(models[host.key]?.workspaces.values() ?? [])].map((workspace) => (
               <WorkspaceSetup
                 key={`${workspace.id}:${JSON.stringify(workspace.worktreeSetup)}`}

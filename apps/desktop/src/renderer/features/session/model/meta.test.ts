@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { contextLabel, formatTokens, stepLabel, thoughtLabel } from "./meta.ts";
+import { contextChip, contextLabel, formatTokens, stepLabel, thoughtLabel } from "./meta.ts";
 
 const at = (seconds: number) => new Date(Date.UTC(2026, 8, 30, 10, 0, seconds)).toISOString();
 
@@ -79,5 +79,20 @@ describe("contextLabel", () => {
       "1.2M",
     ]);
     expect(formatTokens(1_000_000)).toBe("1M");
+  });
+});
+
+describe("contextChip", () => {
+  test("unknown usage reads as an empty ring and a dash, never 0%", () => {
+    expect(contextChip(null)).toEqual({ share: 0, words: "—", nearlyFull: false });
+  });
+
+  test("a known window reads as its share; an unknown window as the tokens", () => {
+    expect(contextChip(usage(172_000, 200_000))).toEqual({
+      share: 0.86,
+      words: "86%",
+      nearlyFull: true,
+    });
+    expect(contextChip(usage(84_000, null)).words).toBe("84k");
   });
 });

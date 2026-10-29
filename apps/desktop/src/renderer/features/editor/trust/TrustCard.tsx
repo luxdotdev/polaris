@@ -66,7 +66,7 @@ export const TrustCard = ({ status, phase, workspace, host, onDecide }: TrustCar
           {copy.body}
         </p>
       </div>
-      <p className="text-caption text-text-faint">{copy.caption}</p>
+      <p className="text-caption text-text-subtle">{copy.caption}</p>
       {phase.kind === "failed" ? (
         <p role="alert" className="text-caption text-text-strong" data-reason={phase.error.reason}>
           {trustFailure(phase.error, host)}

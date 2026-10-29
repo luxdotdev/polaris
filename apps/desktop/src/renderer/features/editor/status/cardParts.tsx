@@ -15,7 +15,7 @@ export const FactRow = ({
   readonly shortValue?: boolean;
 }) => (
   <div className="text-caption flex items-center gap-2" data-fact={fact.label}>
-    <span className="text-text-faint w-[84px] shrink-0">{fact.label}</span>
+    <span className="text-text-subtle w-[84px] shrink-0">{fact.label}</span>
     <span
       className={cn(
         "text-text-default",
@@ -78,7 +78,7 @@ export const ActionRows = <Id extends string>({
       >
         <span className="truncate">{action.label}</span>
         {action.hint === undefined ? null : (
-          <span className="text-caption text-text-faint shrink-0 font-mono">{action.hint}</span>
+          <span className="text-caption text-text-subtle shrink-0 font-mono">{action.hint}</span>
         )}
       </button>
     ))}

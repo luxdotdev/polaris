@@ -18,7 +18,7 @@ const Monogram = ({ text }: { readonly text: string }) => (
 
 const FactRow = ({ fact }: { readonly fact: Fact }) => (
   <div className="flex items-center gap-2">
-    <dt className="text-caption text-text-faint w-[120px] shrink-0">{fact.label}</dt>
+    <dt className="text-caption text-text-subtle w-[120px] shrink-0">{fact.label}</dt>
     <dd className="flex min-w-0 items-center gap-2">
       <span className={cn("text-caption text-text-default", fact.mono && "font-mono")}>
         {fact.value}
@@ -130,7 +130,7 @@ export const LanguageList = ({
         {footLine && (
           <div className="px-panel flex items-center gap-3 py-[calc(var(--spacing-gap)+4px)]">
             <span className="w-7 shrink-0" />
-            <span className="text-caption text-text-faint">{footLine}</span>
+            <span className="text-caption text-text-subtle">{footLine}</span>
           </div>
         )}
       </>

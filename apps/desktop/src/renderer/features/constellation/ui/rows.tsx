@@ -68,12 +68,12 @@ const LivenessLine = ({ line }: { readonly line: Liveness }) => (
     )}
     {line.progress === null ? null : <span className="truncate">{line.progress}</span>}
     {line.context === null ? null : (
-      <span className="text-text-faint tabular shrink-0">context {line.context}%</span>
+      <span className="text-text-subtle tabular shrink-0">context {line.context}%</span>
     )}
     {line.queued === 0 ? null : (
-      <span className="text-text-faint shrink-0">{line.queued} queued</span>
+      <span className="text-text-subtle shrink-0">{line.queued} queued</span>
     )}
-    {line.quiet === null ? null : <span className="text-text-faint shrink-0">{line.quiet}</span>}
+    {line.quiet === null ? null : <span className="text-text-subtle shrink-0">{line.quiet}</span>}
     {line.away === null ? null : <span className="text-text-faint">{line.away}</span>}
   </Caption>
 );
@@ -90,7 +90,7 @@ const ClaimLine = ({ glance }: { readonly glance: ClaimGlance }) => (
         {pluralize(glance.questions, "question")}
       </span>
     )}
-    {glance.asserted ? <span className="text-text-faint whitespace-nowrap">no checks</span> : null}
+    {glance.asserted ? <span className="text-text-subtle whitespace-nowrap">no checks</span> : null}
     {glance.approved ? (
       <span className="text-accepted-text whitespace-nowrap">you approved</span>
     ) : null}
@@ -111,7 +111,7 @@ const SetupLine = ({ line }: { readonly line: SetupLineData }) => (
       <span className="shrink-0">{setupTail(line)}</span>
     </span>
     {line.remoteHost === null ? null : (
-      <span className="text-text-faint shrink-0">on {line.remoteHost}</span>
+      <span className="text-text-subtle shrink-0">on {line.remoteHost}</span>
     )}
   </Caption>
 );
@@ -134,7 +134,7 @@ const BlockedLine = ({ line }: { readonly line: Extract<Line, { kind: "blocked" 
         ))}
       </span>
     )}
-    {line.reason === null ? null : <span className="text-text-faint truncate">{line.reason}</span>}
+    {line.reason === null ? null : <span className="text-text-subtle truncate">{line.reason}</span>}
   </Caption>
 );
 
@@ -201,7 +201,7 @@ const TaskTitle = ({ row }: { readonly row: TaskRow }) => (
 /** "blocks F2": a row whose Task a blocked Attempt waits on. */
 const Blocks = ({ ids }: { readonly ids: ReadonlyArray<string> }) =>
   ids.length === 0 ? null : (
-    <span className="text-caption text-text-faint shrink-0 whitespace-nowrap">
+    <span className="text-caption text-text-subtle shrink-0 whitespace-nowrap">
       blocks <span className="text-code-inline font-mono">{ids.join(", ")}</span>
     </span>
   );
@@ -301,7 +301,7 @@ const TaskView = ({
               ⧉
             </span>
             <span>Area overlaps {row.overlap.with}</span>
-            <span className="text-code-inline text-text-faint truncate font-mono">
+            <span className="text-code-inline text-text-subtle truncate font-mono">
               {row.overlap.glob}
             </span>
           </Caption>
@@ -368,7 +368,7 @@ const GroupView = ({
         <span className="text-label text-text-strong flex min-w-24 flex-1 items-center gap-1.5">
           <span className="truncate">{row.label}</span>
           {large ? (
-            <span className="text-body text-text-faint tabular shrink-0">
+            <span className="text-body text-text-subtle tabular shrink-0">
               {row.total}
               {row.tally.proposed > 0 ? ` · ${row.tally.proposed} proposed` : ""}
             </span>
@@ -459,7 +459,7 @@ const SubagentView = ({
       <span className="text-body text-text-subtle min-w-0 flex-1 truncate">
         {row.subagent.title}
       </span>
-      <span className="text-body text-text-faint hidden w-[9.5rem] shrink-0 truncate text-right @[42rem]:block">
+      <span className="text-body text-text-subtle hidden w-[9.5rem] shrink-0 truncate text-right @[42rem]:block">
         {row.subagent.agent === null ? "subagent" : `subagent · ${row.subagent.agent}`}
       </span>
       <span className="text-body text-text-default w-[7.5rem] shrink-0 text-right @max-[26rem]:w-20">

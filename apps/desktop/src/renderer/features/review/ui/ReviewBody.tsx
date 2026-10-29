@@ -143,7 +143,7 @@ const SessionGroupingBar = ({ grouping }: { readonly grouping: Grouping }) => {
         onValueChange={setSessionGrouping}
       />
       {mode === "intent" && (
-        <span className="text-caption text-text-faint truncate">{groupingCaption(grouping)}</span>
+        <span className="text-caption text-text-subtle truncate">{groupingCaption(grouping)}</span>
       )}
     </div>
   );

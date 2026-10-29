@@ -135,7 +135,7 @@ export const FileList = (props: FileListProps) => (
     )}
     {props.mode === "intent" && props.grouping.source === "path" && (
       <p
-        className="text-caption text-text-faint px-gap pb-gap"
+        className="text-caption text-text-subtle px-gap pb-gap"
         data-testid="review-grouped-by-path"
       >
         Grouped by path · write a walkthrough to group by intent

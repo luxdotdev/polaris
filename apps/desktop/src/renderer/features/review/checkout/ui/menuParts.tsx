@@ -22,7 +22,7 @@ export const Heading = ({ title, fact }: { readonly title: string; readonly fact
 );
 
 export const Well = ({ children }: { readonly children: ReactNode }) => (
-  <div className="bg-surface-sunken px-row-x py-gap flex flex-col gap-1 rounded-[8px]">
+  <div className="bg-well border-hairline px-row-x py-gap flex flex-col gap-1 rounded-[12px] border">
     {children}
   </div>
 );

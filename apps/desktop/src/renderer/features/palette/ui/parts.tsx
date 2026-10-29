@@ -61,7 +61,7 @@ export const PaletteRow = ({ row, id, selected, onHover, onChoose }: PaletteRowP
       {row.title}
     </span>
     {row.detail === "" ? null : (
-      <span className="text-caption text-text-faint min-w-0 flex-1 truncate">{row.detail}</span>
+      <span className="text-caption text-text-subtle min-w-0 flex-1 truncate">{row.detail}</span>
     )}
     {row.shortcut === "" ? null : (
       <span
@@ -81,7 +81,7 @@ export const PaletteFooter = ({
   readonly hints: ReadonlyArray<string>;
   readonly count: number | null;
 }) => (
-  <div className="border-hairline gap-panel px-panel text-caption text-text-faint flex h-9 shrink-0 items-center border-t">
+  <div className="border-hairline gap-panel px-panel text-caption text-text-subtle flex h-9 shrink-0 items-center border-t">
     {hints.map((hint) => (
       <span key={hint}>{hint}</span>
     ))}
@@ -183,7 +183,7 @@ export const RowList = ({
                 <div
                   id={`${list}-${section.key}`}
                   data-palette-heading
-                  className="px-row-x text-caption text-text-faint pt-1 pb-1.5"
+                  className="px-row-x text-caption text-text-subtle pt-1 pb-1.5"
                 >
                   {section.heading}
                 </div>

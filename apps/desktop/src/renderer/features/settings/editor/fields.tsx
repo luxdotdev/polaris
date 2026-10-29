@@ -44,7 +44,7 @@ export const Field = ({
         <Input {...props} className="font-mono" type={secret ? "password" : "text"} />
       )}
       {hint && (
-        <p id={`${id}-hint`} className="text-caption text-text-faint">
+        <p id={`${id}-hint`} className="text-caption text-text-subtle">
           {hint}
         </p>
       )}

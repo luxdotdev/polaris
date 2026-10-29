@@ -99,7 +99,7 @@ export const PairForm = ({
         ))}
       </fieldset>
       <div className="border-hairline flex items-center gap-2 border-t pt-3">
-        <span className="text-caption text-text-faint flex-1">
+        <span className="text-caption text-text-subtle flex-1">
           You can't change a grant later; revoke and pair again instead.
         </span>
         <Button type="button" variant="ghost" disabled={busy} onClick={onCancel}>

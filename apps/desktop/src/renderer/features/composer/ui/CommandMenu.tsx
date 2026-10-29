@@ -68,7 +68,7 @@ const Row = ({
             {option.name}
           </span>
           {option.argumentHint === null ? null : (
-            <span className="text-caption text-text-faint truncate">{option.argumentHint}</span>
+            <span className="text-caption text-text-subtle truncate">{option.argumentHint}</span>
           )}
           {source === null ? null : (
             <span className="text-micro text-text-subtle ml-auto shrink-0">{source}</span>

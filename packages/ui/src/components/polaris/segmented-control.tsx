@@ -14,7 +14,7 @@ export interface SegmentedOption<Value extends string> {
 const SEGMENT_SIZE = {
   mode: "h-[26px] px-2.5 text-label",
   fill: "h-6 flex-1 gap-1.5 text-caption font-medium",
-  well: "rounded-[4px] px-2 py-[3px] text-caption font-regular data-[state=on]:font-medium",
+  well: "px-2.5 py-[3px] text-caption font-regular data-[state=on]:font-medium",
 } as const;
 
 const PILL_SIZE = {
@@ -42,8 +42,9 @@ export interface SegmentedControlProps<Value extends string> {
 }
 
 /**
- * One choice among a few (Orchestrate / Review / Edit; Sessions / Needs you). Selection is
- * a fill-selected segment, never an accent colour. Arrow keys move between segments.
+ * One choice among a few (Orchestrate / Review / Edit; Sessions / Needs you), always a pill:
+ * a well track inside a surface, the panel fill on the ground (`pill`). Selection is a
+ * fill-selected segment, never an accent colour. Arrow keys move between segments.
  */
 export function SegmentedControl<Value extends string>({
   options,
@@ -68,9 +69,9 @@ export function SegmentedControl<Value extends string>({
       aria-label={props["aria-label"]}
       data-slot="segmented-control"
       className={cn(
-        "flex items-center gap-0.5 rounded-[8px] border border-hairline bg-bg p-0.5",
+        "flex items-center gap-0.5 rounded-full border border-hairline bg-well p-0.5",
         variant === "fill" && "w-full",
-        variant === "well" && "gap-0 rounded-control bg-surface-sunken",
+        variant === "well" && "gap-0",
         pill && "rounded-full border-0 bg-panel p-[3px]",
         className
       )}
@@ -81,7 +82,7 @@ export function SegmentedControl<Value extends string>({
           value={option.value}
           disabled={option.disabled}
           className={cn(
-            "group/segment flex cursor-default items-center justify-center gap-2 rounded-control font-medium text-text-subtle select-none",
+            "group/segment flex cursor-default items-center justify-center gap-2 rounded-full font-medium text-text-subtle select-none",
             "hover:text-text-default data-[state=on]:bg-fill-selected data-[state=on]:text-text-strong",
             "disabled:opacity-(--opacity-dimmed)",
             SEGMENT_SIZE[variant],

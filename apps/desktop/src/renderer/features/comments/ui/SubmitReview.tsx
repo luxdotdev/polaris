@@ -178,7 +178,7 @@ const Dialog = ({
           placeholder={
             event === "request-changes" ? "Say what needs to change" : "Leave a summary (optional)"
           }
-          className="bg-surface-sunken min-h-[72px] rounded-[8px] px-3 py-2.5"
+          className="bg-well border-hairline min-h-[72px] rounded-[12px] border px-3 py-2.5"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           onKeyDown={(e) => {

@@ -159,7 +159,7 @@ export const Tabs = ({ tabs, active, onSelect, onPin, onClose, menuFor }: TabsPr
               {tab.agent === null ? null : <Dither hue={tab.agent} size={12} moving />}
               <span className={cn("truncate", tab.preview && "italic")}>{tab.label}</span>
               {tab.detail === undefined ? null : (
-                <span className="text-caption text-text-faint shrink-0">{tab.detail}</span>
+                <span className="text-caption text-text-subtle shrink-0">{tab.detail}</span>
               )}
               <TrailingSlot tab={tab} active={selected} onClose={() => onClose(tab.id)} />
             </div>

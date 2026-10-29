@@ -44,7 +44,7 @@ const Line = ({ line, kind }: { readonly line: DiffLine; readonly kind: "removed
       kind === "removed" ? "bg-diff-removed-bg" : "bg-diff-added-bg"
     )}
   >
-    <span className={cn(MONO, "text-text-faint w-10 shrink-0 pr-2 text-right")}>{line.line}</span>
+    <span className={cn(MONO, "text-text-subtle w-10 shrink-0 pr-2 text-right")}>{line.line}</span>
     <span
       className={cn(MONO, kind === "removed" ? "text-diff-removed-text" : "text-diff-added-text")}
     >
@@ -56,7 +56,7 @@ const Line = ({ line, kind }: { readonly line: DiffLine; readonly kind: "removed
 
 const HunkView = ({ hunk }: { readonly hunk: Hunk }) => (
   <>
-    <div className="text-caption text-text-faint flex h-6 items-end pb-0.5 pl-12">
+    <div className="text-caption text-text-subtle flex h-6 items-end pb-0.5 pl-12">
       Line {hunk.line}
     </div>
     {hunk.removed.map((line) => (
@@ -97,7 +97,7 @@ const FileRow = ({
           {file.name}
         </span>
         {file.folder === "" ? null : (
-          <span className="text-caption text-text-faint truncate">{file.folder}</span>
+          <span className="text-caption text-text-subtle truncate">{file.folder}</span>
         )}
         {file.unsaved ? (
           <span className="text-caption text-text-subtle shrink-0">· unsaved edits kept</span>
@@ -251,7 +251,7 @@ export const RenamePreviewCard = ({
           disabled={busy}
           className="rounded-control bg-fill-selected text-body text-text-default focus-visible:outline-starlight flex h-[30px] shrink-0 items-center gap-2 px-3 focus-visible:outline-2"
         >
-          Cancel <span className="text-caption text-text-faint">esc</span>
+          Cancel <span className="text-caption text-text-subtle">esc</span>
         </button>
         <button
           type="button"
@@ -260,7 +260,9 @@ export const RenamePreviewCard = ({
           className="rounded-control bg-text-strong text-body text-bg focus-visible:outline-starlight flex h-[30px] shrink-0 items-center gap-2 px-3 font-medium focus-visible:outline-2 disabled:opacity-55"
         >
           {busy ? "Applying…" : words.accept}
-          <span className="text-caption text-text-faint">{shortcutLabel(FIELD_CHORDS.submit)}</span>
+          <span className="text-caption text-text-subtle">
+            {shortcutLabel(FIELD_CHORDS.submit)}
+          </span>
         </button>
       </div>
     </>

@@ -120,7 +120,7 @@ export const MarkdownImages = ({
       External images in Markdown previews, per workspace. Scripts never run.
     </p>
     {workspaces.length === 0 ? (
-      <p className="px-panel text-caption text-text-faint py-3">No workspaces on this host yet.</p>
+      <p className="px-panel text-caption text-text-subtle py-3">No workspaces on this host yet.</p>
     ) : (
       workspaces.map((workspace) => (
         <WorkspaceImages

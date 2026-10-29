@@ -18,7 +18,7 @@ export const LanguageSelector = ({
   const state = useLanguage(key);
 
   return (
-    <label className="text-caption text-text-faint flex w-full items-center justify-between gap-2">
+    <label className="text-caption text-text-subtle flex w-full items-center justify-between gap-2">
       <span>Language mode</span>
       <select
         aria-label="File language"

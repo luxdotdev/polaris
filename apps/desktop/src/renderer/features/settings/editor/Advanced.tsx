@@ -104,7 +104,7 @@ export const Advanced = (props: {
       >
         <DisclosureChevron open={open} size={12} className="text-text-subtle" />
         <span className="text-body text-text-default font-medium">Advanced</span>
-        <span className="text-caption text-text-faint">
+        <span className="text-caption text-text-subtle">
           Custom language servers and executable overrides, per host
         </span>
       </button>

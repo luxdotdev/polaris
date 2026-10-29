@@ -267,7 +267,7 @@ export const StageSection = (props: StageSectionProps) => {
         }
       >
         {side === "staged" ? "Staged" : "Changes"}{" "}
-        <span className="text-text-faint tabular-nums">{rows.length}</span>
+        <span className="text-text-subtle tabular-nums">{rows.length}</span>
       </SectionHeader>
       <ul>
         {rows.map((row) => (

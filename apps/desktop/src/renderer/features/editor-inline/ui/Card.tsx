@@ -126,7 +126,7 @@ const Proposed = (props: CardProps & { readonly session: CardSession }) => {
             testId="inline-accept"
           >
             Accept{" "}
-            <span className="text-text-faint text-[11px] leading-3 font-normal">
+            <span className="text-text-subtle text-[11px] leading-3 font-normal">
               {shortcutLabel(FIELD_CHORDS.submit)}
             </span>
           </Button>

@@ -243,7 +243,7 @@ export const HostsButton = () => {
         </button>
       </PopoverTrigger>
       <InstrumentPopoverContent
-        align="start"
+        align="end"
         data-testid="hosts-card"
         className="w-[440px]"
         header={{

@@ -141,9 +141,9 @@ export const DiffToolbar = (props: DiffToolbarProps) => {
           </>
         )}
         <span className="text-text-default shrink-0">{parts.at(-1)}</span>
-        <span className="text-text-faint min-w-0 truncate">· {sideLabels(target)}</span>
+        <span className="text-text-subtle min-w-0 truncate">· {sideLabels(target)}</span>
         {note === null ? null : (
-          <span className="text-text-faint min-w-0 shrink-[2] truncate">· {note}</span>
+          <span className="text-text-subtle min-w-0 shrink-[2] truncate">· {note}</span>
         )}
       </nav>
       {changes === null ? null : <Stepper changes={changes} at={at} onStep={onStep} />}

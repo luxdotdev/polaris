@@ -290,7 +290,7 @@ const Workers = ({ workers }: { readonly workers: WorkerTime }) => {
             <span className="min-w-0 flex-1">
               <Fact label={s.label} value={s.text} note={s.note} />
             </span>
-            <Mono className="text-text-faint w-8 shrink-0 text-right">
+            <Mono className="text-text-subtle w-8 shrink-0 text-right">
               {s.ms === null ? "" : pct(s.share)}
             </Mono>
           </div>

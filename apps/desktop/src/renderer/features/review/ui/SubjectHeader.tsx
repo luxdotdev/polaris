@@ -50,7 +50,7 @@ const TurnPicker = ({
     role="radiogroup"
     aria-label="Turns"
     data-testid="turn-picker"
-    className="border-hairline bg-surface-sunken flex shrink-0 gap-0.5 rounded-[8px] border p-0.5"
+    className="border-hairline bg-well flex shrink-0 gap-0.5 rounded-full border p-0.5"
   >
     {options.map((option) => (
       <button
@@ -60,9 +60,9 @@ const TurnPicker = ({
         aria-checked={option.value === value}
         onClick={() => onChange(option.value)}
         className={cn(
-          "text-caption px-row-x flex h-[26px] cursor-default items-center rounded-control font-medium",
+          "text-caption px-row-x flex h-[26px] cursor-default items-center rounded-full font-medium",
           option.value === value
-            ? "bg-surface-raised text-text-strong shadow-[0_1px_2px_rgb(0_0_0/6%)]"
+            ? "bg-fill-selected text-text-strong"
             : "text-text-subtle hover:text-text-default"
         )}
       >

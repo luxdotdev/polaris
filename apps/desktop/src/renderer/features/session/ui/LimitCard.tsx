@@ -46,7 +46,7 @@ export const LimitCard = ({ harness, number, limit, onContinue }: LimitCardProps
           {usageLimitLine(limit.resetsAt)}
         </span>
         <span className="flex-1" />
-        <span className="text-caption text-text-faint shrink-0">turn {number} interrupted</span>
+        <span className="text-caption text-text-subtle shrink-0">turn {number} interrupted</span>
       </div>
       <p className="text-caption text-text-subtle">{limitBody(who, limit)}</p>
       <div className="flex items-center gap-3 pt-0.5">
@@ -68,7 +68,7 @@ export const LimitCard = ({ harness, number, limit, onContinue }: LimitCardProps
         </label>
       </div>
       {waiting ? (
-        <p className="text-caption text-text-faint">
+        <p className="text-caption text-text-subtle">
           Resume at reset is on: it waits until the Harness reports a reset time.
         </p>
       ) : null}

@@ -94,7 +94,7 @@ export const DocView = ({ docs }: { readonly docs: Docs }) => (
     {docs.footnote && (
       <div
         data-docs-footnote
-        className="text-micro text-text-faint border-hairline flex h-6 shrink-0 items-center truncate border-t px-3"
+        className="text-micro text-text-subtle border-hairline flex h-6 shrink-0 items-center truncate border-t px-3"
       >
         {docs.footnote}
       </div>

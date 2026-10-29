@@ -70,7 +70,7 @@ const Line = ({ line, query, wrap }: { line: LogLine; query: string; wrap: boole
       line.level === "error" && "bg-diff-removed-bg"
     )}
   >
-    <span className="text-text-faint shrink-0 tabular-nums">{timeText(line.at)}</span>
+    <span className="text-text-subtle shrink-0 tabular-nums">{timeText(line.at)}</span>
     <span className={cn("w-10 shrink-0", LEVEL_CLASS[line.level])}>{levelText(line.level)}</span>
     <span
       className={cn(

@@ -92,7 +92,7 @@ const pretty = (value: ToolOutput) => {
 const Result = ({ item }: { readonly item: ToolView }) => {
   const { result } = item;
 
-  if (result === null) return <span className="text-caption text-text-faint">No result</span>;
+  if (result === null) return <span className="text-caption text-text-subtle">No result</span>;
 
   return (
     <>

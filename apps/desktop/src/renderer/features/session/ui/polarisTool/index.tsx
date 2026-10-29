@@ -67,7 +67,7 @@ const Foot = ({
 
   return (
     <div className="border-hairline flex min-w-0 items-center gap-1 border-t pt-1.5">
-      <span className="text-caption text-text-faint min-w-0 flex-1 truncate">{view.reply}</span>
+      <span className="text-caption text-text-subtle min-w-0 flex-1 truncate">{view.reply}</span>
       {links.map((link) => (
         <Button key={link.taskId} variant="ghost" size="sm" onClick={() => openTask?.(link.taskId)}>
           {link.label}
@@ -124,14 +124,14 @@ const Line = ({
     />
     <span className="flex-1" />
     {view.caption === null ? null : (
-      <span className="text-caption text-text-faint shrink-0">{view.caption}</span>
+      <span className="text-caption text-text-subtle shrink-0">{view.caption}</span>
     )}
     {open ? (
       <ChevronDownIcon size={10} className="text-text-faint shrink-0" />
     ) : (
       <ChevronRightIcon
         size={10}
-        className="text-text-faint shrink-0 opacity-60 group-hover/polaris:opacity-100"
+        className="text-text-subtle shrink-0 opacity-60 group-hover/polaris:opacity-100"
       />
     )}
   </button>

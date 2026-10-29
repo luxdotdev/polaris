@@ -89,7 +89,7 @@ const Check = ({
 
 const Section = ({ label, children }: { readonly label: string; readonly children: ReactNode }) => (
   <div className="border-hairline flex flex-col gap-[2px] border-t px-[6px] py-2.5">
-    <div className="px-gap text-caption text-text-faint pb-[6px]">{label}</div>
+    <div className="px-gap text-caption text-text-subtle pb-[6px]">{label}</div>
     {children}
   </div>
 );
@@ -106,7 +106,7 @@ const MessageWell = ({
   readonly onChange: (title: string, body: string) => void;
   readonly label: string;
 }) => (
-  <div className="bg-surface-sunken border-hairline flex flex-col gap-1 rounded-[8px] border px-3 py-2">
+  <div className="bg-well border-hairline flex flex-col gap-1 rounded-[12px] border px-3 py-2">
     <Input
       aria-label={`${label} title`}
       data-testid={`accept-${label.replace(/\s+/g, "-")}-title`}
@@ -270,7 +270,7 @@ const PlanBody = ({
   <>
     <div className="flex flex-col gap-1 px-[14px] pb-3">
       {fields === null ? (
-        <div className="bg-surface-sunken border-hairline text-caption text-text-subtle rounded-[8px] border px-3 py-2">
+        <div className="bg-well border-hairline text-caption text-text-subtle rounded-[12px] border px-3 py-2">
           {draftCaption(state, harness)}
         </div>
       ) : (
@@ -282,7 +282,7 @@ const PlanBody = ({
         />
       )}
       {fields !== null && (
-        <span className="text-micro text-text-faint">{draftCaption(state, harness)}</span>
+        <span className="text-micro text-text-subtle">{draftCaption(state, harness)}</span>
       )}
     </div>
     <div className="flex flex-col gap-[2px] px-[6px] pb-2.5">

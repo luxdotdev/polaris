@@ -52,7 +52,7 @@ export const PairingRow = ({
         </>
       ) : (
         <>
-          <span className="text-caption text-text-faint shrink-0 whitespace-nowrap">
+          <span className="text-caption text-text-subtle shrink-0 whitespace-nowrap">
             {usedLine(pairing, now)}
           </span>
           <Button variant="ghost" className="w-[72px]" onClick={() => setAsking(true)}>

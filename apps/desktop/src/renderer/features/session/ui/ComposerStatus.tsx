@@ -24,7 +24,7 @@ import type { SubagentView } from "../../../store/sessionModel.ts";
 import { send } from "../dispatch.ts";
 import { useHost } from "../hooks.ts";
 import { permissionCommand, permissionLabel, permissionModesOn } from "../model/intent.ts";
-import { CONTEXT_NEARLY_FULL, contextLabel, formatTokens } from "../model/meta.ts";
+import { contextChip, contextLabel } from "../model/meta.ts";
 import { subagentRoster } from "../model/subagents.ts";
 import { ContextReadout } from "./ContextCard.tsx";
 import { PermissionGlyph } from "./permissionGlyphs.tsx";
@@ -113,7 +113,7 @@ const Subagents = ({
   );
 };
 
-/** "17%", "91% · nearly full", or "84k" while the window is unknown; the colour never changes. */
+/** "17%", "91% · nearly full", "84k" while the window is unknown, or "—" before any report. */
 const ContextChip = ({
   hostKey,
   session,
@@ -125,15 +125,30 @@ const ContextChip = ({
 }) => {
   const usage = session.contextUsage;
   const label = contextLabel(usage);
+  const chip = contextChip(usage);
 
-  if (usage === null || label === null) return null;
+  const readout = (
+    <>
+      <ContextRing share={chip.share} />
+      <span className="text-caption text-text-default tabular font-mono whitespace-nowrap">
+        {chip.words}
+        {chip.nearlyFull ? <span className={NEARLY_FULL_WORDS}> · nearly full</span> : null}
+      </span>
+    </>
+  );
 
-  const share =
-    usage.windowTokens === null || usage.windowTokens <= 0
-      ? null
-      : Math.min(1, usage.usedTokens / usage.windowTokens);
-
-  const words = share === null ? formatTokens(usage.usedTokens) : `${Math.round(share * 100)}%`;
+  // Nothing to open yet: the chip holds its place so the footer doesn't shift on the first report.
+  if (label === null)
+    return (
+      <span
+        data-testid="composer-context-unknown"
+        title="No context report yet"
+        aria-label="Context usage not reported yet"
+        className={cn(CHIP, "pr-row-x pl-gap cursor-default gap-[7px]")}
+      >
+        {readout}
+      </span>
+    );
 
   return (
     <ContextReadout
@@ -144,13 +159,7 @@ const ContextChip = ({
       turnNumber={turnNumber}
       triggerClassName={cn(CHIP, "pr-row-x pl-gap gap-[7px]")}
     >
-      <ContextRing share={share ?? 0} />
-      <span className="text-caption text-text-default tabular font-mono whitespace-nowrap">
-        {words}
-        {share !== null && share >= CONTEXT_NEARLY_FULL ? (
-          <span className={NEARLY_FULL_WORDS}> · nearly full</span>
-        ) : null}
-      </span>
+      {readout}
     </ContextReadout>
   );
 };

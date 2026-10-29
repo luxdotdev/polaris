@@ -97,7 +97,7 @@ const Card = <S,>({ game, label, header, message, hints }: CardProps<S>) => (
         )}
       </div>
     </div>
-    <div className="border-hairline gap-panel px-panel text-caption text-text-faint flex h-9 shrink-0 items-center border-t">
+    <div className="border-hairline gap-panel px-panel text-caption text-text-subtle flex h-9 shrink-0 items-center border-t">
       {hints.map((hint) => (
         <span key={hint}>{hint}</span>
       ))}
@@ -120,7 +120,7 @@ const messageFor = (status: GameStatus, over: Message): Message | null =>
 const Title = ({ name, detail }: { readonly name: string; readonly detail: string }) => (
   <>
     <span className="text-heading-sm text-text-strong font-medium">{name}</span>
-    <span className="text-caption text-text-faint">{detail}</span>
+    <span className="text-caption text-text-subtle">{detail}</span>
     <span className="flex-1" />
   </>
 );

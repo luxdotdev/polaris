@@ -190,7 +190,7 @@ const BlockedBody = ({
           ))}
         </span>
       )}
-      <span className="text-text-faint max-w-full min-w-0 truncate">{reason}</span>
+      <span className="text-text-subtle max-w-full min-w-0 truncate">{reason}</span>
     </>
   );
 };

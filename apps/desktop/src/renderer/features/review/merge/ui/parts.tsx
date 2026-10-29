@@ -96,7 +96,7 @@ export const Section = ({
   readonly children: ReactNode;
 }) => (
   <div className="border-hairline flex flex-col gap-[2px] border-t px-[6px] py-2.5">
-    <div className="px-gap text-caption text-text-faint pb-[6px]">{label}</div>
+    <div className="px-gap text-caption text-text-subtle pb-[6px]">{label}</div>
     {children}
   </div>
 );
@@ -111,7 +111,7 @@ export const MessageWell = ({
   readonly body: string;
   readonly onChange: (title: string, body: string) => void;
 }) => (
-  <div className="bg-surface-sunken border-hairline flex flex-col gap-1 rounded-[8px] border px-3 py-2">
+  <div className="bg-well border-hairline flex flex-col gap-1 rounded-[12px] border px-3 py-2">
     <Input
       aria-label="Commit title"
       data-testid="merge-title"

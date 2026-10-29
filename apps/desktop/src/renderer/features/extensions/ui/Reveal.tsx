@@ -51,7 +51,7 @@ export const Reveal = ({
           </span>
           <CopyButton text={paired.pairingString} label="Copy" variant="button" buttonSize="xs" />
         </div>
-        <p className="text-caption text-text-faint">
+        <p className="text-caption text-text-subtle">
           {reach === null
             ? `Remote access is off, so only extensions on ${hostLabel} can connect with it`
             : `Reaches ${hostLabel} at ${reach} through remote access`}
