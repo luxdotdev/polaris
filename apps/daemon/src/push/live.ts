@@ -12,7 +12,7 @@ import {
   PUSH_ENC_BYTES,
   toBase64Url,
 } from "@polaris/protocol/relay";
-import { Option } from "effect";
+import { Option, Struct } from "effect";
 import { pushSuite } from "./seal.ts";
 
 const bytes = (slice: HostSlice) => new TextEncoder().encode(encodeHostSlice(slice)).byteLength;
@@ -28,23 +28,23 @@ interface Field {
   readonly set: (slice: HostSlice, text: string) => HostSlice;
 }
 
-const lineField = (part: "step" | "need", key: "line" | "session"): Field => ({
+const lineField = (part: "step" | "need", key: "line" | "session" | "harness"): Field => ({
   get: (slice) => slice[part]?.[key] ?? "",
   set: (slice, text) => {
     const line = slice[part];
 
-    return line === null ? slice : { ...slice, [part]: { ...line, [key]: text } };
+    if (line === null || line[key] === undefined) return slice;
+
+    // A Harness name cut to nothing goes: the activity falls back to "An agent session".
+    if (key === "harness" && Array.from(text).length <= 1) {
+      return { ...slice, [part]: Struct.omit(line, ["harness"]) };
+    }
+
+    return { ...slice, [part]: { ...line, [key]: text } };
   },
 });
 
-/** Cut first to last: the tool lines, then the session titles, then the Host's name. */
-const FIELDS: ReadonlyArray<Field> = [
-  lineField("step", "line"),
-  lineField("need", "line"),
-  lineField("step", "session"),
-  lineField("need", "session"),
-  { get: (slice) => slice.host, set: (slice, host) => ({ ...slice, host }) },
-];
+const withoutCelestials = (slice: HostSlice): HostSlice => Struct.omit(slice, ["celestials"]);
 
 const fitField = (slice: HostSlice, field: Field) => {
   const text = field.get(slice);
@@ -61,13 +61,40 @@ const fitField = (slice: HostSlice, field: Field) => {
   return field.set(slice, cut(text, low));
 };
 
-/** `slice` with its fields cut, in FIELDS' order, until its sealed form fits. */
+type Stage = (slice: HostSlice) => HostSlice;
+
+const cutting =
+  (field: Field): Stage =>
+  (slice) =>
+    fitField(slice, field);
+
+/** Under a Needs You the activity shows the takeover: this Host's step and celestials are hidden. */
+const underTakeover: Stage = (slice) =>
+  slice.need === null ? slice : { ...withoutCelestials(slice), step: null };
+
+/**
+ * First to last, while the slice is too long: what the takeover hides, tool lines, session
+ * titles, Harness names, the celestials, then the Host's name.
+ */
+const STAGES: ReadonlyArray<Stage> = [
+  underTakeover,
+  cutting(lineField("step", "line")),
+  cutting(lineField("need", "line")),
+  cutting(lineField("step", "session")),
+  cutting(lineField("need", "session")),
+  cutting(lineField("step", "harness")),
+  cutting(lineField("need", "harness")),
+  withoutCelestials,
+  cutting({ get: (slice) => slice.host, set: (slice, host) => ({ ...slice, host }) }),
+];
+
+/** `slice` taken through STAGES until its sealed form fits. */
 export const fitSlice = (slice: HostSlice): HostSlice => {
   let fitted = slice;
 
-  for (const field of FIELDS) {
+  for (const stage of STAGES) {
     if (bytes(fitted) <= MAX_LIVE_PLAINTEXT_BYTES) return fitted;
-    fitted = fitField(fitted, field);
+    fitted = stage(fitted);
   }
 
   return fitted;

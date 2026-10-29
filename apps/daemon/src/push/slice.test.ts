@@ -125,3 +125,38 @@ test("a session stops counting when its Turn ends", () => {
 
   expect(renderSlice(ended, host)).toMatchObject({ working: 0, since: null });
 });
+
+test("a step and a need name their session's Harness; the newest working sessions bring their celestials", () => {
+  const started = (id: string, harness: string, celestial: string, minute: number) =>
+    new SessionSummary({
+      session: sessionWith({
+        id,
+        harness,
+        celestial,
+        currentUserTurn: {
+          turnId: `t-${id}`,
+          number: 1,
+          startedAt: `2026-10-27T11:0${minute}:00.000Z`,
+        },
+      }),
+      pendingApprovals: [],
+      lastTurnPreview: null,
+      subagents: [],
+    });
+
+  const snapshot = HostStreamItem.cases.Snapshot.make({
+    ...snapshotWith(),
+    sessions: [
+      ...snapshotWith().sessions,
+      started("s-b", "codex", "twin-ring", 1),
+      started("s-c", "opencode", "storm", 2),
+      started("s-d", "claude", "giant", 3),
+    ],
+  });
+
+  const slice = renderSlice(fold([snapshot, item(command("bun test"))]), host);
+
+  expect(slice.need?.harness).toBe("Claude Code");
+  expect(slice.step?.harness).toBe("Claude Code");
+  expect(slice.celestials).toEqual(["claude/giant", "opencode/storm", "codex/twin-ring"]);
+});

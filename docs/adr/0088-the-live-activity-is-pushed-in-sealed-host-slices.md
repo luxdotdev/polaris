@@ -28,15 +28,20 @@ and Deny. It has to stay current while the app is suspended. Three constraints s
 extension opens them.**
 
 - **Slices.** Each Daemon describes only itself in a `HostSlice` (`apps/daemon/src/push/live.ts`):
-  `{ v: 1, hostId, host, seq, working, since, step, need, needs }`.
+  `{ v: 1, hostId, host, seq, working, since, step, need, needs, celestials? }`.
   - `since` is when the longest-running working Turn started, in Unix seconds.
   - `step` is the newest tool step: `{ at, sessionId, session, line }`.
   - `need` is the oldest open approval or question: `step`'s fields plus `requestId` and `kind`.
-    `needs` is how many requests are open.
+    `needs` is how many requests are open. `step` and `need` may name the session's Harness
+    (`harness`, e.g. "Claude Code") for the takeover's "Claude Code needs you".
+  - `celestials` lists up to three working sessions as `<harness kind>/<body>`, newest first,
+    drawn in their Harness's hue.
 
   The Daemon seals the slice to the device's existing push key with the push suite under info
   `polaris-live/1`, so a slice can't be replayed as a notification. A sealed slice is at most
-  560 base64url characters; lines, then session titles, then the Host's name are cut to fit.
+  560 base64url characters. To fit, under a Needs You the hidden step and celestials go first;
+  then lines, session titles and Harness names are cut, the celestials dropped, and the Host's
+  name cut last.
 - **ContentState** is `{ v: 1, slices: [sealed…] }`, ordered by Host relay address. There is no
   activity-level attribute: the one activity always means "every followed Host".
   `PolarisActivityAttributes` is defined identically in `targets/widgets` and
