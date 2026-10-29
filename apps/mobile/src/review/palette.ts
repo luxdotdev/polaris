@@ -10,6 +10,9 @@ export interface DiffPalette {
   readonly removedText: string;
   readonly addedBg: string;
   readonly removedBg: string;
+  /** The changed tokens' fill inside a line. */
+  readonly addedEmphasis: string;
+  readonly removedEmphasis: string;
 }
 
 const channels = (hex: string) => [1, 3, 5].map((at) => Number.parseInt(hex.slice(at, at + 2), 16));
@@ -28,6 +31,9 @@ export const over = (colour: string, alpha: number, ground: string): string => {
 /** DESIGN.md: line fills at about 10%. */
 const FILL = 0.1;
 
+/** DESIGN.md: emphasised tokens at 25%, as the diff-*-emphasis tokens. */
+const EMPHASIS = 0.25;
+
 export const diffPalette = (colours: MobileColours, colourblind: boolean): DiffPalette =>
   colourblind
     ? {
@@ -35,10 +41,14 @@ export const diffPalette = (colours: MobileColours, colourblind: boolean): DiffP
         removedText: colours.diffRemovedCvdText,
         addedBg: over(colours.diffAddedCvd, FILL, colours.panel),
         removedBg: over(colours.diffRemovedCvd, FILL, colours.panel),
+        addedEmphasis: over(colours.diffAddedCvd, EMPHASIS, colours.panel),
+        removedEmphasis: over(colours.diffRemovedCvd, EMPHASIS, colours.panel),
       }
     : {
         addedText: colours.diffAddedText,
         removedText: colours.diffRemovedText,
         addedBg: over(colours.diffAdded, FILL, colours.panel),
         removedBg: over(colours.diffRemoved, FILL, colours.panel),
+        addedEmphasis: over(colours.diffAdded, EMPHASIS, colours.panel),
+        removedEmphasis: over(colours.diffRemoved, EMPHASIS, colours.panel),
       };
