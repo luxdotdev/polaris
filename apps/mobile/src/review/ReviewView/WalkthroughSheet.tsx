@@ -70,24 +70,20 @@ const Group = ({ group, number }: { readonly group: IntentGroup; readonly number
   );
 };
 
-export const WalkthroughSheet = ({ groups, turnNumber, onClose }: WalkthroughSheetProps) => {
-  const styles = useStyles();
-
-  return (
-    <InstrumentSheet open={groups !== null} onClose={onClose}>
-      <SheetHeader title="Walkthrough" onClose={onClose} />
-      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.caption}>
-        {walkthroughCaption(turnNumber, groups ?? [])}
-      </Text>
-      {(groups ?? []).map((group, i) => (
-        <Group key={group.key} group={group} number={i + 1} />
-      ))}
-    </InstrumentSheet>
-  );
-};
+export const WalkthroughSheet = ({ groups, turnNumber, onClose }: WalkthroughSheetProps) => (
+  <InstrumentSheet open={groups !== null} onClose={onClose}>
+    <SheetHeader
+      title="Walkthrough"
+      subtitle={walkthroughCaption(turnNumber, groups ?? [])}
+      onClose={onClose}
+    />
+    {(groups ?? []).map((group, i) => (
+      <Group key={group.key} group={group} number={i + 1} />
+    ))}
+  </InstrumentSheet>
+);
 
 const useStyles = themedStyles((colours) => ({
-  caption: { ...mobileType.footnote, color: colours.textSubtle, paddingHorizontal: 8 },
   group: {
     flexDirection: "row",
     gap: 12,

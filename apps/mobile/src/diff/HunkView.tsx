@@ -1,4 +1,4 @@
-/** One hunk drawn inline under a finding (MX-N): its header, unified lines and the findings it shows. */
+/** One hunk drawn inline under a finding (MX-N): its label, unified lines and the findings it shows. */
 import { mobileType } from "@polaris/ui/tokens";
 import { useMemo } from "react";
 import { Text, View } from "react-native";
@@ -14,6 +14,7 @@ export const HunkView = ({
   file,
   hunk,
   palette,
+  label,
   findings = NO_FINDINGS,
   actions,
 }: HunkViewProps) => {
@@ -30,8 +31,13 @@ export const HunkView = ({
         switch (row.kind) {
           case "hunk":
             return (
-              <Text key={row.key} style={styles.header} numberOfLines={1}>
-                {row.header}
+              <Text
+                key={row.key}
+                style={styles.header}
+                numberOfLines={1}
+                ellipsizeMode={label === undefined ? "tail" : "middle"}
+              >
+                {label ?? row.header}
               </Text>
             );
           case "line":

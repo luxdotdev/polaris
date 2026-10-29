@@ -15,6 +15,8 @@ export interface HunkViewProps {
   readonly file: FileDiffMetadata;
   readonly hunk: Hunk;
   readonly palette: DiffPalette;
+  /** Shown in place of the `@@` header, e.g. the file's path (MX-N). */
+  readonly label?: string;
   /** Listed findings to place under the lines they flag. */
   readonly findings?: ReadonlyArray<RiskFinding>;
   readonly actions?: DiffFindingActions | undefined;
