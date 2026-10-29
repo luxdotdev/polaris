@@ -25,7 +25,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { unregisterPush } from "../push/registration.ts";
 import { type HostRegistry, useHostRegistry } from "../runtime/hosts.tsx";
 import {
   forgetLink,
@@ -36,7 +35,7 @@ import {
   secretsForLinking,
 } from "./store.ts";
 import { relayTransport } from "./transport.ts";
-import { revokeOnHosts } from "./unlink.ts";
+import { unlinkFrom } from "./unlink.ts";
 
 /** Shown to the Host in its Linked Devices; iOS gives apps no user-set device name. */
 const DEVICE_NAME = "iPhone";
@@ -59,6 +58,11 @@ export interface Relay {
    * with the Hosts that didn't answer: they still trust the keys, which are kept for a retry.
    */
   readonly unlink: () => Promise<ReadonlyArray<LinkedHost>>;
+  /**
+   * Revokes this device on one linked Host and forgets it; the others stay linked. Resolves
+   * with that Host when it didn't answer (it still trusts the keys), else empty.
+   */
+  readonly unlinkHost: (hostId: string) => Promise<ReadonlyArray<LinkedHost>>;
 }
 
 const RelayContext = createContext<Relay | null>(null);
@@ -137,38 +141,43 @@ export const RelayProvider = ({ children }: { readonly children: ReactNode }) =>
     return outcome;
   }, []);
 
-  const unlink = useCallback(async () => {
-    const open = device.current;
+  const unlinkSome = useCallback(
+    async (targets: ReadonlySet<string>) => {
+      // A Host no longer linked has nothing to revoke; never forget the keys over it.
+      if (!hosts.some((host) => targets.has(host.hostId))) return [];
+      const open = device.current;
+      const linked = registryRef.current.hosts.filter((h) => targets.has(h.hostId));
+      const { revoked, kept, stillTrusting } = await unlinkFrom(hosts, linked, targets);
 
-    const linked = registryRef.current.hosts.filter((h) =>
-      hosts.some((l) => l.hostId === h.hostId)
-    );
+      // Only these connections: a Host linked again meanwhile has a new one.
+      for (const host of linked)
+        if (revoked.has(host.hostId) && registryRef.current.hosts.includes(host))
+          registryRef.current.removeHost(host.hostId);
 
-    // Each Host drops the push registration, then revokes the key, before anything is forgotten.
-    await unregisterPush(linked);
-    const revoked = await revokeOnHosts(linked);
-    const kept = hosts.filter((host) => !revoked.has(host.hostId));
+      if (kept.length > 0) {
+        await keepHosts(kept);
+        setHosts(kept);
 
-    // Only these connections: a Host linked again meanwhile has a new one.
-    for (const host of linked)
-      if (revoked.has(host.hostId) && registryRef.current.hosts.includes(host))
-        registryRef.current.removeHost(host.hostId);
+        return stillTrusting;
+      }
 
-    if (kept.length > 0) {
-      await keepHosts(kept);
-      setHosts(kept);
+      device.current = null;
+      setKeys(null);
+      setHosts([]);
+      await forgetLink();
+      open?.close();
 
-      return kept;
-    }
+      return stillTrusting;
+    },
+    [hosts]
+  );
 
-    device.current = null;
-    setKeys(null);
-    setHosts([]);
-    await forgetLink();
-    open?.close();
+  const unlink = useCallback(
+    () => unlinkSome(new Set(hosts.map((host) => host.hostId))),
+    [hosts, unlinkSome]
+  );
 
-    return kept;
-  }, [hosts]);
+  const unlinkHost = useCallback((hostId: string) => unlinkSome(new Set([hostId])), [unlinkSome]);
 
   const value = useMemo<Relay>(
     () => ({
@@ -178,8 +187,9 @@ export const RelayProvider = ({ children }: { readonly children: ReactNode }) =>
       routeOf: (hostId) => (hosts.some((host) => host.hostId === hostId) ? "relay" : null),
       link,
       unlink,
+      unlinkHost,
     }),
-    [loaded, keys, hosts, link, unlink]
+    [loaded, keys, hosts, link, unlink, unlinkHost]
   );
 
   return <RelayContext.Provider value={value}>{children}</RelayContext.Provider>;

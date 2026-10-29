@@ -108,14 +108,6 @@ const Screen = () => {
   const relay = useRelay();
   const [first] = relay.hosts;
 
-  const linkedTo =
-    first === undefined
-      ? null
-      : {
-          name: first.hostName,
-          onUnlink: () => relay.unlink().then((kept) => kept.map((host) => host.hostName)),
-        };
-
   // A release build has no other route to a Host, so a fresh phone links first.
   if (!__DEV__ && relay.loaded && first === undefined)
     return <LinkScreen onLinked={() => undefined} />;
@@ -124,11 +116,7 @@ const Screen = () => {
     Match.discriminatorsExhaustive("screen")({
       tabs: () => <Tabs />,
       hosts: () => (
-        <HostsScreen
-          onBack={navigation.back}
-          onLink={() => navigation.push({ screen: "link" })}
-          linkedTo={linkedTo}
-        />
+        <HostsScreen onBack={navigation.back} onLink={() => navigation.push({ screen: "link" })} />
       ),
       thread: ({ hostId, sessionId }) => (
         <ThreadRoute hostId={hostId} sessionId={sessionId} onBack={navigation.back} />
