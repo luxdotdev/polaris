@@ -1,5 +1,8 @@
 /** The constellation view (Paper C2) and the pieces Home reuses for its constellation rows. */
-export { ConstellationScreen, type ConstellationScreenProps } from "./ConstellationScreen.tsx";
+export {
+  ConstellationScreen,
+  type ConstellationScreenProps,
+} from "./ConstellationScreen/index.tsx";
 
 export {
   type ConstellationSource,
@@ -13,3 +16,5 @@ export {
 export { segmentColour } from "./glyphs.tsx";
 
 export { type ConstellationFeed, type LeadSession, useConstellation } from "./useConstellation.ts";
+
+export { type StarChartData, starChartOf } from "./ConstellationScreen/stars.ts";

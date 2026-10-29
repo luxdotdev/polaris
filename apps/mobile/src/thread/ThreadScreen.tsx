@@ -58,6 +58,8 @@ export interface ThreadScreenProps {
   readonly composerSlot?: "inline" | { readonly minHeight: number };
   /** Takes the place of the session's header: a constellation's status above its lead's thread. */
   readonly header?: ReactNode;
+  /** Drawn under the header, above the transcript: a constellation's star chart panel. */
+  readonly belowHeader?: ReactNode;
 }
 
 interface HeldThread {
@@ -228,6 +230,7 @@ export const ThreadScreen = ({
   focusedKey = null,
   composerSlot = "inline",
   header,
+  belowHeader,
 }: ThreadScreenProps) => {
   const connection = useHost(hostId);
   const navigation = useNavigation();
@@ -390,6 +393,7 @@ export const ThreadScreen = ({
             onBack={onBack}
           />
         )}
+        {belowHeader}
         <FlatList
           style={[styles.list, away ? styles.offline : null]}
           contentContainerStyle={styles.listContent}

@@ -145,6 +145,7 @@ export const TaskRowView = ({
   onCancel,
   unsent,
   onUnsent,
+  onPress,
 }: {
   readonly row: TaskRow;
   readonly first: boolean;
@@ -156,6 +157,8 @@ export const TaskRowView = ({
   /** The claim's unsent choice and answer, kept by the caller (see `HandedClaimActions`). */
   readonly unsent: Unsent | null;
   readonly onUnsent: (next: Unsent) => void;
+  /** Opens the task (its task sheet) from its title line. */
+  readonly onPress?: () => void;
 }) => {
   const styles = useStyles();
   const { colours } = useTheme();
@@ -166,7 +169,12 @@ export const TaskRowView = ({
       <TaskGlyph tone={row.tone} harness={row.harness} gate={row.gate} />
       <Text style={[styles.id, { color: idColour(colours, row.tone) }]}>{row.id}</Text>
       <View style={styles.body}>
-        <View style={styles.titleLine}>
+        <Pressable
+          accessibilityRole={onPress === undefined ? undefined : "button"}
+          disabled={onPress === undefined}
+          onPress={onPress}
+          style={styles.titleLine}
+        >
           {row.gate && row.deps.length > 0 ? <GateDeps deps={row.deps} /> : null}
           <Text
             style={[styles.title, quiet(row.tone) && { color: colours.textDefault }]}
@@ -175,7 +183,7 @@ export const TaskRowView = ({
             {row.title}
           </Text>
           <Text style={[styles.word, { color: wordColour(colours, row.tone) }]}>{row.word}</Text>
-        </View>
+        </Pressable>
         {row.handed === null && delivery === null ? (
           <Second second={row.second} worker={row.worker} />
         ) : (
