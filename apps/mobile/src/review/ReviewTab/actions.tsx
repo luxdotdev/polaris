@@ -12,11 +12,10 @@ import type { LiveHost } from "../../runtime/hostConnection.ts";
 import { useHost, useLiveHost } from "../../runtime/hosts.tsx";
 import { themedStyles } from "../../theme/index.ts";
 import { CHROME_TEXT_SCALE } from "../../theme/textScale.ts";
-import { CriticalConfirmation, useAcceptReview } from "../accept/index.ts";
+import { AcceptChip, CriticalConfirmation, canAccept, useAcceptReview } from "../accept/index.ts";
 import { acceptCommand, askToFixCommand, flaggedCode } from "../actions.ts";
 import { type DiffFileInput, fileLines } from "../diffRows.ts";
 import { parsePatch } from "../patch.ts";
-import { SeverityGlyph } from "../severity.tsx";
 import { reviewSlot } from "../submissions.ts";
 import { useReviewSubmissions } from "../useSubmissions.ts";
 import { openCriticals, type QueueItem, queueAcceptState } from "./queue.ts";
@@ -59,7 +58,8 @@ export const QueueAccept = ({ item }: { readonly item: QueueItem }) => {
     onAccept,
   });
 
-  const enabled = state.kind === "ready" || state.kind === "paused";
+  const enabled = canAccept(state);
+  const harness = harnessEntry(item.row.session.harness)?.name ?? item.row.session.harness;
 
   return (
     <View style={styles.acceptWrap}>
@@ -75,14 +75,7 @@ export const QueueAccept = ({ item }: { readonly item: QueueItem }) => {
           pressed ? styles.pressed : null,
         ]}
       >
-        {critical > 0 ? (
-          <>
-            <SeverityGlyph severity="critical" size={9} />
-            <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.critical}>
-              {critical}
-            </Text>
-          </>
-        ) : null}
+        <AcceptChip count={critical} />
         <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.label}>
           {sending ? "Accepting…" : "Accept"}
         </Text>
@@ -96,6 +89,8 @@ export const QueueAccept = ({ item }: { readonly item: QueueItem }) => {
         confirming={review.confirming}
         confirm={review.confirm}
         dismiss={review.dismiss}
+        turnNumber={item.turn?.number ?? item.row.session.turnCount}
+        agentName={harness}
       />
     </View>
   );
@@ -201,12 +196,6 @@ const useStyles = themedStyles((c) => ({
   },
   off: { opacity: 0.55 },
   pressed: { opacity: 0.7 },
-  critical: {
-    ...mobileType.subhead,
-    fontWeight: mobileWeight.medium,
-    color: c.severityCriticalText,
-    marginRight: 3,
-  },
   label: { ...mobileType.subhead, fontWeight: mobileWeight.medium, color: c.textStrong },
   notice: { ...mobileType.footnote, color: c.failedText, maxWidth: 220 },
   ghost: { height: 34, justifyContent: "center", paddingHorizontal: 15, borderRadius: 999 },

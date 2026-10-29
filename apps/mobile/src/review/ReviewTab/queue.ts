@@ -5,6 +5,7 @@
  */
 import type { RiskFinding, RiskSummary } from "@polaris/protocol";
 import { Match } from "effect";
+import { openCriticals as criticalsOf } from "../accept/confirmation.ts";
 import { counted, shortHostName } from "../../home/model/format.ts";
 import type { SessionRow } from "../../home/model/home.ts";
 import {
@@ -74,8 +75,7 @@ export const queueItem = (row: SessionRow, turn: QueueTurn | null): QueueItem =>
 };
 
 /** Open Criticals: a dismissed one stays listed but no longer asks for the confirmation. */
-export const openCriticals = (item: QueueItem): number =>
-  item.findings.filter((f) => f.severity === "critical" && f.status === "open").length;
+export const openCriticals = (item: QueueItem): number => criticalsOf(item.findings).length;
 
 /** Read to the end with nothing listed. A summary still reading may yet find something. */
 export const isClean = (item: QueueItem): boolean => {
