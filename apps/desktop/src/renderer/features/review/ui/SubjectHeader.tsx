@@ -6,11 +6,12 @@
  */
 import type { TurnId } from "@polaris/protocol";
 import { cn, harnessHue, Tile } from "@polaris/ui";
-import type { ReactNode } from "react";
+import { type ReactNode, useRef } from "react";
 import { type PullDetailView, pullStatus, repoOfRow } from "../../../../shared/github.ts";
 import { BranchChip, StackChip, StatusPill } from "../../pulls/ui/StackParts.tsx";
 import { pickerOptions, type ReviewTurn, type TurnPick } from "../data/source.ts";
 import { PullMenu } from "./pullMenu.tsx";
+import { ToolbarCompact, useToolbarFit } from "./toolbarFit.ts";
 
 /** A pull request's header stacks toolbar, title and caption (X-G); an Agent Session's centres on its tile (R2). */
 const Shell = ({
@@ -82,10 +83,18 @@ export interface PullHeaderProps {
 }
 
 export const PullHeader = ({ name, number, detail, url, actions }: PullHeaderProps) => {
+  const toolbar = useRef<HTMLDivElement>(null);
+  const compact = useToolbarFit(toolbar);
+
   return (
     <Shell>
-      <div className="gap-gap flex min-w-0 items-center pb-1" data-testid="pull-review-toolbar">
-        <div className="flex min-w-0 flex-1 items-center gap-1.5">
+      {/* Status keeps its width; Reviewers collapses first, then the actions wrap under it. */}
+      <div
+        ref={toolbar}
+        className="gap-gap flex min-w-0 flex-wrap items-center pb-1"
+        data-testid="pull-review-toolbar"
+      >
+        <div className="flex shrink-0 items-center gap-1.5" data-testid="pull-review-status">
           {detail !== null && (
             <>
               <StatusPill status={pullStatus(detail.state, detail.isDraft)} />
@@ -95,7 +104,12 @@ export const PullHeader = ({ name, number, detail, url, actions }: PullHeaderPro
             </>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">{actions}</div>
+        <div
+          className="ml-auto flex min-w-0 items-center gap-1.5"
+          data-testid="pull-review-actions"
+        >
+          <ToolbarCompact value={compact}>{actions}</ToolbarCompact>
+        </div>
       </div>
       <PullMenu url={url}>
         <div className="gap-gap flex min-w-0 flex-col" data-testid="pull-review-subject">

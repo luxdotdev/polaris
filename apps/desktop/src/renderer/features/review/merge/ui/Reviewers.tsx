@@ -1,7 +1,8 @@
 /**
  * The header's Reviewers control (DESIGN.md, Review → Reviewers): a quiet link with the
  * reviewers' initials, opening a popover to search people and teams, ask and stop asking,
- * and see who reviewed. Arrow keys move through the rows; ↵ asks or stops asking.
+ * and see who reviewed. Arrow keys move through the rows; ↵ asks or stops asking. In a
+ * narrow toolbar it is an icon button, its label in the tooltip.
  */
 import {
   Button,
@@ -11,9 +12,11 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  IconButton,
   Popover,
   PopoverContent,
   PopoverTrigger,
+  UsersIcon,
 } from "@polaris/ui";
 import { useState } from "react";
 import type { PullRef } from "../../../../../shared/github.ts";
@@ -27,6 +30,7 @@ import {
   REVIEW_STATE,
   reviewersLabel,
 } from "../model/reviewers.ts";
+import { FIT_COLLAPSES, useToolbarCompact } from "../../ui/toolbarFit.ts";
 import { Initial } from "./parts.tsx";
 
 const FACES = 3;
@@ -159,23 +163,43 @@ export interface ReviewersProps {
 
 export const Reviewers = ({ pull, view, viewer }: ReviewersProps) => {
   const open = useOpenPanel() === "reviewers";
+  // A narrow toolbar shows the icon alone, its words in the tooltip and accessible name.
+  const compact = useToolbarCompact();
 
   if (view === null) return null;
   const people = peopleOf(view);
+  const label = reviewersLabel(view);
 
   return (
     <Popover open={open} onOpenChange={(next) => setPanelOpen("reviewers", next)}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" data-testid="reviewers-open" className="font-normal">
-          {people.length > 0 && (
-            <span className="flex -space-x-1">
-              {people.slice(0, FACES).map((login) => (
-                <Initial key={login} name={login} size={18} />
-              ))}
-            </span>
-          )}
-          {reviewersLabel(view)}
-        </Button>
+        {compact ? (
+          <IconButton
+            size="sm"
+            label={label}
+            icon={<UsersIcon />}
+            data-testid="reviewers-open"
+            data-fit={FIT_COLLAPSES}
+            data-compact="true"
+          />
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            data-testid="reviewers-open"
+            data-fit={FIT_COLLAPSES}
+            className="font-normal"
+          >
+            {people.length > 0 && (
+              <span className="flex -space-x-1">
+                {people.slice(0, FACES).map((login) => (
+                  <Initial key={login} name={login} size={18} />
+                ))}
+              </span>
+            )}
+            {label}
+          </Button>
+        )}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[340px] overflow-clip p-0">
         <Body pull={pull} view={view} viewer={viewer} />
