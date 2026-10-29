@@ -9,6 +9,8 @@ export interface StarTask {
   readonly band: string;
   readonly wave: number;
   readonly state: StarState;
+  /** Upstream task ids; each one in the chart draws an edge to this star (MX-W). */
+  readonly dependsOn?: ReadonlyArray<string>;
 }
 
 /** A band row of the chart, with its badge. */
