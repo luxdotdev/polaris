@@ -1,7 +1,7 @@
 import type { CelestialBody } from "@polaris/protocol";
 import type { HTMLAttributes, ReactNode } from "react";
 
-import { ArrowUpIcon, ChevronDownIcon, PlusIcon } from "../../icons/chrome";
+import { ArrowUpIcon, PaperclipIcon } from "../../icons/chrome";
 import { cn } from "../../lib/cn";
 import type { CssVars } from "../../lib/css";
 import { harnessHue, harnessTextVar, hueVar, type Harness } from "../../lib/hue";
@@ -25,7 +25,7 @@ export interface HarnessPickerProps extends HTMLAttributes<HTMLButtonElement> {
   readonly celestial?: CelestialBody | undefined;
 }
 
-/** DESIGN.md, Harness picker: a small tile, the handle, the model and a chevron; no dither. */
+/** DESIGN.md, Chrome redesign: the composer's model chip, a 30px pill; no dither, no chevron. */
 export function HarnessPicker({
   harness,
   model,
@@ -48,17 +48,16 @@ export function HarnessPicker({
       data-slot="harness-picker"
       aria-label={`${harnessHue(harness).name}, ${model}`}
       className={cn(
-        "inline-flex h-[26px] shrink-0 cursor-default items-center gap-1.5 rounded-control border bg-fill-selected pr-2 pl-1 select-none",
-        working
-          ? "border-[color-mix(in_oklab,var(--harness)_30%,transparent)]"
-          : "border-transparent hover:bg-fill-selected/70",
+        CHIP,
+        "gap-[7px] pr-row-x pl-gap",
+        working && "border-[color-mix(in_oklab,var(--harness)_30%,transparent)]",
         className
       )}
       style={vars}
       {...props}
     >
       {celestial === undefined ? (
-        <Tile hue={harness} size={20} className="size-[18px] rounded-[5px]" />
+        <Tile hue={harness} size={20} className="size-4 rounded-[4px]" />
       ) : (
         <Celestial body={celestial} harness={harness} size={16} />
       )}
@@ -72,8 +71,58 @@ export function HarnessPicker({
       </span>
       <span className="text-caption text-text-subtle">{model}</span>
       {suffix}
-      <ChevronDownIcon size={10} className="text-text-subtle" />
     </button>
+  );
+}
+
+/** The footer's 30px pill: the model chip, the context ring, the permission mode. */
+export const CHIP =
+  "inline-flex h-[30px] shrink-0 cursor-default items-center rounded-full border border-transparent bg-[light-dark(#0000000a,#ffffff0d)] select-none hover:bg-[light-dark(#00000012,#ffffff17)] data-[state=open]:bg-[light-dark(#00000012,#ffffff17)]";
+
+const RING_CELLS = 20;
+
+/** One arc cell of the ring, clockwise from the top: 18° each, with a hairline gap. */
+const ringCell = (index: number) => {
+  const point = (radius: number, deg: number) => {
+    const rad = ((deg - 90) * Math.PI) / 180;
+
+    return `${(8 + radius * Math.cos(rad)).toFixed(2)} ${(8 + radius * Math.sin(rad)).toFixed(2)}`;
+  };
+
+  const from = index * 18 + 2.5;
+  const to = from + 13;
+
+  return `M${point(7.5, from)}A7.5 7.5 0 0 1 ${point(7.5, to)}L${point(4.75, to)}A4.75 4.75 0 0 0 ${point(4.75, from)}Z`;
+};
+
+const RING_PATHS = Array.from({ length: RING_CELLS }, (_, i) => ringCell(i));
+
+/** The cells a share of the window fills: any use shows at least one. */
+export const ringFilled = (share: number): number =>
+  share <= 0 ? 0 : Math.min(RING_CELLS, Math.max(1, Math.round(share * RING_CELLS)));
+
+/** DESIGN.md, The composer: the context as 20 arc cells; nearly full changes the words, never the colour. */
+export function ContextRing({ share, className }: { share: number; className?: string }) {
+  const filled = ringFilled(share);
+
+  return (
+    <svg
+      width={16}
+      height={16}
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      data-slot="context-ring"
+      data-filled={filled}
+      className={cn("shrink-0", className)}
+    >
+      {RING_PATHS.map((d, i) => (
+        <path
+          key={d}
+          d={d}
+          className={i < filled ? "fill-text-default" : "fill-[light-dark(#00000014,#ffffff1a)]"}
+        />
+      ))}
+    </svg>
   );
 }
 
@@ -88,6 +137,8 @@ export interface WorkingStripProps {
   readonly status?: string | undefined;
   /** After the elapsed time: what else is running ("2 commands running"). */
   readonly detail?: ReactNode;
+  /** Before Stop: the notice strip's "+n" for the notices behind this one. */
+  readonly trailing?: ReactNode;
 }
 
 /**
@@ -101,19 +152,20 @@ export function WorkingStrip({
   children,
   status,
   detail,
+  trailing,
 }: WorkingStripProps) {
   return (
     <div
       data-slot="working-strip"
-      className="relative flex h-[34px] shrink-0 items-center gap-2 overflow-clip pr-2.5 pl-3"
+      className="gap-row-x pr-gap relative flex h-[42px] shrink-0 items-center overflow-clip pl-[18px]"
     >
       <LiveDither harness={harness} active bloom={status ?? "working"} />
-      <Dither hue={harness} size={14} moving className="relative" />
-      <span className="text-caption relative shrink-0 font-medium whitespace-nowrap text-(--harness-text)">
+      <Dither hue={harness} size={12} moving className="relative" />
+      <span className="text-body relative shrink-0 font-medium whitespace-nowrap text-(--harness-text)">
         {children ?? `${harnessHue(harness).name} is working`}
       </span>
-      <span className="text-caption text-text-subtle tabular relative shrink-0 whitespace-nowrap">
-        · {elapsed}
+      <span className="text-caption text-text-subtle tabular relative shrink-0 font-mono whitespace-nowrap">
+        {elapsed}
       </span>
       {detail === undefined || detail === null ? null : (
         <span
@@ -124,14 +176,15 @@ export function WorkingStrip({
         </span>
       )}
       <span className="flex-1" />
+      {trailing}
       {onStop === undefined ? null : (
         <Button
           variant="secondary"
           size="sm"
-          className="relative h-[22px] gap-1.5 px-2"
+          className="h-tree-row px-row-x gap-gap relative rounded-full"
           onClick={onStop}
         >
-          <span className="bg-text-default size-[7px] rounded-[1px]" />
+          <span className="bg-text-default size-2 rounded-[2px]" />
           Stop
           <Kbd variant="plain">esc</Kbd>
         </Button>
@@ -156,7 +209,7 @@ export function ShellStrip({ where, onStop, title }: ShellStripProps) {
       data-slot="shell-strip"
       data-testid="shell-strip"
       title={title}
-      className="relative flex h-[34px] shrink-0 items-center gap-2 overflow-clip pr-2.5 pl-3"
+      className="gap-row-x pr-gap relative flex h-[42px] shrink-0 items-center overflow-clip pl-[18px]"
     >
       <DitherField hue="shell" bloom="shell" />
       <Dither hue="shell" size={14} className="relative" />
@@ -199,18 +252,23 @@ export interface ComposerProps extends Omit<TextareaProps, "bare"> {
         readonly detail?: ReactNode;
       }
     | undefined;
+  /** The notice strip, when there is something to know; it replaces the default Working strip. */
+  readonly strip?: ReactNode;
   /** Shell mode (a `!` draft): its strip replaces the Working strip and the edge turns `shell`. */
   readonly shell?: Omit<ShellStripProps, "onStop"> | undefined;
-  /** The branch or worktree the Turn runs on, in mono. */
+  /** The branch or worktree the Turn runs on, in mono (the new-session page). */
   readonly branch?: string | undefined;
   readonly onSend?: () => void;
-  readonly onAddSource?: () => void;
+  /** The paperclip at the input row's end: attach files and images. Unset hides it. */
+  readonly onAttach?: (() => void) | undefined;
   /** Replaces the default Harness picker chip, e.g. with one that opens a Model menu. */
   readonly picker?: ReactNode;
   /** Staged attachments, shown above the prompt. */
   readonly attachments?: ReactNode;
-  /** Extra controls after "Add a source" ("Plan first" on the new-session page). */
+  /** Extra controls after the model chip ("Plan first" on the new-session page). */
   readonly tools?: ReactNode;
+  /** The footer's right side before Send: running Subagents, the context ring, the permission mode. */
+  readonly status?: ReactNode;
   readonly sendDisabled?: boolean;
   /** The new-session page's send: a round primary button (Paper artboard 4). */
   readonly prominentSend?: boolean;
@@ -218,18 +276,47 @@ export interface ComposerProps extends Omit<TextareaProps, "bare"> {
   readonly input?: ReactNode;
 }
 
-/** The composer shell: the Harness picker, the prompt, and send (DESIGN.md, Working strip). */
+/** The top zone: Shell mode, else the notice strip, else the Working strip. */
+const Strip = ({
+  harness,
+  working,
+  strip,
+  shell,
+}: Pick<ComposerProps, "harness" | "working" | "strip" | "shell">) => {
+  if (shell !== undefined)
+    return <ShellStrip where={shell.where} title={shell.title} onStop={working?.onStop} />;
+
+  if (strip !== undefined && strip !== null) return strip;
+
+  return working === undefined ? null : (
+    <WorkingStrip
+      harness={harness}
+      elapsed={working.elapsed}
+      onStop={working.onStop}
+      detail={working.detail}
+    >
+      {working.label}
+    </WorkingStrip>
+  );
+};
+
+/**
+ * The composer (DESIGN.md, Chrome redesign: The composer): a notice strip only when there is
+ * something to know, the input with its paperclip, and a footer with the model chip and Send.
+ */
 export function Composer({
   harness,
   model,
   working,
+  strip,
   shell,
   branch,
   onSend,
-  onAddSource,
+  onAttach,
   picker,
   attachments,
   tools,
+  status,
   sendDisabled = false,
   prominentSend = false,
   input,
@@ -249,10 +336,11 @@ export function Composer({
   return (
     <div
       data-slot="composer"
+      data-surface="raised"
       data-working={isWorking ? "" : undefined}
       data-dither-hover={isWorking ? "" : undefined}
       className={cn(
-        "flex flex-col overflow-clip rounded-card border bg-surface-raised",
+        "@container/composer flex flex-col overflow-clip rounded-[22px] border bg-surface-raised",
         tinted
           ? "border-[color-mix(in_oklab,var(--edge)_28%,transparent)] shadow-[0_0_0_3px_color-mix(in_oklab,var(--edge)_6%,transparent)]"
           : "border-hairline",
@@ -260,54 +348,62 @@ export function Composer({
       )}
       style={vars}
     >
-      {shell === undefined ? null : (
-        <ShellStrip where={shell.where} title={shell.title} onStop={working?.onStop} />
-      )}
-      {working === undefined || shell !== undefined ? null : (
-        <WorkingStrip
-          harness={harness}
-          elapsed={working.elapsed}
-          onStop={working.onStop}
-          detail={working.detail}
-        >
-          {working.label}
-        </WorkingStrip>
-      )}
-      <div className="flex flex-col gap-3.5 pt-3 pr-3 pb-2.5 pl-3.5">
-        {attachments}
-        {input ?? (
-          <Textarea
-            bare
-            rows={1}
-            className="max-h-60"
-            placeholder={
-              placeholder ??
-              (isWorking ? "Queue a follow-up for after this turn" : "Ask for a change")
-            }
-            {...props}
-          />
+      <Strip harness={harness} working={working} strip={strip} shell={shell} />
+      <div className="gap-row-x pr-panel py-panel flex items-start pl-[calc(var(--spacing-panel)+2px)]">
+        <div className="flex min-w-0 flex-1 flex-col gap-3.5">
+          {attachments}
+          {input ?? (
+            <Textarea
+              bare
+              rows={1}
+              className="max-h-60"
+              placeholder={
+                placeholder ??
+                (isWorking ? "Queue a follow-up for after this turn" : "Ask for a change")
+              }
+              {...props}
+            />
+          )}
+        </div>
+        {onAttach === undefined ? null : (
+          <button
+            type="button"
+            aria-label="Attach files"
+            title="Attach files and images"
+            data-testid="composer-attach"
+            onClick={onAttach}
+            className="text-text-subtle hover:text-text-default hover:bg-fill-hover grid size-6 shrink-0 cursor-default place-items-center rounded-full"
+          >
+            <PaperclipIcon size={14} />
+          </button>
         )}
-        <div className="flex items-center gap-1.5">
+      </div>
+      <div className="flex items-center gap-1.5 px-3 pb-3">
+        <div className="flex shrink-0 items-center gap-1.5">
           {picker ?? <HarnessPicker harness={harness} model={model} working={isWorking} />}
-          <Button variant="ghost" size="icon-sm" aria-label="Add a source" onClick={onAddSource}>
-            <PlusIcon size={14} />
-          </Button>
           {tools}
-          <span className="flex-1" />
+        </div>
+        {/* Status gives way before Send: its chips collapse by container width, then it clips. */}
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 overflow-hidden">
           {branch === undefined ? null : (
             <span className="text-micro text-text-subtle truncate font-mono">{branch}</span>
           )}
-          <Button
-            variant={prominentSend ? "primary" : "secondary"}
-            size="icon"
-            aria-label="Send"
-            disabled={sendDisabled}
-            className={prominentSend ? "size-[30px] rounded-full" : "rounded-full"}
-            onClick={onSend}
-          >
-            <ArrowUpIcon size={14} />
-          </Button>
+          {status}
         </div>
+        <Button
+          variant={prominentSend ? "primary" : "secondary"}
+          size="icon"
+          aria-label="Send"
+          disabled={sendDisabled}
+          className={cn(
+            "size-row shrink-0 rounded-full",
+            !prominentSend &&
+              "bg-starlight hover:bg-starlight/90 disabled:bg-fill-selected text-[light-dark(#ffffff,#0d1830)] disabled:text-text-subtle"
+          )}
+          onClick={onSend}
+        >
+          <ArrowUpIcon size={14} />
+        </Button>
       </div>
     </div>
   );

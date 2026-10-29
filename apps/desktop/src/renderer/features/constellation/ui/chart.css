@@ -1,0 +1,31 @@
+/* The star chart's flow dots run from a working Task along its edge (transform only). */
+@keyframes polaris-flow {
+  from {
+    transform: translateX(0);
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  to {
+    transform: translateX(var(--flow-len));
+    opacity: 0.2;
+  }
+}
+
+.polaris-flow {
+  animation: polaris-flow 2.4s linear infinite;
+}
+
+/* Reduce Motion stills them where they start; the chart draws a still trail instead. */
+[data-reduce-motion="true"] .polaris-flow {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-reduce-motion="false"]) .polaris-flow {
+    animation: none;
+  }
+}

@@ -1,18 +1,19 @@
 /**
- * The status bar's right side for the editor (DESIGN.md, Editor: status bar;
- * Paper E1): the vim mode while vim is on, the cursor or selection, the
- * file's indentation and the language status pill (Paper L1). The explorer owns the bar and its left side.
+ * The status row's right side for the editor (DESIGN.md, Chrome redesign → Editor): the vim
+ * mode badge while vim is on, the cursor or selection, the file's indentation, the language
+ * status (Paper L1) and Completions. The explorer owns the row and its left side.
  */
 import { LanguageSelector } from "./LanguagePanel.tsx";
 import { LanguageStatus } from "../status/LanguageStatus.tsx";
 import { LANGUAGE_NAMES } from "../model/language.ts";
-import { modeText } from "../model/vim.ts";
-import { harnessHue } from "@polaris/ui";
+import { type ModeTone, modeText, modeTone, type VimMode } from "../model/vim.ts";
+import { cn, harnessHue } from "@polaris/ui";
 import { agentCaretLine } from "../cm/agent.ts";
 import { followingText } from "../model/agent.ts";
 import { fileKey, workspaceKey } from "../model/drafts.ts";
 import { type Cursor, useEditor } from "../runtime/store.ts";
 import { PredictionStatus } from "../prediction/Status.tsx";
+import { FIT_YIELDS, useDropped } from "./useStatusFit.ts";
 
 export interface EditorStatusProps {
   readonly hostKey: string;
@@ -29,6 +30,26 @@ export const positionText = (cursor: Cursor): string => {
 
   return `Ln ${cursor.firstLine}–${cursor.lastLine} · ${lines} lines selected`;
 };
+
+const TONES: Record<ModeTone, string> = {
+  normal: "bg-fill-selected text-text-strong",
+  insert: "bg-starlight text-[light-dark(#ffffff,#0d1830)]",
+  visual: "bg-[light-dark(#dcdee3,#d4d6dc)] text-[#17181a]",
+};
+
+/** The vim mode in its filled block (DESIGN.md, Chrome redesign → Editor): never a signal colour. */
+const VimBadge = ({ mode }: { readonly mode: VimMode }) => (
+  <span
+    data-testid="vim-mode"
+    data-tone={modeTone(mode)}
+    className={cn(
+      "flex h-[18px] shrink-0 items-center rounded-[4px] px-1.5 font-mono text-[11px] leading-[14px] font-medium tracking-[0.04em] whitespace-nowrap",
+      TONES[modeTone(mode)]
+    )}
+  >
+    {modeText(mode)}
+  </span>
+);
 
 export const EditorStatus = ({ hostKey, workspaceId }: EditorStatusProps) => {
   const active = useEditor((s) =>
@@ -50,6 +71,9 @@ export const EditorStatus = ({ hostKey, workspaceId }: EditorStatusProps) => {
     return edit === undefined || !s.follow ? null : harnessHue(edit.harness).name;
   });
 
+  // Dropped for room, the indentation is still in the language status card.
+  const indentDropped = useDropped("indent");
+
   const language = useEditor((s) =>
     active === null ? null : (s.buffers[fileKey(hostKey, active.path)]?.language ?? null)
   );
@@ -58,22 +82,22 @@ export const EditorStatus = ({ hostKey, workspaceId }: EditorStatusProps) => {
 
   return (
     <div
-      className="text-caption text-text-subtle tabular flex items-center gap-4"
+      className="text-caption text-text-subtle tabular flex min-w-0 items-center gap-4 whitespace-nowrap"
       data-testid="editor-status"
     >
-      {vimMode === null ? null : (
-        <span data-testid="vim-mode" className="text-text-default font-mono font-medium">
-          {modeText(vimMode)}
-        </span>
-      )}
+      {vimMode === null ? null : <VimBadge mode={vimMode} />}
       {following !== null && active !== null ? (
-        <span data-testid="following">
+        <span data-testid="following" data-fit={FIT_YIELDS} className="min-w-0 truncate">
           {followingText(following, agentCaretLine(active.view.state))}
         </span>
       ) : cursor === null ? null : (
-        <span>{positionText(cursor)}</span>
+        <span data-fit={FIT_YIELDS} className="min-w-0 truncate" title={positionText(cursor)}>
+          {positionText(cursor)}
+        </span>
       )}
-      <span>{indent}</span>
+      <span className="shrink-0" data-drop="indent" hidden={indentDropped}>
+        {indent}
+      </span>
       {language === null ? null : (
         <LanguageStatus
           hostKey={hostKey}
@@ -81,6 +105,7 @@ export const EditorStatus = ({ hostKey, workspaceId }: EditorStatusProps) => {
           path={active.path}
           language={LANGUAGE_NAMES[language]}
           languageId={language}
+          indentation={indent}
           languageMode={
             <LanguageSelector hostKey={hostKey} path={active.path} language={language} />
           }

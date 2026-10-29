@@ -2,7 +2,7 @@
  * Settings → Usage's daily chart: stacked bars in Harness hues, and on hover or keyboard
  * focus (← → Home End) a tooltip listing the day's Models with tokens and cost, then its total.
  */
-import { cn, harnessHue, hueVar } from "@polaris/ui";
+import { cn, harnessHue, hueVar, Kicker } from "@polaris/ui";
 import { type KeyboardEvent, memo, type PointerEvent, useId, useState } from "react";
 import { type Day, type DayTipRow, dayTip, type UsageSummary } from "../model/usage.ts";
 
@@ -64,13 +64,16 @@ const Legend = ({
 }) => (
   <>
     {harnesses.map((h) => (
-      <span key={h} className="text-caption text-text-subtle flex items-center gap-1.5">
+      <span
+        key={h}
+        className="text-caption text-text-subtle flex items-center gap-1.5 whitespace-nowrap"
+      >
         <span className="size-2 shrink-0" style={{ background: hueVar(h) }} />
         {harnessHue(h).name}
       </span>
     ))}
     {split ? (
-      <span className="text-caption text-text-subtle flex items-center gap-1.5">
+      <span className="text-caption text-text-subtle flex items-center gap-1.5 whitespace-nowrap">
         <span className="bg-text-subtle size-2 shrink-0 opacity-35" />
         Outside Polaris
       </span>
@@ -236,13 +239,16 @@ export const UsageChart = ({
         )}
       </div>
       <div className="gap-panel flex items-center">
-        <span className="text-caption text-text-subtle">
-          {first === undefined ? "" : shortDate(first.date)}
+        <span className="shrink-0 whitespace-nowrap">
+          <Kicker>{first === undefined ? "" : shortDate(first.date)}</Kicker>
         </span>
-        <span className="flex-1" />
-        <Legend harnesses={summary.harnesses} split={split} />
-        <span className="flex-1" />
-        <span className="text-caption text-text-subtle">Today</span>
+        {/* Many Harnesses wrap between entries, never inside one. */}
+        <div className="gap-x-panel flex min-w-0 flex-1 flex-wrap justify-center gap-y-1">
+          <Legend harnesses={summary.harnesses} split={split} />
+        </div>
+        <span className="shrink-0 whitespace-nowrap">
+          <Kicker>Today</Kicker>
+        </span>
       </div>
     </div>
   );

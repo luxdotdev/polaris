@@ -132,9 +132,13 @@ export interface CompletionCardView {
   readonly managed: ManagedView | null;
   /** The download's share, 0..1, while one runs. */
   readonly progress: number | null;
+  /** The Host's name in a sentence, for the header's switch. */
+  readonly host: string;
 }
 
-const capitalized = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+/** A Host's name at a sentence's start: "this Mac" becomes "This Mac"; a given name stays as named. */
+export const capitalized = (text: string) =>
+  text.startsWith("this ") ? `T${text.slice(1)}` : text;
 
 const nextEdit = (model: string) => editModelFormat(model) !== null;
 
@@ -415,9 +419,11 @@ const modelChoices = (input: CardInput): ReadonlyArray<ModelChoice> | null => {
     clientName: clientNameOf(input),
   });
 
-  if (row.models.length < 2) return null;
-  const recommended = scored({ ...input, preferences: { ...input.preferences, model: null } })[0];
   const { model: chosen, format } = input.preferences;
+  const models = oneRowPerModel(row.models, chosen);
+
+  if (models.length < 2) return null;
+  const recommended = scored({ ...input, preferences: { ...input.preferences, model: null } })[0];
 
   return [
     {
@@ -426,7 +432,7 @@ const modelChoices = (input: CardInput): ReadonlyArray<ModelChoice> | null => {
       note: recommended === undefined ? null : modelName(recommended.model),
       enabled: true,
     },
-    ...row.models.map((model) => {
+    ...models.map((model) => {
       const enabled = promptableModel(model) || (model === chosen && format !== null);
 
       return {
@@ -438,6 +444,26 @@ const modelChoices = (input: CardInput): ReadonlyArray<ModelChoice> | null => {
     }),
   ];
 };
+
+/** Ids that share a label are one model (ENG-510): keep the chosen id, else a promptable one. */
+export const oneRowPerModel = (
+  models: ReadonlyArray<string>,
+  chosen: string | null
+): ReadonlyArray<string> => {
+  const byLabel = new Map<string, string>();
+
+  for (const model of models) {
+    const label = modelName(model);
+    const kept = byLabel.get(label);
+
+    if (kept === undefined || (kept !== chosen && (model === chosen || preferred(model, kept))))
+      byLabel.set(label, model);
+  }
+
+  return [...byLabel.values()];
+};
+
+const preferred = (model: string, kept: string) => promptableModel(model) && !promptableModel(kept);
 
 const SERVER_LABEL: Record<PredictionServerAction, (model: string) => string> = {
   "clear-cache": () => "Clear prompt cache",
@@ -557,5 +583,6 @@ export const completionCard = (input: CardInput): CompletionCardView => {
     actions: actionsOf(kind, input, target, managed),
     managed,
     progress: kind === "downloading" ? progress : null,
+    host: input.hostName,
   };
 };

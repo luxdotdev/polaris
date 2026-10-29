@@ -1,25 +1,32 @@
 /**
- * The Space preview of a Constellation (K4, Paper 13): Space on a hovered or focused Lead row
- * opens a card beside it with the strip, the counts and the Tasks still in play.
+ * The Space preview of a Constellation (K4; Paper X-H Variant 1): Space on a hovered or focused
+ * Lead row opens an instrument card beside it, the graph drawn as a star chart.
  */
-import { cn, Kbd, Popover, PopoverAnchor, PopoverContent } from "@polaris/ui";
+import { harnessEntry, SessionId } from "@polaris/protocol";
 import {
-  type ComponentProps,
-  type ReactElement,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { age } from "../../../shell/copy.ts";
+  Button,
+  cn,
+  InstrumentPopoverContent,
+  Kicker,
+  Popover,
+  PopoverAnchor,
+  type PopoverContent,
+  SegmentedControl,
+} from "@polaris/ui";
+import { type ComponentProps, type ReactElement, useEffect, useRef, useState } from "react";
+import { useApp, useShellActions } from "../../../shell/hooks.ts";
 import { useNow } from "../../../shell/useNow.ts";
 import { peekCounts, peekRows } from "../../sessions/model/peek.ts";
-import { useFacts, useLeadConstellation } from "../hooks.ts";
-import { buildRail, LANE_MAX, laneWidth, segments, tallyOf, type TaskRow } from "../model/index.ts";
+import { clock } from "../model/copy.ts";
+import { forYou } from "../model/glance.ts";
+import { LANE_MAX, laneWidth, tallyOf, type TaskRow } from "../model/index.ts";
+import { leadKey, patchLeadUi } from "../state.ts";
+import { StarChartHero } from "./chart.tsx";
 import { TaskGlyph } from "./glyphs.tsx";
 import { IdLane, laneStyle } from "./lane.tsx";
 import { ID_TONE, TONE } from "./rows.tsx";
-import { ProgressStrip } from "./strip.tsx";
+import { LeadStar } from "./stars.tsx";
+import { useGlance } from "./waves.tsx";
 
 const editable = (target: EventTarget | null) =>
   target instanceof HTMLElement &&
@@ -79,79 +86,160 @@ export const useSpacePeek = () => {
   };
 };
 
-const PeekRow = ({ row }: { readonly row: TaskRow }) => (
-  <div className="gap-gap px-row-x flex h-[30px] items-center" data-testid="peek-task">
+const PeekRow = ({ row, text }: { readonly row: TaskRow; readonly text?: string }) => (
+  <div className="gap-gap flex h-[30px] items-center px-2" data-testid="peek-task">
     <TaskGlyph glyph={row.look.glyph} harness={row.harness} size={16} />
     <IdLane id={row.task.id} max={LANE_MAX.sidebar} className={ID_TONE[row.look.idTone]} />
-    <span className="text-body text-text-default min-w-0 flex-1 truncate">{row.task.title}</span>
-    <span className={cn("text-caption shrink-0", TONE[row.look.wordTone])}>{row.look.word}</span>
+    <span className="text-body text-text-default min-w-0 flex-1 truncate">
+      {text ?? row.task.title}
+    </span>
+    <span className={cn("shrink-0 font-mono text-[11px]", TONE[row.look.wordTone])}>
+      {row.look.word}
+    </span>
   </div>
 );
 
-const PeekBody = ({
-  hostKey,
-  leadSessionId,
-}: {
-  readonly hostKey: string;
-  readonly leadSessionId: string;
-}) => {
-  const record = useLeadConstellation(hostKey, leadSessionId);
-  const facts = useFacts(record);
-  const now = useNow();
-  const rail = useMemo(() => (record === null ? null : buildRail(record, facts)), [record, facts]);
+const lane = (rows: ReadonlyArray<TaskRow>) =>
+  laneStyle(
+    laneWidth(
+      rows.map((r) => r.task.id),
+      LANE_MAX.sidebar
+    )
+  );
 
-  if (record === null || rail === null) return null;
-  const c = record.constellation;
-  const { shown, more } = peekRows(rail.tasks);
+/** "For you · n": what the user owes the graph, loudest first. */
+const ForYouWell = ({ rows }: { readonly rows: ReadonlyArray<TaskRow> }) => {
+  const items = forYou(rows);
 
   return (
-    <div className="flex min-h-0 flex-col" data-testid="constellation-peek">
-      <div className="flex shrink-0 flex-col gap-2 px-4 pt-3.5 pb-3">
-        <div className="flex items-center gap-2">
-          <span className="text-heading-sm text-text-strong min-w-0 flex-1 truncate">{c.name}</span>
-          <span className="text-caption text-text-subtle shrink-0">
-            {c.state} · {age(c.createdAt, now)}
-          </span>
-        </div>
-        <ProgressStrip segments={segments(rail.tasks)} />
-        <p className="text-caption text-text-subtle">
-          {peekCounts(tallyOf(rail.tasks)).map((count, n) => (
-            <span key={count.bucket}>
-              {n === 0 ? null : " · "}
-              <span className={count.bucket === "needs-you" ? "text-needs-you-text" : undefined}>
-                {count.text}
-              </span>
-            </span>
-          ))}
-        </p>
-      </div>
-      {shown.length === 0 ? null : (
-        <div
-          className="border-hairline flex min-h-0 flex-col overflow-y-auto border-t px-2 py-1.5"
-          style={laneStyle(
-            laneWidth(
-              shown.map((r) => r.task.id),
-              LANE_MAX.sidebar
-            )
-          )}
-        >
-          {shown.map((row) => (
-            <PeekRow key={row.key} row={row} />
-          ))}
-          {more === 0 ? null : (
-            <p className="text-caption text-text-subtle px-row-x py-1">{more} more</p>
-          )}
-        </div>
+    <div
+      className="flex flex-col px-2 pt-2.5 pb-1.5"
+      data-testid="for-you"
+      style={lane(items.map((i) => i.row))}
+    >
+      <Kicker parts={["For you", items.length]} className="px-2 pb-1" />
+      {items.length === 0 ? (
+        <p className="text-body text-text-subtle px-2 py-1.5">Nothing needs you.</p>
+      ) : (
+        items.map((item) => <PeekRow key={item.row.key} row={item.row} text={item.text} />)
       )}
-      <div className="border-hairline bg-surface-sunken flex shrink-0 items-center gap-3 border-t px-4 py-2">
-        <span className="text-caption text-text-subtle flex items-center gap-1.5">
-          <Kbd>Space</Kbd> close
-        </span>
-        <span className="text-caption text-text-subtle flex items-center gap-1.5">
-          <Kbd>↵</Kbd> open the lead
-        </span>
-      </div>
     </div>
+  );
+};
+
+/** List: the Tasks still in play, as the preview showed them before the chart. */
+const ListWell = ({ rows }: { readonly rows: ReadonlyArray<TaskRow> }) => {
+  const { shown, more } = peekRows(rows);
+
+  return (
+    <div className="flex flex-col px-2 py-1.5" style={lane(shown)}>
+      <p className="text-caption text-text-subtle px-2 py-1">
+        {peekCounts(tallyOf(rows)).map((count, n) => (
+          <span key={count.bucket}>
+            {n === 0 ? null : " · "}
+            <span className={count.bucket === "needs-you" ? "text-needs-you-text" : undefined}>
+              {count.text}
+            </span>
+          </span>
+        ))}
+      </p>
+      {shown.map((row) => (
+        <PeekRow key={row.key} row={row} />
+      ))}
+      {more === 0 ? null : <p className="text-caption text-text-subtle px-2 py-1">{more} more</p>}
+    </div>
+  );
+};
+
+type View = "chart" | "list";
+
+const VIEWS: ReadonlyArray<{ readonly value: View; readonly label: string }> = [
+  { value: "chart", label: "Chart" },
+  { value: "list", label: "List" },
+];
+
+/** The hero grows with the graph to this, then scrolls inside (DESIGN.md, Constellation glance). */
+const HERO_MAX = 280;
+
+const useLead = (hostKey: string, leadSessionId: string) =>
+  useApp(
+    (s) => s.hostModels[hostKey]?.sessions.get(SessionId.make(leadSessionId))?.session ?? null
+  );
+
+const statusOf = (harness: string | null, since: string, now: number) =>
+  [
+    harness === null ? null : (harnessEntry(harness)?.name ?? harness),
+    `lead since ${clock(since)}`,
+    `as of ${clock(new Date(now).toISOString())}`,
+  ]
+    .filter((part) => part !== null)
+    .join(" · ");
+
+const GlanceCard = ({
+  hostKey,
+  leadSessionId,
+  onOpen,
+  ...content
+}: Omit<ComponentProps<typeof PopoverContent>, "children"> & {
+  readonly hostKey: string;
+  readonly leadSessionId: string;
+  readonly onOpen: () => void;
+}) => {
+  const glance = useGlance(hostKey, leadSessionId);
+  const lead = useLead(hostKey, leadSessionId);
+  const now = useNow();
+  const [view, setView] = useState<View>("chart");
+
+  if (glance === null) return null;
+  const c = glance.record.constellation;
+  const harness = lead?.harness ?? null;
+  const tasks = glance.rail.tasks;
+  const leadName = lead?.title === undefined || lead.title === "" ? "its lead" : lead.title;
+
+  return (
+    <InstrumentPopoverContent
+      {...content}
+      data-testid="constellation-peek"
+      className="w-[640px]"
+      header={{
+        mark: <LeadStar harness={harness} size={16} />,
+        title: c.name,
+        state: `led by ${leadName} · ${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}`,
+        control: (
+          <SegmentedControl
+            pill
+            aria-label="Show the graph as"
+            value={view}
+            onValueChange={setView}
+            options={VIEWS}
+          />
+        ),
+      }}
+      hero={
+        view === "chart" ? (
+          <StarChartHero
+            chart={glance.chart}
+            segments={glance.segments}
+            leadHarness={harness}
+            seed={c.id}
+          />
+        ) : undefined
+      }
+      heroMaxHeight={HERO_MAX}
+      wells={
+        view === "chart"
+          ? [<ForYouWell rows={tasks} />]
+          : [<ForYouWell rows={tasks} />, <ListWell rows={tasks} />]
+      }
+      footer={{
+        status: statusOf(harness, c.createdAt, now),
+        action: (
+          <Button size="sm" variant="secondary" className="rounded-full" onClick={onOpen}>
+            Open constellation
+          </Button>
+        ),
+      }}
+    />
   );
 };
 
@@ -175,22 +263,33 @@ export const ConstellationPeek = ({
   onOpenChange,
   children,
   ...slot
-}: ConstellationPeekProps) => (
-  <Popover open={open} onOpenChange={onOpenChange}>
-    <PopoverAnchor asChild {...slot}>
-      {children}
-    </PopoverAnchor>
-    {open ? (
-      <PopoverContent
-        side="right"
-        align="start"
-        sideOffset={10}
-        className="flex w-[344px] flex-col overflow-hidden p-0"
-        // The row keeps focus, so Space and ↵ still reach it.
-        onOpenAutoFocus={(event) => event.preventDefault()}
-      >
-        <PeekBody hostKey={hostKey} leadSessionId={leadSessionId} />
-      </PopoverContent>
-    ) : null}
-  </Popover>
-);
+}: ConstellationPeekProps) => {
+  const { selectSession } = useShellActions();
+
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverAnchor asChild {...slot}>
+        {children}
+      </PopoverAnchor>
+      {open ? (
+        <GlanceCard
+          hostKey={hostKey}
+          leadSessionId={leadSessionId}
+          side="right"
+          align="start"
+          sideOffset={10}
+          // The row keeps focus, so Space and ↵ still reach it.
+          onOpenAutoFocus={(event) => event.preventDefault()}
+          onOpen={() => {
+            onOpenChange(false);
+            selectSession({ hostKey, sessionId: SessionId.make(leadSessionId) });
+            patchLeadUi(leadKey(hostKey, leadSessionId), () => ({
+              tab: "constellation",
+              focus: null,
+            }));
+          }}
+        />
+      ) : null}
+    </Popover>
+  );
+};

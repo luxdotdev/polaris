@@ -1,12 +1,16 @@
 /**
  * The editor on fixtures, for screenshots against Paper E1–E3 and the editor
  * budgets: `#editor/<scene>` renders the pane, a stand-in explorer column and
- * the status bar on in-memory files. Scenes: e1, e3, close, conflict, compare, reload,
+ * the status row on in-memory files (`?terminal` opens a stand-in terminal). Scenes: e1, e3, close, conflict, compare, reload,
  * vim, find, tabs20, readonly, binary, empty, big (`?persist` keeps drafts in localStorage). Its own chunk.
+ * Worst cases (ENG-499): tabs40, worst (40 tabs, vim, a selection); `?git=worst` a 121-character
+ * branch, `?host=remote|reconnecting|offline` a far Host.
  */
 import { openSearchPanel } from "@codemirror/search";
 import type { EditorView } from "@codemirror/view";
-import { Toaster, TooltipProvider } from "@polaris/ui";
+import { Horizon, Toaster, TooltipProvider } from "@polaris/ui";
+import { useEffect, useRef, useState } from "react";
+import { EditorColumn, TerminalChip } from "../../terminal/index.ts";
 import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
 import type { Density, PolarisApi } from "../../../../shared/api.ts";
@@ -33,7 +37,10 @@ import { ensureEditor } from "../runtime/app.ts";
 import { getActiveEditor } from "../runtime/hooks.ts";
 import { EditorPane } from "../ui/EditorPane.tsx";
 import { EditorStatus } from "../ui/EditorStatus.tsx";
+import { StatusBar } from "../explorer/ui/StatusBar.tsx";
+import type { GitFacts } from "../explorer/data/store.ts";
 import { FILES, HOST, path, ROOT, WORKSPACE } from "./fixtures.ts";
+import { statusHost, WORST_GIT, WORST_TABS, worstFiles } from "./worst.ts";
 
 const bridge: PolarisApi = {
   request: () => Promise.resolve({ ok: false, error: { code: "Unsupported", message: "preview" } }),
@@ -133,6 +140,16 @@ const tabs20 = () => {
   }
 };
 
+/** 40 tabs, one with unsaved edits and one an agent is writing, the first one active. */
+const tabs40 = async () => {
+  for (const file of WORST_TABS) openFile({ hostKey: HOST, workspaceId: WORKSPACE, path: file });
+  setAgentFiles(HOST, WORKSPACE, new Map([[WORST_TABS[2] ?? "", "codex"]]));
+  openFile({ hostKey: HOST, workspaceId: WORKSPACE, path: WORST_TABS[1] ?? "" });
+  const view = await activeView();
+
+  view.dispatch({ changes: { from: 0, insert: "// draft\n" }, userEvent: "input.type" });
+};
+
 type Scene = (files: FakeFiles) => Promise<void> | void;
 
 const SCENES = new Map<string, Scene>(
@@ -182,6 +199,15 @@ const SCENES = new Map<string, Scene>(
       openSearchPanel(await activeView());
     },
     tabs20,
+    tabs40,
+    worst: async () => {
+      await tabs40();
+      const view = await activeView();
+
+      view.dispatch({
+        selection: { anchor: view.state.doc.line(10).from, head: view.state.doc.line(19).to },
+      });
+    },
     readonly: () => openFile({ hostKey: HOST, workspaceId: WORKSPACE, path: RECONNECT }),
     binary: () =>
       openFile({ hostKey: HOST, workspaceId: WORKSPACE, path: path("design/assets/logo.png") }),
@@ -198,29 +224,78 @@ const seed = () => {
     ])
   );
 
-  return { [HOST]: { ...FILES, ...generated }, pi: FILES };
+  return { [HOST]: { ...FILES, ...generated, ...worstFiles() }, pi: FILES };
 };
 
-const Frame = () => (
-  <div className="bg-bg text-text-default flex h-full flex-col">
-    <div className="flex min-h-0 flex-1">
-      <aside
-        aria-label="Explorer (stand-in)"
-        className="border-hairline bg-surface-sunken flex w-[264px] shrink-0 flex-col border-r px-4 py-3"
-      >
-        <p className="text-heading-sm text-text-strong">polaris</p>
-        <p className="text-caption text-text-subtle">Mac Studio · ~/code/polaris</p>
-      </aside>
-      <EditorPane hostKey={HOST} workspaceId={WORKSPACE} root={ROOT} />
-    </div>
-    <footer className="border-hairline bg-surface-sunken text-caption text-text-subtle flex h-[26px] shrink-0 items-center gap-4 border-t px-3">
-      <span>Mac Studio</span>
-      <span>main</span>
+/** A long branch, so a narrow window shows Completions' glyph and the middle truncation. */
+const GIT: GitFacts = {
+  toplevel: ROOT,
+  worktree: false,
+  head: "a0afe434",
+  branch: "lucas/eng-499-desktop-chrome-redesign-moonlit-midnight",
+  ahead: 2,
+  behind: 0,
+  tracking: null,
+  marks: { files: new Map(), dirtyFolders: new Set(), changed: 5 },
+  entries: [],
+};
+
+/** A stand-in terminal card: the preview has no Daemon to run a shell. */
+const StandInTerminal = () => (
+  <div className="flex h-[232px] flex-col" data-testid="terminal-drawer">
+    <div className="text-label flex h-[42px] shrink-0 items-center gap-2 px-3">
+      <span className="bg-fill-selected text-text-strong rounded-full px-3 py-1">bun test</span>
+      <span className="text-text-subtle px-2">zsh</span>
       <span className="flex-1" />
-      <EditorStatus hostKey={HOST} workspaceId={WORKSPACE} />
-    </footer>
+      <span className="text-code-inline text-text-subtle font-mono">~/code/polaris</span>
+    </div>
+    <pre className="text-code text-text-default px-4 font-mono">
+      {
+        "~/code/polaris main ❯ bun test src/orchestrator\nbun test v1.3.9\n✓ SessionRow > shows the title"
+      }
+    </pre>
   </div>
 );
+
+/** X-I's Variant C: the stand-in explorer on the ground, the editor and terminal as panels. */
+const Frame = ({ terminal, hash }: { readonly terminal: boolean; readonly hash: string }) => {
+  const [shown, setShown] = useState(terminal);
+  const dock = useRef<HTMLDivElement>(null);
+
+  // The screenshot script toggles the terminal as fast as ⌃` would, mid-morph.
+  useEffect(() => {
+    Object.assign(window, { __polarisTerminal: () => setShown((s) => !s) });
+  }, []);
+
+  return (
+    <div className="bg-ground text-text-default flex h-full flex-col">
+      <div className="flex min-h-0 flex-1 gap-1.5 pt-1.5 pr-1.5 pb-1.5">
+        <div className="relative isolate flex w-[270px] shrink-0 flex-col px-4 py-3">
+          <p className="text-heading text-text-strong">polaris</p>
+          <p className="text-caption text-text-subtle">Mac Studio · ~/code/polaris</p>
+          <Horizon />
+        </div>
+        <EditorColumn
+          dock={dock}
+          hostKey={HOST}
+          workspaceId={WORKSPACE}
+          terminal={shown ? <StandInTerminal /> : null}
+          chip={<TerminalChip onToggle={() => setShown(true)} count={1} />}
+          status={
+            <StatusBar
+              host={statusHost(hash)}
+              place={{ key: "preview", hostKey: HOST, workspaceId: WORKSPACE, root: ROOT }}
+              git={hash.includes("git=worst") ? WORST_GIT : GIT}
+              right={<EditorStatus hostKey={HOST} workspaceId={WORKSPACE} />}
+            />
+          }
+        >
+          <EditorPane hostKey={HOST} workspaceId={WORKSPACE} root={ROOT} />
+        </EditorColumn>
+      </div>
+    </div>
+  );
+};
 
 export const mountEditorPreview = (root: HTMLElement, hash: string) => {
   const scene = hash.replace(/^#editor\//, "").split("?")[0] ?? "e1";
@@ -240,7 +315,7 @@ export const mountEditorPreview = (root: HTMLElement, hash: string) => {
   standInBridge(bridge);
   installKeyboard({ actions: navigation.actions, registry: commands });
 
-  if (scene === "vim") {
+  if (scene === "vim" || scene === "worst") {
     settingsStore.setState((s) => ({ sessions: { ...s.sessions, editorVim: true } }));
   }
 
@@ -256,7 +331,7 @@ export const mountEditorPreview = (root: HTMLElement, hash: string) => {
   createRoot(root).render(
     <AppProvider value={{ connection, navigation, commands }}>
       <TooltipProvider>
-        <Frame />
+        <Frame terminal={hash.includes("terminal")} hash={hash} />
         <Toaster />
       </TooltipProvider>
     </AppProvider>

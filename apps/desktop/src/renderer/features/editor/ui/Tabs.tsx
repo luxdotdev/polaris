@@ -98,7 +98,7 @@ export const Tabs = ({ tabs, active, onSelect, onPin, onClose, menuFor }: TabsPr
       ref={strip}
       role="tablist"
       aria-label="Open files"
-      className="border-hairline bg-surface-sunken flex h-[37px] shrink-0 [scrollbar-width:none] overflow-x-auto border-b"
+      className="border-hairline flex h-[46px] shrink-0 [scrollbar-width:none] items-center gap-1 overflow-x-auto border-b px-2"
     >
       {tabs.map((tab) => {
         const selected = tab.id === active;
@@ -150,10 +150,10 @@ export const Tabs = ({ tabs, active, onSelect, onPin, onClose, menuFor }: TabsPr
                 }
               }}
               className={cn(
-                "group/tab flex h-9 max-w-[240px] shrink-0 cursor-default focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-starlight items-center gap-2 border-r border-hairline pr-3 pl-3.5 text-label select-none",
+                "group/tab flex h-[30px] max-w-[240px] shrink-0 cursor-default focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-starlight items-center gap-2 rounded-full pr-2.5 pl-3 text-label select-none",
                 selected
-                  ? "-mb-px h-[37px] bg-bg text-text-strong"
-                  : "text-text-subtle hover:text-text-default"
+                  ? "bg-fill-selected text-text-strong"
+                  : "text-text-subtle hover:bg-fill-hover hover:text-text-default"
               )}
             >
               {tab.agent === null ? null : <Dither hue={tab.agent} size={12} moving />}

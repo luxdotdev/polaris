@@ -1,7 +1,8 @@
 /**
  * `#completion-card/<scene>`: the tab completion status card on fixtures, for screenshots.
  * `states` lays out the card for every state side by side; `bar` puts the real status item in a
- * status bar over a fixture bridge, for opening the card by hover, focus or click. Its own chunk.
+ * status bar over a fixture bridge, for opening the card by hover, focus or click; `worst` the
+ * break-UI cases (many models, none, long names and figures). Its own chunk.
  */
 import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
@@ -12,9 +13,8 @@ import { createNavigation } from "../../../../routes/navigation.ts";
 import { AppProvider } from "../../../../shell/hooks.ts";
 import { type AppState, type Connection, initialState } from "../../../../store/store.ts";
 import { standInBridge } from "../../../bridge.ts";
-import { cn } from "@polaris/ui";
-import { CARD_WIDTH, CompletionCard, type CompletionCardProps } from "../card/CompletionCard.tsx";
-import { BASE, INSPECTION, SCENES, SERVED } from "../card/fixtures.ts";
+import { CompletionCard, type CompletionCardProps } from "../card/CompletionCard.tsx";
+import { BASE, INSPECTION, SCENES, SERVED, WORST_SCENES } from "../card/fixtures.ts";
 import { completionCard } from "../card/model.ts";
 import { PredictionStatus } from "../Status.tsx";
 import { predictionStore } from "../store.ts";
@@ -29,22 +29,31 @@ const Card = ({
 }) => (
   <figure className="flex flex-col gap-2" data-scene={name}>
     <figcaption className="text-caption text-text-faint font-mono">{name}</figcaption>
-    {/* The hover card's surface (FLOAT_SURFACE with the popover's row radius), held open. */}
-    <div
-      className={cn(
-        "rounded-row border-hairline bg-surface-raised text-text-default shadow-float flex flex-col overflow-hidden border",
-        CARD_WIDTH
-      )}
-    >
-      <CompletionCard {...props} titleId={`title-${name}`} onRun={noop} onModel={noop} />
-    </div>
+    {/* The card is its own raised surface, held open. */}
+    <CompletionCard
+      {...props}
+      file="score.ts"
+      className="shadow-float"
+      titleId={`title-${name}`}
+      onRun={noop}
+      onModel={noop}
+    />
   </figure>
 );
 
 const serving = completionCard({ ...BASE, result: SERVED });
 
+/** The worst cases alone (ENG-499). */
+const Worst = () => (
+  <div className="bg-ground flex min-h-screen flex-wrap items-start gap-8 p-8">
+    {WORST_SCENES.map(([name, input]) => (
+      <Card key={name} name={name} view={completionCard(input)} running={null} outcome={null} />
+    ))}
+  </div>
+);
+
 const States = () => (
-  <div className="bg-bg flex min-h-screen flex-wrap items-start gap-8 p-8">
+  <div className="bg-ground flex min-h-screen flex-wrap items-start gap-8 p-8">
     {SCENES.map(([name, input]) => (
       <Card key={name} name={name} view={completionCard(input)} running={null} outcome={null} />
     ))}
@@ -97,9 +106,9 @@ const bridge: PolarisApi = {
 };
 
 const Bar = () => (
-  <div className="bg-bg flex h-screen flex-col">
+  <div className="bg-ground flex h-screen flex-col p-1.5">
     <div className="flex-1" />
-    <footer className="border-hairline bg-surface-sunken text-caption text-text-subtle flex h-[26px] shrink-0 items-center gap-4 border-t px-3">
+    <footer className="border-hairline bg-panel shadow-panel text-caption text-text-subtle flex h-7 shrink-0 items-center gap-4 rounded-[12px] border px-3.5">
       <span>Pi 4</span>
       <span>main</span>
       <span className="flex-1" />
@@ -110,6 +119,11 @@ const Bar = () => (
     </footer>
   </div>
 );
+
+const VIEWS = new Map([
+  ["bar", <Bar key="bar" />],
+  ["worst", <Worst key="worst" />],
+]);
 
 export const mountCompletionCardPreview = (root: HTMLElement, hash: string) => {
   const scene = hash.replace(/^#completion-card\//, "");
@@ -139,7 +153,7 @@ export const mountCompletionCardPreview = (root: HTMLElement, hash: string) => {
         commands: createCommandRegistry({ platform: "mac" }),
       }}
     >
-      {scene === "bar" ? <Bar /> : <States />}
+      {VIEWS.get(scene) ?? <States />}
     </AppProvider>
   );
 

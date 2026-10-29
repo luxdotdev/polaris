@@ -14,3 +14,12 @@ export const modeLabel = (mode: string, subMode?: string): VimMode => {
 
 /** How the status bar spells it: the vim convention, the one place capitals are the label. */
 export const modeText = (mode: VimMode) => mode.toUpperCase();
+
+/** The mode badge's fill (Neovim's mode block): NORMAL neutral, the typing modes Starlight. */
+export type ModeTone = "normal" | "insert" | "visual";
+
+export const modeTone = (mode: VimMode): ModeTone => {
+  if (mode === "insert" || mode === "replace") return "insert";
+
+  return mode === "normal" ? "normal" : "visual";
+};

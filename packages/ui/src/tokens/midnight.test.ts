@@ -72,7 +72,7 @@ describe("midnight", () => {
     expect<Record<string, string>>({ ...midnight }).toEqual(expected);
   });
 
-  test("overrides exactly DESIGN.md's ground, surfaces, wells and hairline", () => {
+  test("overrides exactly DESIGN.md's ground, surfaces, wells and hairline, and lowers the diff fills", () => {
     const prose =
       /true black ground `(#[0-9A-F]{6})`, surfaces `(#[0-9A-F]{6})` and `(#[0-9A-F]{6})`, hairlines white at (\d+)%/.exec(
         design
@@ -97,7 +97,14 @@ describe("midnight", () => {
       chrome ?? [];
 
     expect(chromeHairline).toBe(hairline);
-    expect(Object.fromEntries(midnightOverrides())).toEqual({
+
+    const {
+      "diff-added-bg": added,
+      "diff-removed-bg": removed,
+      ...chromeOverrides
+    } = Object.fromEntries(midnightOverrides());
+
+    expect(chromeOverrides).toEqual({
       bg: ground.toLowerCase(),
       "surface-sunken": sunken.toLowerCase(),
       "surface-raised": raised.toLowerCase(),
@@ -108,6 +115,20 @@ describe("midnight", () => {
       well: well.toLowerCase(),
       "well-raised": well.toLowerCase(),
     });
+
+    const dark = darkColours();
+
+    for (const [fill, name] of [
+      [added, "diff-added-bg"],
+      [removed, "diff-removed-bg"],
+    ] as const) {
+      const base = dark.get(name) ?? "";
+
+      expect(fill?.slice(0, 7)).toBe(base.slice(0, 7));
+      expect(Number.parseInt(fill?.slice(7) ?? "ff", 16)).toBeLessThan(
+        Number.parseInt(base.slice(7), 16)
+      );
+    }
   });
 
   test("is a dark color-scheme the system appearance can't flip to light", () => {

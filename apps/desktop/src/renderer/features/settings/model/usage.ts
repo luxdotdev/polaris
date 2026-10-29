@@ -247,12 +247,22 @@ export const usageSummary = ({
 };
 
 /** "48.2M", "912K", "640". */
+const UNITS = [
+  [1e12, "T", 1],
+  [1e9, "B", 1],
+  [1e6, "M", 1],
+  [1e3, "K", 0],
+] as const;
+
+/** "48.2M"; a figure that rounds up to the next unit takes it ("1.0B", never "1000.0M"). */
 export const compactTokens = (n: number): string => {
-  if (n >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
+  if (n < 1e3) return String(n);
 
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  for (const [size, unit, digits] of UNITS) {
+    const shown = (n / size).toFixed(digits);
 
-  if (n >= 1e3) return `${Math.round(n / 1e3)}K`;
+    if (Number(shown) >= 1) return `${shown}${unit}`;
+  }
 
   return String(n);
 };
@@ -260,6 +270,9 @@ export const compactTokens = (n: number): string => {
 /** "$312.40", with "~" when any of it is estimated (DESIGN.md, Settings). */
 export const costLabel = (cost: Cost): string => {
   if (cost.usd === 0 && cost.partial) return "—";
+
+  // A fraction of a cent isn't nothing: "<$0.01", not "$0.00".
+  if (cost.usd > 0 && cost.usd < 0.005) return cost.estimated ? "~<$0.01" : "<$0.01";
   const usd = `$${cost.usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return cost.estimated ? `~${usd}` : usd;

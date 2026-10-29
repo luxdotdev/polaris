@@ -116,6 +116,9 @@ const completionCardPreview = location.hash.startsWith("#completion-card/");
 // `#edit-prediction/<scene>`: the Editor with an Edit Prediction drawn on fixtures (features/editor/prediction/preview).
 const editPredictionPreview = location.hash.startsWith("#edit-prediction/");
 
+// `#settings/<scene>`: Settings on worst-case fixtures (features/settings/preview).
+const settingsPreview = location.hash.startsWith("#settings/");
+
 let setPreviewDensity: ((density: Density) => void) | null = null;
 
 const appearance = (value: Appearance) => {
@@ -210,6 +213,10 @@ if (root !== null && preview) {
 } else if (root !== null && completionCardPreview) {
   void import("./features/editor/prediction/preview/Preview.tsx").then((m) => {
     setPreviewDensity = m.mountCompletionCardPreview(root, location.hash);
+  });
+} else if (root !== null && settingsPreview) {
+  void import("./features/settings/preview/Preview.tsx").then((m) => {
+    setPreviewDensity = m.mountSettingsPreview(root, location.hash);
   });
 } else if (root !== null && tabCompletionPreview) {
   void import("./features/settings/editor/preview/Preview.tsx").then((m) => {

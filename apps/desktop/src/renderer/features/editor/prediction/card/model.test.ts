@@ -54,6 +54,12 @@ test("Connection State comes before settings, and the status label keeps its thr
   expect(card({ hostName: "this Mac", connection: "offline" }).title).toBe("This Mac is offline");
 });
 
+test("A Host named in lower case keeps its name at the start of a sentence", () => {
+  expect(card({ hostName: "build-farm-eu.example.com", connection: "offline" }).title).toBe(
+    "build-farm-eu.example.com is offline"
+  );
+});
+
 test("Serving names the model, machine, placement reason, endpoint, latency and context", () => {
   const view = card({ result: SERVED });
   expect(view.kind).toBe("serving");
@@ -175,6 +181,33 @@ test("Models list Recommended first; ones Polaris can't prompt are disabled with
   const one = { ...INSPECTION.client, endpoints: [INSPECTION.client.endpoints[0]!] };
   const single = { ...one, endpoints: [{ ...one.endpoints[0]!, models: ["qwen2.5-coder-1.5b"] }] };
   expect(card({ inspection: { ...INSPECTION, client: single } }).models).toBeNull();
+});
+
+test("Two ids of one model are one row, keeping the chosen id (ENG-510)", () => {
+  const ids = [
+    "sweep-next-edit-1.5b-q8_0",
+    "hf.co/sweepai/sweep-next-edit-1.5B-GGUF:Q4_K_M",
+  ] as const;
+
+  const [first] = INSPECTION.client.endpoints;
+
+  const client = {
+    ...INSPECTION.client,
+    endpoints: [{ ...first!, models: [...ids, "qwen2.5-coder-1.5b"] }],
+  };
+
+  const rows = (model: string | null) =>
+    card({
+      inspection: { ...INSPECTION, client },
+      preferences: { ...DEFAULT_PREDICTION_PREFERENCES, model },
+    }).models?.map((m) => [m.id, m.label]);
+
+  expect(rows(null)).toEqual([
+    [null, "Recommended"],
+    [ids[0], "Sweep Next-Edit 1.5B"],
+    ["qwen2.5-coder-1.5b", "Qwen2.5-Coder"],
+  ]);
+  expect(rows(ids[1])?.[1]).toEqual([ids[1], "Sweep Next-Edit 1.5B"]);
 });
 
 test("Recovery follows the server: clear the cache, reload a model, or advise a restart", () => {

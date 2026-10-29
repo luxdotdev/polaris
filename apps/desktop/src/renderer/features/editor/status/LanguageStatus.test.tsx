@@ -19,7 +19,7 @@ import {
   trust,
   TS,
 } from "./fixtures.testing.ts";
-import { actionFailure, LanguagePill, StatusPopover } from "./LanguageStatus.tsx";
+import { actionFailure, LanguagePill, StatusPopover, withIndentation } from "./LanguageStatus.tsx";
 import { statusView, type StatusAction } from "./model.ts";
 import { runtimeKey, statusStore } from "./store.ts";
 
@@ -84,6 +84,14 @@ describe("the pill", () => {
 });
 
 describe("the popover", () => {
+  test("lists the file's indentation, where it stays when the status row drops it", () => {
+    popover(withIndentation(statusView(input()), "Tabs 4"), () => undefined);
+
+    const row = screen().getByText("Indentation").parentElement;
+
+    expect(row?.textContent).toBe("IndentationTabs 4");
+  });
+
   test("stopped: stderr in mono, and rows that run", () => {
     const ran: string[] = [];
     popover(statusView(input({ runtimes: [running(runtimes.crashed())] })), (action) =>

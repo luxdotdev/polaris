@@ -4,7 +4,7 @@
  * the Viewed count), and the account it goes out as. GitHub's pending review is submitted.
  */
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, Textarea } from "@polaris/ui";
-import { Fragment, useState } from "react";
+import { type ComponentType, Fragment, type ReactNode, useState } from "react";
 import { useStore } from "zustand";
 import type { PullDetailView, ReviewEvent } from "../../../../shared/github.ts";
 import {
@@ -220,8 +220,20 @@ const Dialog = ({
   );
 };
 
+/** What may stand before the review form (the risk feature's critical pause); renders `children` to go on. */
+export interface SubmitPause {
+  readonly subjectKey: string;
+  readonly onClose: () => void;
+  readonly children: ReactNode;
+}
+
+const NoPause = ({ children }: SubmitPause) => children;
+
 /** The pull request's primary action (DESIGN.md, Review: "Submit review" with the pending count). */
-export const SubmitReviewAction = (props: ReviewSlotProps) => {
+export const SubmitReviewAction = ({
+  Pause = NoPause,
+  ...props
+}: ReviewSlotProps & { readonly Pause?: ComponentType<SubmitPause> }) => {
   const key = keyOf(props.subject);
   const detail = useComments((s) => s.pulls[key]?.detail ?? null);
   const [open, setOpen] = useState(false);
@@ -247,7 +259,9 @@ export const SubmitReviewAction = (props: ReviewSlotProps) => {
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[400px] overflow-clip p-0">
         {detail !== null && (
-          <Dialog subjectKey={key} detail={detail} onDone={() => setOpen(false)} />
+          <Pause subjectKey={key} onClose={() => setOpen(false)}>
+            <Dialog subjectKey={key} detail={detail} onDone={() => setOpen(false)} />
+          </Pause>
         )}
       </PopoverContent>
     </Popover>

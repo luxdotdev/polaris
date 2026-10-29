@@ -1,6 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import type { StackView } from "../../../../shared/github.ts";
-import { checksText, layerText, shortBranch, stackTitle, topDown } from "./stack.ts";
+import {
+  checksText,
+  layerText,
+  shortBranch,
+  slabLabel,
+  stackStatus,
+  stackTitle,
+  topDown,
+} from "./stack.ts";
 
 const stack = (patch: Partial<StackView> = {}): StackView => ({
   source: "github",
@@ -39,5 +47,28 @@ describe("the stack's words", () => {
     expect(stackTitle(stack())).toBe("Stack #635");
     expect(stackTitle(stack({ number: null, source: "inferred" }))).toBe("Stack from branch names");
     expect(topDown(stack()).map((m) => m.number)).toEqual([3, 2, 1]);
+  });
+});
+
+describe("the stack popover's words", () => {
+  test("the status line counts merged layers only when there are some", () => {
+    expect(stackStatus(stack())).toBe("Layer 2 of 3 · base nightly");
+
+    const merged = stack();
+
+    const members = merged.members.map((m, i) =>
+      i === 0 ? { ...m, status: "merged" as const } : m
+    );
+
+    expect(stackStatus({ ...merged, members })).toBe("Layer 2 of 3 · base nightly · 1 merged");
+  });
+
+  test("a slab names its number, state and whether it is the current layer", () => {
+    const [first] = stack().members;
+
+    if (first === undefined) throw new Error("no member");
+
+    expect(slabLabel(first, true)).toBe("#1 · open · current");
+    expect(slabLabel({ ...first, status: "draft" }, false)).toBe("#1 · draft");
   });
 });

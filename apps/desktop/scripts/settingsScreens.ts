@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Screenshots of Settings against Paper's S1 Harnesses (dark), S2 Usage (dark)
- * and S3 Appearance (light), with four local Daemons standing in for four
- * machines. Needs a built app.
+ * Screenshots of Settings against Paper X-J (Appearance and Usage) and the restyled pages, in
+ * Moonlit, Midnight and light, with four local Daemons standing in for four machines. Needs a
+ * built app.
  *
  *   node scripts/settingsScreens.ts <out dir>
  */
@@ -130,7 +130,8 @@ writeFileSync(
 
 const app = await electron.launch({
   executablePath: electronBinary(),
-  args: [APP_DIR],
+  // A mock Keychain: the screenshots need no secrets, and a background session can't unlock it.
+  args: ["--use-mock-keychain", APP_DIR],
   env: {
     ...process.env,
     POLARIS_DESKTOP_LOCAL_SOCKET: local?.socketPath ?? "",
@@ -144,7 +145,7 @@ const app = await electron.launch({
   },
 });
 
-const setAppearance = async (page: Page, patch: Record<string, string>) => {
+const setAppearance = async (page: Page, patch: Readonly<Record<string, string>>) => {
   await page.evaluate(
     `window.polaris.request("settings.setAppearance", { patch: ${JSON.stringify(patch)} })`
   );
@@ -164,17 +165,28 @@ const usageTooltip = async (page: Page) => {
   if (!tip.startsWith("Today") || !tip.includes("Total"))
     throw new Error(`the usage tooltip reads: ${tip}`);
   console.log(`settings-screens: tooltip ${tip}`);
-  await shoot(page, "S2-usage-tooltip-dark");
+  await shoot(page, "usage-tooltip-moonlit");
   await setAppearance(page, { theme: "light" });
   await page.mouse.move(box.x + box.width - 6, box.y + box.height - 4);
-  await shoot(page, "S2-usage-tooltip-light");
+  await shoot(page, "usage-tooltip-light");
   await setAppearance(page, { theme: "dark" });
   await page.mouse.move(0, 0);
   await chart.focus();
   await page.keyboard.press("ArrowLeft");
   await page.getByTestId("usage-tooltip").waitFor({ timeout: 5_000 });
-  await shoot(page, "S2-usage-tooltip-keyboard-dark");
+  await shoot(page, "usage-tooltip-keyboard-moonlit");
 };
+
+const SKIES = [
+  { name: "moonlit", patch: { theme: "dark", darkTheme: "moonlit" } },
+  { name: "midnight", patch: { theme: "dark", darkTheme: "midnight" } },
+  { name: "light", patch: { theme: "light" } },
+] as const;
+
+const USAGE_SCROLLER = `document.querySelector('[data-section="usage"]')`;
+
+const attached = (page: Page, selector: string) =>
+  page.locator(selector).waitFor({ state: "attached", timeout: 5_000 });
 
 const shoot = async (page: Page, name: string) => {
   await page.waitForTimeout(800);
@@ -195,54 +207,95 @@ try {
   });
   await page.getByTestId("settings").waitFor({ timeout: 5_000 });
 
-  // S3: Appearance, light.
-  await setAppearance(page, { theme: "light" });
-  await shoot(page, "S3-appearance-light-calm");
+  // X-J: Appearance, then each page, in Moonlit, Midnight and light.
+  const nav = (name: string) => page.getByRole("button", { name, exact: true }).click();
 
-  for (const density of ["balanced", "compact"]) {
-    await setAppearance(page, { density });
-    await shoot(page, `S3-appearance-light-${density}`);
+  for (const sky of SKIES) {
+    await setAppearance(page, sky.patch);
+    await nav("Appearance");
+    await shoot(page, `appearance-${sky.name}`);
   }
 
-  await setAppearance(page, { density: "calm", theme: "dark" });
-  await shoot(page, "S3-appearance-dark-calm");
+  for (const density of ["balanced", "compact"]) {
+    await setAppearance(page, { ...SKIES[0].patch, density });
+    await shoot(page, `appearance-moonlit-${density}`);
+  }
 
-  // Sessions, both themes.
-  await page.getByRole("button", { name: "Sessions" }).click();
+  await setAppearance(page, { density: "calm" });
+
+  // A Moonlit preview keeps its moon while the app is Midnight: each sky follows its own card.
+  await page.getByRole("radio", { name: "Midnight", exact: true }).click();
+  await attached(page, 'html[data-theme-dark="midnight"]');
+  await page.getByRole("radio", { name: "Moonlit", exact: true }).click();
+  await attached(page, 'html[data-theme-dark="moonlit"]');
+  console.log("settings-screens: the dark theme cards switched the dark theme live");
+
+  // Sessions, all three.
+  await nav("Sessions");
   await page.locator('[data-section="sessions"]').waitFor({ timeout: 5_000 });
-  await shoot(page, "sessions-dark");
-  await setAppearance(page, { theme: "light" });
-  await shoot(page, "sessions-light");
-  await setAppearance(page, { theme: "dark" });
 
-  // S1: Harnesses, dark.
-  await page.getByRole("button", { name: "Harnesses", exact: true }).click();
+  for (const sky of SKIES) {
+    await setAppearance(page, sky.patch);
+    await shoot(page, `sessions-${sky.name}`);
+  }
+
+  // S1: Harnesses.
+  await setAppearance(page, SKIES[0].patch);
+  await nav("Harnesses");
   await page.getByTestId("harness-group").first().waitFor({ timeout: 10_000 });
   await page.waitForTimeout(3_000);
-  await shoot(page, "S1-harnesses-dark-collapsed");
   // A Harness ready everywhere folds; open Claude Code's if it did.
   const folded = page.locator('button[aria-expanded="false"]', { hasText: "Claude Code" });
 
   if ((await folded.count()) > 0) await folded.click();
-  await shoot(page, "S1-harnesses-dark");
-  await setAppearance(page, { theme: "light" });
-  await shoot(page, "S1-harnesses-light");
 
-  // S2: Usage, dark.
-  await setAppearance(page, { theme: "dark" });
-  await page.getByRole("button", { name: "Usage" }).click();
-  await page.getByText(/tokens on \d+ host/).waitFor({ timeout: 30_000 });
-  await shoot(page, "S2-usage-dark");
+  for (const sky of SKIES) {
+    await setAppearance(page, sky.patch);
+    await shoot(page, `harnesses-${sky.name}`);
+  }
+
+  // Usage: the plan limits and tokens instrument cards.
+  await setAppearance(page, SKIES[0].patch);
+  await nav("Usage");
+  await page.getByTestId("usage-figures").waitFor({ timeout: 30_000 });
   const figures = (await page.getByTestId("usage-figures").innerText()).split("\n");
 
-  // Paper S2 (6R2-1): tokens, cost, share, each a figure with its caption.
-  if (figures.length !== 6 || !figures[3]?.startsWith("API-equivalent"))
+  // X-J: tokens, cost, share, each a figure over its kicker.
+  if (figures.length !== 6 || !/^api-equivalent/i.test(figures[3] ?? ""))
     throw new Error(`usage figures: ${figures.join(" | ")}`);
   console.log(`settings-screens: figures ${figures.join(" | ")}`);
-  await setAppearance(page, { theme: "light" });
-  await shoot(page, "S2-usage-light");
-  await setAppearance(page, { theme: "dark" });
+
+  for (const sky of SKIES) {
+    await setAppearance(page, sky.patch);
+    await shoot(page, `usage-${sky.name}`);
+    await page.evaluate(`${USAGE_SCROLLER}.scrollTo(0, 1e6)`);
+    await shoot(page, `usage-${sky.name}-end`);
+    await page.evaluate(`${USAGE_SCROLLER}.scrollTo(0, 0)`);
+  }
+
+  await setAppearance(page, SKIES[0].patch);
   await usageTooltip(page);
+
+  // Other pages, restyled: each in all three.
+  const pages = ["Editor", "Constellations", "Hosts", "Devices", "Reviewer", "GitHub accounts"];
+
+  for (const name of pages) {
+    await nav(name);
+
+    for (const sky of SKIES) {
+      await setAppearance(page, sky.patch);
+      await shoot(page, `${name.toLowerCase().replaceAll(" ", "-")}-${sky.name}`);
+    }
+  }
+
+  await page.getByRole("button", { name: /^About Polaris/ }).click();
+
+  for (const sky of SKIES) {
+    await setAppearance(page, sky.patch);
+    await shoot(page, `about-${sky.name}`);
+  }
+
+  await setAppearance(page, SKIES[0].patch);
 
   // The gear in the sidebar footer and the K menu's Settings actions.
   await page.keyboard.press("Escape");

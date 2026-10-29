@@ -214,7 +214,7 @@ export const approval = (): SessionModel => {
     harness: "codex",
     state: "needs-you",
     model: "gpt-6.1-sol",
-    effort: "high",
+    effort: "xhigh",
     contextUsage: new ContextUsage({ usedTokens: 236_000, windowTokens: 258_000 }),
   });
 

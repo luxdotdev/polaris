@@ -143,6 +143,24 @@ describe("usageSummary", () => {
     );
   });
 
+  test("a figure that rounds up to the next unit takes it", () => {
+    expect([999_600, 999_960_000, 999_960_000_000, 1_284_000_000_000].map(compactTokens)).toEqual([
+      "1.0M",
+      "1.0B",
+      "1.0T",
+      "1.3T",
+    ]);
+  });
+
+  test("a fraction of a cent reads as under a cent, not as nothing", () => {
+    const tiny = { usd: 0.000_004, estimated: true, partial: false };
+
+    expect([costLabel(tiny), costLabel({ ...tiny, estimated: false })]).toEqual([
+      "~<$0.01",
+      "<$0.01",
+    ]);
+  });
+
   test("compact token figures", () => {
     expect([48_200_000, 912_400, 640, 2_100_000_000].map(compactTokens)).toEqual([
       "48.2M",

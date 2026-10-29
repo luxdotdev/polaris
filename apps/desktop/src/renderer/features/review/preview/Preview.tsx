@@ -56,6 +56,14 @@ import {
   QUEUE_PULL,
 } from "./queueFixtures.ts";
 import { mergeAnswer, setUpMerge } from "./mergeScenes.ts";
+import {
+  isXg,
+  REVIEWER_SESSION,
+  reviewerSession,
+  setUpXg,
+  XG_FINDINGS,
+  xgDetail,
+} from "./xgScenes.ts";
 
 const encode = (text: string) => new TextEncoder().encode(text);
 
@@ -83,9 +91,17 @@ const detailFor = (scene: string) => {
 
   if (scene === "stacked") return stackedDetail(PULL_DETAIL);
 
+  if (isXg(scene)) return xgDetail(PULL_DETAIL);
+
   if (scene.startsWith("ov")) return overviewDetail(PULL_DETAIL, scene);
 
   return scene.startsWith("pull-") ? withThreads(PULL_DETAIL) : PULL_DETAIL;
+};
+
+const xgOr = (scene: string) => {
+  if (isXg(scene)) return XG_FINDINGS;
+
+  return scene === "large" || scene === "list-only" ? [] : PULL_FINDINGS;
 };
 
 const request = (scene: string) => (method: string, input: PreviewInput) => {
@@ -105,7 +121,7 @@ const request = (scene: string) => (method: string, input: PreviewInput) => {
     return ok(
       scene.startsWith("session")
         ? sessionSummary(SESSION_FINDINGS, SESSION.id)
-        : pullSummary(scene === "large" || scene === "list-only" ? [] : PULL_FINDINGS)
+        : pullSummary(xgOr(scene))
     );
   }
 
@@ -221,6 +237,12 @@ const setUpOverview = (scene: string) => {
   openSceneTab(scene, key);
 };
 
+const findingsOf = (scene: string) => {
+  if (isXg(scene)) return XG_FINDINGS;
+
+  return scene.startsWith("pull") || scene.startsWith("ov") ? PULL_FINDINGS : [];
+};
+
 export const mountReviewPreview = (root: HTMLElement, hash: string) => {
   const [scene = "", search = ""] = hash.replace(/^#review\//, "").split("?");
   const bench = scene === "bench";
@@ -252,7 +274,11 @@ export const mountReviewPreview = (root: HTMLElement, hash: string) => {
             ]),
           },
         },
-    sessions: { [sessionKey("local", SESSION.id)]: sessionModel() },
+    sessions: {
+      [sessionKey("local", SESSION.id)]: sessionModel(),
+      [sessionKey("studio", REVIEWER_SESSION)]: reviewerSession(),
+      [sessionKey("local", REVIEWER_SESSION)]: reviewerSession(),
+    },
   }));
 
   const connection: Connection = {
@@ -284,9 +310,10 @@ export const mountReviewPreview = (root: HTMLElement, hash: string) => {
   } else {
     const pull = pullOf(scene);
 
+    setUpXg(scene, subjectKey({ kind: "pull", pull }), "rs-88");
     openPull(navigation.actions, pull);
     updateSurface(subjectKey({ kind: "pull", pull }), {
-      findings: scene.startsWith("pull") || scene.startsWith("ov") ? PULL_FINDINGS : [],
+      findings: findingsOf(scene),
       selectedFinding:
         scene === "pull" || scene === "pull-verdict" ? (PULL_FINDINGS[0]?.id ?? null) : null,
     });

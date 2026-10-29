@@ -40,6 +40,9 @@ export interface ContextReadoutProps {
   readonly detail: string;
   /** The Turn the count is as of (the latest). */
   readonly turnNumber: number | null;
+  /** What the trigger shows instead of the label (the composer's ring chip). */
+  readonly children?: ReactNode;
+  readonly triggerClassName?: string;
 }
 
 /**
@@ -85,7 +88,7 @@ const useSessionSpend = (hostKey: string, session: SessionData, asked: number) =
 };
 
 /** The Harness's own `/compact`, when it lists one; queued so it never interrupts a Turn. */
-const useCompact = (hostKey: string, session: SessionData) => {
+export const useCompact = (hostKey: string, session: SessionData) => {
   const listed = hasCapability(useHost(hostKey), "harness.commands");
   const commands = useHarnessCommands(hostKey, session.harness, session.cwd, listed);
 
@@ -242,7 +245,10 @@ export const ContextReadout = (props: ContextReadoutProps) => {
       <HoverCardTrigger asChild>
         <button
           type="button"
-          className="text-caption text-text-subtle hover:text-text-default tabular min-w-0 cursor-default truncate"
+          className={
+            props.triggerClassName ??
+            "text-caption text-text-subtle hover:text-text-default tabular min-w-0 cursor-default truncate"
+          }
           aria-label={`${label}: ${detail}`}
           aria-expanded={open}
           data-testid="session-context"
@@ -257,7 +263,7 @@ export const ContextReadout = (props: ContextReadoutProps) => {
             setOpen(true);
           }}
         >
-          {label}
+          {props.children ?? label}
         </button>
       </HoverCardTrigger>
       <InstrumentHoverCardContent

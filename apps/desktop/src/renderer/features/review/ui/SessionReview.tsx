@@ -58,22 +58,24 @@ export const SessionReview = ({ subject }: { readonly subject: SessionSubject })
     .join(" · ");
 
   return (
-    <section data-testid="session-review" className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <SessionHeader
-        title={session?.title ?? "Agent session"}
-        harness={session?.harness ?? ""}
-        caption={caption}
-        pending={pending}
-        pick={pick}
-        onPick={setPick}
-        actions={
-          <>
-            <CheckoutChip {...slotProps} />
-            <PrimaryAction {...slotProps} />
-          </>
-        }
-      />
+    <section data-testid="session-review" className="flex min-h-0 min-w-0 flex-1 gap-2">
       <ReviewBody
+        header={
+          <SessionHeader
+            title={session?.title ?? "Agent session"}
+            harness={session?.harness ?? ""}
+            caption={caption}
+            pending={pending}
+            pick={pick}
+            onPick={setPick}
+            actions={
+              <>
+                <CheckoutChip {...slotProps} />
+                <PrimaryAction {...slotProps} />
+              </>
+            }
+          />
+        }
         subjectKey={subjectKey(subject)}
         slotProps={slotProps}
         place={

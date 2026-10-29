@@ -57,6 +57,7 @@ import { polarisTools, PREVIEW_NOTICE } from "./polarisScene.ts";
 import { background, waitingSidebar } from "./background.ts";
 import { MODELS, PATCH } from "./fixtureData.ts";
 import { recordBanner } from "../banners.ts";
+import { WORST_SCENES, type WorstScene, worstState } from "./worstScene.ts";
 
 const HOST = "local";
 
@@ -174,6 +175,7 @@ const SCENE_NAMES = [
   "usage-3",
   "no-host",
   "windows",
+  ...WORST_SCENES,
 ] as const;
 
 type Scene = (typeof SCENE_NAMES)[number];
@@ -500,6 +502,9 @@ const previewPlatform = (scene: Scene) => {
  */
 export const mountPreview = (root: HTMLElement, hash: string) => {
   const scene = sceneOf(hash);
+  const worst = WORST_SCENES.find((name) => name === scene);
+
+  if (worst !== undefined) return mountWorst(root, worst);
   // Sidebar-only sessions follow the scenes, so a scene's index still finds its model.
   const models = [...Object.values(SCENES), ...waitingSidebar].map((make) => make());
 
@@ -566,6 +571,36 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
   }
 
   if (isUsage(scene)) navigation.actions.openSettings("usage");
+
+  const commands = createCommandRegistry({ platform: "mac" });
+
+  createRoot(root).render(<App value={{ connection, navigation, commands }} />);
+
+  return connection.setDensity;
+};
+
+/** The break-UI scenes (worstScene.ts): the selected Workspace's first session, or its page. */
+const mountWorst = (root: HTMLElement, scene: WorstScene) => {
+  const { state, hostKey, shown } = worstState(scene);
+  // Navigation follows the Host feed, so the bar's mode is decided once the state arrives.
+  const store = createStore<AppState>(() => initialState);
+
+  const connection: Connection = {
+    store,
+    openSession: () => () => undefined,
+    setDensity: (density) => store.setState({ density }),
+    setAppearance: ({ density, theme }) => store.setState({ density, theme }),
+  };
+
+  const navigation = createNavigation({ app: store, storage: null });
+
+  standInBridge(bridgeFor("session"));
+  store.setState(state);
+
+  if (shown === null) {
+    navigation.actions.selectWorkspace({ hostKey, workspaceId });
+    navigation.actions.startNewSession();
+  } else navigation.actions.selectSession({ hostKey, sessionId: shown });
 
   const commands = createCommandRegistry({ platform: "mac" });
 

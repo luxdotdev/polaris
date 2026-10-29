@@ -1,15 +1,12 @@
 /**
- * Settings → Appearance (DESIGN.md, Settings; Paper S3): theme cards with the
- * real scenes, the choice of dark, density with a live session-row preview, text size, code font,
- * colourblind-safe diffs and Reduce motion. Every change applies at once.
+ * Settings → Appearance (DESIGN.md, Chrome redesign: Settings; Paper X-J): System / Light / Dark,
+ * Moonlit and Midnight as preview cards and a smaller Light card, then plain rows: text size,
+ * density, code font, colourblind-safe diffs and Reduce motion. Every change applies at once.
  */
 import { clientCopy } from "../../../../shared/clientCopy.ts";
 import { isWindows } from "../../../../shared/platform.ts";
 import {
-  CheckIcon,
   ChevronDownIcon,
-  cn,
-  Dither,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuLabel,
@@ -25,12 +22,10 @@ import {
   SegmentedControl,
   type SegmentedOption,
   Switch,
-  Tile,
 } from "@polaris/ui";
 import type {
   CodeFont,
   CodeFontSize,
-  DarkTheme,
   Density,
   MotionSource,
   TextSize,
@@ -38,194 +33,20 @@ import type {
 } from "../../../../shared/api.ts";
 import { sectionInfo } from "../model/sections.ts";
 import { setAppearance, useSettings } from "../store.ts";
-import { Column, Group, Heading, PageHeader, SettingRow, StepSlider } from "./parts.tsx";
+import { Column, Heading, PageHeader, PlainRows, SettingRow, StepSlider } from "./parts.tsx";
+import { DarkThemeCards, LightCard } from "./ThemeCards.tsx";
 
-interface ThemeCard {
-  readonly value: ThemeSource;
-  readonly name: string;
-  readonly hint: string;
-}
-
-const THEMES: ReadonlyArray<ThemeCard> = [
-  { value: "dark", name: "Night", hint: "Dark" },
-  { value: "light", name: "Dawn", hint: "Light" },
-  { value: "system", name: `Match ${clientCopy().os}`, hint: "Auto" },
+const THEMES: ReadonlyArray<SegmentedOption<ThemeSource>> = [
+  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
 ];
 
-/** A scene as its theme draws it (`--scene` in a `data-theme` subtree); a class, as inline url()s resolve against the page. */
-const Scene = ({
-  theme,
-  position,
-}: {
-  readonly theme: "dark" | "light";
-  readonly position: string;
-}) => (
-  <span
-    data-theme={theme}
-    className="pixelated block h-28 flex-1 bg-(image:--scene) bg-cover"
-    style={{ backgroundPosition: position }}
-  />
-);
-
-const ThemePreview = ({ value }: { readonly value: ThemeSource }) => {
-  if (value === "system") {
-    return (
-      <span className="flex">
-        <Scene theme="dark" position="0% 80%" />
-        <Scene theme="light" position="100% 80%" />
-      </span>
-    );
-  }
-
-  return <Scene theme={value} position="50% 80%" />;
-};
-
-const ThemeCards = ({ value }: { readonly value: ThemeSource }) => (
-  <div role="radiogroup" aria-label="Theme" className="flex gap-3">
-    {THEMES.map((card) => {
-      const selected = card.value === value;
-
-      return (
-        <button
-          key={card.value}
-          type="button"
-          role="radio"
-          aria-checked={selected}
-          onClick={() => setAppearance({ theme: card.value })}
-          className={cn(
-            "rounded-card flex flex-1 cursor-default flex-col overflow-clip border bg-[light-dark(var(--color-surface-raised),transparent)] text-left",
-            selected
-              ? "border-text-strong shadow-[0_0_0_3px_light-dark(#0000000a,#ffffff0f)]"
-              : "border-text-strong/10 hover:border-text-strong/20"
-          )}
-        >
-          <ThemePreview value={card.value} />
-          <span className="py-row-x gap-gap flex items-center px-3">
-            <span
-              className={cn(
-                "text-label flex-1",
-                selected ? "text-text-strong" : "text-text-default"
-              )}
-            >
-              {card.name}
-            </span>
-            {selected ? (
-              <CheckIcon size={14} className="text-text-strong" />
-            ) : (
-              <span className="text-caption text-text-subtle">{card.hint}</span>
-            )}
-          </span>
-        </button>
-      );
-    })}
-  </div>
-);
-
-/** DESIGN.md, Chrome redesign: Themes. Moonlit is the default. */
-const DARK_THEMES: ReadonlyArray<SegmentedOption<DarkTheme>> = [
-  { value: "moonlit", label: "Moonlit" },
-  { value: "midnight", label: "Midnight" },
+const DENSITIES: ReadonlyArray<SegmentedOption<Density>> = [
+  { value: "calm", label: "Calm" },
+  { value: "balanced", label: "Balanced" },
+  { value: "compact", label: "Compact" },
 ];
-
-const DarkThemeRow = ({ value }: { readonly value: DarkTheme }) => (
-  <Group label="Dark theme">
-    <SettingRow title="Dark theme" caption="Moonlit is soft charcoal; Midnight is true black">
-      <SegmentedControl
-        aria-label="Dark theme"
-        options={DARK_THEMES}
-        value={value}
-        onValueChange={(darkTheme) => setAppearance({ darkTheme })}
-      />
-    </SettingRow>
-  </Group>
-);
-
-const DENSITIES: ReadonlyArray<Density> = ["calm", "balanced", "compact"];
-
-const DENSITY_NAMES: Readonly<Record<Density, string>> = {
-  calm: "Calm",
-  balanced: "Balanced",
-  compact: "Compact",
-};
-
-/** Two session rows drawn with the density tokens, so they follow the slider live. */
-const DensityPreview = () => (
-  <div aria-hidden className="bg-surface-sunken rounded-row flex flex-1 flex-col gap-0.5 p-1.5">
-    <div className="h-session-row px-row-x rounded-row border-hairline bg-row-selected gap-row-x flex items-center border">
-      <Tile
-        hue="claude"
-        size={28}
-        style={{ width: "var(--spacing-harness-tile)", height: "var(--spacing-harness-tile)" }}
-      >
-        <Dither hue="claude" size={12} />
-      </Tile>
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="text-label text-text-strong truncate">Polaris planning</span>
-        <span className="text-caption text-text-subtle truncate">Writing layout variants…</span>
-      </span>
-      <span className="text-caption text-text-subtle">5h</span>
-    </div>
-    <div className="h-session-row px-row-x gap-row-x flex items-center">
-      <Tile
-        hue="neutral"
-        dormant
-        size={28}
-        style={{ width: "var(--spacing-harness-tile)", height: "var(--spacing-harness-tile)" }}
-      >
-        <span className="border-text-subtle size-1.5 rounded-full border" />
-      </Tile>
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="text-label text-text-default truncate">Glossary first pass</span>
-        <span className="text-caption text-text-subtle truncate">Dormant · resumes on reply</span>
-      </span>
-      <span className="text-caption text-text-subtle">1d</span>
-    </div>
-  </div>
-);
-
-const DensityGroup = ({ value }: { readonly value: Density }) => (
-  <div className="flex flex-col gap-2.5">
-    <Heading
-      aside={
-        <span className="text-caption text-text-subtle">
-          Spacing and row height only; text size is separate
-        </span>
-      }
-    >
-      Density
-    </Heading>
-    <Group label="Density">
-      <div className="p-panel gap-section flex items-center">
-        <div className="flex w-[260px] shrink-0 flex-col gap-2.5">
-          <StepSlider
-            label="Density"
-            values={DENSITIES}
-            value={value}
-            valueText={DENSITY_NAMES[value]}
-            onChange={(density) => setAppearance({ density })}
-          />
-          <div className="flex justify-between">
-            {DENSITIES.map((d) => (
-              <button
-                key={d}
-                type="button"
-                tabIndex={-1}
-                onClick={() => setAppearance({ density: d })}
-                className={cn(
-                  "text-caption cursor-default",
-                  d === value ? "text-text-strong font-medium" : "text-text-subtle"
-                )}
-              >
-                {DENSITY_NAMES[d]}
-              </button>
-            ))}
-          </div>
-        </div>
-        <DensityPreview />
-      </div>
-    </Group>
-  </div>
-);
 
 const TEXT_SIZES: ReadonlyArray<TextSize> = ["small", "default", "large", "larger"];
 
@@ -308,17 +129,39 @@ const MOTION: ReadonlyArray<{ readonly value: MotionSource; readonly name: strin
 export const AppearancePage = () => {
   const appearance = useSettings((s) => s.appearance);
   const info = sectionInfo("appearance");
+  const os = clientCopy().os;
 
   return (
     <Column>
       <PageHeader title={info.title} blurb={info.blurb} />
-      <div className="flex flex-col gap-2.5">
-        <Heading>Theme</Heading>
-        <ThemeCards value={appearance.theme} />
-        <DarkThemeRow value={appearance.darkTheme} />
+      <PlainRows label="Appearance">
+        <SettingRow
+          title="Appearance"
+          caption={`System follows ${os}: light by day, your dark theme at night`}
+        >
+          <SegmentedControl
+            pill
+            aria-label="Appearance"
+            options={THEMES}
+            value={appearance.theme}
+            onValueChange={(theme) => setAppearance({ theme })}
+          />
+        </SettingRow>
+      </PlainRows>
+      <div className="flex flex-col gap-3">
+        <Heading
+          aside={
+            <span className="text-caption text-text-subtle">
+              Used when Appearance is Dark, and by System at night
+            </span>
+          }
+        >
+          Dark theme
+        </Heading>
+        <DarkThemeCards value={appearance.darkTheme} />
+        <LightCard theme={appearance.theme} />
       </div>
-      <DensityGroup value={appearance.density} />
-      <Group label="Text and motion">
+      <PlainRows label="Text, density and motion" ruled>
         <SettingRow title="Text size" caption="Scales every label and message">
           <span className="text-micro text-text-subtle" aria-hidden>
             A
@@ -337,6 +180,15 @@ export const AppearancePage = () => {
           <span className="text-caption text-text-default tabular w-10 text-right">
             {TEXT_PERCENT[appearance.textSize]}
           </span>
+        </SettingRow>
+        <SettingRow title="Density" caption="Spacing and row height only; text size is separate">
+          <SegmentedControl
+            pill
+            aria-label="Density"
+            options={DENSITIES}
+            value={appearance.density}
+            onValueChange={(density) => setAppearance({ density })}
+          />
         </SettingRow>
         <SettingRow title="Code font" caption="Editor, diffs and turn output" htmlFor="code-font">
           <CodeFontMenu font={appearance.codeFont} size={appearance.codeFontSize} />
@@ -362,7 +214,11 @@ export const AppearancePage = () => {
         </SettingRow>
         <SettingRow
           title="Reduce motion"
-          caption="Stills the working dither and drops transitions"
+          caption={
+            appearance.motion === "system"
+              ? "Follows the system · stills the working dither and drops transitions"
+              : "Stills the working dither and drops transitions"
+          }
           htmlFor="reduce-motion"
         >
           <Select
@@ -373,7 +229,7 @@ export const AppearancePage = () => {
               if (motion !== undefined) setAppearance({ motion: motion.value });
             }}
           >
-            <SelectTrigger id="reduce-motion" className="h-tree-row bg-transparent">
+            <SelectTrigger id="reduce-motion" className="h-tree-row rounded-full bg-transparent">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -385,7 +241,7 @@ export const AppearancePage = () => {
             </SelectContent>
           </Select>
         </SettingRow>
-      </Group>
+      </PlainRows>
     </Column>
   );
 };

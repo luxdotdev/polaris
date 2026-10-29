@@ -194,9 +194,9 @@ test("the permission picker offers Plan only on a Host with plan mode", () => {
   expect(modes(["session.plan-mode"])).toEqual([
     "Plan",
     "Supervised",
-    "Auto edits",
+    "Auto-edits",
     "Auto",
     "Full access",
   ]);
-  expect(modes([])).toEqual(["Supervised", "Auto edits", "Auto", "Full access"]);
+  expect(modes([])).toEqual(["Supervised", "Auto-edits", "Auto", "Full access"]);
 });

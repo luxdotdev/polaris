@@ -91,7 +91,7 @@ interface Kit {
   }>;
   readonly Label: ComponentType<{ readonly children?: ReactNode }>;
   readonly Separator: ComponentType;
-  readonly Shortcut: ComponentType<{ readonly children?: ReactNode }>;
+  readonly Shortcut: ComponentType<{ readonly children?: ReactNode; readonly title?: string }>;
   readonly Sub: ComponentType<{ readonly children?: ReactNode }>;
   readonly SubTrigger: ComponentType<{
     readonly children?: ReactNode;
@@ -134,7 +134,7 @@ const Action = ({ kit, entry }: { readonly kit: Kit; readonly entry: MenuAction 
       {...testId(entry.testId)}
     >
       <span className={MENU_LABEL_TEXT}>{entry.label}</span>
-      {trailing === undefined ? null : <kit.Shortcut>{trailing}</kit.Shortcut>}
+      {trailing === undefined ? null : <kit.Shortcut title={trailing}>{trailing}</kit.Shortcut>}
     </kit.Item>
   );
 };

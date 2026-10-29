@@ -5,9 +5,9 @@
  * shows inline, never as a modal.
  */
 import { Badge, Chip, cn, Kbd, PlusIcon } from "@polaris/ui";
-import { Fragment, useMemo } from "react";
+import { Fragment, type RefObject, useLayoutEffect, useMemo, useRef } from "react";
 import type { HostView } from "../../shared/api.ts";
-import { type BarHost, barHosts, shortcutLabel } from "../routes/topBar.ts";
+import { type BarHost, barHosts, edgeFade, revealOffset, shortcutLabel } from "../routes/topBar.ts";
 import {
   acknowledgeUpgrade,
   UpgradeHover,
@@ -39,6 +39,70 @@ const useBar = () => {
     [hosts, models, quiet, hostKey, workspaceId]
   );
 };
+
+/** Room kept between a revealed chip and the bar's edge. */
+const REVEAL_PAD = 16;
+
+/** Scrolls the open chip (`[aria-pressed=true]`) into view in the bar. */
+const reveal = (nav: HTMLElement) => {
+  const open = nav.querySelector<HTMLElement>('[aria-pressed="true"]');
+
+  if (open === null) return;
+  const at = open.getBoundingClientRect().left - nav.getBoundingClientRect().left;
+  const view = { start: nav.scrollLeft, size: nav.clientWidth };
+
+  nav.scrollLeft = revealOffset(
+    view,
+    { start: at + nav.scrollLeft, size: open.offsetWidth },
+    REVEAL_PAD
+  );
+};
+
+/** Marks which edges have chips past them (`data-fade`), for the mask; set directly, no render. */
+const markFade = (nav: HTMLElement) => {
+  nav.dataset["fade"] = edgeFade({
+    offset: nav.scrollLeft,
+    view: nav.clientWidth,
+    content: nav.scrollWidth,
+  });
+};
+
+/**
+ * Reveals the open chip when `key` changes and when the bar is resized (a narrower window),
+ * and keeps the edge fade current on scroll, resize and every render (chips come and go).
+ */
+const useBarScroll = (bar: RefObject<HTMLElement | null>, key: string) => {
+  useLayoutEffect(() => {
+    const nav = bar.current;
+
+    if (nav === null) return;
+    reveal(nav);
+    markFade(nav);
+
+    const observer = new ResizeObserver(() => {
+      reveal(nav);
+      markFade(nav);
+    });
+
+    const onScroll = () => markFade(nav);
+
+    observer.observe(nav);
+    nav.addEventListener("scroll", onScroll, { passive: true });
+
+    return () => {
+      observer.disconnect();
+      nav.removeEventListener("scroll", onScroll);
+    };
+  }, [bar, key]);
+
+  useLayoutEffect(() => {
+    if (bar.current !== null) markFade(bar.current);
+  });
+};
+
+/** A 24px fade on each side with chips past it; still, never animated (DESIGN.md, Chrome redesign). */
+const EDGE_FADE =
+  "data-[fade=start]:[mask-image:linear-gradient(to_right,transparent,black_24px)] data-[fade=end]:[mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)] data-[fade=both]:[mask-image:linear-gradient(to_right,transparent,black_24px,black_calc(100%-24px),transparent)]";
 
 const connected = (host: HostView) => host.status.state === "connected";
 
@@ -117,12 +181,19 @@ const hiddenTitle = (path: string, open: boolean) =>
 const WorkspaceBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
   const selection = useSelection();
   const { selectWorkspace } = useShellActions();
+  const nav = useRef<HTMLElement>(null);
   let index = 0;
+
+  useBarScroll(nav, `${selection.hostKey}:${selection.workspaceId}`);
 
   return (
     <nav
+      ref={nav}
       aria-label="Workspaces"
-      className="flex h-11 shrink-0 [scrollbar-width:none] items-center gap-1 overflow-x-auto px-4 pb-1"
+      className={cn(
+        EDGE_FADE,
+        "flex h-11 shrink-0 [scrollbar-width:none] items-center gap-1 overflow-x-auto px-4 pb-1"
+      )}
     >
       {bar.map((group, groupIndex) => (
         <Fragment key={group.host.key}>
@@ -192,11 +263,18 @@ const MachineCaption = ({ group }: { readonly group: BarHost }) => {
 const MachineBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
   const selection = useSelection();
   const { selectHost, openSettings } = useShellActions();
+  const nav = useRef<HTMLElement>(null);
+
+  useBarScroll(nav, `${selection.hostKey}`);
 
   return (
     <nav
+      ref={nav}
       aria-label="Machines"
-      className="flex h-13 shrink-0 [scrollbar-width:none] items-center gap-1.5 overflow-x-auto px-4 pb-1"
+      className={cn(
+        EDGE_FADE,
+        "flex h-13 shrink-0 [scrollbar-width:none] items-center gap-1.5 overflow-x-auto px-4 pb-1"
+      )}
     >
       {bar.map((group, index) => {
         const selected = group.host.key === selection.hostKey;
@@ -222,8 +300,9 @@ const MachineBar = ({ bar }: { readonly bar: ReadonlyArray<BarHost> }) => {
                 <SummaryGlyph summary={group.summary} />
                 <span className="flex min-w-0 flex-col gap-0.5">
                   <span
+                    title={group.host.label}
                     className={cn(
-                      "text-label",
+                      "text-label max-w-48 truncate",
                       selected ? "text-text-strong" : "text-text-default"
                     )}
                   >

@@ -25,7 +25,7 @@ const MATCH_CURRENT = `color-mix(in srgb, ${v("text-strong")} 26%, transparent)`
 const editorTheme = EditorView.theme({
   "&": {
     height: "100%",
-    backgroundColor: v("bg"),
+    backgroundColor: v("panel"),
     color: v("text-default"),
     fontSize: "var(--code-size, 13px)",
   },
@@ -58,7 +58,7 @@ const editorTheme = EditorView.theme({
   },
   ".cm-activeLine": { backgroundColor: v("fill-hover") },
   ".cm-gutters": {
-    backgroundColor: v("bg"),
+    backgroundColor: v("panel"),
     color: v("text-subtle"),
     border: "none",
     paddingLeft: "6px",
@@ -119,7 +119,7 @@ const editorTheme = EditorView.theme({
     margin: 0,
     border: `1px solid ${v("hairline")}`,
     borderRadius: "var(--radius-control)",
-    backgroundColor: v("bg"),
+    backgroundColor: v("panel"),
     color: v("text-default"),
     fontFamily: "var(--font-mono)",
     fontSize: "12px",

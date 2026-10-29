@@ -1,7 +1,7 @@
 /**
- * Settings (DESIGN.md, Settings): replaces the three zones inside the main
- * window. A 264px sunken nav on the left and one centred 680px column; esc
- * (outside an open menu or dialog) goes back to where the user was.
+ * Settings (DESIGN.md, Settings; Chrome redesign, Paper X-J): replaces the three zones inside the
+ * main window. A 264px nav on the ground, the page in one panel with its centred 680px column,
+ * the horizon behind them; esc (outside an open menu or dialog) goes back to where the user was.
  */
 import {
   AsteriskIcon,
@@ -14,7 +14,9 @@ import {
   GridIcon,
   MicrophoneIcon,
   MobileIcon,
+  Horizon,
   Kbd,
+  Panel,
   PaperclipIcon,
   PixelPolarisIcon,
   PlugIcon,
@@ -93,10 +95,10 @@ const NavItem = ({
     aria-current={selected ? "page" : undefined}
     onClick={onSelect}
     className={cn(
-      "h-row px-row-x rounded-row text-label flex w-full shrink-0 cursor-default items-center gap-2.5",
+      "h-row px-row-x text-label flex w-full shrink-0 cursor-default items-center gap-2.5 rounded-full border",
       selected
-        ? "bg-fill-selected text-text-strong"
-        : "text-text-default hover:bg-fill-hover [&>svg]:text-text-subtle"
+        ? "bg-panel border-hairline text-text-strong"
+        : "text-text-default hover:bg-fill-hover border-transparent [&>svg]:text-text-subtle"
     )}
   >
     {ICONS[section]}
@@ -112,7 +114,7 @@ const SettingsNav = ({ current }: { readonly current: SettingsSection }) => {
   return (
     <nav
       aria-label="Settings"
-      className="border-hairline bg-surface-sunken px-gap flex w-[264px] shrink-0 flex-col overflow-y-auto border-r py-3"
+      className="px-gap flex w-[264px] shrink-0 flex-col overflow-y-auto py-3"
     >
       <div className="px-gap flex flex-col gap-3.5 pt-1 pb-[18px]">
         <button
@@ -149,7 +151,8 @@ const SettingsNav = ({ current }: { readonly current: SettingsSection }) => {
         <PixelPolarisIcon size={16} className="text-starlight" />
         <span className="flex min-w-0 flex-col gap-0.5">
           About Polaris
-          <span className="text-caption text-text-subtle font-regular">
+          {/* On the dawn ridge the second line darkens to keep its contrast (DESIGN.md, the horizon). */}
+          <span className="text-caption font-regular text-[light-dark(#4a4c52,var(--color-text-subtle))]">
             {update?.version ?? version}
             {update?.phase === "ready" ? " · update ready" : ""}
           </span>
@@ -192,20 +195,29 @@ const Page = ({ route }: { readonly route: SettingsRoute }) => {
   }
 };
 
+/** Sunken strips and wells on the old pages take the panel's well, and `bg` is the panel. */
+const PAGE = cn(
+  "min-h-0 flex-1 [scrollbar-gutter:stable_both-edges] overflow-y-auto",
+  "[--color-surface-sunken:var(--color-well)] [--color-bg:var(--color-panel)]"
+);
+
 export const SettingsPage = ({ route }: { readonly route: SettingsRoute }) => {
   const { closeSettings } = useShellActions();
 
   useEscapeCloses(closeSettings);
 
   return (
-    <main className="flex min-h-0 min-w-0 flex-1" data-testid="settings">
+    <main
+      className="relative isolate flex min-h-0 min-w-0 flex-1 gap-2 pr-2"
+      data-testid="settings"
+    >
       <SettingsNav current={route.section} />
-      <div
-        className="bg-bg min-w-0 flex-1 [scrollbar-gutter:stable_both-edges] overflow-y-auto"
-        data-section={route.section}
-      >
-        <Page route={route} />
-      </div>
+      <Panel className="mb-2 min-w-0 flex-1">
+        <div className={PAGE} data-section={route.section}>
+          <Page route={route} />
+        </div>
+      </Panel>
+      <Horizon />
     </main>
   );
 };

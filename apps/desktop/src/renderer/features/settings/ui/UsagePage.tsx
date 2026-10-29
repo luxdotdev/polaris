@@ -1,17 +1,27 @@
 /**
- * Settings → Usage (DESIGN.md, Settings; Paper S2): Plan Limits first, then
- * tokens over 7 / 30 / 90 days, the three figures (tokens, cost, share in Polaris), a
+ * Settings → Usage (DESIGN.md, Settings; Chrome redesign, Paper X-J): two instrument cards. Plan
+ * limits, then tokens over 7 / 30 / 90 days: the three figures (tokens, cost, share in Polaris), a
  * stacked daily chart in Harness hues with a per-day tooltip, and a by-model table where
  * estimated costs carry a "~".
  */
-import { cn, hueVar, SegmentedControl, Switch, Tile, Dither, harnessHue } from "@polaris/ui";
+import {
+  cn,
+  Dither,
+  harnessHue,
+  hueVar,
+  InstrumentCard,
+  KICKER,
+  Kicker,
+  SegmentedControl,
+  Switch,
+  Tile,
+} from "@polaris/ui";
 import { useState } from "react";
 import { useNow } from "../../../shell/useNow.ts";
 import { useRunningHarnesses } from "../../harness/index.ts";
 import { type LimitRow, type LimitWindow, limitRows, METER_CELLS } from "../model/planLimits.ts";
 import { sectionInfo } from "../model/sections.ts";
 import {
-  type Bucket,
   compactTokens,
   costCaption,
   costLabel,
@@ -23,7 +33,7 @@ import {
   usageSummary,
   type UsageSummary,
 } from "../model/usage.ts";
-import { Column, Group, Heading, PageHeader } from "./parts.tsx";
+import { Column, PageHeader } from "./parts.tsx";
 import { UsageByConstellation } from "./UsageByConstellation.tsx";
 import { UsageChart } from "./UsageChart.tsx";
 import { useUsage } from "./useUsage.ts";
@@ -137,6 +147,8 @@ const LimitRowView = ({ row }: { readonly row: LimitRow }) => (
 /** OpenCode reports a limit only when a provider refuses work, so its absence needs saying (Paper S2). */
 const OPENCODE_ASIDE = "OpenCode reports a limit only once you reach it";
 
+const CARD_CAPTION = "text-caption text-text-subtle";
+
 const PlanLimits = ({
   rows,
   harnesses,
@@ -144,41 +156,51 @@ const PlanLimits = ({
   readonly rows: ReadonlyArray<LimitRow>;
   /** Harnesses with Usage in the range. */
   readonly harnesses: ReadonlyArray<string>;
-}) => (
-  <div className="flex flex-col gap-2.5">
-    <Heading
-      aside={
-        harnesses.includes("opencode") && !rows.some((r) => r.harness === "opencode") ? (
-          <span className="text-caption text-text-subtle">{OPENCODE_ASIDE}</span>
-        ) : null
-      }
-    >
-      Plan limits
-    </Heading>
-    {rows.length === 0 ? (
-      <p className="text-caption text-text-subtle">
+}) => {
+  const quietOpenCode =
+    harnesses.includes("opencode") && !rows.some((r) => r.harness === "opencode");
+
+  if (rows.length === 0) {
+    return (
+      <p className={CARD_CAPTION}>
         No plan limits reported yet. A harness reports its limits as it runs.
       </p>
-    ) : (
-      <Group label="Plan limits">
-        {rows.map((row) => (
-          <LimitRowView key={row.harness} row={row} />
-        ))}
-      </Group>
-    )}
-  </div>
-);
+    );
+  }
+
+  return (
+    <InstrumentCard
+      aria-label="Plan limits"
+      className="w-full"
+      header={{
+        title: "Plan limits",
+        control: <span className={CARD_CAPTION}>What's left in each window, counting down</span>,
+      }}
+      wells={[
+        <div key="rows" className="divide-hairline flex flex-col divide-y">
+          {rows.map((row) => (
+            <LimitRowView key={row.harness} row={row} />
+          ))}
+        </div>,
+      ]}
+      footer={{
+        status: rows.map((row) => `${row.name} ${row.fresh}`).join(" · "),
+        action: quietOpenCode ? <span className={CARD_CAPTION}>{OPENCODE_ASIDE}</span> : undefined,
+      }}
+    />
+  );
+};
 
 const Figure = ({ value, caption }: { readonly value: string; readonly caption: string }) => (
-  <div className="flex flex-col gap-0.5">
+  <div className="flex flex-col gap-1">
     <span className="text-display text-text-strong tabular font-medium">{value}</span>
-    <span className="text-caption text-text-subtle">{caption}</span>
+    <Kicker>{caption}</Kicker>
   </div>
 );
 
 const ModelTable = ({ summary }: { readonly summary: UsageSummary }) => (
-  <Group label="By model">
-    <div className="bg-surface-sunken h-row px-panel text-caption text-text-subtle flex shrink-0 items-center">
+  <section aria-label="By model" className="divide-hairline flex flex-col divide-y">
+    <div className={cn(KICKER, "h-row px-panel flex shrink-0 items-center")}>
       <span className="flex-1">Model</span>
       <span className="w-[120px] shrink-0">Harness</span>
       <span className="w-[90px] shrink-0 text-right">Tokens</span>
@@ -186,7 +208,9 @@ const ModelTable = ({ summary }: { readonly summary: UsageSummary }) => (
     </div>
     {summary.byModel.map((row) => (
       <div key={`${row.harness}/${row.model}`} className="px-panel flex h-9 shrink-0 items-center">
-        <span className="text-label text-text-default flex-1 truncate">{row.model}</span>
+        <span className="text-label text-text-default flex-1 truncate" title={row.model}>
+          {row.model}
+        </span>
         <span className="text-caption text-text-subtle flex w-[120px] shrink-0 items-center gap-1.5">
           <span className="size-2 shrink-0" style={{ background: hueVar(row.harness) }} />
           {harnessHue(row.harness).name}
@@ -199,14 +223,13 @@ const ModelTable = ({ summary }: { readonly summary: UsageSummary }) => (
         </span>
       </div>
     ))}
-  </Group>
+  </section>
 );
 
 const RANGE_OPTIONS = RANGES.map((d) => ({ value: String(d), label: `${d} days` }));
 
 const Tokens = ({
   summary,
-  buckets,
   now,
   hostCount,
   indexing,
@@ -214,7 +237,6 @@ const Tokens = ({
   onDays,
 }: {
   readonly summary: UsageSummary;
-  readonly buckets: ReadonlyArray<Bucket>;
   readonly now: number;
   readonly hostCount: number;
   readonly days: RangeDays;
@@ -226,57 +248,70 @@ const Tokens = ({
   // Null until the user flips it: until then it follows `splitByDefault`.
   const [chosen, setSplit] = useState<boolean | null>(null);
   const split = chosen ?? splitByDefault(share);
+  const hosts = `${hostCount} host${hostCount === 1 ? "" : "s"}`;
+  const empty = summary.tokens === 0;
 
-  return (
-    <div className="flex flex-col gap-3.5">
-      <div className="flex items-center gap-2.5">
-        <h2 className="text-heading-sm text-text-strong flex-1 font-medium">Tokens</h2>
-        <label className="text-caption text-text-subtle flex items-center gap-2 pr-1.5">
-          Split by Polaris sessions
-          <Switch checked={split} onCheckedChange={setSplit} />
-        </label>
-        <SegmentedControl
-          variant="well"
-          aria-label="Range"
-          options={RANGE_OPTIONS}
-          value={String(days)}
-          onValueChange={(v) => {
-            const next = RANGES.find((d) => String(d) === v);
+  const range = (
+    <SegmentedControl
+      pill
+      aria-label="Range"
+      options={RANGE_OPTIONS}
+      value={String(days)}
+      onValueChange={(v) => {
+        const next = RANGES.find((d) => String(d) === v);
 
-            if (next !== undefined) onDays(next);
-          }}
-        />
-      </div>
+        if (next !== undefined) onDays(next);
+      }}
+    />
+  );
+
+  const overview = (
+    <div className="p-panel flex flex-col gap-4">
       {indexing ? (
-        <p className="text-caption text-text-subtle" data-testid="usage-indexing" role="status">
+        <p className={CARD_CAPTION} data-testid="usage-indexing" role="status">
           Indexing usage…
         </p>
       ) : null}
-      {summary.tokens === 0 ? (
+      {empty ? (
         indexing ? null : (
-          <p className="text-caption text-text-subtle">
-            No tokens in the last {days} days on{" "}
-            {hostCount === 1 ? "this host" : `${hostCount} hosts`}.
+          <p className={CARD_CAPTION}>
+            No tokens in the last {days} days on {hostCount === 1 ? "this host" : hosts}.
           </p>
         )
       ) : (
         <>
-          <div className="flex gap-10" data-testid="usage-figures">
-            <Figure
-              value={compactTokens(summary.tokens)}
-              caption={`tokens on ${hostCount} host${hostCount === 1 ? "" : "s"}`}
-            />
+          <div className="flex gap-12" data-testid="usage-figures">
+            <Figure value={compactTokens(summary.tokens)} caption={`tokens · ${hosts}`} />
             <Figure value={costLabel(summary.cost)} caption={costCaption(summary.cost)} />
             <Figure value={formatShare(share)} caption="in Polaris sessions" />
           </div>
           <UsageChart summary={summary} split={split} />
-          <ModelTable summary={summary} />
-          <UsageByConstellation buckets={buckets} now={now} estimate={pricedEstimate} />
         </>
       )}
     </div>
   );
+
+  return (
+    <InstrumentCard
+      aria-label="Tokens"
+      className="w-full"
+      header={{ title: "Tokens", control: range }}
+      wells={empty ? [overview] : [overview, <ModelTable key="models" summary={summary} />]}
+      footer={{
+        status: `${hosts} · ${days} days · as of ${clock(now)}`,
+        action: empty ? undefined : (
+          <label className="text-caption text-text-subtle flex items-center gap-2">
+            Split by Polaris sessions
+            <Switch checked={split} onCheckedChange={setSplit} />
+          </label>
+        ),
+      }}
+    />
+  );
 };
+
+const clock = (at: number) =>
+  new Date(at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
 export const UsagePage = () => {
   const [days, setDays] = useState<RangeDays>(30);
@@ -296,13 +331,15 @@ export const UsagePage = () => {
           <PlanLimits rows={limitRows(data.limits, now, running)} harnesses={summary.harnesses} />
           <Tokens
             summary={summary}
-            buckets={data.buckets}
             now={now}
             hostCount={data.hostCount}
             indexing={data.indexing}
             days={days}
             onDays={setDays}
           />
+          {summary.tokens === 0 ? null : (
+            <UsageByConstellation buckets={data.buckets} now={now} estimate={pricedEstimate} />
+          )}
         </>
       )}
     </Column>
