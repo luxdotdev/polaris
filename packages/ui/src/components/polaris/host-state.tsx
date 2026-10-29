@@ -18,6 +18,9 @@ export interface HostStateChipProps extends HTMLAttributes<HTMLElement> {
   readonly onOpen?: () => void;
 }
 
+/** A long Host name truncates; its Connection State after it always shows. */
+const HOST_NAME = "max-w-48 min-w-0 truncate";
+
 /**
  * A Host's label in the workspace bar, carrying its Connection State (Paper 5PM-1). Never a
  * modal: Needs Attention is a chip that opens the inline HostStateCard.
@@ -44,7 +47,9 @@ export function HostStateChip({
         {...props}
       >
         <PixelKeyIcon size={12} className="text-text-strong" />
-        <span className="text-label text-text-strong">{host}</span>
+        <span className={cn("text-label text-text-strong", HOST_NAME)} title={host}>
+          {host}
+        </span>
         <span className="text-caption text-text-default">Needs attention</span>
       </button>
     );
@@ -55,12 +60,14 @@ export function HostStateChip({
       data-slot="host-state-chip"
       data-state={state}
       className={cn(
-        "inline-flex shrink-0 items-center pr-1.5 pl-1 text-caption whitespace-nowrap text-text-subtle",
+        "inline-flex shrink-0 items-center pr-1.5 pl-1 text-caption whitespace-pre text-text-subtle",
         className
       )}
       {...props}
     >
-      {host}
+      <span className={HOST_NAME} title={host}>
+        {host}
+      </span>
       {state === "reconnecting" ? ` · reconnecting${since === undefined ? "" : ` ${since}`}` : null}
       {state === "offline" ? ` · offline${since === undefined ? "" : ` since ${since}`}` : null}
     </span>

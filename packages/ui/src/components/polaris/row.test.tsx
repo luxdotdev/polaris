@@ -62,3 +62,14 @@ describe("Chip asChild", () => {
     expect(link?.querySelector("i")).not.toBeNull();
   });
 });
+
+describe("Row text direction (ENG-499)", () => {
+  test("a right-to-left title and line keep their own direction, so the end is what truncates", () => {
+    const { getByText } = render(
+      <Row variant="session" title="تحقق من سبب فشل اختبارات المتجر" description="Idle · turn 24" />
+    );
+
+    expect(getByText("تحقق من سبب فشل اختبارات المتجر").getAttribute("dir")).toBe("auto");
+    expect(getByText("Idle · turn 24").getAttribute("dir")).toBe("auto");
+  });
+});
