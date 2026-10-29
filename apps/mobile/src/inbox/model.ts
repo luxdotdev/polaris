@@ -20,7 +20,7 @@ export interface Inbox {
   /** The empty state's second line ("4 sessions working on 2 hosts"); null when nothing works. */
   readonly working: string | null;
   readonly hosts: ReadonlyArray<FooterHost>;
-  /** Shown while a Host is away: its rows can't be answered until it's back. */
+  /** A request waits on a Host that is away: it can't be answered until the Host is back. */
   readonly away: boolean;
 }
 
@@ -30,6 +30,10 @@ const stateWord: Record<ConnectionState, string> = {
   "needs-attention": " needs attention",
   offline: " offline",
 };
+
+/** "lucas-mac-studio.tail0.ts.net" → "lucas-mac-studio", so the state word after it stays in view. */
+const shortName = (name: string) =>
+  /^[a-z][\w-]*\./i.test(name) ? (name.split(".")[0] ?? name) : name;
 
 const workingLine = (home: ReturnType<typeof buildHome>, hostCount: number) =>
   home.working === 0
@@ -47,9 +51,9 @@ export const inboxOf = (hosts: ReadonlyArray<HomeHost>): Inbox => {
     working: workingLine(home, Math.max(busyHosts.size, 1)),
     hosts: hosts.map((host) => ({
       hostId: host.hostId,
-      label: `${host.name}${stateWord[host.connection]}`,
+      label: `${shortName(host.name)}${stateWord[host.connection]}`,
       connection: host.connection,
     })),
-    away: hosts.some((host) => host.connection !== "connected"),
+    away: items.some((row) => row.stale),
   };
 };

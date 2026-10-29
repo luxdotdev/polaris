@@ -110,13 +110,21 @@ describe("the inbox", () => {
     const inbox = inboxOf([
       host("Mac Studio", studio),
       { ...host("lucas-rpi", vm), connection: "reconnecting" },
+      { ...host("mac-mini.tail0d828.ts.net", []), connection: "offline" },
+      host("192.168.1.20", []),
     ]);
 
     expect(inbox.hosts.map((footer) => footer.label)).toEqual([
       "Mac Studio",
       "lucas-rpi reconnecting",
+      "mac-mini offline",
+      "192.168.1.20",
     ]);
     expect(inbox.away).toBe(true);
+    expect(
+      inboxOf([host("Mac Studio", studio), { ...host("lucas-rpi", []), connection: "offline" }])
+        .away
+    ).toBe(false);
     expect(inbox.items.find((row) => row.hostName === "lucas-rpi")?.stale).toBe(true);
   });
 });
