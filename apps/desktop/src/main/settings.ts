@@ -12,6 +12,7 @@ import { Option, Schema } from "effect";
 import {
   CodeFont,
   CodeFontSize,
+  DarkTheme,
   Density,
   DiffPalette,
   MotionSource,
@@ -58,6 +59,7 @@ export const Settings = Schema.Struct({
   keepDaemonsUpToDate: Schema.optionalKey(Schema.Boolean),
   daemonUpdates: Schema.optionalKey(Schema.Record(Schema.String, DaemonUpdateResultSchema)),
   theme: Schema.optionalKey(ThemeSource),
+  darkTheme: Schema.optionalKey(DarkTheme),
   density: Schema.optionalKey(Density),
   textSize: Schema.optionalKey(TextSize),
   diffPalette: Schema.optionalKey(DiffPalette),
@@ -122,6 +124,7 @@ export const writeSettings = ({ path, settings }: SettingsWrite) => {
 /** The appearance a settings file asks for, with the defaults filled in. */
 export const appearanceOf = (settings: Settings) => ({
   theme: settings.theme ?? "system",
+  darkTheme: settings.darkTheme ?? "moonlit",
   density: settings.density ?? "calm",
   textSize: settings.textSize ?? "default",
   diffPalette: settings.diffPalette ?? "default",

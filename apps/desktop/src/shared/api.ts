@@ -83,6 +83,7 @@ import type {
   CachedHost,
   CodeFont,
   CodeFontSize,
+  DarkTheme,
   Density,
   DiffPalette,
   MotionSource,
@@ -101,6 +102,7 @@ export type {
   CachedHost,
   CodeFont,
   CodeFontSize,
+  DarkTheme,
   Density,
   DiffPalette,
   MotionSource,
@@ -302,10 +304,12 @@ export type Plain<T> = { readonly [K in keyof T]: T[K] };
 
 /**
  * How the renderer looks, as root attributes: `data-theme` (unset for "system"),
- * `data-density`, `data-text-size`, `data-diff-palette`, `data-reduce-motion`, and the code face.
+ * `data-theme-dark`, `data-density`, `data-text-size`, `data-diff-palette`, `data-reduce-motion`, and the code face.
  */
 export interface Appearance {
   readonly theme: ThemeSource;
+  /** Which dark: Moonlit (the default) or Midnight. */
+  readonly darkTheme: DarkTheme;
   readonly density: Density;
   readonly textSize: TextSize;
   readonly diffPalette: DiffPalette;

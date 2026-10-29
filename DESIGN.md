@@ -10,6 +10,11 @@ colors:
   fill-hover-dark: "#242529"
   row-selected-dark: "#26272C"   # the selected session row: a raised card
   hairline-dark: "#FFFFFF0F"
+  # The chrome's surfaces (Chrome redesign, Themes): Moonlit here; Midnight's are in that section.
+  ground-dark: "#151618"
+  panel-dark: "#1A1B1D"
+  raised-dark: "#26272B"
+  well-dark: "#222327"
   text-strong-dark: "#F4F5F7"
   text-default-dark: "#E3E4E8"
   text-subtle-dark: "#9A9CA4"
@@ -21,7 +26,11 @@ colors:
   fill-selected-light: "#EDEDEF"
   fill-hover-light: "#F4F4F6"
   row-selected-light: "#FFFFFF"  # a white card on the sunken sidebar (see Session rows)
-  hairline-light: "#0000000F"
+  hairline-light: "#00000012"
+  ground-light: "#F1F2F5"
+  panel-light: "#FFFFFF"
+  raised-light: "#FFFFFF"
+  well-light: "#F6F7F9"
   text-strong-light: "#17181A"
   text-default-light: "#333438"
   text-subtle-light: "#66686F"   # 5.0:1 on surface-sunken, 4.8:1 on fill-selected
@@ -336,7 +345,7 @@ The DMG window: the "Installer" page of the Paper file. **I3 is the design** (th
 
 Accepted 2026-10-28, not built. Paper "Chrome exploration": **X-D** (Midnight), **X-D2** (Moonlit), **X-D3** (light) are the Orchestrator; **X-E** holds the composer's states. X-A (Observatory), X-B (Open sky) and X-C (Cabin) are the explored directions. Where this section and an older rule disagree, this section wins once built; until then the older rule describes the shipped app. The aim: the chrome stops reading as a grey IDE and carries the charm of New session and the Stats popover, while the transcript and diffs stay the calmest, most readable things on screen.
 
-- **Themes.** Appearance is System / Light / Dark, plus a choice of dark: **Moonlit** (today's dark, the default: ground `#151618`, panels `#1A1B1D`, wells `#222327`, hairline white 6%) or **Midnight** (as the Mobile App: ground `#000000`, panels `#0A0B0D`, raised `#141518`, wells `#0E0F12`, hairline white 8%). Light: ground `#F1F2F5`, white panels with a 7% hairline and a 1px soft shadow, wells `#F6F7F9`. Each theme has its sky along the window's foot: Moonlit a night with a pixel moon, Midnight a new moon (stars only), light the dawn hills.
+- **Themes.** Appearance is System / Light / Dark, plus a choice of dark: **Moonlit** (today's dark, the default: ground `#151618`, panels `#1A1B1D`, raised `#26272B`, wells `#222327`, hairline white 6%) or **Midnight** (as the Mobile App: ground `#000000`, panels `#0A0B0D`, raised `#141518`, wells `#0E0F12`, hairline white 8%). Light: ground `#F1F2F5`, white panels with a 7% hairline and a 1px soft shadow, wells `#F6F7F9`. In code these are `ground`, `panel`, `raised`, `well` and `hairline` (`shadow-panel` for light's panel edge); `data-theme-dark` on the root picks the dark (`moonlit`, the default, or `midnight`). A well sits one step off the surface it is inset into: in Moonlit `#222327` on panels but `#1A1B1D` inside raised surfaces (popovers, instrument cards; `data-surface="raised"` on their root), Midnight and light keep one well. Each theme has its sky along the window's foot: Moonlit a night with a pixel moon, Midnight a new moon (stars only), light the dawn hills.
 - **Panels on a ground.** The title bar, machine bar and sidebar sit on the ground with no fill; the conversation and Output are panels (`card`-plus radius, 16–18px) with 8px gaps, ending 8px above the window's foot. Supersedes the tonal sunken/bg layering for these three columns.
 - **The horizon.** A two-layer stepped pixel ridge with a faint glow and sparse stars runs the full width of the window **behind** the panels and takes no height of its own: it shows under the sidebar, in the gaps and at the foot. Stars only on bare ground, never behind text. The sidebar footer sits on it; on the dawn ridge its second line is `#4A4C52`. Amends "never behind working surfaces" in Pixel scenes: the horizon is the one scene element in working views, as on the Mobile App.
 - **Celestials** (CONTEXT.md, Celestial) replace the dithered Harness tiles as each Agent Session's mark: preset pixel bodies on a 16 grid, drawn in two or three tones of the Harness hue (never natural colours), shown at 16, 24 or 32px (whole multiples). A planet for a session, a star with rays for a Constellation's Lead, a moon of its parent's for a Subagent; galaxies and nebulae are reserved. Dormant at ~45% (60% on light). They mark session rows, the conversation header, the agent's turns, the model chip and toasts. A Working session animates inside its Celestial (a band drifts, a ring shimmers, a star pulses, at the dither's 12 fps), never with a halo.

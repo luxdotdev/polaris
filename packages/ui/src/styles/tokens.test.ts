@@ -82,9 +82,9 @@ describe("theming", () => {
     );
   });
 
-  test("a themed subtree resets its inherited colours", () => {
+  test("a subtree with a theme or a choice of dark resets its inherited colours", () => {
     expect(theme).toMatch(
-      /\[data-theme\]\s*\{[^}]*background-color: var\(--color-bg\);[^}]*color: var\(--color-text-default\);/
+      /\[data-theme\],\s*\[data-theme-dark\]\s*\{[^}]*background-color: var\(--color-bg\);[^}]*color: var\(--color-text-default\);/
     );
   });
 
@@ -92,6 +92,62 @@ describe("theming", () => {
     expect(theme).toMatch(
       /:focus-visible\s*\{\s*outline: 2px solid var\(--color-starlight\);\s*outline-offset: 2px;/
     );
+  });
+});
+
+/** A theme.css block's `--color-*: light-dark(light, dark)` pairs, by token name. */
+function flavour(selector: string): Map<string, readonly [string, string]> {
+  const block = new RegExp(`${selector}\\s*\\{([^}]*)\\}`).exec(theme)?.[1] ?? "";
+
+  return new Map(
+    [...block.matchAll(/--color-([a-z0-9-]+):\s*light-dark\((#[0-9a-f]+), (#[0-9a-f]+)\);/g)].map(
+      ([, name = "", light = "", dark = ""]) => [name, [light, dark] as const]
+    )
+  );
+}
+
+describe("the choice of dark", () => {
+  const moonlit = flavour(String.raw`\[data-theme-dark="moonlit"\]`);
+  const midnight = flavour(String.raw`\[data-theme="midnight"\],\s*\[data-theme-dark="midnight"\]`);
+
+  test("both flavours set the chrome's surfaces and the hairline", () => {
+    for (const block of [moonlit, midnight]) {
+      expect([...block.keys()].sort()).toEqual(
+        [
+          "bg",
+          "ground",
+          "hairline",
+          "panel",
+          "raised",
+          "surface-raised",
+          "surface-sunken",
+          "well",
+          "well-raised",
+        ].sort()
+      );
+    }
+  });
+
+  test("a raised surface's wells sit one step off it: Moonlit's panel tone, Midnight's one well", () => {
+    expect(theme).toMatch(
+      /\[data-surface="raised"\]\s*\{\s*--color-well: var\(--color-well-raised\);\s*\}/
+    );
+    expect(moonlit.get("well-raised")?.[1]).toBe(moonlit.get("panel")?.[1]);
+    expect(moonlit.get("well-raised")?.[0]).toBe(moonlit.get("well")?.[0]);
+    expect(midnight.get("well-raised")).toEqual(midnight.get("well"));
+  });
+
+  test("Moonlit restores tokens.css exactly, so it can undo Midnight in a subtree", () => {
+    for (const [name, [light, dark]] of moonlit) {
+      expect(tokenValue(name)).toBe(`light-dark(${light}, ${dark})`);
+    }
+  });
+
+  test("Midnight keeps light's arms, so a light theme under it is unchanged", () => {
+    for (const [name, [light, dark]] of midnight) {
+      expect(tokenValue(name)).toStartWith(`light-dark(${light}, `);
+      expect(tokenValue(name)).not.toEndWith(`, ${dark})`);
+    }
   });
 });
 

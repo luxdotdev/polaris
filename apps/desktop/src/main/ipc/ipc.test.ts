@@ -233,6 +233,7 @@ describe("requests", () => {
     expect(exit).toEqual(
       Exit.succeed({
         theme: "dark",
+        darkTheme: "moonlit",
         density: "calm",
         textSize: "default",
         diffPalette: "default",

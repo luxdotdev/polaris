@@ -1,7 +1,7 @@
 /*
  * Theming: dark is the default; light comes from [data-theme="light"] or, when no theme is
  * forced, from the system appearance. Tokens are light-dark() pairs, so only color-scheme flips.
- * Midnight is dark with its own ground, surfaces and hairline (src/tokens/midnight.ts).
+ * The dark is Moonlit or Midnight (data-theme-dark); Midnight also mirrors src/tokens/midnight.ts.
  */
 :root {
   color-scheme: dark;
@@ -23,14 +23,42 @@
 
 [data-theme="midnight"] {
   color-scheme: dark;
-  --color-bg: #000000;
-  --color-surface-sunken: #0a0b0d;
-  --color-surface-raised: #141518;
-  --color-hairline: #ffffff14;
+}
+
+/* The choice of dark: each sets its dark arms and keeps light's, so light themes are unchanged. */
+[data-theme-dark="moonlit"] {
+  --color-bg: light-dark(#fbfbfc, #1a1b1d);
+  --color-surface-sunken: light-dark(#f3f3f5, #151618);
+  --color-surface-raised: light-dark(#ffffff, #222327);
+  --color-hairline: light-dark(#00000012, #ffffff0f);
+  --color-ground: light-dark(#f1f2f5, #151618);
+  --color-panel: light-dark(#ffffff, #1a1b1d);
+  --color-raised: light-dark(#ffffff, #26272b);
+  --color-well: light-dark(#f6f7f9, #222327);
+  --color-well-raised: light-dark(#f6f7f9, #1a1b1d);
+}
+
+[data-theme="midnight"],
+[data-theme-dark="midnight"] {
+  --color-bg: light-dark(#fbfbfc, #000000);
+  --color-surface-sunken: light-dark(#f3f3f5, #0a0b0d);
+  --color-surface-raised: light-dark(#ffffff, #141518);
+  --color-hairline: light-dark(#00000012, #ffffff14);
+  --color-ground: light-dark(#f1f2f5, #000000);
+  --color-panel: light-dark(#ffffff, #0a0b0d);
+  --color-raised: light-dark(#ffffff, #141518);
+  --color-well: light-dark(#f6f7f9, #0e0f12);
+  --color-well-raised: light-dark(#f6f7f9, #0e0f12);
+}
+
+/* Inside a popover or instrument card, bg-well is the well for a raised surface. */
+[data-surface="raised"] {
+  --color-well: var(--color-well-raised);
 }
 
 /* Inherited colours resolve where they are set, so a themed subtree sets them again. */
-[data-theme] {
+[data-theme],
+[data-theme-dark] {
   background-color: var(--color-bg);
   color: var(--color-text-default);
 }

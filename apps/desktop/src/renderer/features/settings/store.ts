@@ -26,6 +26,7 @@ export interface SettingsState {
 
 export const DEFAULT_APPEARANCE: Appearance = {
   theme: "system",
+  darkTheme: "moonlit",
   density: "calm",
   textSize: "default",
   diffPalette: "default",
@@ -55,6 +56,7 @@ export const connectSettings = (api: PolarisApi) => {
     settingsStore.setState({
       appearance: {
         theme: v.theme,
+        darkTheme: v.darkTheme,
         density: v.density,
         textSize: v.textSize,
         diffPalette: v.diffPalette,

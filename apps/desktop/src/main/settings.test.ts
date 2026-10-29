@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { Schema } from "effect";
 import { RequestInputs } from "../shared/contract.ts";
 import { DEFAULT_SESSION_PREFS, isBranchPrefix } from "../shared/sessionPrefs.ts";
-import { readSettings, sessionPrefsOf, type Settings } from "./settings.ts";
+import { appearanceOf, readSettings, sessionPrefsOf, type Settings } from "./settings.ts";
 import { updatePolicy } from "./machines/updateFacts.ts";
 
 test("Daemon update settings and the last result survive an app restart", () => {
@@ -39,6 +39,11 @@ const file = (json: Settings) => {
 
   return path;
 };
+
+test("the dark is Moonlit until Midnight is chosen, and the choice survives a restart", () => {
+  expect(appearanceOf(readSettings(file({}))).darkTheme).toBe("moonlit");
+  expect(appearanceOf(readSettings(file({ darkTheme: "midnight" }))).darkTheme).toBe("midnight");
+});
 
 describe("Settings → Sessions", () => {
   test("a file without them takes the defaults: in place, polaris/, Output and notifications on", () => {

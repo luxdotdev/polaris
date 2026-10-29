@@ -47,14 +47,16 @@ function darkColours(): Map<string, string> {
   return colours;
 }
 
+/** theme.css's Midnight block, each token's dark arm. */
 function midnightOverrides(): Map<string, string> {
-  const block = /\[data-theme="midnight"\]\s*\{([^}]*)\}/.exec(theme)?.[1] ?? "";
+  const block =
+    /\[data-theme="midnight"\],\s*\[data-theme-dark="midnight"\]\s*\{([^}]*)\}/.exec(theme)?.[1] ??
+    "";
 
   return new Map(
-    [...block.matchAll(/--color-([a-z0-9-]+):\s*([^;]+);/g)].map(([, name, value]) => [
-      name ?? "",
-      (value ?? "").trim().toLowerCase(),
-    ])
+    [...block.matchAll(/--color-([a-z0-9-]+):\s*light-dark\(#[0-9a-f]+, (#[0-9a-f]+)\);/g)].map(
+      ([, name, value]) => [name ?? "", (value ?? "").toLowerCase()]
+    )
   );
 }
 
@@ -70,7 +72,7 @@ describe("midnight", () => {
     expect<Record<string, string>>({ ...midnight }).toEqual(expected);
   });
 
-  test("overrides exactly DESIGN.md's ground, surfaces and hairline", () => {
+  test("overrides exactly DESIGN.md's ground, surfaces, wells and hairline", () => {
     const prose =
       /true black ground `(#[0-9A-F]{6})`, surfaces `(#[0-9A-F]{6})` and `(#[0-9A-F]{6})`, hairlines white at (\d+)%/.exec(
         design
@@ -84,11 +86,27 @@ describe("midnight", () => {
       .toString(16)
       .padStart(2, "0");
 
+    const chrome =
+      /\*\*Midnight\*\* \(as the Mobile App: ground `(#[0-9A-F]{6})`, panels `(#[0-9A-F]{6})`, raised `(#[0-9A-F]{6})`, wells `(#[0-9A-F]{6})`, hairline white (\d+)%\)/.exec(
+        design
+      );
+
+    expect(chrome).not.toBeNull();
+
+    const [, chromeGround = "", panel = "", chromeRaised = "", well = "", chromeHairline = ""] =
+      chrome ?? [];
+
+    expect(chromeHairline).toBe(hairline);
     expect(Object.fromEntries(midnightOverrides())).toEqual({
       bg: ground.toLowerCase(),
       "surface-sunken": sunken.toLowerCase(),
       "surface-raised": raised.toLowerCase(),
       hairline: `#ffffff${alpha}`,
+      ground: chromeGround.toLowerCase(),
+      panel: panel.toLowerCase(),
+      raised: chromeRaised.toLowerCase(),
+      well: well.toLowerCase(),
+      "well-raised": well.toLowerCase(),
     });
   });
 

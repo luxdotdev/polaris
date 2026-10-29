@@ -9,6 +9,7 @@ const root = (): AppearanceRoot => ({
 
 const appearance = {
   theme: "system",
+  darkTheme: "moonlit",
   density: "balanced",
   textSize: "default",
   diffPalette: "default",
@@ -29,4 +30,14 @@ test("the root names the Client's OS, so Windows-only styles can key on it", () 
 
     expect(target.dataset.platform).toBe(platform);
   }
+});
+
+test("the choice of dark is always on the root, whatever the theme, so it switches live", () => {
+  const target = root();
+
+  applyAppearance({ ...appearance, darkTheme: "midnight" }, target);
+  expect(target.dataset.themeDark).toBe("midnight");
+
+  applyAppearance({ ...appearance, theme: "light", darkTheme: "moonlit" }, target);
+  expect(target.dataset.themeDark).toBe("moonlit");
 });

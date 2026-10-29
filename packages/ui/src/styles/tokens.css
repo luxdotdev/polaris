@@ -17,7 +17,15 @@
   --color-fill-selected: light-dark(#ededef, #2b2c31);
   --color-fill-hover: light-dark(#f4f4f6, #242529);
   --color-row-selected: light-dark(#ffffff, #26272c);
-  --color-hairline: light-dark(#0000000f, #ffffff0f);
+  --color-hairline: light-dark(#00000012, #ffffff0f);
+  /* The chrome's surfaces: panels on a ground, raised floats, inset wells (DESIGN.md, Themes).
+     Dark arms are Moonlit; theme.css swaps in Midnight under data-theme-dark. */
+  --color-ground: light-dark(#f1f2f5, #151618);
+  --color-panel: light-dark(#ffffff, #1a1b1d);
+  --color-raised: light-dark(#ffffff, #26272b);
+  --color-well: light-dark(#f6f7f9, #222327);
+  /* A well inside a raised surface, one step off it; data-surface="raised" swaps it in. */
+  --color-well-raised: light-dark(#f6f7f9, #1a1b1d);
   /* The flat scrim under a modal (Paper's jump menu, "no blur"). */
   --color-scrim: light-dark(#0a0b0c33, #0a0b0c8c);
   --color-text-strong: light-dark(#17181a, #f4f5f7);
@@ -164,6 +172,9 @@
   --radius-full: 999px;
 
   --shadow-float: 0 8px 24px light-dark(rgb(0 0 0 / 10%), rgb(0 0 0 / 40%));
+  /* A panel on the ground: light's hairline and 1px soft shadow; dark panels sit by tone alone. */
+  --shadow-panel:
+    inset 0 0 0 1px light-dark(#00000012, transparent), 0 1px 2px light-dark(#0000000a, transparent);
 
   --opacity-dimmed: 55%;
 

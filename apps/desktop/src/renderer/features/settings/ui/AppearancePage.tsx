@@ -1,6 +1,6 @@
 /**
  * Settings → Appearance (DESIGN.md, Settings; Paper S3): theme cards with the
- * real scenes, density with a live session-row preview, text size, code font,
+ * real scenes, the choice of dark, density with a live session-row preview, text size, code font,
  * colourblind-safe diffs and Reduce motion. Every change applies at once.
  */
 import { clientCopy } from "../../../../shared/clientCopy.ts";
@@ -22,12 +22,15 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SegmentedControl,
+  type SegmentedOption,
   Switch,
   Tile,
 } from "@polaris/ui";
 import type {
   CodeFont,
   CodeFontSize,
+  DarkTheme,
   Density,
   MotionSource,
   TextSize,
@@ -116,6 +119,25 @@ const ThemeCards = ({ value }: { readonly value: ThemeSource }) => (
       );
     })}
   </div>
+);
+
+/** DESIGN.md, Chrome redesign: Themes. Moonlit is the default. */
+const DARK_THEMES: ReadonlyArray<SegmentedOption<DarkTheme>> = [
+  { value: "moonlit", label: "Moonlit" },
+  { value: "midnight", label: "Midnight" },
+];
+
+const DarkThemeRow = ({ value }: { readonly value: DarkTheme }) => (
+  <Group label="Dark theme">
+    <SettingRow title="Dark theme" caption="Moonlit is soft charcoal; Midnight is true black">
+      <SegmentedControl
+        aria-label="Dark theme"
+        options={DARK_THEMES}
+        value={value}
+        onValueChange={(darkTheme) => setAppearance({ darkTheme })}
+      />
+    </SettingRow>
+  </Group>
 );
 
 const DENSITIES: ReadonlyArray<Density> = ["calm", "balanced", "compact"];
@@ -293,6 +315,7 @@ export const AppearancePage = () => {
       <div className="flex flex-col gap-2.5">
         <Heading>Theme</Heading>
         <ThemeCards value={appearance.theme} />
+        <DarkThemeRow value={appearance.darkTheme} />
       </div>
       <DensityGroup value={appearance.density} />
       <Group label="Text and motion">

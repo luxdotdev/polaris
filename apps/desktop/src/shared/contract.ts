@@ -66,6 +66,11 @@ export const ThemeSource = Schema.Literals(["system", "dark", "light"]);
 
 export type ThemeSource = typeof ThemeSource.Type;
 
+/** `data-theme-dark`: the dark the app uses (DESIGN.md, Chrome redesign: Themes). */
+export const DarkTheme = Schema.Literals(["moonlit", "midnight"]);
+
+export type DarkTheme = typeof DarkTheme.Type;
+
 /** DESIGN.md's density steps; spacing and row heights only. */
 export const Density = Schema.Literals(["calm", "balanced", "compact"]);
 
@@ -99,6 +104,7 @@ export type CodeFontSize = typeof CodeFontSize.Type;
 /** Any subset of the appearance settings, applied over the current ones. */
 export const AppearancePatch = Schema.Struct({
   theme: Schema.optionalKey(ThemeSource),
+  darkTheme: Schema.optionalKey(DarkTheme),
   density: Schema.optionalKey(Density),
   textSize: Schema.optionalKey(TextSize),
   diffPalette: Schema.optionalKey(DiffPalette),
