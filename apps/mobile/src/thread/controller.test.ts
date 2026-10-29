@@ -29,7 +29,12 @@ import {
 import { daemonThreadSource } from "./source.ts";
 import { makeThreadRegistry } from "./threads.ts";
 
-const ALL = new Set(["session.steer", "session.continuity", "review.risk-summary"]);
+const ALL = new Set([
+  "session.steer",
+  "session.continuity",
+  "review.risk-summary",
+  "session.turn-paging",
+]);
 
 /** Waits for the controller's state to satisfy `ok`, or fails naming what it last held. */
 const until = (thread: ThreadController, ok: (state: ThreadState) => boolean) =>
@@ -262,6 +267,49 @@ describe("a steer shows until it lands", () => {
         expect(thread.get().steers).toEqual([]);
         expect(thread.get().text).toBe("also run lint");
       })
+    ));
+});
+
+describe("scrolling back", () => {
+  const history = Array.from({ length: 5 }, (_, index) => turn(index));
+  const indexes = (state: ThreadState) => state.fold?.turns.map((entry) => entry.turn.index);
+
+  test("pages in the Turns before the feed's, keeps them through a fresh Snapshot, then stops", () =>
+    withThread(
+      (host, thread) =>
+        Effect.gen(function* () {
+          yield* host.push(snapshot([{ turn: turn(3) }, { turn: turn(4) }]));
+          yield* until(thread, (s) => s.fold !== null);
+
+          thread.loadOlder();
+          const paged = yield* until(thread, (s) => s.older === "all");
+          expect(indexes(paged)).toEqual([0, 1, 2, 3, 4]);
+
+          // A reconnect's Snapshot holds only the recent Turns again.
+          yield* host.push(snapshot([{ turn: turn(3) }, { turn: turn(4) }]));
+          yield* settle;
+          expect(indexes(thread.get())).toEqual([0, 1, 2, 3, 4]);
+
+          thread.loadOlder();
+          yield* settle;
+          expect(host.pagesAsked).toEqual([3]);
+        }),
+      { history }
+    ));
+
+  test("a Host that can't page to a phone shows what the feed holds, and never asks", () =>
+    withThread(
+      (host, thread) =>
+        Effect.gen(function* () {
+          yield* host.push(snapshot([{ turn: turn(3) }, { turn: turn(4) }]));
+          yield* until(thread, (s) => s.fold !== null);
+
+          thread.loadOlder();
+          yield* until(thread, (s) => s.older === "all");
+          expect(indexes(thread.get())).toEqual([3, 4]);
+          expect(host.pagesAsked).toEqual([]);
+        }),
+      { history, capabilities: new Set(["session.steer"]) }
     ));
 });
 

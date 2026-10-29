@@ -172,6 +172,19 @@ export const applySessionItem = (
     })
   );
 
+/** Older Turns paged in, ahead of those the feed holds; ones it already has are skipped. */
+export const withOlder = (
+  state: SessionFold,
+  older: ReadonlyArray<{ readonly turn: Turn; readonly items: ReadonlyArray<TurnItem> }>
+): SessionFold => {
+  const first = state.turns[0]?.turn.index ?? Number.POSITIVE_INFINITY;
+  const before = older.filter((detail) => detail.turn.index < first);
+
+  return before.length === 0
+    ? state
+    : { ...state, turns: [...before.map((d) => entryOf(d.turn, d.items)), ...state.turns] };
+};
+
 /**
  * The commit a session Risk Summary of every ended Turn is keyed by: the last
  * ended Turn's after-checkpoint, when this feed saw it recorded.

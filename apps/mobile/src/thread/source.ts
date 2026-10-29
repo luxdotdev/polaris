@@ -12,6 +12,7 @@ import {
   Dispatch,
   GetRiskSummary,
   MarkRead,
+  ReadTurns,
   SaveDraft,
   HostStreamItem,
   type Sequence,
@@ -26,6 +27,7 @@ import {
   type RiskSummaryId,
   type SessionId,
   type TurnId,
+  type TurnPage,
   type WorkspaceId,
   RiskSummaryRef,
 } from "@polaris/protocol";
@@ -67,6 +69,12 @@ export interface ThreadSource {
   readonly workspace: (workspaceId: WorkspaceId) => Effect.Effect<Workspace | null, ThreadFailure>;
   /** The Daemon has `session.steer`. */
   readonly canSteer: boolean;
+  /** Up to `limit` Turns before `beforeIndex`; null on a Host that can't page them to a phone. */
+  readonly olderTurns: (
+    sessionId: SessionId,
+    beforeIndex: number,
+    limit: number
+  ) => Effect.Effect<TurnPage | null, ThreadFailure>;
 }
 
 export interface FindingsQuery {
@@ -113,7 +121,8 @@ export const ThreadRpcs = RpcGroup.make(
   MarkRead,
   SaveDraft,
   GetRiskSummary,
-  WatchRiskSummary
+  WatchRiskSummary,
+  ReadTurns
 );
 
 export type ThreadClient = RpcClient.RpcClient<RpcGroup.Rpcs<typeof ThreadRpcs>, RpcClientError>;
@@ -205,6 +214,10 @@ export const daemonThreadSource = (options: DaemonThreadOptions): ThreadSource =
   return {
     workspace,
     canSteer: has("session.steer"),
+    olderTurns: (sessionId, beforeIndex, limit) =>
+      has("session.turn-paging")
+        ? withClient(live, (client) => client["session.turns"]({ sessionId, beforeIndex, limit }))
+        : Effect.succeed(null),
     session: (sessionId) =>
       Stream.unwrap(
         Effect.map(

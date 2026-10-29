@@ -70,8 +70,6 @@ const line = (row: ThreadRow): string => {
   switch (row.kind) {
     case "step":
       return `${row.index} ${row.label}${row.tone === "active" ? " (active)" : ""}${row.last ? " |" : ""}`;
-    case "earlier":
-      return `Turn ${row.number}: ${row.title}`;
     case "run":
       return `run: ${row.summary}${row.open ? " (open)" : ""}${row.last ? " |" : ""}`;
     default:
@@ -83,7 +81,7 @@ const foldOf = (items: ReadonlyArray<SessionStreamItem>) =>
   items.reduce<SessionFold | null>(applySessionItem, null);
 
 describe("thread rows", () => {
-  test("earlier Turns collapse to one row each; the latest shows its prompt, replies and numbered steps", () => {
+  test("every Turn shows its prompt, replies and numbered steps, oldest first", () => {
     const fold = foldOf([
       snapshot([
         {
@@ -106,7 +104,8 @@ describe("thread rows", () => {
     const rows = threadRows(fold?.turns ?? [], new Set());
 
     expect(rows.map(line)).toEqual([
-      "Turn 1: Recorded the Review decision",
+      "prompt: prompt 0",
+      "reply: done",
       "prompt: Prototype the layouts",
       "reply: I'll build four variants.",
       "run: Read 1 file, edited 1 file",
@@ -137,17 +136,7 @@ describe("thread rows", () => {
     ]);
   });
 
-  test("an opened earlier Turn shows its rows under its header", () => {
-    const fold = foldOf([
-      snapshot([{ turn: turn(0), items: [reply("a", "first reply")] }, { turn: turn(1) }]),
-    ]);
-
-    const rows = threadRows(fold?.turns ?? [], new Set([TurnId.make("t-0")]));
-
-    expect(rows.slice(0, 3).map((row) => row.kind)).toEqual(["earlier", "prompt", "reply"]);
-  });
-
-  test("a long transcript stays one row per earlier Turn, and streaming rebuilds only the latest", () => {
+  test("a long transcript: streaming into the latest Turn rebuilds only its rows", () => {
     const turns = Array.from({ length: 1000 }, (_, index) => ({
       turn: turn(index, { status: index === 999 ? "working" : "completed" }),
       items: Array.from({ length: 30 }, (_, n) => edit(`i${index}-${n}`, `f${n}.ts`)),
@@ -156,8 +145,8 @@ describe("thread rows", () => {
     const before = foldOf([snapshot(turns)]);
     const rowsBefore = threadRows(before?.turns ?? [], new Set());
 
-    // 999 collapsed Turns, then the latest's prompt and its 30 edits as one run.
-    expect(rowsBefore.length).toBe(999 + 1 + 1);
+    // Each Turn: its prompt, and its 30 edits as one run.
+    expect(rowsBefore.length).toBe(1000 * 2);
 
     const after = applySessionItem(
       before,
@@ -174,7 +163,7 @@ describe("thread rows", () => {
 
     expect(rowsAfter.at(-1)).toMatchObject({ kind: "reply", text: "Still going" });
     expect(rowsAfter[0]).toBe(rowsBefore[0]);
-    expect(rowsAfter[998]).toBe(rowsBefore[998]);
+    expect(rowsAfter[1997]).toBe(rowsBefore[1997]);
   });
 });
 

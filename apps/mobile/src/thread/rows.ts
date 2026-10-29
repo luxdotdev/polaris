@@ -1,11 +1,10 @@
 /**
- * The thread as flat rows for a virtualized list (M4): each earlier Turn is
- * one collapsed row until opened, the latest Turn shows its prompt, replies
- * and numbered tool steps; finished calls in a row fold into a run until opened
+ * The thread as flat rows for a virtualized list (M4): every Turn in order, its prompt,
+ * replies and numbered tool steps; finished calls in a row fold into a run until opened
  * (`steps.ts`). A Turn's rows are cached on its entry, so text streaming into the
  * latest Turn rebuilds only that Turn's rows.
  */
-import type { Attachment, TurnItem, TurnStatus } from "@polaris/protocol";
+import type { Attachment, TurnItem } from "@polaris/protocol";
 import type { FollowUp } from "./composer.ts";
 import { Match } from "effect";
 import type { TurnEntry } from "./fold.ts";
@@ -21,13 +20,6 @@ interface RowBase {
 
 export type ThreadRow = RowBase &
   (
-    | {
-        readonly kind: "earlier";
-        /** "Turn 23", one-based like the Desktop App. */
-        readonly number: number;
-        readonly title: string;
-        readonly status: TurnStatus;
-      }
     | {
         readonly kind: "prompt";
         readonly text: string;
@@ -293,21 +285,10 @@ export type StepRow = Extract<ThreadRow, { kind: "step" }>;
 export const turnSteps = (entry: TurnEntry): ReadonlyArray<StepRow> =>
   openRows(entry, () => true).filter((row): row is StepRow => row.kind === "step");
 
-const earlierRow = (entry: TurnEntry): ThreadRow => ({
-  kind: "earlier",
-  key: `${entry.turn.id}:e`,
-  turnId: entry.turn.id,
-  number: entry.turn.userTurnNumber ?? entry.turn.index + 1,
-  title: firstLine(entry.turn.replyPreview ?? entry.turn.prompt) || "No reply",
-  status: entry.turn.status,
-});
-
 const opened = new WeakMap<
   TurnEntry,
   { readonly runs: string; readonly rows: ReadonlyArray<ThreadRow> }
 >();
-
-const collapsed = new WeakMap<TurnEntry, ThreadRow>();
 
 /** Which of the Turn's runs are open, as a cache key. */
 const openRuns = (entry: TurnEntry, expanded: ReadonlySet<string>) => {
@@ -327,35 +308,11 @@ const cachedOpen = (entry: TurnEntry, expanded: ReadonlySet<string>) => {
   return rows;
 };
 
-const cachedEarlier = (entry: TurnEntry) => {
-  const held = collapsed.get(entry);
-
-  if (held !== undefined) return held;
-  const row = earlierRow(entry);
-  collapsed.set(entry, row);
-
-  return row;
-};
-
-/**
- * Oldest first. Every Turn but the latest is collapsed to one row unless its
- * id is in `expanded`; an opened earlier Turn keeps its collapsed row as a header.
- * A run opens when its row's key is in `expanded`.
- */
+/** Oldest first, every Turn open; a run opens when its row's key is in `expanded`. */
 export const threadRows = (
   turns: ReadonlyArray<TurnEntry>,
   expanded: ReadonlySet<string>
-): ReadonlyArray<ThreadRow> => {
-  const last = turns.length - 1;
-
-  return turns.flatMap((entry, index) => {
-    if (index === last) return cachedOpen(entry, expanded);
-
-    const header = cachedEarlier(entry);
-
-    return expanded.has(entry.turn.id) ? [header, ...cachedOpen(entry, expanded)] : [header];
-  });
-};
+): ReadonlyArray<ThreadRow> => turns.flatMap((entry) => cachedOpen(entry, expanded));
 
 /** Steers, then queued follow-ups, still on their way, oldest first, for the thread's foot. */
 export const outgoingRows = (

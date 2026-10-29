@@ -1,4 +1,4 @@
-/** One row of the thread (M4): a collapsed earlier Turn, a message, a numbered tool step, or a run. */
+/** One row of the thread (M4): a message, a numbered tool step, or a run of them. */
 import type { Attachment } from "@polaris/protocol";
 import { midnight, mobileType } from "@polaris/ui/tokens";
 import { memo } from "react";
@@ -9,32 +9,6 @@ import type { ThreadRow } from "./rows.ts";
 
 /** The Critical diamond: an 8pt square turned 45°. */
 export const Diamond = () => <View style={styles.diamond} />;
-
-const Earlier = ({
-  row,
-  open,
-  onToggle,
-}: {
-  readonly row: Extract<ThreadRow, { kind: "earlier" }>;
-  readonly open: boolean;
-  readonly onToggle: (turnId: string) => void;
-}) => (
-  <Pressable
-    style={styles.earlier}
-    onPress={() => onToggle(row.turnId)}
-    accessibilityRole="button"
-    accessibilityState={{ expanded: open }}
-    accessibilityLabel={`Turn ${row.number}, ${row.title}`}
-  >
-    <Text style={styles.turnNumber}>Turn {row.number}</Text>
-    <Text style={styles.turnTitle} numberOfLines={1}>
-      {row.title}
-    </Text>
-    {row.status === "failed" || row.status === "interrupted" ? (
-      <Text style={styles.turnStatus}>{row.status}</Text>
-    ) : null}
-  </Pressable>
-);
 
 /** Finished calls folded into one line (DESIGN.md, Tool runs): a faint check, the summary, a chevron. */
 const Run = ({
@@ -112,10 +86,9 @@ const Step = ({
 
 export interface RowProps {
   readonly row: ThreadRow;
-  readonly open: boolean;
   /** Paths an open Critical finding is in. */
   readonly criticalPaths: ReadonlySet<string>;
-  /** Opens or folds an earlier Turn (by its id) or a run (by its key). */
+  /** Opens or folds a run, by its key. */
   readonly onToggle: (key: string) => void;
   /** Makes step rows pressable; the iPhone Duo's second half follows them. */
   readonly onFocus?: ((focus: ThreadFocus) => void) | undefined;
@@ -158,7 +131,6 @@ const Bubble = ({
 
 const RowView = ({
   row,
-  open,
   criticalPaths,
   onToggle,
   onFocus,
@@ -167,8 +139,6 @@ const RowView = ({
   hostId,
 }: RowProps) => {
   switch (row.kind) {
-    case "earlier":
-      return <Earlier row={row} open={open} onToggle={onToggle} />;
     case "prompt":
       return <Bubble text={row.text} note={null} hostId={hostId} attachments={row.attachments} />;
     case "steered":
@@ -219,18 +189,6 @@ const styles = StyleSheet.create({
     backgroundColor: midnight.severityCritical,
     transform: [{ rotate: "45deg" }],
   },
-  earlier: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    height: 36,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: midnight.hairline,
-    marginBottom: 12,
-  },
-  turnNumber: { ...mobileType.footnote, color: midnight.textFaint },
-  turnTitle: { ...mobileType.subhead, color: midnight.textSubtle, flex: 1 },
-  turnStatus: { ...mobileType.footnote, color: midnight.failedText },
   promptLine: { alignItems: "flex-end", gap: 4, marginBottom: 12 },
   faded: { opacity: 0.6 },
   note: { ...mobileType.footnote, color: midnight.textSubtle, marginHorizontal: 4 },

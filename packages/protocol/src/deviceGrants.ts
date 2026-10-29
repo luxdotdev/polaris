@@ -60,7 +60,7 @@ export const DEVICE_RPCS = {
   dispatch: "device",
   subscribeHost: "device",
   subscribeSession: "device",
-  "session.turns": "local",
+  "session.turns": "device",
   "session.terminalCommand": "local",
   "harness.models": "device",
   "harness.commands": "local",
