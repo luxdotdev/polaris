@@ -6,6 +6,7 @@ import { midnight } from "@polaris/ui/tokens";
 import { Match } from "effect";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { NavigationProvider, useNavigation } from "./app/navigation.tsx";
@@ -177,21 +178,23 @@ export const App = () => {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style="light" />
-      <HostsProvider>
-        <RelayProvider>
-          <FollowedHostsProvider>
-            <WidgetSync />
-            <CheckAlive />
-            <Push />
-            <NavigationProvider>
-              <Shell />
-            </NavigationProvider>
-          </FollowedHostsProvider>
-        </RelayProvider>
-      </HostsProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={styles.fill}>
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        <HostsProvider>
+          <RelayProvider>
+            <FollowedHostsProvider>
+              <WidgetSync />
+              <CheckAlive />
+              <Push />
+              <NavigationProvider>
+                <Shell />
+              </NavigationProvider>
+            </FollowedHostsProvider>
+          </RelayProvider>
+        </HostsProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 };
 

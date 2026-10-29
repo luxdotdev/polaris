@@ -9,6 +9,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { haptics } from "../../motion";
 import { type MobileColours, useTheme } from "../../theme";
 import { approvalDetail, askLine, quickQuestion } from "../model/lines.ts";
+import { haptics } from "../../motion/index.ts";
 import type { Reply } from "../model/respond.ts";
 
 export interface ApprovalActionsProps {
@@ -29,6 +30,7 @@ const useSend = (onReply: ApprovalActionsProps["onReply"]) => {
   const [sending, setSending] = useState<Sending>({ kind: "idle" });
 
   const send = (reply: Reply) => {
+    if (reply.kind !== "deny") haptics.approve();
     setSending({ kind: "sending" });
     onReply(reply).then(
       () => setSending({ kind: "idle" }),
