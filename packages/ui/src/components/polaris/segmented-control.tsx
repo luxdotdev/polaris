@@ -25,7 +25,8 @@ const PILL_SIZE = {
 
 export interface SegmentedControlProps<Value extends string> {
   readonly options: readonly SegmentedOption<Value>[];
-  readonly value: Value;
+  /** `null` selects nothing; every segment stays focusable and clickable. */
+  readonly value: Value | null;
   readonly onValueChange: (value: Value) => void;
   /**
    * "mode" is the title-bar switch (26px segments); "fill" stretches equal segments (24px);
@@ -64,7 +65,7 @@ export function SegmentedControl<Value extends string>({
   return (
     <ToggleGroup.Root
       type="single"
-      value={value}
+      value={value ?? ""}
       onValueChange={choose}
       aria-label={props["aria-label"]}
       data-slot="segmented-control"
