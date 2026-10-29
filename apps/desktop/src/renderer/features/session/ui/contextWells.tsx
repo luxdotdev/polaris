@@ -105,14 +105,14 @@ const LegendRow = ({
       >
         {rowTokens(segment.tokens)}
       </span>
-      <span className="text-text-subtle tabular w-tree-row shrink-0 text-right font-mono text-[10px] leading-[14px]">
+      <span className="text-text-subtle tabular w-7 shrink-0 text-right font-mono text-[10px] leading-[14px]">
         {rowShare(segment.tokens, window)}
       </span>
     </>
   );
 
   const className = cn(
-    "flex h-5 min-w-0 items-center gap-[7px] rounded-[2px] px-1 text-left",
+    "flex h-5 min-w-0 items-center gap-1.5 rounded-[2px] px-1 text-left",
     focused && "bg-fill-hover"
   );
 
@@ -218,7 +218,7 @@ export const UsageWell = ({ card, kicker, spend, focus, notes }: UsageWellProps)
     </div>
     {card.window === null ? null : <Waffle card={card} focus={focus.focus} />}
     {card.window === null ? null : (
-      <div className="-mx-1 grid grid-cols-2 gap-x-3 gap-y-[3px]" data-testid="context-breakdown">
+      <div className="-mx-1 grid grid-cols-2 gap-x-2 gap-y-[3px]" data-testid="context-breakdown">
         {card.legend.map((segment) => (
           <LegendRow
             key={segment.key}
@@ -326,7 +326,10 @@ export const ContentsWell = ({
           className="w-auto self-start"
           value={tab.key}
           onValueChange={focus.setTab}
-          options={tabs.map((s) => ({ value: s.key, label: s.short }))}
+          options={tabs.map((s) => ({
+            value: s.key,
+            label: <span className="px-2.5 whitespace-nowrap">{s.short}</span>,
+          }))}
         />
       )}
       <ul className="flex flex-col">

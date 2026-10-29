@@ -95,7 +95,7 @@ const HarnessSwitch = ({
         value: o.kind,
         label: (
           <span
-            className="flex items-center gap-1.5 px-2.5"
+            className="flex items-center gap-1.5 px-2.5 whitespace-nowrap"
             title={"status" in o && o.kind !== current ? harnesses.verb(o) : undefined}
             data-testid={`pick-harness-${o.kind}`}
           >
