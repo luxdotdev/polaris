@@ -1,7 +1,7 @@
 /** A task's state as its star draws it (DESIGN.md, Star states). */
 export type StarState = "done" | "working" | "review" | "blocked" | "failed" | "waiting";
 
-/** One task of a constellation as a star: labelled band letter plus wave number ("B3"). */
+/** One task of a constellation as a star, labelled by band letter and its place in the band ("B3"). */
 export interface StarTask {
   readonly id: string;
   readonly label: string;

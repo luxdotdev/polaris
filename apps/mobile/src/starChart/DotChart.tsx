@@ -5,7 +5,7 @@ import { Pressable, Text, View } from "react-native";
 import { CHROME_TEXT_SCALE } from "../theme/textScale.ts";
 import { themedStyles, useTheme } from "../theme/index.ts";
 import { fillOf, WorkingField } from "./glyph.tsx";
-import { DOTS, dotRows, GEOMETRY, taskCode } from "./layout.ts";
+import { DOTS, dotRows, GEOMETRY } from "./layout.ts";
 import type { StarBand, StarTask } from "./types.ts";
 
 const DOT = DOTS.size;
@@ -38,7 +38,7 @@ export const DotChart = ({ tasks, bands, selectedTaskId, onPressTask }: Props) =
               <Pressable
                 key={task.id}
                 accessibilityRole="button"
-                accessibilityLabel={`${taskCode(task, bands)}, ${task.label}, ${task.state}`}
+                accessibilityLabel={`${task.label}, ${task.state}`}
                 accessibilityState={{ selected: task.id === selectedTaskId }}
                 disabled={onPressTask === undefined}
                 hitSlop={HIT}

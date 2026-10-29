@@ -62,8 +62,14 @@ describe("the claim pane", () => {
         ],
         head: "head 4c19e2a · 4 commits",
       },
-      others: [{ id: "C3", label: "C3" }],
+      others: [{ id: "C3", label: "C2" }],
     });
+  });
+
+  test("names a task by the label the phone's sheets use, not its wave", () => {
+    const pane = claimPane(source.constellation, source.projections, taskRows, chart, "C3", NOW);
+
+    expect(pane?.kicker).toBe("Task C2 · wave 3");
   });
 
   test("shows the handed claim a verdict answers, not a later-listed attempt's", () => {

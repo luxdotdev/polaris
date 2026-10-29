@@ -3,7 +3,7 @@ export { StarChart } from "./StarChart.tsx";
 
 export { StarLegend, type StarLegendProps } from "./StarLegend.tsx";
 
-export { COMPRESS_PAST, isCompact, taskCode } from "./layout.ts";
+export { COMPRESS_PAST, isCompact } from "./layout.ts";
 
 export { type StarCounts, starCounts } from "./legend.ts";
 
