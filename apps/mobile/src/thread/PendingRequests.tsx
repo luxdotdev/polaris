@@ -1,13 +1,20 @@
 /**
- * The session's pending requests above the composer: a permission with its
- * whole command and Approve / Always here / Deny, or every question with its
- * options and Send. Home sends long or many-question requests here.
+ * The composer's floating notice strip (Paper MX-E): the oldest open request with "+n" for the
+ * rest, else Working. A permission shows Approve and Deny beside a command that fits one line,
+ * and opens to every line (and Always here) otherwise; questions show their options and Send.
  */
-import type { ApprovalDecision, ApprovalRequest, RequestId } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
-import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import type { ApprovalDecision, ApprovalRequest, HarnessKind, RequestId } from "@polaris/protocol";
+import { mobileType } from "@polaris/ui/tokens";
+import { useEffect, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import Svg, { Path } from "react-native-svg";
+import { harnessHueIn } from "../composer/hue.ts";
+import { noticesOf, type Strip, stripOf, type StripNotice } from "../composer/strip.ts";
+import { Dither } from "../dither/index.ts";
 import { decisionOf } from "../home/model/respond.ts";
+import { haptics } from "../motion";
+import { type MobileColours, useTheme } from "../theme";
+import { elapsed, harnessName } from "./labels.ts";
 import { answered, answersDecision, pick, type Picks, requestCard } from "./requests.ts";
 
 export interface PendingRequestsProps {
@@ -19,65 +26,150 @@ export interface PendingRequestsProps {
   readonly onRespond: (requestId: RequestId, decision: ApprovalDecision) => void;
 }
 
+export interface NoticeStripProps extends PendingRequestsProps {
+  readonly harness: HarnessKind;
+  /** When the Turn in flight started; null when none is working. */
+  readonly workingSince: string | null;
+}
+
 interface CardProps {
   readonly request: ApprovalRequest;
   readonly live: boolean;
   readonly onRespond: (decision: ApprovalDecision) => void;
 }
 
-const Permission = ({ request, live, onRespond }: CardProps) => {
-  const card = requestCard(request);
+const Spark = ({ colour }: { readonly colour: string }) => (
+  <Svg width={12} height={12} viewBox="0 0 12 12">
+    <Path d="M6 0.5 L7.1 4.9 L11.5 6 L7.1 7.1 L6 11.5 L4.9 7.1 L0.5 6 L4.9 4.9 Z" fill={colour} />
+  </Svg>
+);
+
+/** Ticks once a second, only while a Turn is working. */
+const useElapsed = (since: string | null): string | null => {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (since === null) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+
+    return () => clearInterval(timer);
+  }, [since]);
+
+  return since === null ? null : elapsed(now - Date.parse(since));
+};
+
+const Answer = ({
+  label,
+  filled,
+  live,
+  onPress,
+}: {
+  readonly label: string;
+  readonly filled: boolean;
+  readonly live: boolean;
+  readonly onPress: () => void;
+}) => {
+  const { colours } = useTheme();
 
   return (
+    <Pressable
+      accessibilityRole="button"
+      disabled={!live}
+      onPress={onPress}
+      hitSlop={6}
+      style={[styles.answer, filled ? { backgroundColor: colours.textStrong } : null]}
+    >
+      <Text style={[styles.answerLabel, { color: filled ? colours.bg : colours.textSubtle }]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+};
+
+const Permission = ({
+  notice,
+  card,
+  open,
+  onToggle,
+}: {
+  readonly notice: Extract<StripNotice, { kind: "approval" }>;
+  readonly card: CardProps;
+  readonly open: boolean;
+  readonly onToggle: () => void;
+}) => {
+  const { colours } = useTheme();
+  const whole = open || !notice.compact;
+
+  const approve = () => {
+    haptics.approve();
+    card.onRespond(decisionOf({ kind: "approve" }));
+  };
+
+  const buttons = (
     <>
-      <Text style={styles.ask}>{card.kind === "permission" ? card.ask : request.title}</Text>
-      {card.kind === "permission" && card.detail !== null ? (
-        <Text style={styles.command} selectable>
-          {card.detail}
-        </Text>
+      <Answer label="Approve" filled live={card.live} onPress={approve} />
+      {whole ? (
+        <Answer
+          label="Always here"
+          filled={false}
+          live={card.live}
+          onPress={() => card.onRespond(decisionOf({ kind: "always" }))}
+        />
       ) : null}
-      <View style={[styles.buttons, live ? null : styles.waiting]}>
-        <Pressable
-          accessibilityRole="button"
-          disabled={!live}
-          onPress={() => onRespond(decisionOf({ kind: "approve" }))}
-          style={styles.approve}
-        >
-          <Text style={styles.approveLabel}>Approve</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          disabled={!live}
-          onPress={() => onRespond(decisionOf({ kind: "always" }))}
-          hitSlop={10}
-        >
-          <Text style={styles.always}>Always here</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          disabled={!live}
-          onPress={() => onRespond(decisionOf({ kind: "deny" }))}
-          hitSlop={10}
-        >
-          <Text style={styles.deny}>Deny</Text>
-        </Pressable>
-      </View>
+      <Answer
+        label="Deny"
+        filled={false}
+        live={card.live}
+        onPress={() => card.onRespond(decisionOf({ kind: "deny" }))}
+      />
     </>
+  );
+
+  return (
+    <View style={[styles.column, card.live ? null : styles.waiting]}>
+      <View style={styles.row}>
+        <Spark colour={colours.needsYou} />
+        <Pressable
+          style={styles.text}
+          onPress={onToggle}
+          accessibilityRole="button"
+          accessibilityLabel={`${notice.headline}${notice.detail === null ? "" : `: ${notice.detail}`}`}
+          accessibilityHint={whole ? undefined : "Shows the whole request"}
+        >
+          <Text style={[styles.headline, { color: colours.needsYouText }]}>{notice.headline}</Text>
+          {notice.detail === null || whole ? null : (
+            <Text style={[styles.detail, { color: colours.textDefault }]} numberOfLines={1}>
+              {notice.detail}
+            </Text>
+          )}
+        </Pressable>
+        {whole ? null : buttons}
+      </View>
+      {whole && notice.detail !== null ? (
+        <ScrollView style={styles.whole} nestedScrollEnabled>
+          <Text style={[styles.detail, { color: colours.textDefault }]} selectable>
+            {notice.detail}
+          </Text>
+        </ScrollView>
+      ) : null}
+      {whole ? <View style={styles.buttons}>{buttons}</View> : null}
+    </View>
   );
 };
 
 const Questions = ({ request, live, onRespond }: CardProps) => {
+  const { colours } = useTheme();
   const [picks, setPicks] = useState<Picks>([]);
   const card = requestCard(request);
   const questions = card.kind === "questions" ? card.questions : [];
   const ready = live && answered(request, picks);
 
   return (
-    <>
+    <ScrollView style={styles.questions} contentContainerStyle={styles.column} nestedScrollEnabled>
       {questions.map((question, index) => (
         <View key={`${index}:${question.question}`} style={styles.question}>
-          <Text style={styles.questionText}>
-            <Text style={styles.ask}>
+          <Text style={[styles.questionText, { color: colours.textDefault }]}>
+            <Text style={[styles.headline, { color: colours.needsYouText }]}>
               {question.header === "" ? "Asks · " : `${question.header} · `}
             </Text>
             {question.question}
@@ -95,9 +187,19 @@ const Questions = ({ request, live, onRespond }: CardProps) => {
                   onPress={() =>
                     setPicks((held) => pick(held, index, option.label, question.multiSelect))
                   }
-                  style={chosen ? styles.chosen : styles.choice}
+                  style={[
+                    styles.choice,
+                    chosen
+                      ? { backgroundColor: colours.textStrong, borderColor: colours.textStrong }
+                      : { borderColor: colours.hairline },
+                  ]}
                 >
-                  <Text style={chosen ? styles.chosenLabel : styles.choiceLabel}>
+                  <Text
+                    style={[
+                      styles.choiceLabel,
+                      { color: chosen ? colours.bg : colours.textDefault },
+                    ]}
+                  >
                     {option.label}
                   </Text>
                 </Pressable>
@@ -106,95 +208,184 @@ const Questions = ({ request, live, onRespond }: CardProps) => {
           </View>
         </View>
       ))}
-      <Pressable
-        accessibilityRole="button"
-        disabled={!ready}
-        onPress={() => onRespond(answersDecision(request, picks))}
-        style={[styles.approve, ready ? null : styles.waiting]}
-      >
-        <Text style={styles.approveLabel}>Send answers</Text>
-      </Pressable>
-    </>
+      <View style={[styles.buttons, ready ? null : styles.waiting]}>
+        <Answer
+          label="Send answers"
+          filled
+          live={ready}
+          onPress={() => onRespond(answersDecision(request, picks))}
+        />
+      </View>
+    </ScrollView>
   );
 };
 
-export const PendingRequests = ({
-  requests,
-  answering,
-  errors,
-  enabled,
-  onRespond,
-}: PendingRequestsProps) =>
-  requests.length === 0 ? null : (
-    <View style={styles.list}>
-      {requests.map((request) => {
-        const props: CardProps = {
-          request,
-          live: enabled && !answering.includes(request.id),
-          onRespond: (decision) => onRespond(request.id, decision),
-        };
+const Working = ({ harness, since }: { readonly harness: HarnessKind; readonly since: string }) => {
+  const { colours } = useTheme();
+  const time = useElapsed(since);
+  const hue = harnessHueIn(colours, harness);
 
-        const error = errors.get(request.id);
-
-        return (
-          <View key={request.id} style={styles.card}>
-            {request.kind === "question" ? <Questions {...props} /> : <Permission {...props} />}
-            {error === undefined ? null : (
-              <Text style={styles.failed}>Couldn't send. Try again.</Text>
-            )}
-          </View>
-        );
-      })}
+  return (
+    <View style={styles.row} accessibilityLiveRegion="polite">
+      <Dither color={hue} size={14} moving />
+      <Text style={[styles.headline, { color: hue }]}>{harnessName(harness)} is working</Text>
+      <Text style={[styles.time, { color: colours.textFaint }]}>· {time}</Text>
     </View>
   );
+};
+
+const More = ({
+  count,
+  open,
+  onToggle,
+}: {
+  count: number;
+  open: boolean;
+  onToggle: () => void;
+}) => {
+  const { colours } = useTheme();
+
+  return (
+    <Pressable
+      onPress={onToggle}
+      accessibilityRole="button"
+      accessibilityLabel={open ? "Show less" : `${count} more`}
+      hitSlop={8}
+      style={[styles.more, { backgroundColor: colours.fillHover }]}
+    >
+      <Text style={[styles.moreLabel, { color: colours.textSubtle }]}>
+        {open ? "Less" : `+${count}`}
+      </Text>
+    </Pressable>
+  );
+};
+
+const Notice = ({
+  notice,
+  props,
+}: {
+  readonly notice: StripNotice;
+  readonly props: NoticeStripProps;
+}) => {
+  const { colours } = useTheme();
+  const [open, setOpen] = useState(false);
+
+  if (notice.kind === "working")
+    return props.workingSince === null ? null : (
+      <Working harness={props.harness} since={props.workingSince} />
+    );
+  const { request } = notice;
+
+  const card: CardProps = {
+    request,
+    live: props.enabled && !props.answering.includes(request.id),
+    onRespond: (decision) => props.onRespond(request.id, decision),
+  };
+
+  return (
+    <View style={styles.column}>
+      {notice.kind === "question" ? (
+        <Questions {...card} />
+      ) : (
+        <Permission notice={notice} card={card} open={open} onToggle={() => setOpen(!open)} />
+      )}
+      {props.errors.has(request.id) ? (
+        <Text style={[styles.failed, { color: colours.failedText }]}>
+          Couldn't send. Try again.
+        </Text>
+      ) : null}
+    </View>
+  );
+};
+
+const panel = (colours: MobileColours) => ({
+  backgroundColor: colours.raised,
+  borderColor: colours.hairline,
+});
+
+/** Every request when opened, else the strip's one; nothing when there's nothing to know. */
+export const PendingRequests = (props: NoticeStripProps) => {
+  const { colours } = useTheme();
+  const [all, setAll] = useState(false);
+
+  const harness = harnessName(props.harness);
+
+  const strip: Strip | null = stripOf({
+    requests: props.requests,
+    working: props.workingSince !== null,
+    harness,
+  });
+
+  if (strip === null) return null;
+  const shown = all && strip.more > 0 ? noticesOf(props.requests, harness) : [strip.notice];
+
+  return (
+    <View style={[styles.strip, panel(colours)]}>
+      <View style={styles.notices}>
+        {shown.map((notice) => (
+          <Notice
+            key={notice.kind === "working" ? "working" : notice.request.id}
+            notice={notice}
+            props={props}
+          />
+        ))}
+      </View>
+      {strip.more > 0 ? <More count={strip.more} open={all} onToggle={() => setAll(!all)} /> : null}
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
-  list: { gap: 12, marginBottom: 8 },
-  card: {
+  strip: {
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: 8,
-    paddingLeft: 12,
-    borderLeftWidth: 2,
-    borderLeftColor: midnight.needsYouText,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 8,
+    paddingLeft: 14,
+    paddingRight: 8,
   },
-  ask: { ...mobileType.subhead, color: midnight.needsYouText },
-  command: { ...mobileType.command, color: midnight.textDefault },
-  buttons: { flexDirection: "row", alignItems: "center", gap: 18, paddingTop: 2 },
-  waiting: { opacity: 0.55 },
-  approve: {
-    alignSelf: "flex-start",
-    height: 36,
-    paddingHorizontal: 20,
+  notices: { flex: 1, gap: 12 },
+  column: { gap: 8 },
+  row: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 30 },
+  text: { flex: 1, minWidth: 0 },
+  headline: { ...mobileType.footnote, fontSize: 12, lineHeight: 16, fontWeight: "500" },
+  detail: { ...mobileType.index },
+  whole: { maxHeight: 160 },
+  time: { ...mobileType.footnote, fontSize: 12, lineHeight: 16, flex: 1 },
+  buttons: { flexDirection: "row", alignItems: "center", gap: 4 },
+  answer: {
+    height: 30,
+    paddingHorizontal: 12,
     borderRadius: 999,
-    backgroundColor: midnight.textStrong,
     alignItems: "center",
     justifyContent: "center",
   },
-  approveLabel: { ...mobileType.label, color: midnight.bg },
-  always: { ...mobileType.label, color: midnight.textDefault },
-  deny: { ...mobileType.label, color: midnight.textSubtle },
+  answerLabel: { ...mobileType.footnote, lineHeight: 16, fontWeight: "500" },
+  waiting: { opacity: 0.55 },
+  questions: { maxHeight: 260 },
   question: { gap: 6 },
-  questionText: { ...mobileType.callout, color: midnight.textDefault },
+  questionText: { ...mobileType.subhead },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   choice: {
-    minHeight: 34,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 17,
+    minHeight: 32,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: midnight.hairline,
     justifyContent: "center",
     maxWidth: "100%",
   },
-  chosen: {
-    minHeight: 34,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 17,
-    backgroundColor: midnight.textStrong,
+  choiceLabel: { ...mobileType.subhead, fontWeight: "500" },
+  more: {
+    height: 24,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    alignItems: "center",
     justifyContent: "center",
-    maxWidth: "100%",
+    marginTop: 3,
   },
-  choiceLabel: { ...mobileType.subhead, fontWeight: "500", color: midnight.textDefault },
-  chosenLabel: { ...mobileType.subhead, fontWeight: "500", color: midnight.bg },
-  failed: { ...mobileType.footnote, color: midnight.failedText },
+  moreLabel: { ...mobileType.footnote, fontSize: 12, lineHeight: 16 },
+  failed: { ...mobileType.footnote },
 });
