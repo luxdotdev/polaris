@@ -20,6 +20,7 @@ import { age } from "../../../shell/copy.ts";
 import { useInboxUntimed } from "../hooks.ts";
 import { modalOpen } from "../modal.ts";
 import type { WaitingSession } from "../model/inbox.ts";
+import { KIND_WANTS } from "../model/popover.ts";
 import { answerDecision, questionSteps, questionViews } from "../../session/model/question.ts";
 import { approve, deny, respond } from "../respond.ts";
 import { where } from "./Inbox.tsx";
@@ -32,13 +33,6 @@ export interface NeedsYouHoverProps {
   readonly workspaceId?: WorkspaceId;
   readonly children: ReactElement;
 }
-
-const KIND_WANTS = {
-  command: "wants to run a command",
-  "file-change": "wants to change files",
-  tool: "wants to use a tool",
-  question: "has a question",
-} as const;
 
 const Card = ({ item }: { readonly item: WaitingSession }) => {
   const now = useNow(30_000);

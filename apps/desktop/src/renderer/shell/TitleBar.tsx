@@ -2,7 +2,7 @@ import { Button, Kbd, PlusIcon, SearchIcon, SegmentedControl, Wordmark } from "@
 import type { Route } from "../../shared/api.ts";
 import { isWindows } from "../../shared/platform.ts";
 import { useRequestedCount } from "../features/pulls/store.ts";
-import { useNeedsYouCount } from "../features/needs-you/index.ts";
+import { NeedsYouPopover, useNeedsYouCount } from "../features/needs-you/index.ts";
 import { jumpCopy } from "../features/jump/copy.ts";
 import { useSelection, useShellActions } from "./hooks.ts";
 import { preloadEditor } from "../features/editor/preload.ts";
@@ -32,13 +32,15 @@ export const TitleBar = () => {
       label: "Orchestrate",
       badge:
         waiting > 0 ? (
-          <span
-            aria-label={`${waiting} need you`}
-            // Paper 11U-0: 18px, radius 6, 5px sides, the needs-you wash.
-            className="rounded-control bg-needs-you/12 text-micro text-needs-you-text tabular flex h-[18px] min-w-[18px] items-center justify-center px-[5px] font-medium"
-          >
-            {waiting}
-          </span>
+          <NeedsYouPopover>
+            <span
+              aria-label={`${waiting} need you`}
+              // Paper 11U-0: 18px, radius 6, 5px sides, the needs-you wash.
+              className="rounded-control bg-needs-you/12 text-micro text-needs-you-text tabular flex h-[18px] min-w-[18px] items-center justify-center px-[5px] font-medium"
+            >
+              {waiting}
+            </span>
+          </NeedsYouPopover>
         ) : undefined,
     },
     {
