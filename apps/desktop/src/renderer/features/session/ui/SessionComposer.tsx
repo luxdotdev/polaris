@@ -324,13 +324,6 @@ export const SessionComposer = (props: SessionComposerProps) => {
         resetsAt: session.limitResetsAt ?? null,
       })}
       working={working}
-      onRespond={(request, decision) =>
-        void send(
-          hostKey,
-          Commands.RespondToApproval({ sessionId: session.id, requestId: request.id, decision }),
-          "Couldn't answer"
-        )
-      }
       onUnqueue={props.outbox.edit}
       onCompact={compact.can ? compact.compact : null}
       onDismissContext={setContextDismissedAt}

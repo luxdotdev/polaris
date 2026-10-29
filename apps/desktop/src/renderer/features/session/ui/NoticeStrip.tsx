@@ -2,7 +2,7 @@
  * The composer's notice strip (Paper X-E): one notice at a time by priority, the rest behind
  * "+n"; the chevron expands every notice and the queued follow-ups. Nothing to know, no strip.
  */
-import type { ApprovalDecision, ApprovalRequest } from "@polaris/protocol";
+import type { ApprovalRequest } from "@polaris/protocol";
 import {
   Button,
   ChevronDownIcon,
@@ -16,7 +16,6 @@ import {
   WorkingStrip,
 } from "@polaris/ui";
 import { type ReactNode, useState } from "react";
-import { Decisions } from "../../../commands.ts";
 import { capacityReset } from "../../constellation/model/failure.ts";
 import { approvalNotice, type Notice } from "../model/notices.ts";
 
@@ -31,7 +30,6 @@ export interface NoticeStripProps {
         readonly detail?: ReactNode;
       }
     | undefined;
-  readonly onRespond: (request: ApprovalRequest, decision: ApprovalDecision) => void;
   /** A queued follow-up back into the draft. */
   readonly onUnqueue: (id: string) => void;
   /** The Harness's `/compact`, when it lists one. */
@@ -84,33 +82,6 @@ interface RowProps {
   readonly more: ReactNode;
 }
 
-const Decide = ({
-  request,
-  props,
-}: {
-  readonly request: ApprovalRequest;
-  readonly props: NoticeStripProps;
-}) => (
-  <>
-    <Button
-      variant="secondary"
-      size="sm"
-      className="rounded-full"
-      onClick={() => props.onRespond(request, Decisions.Deny({ reason: null }))}
-    >
-      Deny
-    </Button>
-    <Button
-      variant="primary"
-      size="sm"
-      className="rounded-full"
-      onClick={() => props.onRespond(request, Decisions.Allow({ remember: false }))}
-    >
-      Approve
-    </Button>
-  </>
-);
-
 const Approval = ({
   request,
   props,
@@ -133,7 +104,7 @@ const Approval = ({
       </span>
       {view.shown === null ? null : (
         <code
-          title={view.full ?? undefined}
+          title={view.shown}
           className="text-code-inline bg-well text-text-default min-w-0 truncate rounded-[5px] px-1.5 py-0.5 font-mono"
         >
           {view.shown}
@@ -141,11 +112,7 @@ const Approval = ({
       )}
       <span className="flex-1" />
       {more}
-      {view.decide ? (
-        <Decide request={request} props={props} />
-      ) : (
-        <span className="text-caption text-text-subtle shrink-0">Answer above</span>
-      )}
+      <span className="text-caption text-text-subtle shrink-0">Answer above</span>
     </div>
   );
 };

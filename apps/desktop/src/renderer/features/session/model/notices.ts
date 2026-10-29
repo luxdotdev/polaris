@@ -55,26 +55,11 @@ const WANTS: Readonly<Record<ApprovalRequest["kind"], string>> = {
   question: "has a question",
 };
 
-/** Longer than this, a command can't be read whole in the strip. */
-const STRIP_COMMAND_MAX = 60;
-
 /**
- * How the strip shows a request. Approve sits there only for a one-line command short enough
- * to be read whole; anything else is approved from the full card in the conversation.
+ * How the strip announces a request. It never decides one: the strip truncates, so Approve and
+ * Deny stay on the full card in the conversation, where the whole request is shown.
  */
-export const approvalNotice = (request: ApprovalRequest) => {
-  const full = request.kind === "question" ? null : (request.detail ?? request.title);
-
-  const whole =
-    request.kind === "command" &&
-    full !== null &&
-    !full.includes("\n") &&
-    full.length <= STRIP_COMMAND_MAX;
-
-  return {
-    wants: WANTS[request.kind],
-    shown: request.kind === "command" ? full : null,
-    full,
-    decide: whole,
-  };
-};
+export const approvalNotice = (request: ApprovalRequest) => ({
+  wants: WANTS[request.kind],
+  shown: request.kind === "command" ? request.detail : null,
+});

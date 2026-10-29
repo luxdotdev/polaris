@@ -79,12 +79,11 @@ describe("an approval in the strip", () => {
     expect(approvalNotice(asking("tool", null)).wants).toBe("wants to use a tool");
   });
 
-  test("offers Approve only for a one-line command shown whole", () => {
-    expect(approvalNotice(asking("command", "cargo build --release")).decide).toBe(true);
-    expect(approvalNotice(asking("command", "cargo build && \\\n  rm -rf target")).decide).toBe(
-      false
+  test("shows a command's own text, never its title in its place", () => {
+    expect(approvalNotice(asking("command", "cargo build --release")).shown).toBe(
+      "cargo build --release"
     );
-    expect(approvalNotice(asking("command", `echo ${"x".repeat(80)}`)).decide).toBe(false);
-    expect(approvalNotice(asking("file-change", "src/a.ts")).decide).toBe(false);
+    expect(approvalNotice(asking("command", null)).shown).toBeNull();
+    expect(approvalNotice(asking("file-change", "src/a.ts")).shown).toBeNull();
   });
 });
