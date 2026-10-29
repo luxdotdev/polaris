@@ -20,7 +20,7 @@ const ORDER = ["five-hour", "weekly"];
 /** While a session of the Harness runs, values fresher than this read "live". */
 const LIVE_MS = 5 * 60_000;
 
-const windowName = (limit: LimitData) => {
+export const windowName = (limit: LimitData) => {
   const base = WINDOW_NAMES.get(limit.kind) ?? limit.kind;
 
   return limit.scope === null ? base : `${base} (${limit.scope})`;

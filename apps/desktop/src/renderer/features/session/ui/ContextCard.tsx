@@ -1,20 +1,18 @@
 /**
- * The Session context card (Paper "11 · Session context", DESIGN.md Session
- * context): the header's "Context 62%" opens what fills the window, the
- * latest compaction, the session's spend, and "Compact now".
+ * The Session context card (Paper X-F 02, DESIGN.md Session context card, redesigned): the
+ * header's "Context 62%" opens an instrument card of what fills the window, what each category
+ * holds, the prompt cache, the latest compaction and "Compact now".
  */
 import {
   Button,
-  cn,
   type CssVars,
-  DisclosureChevron,
   HoverCard,
-  HoverCardContent,
   HoverCardTrigger,
   harnessHue,
   hueVar,
+  InstrumentHoverCardContent,
 } from "@polaris/ui";
-import { type CSSProperties, type FocusEvent, useEffect, useRef, useState } from "react";
+import { type FocusEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import type { SessionData } from "../../../store/plain.ts";
 import { age } from "../../../shell/copy.ts";
 import { useNow } from "../../../shell/useNow.ts";
@@ -26,16 +24,11 @@ import {
   compactionLine,
   type ContextCard as Card,
   contextCard,
-  rowShare,
-  rowTokens,
-  type Segment,
   sessionSpend,
   type SessionSpend,
-  type Tone,
 } from "../model/context.ts";
-import type { Details } from "../model/contextDetails.ts";
 import { queuedOutgoing } from "../model/outbox.ts";
-import { formatTokens } from "../model/meta.ts";
+import { ContentsWell, UsageWell, useContextFocus } from "./contextWells.tsx";
 import { turnNumber } from "../model/turnGroups.ts";
 import { patchSessionUi, uiKey } from "../state.ts";
 
@@ -48,167 +41,6 @@ export interface ContextReadoutProps {
   /** The Turn the count is as of (the latest). */
   readonly turnNumber: number | null;
 }
-
-const ALPHA: Partial<Record<Tone, number>> = { strong: 100, medium: 60, light: 35 };
-
-const FREE = "bg-[light-dark(#00000014,#ffffff12)]";
-
-const FREE_SWATCH = "bg-[light-dark(#00000014,#ffffff1f)]";
-
-const RESERVE = "border border-[light-dark(#00000029,#ffffff24)]";
-
-const toneStyle = (tone: Tone): CSSProperties | undefined => {
-  const alpha = ALPHA[tone];
-
-  return alpha === undefined
-    ? undefined
-    : { backgroundColor: `color-mix(in srgb, var(--hue) ${alpha}%, transparent)` };
-};
-
-const toneClass = (tone: Tone, swatch = false) => {
-  if (tone === "free") return swatch ? FREE_SWATCH : FREE;
-
-  return tone === "reserve" ? RESERVE : undefined;
-};
-
-const Meter = ({ card, focus }: { readonly card: Card; readonly focus: string | null }) => (
-  <div
-    className="px-panel grid shrink-0 grid-cols-[repeat(25,11px)] gap-0.5 pb-3.5"
-    aria-hidden
-    data-testid="context-meter"
-  >
-    {card.cells.map((cell, i) => (
-      <span
-        // Cells are positional: 1% of the window each.
-        key={i}
-        className={cn(
-          "size-[11px] transition-opacity duration-120 ease-out",
-          toneClass(cell.tone),
-          focus !== null && focus !== cell.key && "opacity-35"
-        )}
-        style={toneStyle(cell.tone)}
-      />
-    ))}
-  </div>
-);
-
-const DetailRows = ({ details }: { readonly details: Details }) => (
-  <ul className="pl-row pr-session-row flex flex-col pb-1" data-testid="context-details">
-    {details.rows.map((d) => (
-      <li key={d.key} className="flex h-[22px] shrink-0 items-center gap-1.5">
-        <span
-          className={cn(
-            "text-caption min-w-0 truncate",
-            d.mono ? "text-text-default font-mono" : "text-text-subtle"
-          )}
-        >
-          {d.label}
-        </span>
-        {d.note === null ? null : (
-          <span className="text-caption text-text-faint shrink-0">{d.note}</span>
-        )}
-        <span className="flex-1" />
-        <span className="text-caption text-text-subtle tabular shrink-0">
-          {rowTokens(d.tokens)}
-        </span>
-      </li>
-    ))}
-    {details.footnote === null ? null : (
-      <li className="flex h-[22px] shrink-0 items-center">
-        <span className="text-caption text-text-faint truncate">{details.footnote.text}</span>
-        <span className="flex-1" />
-        {details.footnote.tokens === null ? null : (
-          <span className="text-caption text-text-faint tabular shrink-0">
-            {rowTokens(details.footnote.tokens)}
-          </span>
-        )}
-      </li>
-    )}
-  </ul>
-);
-
-const labelTone = (quiet: boolean, focused: boolean) => {
-  if (quiet) return "text-text-subtle";
-
-  return focused ? "text-text-strong" : "text-text-default";
-};
-
-const Row = ({
-  segment,
-  window,
-  focused,
-  open,
-  onFocus,
-  onToggle,
-}: {
-  readonly segment: Segment;
-  readonly window: number;
-  readonly focused: boolean;
-  readonly open: boolean;
-  readonly onFocus: (key: string | null) => void;
-  readonly onToggle: (key: string) => void;
-}) => {
-  const quiet = segment.tone === "free" || segment.tone === "reserve";
-  const { details } = segment;
-  const opens = details.rows.length > 0 || details.footnote !== null;
-
-  const line = (
-    <>
-      <span
-        className={cn("size-gap shrink-0", toneClass(segment.tone, true))}
-        style={toneStyle(segment.tone)}
-      />
-      <span className={cn("text-body truncate", labelTone(quiet, focused))}>{segment.label}</span>
-      {details.count === null ? null : (
-        <span className="text-caption text-text-subtle shrink-0">{details.count}</span>
-      )}
-      {opens ? <DisclosureChevron open={open} className="text-text-faint" /> : null}
-      <span className="flex-1" />
-      <span
-        className={cn("text-caption tabular", quiet ? "text-text-subtle" : "text-text-default")}
-      >
-        {rowTokens(segment.tokens)}
-      </span>
-      <span className="text-caption text-text-subtle w-row tabular shrink-0 text-right">
-        {rowShare(segment.tokens, window)}
-      </span>
-    </>
-  );
-
-  const rowClass = cn(
-    "h-tree-row px-gap gap-gap rounded-control flex w-full shrink-0 items-center text-left",
-    focused && "bg-fill-selected"
-  );
-
-  return (
-    <li
-      className="flex flex-col"
-      data-testid="context-row"
-      data-key={segment.key}
-      onPointerEnter={() => onFocus(segment.key)}
-      onPointerLeave={() => onFocus(null)}
-    >
-      {opens ? (
-        <button
-          type="button"
-          aria-expanded={open}
-          className={cn(
-            rowClass,
-            "focus-visible:outline-starlight cursor-default outline-none focus-visible:outline-2"
-          )}
-          onClick={() => onToggle(segment.key)}
-          onFocus={() => onFocus(segment.key)}
-          onBlur={() => onFocus(null)}
-        >
-          {line}
-        </button>
-      ) : (
-        <div className={rowClass}>{line}</div>
-      )}
-      {opens && open ? <DetailRows details={details} /> : null}
-    </li>
-  );
-};
 
 /**
  * The session's Usage since it started, asked again each time `asked` moves (the pointer
@@ -285,10 +117,7 @@ const Compacted = ({
   const when = age(compaction.at, now);
 
   return (
-    <div
-      className="px-panel gap-gap flex shrink-0 items-center pb-3"
-      data-testid="context-compaction"
-    >
+    <div className="gap-gap flex shrink-0 items-center" data-testid="context-compaction">
       <CompactGlyph />
       <span className="text-caption text-text-default min-w-0 truncate">
         {compactionLine(compaction, number)}
@@ -314,105 +143,36 @@ const CompactGlyph = () => (
   </svg>
 );
 
-const Summary = ({ card, caption }: { readonly card: Card; readonly caption: string }) => (
-  <div className="px-panel pt-panel flex shrink-0 flex-col gap-1 pb-3">
-    <div className="flex items-baseline gap-1.5">
-      <span className="text-display text-text-strong tabular font-medium tracking-[-0.01em]">
-        {formatTokens(card.used)}
-      </span>
-      <span className="text-body text-text-subtle">
-        {card.window === null ? "tokens in context" : `of ${formatTokens(card.window)} tokens`}
-      </span>
-      <span className="flex-1" />
-      {card.percent === null ? null : (
-        <span className="text-body text-text-default tabular font-medium">
-          {card.nearlyFull ? `${card.percent}% · nearly full` : `${card.percent}%`}
-        </span>
-      )}
-    </div>
-    <span className="text-caption text-text-subtle truncate">{caption}</span>
-  </div>
+const Notes = ({
+  card,
+  harness,
+  compaction,
+}: {
+  readonly card: Card;
+  readonly harness: string;
+  readonly compaction: ReactNode;
+}) => (
+  <>
+    {compaction}
+    {card.window === null ? (
+      <p className="text-caption text-text-subtle">
+        {harness} hasn't said how large this model's window is, so there's no percentage.
+      </p>
+    ) : null}
+    {card.totalsOnly && card.window !== null ? (
+      <p className="text-caption text-text-subtle">
+        {harness} reports the total only, not what fills it.
+      </p>
+    ) : null}
+    {card.nearlyFull ? (
+      <p className="text-caption text-text-subtle">
+        Compacting summarises earlier turns to make room.
+      </p>
+    ) : null}
+  </>
 );
 
-const Breakdown = ({ card, harness }: { readonly card: Card; readonly harness: string }) => {
-  const [focus, setFocus] = useState<string | null>(null);
-  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
-
-  const toggle = (key: string) =>
-    setOpen((prev) => {
-      const next = new Set(prev);
-
-      if (!next.delete(key)) next.add(key);
-
-      return next;
-    });
-
-  if (card.window === null) return null;
-
-  return (
-    <>
-      <Meter card={card} focus={focus} />
-      <ul
-        className="flex min-h-0 flex-col overflow-y-auto px-2 pb-2.5"
-        data-testid="context-breakdown"
-      >
-        {card.legend.map((segment) => (
-          <Row
-            key={segment.key}
-            segment={segment}
-            window={card.window ?? 1}
-            focused={focus === segment.key}
-            open={open.has(segment.key)}
-            onFocus={setFocus}
-            onToggle={toggle}
-          />
-        ))}
-        {card.totalsOnly ? (
-          <li className="text-caption text-text-subtle px-gap pt-1.5">
-            {harness} reports the total only, not what fills it.
-          </li>
-        ) : null}
-        {card.nearlyFull ? (
-          <li className="text-caption text-text-subtle px-gap pt-1.5">
-            Compacting summarises earlier turns to make room.
-          </li>
-        ) : null}
-      </ul>
-    </>
-  );
-};
-
-const Footer = ({
-  spend,
-  compact,
-}: {
-  readonly spend: SessionSpend | null;
-  readonly compact: (() => void) | null;
-}) => {
-  if (spend === null && compact === null) return null;
-
-  return (
-    <div className="px-panel py-row-pad gap-gap border-hairline flex shrink-0 items-center border-t bg-[light-dark(#f7f7f9,#1e1f22)]">
-      <div className="flex min-w-0 flex-1 flex-col">
-        {spend === null ? null : (
-          <>
-            <span className="text-caption text-text-default truncate">{spend.line}</span>
-            {spend.detail === null ? null : (
-              <span className="text-caption text-text-subtle truncate">{spend.detail}</span>
-            )}
-          </>
-        )}
-      </div>
-      {compact === null ? null : (
-        <Button size="sm" onClick={compact} data-testid="context-compact">
-          Compact now
-        </Button>
-      )}
-    </div>
-  );
-};
-
-const captionOf = (parts: ReadonlyArray<string | null>) =>
+const join = (parts: ReadonlyArray<string | null>) =>
   parts.filter((p): p is string => p !== null && p !== "").join(" · ");
 
 export const ContextReadout = (props: ContextReadoutProps) => {
@@ -443,17 +203,32 @@ export const ContextReadout = (props: ContextReadoutProps) => {
     if (!open) setArmed((n) => n + 1);
   };
 
-  if (usage === null) return null;
-  const card = contextCard(usage);
+  const card = usage === null ? null : contextCard(usage);
+  const focus = useContextFocus(card);
+
+  if (card === null) return null;
   const name = harnessHue(session.harness).name;
-
-  const caption = captionOf([
-    session.model === null ? null : modelLabel(models.models, session.model, null),
-    turnNumber === null ? null : `as of turn ${turnNumber}`,
-    `${name}'s count`,
-  ]);
-
+  const model = session.model === null ? null : modelLabel(models.models, session.model, null);
+  const asOf = turnNumber === null ? null : `as of turn ${turnNumber}`;
+  const full = card.percent === null ? null : `${card.percent}% full`;
   const hue: CssVars = { "--hue": hueVar(session.harness) };
+
+  const usageWell = (
+    <UsageWell
+      key="usage"
+      card={card}
+      kicker={full === null && model === null ? [asOf ?? "", null] : [join([full, model]), asOf]}
+      spend={spend}
+      focus={focus}
+      notes={
+        <Notes
+          card={card}
+          harness={name}
+          compaction={<Compacted hostKey={hostKey} session={session} />}
+        />
+      }
+    />
+  );
 
   return (
     <HoverCard
@@ -485,7 +260,7 @@ export const ContextReadout = (props: ContextReadoutProps) => {
           {label}
         </button>
       </HoverCardTrigger>
-      <HoverCardContent
+      <InstrumentHoverCardContent
         align="end"
         style={hue}
         data-testid="context-card"
@@ -494,30 +269,30 @@ export const ContextReadout = (props: ContextReadoutProps) => {
         onBlur={(event) => {
           if (!within(event)) setOpen(false);
         }}
-        // The breakdown scrolls when open rows outgrow the window.
-        className="flex max-h-[calc(var(--radix-hover-card-content-available-height)-12px)] w-[360px] flex-col outline-none"
-      >
-        <Summary card={card} caption={caption} />
-        <Compacted hostKey={hostKey} session={session} />
-        {card.window === null ? (
-          <p className="text-caption text-text-subtle px-panel pb-3">
-            {name} hasn't said how large this model's window is, so there's no percentage.
-          </p>
-        ) : (
-          <Breakdown card={card} harness={name} />
-        )}
-        <Footer
-          spend={spend}
-          compact={
-            can
-              ? () => {
-                  compact();
-                  setOpen(false);
-                }
-              : null
-          }
-        />
-      </HoverCardContent>
+        className="outline-none"
+        header={{ title: "Context", state: card.nearlyFull ? "nearly full" : undefined }}
+        wells={
+          focus.tab === null
+            ? [usageWell]
+            : [usageWell, <ContentsWell key="contents" card={card} focus={focus} />]
+        }
+        footer={{
+          status: join([name, turnNumber === null ? null : `turn ${turnNumber}`, session.title]),
+          action: can ? (
+            <Button
+              size="sm"
+              className="rounded-full"
+              data-testid="context-compact"
+              onClick={() => {
+                compact();
+                setOpen(false);
+              }}
+            >
+              Compact now
+            </Button>
+          ) : undefined,
+        }}
+      />
     </HoverCard>
   );
 };

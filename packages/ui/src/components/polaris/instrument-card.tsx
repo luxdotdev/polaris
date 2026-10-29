@@ -6,7 +6,9 @@
 import type { ComponentProps, HTMLAttributes, ReactNode } from "react";
 
 import { cn } from "../../lib/cn";
+import { FLOAT_EDGE } from "../../lib/float";
 import { KICKER } from "../../lib/menu";
+import { HoverCardContent } from "../ui/hover-card";
 import { PopoverContent } from "../ui/popover";
 
 export interface KickerProps extends HTMLAttributes<HTMLSpanElement> {
@@ -164,5 +166,36 @@ export function InstrumentPopoverContent({
     >
       <InstrumentLayout {...{ header, hero, heroMaxHeight, wells, footer }} />
     </PopoverContent>
+  );
+}
+
+export type InstrumentHoverCardContentProps = InstrumentSlots &
+  Omit<ComponentProps<typeof HoverCardContent>, "children">;
+
+/** A hover card that is an instrument card (the session context card), sized like the popover. */
+export function InstrumentHoverCardContent({
+  header,
+  hero,
+  heroMaxHeight,
+  wells,
+  footer,
+  className,
+  collisionPadding = FLOAT_EDGE,
+  ...props
+}: InstrumentHoverCardContentProps) {
+  return (
+    <HoverCardContent
+      data-slot="instrument-card"
+      data-surface="raised"
+      collisionPadding={collisionPadding}
+      className={cn(
+        CARD,
+        "bg-raised max-h-(--radix-hover-card-content-available-height) p-0",
+        className
+      )}
+      {...props}
+    >
+      <InstrumentLayout {...{ header, hero, heroMaxHeight, wells, footer }} />
+    </HoverCardContent>
   );
 }

@@ -61,6 +61,17 @@ colors:
   accepted-light: "#646FD8"
   accepted-text-dark: "#8B94EA"   # 6.2:1 on bg-dark; #646FD8 is 3.9:1, glyphs only
   accepted-text-light: "#4C56C2"  # 5.9:1 on bg-light
+  # Session context card only (rule/context-categories): low-chroma, apart from every signal hue; always labelled. Conversation takes the Harness hue.
+  context-system-dark: "#C3A6E6"  # lilac
+  context-system-light: "#8A67C4"
+  context-tools-dark: "#7FB2E5"   # sky
+  context-tools-light: "#3E7EBF"
+  context-mcp-dark: "#5CBDB9"     # teal
+  context-mcp-light: "#238F8A"
+  context-skills-dark: "#E39AC0"  # pink
+  context-skills-light: "#BA5689"
+  context-memory-dark: "#A9C27C"  # moss
+  context-memory-light: "#668833"
   # Severity.
   # Severity. Always a filled badge: shape + label + colour.
   severity-critical: "#E5484D"   # red, diamond
