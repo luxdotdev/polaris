@@ -138,7 +138,7 @@ export const StatusFooter = ({ status, children, note, action }: StatusFooterPro
         {children}
       </View>
       {note === undefined ? null : (
-        <Text style={[styles.status, { color: colours.textFaint }]}>{note}</Text>
+        <Text style={[styles.status, styles.note, { color: colours.textFaint }]}>{note}</Text>
       )}
       {action}
     </View>
@@ -158,7 +158,7 @@ export const StatusItem = ({
   return (
     <View style={styles.item}>
       <View style={[styles.dot, { backgroundColor: color }]} />
-      <Text numberOfLines={1} style={[styles.status, { color: colours.textSubtle }]}>
+      <Text numberOfLines={1} style={[styles.status, styles.label, { color: colours.textSubtle }]}>
         {label}
       </Text>
     </View>
@@ -217,6 +217,8 @@ const styles = StyleSheet.create({
   },
   statusLine: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8, minWidth: 0 },
   status: { ...mobileType.index, fontSize: 11, lineHeight: 14 },
-  item: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 },
+  item: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1, minWidth: 0 },
+  label: { flexShrink: 1 },
+  note: { flexShrink: 0 },
   dot: { width: 6, height: 6, borderRadius: 3 },
 });

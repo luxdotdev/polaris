@@ -136,13 +136,18 @@ const useFollowHeights = (heights: readonly number[], values: Values, mounted: b
   const { visible, index } = values;
   const key = heights.join(",");
   const latest = useRef(heights);
+  const followed = useRef(key);
 
   latest.current = heights;
 
   useEffect(() => {
     const at = index.get();
+    const changed = followed.current !== key;
 
-    if (!mounted || at < 0) return;
+    followed.current = key;
+
+    // Opening sets its own target; only a change of heights moves an open sheet.
+    if (!mounted || !changed || at < 0) return;
 
     const target = latest.current[Math.min(at, latest.current.length - 1)] ?? 0;
 
