@@ -19,6 +19,7 @@ import { gb } from "./card/managed.ts";
 import { completionCard, type CardAction, type CardActionId } from "./card/model.ts";
 import { setHostPreferences, usePrediction, watchManaged } from "./store.ts";
 import { clientCopy } from "../../../../shared/clientCopy.ts";
+import { FIT_COMPLETIONS, useCompletionsFit } from "../ui/useStatusFit.ts";
 
 const message = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause));
 
@@ -43,6 +44,7 @@ export const PredictionStatus = ({ hostKey, path }: PredictionStatusProps) => {
   const [running, setRunning] = useState<{ readonly id: CardActionId } | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [revision, setRevision] = useState(0);
+  const fit = useCompletionsFit();
   const inspection = state.inspections[hostKey];
 
   const offer =
@@ -149,6 +151,8 @@ export const PredictionStatus = ({ hostKey, path }: PredictionStatusProps) => {
           type="button"
           data-testid="prediction-status"
           data-kind={view.kind}
+          data-fit={FIT_COMPLETIONS}
+          data-fit-label={view.label}
           aria-label={`Tab completion: ${view.title}`}
           aria-expanded={open}
           onBlur={(event) => {
@@ -158,14 +162,14 @@ export const PredictionStatus = ({ hostKey, path }: PredictionStatusProps) => {
             setFocusIn(true);
             setOpen(true);
           }}
-          className="text-caption text-text-subtle hover:text-text-default focus-visible:outline-starlight flex min-w-0 cursor-default items-center gap-1.5 truncate rounded-sm focus-visible:outline-2"
+          className="text-caption text-text-subtle hover:text-text-default focus-visible:outline-starlight flex shrink-0 cursor-default items-center gap-1.5 rounded-sm whitespace-nowrap focus-visible:outline-2"
         >
           <PixelPolarisIcon
             aria-hidden
             size={12}
             className={view.kind === "serving" ? "shrink-0" : "shrink-0 opacity-50"}
           />
-          <span className="truncate">{view.label}</span>
+          {fit === "label" ? <span>{view.label}</span> : null}
         </button>
       </HoverCardTrigger>
       <HoverCardContent

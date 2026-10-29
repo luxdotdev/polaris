@@ -1,5 +1,5 @@
 /**
- * The explorer (Paper E1, DESIGN.md Editor): 264px on surface-sunken. The
+ * The explorer (Paper X-I, DESIGN.md Chrome redesign → Editor): 270px on the ground. The
  * Workspace header, Files / Changes, the tree, "Agents in {workspace}", and the
  * jump hint with the Workspace's counts.
  */
@@ -176,7 +176,7 @@ export const Explorer = ({ host, workspace }: ExplorerProps) => {
     <aside
       aria-label="Explorer"
       data-testid="explorer"
-      className="border-hairline bg-surface-sunken flex w-[264px] shrink-0 flex-col border-r"
+      className="flex min-h-0 w-[270px] flex-1 flex-col"
     >
       {/* E1's 12px at calm, stepping with the panel padding (rule/density-through-tokens). */}
       <div className="px-panel pt-panel flex flex-col gap-[calc(var(--spacing-panel)*0.75)] pb-[calc(var(--spacing-panel)*0.75)]">

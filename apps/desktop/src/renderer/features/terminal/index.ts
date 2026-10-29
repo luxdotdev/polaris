@@ -6,6 +6,13 @@
 export { TerminalDock, type TerminalDockProps } from "./ui/TerminalDock.tsx";
 
 export {
+  EditorColumn,
+  TerminalChip,
+  TerminalPanels,
+  type TerminalPanelsProps,
+} from "./ui/TerminalPanels.tsx";
+
+export {
   InTerminalBar,
   OpenInTerminalItem,
   openInTerminalEntry,
