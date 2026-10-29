@@ -9,7 +9,7 @@ import type {
   StatsUsage,
   TaskProjection,
 } from "@polaris/protocol";
-import { shortSha } from "../copy.ts";
+import { shortSha, span } from "../copy.ts";
 
 /** A Usage section's cost in USD, or null when part of it has no price. */
 export type PriceUsage = (usage: StatsUsage) => number | null;
@@ -58,16 +58,8 @@ export interface StatsInput {
 
 const MINUTE = 60_000;
 
-/** "0m", "31m", "1h", "2h 41m". */
-export const duration = (ms: number): string => {
-  const minutes = Math.floor(Math.max(0, ms) / MINUTE);
-
-  if (minutes < 60) return `${minutes}m`;
-  const rest = minutes % 60;
-  const hours = Math.floor(minutes / 60);
-
-  return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
-};
+/** "0m", "31m", "1h", "2h 41m", "9d 4h". */
+export const duration = (ms: number): string => span(Math.floor(Math.max(0, ms) / MINUTE));
 
 const compact = (n: number, unit: number, suffix: string) => {
   const value = n / unit;
@@ -75,14 +67,21 @@ const compact = (n: number, unit: number, suffix: string) => {
   return `${value < 10 ? value.toFixed(1).replace(/\.0$/, "") : Math.round(value)}${suffix}`;
 };
 
-/** "512", "86k", "2.4M". */
+/** "512", "86k", "2.4M", "1.2B". */
 export const tokenCount = (n: number): string => {
+  if (n >= 1_000_000_000) return compact(n, 1_000_000_000, "B");
+
   if (n >= 1_000_000) return compact(n, 1_000_000, "M");
 
   return n >= 1000 ? compact(n, 1000, "k") : String(Math.round(n));
 };
 
-export const usd = (n: number): string => `$${n.toFixed(2)}`;
+/** "$4.82", "$12,345.67": thousands grouped, so a long run's cost still reads at a glance. */
+export const usd = (n: number): string => {
+  const [whole = "0", cents = "00"] = n.toFixed(2).split(".");
+
+  return `$${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}.${cents}`;
+};
 
 const billed = (t: StatsUsage["tokens"]) => t.input + t.cacheRead + t.cacheWrite + t.output;
 
@@ -101,14 +100,28 @@ export const countedTasks = (c: Constellation) => {
   return c.tasks.filter((t) => !t.canceled && !parents.has(t.id));
 };
 
+/** Past this many claims the meter's cells stand for shares, or each would be thinner than a hairline. */
+export const MAX_CELLS = 40;
+
+/** Counts scaled to fit `max` cells in total, each nonzero count keeping at least one. */
+const fitted = (counts: ReadonlyArray<number>, max: number): ReadonlyArray<number> => {
+  const total = counts.reduce((sum, n) => sum + n, 0);
+
+  if (total <= max) return counts;
+
+  return counts.map((n) => (n === 0 ? 0 : Math.max(1, Math.round((n / total) * max))));
+};
+
 const reviewOf = (stats: ConstellationStats, waiting: number): StatsSheetView["review"] => {
   const { acceptedFirstTime: accepted, firstClaimsReviewed: reviewed } = stats.review;
   const sentBack = Math.max(0, reviewed - accepted);
 
+  const [a = 0, s = 0, w = 0] = fitted([accepted, sentBack, waiting], MAX_CELLS);
+
   const cells: Array<ReviewCell> = [
-    ...Array.from({ length: accepted }, () => "accepted" as const),
-    ...Array.from({ length: sentBack }, () => "sent-back" as const),
-    ...Array.from({ length: waiting }, () => "waiting" as const),
+    ...Array.from({ length: a }, () => "accepted" as const),
+    ...Array.from({ length: s }, () => "sent-back" as const),
+    ...Array.from({ length: w }, () => "waiting" as const),
   ];
 
   const parts = [

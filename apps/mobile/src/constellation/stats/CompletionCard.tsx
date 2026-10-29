@@ -108,7 +108,12 @@ export const CompletionCardContent = ({
               <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.label}>
                 {row.label}
               </Text>
-              <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.value}>
+              <Text
+                maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+                numberOfLines={2}
+                ellipsizeMode="middle"
+                style={styles.value}
+              >
                 {row.value}
               </Text>
             </View>

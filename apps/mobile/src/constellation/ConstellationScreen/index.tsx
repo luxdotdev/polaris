@@ -6,7 +6,7 @@
 import { SessionId } from "@polaris/protocol";
 import { mobileType } from "@polaris/ui/tokens";
 import { useEffect, useMemo, useState } from "react";
-import { Text } from "react-native";
+import { Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "../../app/navigation.tsx";
 import { shortHostName } from "../../home/model/format.ts";
@@ -17,14 +17,17 @@ import { themedStyles } from "../../theme/index.ts";
 import { ThreadScreen } from "../../thread/index.ts";
 import { elapsed } from "../copy.ts";
 import { type ConstellationSource, constellationView } from "../model.ts";
+import { CompletionCardContent, reportedPrice, useConstellationStats } from "../stats/index.ts";
 import { useConstellation } from "../useConstellation.ts";
 import { useVerdicts } from "../useVerdicts.ts";
 import { ChartPanel } from "./ChartPanel.tsx";
+import { ClaimNotice } from "./ClaimNotice.tsx";
 import { taskDetail } from "./detail.ts";
 import { type OpenSheet, renderClaimSheet, renderStatsSheet } from "./sheets.tsx";
 import { starChartOf } from "./stars.ts";
 import { TaskSheet } from "./TaskSheet.tsx";
 import { TasksSheet } from "./TasksSheet.tsx";
+import { chipReading, claimNotice, completes } from "./wiring.ts";
 
 /** Re-render elapsed times while the screen is open; nothing runs on the Host for it. */
 const useNow = (everyMs: number) => {
@@ -37,6 +40,15 @@ const useNow = (everyMs: number) => {
   }, [everyMs]);
 
   return now;
+};
+
+/** `value` as of the last tick of `now`: a busy constellation re-reads its stats once a tick. */
+const useThrottled = <T,>(value: T, now: number): T => {
+  const [held, setHeld] = useState(value);
+
+  useEffect(() => setHeld(value), [now]);
+
+  return held;
 };
 
 const awayLine = (status: HostStatus): string | null => {
@@ -69,16 +81,29 @@ export const ChartedThread = ({
   source,
   onBack,
 }: ChartedThreadProps) => {
+  const styles = useStyles();
   const verdicts = useVerdicts(connection, constellationId);
   const navigation = useNavigation();
   const now = useNow(30_000);
   const [opened, setOpened] = useState<ReadonlyMap<string, boolean>>(new Map());
   const [sheet, setSheet] = useState<OpenSheet>(null);
+  const [lastClaim, setLastClaim] = useState<string | null>(null);
   const view = useMemo(() => constellationView(source, now, opened), [source, now, opened]);
   const chart = useMemo(() => starChartOf(source), [source]);
+  const notice = useMemo(() => claimNotice(source, chart, now), [source, chart, now]);
+  const c = source.constellation;
+  const statsRevision = useThrottled(c.revision, now);
+  const stats = useConstellationStats(connection, constellationId, statsRevision);
+  const read = stats.kind === "ready" ? stats.stats : null;
 
   const close = () => setSheet(null);
   const openTask = (taskId: string) => setSheet({ kind: "task", taskId });
+
+  const openClaim = (taskId: string) => {
+    setLastClaim(taskId);
+    setSheet({ kind: "claim", taskId });
+  };
+
   const selected = sheet?.kind === "task" ? sheet.taskId : null;
   const star = chart.tasks.find((t) => t.id === selected) ?? null;
 
@@ -86,7 +111,18 @@ export const ChartedThread = ({
     hostId === connection.hostId ? shortHostName(connection.name) : hostId;
 
   const detail = star === null ? null : taskDetail(source, star, hostName, now);
-  const slot = { sheet, onClose: close, source, connection, verdicts, now };
+
+  const slot = {
+    sheet,
+    onClose: close,
+    source,
+    connection,
+    verdicts,
+    now,
+    chart,
+    stats,
+    lastClaim,
+  };
 
   return (
     <>
@@ -97,12 +133,26 @@ export const ChartedThread = ({
         belowHeader={
           <ChartPanel
             chart={chart}
-            stats={runTime(source, now)}
+            stats={chipReading(runTime(source, now), read, reportedPrice)}
             selectedTaskId={selected}
             onPressTask={openTask}
             onOpenStats={() => setSheet({ kind: "stats" })}
             onViewAll={() => setSheet({ kind: "tasks" })}
           />
+        }
+        aboveComposer={
+          notice === null ? undefined : <ClaimNotice notice={notice} onOpen={openClaim} />
+        }
+        atLatest={
+          completes(c.state) ? (
+            <View style={styles.latest}>
+              <CompletionCardContent
+                source={source}
+                stats={read}
+                onViewAllTasks={() => setSheet({ kind: "tasks" })}
+              />
+            </View>
+          ) : undefined
         }
       />
       <TasksSheet
@@ -126,7 +176,7 @@ export const ChartedThread = ({
             sessionId: SessionId.make(session.sessionId),
           });
         }}
-        onReviewClaim={(taskId) => setSheet({ kind: "claim", taskId })}
+        onReviewClaim={openClaim}
       />
       {renderClaimSheet(slot)}
       {renderStatsSheet(slot)}
@@ -197,4 +247,5 @@ export const ConstellationScreen = ({
 const useStyles = themedStyles((colours) => ({
   screen: { flex: 1, backgroundColor: colours.ground },
   meta: { ...mobileType.footnote, padding: 20, color: colours.textSubtle },
+  latest: { paddingHorizontal: 4, paddingVertical: 8 },
 }));

@@ -5,14 +5,12 @@ import { Pressable, Text, View } from "react-native";
 import { CHROME_TEXT_SCALE } from "../theme/textScale.ts";
 import { themedStyles, useTheme } from "../theme/index.ts";
 import { fillOf, WorkingField } from "./glyph.tsx";
-import { dotRows, GEOMETRY, taskCode } from "./layout.ts";
+import { DOTS, dotRows, GEOMETRY, taskCode } from "./layout.ts";
 import type { StarBand, StarTask } from "./types.ts";
 
-const DOT = 8;
+const DOT = DOTS.size;
 
-/** Dots wrap 7pt apart; the tap target spills into the gap. */
-const DOT_GAP = 7;
-
+/** The tap target spills into the gap between dots. */
 const HIT = { top: 4, bottom: 4, left: 3, right: 3 } as const;
 
 interface Props {
@@ -74,8 +72,8 @@ const Dot = ({ task, selected }: { readonly task: StarTask; readonly selected: b
 };
 
 const useStyles = themedStyles((colours) => ({
-  rows: { gap: 8 },
-  row: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  rows: { gap: DOTS.rowGap },
+  row: { flexDirection: "row", alignItems: "flex-start", gap: DOTS.badgeGap },
   badge: {
     width: GEOMETRY.badge,
     height: GEOMETRY.badge,
@@ -85,7 +83,7 @@ const useStyles = themedStyles((colours) => ({
     backgroundColor: colours.raised,
   },
   letter: { fontFamily: mobileFont.mono, fontSize: 10, lineHeight: 12, color: colours.textSubtle },
-  dots: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: DOT_GAP, paddingTop: 4 },
+  dots: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: DOTS.gap, paddingTop: DOTS.inset },
   dot: { width: DOT, height: DOT, borderRadius: DOT / 2, overflow: "hidden" },
   // White at 30% over the panel (Paper MX-X's #4B4C4F on Midnight), under the dither.
   workingGround: { backgroundColor: `${colours.textDefault}4d` },

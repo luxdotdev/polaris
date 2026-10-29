@@ -9,7 +9,15 @@ import {
   task,
   usage,
 } from "./fixtures.testing.ts";
-import { completionView, duration, reportedPrice, statsSheetView, tokenCount } from "./model.ts";
+import {
+  completionView,
+  duration,
+  MAX_CELLS,
+  reportedPrice,
+  statsSheetView,
+  tokenCount,
+  usd,
+} from "./model.ts";
 
 const sheet = (s = stats(), waitingForYou = 1) =>
   statsSheetView({
@@ -89,6 +97,30 @@ test("durations and token counts read short", () => {
     "2.4M",
     "12M",
   ]);
+});
+
+test("a long run reads in days, billions and grouped dollars", () => {
+  expect([24 * 60 * 60_000, 9 * 24 * 60 * 60_000 + 4 * 60 * 60_000].map(duration)).toEqual([
+    "1d",
+    "9d 4h",
+  ]);
+  expect(tokenCount(1_200_000_000)).toBe("1.2B");
+  expect([4.82, 1234.5, 12_345.67].map(usd)).toEqual(["$4.82", "$1,234.50", "$12,345.67"]);
+});
+
+test("past forty claims the review meter's cells stand for shares, keeping every kind", () => {
+  const { review } = statsSheetView({
+    stats: stats({ review: { accepted: 47, reviewed: 212 } }),
+    constellation: mxAbConstellation,
+    price: reportedPrice,
+    waitingForYou: 1,
+  });
+
+  const count = (cell: string) => review.cells.filter((c) => c === cell).length;
+
+  expect(review.cells.length).toBeLessThanOrEqual(MAX_CELLS + 1);
+  expect([count("accepted"), count("sent-back"), count("waiting")]).toEqual([9, 31, 1]);
+  expect(review.line).toBe("47 of 212 claims accepted first try");
 });
 
 test("the completion card counts accepted tasks and names the last accepted gate's head", () => {
