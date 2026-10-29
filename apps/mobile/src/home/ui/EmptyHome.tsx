@@ -4,9 +4,8 @@
  */
 import { mobileType } from "@polaris/ui/tokens";
 import { Match } from "effect";
-import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { type MobileColours, useTheme } from "../../theme";
+import { Pressable, Text, View } from "react-native";
+import { themedStyles } from "../../theme/index.ts";
 import type { HomeEmpty } from "../model/home.ts";
 
 interface Copy {
@@ -15,44 +14,43 @@ interface Copy {
   readonly action: { readonly label: string; readonly run: () => void } | null;
 }
 
-const makeStyles = (c: MobileColours) =>
-  StyleSheet.create({
-    empty: {
-      marginHorizontal: 10,
-      paddingVertical: 20,
-      paddingHorizontal: 18,
-      gap: 8,
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: c.hairline,
-      backgroundColor: c.well,
-    },
-    title: { ...mobileType.title, color: c.textStrong },
-    body: { ...mobileType.callout, color: c.textSubtle, maxWidth: 320 },
-    action: {
-      alignSelf: "flex-start",
-      marginTop: 8,
-      height: 36,
-      paddingHorizontal: 18,
-      borderRadius: 999,
-      borderWidth: 1,
-      borderColor: c.hairline,
-      backgroundColor: c.raised,
-      justifyContent: "center",
-    },
-    actionLabel: { ...mobileType.label, color: c.textDefault },
-    loading: { marginHorizontal: 10, gap: 6 },
-    ghost: {
-      height: 70,
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: c.hairline,
-      backgroundColor: c.well,
-    },
-  });
+const useStyles = themedStyles((c) => ({
+  empty: {
+    marginHorizontal: 10,
+    paddingVertical: 20,
+    paddingHorizontal: 18,
+    gap: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: c.hairline,
+    backgroundColor: c.well,
+  },
+  title: { ...mobileType.title, color: c.textStrong },
+  body: { ...mobileType.callout, color: c.textSubtle, maxWidth: 320 },
+  action: {
+    alignSelf: "flex-start",
+    marginTop: 8,
+    height: 36,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: c.hairline,
+    backgroundColor: c.raised,
+    justifyContent: "center",
+  },
+  actionLabel: { ...mobileType.label, color: c.textDefault },
+  loading: { marginHorizontal: 10, gap: 6 },
+  ghost: {
+    height: 70,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: c.hairline,
+    backgroundColor: c.well,
+  },
+}));
 
 /** Quiet wells where rows will land; nothing moves, as only Working loops. */
-const Loading = ({ styles }: { readonly styles: ReturnType<typeof makeStyles> }) => (
+const Loading = ({ styles }: { readonly styles: ReturnType<typeof useStyles> }) => (
   <View
     style={styles.loading}
     accessible
@@ -78,8 +76,7 @@ export const EmptyHome = ({
   readonly onHosts: () => void;
   readonly onAll: () => void;
 }) => {
-  const { colours } = useTheme();
-  const styles = useMemo(() => makeStyles(colours), [colours]);
+  const styles = useStyles();
 
   const copy = Match.value(empty).pipe(
     Match.when("loading", () => null),

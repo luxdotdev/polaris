@@ -3,89 +3,69 @@
  * tabular numerals, and workspace chips as panels on the ground.
  */
 import { mobileType, mobileWeight } from "@polaris/ui/tokens";
-import { useMemo } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
-import { type MobileColours, useTheme } from "../../theme";
+import { themedStyles, useTheme } from "../../theme/index.ts";
 import { counted } from "../model/format.ts";
 import type { Home } from "../model/home.ts";
+import { NeedsYouBadge } from "./NeedsYouBadge.tsx";
 
-const makeStyles = (c: MobileColours) =>
-  StyleSheet.create({
-    header: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 14, gap: 8 },
-    titleRow: {
-      height: 41,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-    },
-    title: { ...mobileType.largeTitle, color: c.textStrong },
-    pills: { flexDirection: "row", gap: 8 },
-    pill: {
-      height: 32,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 7,
-      paddingHorizontal: 12,
-      borderRadius: 999,
-      borderWidth: 1,
-      borderColor: c.hairline,
-      backgroundColor: c.panel,
-    },
-    pillDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: c.textFaint },
-    pillLabel: { ...mobileType.subhead, fontWeight: mobileWeight.medium, color: c.textDefault },
-    badgeCount: {
-      ...mobileType.subhead,
-      fontWeight: mobileWeight.medium,
-      color: c.needsYouText,
-      fontVariant: ["tabular-nums"],
-    },
-    summary: { ...mobileType.callout, lineHeight: 20, fontVariant: ["tabular-nums"] },
-    needsYou: { fontWeight: mobileWeight.medium, color: c.needsYouText },
-    rest: { color: c.textSubtle },
-    chipsScroll: { marginHorizontal: -16 },
-    chips: { gap: 8, paddingHorizontal: 16 },
-    chip: {
-      height: 32,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      paddingHorizontal: 13,
-      borderRadius: 999,
-      borderWidth: 1,
-      borderColor: c.hairline,
-      backgroundColor: c.panel,
-      maxWidth: 220,
-    },
-    chipActive: { backgroundColor: c.raised },
-    chipLabel: {
-      ...mobileType.subhead,
-      fontWeight: mobileWeight.medium,
-      color: c.textDefault,
-      flexShrink: 1,
-    },
-    chipLabelActive: { color: c.textStrong },
-    chipCount: {
-      ...mobileType.footnote,
-      lineHeight: 16,
-      fontWeight: mobileWeight.medium,
-      color: c.textSubtle,
-      fontVariant: ["tabular-nums"],
-    },
-  });
-
-const useStyles = () => {
-  const { colours } = useTheme();
-
-  return useMemo(() => makeStyles(colours), [colours]);
-};
-
-/** The four-point needs you spark (Paper MX-C). */
-export const Spark = ({ size, color }: { readonly size: number; readonly color: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 12 12">
-    <Path d="M6 0.5 L7.1 4.9 L11.5 6 L7.1 7.1 L6 11.5 L4.9 7.1 L0.5 6 L4.9 4.9 Z" fill={color} />
-  </Svg>
-);
+const useStyles = themedStyles((c) => ({
+  header: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 14, gap: 8 },
+  titleRow: {
+    height: 41,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  title: { ...mobileType.largeTitle, color: c.textStrong },
+  pills: { flexDirection: "row", gap: 8 },
+  pill: {
+    height: 32,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: c.hairline,
+    backgroundColor: c.panel,
+  },
+  pillDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: c.textFaint },
+  pillLabel: { ...mobileType.subhead, fontWeight: mobileWeight.medium, color: c.textDefault },
+  summary: { ...mobileType.callout, lineHeight: 20, fontVariant: ["tabular-nums"] },
+  needsYou: { fontWeight: mobileWeight.medium, color: c.needsYouText },
+  rest: { color: c.textSubtle },
+  chipsScroll: { marginHorizontal: -16 },
+  chips: { gap: 8, paddingHorizontal: 16 },
+  chip: {
+    height: 32,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 13,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: c.hairline,
+    backgroundColor: c.panel,
+    maxWidth: 220,
+  },
+  chipActive: { backgroundColor: c.raised },
+  chipLabel: {
+    ...mobileType.subhead,
+    fontWeight: mobileWeight.medium,
+    color: c.textDefault,
+    flexShrink: 1,
+  },
+  chipLabelActive: { color: c.textStrong },
+  chipCount: {
+    ...mobileType.footnote,
+    lineHeight: 16,
+    fontWeight: mobileWeight.medium,
+    color: c.textSubtle,
+    fontVariant: ["tabular-nums"],
+  },
+}));
 
 const ChevronDown = ({ color }: { readonly color: string }) => (
   <Svg width={10} height={10} viewBox="0 0 10 10">
@@ -99,30 +79,6 @@ const ChevronDown = ({ color }: { readonly color: string }) => (
     />
   </Svg>
 );
-
-/** Placeholder for S6's `NeedsYouBadge` (home/ui/NeedsYouBadge), with its agreed props. */
-const NeedsYouBadge = ({
-  count,
-  onPress,
-}: {
-  readonly count: number;
-  readonly onPress: () => void;
-}) => {
-  const styles = useStyles();
-  const { colours } = useTheme();
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${count} need you`}
-      onPress={onPress}
-      style={[styles.pill, { gap: 6 }]}
-    >
-      <Spark size={12} color={colours.needsYou} />
-      <Text style={styles.badgeCount}>{count}</Text>
-    </Pressable>
-  );
-};
 
 export const HostsPill = ({
   count,
@@ -234,7 +190,7 @@ export const Header = ({
           Sessions
         </Text>
         <View style={styles.pills}>
-          {home.needsYou > 0 ? <NeedsYouBadge count={home.needsYou} onPress={onInbox} /> : null}
+          <NeedsYouBadge count={home.needsYou} onPress={onInbox} />
           {home.hostCount > 0 ? <HostsPill count={home.hostCount} onPress={onHosts} /> : null}
         </View>
       </View>
