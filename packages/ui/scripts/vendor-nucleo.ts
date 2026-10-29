@@ -229,6 +229,8 @@ writeFileSync(join(OUT, "pixel.tsx"), pixelFile());
 const MASKS: ReadonlyArray<readonly [string, string]> = [
   ["skill", "FileSparkleOutline18"],
   ["command", "BoltOutline18"],
+  ["file", "FileOutline18"],
+  ["folder", "FolderOutline18"],
 ];
 
 function maskFile(): string {

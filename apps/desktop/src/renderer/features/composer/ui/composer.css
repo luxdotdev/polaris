@@ -23,3 +23,16 @@
   background-color: var(--color-text-subtle);
   mask: var(--chip-icon) center / contain no-repeat;
 }
+
+/* The `@` picker's row icon: the chip's mask, at the `/` menu's 16px. */
+.mention-icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  background-color: var(--color-text-subtle);
+  mask: var(--chip-icon) center / contain no-repeat;
+}
+
+.mention-icon[data-selected] {
+  background-color: var(--color-text-strong);
+}

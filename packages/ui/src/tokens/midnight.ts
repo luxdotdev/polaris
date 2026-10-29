@@ -69,6 +69,7 @@ export const midnight = {
   gitModifiedText: "#d6b37e",
   accepted: "#646fd8",
   acceptedText: "#8b94ea",
+  pullMerged: "#b9a6f2",
   contextSystem: "#c3a6e6",
   contextTools: "#7fb2e5",
   contextMcp: "#5cbdb9",

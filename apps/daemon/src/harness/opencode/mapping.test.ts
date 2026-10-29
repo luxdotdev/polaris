@@ -349,6 +349,38 @@ describe("prompts and titles", () => {
     ]);
   });
 
+  test("an @path mention of something in the session's directory goes as a file part (ENG-544)", () => {
+    const tree = new Map<string, "file" | "folder">([
+      ["/w/src/app.ts", "file"],
+      ["/w/docs", "folder"],
+      ["/w/my notes.md", "file"],
+    ]);
+
+    const prompt = 'fix @src/app.ts per @docs/ and @"my notes.md", not me@x.com or @../etc/passwd';
+
+    const parts = promptParts(prompt, [], {
+      cwd: "/w",
+      kindOf: (path) => tree.get(path) ?? null,
+    });
+
+    expect(parts[0]).toEqual({ type: "text", text: prompt });
+    expect(parts[1]).toEqual({
+      type: "file",
+      mime: "text/plain",
+      filename: "app.ts",
+      url: "file:///w/src/app.ts",
+      source: {
+        type: "file",
+        path: "src/app.ts",
+        text: { value: "@src/app.ts", start: 4, end: 15 },
+      },
+    });
+    expect(parts.slice(2)).toMatchObject([
+      { mime: "application/x-directory", url: "file:///w/docs" },
+      { filename: "my notes.md", url: "file:///w/my%20notes.md" },
+    ]);
+  });
+
   test("OpenCode's placeholder titles are not suggestions", () => {
     expect(isPlaceholderTitle("New session - 2026-09-29T05:10:06.618Z")).toBe(true);
     expect(isPlaceholderTitle("Child session - 2026-09-29T05:10:06.618Z")).toBe(true);

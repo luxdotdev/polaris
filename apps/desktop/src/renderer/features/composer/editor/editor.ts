@@ -33,14 +33,16 @@ import {
   SKIP_DOM_SELECTION_TAG,
 } from "lexical";
 import type { CommandOption, Draft } from "../model/commands.ts";
+import type { MentionRow } from "../model/mentions.ts";
 import { CommandNode } from "./node.ts";
 import { $onEdgeLine, onEdgeRow, type Toward } from "./lines.ts";
 import { $caretAcrossChip, $followDomCaret, $selectionText, $snapOutOfChip } from "./selection.ts";
 import {
   $insertChip,
+  $insertMention,
   $readDraft,
   $readTypedWord,
-  $removeTypedWord,
+  $replaceTypedWord,
   $retokenize,
   $setText,
   registerChips,
@@ -55,7 +57,8 @@ export interface EditorHooks {
   readonly menu: {
     readonly open: () => boolean;
     readonly move: (by: 1 | -1) => void;
-    readonly pick: () => void;
+    /** ⇥ on a folder in the `@` picker goes into it; otherwise both pick. */
+    readonly pick: (via: "enter" | "tab") => void;
     readonly dismiss: () => void;
   };
   /** ↑/↓ with the caret on the first or last line: the sent message to show, or null. */
@@ -78,6 +81,9 @@ export interface PromptEditor {
   readonly mount: (root: HTMLElement) => () => void;
   readonly setText: (text: string) => void;
   readonly insertChip: (option: CommandOption) => void;
+  readonly insertMention: (row: MentionRow) => void;
+  /** Swaps the typed word for `text`, the caret after it (⇥ into a folder). */
+  readonly replaceTypedWord: (text: string) => void;
   readonly removeTypedWord: () => void;
   readonly retokenize: () => void;
   /** Focuses now with the caret after the draft, typing `text` there first. */
@@ -147,12 +153,12 @@ const registerKeys = (editor: LexicalEditor, hooks: () => EditorHooks) => {
     ),
     editor.registerCommand(
       KEY_TAB_COMMAND,
-      whileMenu((h) => h.menu.pick()),
+      whileMenu((h) => h.menu.pick("tab")),
       high
     ),
     editor.registerCommand(
       KEY_ENTER_COMMAND,
-      whileMenu((h) => h.menu.pick()),
+      whileMenu((h) => h.menu.pick("enter")),
       high
     ),
     editor.registerCommand(KEY_ARROW_UP_COMMAND, recall(-1), COMMAND_PRIORITY_NORMAL),
@@ -286,7 +292,9 @@ export const createPromptEditor = (hooks: () => EditorHooks, label: string): Pro
       });
     },
     insertChip: (option) => editor.update(() => $insertChip(option)),
-    removeTypedWord: () => editor.update(() => $removeTypedWord()),
+    insertMention: (row) => editor.update(() => $insertMention(row)),
+    replaceTypedWord: (text) => editor.update(() => $replaceTypedWord(text)),
+    removeTypedWord: () => editor.update(() => $replaceTypedWord("")),
     retokenize: () => editor.update(() => $retokenize()),
     read: () =>
       editor.getEditorState().read(() => ({ typed: $readTypedWord(), draft: $readDraft() })),

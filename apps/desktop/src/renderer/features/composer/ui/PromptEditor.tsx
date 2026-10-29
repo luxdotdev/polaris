@@ -1,7 +1,7 @@
 /**
- * The composer's prompt: a Lexical plain-text editor with Skill and Slash
- * Command chips, and the `/` menu (portalled above the composer). Its own
- * chunk; `./Prompt.tsx` shows a still stand-in until it loads.
+ * The composer's prompt: a Lexical plain-text editor with Skill, Slash
+ * Command and file mention chips, the `/` menu and the `@` picker (portalled
+ * above the composer). Its own chunk; `./Prompt.tsx` shows a stand-in first.
  */
 import type { PolarisAction } from "@polaris/protocol";
 import { cn } from "@polaris/ui";
@@ -19,8 +19,11 @@ import {
 } from "../model/commands.ts";
 import type { FrecencyTable } from "../model/frecency.ts";
 import { AT_DRAFT, type HistoryCursor, stepHistory } from "../model/history.ts";
-import { type CommandNotice, noticeOpens } from "../model/notice.ts";
+import type { MentionRow, MentionSearch } from "../model/mentions.ts";
+import { type CommandNotice, noticeFor } from "../model/notice.ts";
 import { CommandMenu } from "./CommandMenu.tsx";
+import { MentionMenu } from "./MentionMenu.tsx";
+import { showsResults, useMentionPicker } from "./useMentionPicker.ts";
 import { useTypeToFocus } from "./typeToFocus.ts";
 import "./composer.css";
 
@@ -58,6 +61,8 @@ export interface PromptEditorProps {
   readonly history?: ReadonlyArray<string> | undefined;
   /** Shell mode: the draft is a command, set in mono. */
   readonly mono?: boolean | undefined;
+  /** The `@` picker's file search in the session's directory; unset, `@` is just text. */
+  readonly mentions?: MentionSearch | null | undefined;
 }
 
 const NO_HISTORY: ReadonlyArray<string> = [];
@@ -91,25 +96,25 @@ export default function PromptEditor(props: PromptEditorProps) {
     props.frecency
   );
 
-  const waiting = typed !== null && props.loading && props.options.length === 0;
+  const mention = useMentionPicker(props.mentions ?? null, typed, dismissed, index);
+
+  const waiting =
+    typed !== null && typed.sigil !== "@" && props.loading && props.options.length === 0;
 
   const notice =
-    props.notice !== null &&
-    typed !== null &&
-    dismissed !== typed.word &&
-    noticeOpens(typed.word, typed.atHead, draft.tokens)
-      ? props.notice
+    typed !== null && dismissed !== typed.word
+      ? noticeFor(typed.word, typed.atHead, draft.tokens, props.notice, props.options)
       : null;
 
   const open = menu !== null;
-  const latest = useRef({ props, menu, index, dismissed });
+  const latest = useRef({ props, menu, index, dismissed, mention });
   const emitted = useRef<string | null>(null);
   // ↑/↓'s place in history, and the text it last showed; any other edit returns to the draft.
   const cursor = useRef<HistoryCursor>(AT_DRAFT);
   const recalled = useRef<string | null>(null);
 
   useEffect(() => {
-    latest.current = { props, menu, index, dismissed };
+    latest.current = { props, menu, index, dismissed, mention };
   });
 
   const run = (option: CommandOption | undefined) => {
@@ -152,10 +157,38 @@ export default function PromptEditor(props: PromptEditorProps) {
     const now = handle.read();
     const { props: current, dismissed: was } = latest.current;
 
-    if (current.notice === null || now.typed === null || now.typed.word === was) return null;
+    if (now.typed === null || now.typed.word === was) return null;
 
-    return noticeOpens(now.typed.word, now.typed.atHead, now.draft.tokens) ? current.notice : null;
+    return noticeFor(
+      now.typed.word,
+      now.typed.atHead,
+      now.draft.tokens,
+      current.notice,
+      current.options
+    );
   };
+
+  /** The `@` picker as the editor stands now: the word's query, and the rows last read. */
+  const liveMention = () => {
+    const { typed: now } = handle.read();
+    const { props: current, dismissed: was, mention: picker } = latest.current;
+
+    if (current.mentions == null || now?.sigil !== "@" || now.word === was) return null;
+
+    return showsResults(picker.results) ? { query: now.query, results: picker.results } : null;
+  };
+
+  /** ⇥ on a folder goes into it, searching inside; anything else becomes its mention chip. */
+  const pickMention = (row: MentionRow | undefined, via: "enter" | "tab") => {
+    if (row === undefined) return;
+    setIndex(0);
+
+    if (via === "tab" && row.kind === "folder") handle.replaceTypedWord(`@${row.path}`);
+    else handle.insertMention(row);
+  };
+
+  const mentionAt = () =>
+    Math.min(latest.current.index, latest.current.mention.results.rows.length - 1);
 
   const at = (m: Menu) => Math.min(latest.current.index, m.options.length - 1);
 
@@ -173,17 +206,24 @@ export default function PromptEditor(props: PromptEditorProps) {
         setDismissed((was) => (was === word?.word ? was : null));
       },
       menu: {
-        open: () => live() !== null || liveNotice() !== null,
+        open: () => liveMention() !== null || live() !== null || liveNotice() !== null,
         move: (by) => {
+          const files = liveMention()?.results.rows.length;
           const m = live();
-          const count = m?.options.length ?? 1;
+          const count = files ?? m?.options.length ?? 1;
+          const from = files === undefined ? (m === null ? 0 : at(m)) : mentionAt();
 
-          setIndex(((m === null ? 0 : at(m)) + by + count) % count);
+          setIndex((Math.max(0, from) + by + count) % Math.max(1, count));
         },
-        pick: () => {
+        pick: (via) => {
+          const files = liveMention();
           const m = live();
 
-          if (m !== null) run(m.options[at(m)]);
+          // Rows for an older query wait for this one's answer rather than pick a stale row.
+          if (files !== null) {
+            if (files.results.query === files.query)
+              pickMention(files.results.rows[mentionAt()], via);
+          } else if (m !== null) run(m.options[at(m)]);
           else liveNotice()?.action?.run();
         },
         dismiss: () => setDismissed(handle.read().typed?.word ?? null),
@@ -247,7 +287,7 @@ export default function PromptEditor(props: PromptEditorProps) {
     if (key !== "") handle.retokenize();
   }, [handle, key]);
 
-  const menuView =
+  const commandView =
     open || waiting || notice !== null ? (
       <CommandMenu
         notice={notice}
@@ -259,6 +299,18 @@ export default function PromptEditor(props: PromptEditorProps) {
       />
     ) : null;
 
+  const menuView = mention.shown ? (
+    <MentionMenu
+      rows={mention.results.rows}
+      failed={mention.results.failed}
+      active={mention.active}
+      onPick={(i) => pickMention(latest.current.mention.results.rows[i], "enter")}
+      onHover={setIndex}
+    />
+  ) : (
+    commandView
+  );
+
   return (
     <div className={cn("relative min-w-0", props.disabled && "opacity-(--opacity-dimmed)")}>
       <div
@@ -267,7 +319,7 @@ export default function PromptEditor(props: PromptEditorProps) {
         aria-multiline="true"
         aria-placeholder={props.placeholder}
         aria-autocomplete="list"
-        aria-expanded={open}
+        aria-expanded={open || mention.shown}
         contentEditable={!props.disabled}
         suppressContentEditableWarning
         spellCheck

@@ -8,6 +8,7 @@
  */
 import { type ApprovalDecision, type RequestId, TurnItem } from "@polaris/protocol";
 import { type Cause, Deferred, Effect, Queue, Schema, type Scope, Stream } from "effect";
+import { statSync } from "node:fs";
 import {
   type HarnessError,
   HarnessEvent,
@@ -39,6 +40,15 @@ const decodePermissions = P.decoder(Schema.Array(P.PermissionRequest));
 const decodeQuestions = P.decoder(Schema.Array(P.QuestionRequest));
 
 const CONNECT_TIMEOUT = "10 seconds";
+
+/** What a mentioned path is on this Host (`mentionParts`). */
+const pathKind = (path: string): "file" | "folder" | null => {
+  const stat = statSync(path, { throwIfNoEntry: false });
+
+  if (stat === undefined) return null;
+
+  return stat.isDirectory() ? "folder" : "file";
+};
 
 /** argv for "Open in terminal": the password is read from its 0600 file, never put on a command line. */
 export const attachCommand = (options: {
@@ -223,7 +233,10 @@ export const openSession = (
         }
 
         const body: P.PromptAsyncBody = {
-          parts: promptParts(input.prompt, input.attachments),
+          parts: promptParts(input.prompt, input.attachments, {
+            cwd: options.cwd,
+            kindOf: pathKind,
+          }),
           system: polarisContextWithoutTools(),
         };
 

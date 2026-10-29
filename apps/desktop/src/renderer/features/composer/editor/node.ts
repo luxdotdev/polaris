@@ -1,7 +1,7 @@
 /**
- * A Skill or Slash Command chip: a TextNode in "token" mode, so the caret and
- * deletion take it whole. Its text is the name; the sigil is drawn as the
- * kind's icon by CSS, so caret metrics never drift (`composer.css`).
+ * A Skill, Slash Command or file mention chip: a TextNode in "token" mode, so
+ * the caret and deletion take it whole. Its text is the name (a mention's, its
+ * path); the sigil is drawn as the kind's icon by CSS (`composer.css`).
  */
 import { ICON_MASKS } from "@polaris/ui";
 import {
@@ -14,16 +14,20 @@ import {
   TextNode,
 } from "lexical";
 import type { Sigil } from "../model/commands.ts";
+import { mentionText } from "../model/mentions.ts";
 
 export type ChipKind = keyof typeof ICON_MASKS;
 
+/** A command's sigil, or `@` for a file or folder mention. */
+export type ChipSigil = Sigil | "@";
+
 export type SerializedCommandNode = Spread<
-  { readonly sigil: Sigil; readonly kind: ChipKind },
+  { readonly sigil: ChipSigil; readonly kind: ChipKind },
   SerializedTextNode
 >;
 
 export class CommandNode extends TextNode {
-  __sigil: Sigil;
+  __sigil: ChipSigil;
   __kind: ChipKind;
 
   static override getType(): string {
@@ -34,14 +38,22 @@ export class CommandNode extends TextNode {
     return new CommandNode(node.__sigil, node.__kind, node.__text, node.__key);
   }
 
-  constructor(sigil: Sigil, kind: ChipKind, name: string, key?: NodeKey) {
+  constructor(sigil: ChipSigil, kind: ChipKind, name: string, key?: NodeKey) {
     super(name, key);
     this.__sigil = sigil;
     this.__kind = kind;
   }
 
-  getSigil(): Sigil {
+  getSigil(): ChipSigil {
     return this.getLatest().__sigil;
+  }
+
+  /** What the Turn sends for it: `/name`, `$name`, or the mention's `@path`. */
+  getSentText(): string {
+    const sigil = this.getSigil();
+    const text = this.getTextContent();
+
+    return sigil === "@" ? mentionText(text) : `${sigil}${text}`;
   }
 
   override createDOM(config: EditorConfig): HTMLElement {
@@ -81,7 +93,7 @@ export class CommandNode extends TextNode {
   }
 }
 
-export const $createCommandNode = (sigil: Sigil, kind: ChipKind, name: string): CommandNode =>
+export const $createCommandNode = (sigil: ChipSigil, kind: ChipKind, name: string): CommandNode =>
   $applyNodeReplacement(new CommandNode(sigil, kind, name).setMode("token"));
 
 export const $isCommandNode = (node: LexicalNode | null | undefined): node is CommandNode =>
