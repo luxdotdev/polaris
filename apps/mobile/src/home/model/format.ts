@@ -27,12 +27,7 @@ export const shortHostName = (name: string): string =>
 /** "1,284": counts and line totals with their thousands separated. */
 export const grouped = (count: number): string => count.toLocaleString("en-US");
 
-/** "1 host", "4 hosts". */
-const GROUPED = new Intl.NumberFormat("en-US");
-
-/** 1,284: a count with thousands separators. */
-export const grouped = (count: number): string => GROUPED.format(count);
-
+/** "1 host", "4 hosts", "1,284 files". */
 export const counted = (count: number, one: string, many = `${one}s`): string =>
   `${grouped(count)} ${count === 1 ? one : many}`;
 
