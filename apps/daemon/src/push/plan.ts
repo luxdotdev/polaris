@@ -149,7 +149,7 @@ const notified = (
     requestId: null,
     category: null,
     title: cut(notification.title, 120),
-    subtitle: cut(`${session.title} · ${context.hostName}`, 160),
+    subtitle: cut(`${context.hostName} · ${session.title}`, 160),
     body: cut(notification.body, 600),
     at: notification.at,
     constellationId: notification.constellationId,

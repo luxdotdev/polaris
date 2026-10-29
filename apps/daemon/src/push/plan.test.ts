@@ -125,7 +125,7 @@ describe("push plan", () => {
     expect(sent.map((m) => m.sentAt)).toEqual([20_000 + SETTLE_MS]);
   });
 
-  test("an agent's notify pushes at once as a notify, its session's title as the subtitle", () => {
+  test("an agent's notify pushes at once as a notify, its host and session's title as the subtitle", () => {
     const [push, ...rest] = run([...start, [10, notified("n1", false)]], 10_000);
 
     expect(rest).toEqual([]);
@@ -135,7 +135,7 @@ describe("push plan", () => {
       requestId: null,
       category: null,
       title: "Done",
-      subtitle: "Fix the flaky test · studio",
+      subtitle: "studio · Fix the flaky test",
       body: "All green",
     });
     expect(push?.constellationId).toBeNull();
