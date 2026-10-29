@@ -21,6 +21,7 @@ import { TabBar } from "./app/TabBar.tsx";
 import { DuoShell } from "./duo/DuoShell.tsx";
 import { FollowedHostsProvider } from "./home/feed/useFollowedHosts.ts";
 import { HomeScreen } from "./home/HomeScreen.tsx";
+import { ComposerGallery, composerGalleryOn } from "./composer/Gallery.tsx";
 import { galleryOn, RowGallery } from "./home/ui/Gallery.tsx";
 import { HostsScreen } from "./hosts/HostsScreen.tsx";
 import { LinkScreen } from "./link/LinkScreen.tsx";
@@ -155,6 +156,13 @@ const Shell = () => {
   usePushLinks(navigation.open);
 
   if (galleryOn()) return <RowGallery />;
+
+  if (composerGalleryOn())
+    return (
+      <SheetHost>
+        <ComposerGallery />
+      </SheetHost>
+    );
 
   return (
     <SheetHost>
