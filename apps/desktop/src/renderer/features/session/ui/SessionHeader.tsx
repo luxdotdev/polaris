@@ -78,7 +78,7 @@ const Title = ({ hostKey, session }: { hostKey: string; session: SessionData }) 
   return (
     <h1
       className="text-heading text-text-strong cursor-text truncate leading-[21px] tracking-[-0.01em]"
-      title="Click to rename"
+      title={`${title}\nClick to rename`}
       data-testid="session-title"
       onClick={() => setEditing(session.title)}
     >

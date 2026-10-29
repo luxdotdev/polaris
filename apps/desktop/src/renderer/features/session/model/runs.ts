@@ -4,6 +4,7 @@
  * 3 files, ran 4 commands, called Paper 4 times") that expands to each call; thinking between
  * them folds in. Anything running, failed or declined, and every other kind, keeps its row.
  */
+import { plural } from "./format.ts";
 import type { ItemView } from "./items.ts";
 import type { SubagentCard } from "./subagents.ts";
 
@@ -60,8 +61,7 @@ export const runKind = (item: ItemView): RunKind | null => {
   }
 };
 
-const count = (n: number, singular: string, plural = `${singular}s`) =>
-  `${n} ${n === 1 ? singular : plural}`;
+const count = plural;
 
 /** Fixed phrase order whatever the call order; edits count distinct files. */
 const PHRASES: ReadonlyArray<

@@ -271,6 +271,12 @@ describe("conversation rows", () => {
     expect(turnReceipt(summarize(solo(view(4, [message("m1", "Looked")]))))).toBe("");
   });
 
+  test("a huge Turn's receipt groups its thousands", () => {
+    const many = Array.from({ length: 1_284 }, (_, i) => `m${i}.ts`);
+
+    expect(turnReceipt(summarize(solo(view(5, [files("f1", many)]))))).toBe("1,284 files");
+  });
+
   test("a summary falls back to the prompt", () => {
     expect(summarize(solo(view(2, []))).summary).toBe("prompt 2");
   });

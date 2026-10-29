@@ -21,4 +21,4 @@ export const tildePath = (path: string, home: string | null): string => {
 };
 
 export const plural = (count: number, one: string, many = `${one}s`) =>
-  `${count} ${count === 1 ? one : many}`;
+  `${count.toLocaleString("en-US")} ${count === 1 ? one : many}`;

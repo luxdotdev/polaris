@@ -4,8 +4,7 @@ import { Predicate } from "effect";
 import type { Receipt, Worker } from "./inputs.ts";
 import type { CheckMark, Segment } from "./types.ts";
 
-export const count = (n: number, singular: string, plural = `${singular}s`) =>
-  `${n} ${n === 1 ? singular : plural}`;
+export { plural as count } from "../format.ts";
 
 export const clip = (text: string, max = 120) =>
   text.length > max ? `${text.slice(0, max - 1)}…` : text;

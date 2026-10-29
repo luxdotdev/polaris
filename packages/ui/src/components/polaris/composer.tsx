@@ -49,7 +49,7 @@ export function HarnessPicker({
       aria-label={`${harnessHue(harness).name}, ${model}`}
       className={cn(
         CHIP,
-        "gap-[7px] pr-row-x pl-gap",
+        "min-w-0 shrink gap-[7px] pr-row-x pl-gap",
         working && "border-[color-mix(in_oklab,var(--harness)_30%,transparent)]",
         className
       )}
@@ -63,13 +63,16 @@ export function HarnessPicker({
       )}
       <span
         className={cn(
-          "text-caption font-medium",
+          "text-caption shrink-0 font-medium",
           working ? "text-(--harness-text)" : "text-text-default"
         )}
       >
         {harnessHue(harness).handle}
       </span>
-      <span className="text-caption text-text-subtle">{model}</span>
+      {/* A model id the Harness invents can run long; it truncates before the status chips go. */}
+      <span className="text-caption text-text-subtle min-w-0 truncate" title={model}>
+        {model}
+      </span>
       {suffix}
     </button>
   );
@@ -379,12 +382,12 @@ export function Composer({
         )}
       </div>
       <div className="flex items-center gap-1.5 px-3 pb-3">
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex min-w-0 items-center gap-1.5">
           {picker ?? <HarnessPicker harness={harness} model={model} working={isWorking} />}
           {tools}
         </div>
-        {/* Status gives way before Send: its chips collapse by container width, then it clips. */}
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 overflow-hidden">
+        {/* Status chips collapse by container width; past that the model label truncates, not them. */}
+        <div className="flex flex-1 items-center justify-end gap-1.5">
           {branch === undefined ? null : (
             <span className="text-micro text-text-subtle truncate font-mono">{branch}</span>
           )}

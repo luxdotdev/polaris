@@ -191,9 +191,11 @@ const AnswerRow = ({
       <span className="text-micro tabular font-medium opacity-70">{index + 1}</span>
     )}
     <span className="flex min-w-0 flex-1 flex-col">
-      <span className="text-label truncate">{answer.label}</span>
+      <span className="text-label [overflow-wrap:anywhere]">{answer.label}</span>
       {isAbsent(answer.description) ? null : (
-        <span className="text-caption truncate opacity-70">{answer.description}</span>
+        <span className="text-caption [overflow-wrap:anywhere] opacity-70">
+          {answer.description}
+        </span>
       )}
     </span>
     {answer.recommended === true ? (
