@@ -26,6 +26,8 @@ import {
 import { hasCapability, useElapsed, useHost } from "../hooks.ts";
 import { formatElapsed, tildePath } from "../model/format.ts";
 import { runningCommands, runningPhrase } from "../model/running.ts";
+import { subagentRoster } from "../model/subagents.ts";
+import { openSubagent } from "../output/actions.ts";
 import {
   canQueue,
   type ComposerMode,
@@ -370,7 +372,10 @@ export const SessionComposer = (props: SessionComposerProps) => {
           hostKey={hostKey}
           harness={harness}
           session={session}
-          subagents={model.turns.at(-1)?.subagents ?? []}
+          roster={subagentRoster(model.turns)}
+          onOpenSubagent={(id) =>
+            openSubagent({ hostKey, workspaceId: session.workspaceId }, session.id, id)
+          }
           turnNumber={lastTurn === null ? null : turnNumber(model.turns, lastTurn.id)}
         />
       }

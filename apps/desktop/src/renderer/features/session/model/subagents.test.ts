@@ -1,13 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import { SessionId, Subagent, SubagentId, TurnId, TurnItem } from "@polaris/protocol";
-import type { SubagentView } from "../../../store/sessionModel.ts";
-import { resultText, subagentCard, subagentRoster } from "./subagents.ts";
+import { turnWith } from "../../../store/fixtures.testing.ts";
+import type { SubagentView, TurnView } from "../../../store/sessionModel.ts";
+import { findSubagent, resultText, subagentCard, subagentRoster } from "./subagents.ts";
 
 const I = TurnItem.cases;
 
-const subagent = (status: "working" | "completed", report: string | null = null) =>
+const subagent = (
+  status: "working" | "completed",
+  report: string | null = null,
+  id = "toolu_agent"
+) =>
   new Subagent({
-    id: SubagentId.make("toolu_agent"),
+    id: SubagentId.make(id),
     sessionId: SessionId.make("s1"),
     turnId: TurnId.make("t1"),
     parentItemId: "toolu_agent",
@@ -127,16 +132,52 @@ describe("subagent cards", () => {
   });
 });
 
-describe("the composer's Subagent roster", () => {
-  test("lists running Subagents first with what they do, finished ones with how long they took", () => {
-    const done = view("completed", [ls]);
-    const running = view("working", [ls]);
-    const roster = subagentRoster([done, running]);
+const turnOf = (n: number, subagents: ReadonlyArray<SubagentView>): TurnView => ({
+  turn: turnWith({ id: TurnId.make(`t${n}`), index: n, status: "completed" }),
+  items: [],
+  live: new Map(),
+  subagents,
+});
+
+const named = (id: string, status: "working" | "completed"): SubagentView => ({
+  subagent: subagent(status, null, id),
+  items: [ls],
+  live: new Map(),
+});
+
+describe("the session's Subagent roster", () => {
+  test("lists running Subagents first with what they do, finished ones with how they ended", () => {
+    const roster = subagentRoster([turnOf(0, [view("completed", [ls]), view("working", [ls])])]);
 
     expect(roster).toMatchObject({ running: 1, done: 1 });
     expect(roster.rows.map((r) => [r.index, r.agent, r.task, r.status])).toEqual([
       [1, "general-purpose", "List files and report back", "Running ls -la"],
-      [0, "general-purpose", "List files and report back", "done · 12s"],
+      [0, "general-purpose", "List files and report back", "done"],
     ]);
+  });
+
+  test("keeps earlier Turns' running Subagents, with their own moons, and drops their ended ones", () => {
+    const roster = subagentRoster([
+      turnOf(0, [named("old-done", "completed"), named("old-running", "working")]),
+      turnOf(1, [named("new-done", "completed")]),
+    ]);
+
+    expect(roster.rows.map((r) => [r.id, r.index])).toEqual([
+      ["old-running", 1],
+      ["new-done", 0],
+    ]);
+  });
+});
+
+describe("a Subagent for Output", () => {
+  test("is found in any Turn with its moon; null once it's gone", () => {
+    const found = findSubagent(
+      [turnOf(0, [named("a", "completed"), named("b", "working")]), turnOf(1, [])],
+      "b"
+    );
+
+    expect(found?.index).toBe(1);
+    expect(found?.card.subagent.id).toBe(SubagentId.make("b"));
+    expect(findSubagent([turnOf(0, [named("a", "working")])], "gone")).toBeNull();
   });
 });

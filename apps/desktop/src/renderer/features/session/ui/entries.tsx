@@ -33,10 +33,14 @@ const Chevron = ({ open }: { readonly open: boolean }) =>
     <ChevronRightIcon size={10} className="text-text-faint shrink-0" />
   );
 
-interface Context {
+export interface EntryContext {
   readonly hue: Hue;
   readonly onOpenDiff: () => void;
+  /** Opens a Subagent in Output's Subagent tab; absent where it already shows there. */
+  readonly onOpenSubagent?: (subagentId: string) => void;
 }
+
+type Context = EntryContext;
 
 const Run = ({ entry, ctx }: { entry: Extract<Entry, { kind: "run" }>; ctx: Context }) => {
   const [open, toggle] = useOpen(`run:${entry.id}`);
@@ -93,9 +97,55 @@ const Elapsed = ({ card }: { card: SubagentCard }) => {
   );
 };
 
+/** A Subagent's task, then its own entries; the inline card's body and Output's Subagent tab. */
+export const SubagentTranscript = ({
+  card,
+  ctx,
+  taskClamp = true,
+}: {
+  readonly card: SubagentCard;
+  readonly ctx: Context;
+  /** The inline card clamps a long task to four lines; the tab shows it whole. */
+  readonly taskClamp?: boolean;
+}) => (
+  <>
+    {card.task === null ? null : (
+      <p
+        className={cn(
+          "text-caption text-text-subtle border-hairline border-l-2 pl-3 whitespace-pre-wrap",
+          taskClamp && "line-clamp-4"
+        )}
+      >
+        {card.task}
+      </p>
+    )}
+    {card.entries.map((entry) => (
+      <EntryView key={entryId(entry)} entry={entry} ctx={ctx} />
+    ))}
+    {card.entries.length === 0 && card.report === null ? (
+      <p className="text-caption text-text-subtle">Nothing yet</p>
+    ) : null}
+  </>
+);
+
+/** Its final report, once it has one. */
+export const SubagentReport = ({
+  card,
+  className,
+}: {
+  readonly card: SubagentCard;
+  readonly className?: string;
+}) =>
+  card.report === null ? null : (
+    <div className={cn("text-body", className)} data-testid="subagent-report">
+      <Markdown text={card.report} live={false} />
+    </div>
+  );
+
 const Subagent = ({ card, ctx }: { card: SubagentCard; ctx: Context }) => {
   const [open, toggle] = useOpen(`subagent:${card.id}`);
   const { subagent } = card;
+  const onOpen = ctx.onOpenSubagent;
 
   return (
     <div
@@ -105,27 +155,43 @@ const Subagent = ({ card, ctx }: { card: SubagentCard; ctx: Context }) => {
     >
       {/* The hover fill spans the header and its activity line; the button's ::after covers both. */}
       <div className="hover:bg-fill-hover relative flex flex-col" data-testid="subagent-head">
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={toggle}
-          className="h-row gap-row-x flex min-w-0 cursor-default items-center px-3 text-left after:absolute after:inset-0"
-        >
-          <StatusMark card={card} hue={ctx.hue} />
-          <span className="text-caption text-text-default shrink-0 font-medium">
-            {subagent.agent ?? "Subagent"}
-          </span>
-          <span className="text-body text-text-subtle min-w-0 flex-1 truncate">
-            {subagent.title}
-          </span>
-          <Elapsed card={card} />
-          {subagent.status === "working" ? null : (
-            <span className="text-caption text-text-subtle shrink-0">
-              {STATUS_LABEL[subagent.status]}
+        <div className="flex min-w-0 items-center">
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={toggle}
+            className={cn(
+              "h-row gap-row-x flex min-w-0 flex-1 cursor-default items-center pl-3 text-left after:absolute after:inset-0",
+              onOpen === undefined && "pr-3"
+            )}
+          >
+            <StatusMark card={card} hue={ctx.hue} />
+            <span className="text-caption text-text-default shrink-0 font-medium">
+              {subagent.agent ?? "Subagent"}
             </span>
+            <span className="text-body text-text-subtle min-w-0 flex-1 truncate">
+              {subagent.title}
+            </span>
+            <Elapsed card={card} />
+            {subagent.status === "working" ? null : (
+              <span className="text-caption text-text-subtle shrink-0">
+                {STATUS_LABEL[subagent.status]}
+              </span>
+            )}
+            <Chevron open={open} />
+          </button>
+          {onOpen === undefined ? null : (
+            <button
+              type="button"
+              onClick={() => onOpen(card.id)}
+              aria-label={`Open ${subagent.agent ?? "subagent"} in output`}
+              data-testid="subagent-open"
+              className="text-caption text-text-subtle hover:text-text-strong relative z-10 mx-1.5 shrink-0 cursor-default rounded-full px-1.5 py-0.5"
+            >
+              Open
+            </button>
           )}
-          <Chevron open={open} />
-        </button>
+        </div>
         {card.activity === null ? null : (
           <p
             className="text-caption text-text-subtle -mt-1.5 truncate px-3 pb-2 pl-[38px] font-mono"
@@ -140,24 +206,10 @@ const Subagent = ({ card, ctx }: { card: SubagentCard; ctx: Context }) => {
           className="border-hairline flex flex-col gap-1.5 border-t px-3 py-2"
           data-testid="subagent-transcript"
         >
-          {card.task === null ? null : (
-            <p className="text-caption text-text-subtle border-hairline line-clamp-4 border-l-2 pl-3 whitespace-pre-wrap">
-              {card.task}
-            </p>
-          )}
-          {card.entries.map((entry) => (
-            <EntryView key={entryId(entry)} entry={entry} ctx={ctx} />
-          ))}
-          {card.entries.length === 0 && card.report === null ? (
-            <p className="text-caption text-text-subtle">Nothing yet</p>
-          ) : null}
+          <SubagentTranscript card={card} ctx={ctx} />
         </div>
       ) : null}
-      {card.report === null ? null : (
-        <div className="border-hairline text-body border-t px-3 py-2" data-testid="subagent-report">
-          <Markdown text={card.report} live={false} />
-        </div>
-      )}
+      <SubagentReport card={card} className="border-hairline border-t px-3 py-2" />
     </div>
   );
 };

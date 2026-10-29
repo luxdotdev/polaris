@@ -6,8 +6,7 @@
  */
 import { Option, Predicate, Schema } from "effect";
 import type { Subagent, TurnItem } from "@polaris/protocol";
-import type { SubagentView } from "../../../store/sessionModel.ts";
-import { formatElapsed } from "./format.ts";
+import type { SubagentView, TurnView } from "../../../store/sessionModel.ts";
 import { completedItemView, type ItemView, liveItemView } from "./items.ts";
 import { type Entry, groupItems } from "./runs.ts";
 
@@ -107,15 +106,21 @@ export const subagentCard = (view: SubagentView, call: ToolCall | undefined): Su
   };
 };
 
-/** One Subagent in the composer's popover: agent type, task, and what it is doing or how it ended. */
+/**
+ * One Subagent in the roster the composer's moons, their popover and the conversation's
+ * "Waiting on" share: agent type, task, and what it is doing or how it ended.
+ */
 export interface RosterRow {
   readonly id: string;
-  /** Its place among the Turn's Subagents: its moon. */
+  /** Its place among its Turn's Subagents: its moon. */
   readonly index: number;
   readonly agent: string;
   readonly task: string;
+  /** What it is doing while it works, else "done", "failed" or "stopped". */
   readonly status: string;
   readonly working: boolean;
+  readonly startedAt: string;
+  readonly endedAt: string | null;
 }
 
 const ENDED: Record<Exclude<Subagent["status"], "working">, string> = {
@@ -124,35 +129,72 @@ const ENDED: Record<Exclude<Subagent["status"], "working">, string> = {
   interrupted: "stopped",
 };
 
-const statusOf = (view: SubagentView): string => {
-  const { subagent } = view;
+const statusOf = (view: SubagentView): string =>
+  view.subagent.status === "working"
+    ? (subagentCard(view, undefined).activity ?? "Working")
+    : ENDED[view.subagent.status];
 
-  if (subagent.status === "working") return subagentCard(view, undefined).activity ?? "Working";
+interface Placed {
+  readonly view: SubagentView;
+  readonly index: number;
+}
 
-  const took =
-    subagent.endedAt === null
-      ? null
-      : Date.parse(subagent.endedAt) - Date.parse(subagent.startedAt);
+/** The latest Turn's Subagents, and those still running from earlier Turns (background ones). */
+const rosterViews = (turns: ReadonlyArray<TurnView>): ReadonlyArray<Placed> => {
+  const last = turns.length - 1;
 
-  return took === null || Number.isNaN(took)
-    ? ENDED[subagent.status]
-    : `${ENDED[subagent.status]} · ${formatElapsed(took)}`;
+  return turns.flatMap((turn, n) =>
+    turn.subagents.flatMap((view, index) =>
+      n === last || view.subagent.status === "working" ? [{ view, index }] : []
+    )
+  );
 };
 
-/** The Turn's Subagents, running first, for the footer's moons and their popover. */
-export const subagentRoster = (views: ReadonlyArray<SubagentView>) => {
-  const rows: ReadonlyArray<RosterRow> = views.map((view, index) => ({
+/** The session's Subagents, running first: the one selector every surface that counts them reads. */
+export const subagentRoster = (turns: ReadonlyArray<TurnView>) => {
+  const rows: ReadonlyArray<RosterRow> = rosterViews(turns).map(({ view, index }) => ({
     id: view.subagent.id,
     index,
     agent: view.subagent.agent ?? "Subagent",
     task: view.subagent.title,
     status: statusOf(view),
     working: view.subagent.status === "working",
+    startedAt: view.subagent.startedAt,
+    endedAt: view.subagent.endedAt,
   }));
 
+  const working = rows.filter((r) => r.working);
+
   return {
-    rows: [...rows.filter((r) => r.working), ...rows.filter((r) => !r.working)],
-    running: rows.filter((r) => r.working).length,
-    done: rows.filter((r) => !r.working).length,
+    rows: [...working, ...rows.filter((r) => !r.working)],
+    working,
+    running: working.length,
+    done: rows.length - working.length,
   };
+};
+
+export type SubagentRoster = ReturnType<typeof subagentRoster>;
+
+/** A Subagent of any Turn as Output's Subagent tab shows it, with its moon; null once it's gone. */
+export const findSubagent = (
+  turns: ReadonlyArray<TurnView>,
+  id: string | null
+): { readonly card: SubagentCard; readonly index: number } | null => {
+  if (id === null) return null;
+
+  for (const turn of turns) {
+    const index = turn.subagents.findIndex((v) => v.subagent.id === id);
+    const view = turn.subagents[index];
+
+    if (view === undefined) continue;
+    const parent = view.subagent.parentItemId;
+
+    const call = turn.items.find(
+      (i): i is ToolCall => Predicate.isTagged(i, "ToolCall") && i.id === parent
+    );
+
+    return { card: subagentCard(view, call), index };
+  }
+
+  return null;
 };

@@ -4,18 +4,21 @@
  * Intent shows its brief and Claim.
  */
 import type { SessionId } from "@polaris/protocol";
-import { Button, cn, ChevronRightIcon, IconButton, Kbd } from "@polaris/ui";
-import { type ReactNode, useEffect } from "react";
+import { Button, ChevronRightIcon, IconButton, Kbd } from "@polaris/ui";
+import { useEffect } from "react";
 import { useApp, useCommands } from "../../../shell/hooks.ts";
 import type { TurnView } from "../../../store/sessionModel.ts";
 import { sessionKey } from "../../../store/store.ts";
 import {
+  closeSubagent,
   hideOutput,
   offerOutput,
+  OutputTab,
   type SessionChrome,
   SessionChromeContext,
   SessionIntent,
   SessionOutput,
+  useShownSubagent,
 } from "../../session/index.ts";
 import { useFacts, useLeadConstellation, useWorkerAttempt, type WorkerAttempt } from "../hooks.ts";
 import {
@@ -156,34 +159,13 @@ export const ConstellationIntent = ({ hostKey, sessionId }: SessionSlot) => {
   return <SessionIntent hostKey={hostKey} sessionId={sessionId} />;
 };
 
-const Tab = ({
-  id,
-  on,
-  onClick,
-  children,
-}: {
-  readonly id: string;
-  readonly on: boolean;
-  readonly onClick: () => void;
-  readonly children: ReactNode;
-}) => (
-  <Button
-    variant={on ? "secondary" : "ghost"}
-    className={cn(on && "text-text-strong")}
-    aria-pressed={on}
-    onClick={onClick}
-    data-testid={`output-tab-${id}`}
-  >
-    {children}
-  </Button>
-);
-
 /** The `SessionOutput` slot: a Lead's Output has the Constellation tab first. */
 export const ConstellationOutput = ({ hostKey, sessionId }: SessionSlot) => {
   const record = useLeadConstellation(hostKey, sessionId);
   const key = leadKey(hostKey, sessionId);
   const ui = useLeadUi(key);
   const commands = useCommands();
+  const subagent = useShownSubagent(hostKey, sessionId) !== null;
 
   const workspaceId = useApp(
     (s) => s.hostModels[hostKey]?.sessions.get(sessionId)?.session.workspaceId
@@ -191,26 +173,31 @@ export const ConstellationOutput = ({ hostKey, sessionId }: SessionSlot) => {
 
   if (record === null) return <SessionOutput hostKey={hostKey} sessionId={sessionId} />;
 
+  const pick = (tab: "constellation" | "changes") => {
+    closeSubagent(hostKey, sessionId);
+    patchLeadUi(key, () => ({ tab }));
+  };
+
   const tabs = (
     <>
-      <Tab
+      <OutputTab
         id="constellation"
-        on={ui.tab === "constellation"}
-        onClick={() => patchLeadUi(key, () => ({ tab: "constellation" }))}
+        on={!subagent && ui.tab === "constellation"}
+        onClick={() => pick("constellation")}
       >
         Constellation
-      </Tab>
-      <Tab
+      </OutputTab>
+      <OutputTab
         id="changes"
-        on={ui.tab === "changes"}
-        onClick={() => patchLeadUi(key, () => ({ tab: "changes" }))}
+        on={!subagent && ui.tab === "changes"}
+        onClick={() => pick("changes")}
       >
         Changes
-      </Tab>
+      </OutputTab>
     </>
   );
 
-  if (ui.tab === "changes")
+  if (subagent || ui.tab === "changes")
     return <SessionOutput hostKey={hostKey} sessionId={sessionId} tabs={tabs} />;
 
   return (

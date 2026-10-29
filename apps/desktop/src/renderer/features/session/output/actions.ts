@@ -8,7 +8,7 @@ import {
   tuckTerminal,
   useTerminalShown,
 } from "../../terminal/index.ts";
-import { uiKey } from "../state.ts";
+import { showSubagent, uiKey } from "../state.ts";
 import { isOutputOpen, openForEdit, setOutputOpen, useOutputOpen } from "./open.ts";
 
 export const hideOutput = (place: TerminalPlace, sessionId: string) => {
@@ -22,6 +22,12 @@ export const offerOutput = (hostKey: string, sessionId: string) =>
 
 export const showOutput = (place: TerminalPlace, sessionId: string) =>
   setOutputOpen(uiKey(place.hostKey, sessionId), true);
+
+/** Opens Output on a Subagent's tab: its transcript, live. */
+export const openSubagent = (place: TerminalPlace, sessionId: string, subagentId: string) => {
+  showSubagent(uiKey(place.hostKey, sessionId), subagentId);
+  showOutput(place, sessionId);
+};
 
 export const toggleOutput = (place: TerminalPlace, sessionId: string) => {
   const shown =

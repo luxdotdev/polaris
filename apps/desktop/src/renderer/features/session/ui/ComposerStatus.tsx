@@ -4,7 +4,6 @@
  * permission mode chip with its menu.
  */
 import {
-  Celestial,
   CHIP,
   cn,
   ContextRing,
@@ -15,19 +14,20 @@ import {
   DropdownMenuTrigger,
   type Harness,
   Popover,
+  PopoverAnchor,
   PopoverContent,
   PopoverTrigger,
-  subagentMoon,
 } from "@polaris/ui";
+import { useState } from "react";
 import type { SessionData } from "../../../store/plain.ts";
-import type { SubagentView } from "../../../store/sessionModel.ts";
 import { send } from "../dispatch.ts";
 import { useHost } from "../hooks.ts";
 import { permissionCommand, permissionLabel, permissionModesOn } from "../model/intent.ts";
 import { contextChip, contextLabel } from "../model/meta.ts";
-import { subagentRoster } from "../model/subagents.ts";
+import type { SubagentRoster } from "../model/subagents.ts";
 import { ContextReadout } from "./ContextCard.tsx";
 import { PermissionGlyph } from "./permissionGlyphs.tsx";
+import { RosterKicker, SubagentMoon, SubagentRows } from "./subagentRow.tsx";
 
 const MOONS_SHOWN = 3;
 
@@ -41,44 +41,58 @@ const SUBAGENT_WORDS = "hidden @min-[440px]/composer:inline";
 
 const Subagents = ({
   harness,
-  subagents,
+  roster,
+  onOpen,
 }: {
   readonly harness: Harness;
-  readonly subagents: ReadonlyArray<SubagentView>;
+  readonly roster: SubagentRoster;
+  readonly onOpen: (subagentId: string) => void;
 }) => {
-  const roster = subagentRoster(subagents);
+  const [open, setOpen] = useState(false);
 
   if (roster.running === 0) return null;
-  const moons = roster.rows.filter((r) => r.working).slice(0, MOONS_SHOWN);
+  const moons = roster.working.slice(0, MOONS_SHOWN);
   const kicker = [`${roster.running} running`, roster.done > 0 ? `${roster.done} done` : null];
 
+  const openOne = (id: string) => {
+    setOpen(false);
+    onOpen(id);
+  };
+
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverAnchor asChild>
+        <span
           data-testid="composer-subagents"
-          className={cn(CHIP, "pr-gap gap-[7px] bg-transparent pl-1")}
+          className={cn(CHIP, "pr-gap gap-[7px] bg-transparent pl-1 hover:bg-transparent")}
         >
-          <span className="flex" aria-hidden="true">
+          <span className="flex">
             {moons.map((m, i) => (
-              <Celestial
+              <button
                 key={m.id}
-                body={subagentMoon(m.index)}
-                harness={harness}
-                size={16}
-                className={i === 0 ? undefined : "-ml-1.5"}
-              />
+                type="button"
+                aria-label={`Open ${m.agent}: ${m.task}`}
+                data-testid="composer-moon"
+                onClick={() => openOne(m.id)}
+                className={cn("flex cursor-default rounded-full", i > 0 && "-ml-1.5")}
+              >
+                <SubagentMoon index={m.index} working harness={harness} />
+              </button>
             ))}
           </span>
-          <span className="text-caption text-text-subtle tabular whitespace-nowrap">
-            {roster.running}
-            <span className={SUBAGENT_WORDS}>
-              {roster.running === 1 ? " subagent" : " subagents"}
-            </span>
-          </span>
-        </button>
-      </PopoverTrigger>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="text-caption text-text-subtle hover:text-text-default tabular cursor-default whitespace-nowrap"
+            >
+              {roster.running}
+              <span className={SUBAGENT_WORDS}>
+                {roster.running === 1 ? " subagent" : " subagents"}
+              </span>
+            </button>
+          </PopoverTrigger>
+        </span>
+      </PopoverAnchor>
       <PopoverContent
         align="end"
         side="top"
@@ -86,28 +100,10 @@ const Subagents = ({
         className="flex w-[460px] max-w-[calc(100vw-24px)] flex-col p-1"
         data-testid="subagents-popover"
       >
-        <p className="text-micro text-text-subtle px-3 pt-2 pb-1.5 font-mono tracking-[0.1em] uppercase">
-          {["Subagents", ...kicker].filter((p) => p !== null).join(" · ")}
-        </p>
-        <ul className="flex max-h-72 flex-col overflow-y-auto">
-          {roster.rows.map((row) => (
-            <li key={row.id} className="h-row gap-row-x flex items-center rounded-full px-3">
-              <Celestial
-                body={subagentMoon(row.index)}
-                harness={harness}
-                size={16}
-                dormant={!row.working}
-              />
-              <span className="text-label text-text-strong shrink-0">{row.agent}</span>
-              <span className="text-body text-text-default min-w-0 flex-1 truncate">
-                {row.task}
-              </span>
-              <span className="text-caption text-text-subtle max-w-[45%] shrink-0 truncate">
-                {row.status}
-              </span>
-            </li>
-          ))}
-        </ul>
+        <RosterKicker parts={["Subagents", ...kicker].filter((p) => p !== null)} />
+        <div className="max-h-72 overflow-y-auto">
+          <SubagentRows rows={roster.rows} harness={harness} onOpen={openOne} />
+        </div>
       </PopoverContent>
     </Popover>
   );
@@ -234,8 +230,9 @@ export interface ComposerStatusProps {
   readonly hostKey: string;
   readonly harness: Harness;
   readonly session: SessionData;
-  /** The latest Turn's Subagents. */
-  readonly subagents: ReadonlyArray<SubagentView>;
+  /** The session's Subagents (`subagentRoster`): the latest Turn's and any still running. */
+  readonly roster: SubagentRoster;
+  readonly onOpenSubagent: (subagentId: string) => void;
   readonly turnNumber: number | null;
 }
 
@@ -243,11 +240,12 @@ export const ComposerStatus = ({
   hostKey,
   harness,
   session,
-  subagents,
+  roster,
+  onOpenSubagent,
   turnNumber,
 }: ComposerStatusProps) => (
   <>
-    <Subagents harness={harness} subagents={subagents} />
+    <Subagents harness={harness} roster={roster} onOpen={onOpenSubagent} />
     <ContextChip hostKey={hostKey} session={session} turnNumber={turnNumber} />
     <Permission hostKey={hostKey} session={session} />
   </>

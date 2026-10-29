@@ -265,7 +265,15 @@ describe("numbers from the Daemon (session.user-turns)", () => {
 
 test("background tasks an Idle session waits on close the list, before outgoing rows", () => {
   const tasks = [new BackgroundTask({ id: "x", kind: "command", description: "bun run bench" })];
-  const rows = conversationRows({ turns: [prompted(0)], approvals: [], waiting: tasks });
+  const waiting = { subagents: [], tasks };
+  const rows = conversationRows({ turns: [prompted(0)], approvals: [], waiting });
 
-  expect(rows.at(-1)).toEqual({ kind: "waiting", key: "waiting", tasks });
+  expect(rows.at(-1)).toEqual({ kind: "waiting", key: "waiting", waiting });
+  expect(
+    conversationRows({
+      turns: [prompted(0)],
+      approvals: [],
+      waiting: { subagents: [], tasks: [] },
+    }).at(-1)?.kind
+  ).not.toBe("waiting");
 });

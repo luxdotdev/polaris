@@ -132,7 +132,7 @@ const openSubagent = async (page: Page, scene: string) => {
 
   for (const target of [
     '[data-testid="tool-run"] > button',
-    '[data-testid="subagent-head"] > button',
+    '[data-testid="subagent-head"] button[aria-expanded]',
   ])
     if ((await page.locator(`${target}[aria-expanded="true"]`).count()) === 0)
       await page.locator(target).first().click();
@@ -144,7 +144,7 @@ const openBackground = async (page: Page, scene: string) => {
   if (scene === "background-open") {
     const card = page
       .locator(
-        '[data-testid="subagent"][data-status="completed"] [data-testid="subagent-head"] > button'
+        '[data-testid="subagent"][data-status="completed"] [data-testid="subagent-head"] button[aria-expanded]'
       )
       .first();
 
@@ -154,10 +154,10 @@ const openBackground = async (page: Page, scene: string) => {
     return;
   }
 
+  const hover = scene === "background-hover";
+
   const target = page.locator(
-    scene === "background-hover"
-      ? '[data-testid="waiting"] p'
-      : '[data-session-row][aria-current="true"]'
+    hover ? '[data-testid="waiting"] button' : '[data-session-row][aria-current="true"]'
   );
 
   // A theme or density change can swallow the open; leave and come back until it shows.
@@ -167,7 +167,7 @@ const openBackground = async (page: Page, scene: string) => {
     await target.hover();
 
     const shown = await page
-      .getByTestId("background-tasks")
+      .getByTestId(hover ? "waiting-card" : "background-tasks")
       .waitFor({ timeout: 2000 })
       .then(() => true)
       .catch(() => false);

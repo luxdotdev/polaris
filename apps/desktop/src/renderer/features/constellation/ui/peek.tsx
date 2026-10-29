@@ -20,6 +20,7 @@ import { peekCounts, peekRows } from "../../sessions/model/peek.ts";
 import { clock } from "../model/copy.ts";
 import { forYou } from "../model/glance.ts";
 import { LANE_MAX, laneWidth, tallyOf, type TaskRow } from "../model/index.ts";
+import { closeSubagent } from "../../session/index.ts";
 import { leadKey, patchLeadUi } from "../state.ts";
 import { StarChartHero } from "./chart.tsx";
 import { TaskGlyph } from "./glyphs.tsx";
@@ -283,6 +284,7 @@ export const ConstellationPeek = ({
           onOpen={() => {
             onOpenChange(false);
             selectSession({ hostKey, sessionId: SessionId.make(leadSessionId) });
+            closeSubagent(hostKey, leadSessionId);
             patchLeadUi(leadKey(hostKey, leadSessionId), () => ({
               tab: "constellation",
               focus: null,

@@ -24,6 +24,8 @@ export interface SessionUi {
   readonly folds: Folds;
   /** The Turn whose diff Output shows; null follows the latest Turn. */
   readonly diffTurnId: string | null;
+  /** The Subagent Output's Subagent tab shows; null shows Changes (or a Lead's tab). */
+  readonly subagentId: string | null;
   readonly draft: string;
   readonly attachments: ReadonlyArray<StagedAttachment>;
   /** Steers and queued follow-ups (⌘↵) not in the conversation yet (`model/outbox.ts`). */
@@ -33,6 +35,7 @@ export interface SessionUi {
 const EMPTY: SessionUi = {
   folds: noFolds,
   diffTurnId: null,
+  subagentId: null,
   draft: "",
   attachments: [],
   outbox: [],
@@ -67,6 +70,9 @@ export const holdOpenFrom = (key: string, turnId: string) =>
 
 export const showTurnDiff = (key: string, turnId: string | null) =>
   patchSessionUi(key, () => ({ diffTurnId: turnId }));
+
+export const showSubagent = (key: string, subagentId: string | null) =>
+  patchSessionUi(key, () => ({ subagentId }));
 
 /** Change one outbox entry; a no-op once it's gone. */
 export const patchOutgoing = (

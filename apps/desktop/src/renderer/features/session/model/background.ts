@@ -10,6 +10,7 @@ import type {
   SessionState,
   TurnTrigger,
 } from "@polaris/protocol";
+import type { RosterRow, SubagentRoster } from "./subagents.ts";
 
 type Counts = Readonly<Record<BackgroundTaskKind, number>>;
 
@@ -47,6 +48,41 @@ export const waitingOn = (session: {
   readonly state: SessionState;
   readonly backgroundTasks: ReadonlyArray<BackgroundTask>;
 }): ReadonlyArray<BackgroundTask> => (session.state === "idle" ? session.backgroundTasks : []);
+
+/** What an open Idle session waits on: its running Subagents (the roster's) and other tasks. */
+export interface Waiting {
+  readonly subagents: ReadonlyArray<RosterRow>;
+  readonly tasks: ReadonlyArray<BackgroundTask>;
+}
+
+/**
+ * Where the Host streams Subagents, the roster's running ones stand for the subagent tasks, so
+ * the composer's count and "Waiting on" agree and an ended one leaves both at once.
+ */
+export const waitingFor = (
+  session: {
+    readonly state: SessionState;
+    readonly backgroundTasks: ReadonlyArray<BackgroundTask>;
+  },
+  roster: SubagentRoster,
+  streamsSubagents: boolean
+): Waiting => {
+  const tasks = waitingOn(session);
+
+  if (!streamsSubagents || session.state !== "idle") return { subagents: [], tasks };
+
+  return { subagents: roster.working, tasks: tasks.filter((t) => t.kind !== "subagent") };
+};
+
+/** "Waiting on 2 subagents and 1 command" for a `Waiting`. */
+export const waitingLine = (waiting: Waiting): string =>
+  waitingPhrase([
+    ...waiting.subagents.map((s): BackgroundTaskRef => ({ id: s.id, kind: "subagent" })),
+    ...waiting.tasks,
+  ]);
+
+export const isWaiting = (waiting: Waiting) =>
+  waiting.subagents.length > 0 || waiting.tasks.length > 0;
 
 const VERB: Readonly<Record<BackgroundTaskKind, string>> = {
   subagent: "reported",

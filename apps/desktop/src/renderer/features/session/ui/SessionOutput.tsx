@@ -3,6 +3,7 @@
  * Turn the Harness started in it included) as file cards, virtualized by line. A light
  * unified renderer: code coloured by the syntax tokens from Pierre's worker pool
  * (useDiffSyntax.ts), drawn plain until ready; no word highlights, which stay in Review.
+ * A chosen Subagent adds its tab after Changes (`SubagentOutput.tsx`) and shows in place.
  */
 import {
   Button,
@@ -18,6 +19,7 @@ import {
   IconButton,
   PixelSparkleIcon,
 } from "@polaris/ui";
+import { isKnownHarness } from "@polaris/protocol";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { lazy, type ReactNode, Suspense, useMemo, useRef, useState } from "react";
 import { type DiffRow, diffRows, ROW_HEIGHT } from "../diffRows.ts";
@@ -35,12 +37,13 @@ import {
 } from "../model/turnGroups.ts";
 import { type DiffFile, firstChangedLine, totals } from "../model/diff.ts";
 import { plural } from "../model/format.ts";
-import { showTurnDiff, uiKey, useSessionUi } from "../state.ts";
+import { showSubagent, showTurnDiff, uiKey, useSessionUi } from "../state.ts";
 import { type DiffState, spanRevision, useTurnDiff } from "../turnDiff.ts";
 import { hideOutput } from "../output/actions.ts";
 import { showHint } from "../output/OutputRail.tsx";
 import { useFilesTick } from "../output/watch.ts";
 import type { SessionViewProps } from "./SessionIntent.tsx";
+import { OutputTab, SubagentPane, SubagentTab, useShownSubagent } from "./SubagentOutput.tsx";
 import { EditorPlaceProvider, OpenInEditorButton } from "../../editor-links/index.ts";
 import { useSettings } from "../../settings/index.ts";
 
@@ -315,16 +318,62 @@ const Body = ({
   }
 };
 
+/** The Changes tab's body: the chosen Turn's diff, or why there is none. */
+const Changes = ({
+  current,
+  ...body
+}: {
+  readonly current: TurnGroup | null;
+  readonly state: DiffState;
+  readonly folded: ReadonlySet<string>;
+  readonly onFold: (path: string) => void;
+}) =>
+  current === null ? (
+    <Empty title="No changes yet" fact="Each turn's diff shows here" />
+  ) : (
+    <Body {...body} />
+  );
+
 export interface SessionOutputProps extends SessionViewProps {
   /** Tabs in place of the lone Changes label (a Lead's Constellation tab). */
   readonly tabs?: ReactNode;
 }
+
+/** The header's diff controls: which Turn, and its file and line counts. */
+const DiffSummary = ({
+  groups,
+  current,
+  state,
+  onPick,
+}: {
+  readonly groups: ReadonlyArray<TurnGroup>;
+  readonly current: TurnGroup | null;
+  readonly state: DiffState;
+  readonly onPick: (turnId: string) => void;
+}) => {
+  const sum = state.kind === "ready" ? totals(state.files) : null;
+
+  return (
+    <>
+      {current === null ? null : <TurnMenu groups={groups} current={current} onPick={onPick} />}
+      {sum === null ? null : (
+        <>
+          <span className="text-caption text-text-subtle tabular">
+            · {plural(sum.files, "file")}
+          </span>
+          <Counts added={sum.added} removed={sum.removed} />
+        </>
+      )}
+    </>
+  );
+};
 
 export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) => {
   const model = useSession(hostKey, sessionId);
   const key = uiKey(hostKey, sessionId);
   const ui = useSessionUi(key);
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
+  const subagent = useShownSubagent(hostKey, sessionId);
 
   const groups = groupTurns(model.turns);
   const current = groupOf(groups, ui.diffTurnId) ?? groups.at(-1) ?? null;
@@ -332,16 +381,17 @@ export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) 
   const session = model.session;
   const cwd = session?.cwd ?? null;
   const files = useFilesTick(hostKey, cwd);
+  const harness = session !== null && isKnownHarness(session.harness) ? session.harness : null;
 
   const state = useTurnDiff(
     hostKey,
     cwd ?? "",
     sessionId,
-    current === null ? null : groupSpan(current),
+    current === null || subagent !== null ? null : groupSpan(current),
     current === null ? "" : spanRevision(current.views, files)
   );
 
-  const sum = state.kind === "ready" ? totals(state.files) : null;
+  const close = () => showSubagent(key, null);
 
   const fold = (path: string) => {
     const next = new Set(folded);
@@ -362,22 +412,22 @@ export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) 
       >
         <div className="border-hairline flex h-11 shrink-0 items-center gap-1 border-b px-3">
           {tabs ?? (
-            <Button variant="secondary" className="text-text-strong" aria-pressed>
+            <OutputTab id="changes" on={subagent === null} onClick={close}>
               Changes
-            </Button>
+            </OutputTab>
+          )}
+          {subagent === null ? null : (
+            <SubagentTab shown={subagent} harness={harness} onClose={close} />
           )}
           <span className="flex-1" />
-          {current === null ? null : (
-            <TurnMenu groups={groups} current={current} onPick={(id) => showTurnDiff(key, id)} />
-          )}
-          {sum === null ? null : (
-            <>
-              <span className="text-caption text-text-subtle tabular">
-                · {plural(sum.files, "file")}
-              </span>
-              <Counts added={sum.added} removed={sum.removed} />
-            </>
-          )}
+          {subagent === null ? (
+            <DiffSummary
+              groups={groups}
+              current={current}
+              state={state}
+              onPick={(id) => showTurnDiff(key, id)}
+            />
+          ) : null}
           {session === null ? null : (
             <IconButton
               size="sm"
@@ -388,10 +438,19 @@ export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) 
             />
           )}
         </div>
-        {current === null ? (
-          <Empty title="No changes yet" fact="Each turn's diff shows here" />
+        {subagent === null ? (
+          <Changes current={current} state={state} folded={folded} onFold={fold} />
         ) : (
-          <Body state={state} folded={folded} onFold={fold} />
+          <SubagentPane
+            shown={subagent}
+            harness={harness}
+            target={{ hostKey, sessionId }}
+            onClose={close}
+            onOpenDiff={() => {
+              showTurnDiff(key, subagent.card.subagent.turnId);
+              close();
+            }}
+          />
         )}
       </section>
     </EditorPlaceProvider>

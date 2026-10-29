@@ -10,7 +10,6 @@
 import type {
   ApprovalRequest,
   Attachment,
-  BackgroundTask,
   TurnId,
   TurnItem,
   TurnStatus,
@@ -18,7 +17,7 @@ import type {
 } from "@polaris/protocol";
 import { Predicate } from "effect";
 import type { TurnView } from "../../../store/sessionModel.ts";
-import { triggerPhrase } from "./background.ts";
+import { isWaiting, triggerPhrase, type Waiting } from "./background.ts";
 import { formatElapsed, plural } from "./format.ts";
 import type { ShellView } from "./items.ts";
 import type { Outgoing } from "./outbox.ts";
@@ -132,7 +131,7 @@ export type Row =
   | {
       readonly kind: "waiting";
       readonly key: string;
-      readonly tasks: ReadonlyArray<BackgroundTask>;
+      readonly waiting: Waiting;
     }
   /** Turns before the first one loaded: being fetched as the list reaches the top, or failed. */
   | { readonly kind: "older"; readonly key: string; readonly state: OlderState }
@@ -292,8 +291,8 @@ export interface ConversationInput {
   /** Steers and follow-ups not landed yet; they close the list. */
   readonly setup?: WorktreeSetupRun | null;
   readonly outbox?: ReadonlyArray<Outgoing>;
-  /** Background tasks an Idle session waits on (`waitingOn`); they follow the last Turn. */
-  readonly waiting?: ReadonlyArray<BackgroundTask>;
+  /** What an Idle session waits on (`waitingFor`); it follows the last Turn. */
+  readonly waiting?: Waiting | null;
 }
 
 const approvalRow = (request: ApprovalRequest): Row => ({
@@ -309,7 +308,7 @@ export const conversationRows = ({
   folds = noFolds,
   outbox = [],
   setup = null,
-  waiting = [],
+  waiting = null,
 }: ConversationInput): ReadonlyArray<Row> => {
   const rows: Array<Row> = setup === null ? [] : [{ kind: "setup", key: setup.id, setup }];
   const placed = new Set<string>();
@@ -331,7 +330,8 @@ export const conversationRows = ({
 
   for (const request of approvals) if (!placed.has(request.id)) rows.push(approvalRow(request));
 
-  if (waiting.length > 0) rows.push({ kind: "waiting", key: "waiting", tasks: waiting });
+  if (waiting !== null && isWaiting(waiting))
+    rows.push({ kind: "waiting", key: "waiting", waiting });
 
   for (const entry of outbox) rows.push({ kind: "outgoing", key: `outgoing:${entry.id}`, entry });
 

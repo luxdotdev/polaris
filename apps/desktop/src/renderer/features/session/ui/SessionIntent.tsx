@@ -20,7 +20,9 @@ import { modelLabel, useHarnessModels } from "../../harness/index.ts";
 import { InTerminalBar } from "../../terminal/index.ts";
 import { send } from "../dispatch.ts";
 import { useHost, useSession, hasCapability } from "../hooks.ts";
-import { waitingOn } from "../model/background.ts";
+import { waitingFor } from "../model/background.ts";
+import { subagentRoster } from "../model/subagents.ts";
+import { openSubagent } from "../output/actions.ts";
 import { conversationRows } from "../model/conversation.ts";
 import { copyableOutput, groupOf, groupTurns, turnNumber } from "../model/turnGroups.ts";
 import { copyWithToast } from "../../../shell/menu/index.ts";
@@ -169,7 +171,11 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
     approvals: model.pendingApprovals,
     folds: ui.folds,
     outbox: ui.outbox,
-    waiting: waitingOn(session),
+    waiting: waitingFor(
+      session,
+      subagentRoster(model.turns),
+      hasCapability(host, "session.subagents")
+    ),
   });
 
   const rows =
@@ -186,6 +192,8 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
     diff: { hostKey, cwd: session.cwd, sessionId },
     onSetTurnOpen: (turnId, open) => setTurnOpen(key, turnId, open),
     onOpenDiff: (turnId) => showTurnDiff(key, turnId),
+    onOpenSubagent: (id) =>
+      openSubagent({ hostKey, workspaceId: session.workspaceId }, sessionId, id),
     onRespond: (request: ApprovalRequest, decision: ApprovalDecision) =>
       void send(
         hostKey,

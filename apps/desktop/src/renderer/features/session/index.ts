@@ -11,6 +11,8 @@ export { SessionOutput, type SessionOutputProps } from "./ui/SessionOutput.tsx";
 
 export { OutputRail } from "./output/OutputRail.tsx";
 
+export { closeSubagent, OutputTab, useShownSubagent } from "./ui/SubagentOutput.tsx";
+
 export {
   hideOutput,
   offerOutput,

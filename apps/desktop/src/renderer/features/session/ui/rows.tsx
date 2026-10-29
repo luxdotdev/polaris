@@ -59,6 +59,8 @@ export interface RowContext {
   /** Opens or folds a Turn; it stays so as newer Turns arrive. */
   readonly onSetTurnOpen: (turnId: string, open: boolean) => void;
   readonly onOpenDiff: (turnId: string) => void;
+  /** Opens a Subagent in Output's Subagent tab. */
+  readonly onOpenSubagent: (subagentId: string) => void;
   readonly onRespond: (request: ApprovalRequest, decision: ApprovalDecision) => void;
   readonly onContinue: () => void;
   /** The session is Limited: its last Turn ends with the usage-limit card. */
@@ -337,6 +339,7 @@ const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowCont
             ctx={{
               hue: ctx.harness,
               onOpenDiff: () => ctx.onOpenDiff(row.turnId),
+              onOpenSubagent: ctx.onOpenSubagent,
             }}
           />
         </SessionTargetContext.Provider>
@@ -490,7 +493,9 @@ export const ConversationRow = ({ row, ctx }: { row: Row; ctx: RowContext }) => 
     case "trigger":
       return <TriggerRow row={row} ctx={ctx} />;
     case "waiting":
-      return <Waiting tasks={row.tasks} />;
+      return (
+        <Waiting waiting={row.waiting} harness={ctx.harness} onOpenSubagent={ctx.onOpenSubagent} />
+      );
     case "trailer":
       return ctx.chrome.trailer ?? null;
     case "item":
