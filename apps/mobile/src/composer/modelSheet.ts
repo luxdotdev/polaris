@@ -63,9 +63,34 @@ export const defaultEffort = (model: Model): ReasoningEffort | null => {
 export const effortFor = (model: Model, chosen: ReasoningEffort | null): ReasoningEffort | null =>
   chosen !== null && model.efforts.includes(chosen) ? chosen : defaultEffort(model);
 
-/** The session's Model in the list: its own, else the Harness's default. */
-export const currentModel = (models: ReadonlyArray<Model>, id: ModelId | null): Model | null =>
-  models.find((m) => m.id === id) ?? models.find((m) => m.isDefault) ?? null;
+/** "claude-opus-5-5[1m]": a listed Model's id with a variant the Harness adds in brackets. */
+const VARIANT = /^(.+)\[([^\]]+)\]$/;
+
+const variantOf = (id: string): { readonly base: string; readonly variant: string | null } => {
+  const [, base, variant] = VARIANT.exec(id) ?? [];
+
+  return base === undefined || variant === undefined
+    ? { base: id, variant: null }
+    : { base, variant };
+};
+
+/**
+ * The session's Model in the list, or the listed Model its variant is of; the Harness's default
+ * only while the session names none. An unlisted id is no Model, never the default's.
+ */
+export const currentModel = (models: ReadonlyArray<Model>, id: ModelId | null): Model | null => {
+  if (id === null) return models.find((m) => m.isDefault) ?? null;
+
+  return models.find((m) => m.id === id) ?? models.find((m) => m.id === variantOf(id).base) ?? null;
+};
+
+/** The chip's words: "Opus 5.5", "Opus 5.5 · 1M" for a variant, the raw id when unlisted. */
+export const modelLabel = (model: Model | null, id: string | null): string => {
+  if (model === null) return id ?? "Default";
+  const variant = id === null || id === model.id ? null : variantOf(id).variant;
+
+  return variant === null ? model.name : `${model.name} · ${variant.toUpperCase()}`;
+};
 
 /** The modes the Host offers: Plan needs `session.plan-mode`. */
 export const permissionModesFor = (

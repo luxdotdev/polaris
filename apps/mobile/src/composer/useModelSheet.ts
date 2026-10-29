@@ -22,6 +22,7 @@ import { newCommandId } from "../thread/source.ts";
 import {
   CHANGE_NOTES,
   currentModel,
+  modelLabel,
   forkCommand,
   type ModelChange,
   modelChange,
@@ -186,7 +187,7 @@ export const useModelSheet = (ctx: ModelSheetContext): ModelSheetInput => {
     harness: session.harness,
     models: listed.models,
     model,
-    label: model?.name ?? session.model ?? "Default",
+    label: modelLabel(model, session.model),
     effort: session.effort,
     change,
     note: CHANGE_NOTES[change.kind],

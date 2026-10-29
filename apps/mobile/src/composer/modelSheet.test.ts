@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { type Capability, Command, Model, ModelId, SessionId, TurnId } from "@polaris/protocol";
 import {
+  currentModel,
   effortFor,
   forkCommand,
   type ModelChange,
   modelChange,
+  modelLabel,
   permissionModesFor,
 } from "./modelSheet.ts";
 
@@ -70,5 +72,34 @@ describe("permission modes", () => {
   test("Plan is offered only where the Host has plan mode", () => {
     expect(permissionModesFor([]).map((p) => p.mode)).not.toContain("plan");
     expect(permissionModesFor(["session.plan-mode"]).map((p) => p.mode)).toContain("plan");
+  });
+});
+
+describe("the session's model", () => {
+  const opus = model({ id: ModelId.make("claude-opus-5-5"), name: "Opus 5.5" });
+  const sonnet = model({ id: ModelId.make("sonnet"), name: "Sonnet 5.5", isDefault: false });
+  const listed = [opus, sonnet];
+
+  const shown = (id: string | null) => {
+    const found = currentModel(listed, id === null ? null : ModelId.make(id));
+
+    return { model: found?.name ?? null, label: modelLabel(found, id) };
+  };
+
+  test.each<[string, string | null, { model: string | null; label: string }]>([
+    ["its own", "sonnet", { model: "Sonnet 5.5", label: "Sonnet 5.5" }],
+    ["none named: the default", null, { model: "Opus 5.5", label: "Opus 5.5" }],
+    [
+      "a bracketed variant of a listed model",
+      "claude-opus-5-5[1m]",
+      { model: "Opus 5.5", label: "Opus 5.5 · 1M" },
+    ],
+    [
+      "unlisted: its id, never the default's name",
+      "gpt-6-codex",
+      { model: null, label: "gpt-6-codex" },
+    ],
+  ])("%s", (_, id, expected) => {
+    expect(shown(id)).toEqual(expected);
   });
 });
