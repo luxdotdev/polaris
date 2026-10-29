@@ -61,6 +61,36 @@ M1 coverage (V0): HostStateChip and HostStateCard (Connection State in the works
 - **Brand moments**: `<Button variant="primary" size="brand">Get started <ButtonKeycap>↵</ButtonKeycap></Button>` (36px, 8px radius, the one button shadow), `Wordmark moment` and `StageHeading` carry the onboarding tracking. Onboarding only.
 - **Icons**: `src/icons/chrome.tsx` re-exports 21 Nucleo UI outline icons (drawn at 16px with a 1px stroke); `src/icons/pixel.tsx` re-exports 9 Nucleo pixel icons for Polaris concepts plus the Polaris star (`star_cells()` from gen_dither.py). The Nucleo icons live in `src/icons/nucleo/` under the **Nucleo License, not Apache-2.0** (see its `LICENSE.md` and the root `NOTICE`); regenerate them with `scripts/vendor-nucleo.ts` from a licensed install. Nucleo allows at most 100 in an open-source project.
 
+## Instrument cards and popovers
+
+Every rich popover (model picker, session context, Stats, usage, constellation preview, Hosts) is an **instrument card** (DESIGN.md, Menus and popovers; Paper X-F). The API is stable:
+
+```tsx
+import { InstrumentCard, InstrumentPopoverContent, Kicker } from "@polaris/ui";
+
+<Popover open={open} onOpenChange={setOpen}>
+  <PopoverTrigger asChild>…</PopoverTrigger>
+  <InstrumentPopoverContent
+    align="end"
+    header={{ mark: <ConstellationMark />, title: "Polaris planning", state: "6 workers", control: <SegmentedControl … /> }}
+    hero={<Orrery />}          // optional; full width in its own well, capped at 160px
+    heroMaxHeight={280}        // optional; raise the cap (the constellation glance), then it scrolls
+    wells={[<Spend />, <Work />]} // one or two inset wells: hairline, 12px radius, bg-well
+    footer={{ status: "As of 22:25 · revision 37", action: <Button>Compact now</Button> }}
+  />
+</Popover>;
+```
+
+- `header`: `title`, optional `mark`, optional mono `state` word, at most one `control`.
+- `footer`: a mono `status` line (set as a Kicker) and at most one `action`.
+- Both forms set `data-surface="raised"` on their root, so `bg-well` resolves one step off the raised surface (Moonlit #1A1B1D; on panels #222327; Midnight #0E0F12 in both).
+- `InstrumentCard` takes the same slots for a card in place (Settings' usage); default width 400px, override with `className`.
+- `Kicker`: mono caps, `text-subtle`, `parts` joined with " · " (`<Kicker parts={["Sessions", 4]} />` → SESSIONS · 4). Data labels only; `KICKER` is the class string.
+
+**rule/popover-fits-window.** `PopoverContent` (and so every instrument card) is never taller than the room its trigger leaves (`--radix-popover-content-available-height`), stays 12px clear of the window (`collisionPadding`), and flips or shifts to the roomier side. An instrument card keeps its header and footer fixed and scrolls only the body, so its last row is always reachable; a plain popover scrolls as a whole. Dropdown and context menus are capped the same way. Check long popovers at 1280×720.
+
+**Plain menus** (DropdownMenu, ContextMenu, Select, `menu-entries`): the raised surface, 14px radius, hairline, float shadow, 6px rows inset 4px with a `fill-selected` pill, mono kicker group headers (`MENU_LABEL`), key hints in `text-subtle`, no leading icons.
+
 ## Gallery
 
 ```sh

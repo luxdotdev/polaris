@@ -105,8 +105,8 @@ const PeekBody = ({
   const { shown, more } = peekRows(rail.tasks);
 
   return (
-    <div className="flex flex-col" data-testid="constellation-peek">
-      <div className="flex flex-col gap-2 px-4 pt-3.5 pb-3">
+    <div className="flex min-h-0 flex-col" data-testid="constellation-peek">
+      <div className="flex shrink-0 flex-col gap-2 px-4 pt-3.5 pb-3">
         <div className="flex items-center gap-2">
           <span className="text-heading-sm text-text-strong min-w-0 flex-1 truncate">{c.name}</span>
           <span className="text-caption text-text-subtle shrink-0">
@@ -127,7 +127,7 @@ const PeekBody = ({
       </div>
       {shown.length === 0 ? null : (
         <div
-          className="border-hairline flex flex-col border-t px-2 py-1.5"
+          className="border-hairline flex min-h-0 flex-col overflow-y-auto border-t px-2 py-1.5"
           style={laneStyle(
             laneWidth(
               shown.map((r) => r.task.id),
@@ -143,7 +143,7 @@ const PeekBody = ({
           )}
         </div>
       )}
-      <div className="border-hairline bg-surface-sunken flex items-center gap-3 border-t px-4 py-2">
+      <div className="border-hairline bg-surface-sunken flex shrink-0 items-center gap-3 border-t px-4 py-2">
         <span className="text-caption text-text-subtle flex items-center gap-1.5">
           <Kbd>Space</Kbd> close
         </span>
@@ -185,7 +185,7 @@ export const ConstellationPeek = ({
         side="right"
         align="start"
         sideOffset={10}
-        className="w-[344px] overflow-hidden p-0"
+        className="flex w-[344px] flex-col overflow-hidden p-0"
         // The row keeps focus, so Space and ↵ still reach it.
         onOpenAutoFocus={(event) => event.preventDefault()}
       >

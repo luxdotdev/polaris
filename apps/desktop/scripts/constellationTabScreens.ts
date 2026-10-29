@@ -138,7 +138,7 @@ try {
         if (scene === "stats") {
           const end = join(out, `${scene}-end-${theme}-${density}.png`);
 
-          const popover = `document.querySelector('[data-testid="stats-popover"]')`;
+          const popover = `document.querySelector('[data-testid="stats-popover"] [data-slot="instrument-body"]')`;
 
           await page.evaluate(`${popover}.scrollTo(0, ${popover}.scrollHeight)`);
           await page.screenshot({ path: end });

@@ -11,6 +11,7 @@ export { REVEAL_MOTION } from "./lib/float";
 export {
   ELLIPSIS,
   ellipsisProblem,
+  KICKER,
   MENU_CONTENT,
   MENU_DESTRUCTIVE,
   MENU_ITEM,
@@ -89,6 +90,8 @@ export * from "./components/polaris/disclosure-chevron";
 export * from "./components/polaris/dither";
 
 export * from "./components/polaris/empty-state";
+
+export * from "./components/polaris/instrument-card";
 
 export * from "./components/polaris/menu-entries";
 

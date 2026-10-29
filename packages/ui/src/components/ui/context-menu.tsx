@@ -4,6 +4,7 @@ import type { ComponentProps, KeyboardEvent } from "react";
 
 import { CheckIcon, ChevronRightIcon, DotIcon } from "../../icons/chrome";
 import { cn } from "../../lib/cn";
+import { FLOAT_EDGE } from "../../lib/float";
 import {
   MENU_CONTENT,
   MENU_DESTRUCTIVE,
@@ -58,12 +59,14 @@ export function ContextMenuTrigger({
 
 export function ContextMenuContent({
   className,
+  collisionPadding = FLOAT_EDGE,
   ...props
 }: ComponentProps<typeof ContextMenuPrimitive.Content>) {
   return (
     <ContextMenuPrimitive.Portal>
       <ContextMenuPrimitive.Content
         data-slot="context-menu-content"
+        collisionPadding={collisionPadding}
         className={cn(
           MENU_CONTENT,
           "max-h-(--radix-context-menu-content-available-height)",

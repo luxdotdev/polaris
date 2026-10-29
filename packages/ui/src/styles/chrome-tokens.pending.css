@@ -1,0 +1,26 @@
+/*
+ * TEMPORARY (ENG-515): F1's chrome surfaces so InstrumentCard renders before F1 lands.
+ * Delete this file and its import in index.css when rebasing onto F1's tokens.
+ */
+@theme static {
+  --color-ground: light-dark(#f1f2f5, #151618);
+  --color-panel: light-dark(#ffffff, #1a1b1d);
+  --color-raised: light-dark(#ffffff, #222327);
+  --color-well: light-dark(#f6f7f9, #222327);
+}
+
+/* A well sits one step off the surface it's inset into: Moonlit's raised cards take #1A1B1D. */
+[data-surface="raised"] {
+  --color-well: light-dark(#f6f7f9, #1a1b1d);
+}
+
+[data-theme="midnight"],
+[data-theme="midnight"] [data-surface="raised"] {
+  --color-well: #0e0f12;
+}
+
+[data-theme="midnight"] {
+  --color-ground: #000000;
+  --color-panel: #0a0b0d;
+  --color-raised: #141518;
+}

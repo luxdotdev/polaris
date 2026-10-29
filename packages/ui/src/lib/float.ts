@@ -1,6 +1,9 @@
-/** A floating layer: surface-raised, card radius, a hairline and the float shadow. */
+/** A floating layer: the raised surface, card radius, a hairline and the float shadow. */
 export const FLOAT_SURFACE =
-  "rounded-card border border-hairline bg-surface-raised text-text-default shadow-float outline-hidden";
+  "rounded-card border border-hairline bg-raised text-text-default shadow-float outline-hidden";
+
+/** Popovers keep this clear of the window's edges when they flip, shift or shrink. */
+export const FLOAT_EDGE = 12;
 
 /** Small reveals fade in over 160ms, ease-out, and close at once (DESIGN.md, Motion). */
 export const FLOAT_MOTION =

@@ -61,10 +61,7 @@ export const Well = ({
   readonly children: ReactNode;
   readonly testId: string;
 }) => (
-  <div
-    className="border-hairline bg-surface-sunken rounded-row relative flex flex-col overflow-hidden border"
-    data-testid={testId}
-  >
+  <div className="relative flex flex-col" data-testid={testId}>
     {children}
   </div>
 );
@@ -408,10 +405,17 @@ const Lead = ({ lead, harness }: { readonly lead: LeadChart; readonly harness: s
   );
 };
 
-export const WorkWell = ({ panel }: { readonly panel: StatsPanel }) => (
+export const WorkWell = ({
+  panel,
+  children,
+}: {
+  readonly panel: StatsPanel;
+  readonly children?: ReactNode;
+}) => (
   <Well testId="stats-work">
     <Workers workers={panel.workers} />
     <Review review={panel.review} />
     <Lead lead={panel.lead} harness={panel.roles.find((r) => r.role === "lead")?.harness ?? null} />
+    {children}
   </Well>
 );

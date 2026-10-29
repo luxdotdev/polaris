@@ -5,8 +5,8 @@
 import {
   Button,
   cn,
+  InstrumentPopoverContent,
   Popover,
-  PopoverContent,
   PopoverTrigger,
   SegmentedControl,
   Tooltip,
@@ -81,47 +81,22 @@ const MEASURES = [
   { value: "tokens", label: "Tokens" },
 ] as const;
 
-const StatsCharts = ({
-  view,
-  record,
-}: {
-  readonly view: ConstellationStatsView;
-  readonly record: ConstellationRecord;
-}) => {
-  const [asked, setAsked] = useState<Measure>("cost");
-  const panel = statsPanel(view, titleOf(record), asked);
+/** The footer's status line: when the stats were read, and at which revision. */
+const asOf = (view: ConstellationStatsView) => [
+  `As of ${clock(view.stats.asOf)}`,
+  `revision ${view.stats.revision}`,
+];
+
+const Notes = ({ view }: { readonly view: ConstellationStatsView }) => {
   const notes = statsCoverage(view);
 
-  return (
-    <div className="flex flex-col gap-2 p-2">
-      <header className="flex items-center gap-2 py-0.5 pr-0.5 pl-1.5">
-        <ConstellationMark size={14} />
-        <span className="text-label text-text-strong min-w-0 flex-1 truncate">
-          {record.constellation.name}
-        </span>
-        <SegmentedControl
-          variant="well"
-          aria-label="Measure spend in"
-          value={panel.measure}
-          onValueChange={setAsked}
-          options={MEASURES.map((m) => ({
-            ...m,
-            disabled: m.value === "cost" && !panel.priced,
-          }))}
-        />
-      </header>
-      <SpendWell panel={panel} />
-      <WorkWell panel={panel} />
-      <footer className="flex flex-col gap-1 px-1.5 pt-0.5 pb-1">
-        {notes.map((note) => (
-          <p key={note} className="text-caption text-text-subtle">
-            {note}
-          </p>
-        ))}
-        <span className="text-text-faint tabular font-mono text-[11px] leading-4">
-          As of {clock(view.stats.asOf)} · revision {view.stats.revision}
-        </span>
-      </footer>
+  return notes.length === 0 ? null : (
+    <div className="border-hairline flex flex-col gap-1 border-t border-dashed px-3.5 py-2.5">
+      {notes.map((note) => (
+        <p key={note} className="text-caption text-text-subtle">
+          {note}
+        </p>
+      ))}
     </div>
   );
 };
@@ -139,6 +114,8 @@ export const StatsPopover = ({
 }) => {
   const c = record.constellation;
   const state = useConstellationStats(hostKey, c.id, c.revision, open);
+  const [asked, setAsked] = useState<Measure>("cost");
+  const panel = state.kind === "ready" ? statsPanel(state.view, titleOf(record), asked) : null;
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -147,17 +124,38 @@ export const StatsPopover = ({
           Stats
         </Button>
       </PopoverTrigger>
-      <PopoverContent
+      <InstrumentPopoverContent
         align="end"
-        className="max-h-[80vh] w-[400px] overflow-y-auto p-0"
         data-testid="stats-popover"
-      >
-        {state.kind !== "ready" ? (
-          <Waiting state={state} />
-        ) : (
-          <StatsCharts view={state.view} record={record} />
-        )}
-      </PopoverContent>
+        header={{
+          mark: <ConstellationMark size={14} />,
+          title: c.name,
+          control:
+            panel === null ? undefined : (
+              <SegmentedControl
+                variant="well"
+                aria-label="Measure spend in"
+                value={panel.measure}
+                onValueChange={setAsked}
+                options={MEASURES.map((m) => ({
+                  ...m,
+                  disabled: m.value === "cost" && !panel.priced,
+                }))}
+              />
+            ),
+        }}
+        wells={
+          state.kind !== "ready" || panel === null
+            ? [<Waiting key="waiting" state={state} />]
+            : [
+                <SpendWell key="spend" panel={panel} />,
+                <WorkWell key="work" panel={panel}>
+                  <Notes view={state.view} />
+                </WorkWell>,
+              ]
+        }
+        footer={state.kind === "ready" ? { status: asOf(state.view).join(" · ") } : undefined}
+      />
     </Popover>
   );
 };

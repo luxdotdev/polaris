@@ -4,6 +4,7 @@ import type { ComponentProps } from "react";
 
 import { CheckIcon, ChevronRightIcon, DotIcon } from "../../icons/chrome";
 import { cn } from "../../lib/cn";
+import { FLOAT_EDGE } from "../../lib/float";
 import {
   MENU_CONTENT,
   MENU_DESTRUCTIVE,
@@ -36,6 +37,7 @@ export const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 export function DropdownMenuContent({
   className,
   sideOffset = 6,
+  collisionPadding = FLOAT_EDGE,
   ...props
 }: ComponentProps<typeof DropdownMenuPrimitive.Content>) {
   return (
@@ -43,6 +45,7 @@ export function DropdownMenuContent({
       <DropdownMenuPrimitive.Content
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
+        collisionPadding={collisionPadding}
         className={cn(
           MENU_CONTENT,
           "max-h-(--radix-dropdown-menu-content-available-height)",
