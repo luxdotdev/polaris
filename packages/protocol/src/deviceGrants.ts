@@ -179,7 +179,7 @@ export const DEVICE_RPCS = {
   "constellation.repository.prepare": "local",
   "constellation.review": "device",
   "constellation.set_state": "device",
-  "constellation.stats": "local",
+  "constellation.stats": "device",
   "constellation.status": "device",
   "constellation.subscribe": "device",
   "constellation.worker.ask": "local",
