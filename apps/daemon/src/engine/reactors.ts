@@ -257,6 +257,7 @@ const make = Effect.gen(function* () {
       Continue: (command) => continueTurn(command.sessionId, committed),
       Retry: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
       RunShellCommand: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
+      CompactSession: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
       Steer: (command) =>
         Effect.suspend(() => {
           const shell = rt.shellJobs.get(command.sessionId);

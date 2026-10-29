@@ -254,6 +254,8 @@ export interface HarnessDriver {
     readonly backgroundCommand?: boolean;
     /** The Harness reads the user's shell commands (`RunShellCommand`, `TurnInput.shellCommand`). */
     readonly shellCommand?: boolean;
+    /** A Turn whose prompt is `/compact` compacts the context window (`CompactSession`). */
+    readonly compact?: boolean;
   };
   /**
    * For Harnesses that hand off sequentially (`liveCoAttach: false`): what the

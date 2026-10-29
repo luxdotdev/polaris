@@ -59,7 +59,14 @@ const probePath = (path: string) => {
 };
 
 /** Commands that start a Turn: they wait at the session's boundary and need worker admission. */
-const TURN_COMMANDS = ["SendTurn", "Continue", "Retry", "SendFeedback", "RunShellCommand"] as const;
+const TURN_COMMANDS = [
+  "SendTurn",
+  "Continue",
+  "Retry",
+  "SendFeedback",
+  "RunShellCommand",
+  "CompactSession",
+] as const;
 
 const sessionOfCommand = (command: Command) => ("sessionId" in command ? command.sessionId : null);
 
@@ -103,8 +110,20 @@ const make = Effect.gen(function* () {
   /** What the session's Harness driver declares, for the commands that depend on it. */
   const driverCan = (
     command: Command,
-    tag: "Steer" | "SetModel" | "StopBackgroundTasks" | "BackgroundCommand" | "RunShellCommand",
-    can: "steer" | "switchModel" | "stopBackground" | "backgroundCommand" | "shellCommand"
+    tag:
+      | "Steer"
+      | "SetModel"
+      | "StopBackgroundTasks"
+      | "BackgroundCommand"
+      | "RunShellCommand"
+      | "CompactSession",
+    can:
+      | "steer"
+      | "switchModel"
+      | "stopBackground"
+      | "backgroundCommand"
+      | "shellCommand"
+      | "compact"
   ) =>
     Effect.gen(function* () {
       if (!Predicate.isTagged(command, tag)) return false;
@@ -174,6 +193,7 @@ const make = Effect.gen(function* () {
       canBackgroundCommand: yield* driverCan(command, "BackgroundCommand", "backgroundCommand"),
       runningCommands: runningCommands(command),
       canRunShellCommand: yield* driverCan(command, "RunShellCommand", "shellCommand"),
+      canCompact: yield* driverCan(command, "CompactSession", "compact"),
       namedTurn: yield* namedTurn(command),
       judgedSummary: yield* judgedSummary(command),
     };

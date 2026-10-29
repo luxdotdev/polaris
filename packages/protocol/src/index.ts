@@ -4,6 +4,8 @@ export * from "./attachments.ts";
 
 export * from "./autoArchive.ts";
 
+export * from "./idleCompaction.ts";
+
 export * from "./availability.ts";
 
 export * from "./bridge.ts";

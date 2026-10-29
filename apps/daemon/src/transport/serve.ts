@@ -231,6 +231,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "attachments.read",
   "attachments.settings",
   "sessions.auto-archive",
+  "sessions.idle-compaction",
   "terminal",
   "terminal.binary",
   "usage",

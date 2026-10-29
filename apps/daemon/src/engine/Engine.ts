@@ -13,7 +13,8 @@
  * This module wires the parts (see README.md): `runtime.ts` (shared state and
  * `signal`), `supervisor.ts` (Harnesses), `terminal.ts` (hand-off),
  * `worktrees.ts`, `pruning.ts` (checkpoints), `reviewCheckouts.ts`, `reactors.ts`,
- * `dispatch.ts`, `streams.ts`, `recovery.ts`, `limitResume.ts` and `autoArchive.ts`.
+ * `dispatch.ts`, `streams.ts`, `recovery.ts`, `limitResume.ts`, `autoArchive.ts` and
+ * `idleCompaction.ts`.
  */
 import {
   type AutoArchiveSettings,
@@ -21,6 +22,7 @@ import {
   type FileError,
   GitError,
   type HostStreamItem,
+  type IdleCompactionSettings,
   NotFound,
   type NotGranted,
   type ReviewCheckoutId,
@@ -37,6 +39,7 @@ import type { ServiceError } from "../services.ts";
 import { registerHandoffContributor } from "../service/upgrade.ts";
 import { AutoArchive } from "./autoArchive.ts";
 import { Dispatcher, type DispatchInput } from "./dispatch.ts";
+import { IdleCompaction } from "./idleCompaction.ts";
 import { LimitResume } from "./limitResume.ts";
 import { CheckpointPruning } from "./pruning.ts";
 import { Reactors } from "./reactors.ts";
@@ -98,6 +101,11 @@ export class Engine extends Context.Service<
     readonly setAutoArchiveSettings: (
       settings: AutoArchiveSettings
     ) => Effect.Effect<void, FileError>;
+    /** The idle compaction setting this Host follows (`idleCompaction.ts`). */
+    readonly idleCompactionSettings: Effect.Effect<IdleCompactionSettings>;
+    readonly setIdleCompactionSettings: (
+      settings: IdleCompactionSettings
+    ) => Effect.Effect<void, FileError>;
     /** A Review Checkout as it is on disk now: what would block an update or removal. */
     readonly checkoutStatus: (
       checkoutId: ReviewCheckoutId
@@ -129,7 +137,10 @@ const EngineParts = Layer.mergeAll(Dispatcher.layer, Streams.layer).pipe(
   ),
   Layer.provideMerge(Supervisor.layer),
   Layer.provideMerge(EngineRuntime.layer),
-  (parts) => Layer.mergeAll(LimitResume.layer, AutoArchive.layer).pipe(Layer.provideMerge(parts))
+  (parts) =>
+    Layer.mergeAll(LimitResume.layer, AutoArchive.layer, IdleCompaction.layer).pipe(
+      Layer.provideMerge(parts)
+    )
 );
 
 const make = Effect.gen(function* () {
@@ -140,6 +151,7 @@ const make = Effect.gen(function* () {
   const pruning = yield* CheckpointPruning;
   const checkouts = yield* ReviewCheckouts;
   const autoArchive = yield* AutoArchive;
+  const idleCompaction = yield* IdleCompaction;
   const prepareForUpgrade = prepareSessionsForUpgrade(runtime);
 
   const recoveredTurns = yield* recoverOnStart(runtime);
@@ -157,6 +169,7 @@ const make = Effect.gen(function* () {
   yield* pruning.startSweeper;
   yield* (yield* LimitResume).start;
   yield* autoArchive.start;
+  yield* idleCompaction.start;
 
   yield* Effect.addFinalizer(() =>
     Effect.forEach([...runtime.live.keys()], (id) => runtime.stopHarness(id), { discard: true })
@@ -207,6 +220,8 @@ const make = Effect.gen(function* () {
     prepareForUpgrade,
     autoArchiveSettings: autoArchive.settings,
     setAutoArchiveSettings: autoArchive.setSettings,
+    idleCompactionSettings: idleCompaction.settings,
+    setIdleCompactionSettings: idleCompaction.setSettings,
     checkoutReviewed: checkouts.reviewed,
     checkoutStatus: (checkoutId) =>
       checkouts.status(checkoutId).pipe(

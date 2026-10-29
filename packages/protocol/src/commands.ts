@@ -72,6 +72,11 @@ export const Command = Schema.TaggedUnion({
    * where the Harness `runsShellCommands`): the Daemon runs it, then the agent reads its output.
    */
   RunShellCommand: { sessionId: SessionId, command: Schema.String },
+  /**
+   * Compact an Idle or Dormant session's context window, as a Turn marked `idleCompaction`
+   * (capability `sessions.idle-compaction`). The Daemon's idle compaction sends it.
+   */
+  CompactSession: { sessionId: SessionId },
   /** Add guidance to the Turn in flight without interrupting it, where the Harness supports it. */
   Steer: { sessionId: SessionId, text: Schema.String },
   Interrupt: { sessionId: SessionId },

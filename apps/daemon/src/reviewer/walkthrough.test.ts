@@ -246,6 +246,8 @@ describe("walkthrough persistence and controls", () => {
       prepareForUpgrade: Effect.void,
       autoArchiveSettings: Effect.die("unused"),
       setAutoArchiveSettings: () => Effect.die("unused"),
+      idleCompactionSettings: Effect.die("unused"),
+      setIdleCompactionSettings: () => Effect.die("unused"),
       checkoutStatus: () => Effect.die("unused"),
       checkoutReviewed: () => Effect.void,
     });

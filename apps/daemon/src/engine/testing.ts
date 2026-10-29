@@ -78,6 +78,8 @@ export const makeFakeDriver = (
     readonly backgroundCommand?: boolean;
     /** Reads the user's shell commands (`RunShellCommand`), like Claude. */
     readonly shellCommand?: boolean;
+    /** Compacts on a `/compact` Turn (`CompactSession`), like Claude and Codex. */
+    readonly compact?: boolean;
     /** Events emitted in reply to each Turn; default is none (the test drives it). */
     readonly onTurn?: (
       input: TurnInput,
@@ -123,6 +125,7 @@ export const makeFakeDriver = (
       stopBackground: true,
       backgroundCommand: options.backgroundCommand ?? true,
       shellCommand: options.shellCommand ?? false,
+      compact: options.compact ?? false,
     },
     probe: Effect.succeed({ available: true, version: "fake", detail: null }),
     open: (openOptions) =>
@@ -363,6 +366,8 @@ export const engineLayer = (options: {
   readonly autoArchiveSweepInterval?: Duration.Input;
   /** Default: `auto-archive-settings.json` next to `filename`. */
   readonly autoArchiveSettingsPath?: string;
+  /** Default: `idle-compaction-settings.json` next to `filename`. */
+  readonly idleCompactionSettingsPath?: string;
 }) => {
   const baseStore = EventStore.layerSqlite(options.filename).pipe(
     Layer.provide(
@@ -387,6 +392,9 @@ export const engineLayer = (options: {
     autoArchiveSettingsPath:
       options.autoArchiveSettingsPath ??
       join(dirname(options.filename), "auto-archive-settings.json"),
+    idleCompactionSettingsPath:
+      options.idleCompactionSettingsPath ??
+      join(dirname(options.filename), "idle-compaction-settings.json"),
   };
 
   return Engine.layer.pipe(

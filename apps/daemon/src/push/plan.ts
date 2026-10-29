@@ -180,9 +180,13 @@ const withTasks =
         : { ...session.ended, settledAt: count === 0 ? (session.ended.settledAt ?? now) : null },
   });
 
-/** A Turn ended; a digest's or a worker's ends quietly (the Desktop App's `turnsOf`). */
+/** A Turn ended; a digest's, a worker's or an idle compaction's ends quietly (the Desktop App's `turnsOf`). */
 const endTurn = (state: PlanState, turn: Turn, now: number): PlanState => {
-  const quiet = state.digestTurns.has(turn.id) || state.workers.has(turn.sessionId);
+  const quiet =
+    state.digestTurns.has(turn.id) ||
+    state.workers.has(turn.sessionId) ||
+    turn.idleCompaction === true;
+
   const digestTurns = new Set(state.digestTurns);
   digestTurns.delete(turn.id);
 

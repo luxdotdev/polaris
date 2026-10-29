@@ -520,6 +520,10 @@ export const defaultHandlers = (options: {
       Effect.fail(new Unsupported({ capability: "sessions.auto-archive" })),
     "sessions.setAutoArchive": () =>
       Effect.fail(new Unsupported({ capability: "sessions.auto-archive" })),
+    "sessions.idleCompaction": () =>
+      Effect.fail(new Unsupported({ capability: "sessions.idle-compaction" })),
+    "sessions.setIdleCompaction": () =>
+      Effect.fail(new Unsupported({ capability: "sessions.idle-compaction" })),
     "continuity.watch": () => Stream.fail(new Unsupported({ capability: "session.continuity" })),
     "continuity.markRead": () => Effect.fail(new Unsupported({ capability: "session.continuity" })),
     "continuity.saveDraft": () =>

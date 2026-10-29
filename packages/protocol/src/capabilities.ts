@@ -136,6 +136,11 @@ export const Capability = Schema.Literals([
   "attachments.settings",
   /** `sessions.autoArchive` and `sessions.setAutoArchive`: archiving Dormant sessions in Settings. */
   "sessions.auto-archive",
+  /**
+   * Idle compaction (`idleCompaction.ts`): `sessions.idleCompaction`, `sessions.setIdleCompaction`,
+   * `CompactSession` and `Turn.idleCompaction`.
+   */
+  "sessions.idle-compaction",
   /** `continuity.watch`, `continuity.markRead`, `continuity.saveDraft`: read position and drafts. */
   "session.continuity",
   /** `presence.report`: a Desktop App's presence holds this Host's pushes to Linked Devices. */

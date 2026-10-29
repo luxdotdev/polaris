@@ -82,7 +82,9 @@ export interface ArchiveView {
 }
 
 /** Sessions a Constellation still needs: its Lead and its workers, until it completes. */
-const inOpenConstellation = (model: ArchiveView): ReadonlySet<SessionId> => {
+export const inOpenConstellation = (
+  model: Pick<ArchiveView, "constellations">
+): ReadonlySet<SessionId> => {
   const held = new Set<SessionId>();
 
   for (const { graph } of model.constellations.values()) {

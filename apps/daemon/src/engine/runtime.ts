@@ -59,6 +59,8 @@ export interface EngineSettings {
   readonly autoArchiveSettingsPath?: string;
   /** How often the auto-archive sweep runs (hourly when unset); null turns it off. */
   readonly autoArchiveSweepInterval?: Duration.Input | null;
+  /** Where the idle compaction setting lives (`idle-compaction-settings.json` in the Polaris home when unset). */
+  readonly idleCompactionSettingsPath?: string;
 }
 
 export const EngineConfig = Context.Reference<EngineSettings>(
