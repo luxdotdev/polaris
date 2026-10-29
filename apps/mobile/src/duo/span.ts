@@ -7,7 +7,6 @@ import { Match } from "effect";
 import { shortSha, elapsed } from "../constellation/copy.ts";
 import { type Check, type Tone, taskRow, type TaskRow } from "../constellation/model.ts";
 import { harnessName } from "../home/model/format.ts";
-import { taskCode } from "../starChart/layout.ts";
 import type { StarBand, StarState, StarTask } from "../starChart/types.ts";
 
 /** Each task's dependency depth among the given ones; a dependency outside them counts as none. */
@@ -231,11 +230,11 @@ export const claimPane = (
   if (row === undefined || star === undefined) return null;
   const attempt = shownAttempt(c, projections, row);
   const claim = attempt?.claim ?? null;
-  const codeOf = new Map(chart.tasks.map((t) => [t.id, taskCode(t, chart.bands)]));
+  const labelOf = new Map(chart.tasks.map((t) => [t.id, t.label]));
   const commits = claim?.commits.length ?? 0;
 
   return {
-    kicker: `Task ${taskCode(star, chart.bands)} · wave ${star.wave}`,
+    kicker: `Task ${star.label} · wave ${star.wave}`,
     pill: pillOf(row),
     title: row.title,
     meta: metaOf(c, row, attempt, now),
@@ -248,7 +247,7 @@ export const claimPane = (
             head: `head ${shortSha(claim.head)} · ${commits} ${commits === 1 ? "commit" : "commits"}`,
           },
     others: rows.flatMap((r) =>
-      r.handed !== null && r.id !== row.id ? [{ id: r.id, label: codeOf.get(r.id) ?? r.id }] : []
+      r.handed !== null && r.id !== row.id ? [{ id: r.id, label: labelOf.get(r.id) ?? r.id }] : []
     ),
   };
 };

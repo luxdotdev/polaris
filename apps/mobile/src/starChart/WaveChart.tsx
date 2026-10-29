@@ -73,7 +73,7 @@ export const WaveChart = ({ tasks, bands, width, selectedTaskId, onPressTask }: 
         <Pressable
           key={star.task.id}
           accessibilityRole="button"
-          accessibilityLabel={`${star.code}, ${star.task.label}, ${star.task.state}`}
+          accessibilityLabel={`${star.task.label}, ${star.task.state}`}
           accessibilityState={{ selected: star.task.id === selectedTaskId }}
           disabled={onPressTask === undefined}
           onPress={() => onPressTask?.(star.task.id)}

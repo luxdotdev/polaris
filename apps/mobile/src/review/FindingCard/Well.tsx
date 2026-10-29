@@ -100,7 +100,7 @@ const Hunk = ({
       style={styles.hunk}
       onPress={() => onOpen(hunk.index)}
     >
-      <HunkView file={hunk.file} hunk={hunk.hunk} palette={palette} />
+      <HunkView file={hunk.file} hunk={hunk.hunk} palette={palette} label={hunk.file.name} />
     </Pressable>
   );
 };

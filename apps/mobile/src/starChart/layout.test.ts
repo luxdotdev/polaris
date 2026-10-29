@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { chartLayout, columnsFor, dotRows, GEOMETRY, isCompact, taskCode } from "./layout.ts";
+import { chartLayout, columnsFor, dotRows, GEOMETRY, isCompact } from "./layout.ts";
 import type { StarBand, StarTask } from "./types.ts";
 
 const bands: ReadonlyArray<StarBand> = [
@@ -143,8 +143,4 @@ describe("dotRows", () => {
 
     expect(dotRows(tasks, bands).flatMap((row) => row.tasks)).toHaveLength(60);
   });
-});
-
-test("taskCode is the band letter and wave", () => {
-  expect(taskCode(task("x", "b", 3), bands)).toBe("B3");
 });

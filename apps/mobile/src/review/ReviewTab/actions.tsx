@@ -1,6 +1,6 @@
 /**
  * What the queue sends: Accept through `useAcceptReview` (MX-T's confirmation while Criticals are
- * open, keeping their ◆ count), and "Ask {harness} to fix" on the hero's top finding.
+ * open, keeping their ◆ count), and "Ask {harness} to fix" on the hero's top finding or from MX-T.
  */
 import { GitDiffSpec, harnessEntry, type RiskFinding, SessionId, TurnId } from "@polaris/protocol";
 import { mobileType, mobileWeight } from "@polaris/ui/tokens";
@@ -22,6 +22,9 @@ import { openCriticals, type QueueItem, queueAcceptState } from "./queue.ts";
 
 /** MX-K's outline edge, the same in both themes. */
 const EDGE = "#ffffff1f";
+
+const harnessName = (item: QueueItem): string =>
+  harnessEntry(item.row.session.harness)?.name ?? item.row.session.harness;
 
 const useQueueSubmit = (item: QueueItem) => {
   const live = useLiveHost(useHost(item.row.hostId));
@@ -59,8 +62,9 @@ export const QueueAccept = ({ item }: { readonly item: QueueItem }) => {
     onAccept,
   });
 
+  const asks = useAskToFix(item);
   const enabled = canAccept(state);
-  const harness = harnessEntry(item.row.session.harness)?.name ?? item.row.session.harness;
+  const shown = notice ?? asks.notice;
 
   return (
     <View style={styles.acceptWrap}>
@@ -81,9 +85,9 @@ export const QueueAccept = ({ item }: { readonly item: QueueItem }) => {
           {sending ? "Accepting…" : "Accept"}
         </Text>
       </Pressable>
-      {notice === null ? null : (
+      {shown === null ? null : (
         <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.notice} numberOfLines={2}>
-          {notice}
+          {shown}
         </Text>
       )}
       <CriticalConfirmation
@@ -91,7 +95,10 @@ export const QueueAccept = ({ item }: { readonly item: QueueItem }) => {
         confirm={review.confirm}
         dismiss={review.dismiss}
         turnNumber={item.turn?.number ?? item.row.session.turnCount}
-        agentName={harness}
+        agentName={harnessName(item)}
+        onAsk={(criticals) => {
+          criticals.forEach(asks.ask);
+        }}
       />
     </View>
   );
@@ -123,24 +130,15 @@ const findingLines = (live: LiveHost, cwd: string, item: QueueItem, finding: Ris
     return fileLines(files, finding.path);
   }).pipe(Effect.orElseSucceed(() => []));
 
-/** "Ask Claude Code to fix": a feedback Turn quoting the finding's lines. */
-export const AskToFix = ({
-  item,
-  finding,
-}: {
-  readonly item: QueueItem;
-  readonly finding: RiskFinding;
-}) => {
-  const styles = useStyles();
+/** Sends "Ask {harness} to fix" for a finding: a feedback Turn quoting its lines. */
+const useAskToFix = (item: QueueItem) => {
   const { live, submissions } = useQueueSubmit(item);
   const [notice, setNotice] = useState<string | null>(null);
   const { session } = item.row;
-  const slot = reviewSlot.fix(session.id, finding.id);
-  const state = submissions.state(slot)?.kind ?? null;
-  const harness = harnessEntry(session.harness)?.name ?? session.harness;
 
-  const onPress = () => {
+  const ask = (finding: RiskFinding) => {
     if (live === null) return setNotice("The host isn't connected");
+    const slot = reviewSlot.fix(session.id, finding.id);
     setNotice(null);
     void Effect.runPromise(findingLines(live, session.cwd, item, finding))
       .then((lines) => {
@@ -156,6 +154,25 @@ export const AskToFix = ({
       });
   };
 
+  const state = (finding: RiskFinding) =>
+    submissions.state(reviewSlot.fix(session.id, finding.id))?.kind ?? null;
+
+  return { ask, state, notice };
+};
+
+/** "Ask Claude Code to fix" on the hero's top finding. */
+export const AskToFix = ({
+  item,
+  finding,
+}: {
+  readonly item: QueueItem;
+  readonly finding: RiskFinding;
+}) => {
+  const styles = useStyles();
+  const { ask, state: stateOf, notice } = useAskToFix(item);
+  const state = stateOf(finding);
+  const harness = harnessName(item);
+
   const label = Match.value(state).pipe(
     Match.when("sent", () => `Sent to ${harness}`),
     Match.when("sending", () => "Sending…"),
@@ -167,7 +184,7 @@ export const AskToFix = ({
       <Pressable
         accessibilityRole="button"
         disabled={state === "sending" || state === "sent"}
-        onPress={onPress}
+        onPress={() => ask(finding)}
         style={({ pressed }) => [styles.ghost, pressed ? styles.pressed : null]}
       >
         <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.ghostLabel} numberOfLines={1}>

@@ -59,13 +59,8 @@ export const usedBands = (
 const bandOf = (task: StarTask, known: ReadonlySet<string>): string =>
   known.has(task.band) ? task.band : STRAY_BAND.id;
 
-/** "B3": the band's letter and the task's wave (DESIGN.md, Constellation header). */
-export const taskCode = (task: StarTask, bands: ReadonlyArray<StarBand>): string =>
-  `${bands.find((band) => band.id === task.band)?.letter ?? STRAY_BAND.letter}${task.wave}`;
-
 export interface PlacedStar {
   readonly task: StarTask;
-  readonly code: string;
   readonly x: number;
   readonly y: number;
 }
@@ -153,7 +148,6 @@ const placeSegment = (
       cell.forEach((task, i) =>
         stars.push({
           task,
-          code: `${band.letter}${task.wave}`,
           x: column.get(wave) ?? 0,
           y: centre + (i - (cell.length - 1) / 2) * GEOMETRY.stackGap,
         })

@@ -202,6 +202,7 @@ export const AskSheet = (props: AskSheetProps) => {
     <InstrumentSheet open={finding !== null} onClose={props.onClose} detents={["large"]}>
       <SheetHeader
         title="Ask the reviewer"
+        subtitle={props.caption}
         mark={
           <View style={styles.markTile}>
             <Sparkle colour={colours.textDefault} />
@@ -209,9 +210,6 @@ export const AskSheet = (props: AskSheetProps) => {
         }
         onClose={props.onClose}
       />
-      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.caption}>
-        {props.caption}
-      </Text>
       {finding === null ? null : <FindingWell finding={finding} />}
       {props.asks.map((ask) => (
         <Exchange key={ask.id} ask={ask} />
@@ -236,7 +234,6 @@ const useStyles = themedStyles((colours) => ({
     alignItems: "center",
     justifyContent: "center",
   },
-  caption: { ...mobileType.footnote, color: colours.textSubtle, paddingHorizontal: 8 },
   finding: {
     gap: 4,
     paddingVertical: 12,

@@ -5,6 +5,7 @@
 import { mobileFont, mobileType } from "@polaris/ui/tokens";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import { haptics } from "../motion/index.ts";
 import { InstrumentSheet } from "../sheet/index.tsx";
@@ -381,6 +382,12 @@ export interface ClaimSheetProps {
   readonly label?: string | undefined;
 }
 
+/** The grabber row, the frame's top padding and the gap above the body (as MX-T's sheet). */
+const SHEET_CHROME = 8 + 9 + 10;
+
+/** A first guess at the claim's height, before it has laid out. */
+const FIT_ESTIMATE = 420;
+
 /**
  * The claim sheet (Paper MX-AA): the claim, its checks and head. Accept fires the success
  * haptic and tells the lead at once; Send back asks for the reason first.
@@ -397,16 +404,24 @@ export const ClaimSheet = ({
 }: ClaimSheetProps) => {
   const styles = useSheetStyles();
   const { colours } = useTheme();
+  const insets = useSafeAreaInsets();
+  const [height, setHeight] = useState(FIT_ESTIMATE);
 
   const detail = useMemo(
     () => (taskId === null ? null : claimDetail(source, taskId, now)),
     [source, taskId, now]
   );
 
+  // Sized to the claim as MX-AA draws it; a long one, or the reason field, can still go large.
+  const fit = height + SHEET_CHROME + Math.max(insets.bottom, 16);
+
   return (
-    <InstrumentSheet open={open && detail !== null} onClose={onClose} detents={["large"]}>
+    <InstrumentSheet open={open && detail !== null} onClose={onClose} detents={[fit, "large"]}>
       {detail === null ? null : (
-        <View style={styles.body}>
+        <View
+          style={styles.body}
+          onLayout={({ nativeEvent }) => setHeight(Math.ceil(nativeEvent.layout.height))}
+        >
           <SheetHead onClose={onClose}>
             <Kicker
               text={`Claim · ${label ?? detail.taskId} · attempt ${detail.attempt}`}
