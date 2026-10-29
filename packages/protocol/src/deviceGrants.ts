@@ -89,6 +89,8 @@ export const DEVICE_RPCS = {
   "devices.unlinkSelf": "device",
   "devices.registerPush": "device",
   "devices.unregisterPush": "device",
+  "devices.registerLiveActivity": "device",
+  "devices.unregisterLiveActivity": "device",
   "voice.transcribe": "device",
   "voice.settings": "local",
   "voice.setKey": "local",

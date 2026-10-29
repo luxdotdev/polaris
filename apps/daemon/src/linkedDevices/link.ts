@@ -10,6 +10,8 @@ import {
   encodeControl,
   encodeDataFrame,
   fromBase64Url,
+  type Live,
+  type LiveGone,
   RelayAddress,
   type RelayControl,
   type RelayLimits,
@@ -58,6 +60,8 @@ export interface RelayLinkOptions {
   /** A device's new session: the Daemon serves a connection over it. */
   readonly serve: (session: DeviceSession, deviceId: string) => void;
   readonly onConnectedChange: (connected: boolean) => void;
+  /** The relay says a Live Activity's token is gone (`live-gone`). */
+  readonly onLiveGone?: (gone: typeof LiveGone.Type) => void;
   readonly log: (message: string) => void;
   /** For tests: a fixed backoff instead of the jittered one. */
   readonly backoff?: (attempt: number) => number;
@@ -120,6 +124,14 @@ export class RelayLink {
       });
       this.sendText(encodeControl({ t: "wake", id, ...request }));
     });
+  }
+
+  /** Sends this Host's slice of a Live Activity; false without a ready socket to a relay with push. */
+  live(frame: Omit<Live, "t">): boolean {
+    if (!this.ready || !this.push) return false;
+    this.sendText(encodeControl({ t: "live", ...frame }));
+
+    return true;
   }
 
   private settleWake(id: string, outcome: WakeOutcome): void {
@@ -216,6 +228,7 @@ export class RelayLink {
         },
         unreachable: () => undefined,
         woken: ({ id, outcome }) => this.settleWake(id, outcome),
+        "live-gone": (gone) => this.options.onLiveGone?.(gone),
       })
     );
   }

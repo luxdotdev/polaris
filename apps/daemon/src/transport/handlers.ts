@@ -408,6 +408,20 @@ export const defaultHandlers = (options: {
         ? Effect.fail(notADevice())
         : Effect.flatMap(RelayRoute, (route) => route.unregisterPush(device));
     },
+    "devices.registerLiveActivity": (registration, { client }) => {
+      const device = deviceOf(client);
+
+      return device === null
+        ? Effect.fail(notADevice())
+        : Effect.flatMap(RelayRoute, (route) => route.registerLiveActivity(device, registration));
+    },
+    "devices.unregisterLiveActivity": (_, { client }) => {
+      const device = deviceOf(client);
+
+      return device === null
+        ? Effect.fail(notADevice())
+        : Effect.flatMap(RelayRoute, (route) => route.unregisterLiveActivity(device));
+    },
 
     dispatch: ({ commandId }) =>
       Effect.fail(new CommandRejected({ commandId, reason: notYet("the event store") })),

@@ -6,7 +6,7 @@
 import { Database } from "bun:sqlite";
 import { chmodSync } from "node:fs";
 import { LinkedDevice, LinkedDeviceId } from "@polaris/protocol";
-import { PushRegistration, RelayAddress } from "@polaris/protocol/relay";
+import { LiveActivityRegistration, PushRegistration, RelayAddress } from "@polaris/protocol/relay";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
 export class LinkedDeviceStoreError extends Schema.TaggedError<LinkedDeviceStoreError>()(
@@ -33,6 +33,16 @@ const decodePushRows = Schema.decodeUnknownOption(Schema.Array(PushRow));
 const decodeRegistration = Schema.decodeUnknownOption(Schema.fromJsonString(PushRegistration));
 
 const encodeRegistration = Schema.encodeSync(Schema.fromJsonString(PushRegistration));
+
+const decodeLive = Schema.decodeUnknownOption(Schema.fromJsonString(LiveActivityRegistration));
+
+const encodeLive = Schema.encodeSync(Schema.fromJsonString(LiveActivityRegistration));
+
+/** A linked device's Live Activity: its update token and the key its slices are sealed to. */
+export interface LiveTarget {
+  readonly device: LinkedDevice;
+  readonly registration: LiveActivityRegistration;
+}
 
 /** A linked device's push registration: where APNs reaches it and the key its pushes are sealed to. */
 export interface PushTarget {
@@ -88,6 +98,18 @@ export class LinkedDevices extends Context.Service<
     ) => Effect.Effect<void, LinkedDeviceStoreError>;
     /** Every linked device with a push registration, read synchronously. */
     readonly pushTargets: () => ReadonlyArray<PushTarget>;
+    /** Replaces the device's Live Activity registration. */
+    readonly setLive: (
+      id: LinkedDeviceId,
+      registration: LiveActivityRegistration
+    ) => Effect.Effect<void, LinkedDeviceStoreError>;
+    /** Removes it; with `token`, just when it is still that activity's. */
+    readonly clearLive: (
+      id: LinkedDeviceId,
+      token?: string
+    ) => Effect.Effect<void, LinkedDeviceStoreError>;
+    /** Every linked device with a Live Activity registered, read synchronously. */
+    readonly liveTargets: () => ReadonlyArray<LiveTarget>;
   }
 >()("polaris/daemon/linkedDevices/LinkedDevices") {
   static layer(path: string) {
@@ -116,6 +138,10 @@ export class LinkedDevices extends Context.Service<
           device_id TEXT PRIMARY KEY, registration TEXT NOT NULL, updated_at TEXT NOT NULL
         )`);
 
+        db.exec(`CREATE TABLE IF NOT EXISTS live_activities (
+          device_id TEXT PRIMARY KEY, registration TEXT NOT NULL, updated_at TEXT NOT NULL
+        )`);
+
         const run = <A>(body: () => A) =>
           Effect.try({
             try: body,
@@ -128,6 +154,25 @@ export class LinkedDevices extends Context.Service<
             decodeRow(db.query(`SELECT ${COLUMNS} FROM linked_devices WHERE id = ?`).get(id)),
             toDevice
           );
+
+        const targets = <R>(
+          table: "push_registrations" | "live_activities",
+          decode: (text: string) => Option.Option<R>
+        ) => {
+          const devices = new Map(linked().map((device) => [device.id, device]));
+
+          const rows = Option.getOrElse(
+            decodePushRows(db.query(`SELECT device_id, registration FROM ${table}`).all()),
+            () => []
+          );
+
+          return rows.flatMap((row) => {
+            const device = devices.get(row.device_id);
+            const registration = Option.getOrNull(decode(row.registration));
+
+            return device === undefined || registration === null ? [] : [{ device, registration }];
+          });
+        };
 
         const linked = () =>
           Option.getOrElse(
@@ -180,6 +225,7 @@ export class LinkedDevices extends Context.Service<
               ).run(new Date().toISOString(), id);
               // An unlinked device is never woken again; a new link registers afresh.
               db.query("DELETE FROM push_registrations WHERE device_id = ?").run(id);
+              db.query("DELETE FROM live_activities WHERE device_id = ?").run(id);
 
               return Option.getOrNull(byId(id));
             }),
@@ -200,25 +246,25 @@ export class LinkedDevices extends Context.Service<
                   "DELETE FROM push_registrations WHERE device_id = ? AND registration = ?"
                 ).run(id, encodeRegistration(only));
             }),
-          pushTargets: () => {
-            const devices = new Map(linked().map((device) => [device.id, device]));
+          pushTargets: () => targets("push_registrations", decodeRegistration),
+          setLive: (id, registration) =>
+            run(() => {
+              db.query(
+                `INSERT INTO live_activities (device_id, registration, updated_at) VALUES (?, ?, ?)
+                 ON CONFLICT(device_id) DO UPDATE SET registration = excluded.registration,
+                 updated_at = excluded.updated_at`
+              ).run(id, encodeLive(registration), new Date().toISOString());
+            }),
+          clearLive: (id, token) =>
+            run(() => {
+              const current = targets("live_activities", decodeLive).find(
+                (target) => target.device.id === id
+              );
 
-            const rows = Option.getOrElse(
-              decodePushRows(
-                db.query("SELECT device_id, registration FROM push_registrations").all()
-              ),
-              () => []
-            );
-
-            return rows.flatMap((row) => {
-              const device = devices.get(row.device_id);
-              const registration = Option.getOrNull(decodeRegistration(row.registration));
-
-              return device === undefined || registration === null
-                ? []
-                : [{ device, registration }];
-            });
-          },
+              if (token === undefined || current?.registration.token === token)
+                db.query("DELETE FROM live_activities WHERE device_id = ?").run(id);
+            }),
+          liveTargets: () => targets("live_activities", decodeLive),
           touch: (id) =>
             run(() => {
               db.query("UPDATE linked_devices SET last_used_at = ? WHERE id = ?").run(
