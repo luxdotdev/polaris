@@ -5,11 +5,11 @@
 import type { SessionState } from "@polaris/protocol";
 import { DITHER_EXIT_MS } from "@polaris/ui/dither";
 import { useExitPresence } from "@polaris/ui/presence";
-import { midnight } from "@polaris/ui/tokens";
 import { Image, type ImageSourcePropType, StyleSheet, View } from "react-native";
 import claudeWash from "../../../assets/tiles/claude.png";
 import codexWash from "../../../assets/tiles/codex.png";
 import { Dither } from "../../dither/index.ts";
+import { type MobileColours, themedStyles, useTheme } from "../../theme/index.ts";
 import { ConstellationGlyph, NeedsYouGlyph } from "./glyphs.tsx";
 
 interface Hue {
@@ -17,16 +17,20 @@ interface Hue {
   readonly wash: ImageSourcePropType | null;
 }
 
-const HUES = {
-  claude: { color: midnight.harnessClaudeCode, wash: claudeWash },
-  codex: { color: midnight.harnessCodex, wash: codexWash },
-  opencode: { color: midnight.harnessOpencode, wash: null },
-} satisfies Record<string, Hue>;
+type Harness = "claude" | "codex" | "opencode";
 
-const isHarness = (harness: string): harness is keyof typeof HUES => Object.hasOwn(HUES, harness);
+const HARNESSES: ReadonlySet<string> = new Set<Harness>(["claude", "codex", "opencode"]);
 
-const hueOf = (harness: string): Hue =>
-  isHarness(harness) ? HUES[harness] : { color: midnight.textSubtle, wash: null };
+const huesOf = (colours: MobileColours): Record<Harness, Hue> => ({
+  claude: { color: colours.harnessClaudeCode, wash: claudeWash },
+  codex: { color: colours.harnessCodex, wash: codexWash },
+  opencode: { color: colours.harnessOpencode, wash: null },
+});
+
+const isHarness = (harness: string): harness is Harness => HARNESSES.has(harness);
+
+const hueOf = (colours: MobileColours, harness: string): Hue =>
+  isHarness(harness) ? huesOf(colours)[harness] : { color: colours.textSubtle, wash: null };
 
 const WORKING: ReadonlySet<SessionState> = new Set(["starting", "working"]);
 
@@ -42,7 +46,9 @@ export const SessionTile = ({
   readonly state: SessionState;
   readonly needsYou: boolean;
 }) => {
-  const hue = hueOf(harness);
+  const styles = useStyles();
+  const { colours } = useTheme();
+  const hue = hueOf(colours, harness);
   const done = !needsYou && !WORKING.has(state);
   const working = !needsYou && state === "working";
   // One dither through Working and its 200ms exit, so a quick return resumes rather than replays.
@@ -65,7 +71,7 @@ export const SessionTile = ({
         <View
           style={[
             styles.dot,
-            { backgroundColor: state === "failed" ? midnight.failed : midnight.textDefault },
+            { backgroundColor: state === "failed" ? colours.failed : colours.textDefault },
           ]}
         />
       ) : null}
@@ -78,13 +84,17 @@ export const SessionTile = ({
   );
 };
 
-export const ConstellationTile = () => (
-  <View style={[styles.tile, styles.constellation]}>
-    <ConstellationGlyph />
-  </View>
-);
+export const ConstellationTile = () => {
+  const styles = useStyles();
 
-const styles = StyleSheet.create({
+  return (
+    <View style={[styles.tile, styles.constellation]}>
+      <ConstellationGlyph />
+    </View>
+  );
+};
+
+const useStyles = themedStyles((colours) => ({
   tile: {
     width: 32,
     height: 32,
@@ -94,7 +104,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  constellation: { backgroundColor: midnight.surfaceSunken, borderColor: midnight.hairline },
+  constellation: { backgroundColor: colours.panel, borderColor: colours.hairline },
   dot: { width: 7, height: 7, borderRadius: 999 },
   overlay: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center" },
-});
+}));

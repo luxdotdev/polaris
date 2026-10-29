@@ -5,7 +5,7 @@
  */
 import type { DraftStatus } from "@polaris/client/continuity";
 import type { HarnessKind } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import {
@@ -17,6 +17,7 @@ import {
 } from "../composer/controls.tsx";
 import { usePastedImages } from "../composer/usePastedImages.ts";
 import { Dither } from "../dither/index.ts";
+import { themedStyles, useTheme } from "../theme/index.ts";
 import { type ComposerMode, placeholderFor } from "./composer.ts";
 import { elapsed, harnessHue, harnessName } from "./labels.ts";
 import { Diamond } from "./Row.tsx";
@@ -51,8 +52,10 @@ const WorkingStrip = ({
   readonly since: string;
   readonly onStop: () => void;
 }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
   const time = useElapsed(since);
-  const hue = harnessHue(harness);
+  const hue = harnessHue(colours, harness);
 
   return (
     <View style={styles.strip}>
@@ -73,8 +76,10 @@ export const Suggestions = ({
 }: {
   readonly items: ReadonlyArray<Suggestion>;
   readonly onPick: (item: Suggestion) => void;
-}) =>
-  items.length === 0 ? null : (
+}) => {
+  const styles = useStyles();
+
+  return items.length === 0 ? null : (
     <View style={styles.suggested}>
       <Text style={styles.suggestedLabel}>Suggested</Text>
       <View style={styles.chips}>
@@ -92,6 +97,7 @@ export const Suggestions = ({
       </View>
     </View>
   );
+};
 
 export interface ComposerProps {
   readonly mode: ComposerMode;
@@ -121,7 +127,9 @@ const ModelChip = ({
   readonly harness: HarnessKind;
   readonly model: string | null;
 }) => {
-  const hue = harnessHue(harness);
+  const styles = useStyles();
+  const { colours } = useTheme();
+  const hue = harnessHue(colours, harness);
 
   return (
     <View style={[styles.modelChip, { borderColor: `${hue}40` }]}>
@@ -136,9 +144,11 @@ const ModelChip = ({
 
 export const Composer = (props: ComposerProps) => {
   const { mode, text, harness, workingSince, attach = null, voice = null } = props;
+  const styles = useStyles();
+  const { colours } = useTheme();
   const blocked = mode.kind === "blocked";
   const empty = text.trim() === "" || props.attaching === true;
-  const hue = harnessHue(harness);
+  const hue = harnessHue(colours, harness);
   // Voice and attach say what's happening on a line of their own: a missing key's message is long.
   const notice = voice?.failure ?? attach?.caption ?? null;
   const fieldId = usePastedImages(attach, !blocked);
@@ -163,7 +173,7 @@ export const Composer = (props: ComposerProps) => {
           value={text}
           onChangeText={props.onChange}
           placeholder={placeholderFor(mode)}
-          placeholderTextColor={midnight.textFaint}
+          placeholderTextColor={colours.textFaint}
           editable={!blocked}
           multiline
           accessibilityLabel="Message"
@@ -204,13 +214,13 @@ export const Composer = (props: ComposerProps) => {
   );
 };
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((colours) => ({
   suggested: { gap: 10, marginHorizontal: 4 },
   suggestedLabel: {
     ...mobileType.footnote,
     fontSize: 12,
     lineHeight: 16,
-    color: midnight.textFaint,
+    color: colours.textFaint,
   },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
@@ -223,12 +233,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#ffffff1f",
   },
-  chipLabel: { ...mobileType.subhead, fontWeight: "500", color: midnight.textDefault },
+  chipLabel: { ...mobileType.subhead, fontWeight: "500", color: colours.textDefault },
   box: {
-    backgroundColor: midnight.surfaceSunken,
+    backgroundColor: colours.panel,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: midnight.hairline,
+    borderColor: colours.hairline,
     overflow: "hidden",
   },
   strip: {
@@ -239,10 +249,10 @@ const styles = StyleSheet.create({
     paddingLeft: 14,
     paddingRight: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: midnight.hairline,
+    borderBottomColor: colours.hairline,
   },
   stripLabel: { ...mobileType.footnote, fontWeight: "500" },
-  stripTime: { ...mobileType.footnote, color: midnight.textFaint, flex: 1 },
+  stripTime: { ...mobileType.footnote, color: colours.textFaint, flex: 1 },
   stop: {
     flexDirection: "row",
     alignItems: "center",
@@ -250,15 +260,15 @@ const styles = StyleSheet.create({
     height: 26,
     paddingHorizontal: 10,
     borderRadius: 8,
-    backgroundColor: midnight.surfaceRaised,
+    backgroundColor: colours.raised,
   },
-  stopSquare: { width: 8, height: 8, borderRadius: 1, backgroundColor: midnight.textDefault },
-  stopLabel: { ...mobileType.footnote, fontWeight: "500", color: midnight.textDefault },
+  stopSquare: { width: 8, height: 8, borderRadius: 1, backgroundColor: colours.textDefault },
+  stopLabel: { ...mobileType.footnote, fontWeight: "500", color: colours.textDefault },
   body: { gap: 12, paddingTop: 14, paddingBottom: 10, paddingLeft: 16, paddingRight: 14 },
   input: {
     ...mobileType.body,
     fontSize: 16,
-    color: midnight.textStrong,
+    color: colours.textStrong,
     maxHeight: 140,
     padding: 0,
   },
@@ -276,19 +286,19 @@ const styles = StyleSheet.create({
   },
   harnessTile: { width: 18, height: 18, borderRadius: 5, opacity: 0.6 },
   harnessName: { ...mobileType.footnote, fontWeight: "500" },
-  modelName: { ...mobileType.footnote, color: midnight.textSubtle, flexShrink: 1 },
-  footnote: { ...mobileType.footnote, color: midnight.textFaint, flex: 1 },
-  footnoteError: { color: midnight.failedText },
-  notice: { ...mobileType.footnote, color: midnight.textSubtle },
-  queue: { ...mobileType.footnote, fontWeight: "500", color: midnight.textDefault },
+  modelName: { ...mobileType.footnote, color: colours.textSubtle, flexShrink: 1 },
+  footnote: { ...mobileType.footnote, color: colours.textFaint, flex: 1 },
+  footnoteError: { color: colours.failedText },
+  notice: { ...mobileType.footnote, color: colours.textSubtle },
+  queue: { ...mobileType.footnote, fontWeight: "500", color: colours.textDefault },
   send: {
     width: 34,
     height: 34,
     borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: midnight.textStrong,
+    backgroundColor: colours.textStrong,
   },
-  sendArrow: { fontSize: 18, lineHeight: 20, fontWeight: "500", color: midnight.bg },
+  sendArrow: { fontSize: 18, lineHeight: 20, fontWeight: "500", color: colours.ground },
   dim: { opacity: 0.4 },
-});
+}));

@@ -3,9 +3,10 @@
  * does nothing while a Critical finding is open or the risk summary isn't finished. Send back opens a one-line reply first, so the
  * agent session gets the user's words as its next Turn.
  */
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { themedStyles, useTheme } from "../theme/index.ts";
 import { acceptLabel } from "./copy.ts";
 import type { AcceptState } from "./model.ts";
 import { SeverityGlyph } from "./severity.tsx";
@@ -20,6 +21,8 @@ export interface ActionBarProps {
 }
 
 const Reply = ({ onSend, onCancel }: { onSend: (reply: string) => void; onCancel: () => void }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
   const [text, setText] = useState("");
   const ready = text.trim() !== "";
 
@@ -30,7 +33,7 @@ const Reply = ({ onSend, onCancel }: { onSend: (reply: string) => void; onCancel
         value={text}
         onChangeText={setText}
         placeholder="What should change?"
-        placeholderTextColor={midnight.textFaint}
+        placeholderTextColor={colours.textFaint}
         autoFocus
         returnKeyType="send"
         onSubmitEditing={() => ready && onSend(text)}
@@ -59,6 +62,7 @@ export const ActionBar = ({
   onAccept,
   onSendBack,
 }: ActionBarProps) => {
+  const styles = useStyles();
   const [replying, setReplying] = useState(false);
   const enabled = accept.kind === "ready";
 
@@ -99,7 +103,7 @@ export const ActionBar = ({
   );
 };
 
-const styles = StyleSheet.create({
+const useStyles = themedStyles((colours) => ({
   bar: {
     position: "absolute",
     left: 0,
@@ -108,11 +112,11 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingTop: 12,
     paddingHorizontal: 20,
-    backgroundColor: `${midnight.bg}f2`,
+    backgroundColor: `${colours.ground}f2`,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: midnight.hairline,
+    borderTopColor: colours.hairline,
   },
-  notice: { ...mobileType.footnote, color: midnight.failedText },
+  notice: { ...mobileType.footnote, color: colours.failedText },
   row: { flexDirection: "row", gap: 8 },
   secondary: {
     height: 46,
@@ -120,9 +124,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: midnight.hairline,
+    borderColor: colours.hairline,
   },
-  secondaryText: { ...mobileType.label, color: midnight.textDefault },
+  secondaryText: { ...mobileType.label, color: colours.textDefault },
   accept: {
     flex: 1,
     height: 46,
@@ -133,11 +137,11 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 16,
   },
-  acceptOn: { backgroundColor: midnight.textStrong },
-  acceptOff: { backgroundColor: midnight.surfaceRaised },
+  acceptOn: { backgroundColor: colours.textStrong },
+  acceptOff: { backgroundColor: colours.raised },
   acceptText: { ...mobileType.label },
-  acceptTextOn: { color: midnight.bg },
-  acceptTextOff: { color: midnight.textSubtle },
+  acceptTextOn: { color: colours.ground },
+  acceptTextOff: { color: colours.textSubtle },
   reply: { flexDirection: "row", alignItems: "center", gap: 8 },
   input: {
     ...mobileType.callout,
@@ -145,21 +149,21 @@ const styles = StyleSheet.create({
     height: 40,
     paddingHorizontal: 14,
     borderRadius: 999,
-    color: midnight.textDefault,
-    backgroundColor: midnight.surfaceSunken,
+    color: colours.textDefault,
+    backgroundColor: colours.well,
     borderWidth: 1,
-    borderColor: midnight.hairline,
+    borderColor: colours.hairline,
   },
   ghost: { height: 40, justifyContent: "center", paddingHorizontal: 4 },
-  ghostText: { ...mobileType.subhead, color: midnight.textSubtle },
+  ghostText: { ...mobileType.subhead, color: colours.textSubtle },
   send: {
     height: 40,
     paddingHorizontal: 14,
     borderRadius: 999,
     justifyContent: "center",
-    backgroundColor: midnight.textStrong,
+    backgroundColor: colours.textStrong,
   },
-  sendOff: { backgroundColor: midnight.surfaceRaised },
-  sendText: { ...mobileType.subhead, fontWeight: "500", color: midnight.bg },
-  sendTextOff: { color: midnight.textFaint },
-});
+  sendOff: { backgroundColor: colours.raised },
+  sendText: { ...mobileType.subhead, fontWeight: "500", color: colours.ground },
+  sendTextOff: { color: colours.textFaint },
+}));

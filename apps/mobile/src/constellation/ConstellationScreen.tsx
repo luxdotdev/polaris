@@ -4,7 +4,7 @@
  * claim handed to the user. The thread's composer messages the lead, whatever the state.
  */
 import { type HarnessKind, harnessEntry, SessionId } from "@polaris/protocol";
-import { midnight, mobileType } from "@polaris/ui/tokens";
+import { mobileType } from "@polaris/ui/tokens";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -12,6 +12,7 @@ import type { HostConnection, HostStatus } from "../runtime/hostConnection.ts";
 import { claimChoices, taskKey, useKept } from "../duo/kept.ts";
 import { useAfter } from "../runtime/useAfter.ts";
 import { useHost, useHostStatus } from "../runtime/hosts.tsx";
+import { themedStyles, useTheme } from "../theme/index.ts";
 import { ThreadScreen } from "../thread/index.ts";
 import { harnessHue, segmentColour } from "./glyphs.tsx";
 import { type ConstellationView, constellationView } from "./model.ts";
@@ -49,29 +50,39 @@ const awayLine = (status: HostStatus): string | null => {
   return status.state === "needs-attention" ? "The host needs attention" : "Reconnecting…";
 };
 
-const Back = ({ onBack }: { readonly onBack: () => void }) => (
-  <Pressable
-    accessibilityRole="button"
-    accessibilityLabel="Back"
-    style={styles.back}
-    onPress={onBack}
-  >
-    <Text style={styles.backArrow}>‹</Text>
-  </Pressable>
-);
+const Back = ({ onBack }: { readonly onBack: () => void }) => {
+  const styles = useStyles();
 
-const Mark = () => (
-  <View style={styles.mark}>
-    <View style={[styles.star, { left: 2, top: 7 }]} />
-    <View style={[styles.star, { left: 5, top: 2 }]} />
-    <View style={[styles.star, { left: 9, top: 8, opacity: 0.45 }]} />
-  </View>
-);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Back"
+      style={styles.back}
+      onPress={onBack}
+    >
+      <Text style={styles.backArrow}>‹</Text>
+    </Pressable>
+  );
+};
+
+const Mark = () => {
+  const styles = useStyles();
+
+  return (
+    <View style={styles.mark}>
+      <View style={[styles.star, { left: 2, top: 7 }]} />
+      <View style={[styles.star, { left: 5, top: 2 }]} />
+      <View style={[styles.star, { left: 9, top: 8, opacity: 0.45 }]} />
+    </View>
+  );
+};
 
 /** Past this many tasks the segments share one fixed-width bar instead of overflowing. */
 const SEGMENTS_MAX = 8;
 
 const Bar = ({ view }: { readonly view: ConstellationView }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
   const packed = view.bar.segments.length > SEGMENTS_MAX;
 
   return (
@@ -82,7 +93,7 @@ const Bar = ({ view }: { readonly view: ConstellationView }) => {
             key={i}
             style={[
               packed ? styles.slice : styles.segment,
-              { backgroundColor: segmentColour(tone, view.bar.harnesses[i] ?? null) },
+              { backgroundColor: segmentColour(colours, tone, view.bar.harnesses[i] ?? null) },
             ]}
           />
         ))}
@@ -110,43 +121,49 @@ const Header = ({
   readonly onBack: (() => void) | undefined;
   readonly open: boolean;
   readonly onToggle: () => void;
-}) => (
-  <View style={styles.header}>
-    <View style={styles.titleRow}>
-      {onBack === undefined ? null : <Back onBack={onBack} />}
-      <View style={styles.titleText}>
-        <View style={styles.kicker}>
-          <Mark />
-          <Text style={styles.meta}>Constellation · {view.state}</Text>
+}) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
+  const hue = harnessHue(colours, lead?.harness ?? null);
+
+  return (
+    <View style={styles.header}>
+      <View style={styles.titleRow}>
+        {onBack === undefined ? null : <Back onBack={onBack} />}
+        <View style={styles.titleText}>
+          <View style={styles.kicker}>
+            <Mark />
+            <Text style={styles.meta}>Constellation · {view.state}</Text>
+          </View>
+          <Text style={styles.name} numberOfLines={2}>
+            {view.name}
+          </Text>
         </View>
-        <Text style={styles.name} numberOfLines={2}>
-          {view.name}
-        </Text>
       </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={open ? "Hide the tasks" : "Show the tasks"}
+        accessibilityState={{ expanded: open }}
+        onPress={onToggle}
+        style={styles.leadRow}
+      >
+        <View style={[styles.avatar, { borderColor: hue }]}>
+          <View style={[styles.avatarDot, { backgroundColor: hue }]} />
+        </View>
+        <View style={styles.leadText}>
+          <Text style={styles.leadTitle} numberOfLines={1}>
+            Lead{lead === null ? "" : ` · ${harnessName(lead.harness)}`}
+          </Text>
+          <Text style={styles.meta} numberOfLines={1}>
+            {awayLine(status) ?? leadLine(view, lead, hostName)}
+          </Text>
+        </View>
+        <Bar view={view} />
+        <Text style={[styles.chevron, open && styles.chevronOpen]}>›</Text>
+      </Pressable>
     </View>
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={open ? "Hide the tasks" : "Show the tasks"}
-      accessibilityState={{ expanded: open }}
-      onPress={onToggle}
-      style={styles.leadRow}
-    >
-      <View style={[styles.avatar, { borderColor: harnessHue(lead?.harness ?? null) }]}>
-        <View style={[styles.avatarDot, { backgroundColor: harnessHue(lead?.harness ?? null) }]} />
-      </View>
-      <View style={styles.leadText}>
-        <Text style={styles.leadTitle} numberOfLines={1}>
-          Lead{lead === null ? "" : ` · ${harnessName(lead.harness)}`}
-        </Text>
-        <Text style={styles.meta} numberOfLines={1}>
-          {awayLine(status) ?? leadLine(view, lead, hostName)}
-        </Text>
-      </View>
-      <Bar view={view} />
-      <Text style={[styles.chevron, open && styles.chevronOpen]}>›</Text>
-    </Pressable>
-  </View>
-);
+  );
+};
 
 const Rail = ({
   view,
@@ -159,6 +176,7 @@ const Rail = ({
   readonly verdicts: Verdicts;
   readonly keyOf: (taskId: string) => string;
 }) => {
+  const styles = useStyles();
   const [choices, setChoice] = useKept(claimChoices);
 
   return (
@@ -226,6 +244,7 @@ const Live = ({
   );
 
   const [open, toggle] = usePanel(view);
+  const styles = useStyles();
 
   if (feed.kind === "failed") return <Waiting text={feed.message} />;
 
@@ -270,11 +289,15 @@ const Live = ({
   );
 };
 
-const Waiting = ({ text }: { readonly text: string }) => (
-  <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
-    <Text style={[styles.meta, styles.pad]}>{text}</Text>
-  </SafeAreaView>
-);
+const Waiting = ({ text }: { readonly text: string }) => {
+  const styles = useStyles();
+
+  return (
+    <SafeAreaView style={styles.screen} edges={["top", "bottom"]}>
+      <Text style={[styles.meta, styles.pad]}>{text}</Text>
+    </SafeAreaView>
+  );
+};
 
 export interface ConstellationScreenProps {
   readonly hostId: string;
@@ -296,8 +319,8 @@ export const ConstellationScreen = ({
   );
 };
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: midnight.bg },
+const useStyles = themedStyles((colours) => ({
+  screen: { flex: 1, backgroundColor: colours.ground },
   pad: { padding: 20 },
   header: {
     gap: 14,
@@ -305,7 +328,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: midnight.hairline,
+    borderBottomColor: colours.hairline,
   },
   titleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   back: {
@@ -314,17 +337,17 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: midnight.surfaceSunken,
-    borderColor: midnight.hairline,
+    backgroundColor: colours.panel,
+    borderColor: colours.hairline,
     borderWidth: 1,
   },
-  backArrow: { fontSize: 22, lineHeight: 24, color: midnight.textDefault },
+  backArrow: { fontSize: 22, lineHeight: 24, color: colours.textDefault },
   titleText: { flex: 1, minWidth: 0, gap: 1 },
   kicker: { flexDirection: "row", alignItems: "center", gap: 7 },
   mark: { width: 14, height: 14 },
-  star: { position: "absolute", width: 3, height: 3, backgroundColor: midnight.starlight },
-  name: { ...mobileType.title, fontSize: 22, lineHeight: 28, color: midnight.textStrong },
-  meta: { ...mobileType.footnote, color: midnight.textSubtle },
+  star: { position: "absolute", width: 3, height: 3, backgroundColor: colours.starlight },
+  name: { ...mobileType.title, fontSize: 22, lineHeight: 28, color: colours.textStrong },
+  meta: { ...mobileType.footnote, color: colours.textSubtle },
   leadRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 4 },
   avatar: {
     width: 32,
@@ -333,23 +356,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: midnight.surfaceRaised,
+    backgroundColor: colours.raised,
   },
   leadText: { flex: 1, minWidth: 0, gap: 1 },
-  leadTitle: { ...mobileType.heading, fontSize: 15, lineHeight: 20, color: midnight.textStrong },
+  leadTitle: { ...mobileType.heading, fontSize: 15, lineHeight: 20, color: colours.textStrong },
   avatarDot: { width: 10, height: 10, borderRadius: 2 },
   barBox: { flexShrink: 0, alignItems: "flex-end", gap: 6 },
   segments: { flexDirection: "row", gap: 3 },
   packed: { width: 104, gap: 1 },
   segment: { width: 10, height: 4 },
   slice: { flex: 1, height: 4 },
-  chevron: { ...mobileType.subhead, color: midnight.textFaint },
+  chevron: { ...mobileType.subhead, color: colours.textFaint },
   chevronOpen: { transform: [{ rotate: "90deg" }] },
   panel: {
     flexGrow: 0,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: midnight.hairline,
+    borderBottomColor: colours.hairline,
   },
   scroll: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 16 },
   rail: {},
-});
+}));
