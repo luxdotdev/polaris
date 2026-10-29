@@ -449,6 +449,7 @@ export const defaultHandlers = (options: {
         })
       ),
     "usage.watch": () => Stream.fail(new Unsupported({ capability: "usage" })),
+    "host.stats.watch": () => Stream.fail(new Unsupported({ capability: "host.stats" })),
     "commit.suggestMessage": () =>
       Stream.fail(
         new CommitMessageError({

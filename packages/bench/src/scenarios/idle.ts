@@ -6,7 +6,8 @@
  * The sessions are made Dormant the way it happens in life: they run a Turn,
  * then the Daemon restarts. Measured first with one Client connected and
  * subscribed (a Desktop App in the background, its user present: ENG-495's
- * lease, renewed once a minute), then with no Client.
+ * lease, renewed once a minute), then with no Client. Neither watches host
+ * stats: the Daemon samples them only while a Client does (ENG-565).
  */
 import { join } from "node:path";
 import { Effect, Schedule, Stream } from "effect";

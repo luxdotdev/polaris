@@ -16,6 +16,8 @@ export const Capability = Schema.Literals([
   /** `extensions.pair`, `extensions.list`, `extensions.revoke`, and `extensionToken` in `hello`. */
   "extensions",
   "host.resources",
+  /** `host.stats.watch`: the Host's CPU, load, memory and disk, sampled while watched (ENG-565). */
+  "host.stats",
   /** `remoteAccess.status`, `remoteAccess.enable` and `remoteAccess.disable` (Tailscale, ADR 0076). */
   "remote-access",
   /** `relayRoute.*` and `devices.*`: the Relay route and Linked Devices (ADR 0080, 0082). */

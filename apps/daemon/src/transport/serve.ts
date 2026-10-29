@@ -49,6 +49,7 @@ import { DeepgramLive } from "../voice/deepgram.ts";
 import { HostSecrets } from "../secrets/index.ts";
 import { VoiceRpcsLive } from "../voice/VoiceRpcs.ts";
 import { ResourceRpcsLive } from "../resources/rpc.ts";
+import { HostStats, HostStatsRpcsLive } from "../hostStats/index.ts";
 import { paths } from "../paths.ts";
 import { startServer } from "./server.ts";
 import { configuredGatewayPort } from "../gateway/index.ts";
@@ -127,6 +128,7 @@ export const daemonHandlers = Layer.mergeAll(
   CommitMessageRpcsLive,
   EngineRpcHandlers,
   ContinuityRpcsLive.pipe(Layer.provide(Continuity.layer)),
+  HostStatsRpcsLive.pipe(Layer.provide(HostStats.layer())),
   PushNotifierLive,
   ResourceRpcsLive,
   lazyConstellationHandlers,
@@ -233,6 +235,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "terminal.binary",
   "usage",
   "host.resources",
+  "host.stats",
 ];
 
 /**
