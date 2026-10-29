@@ -1,12 +1,42 @@
 /**
- * With no Harness ready on the Host (DESIGN.md, New session): each one's reason in a line and its
- * fix on the Host, its setup guide when missing or too old, and Check again. Neutral, never a signal.
+ * With no Harness ready on the Host (Paper MX-AR): a panel naming each one's reason and its fix
+ * on the Host, its setup guide when missing or too old, and Check again. Neutral, never a signal.
  */
-import { mobileType } from "@polaris/ui/tokens";
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { mobileFont, mobileType } from "@polaris/ui/tokens";
+import { Linking, Pressable, Text, View } from "react-native";
+import { Celestial, sessionCelestial } from "../celestial";
 import { themedStyles } from "../theme/index.ts";
+import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 import type { NotReadyHarness } from "./harness.ts";
-import { HarnessTile } from "./parts.tsx";
+
+const HarnessWell = ({ harness }: { readonly harness: NotReadyHarness }) => {
+  const styles = useStyles();
+  const { docsUrl } = harness;
+
+  return (
+    <View style={styles.well}>
+      <Celestial body={sessionCelestial(null)} harness={harness.kind} size={16} />
+      <View style={styles.text}>
+        <Text style={styles.reason} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
+          {harness.reason}
+        </Text>
+        <Text style={styles.remedy} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
+          {harness.remedy}
+        </Text>
+        {docsUrl === null ? null : (
+          <Pressable
+            accessibilityRole="link"
+            hitSlop={8}
+            style={styles.guide}
+            onPress={() => void Linking.openURL(docsUrl)}
+          >
+            <Text style={styles.action}>Open setup guide ↗</Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+};
 
 export const NotReadyPanel = ({
   hostName,
@@ -21,36 +51,21 @@ export const NotReadyPanel = ({
 
   return (
     <View style={styles.panel}>
-      <Text style={styles.lead}>
+      <Text style={styles.kicker} numberOfLines={1}>
+        {`No harness ready on ${hostName}`.toUpperCase()}
+      </Text>
+      <Text style={styles.lead} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
         Polaris drives the harnesses you already have. Set one up on {hostName}, then check again.
       </Text>
       {harnesses.map((harness) => (
-        <View key={harness.kind} style={styles.row}>
-          <HarnessTile harness={harness.kind} />
-          <View style={styles.text}>
-            <Text style={styles.reason}>{harness.reason}</Text>
-            <Text style={styles.remedy}>{harness.remedy}</Text>
-            {harness.docsUrl === null ? null : (
-              <Pressable
-                accessibilityRole="link"
-                hitSlop={8}
-                onPress={() => {
-                  if (harness.docsUrl !== null) void Linking.openURL(harness.docsUrl);
-                }}
-              >
-                <Text style={styles.action}>Open setup guide</Text>
-              </Pressable>
-            )}
-          </View>
-        </View>
+        <HarnessWell key={harness.kind} harness={harness} />
       ))}
       <Pressable
         accessibilityRole="button"
         onPress={onCheckAgain}
-        hitSlop={8}
-        style={styles.checkAgain}
+        style={({ pressed }) => [styles.checkAgain, pressed ? styles.pressed : null]}
       >
-        <Text style={styles.action}>Check again</Text>
+        <Text style={styles.checkLabel}>Check again</Text>
       </Pressable>
     </View>
   );
@@ -58,16 +73,46 @@ export const NotReadyPanel = ({
 
 const useStyles = themedStyles((colours) => ({
   panel: {
-    gap: 12,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colours.hairline,
+    gap: 14,
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colours.hairline,
+    backgroundColor: colours.panel,
   },
-  lead: { ...mobileType.footnote, color: colours.textSubtle },
-  row: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  text: { flex: 1, minWidth: 0, gap: 2 },
-  reason: { ...mobileType.callout, color: colours.textDefault },
+  kicker: {
+    fontFamily: mobileFont.mono,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: "500",
+    letterSpacing: 0.88,
+    color: colours.textSubtle,
+  },
+  lead: { ...mobileType.callout, color: colours.textDefault },
+  well: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colours.hairline,
+    backgroundColor: colours.well,
+  },
+  text: { flex: 1, minWidth: 0, gap: 4 },
+  reason: { fontFamily: mobileFont.mono, fontSize: 13, lineHeight: 18, color: colours.textStrong },
   remedy: { ...mobileType.footnote, color: colours.textSubtle },
-  action: { ...mobileType.label, color: colours.textDefault },
-  checkAgain: { alignSelf: "flex-start" },
+  guide: { alignSelf: "flex-start", paddingTop: 4 },
+  action: { ...mobileType.subhead, fontWeight: "500", color: colours.textDefault },
+  checkAgain: {
+    height: 46,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colours.hairline,
+    backgroundColor: colours.raised,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pressed: { opacity: 0.7 },
+  checkLabel: { ...mobileType.heading, fontWeight: "500", color: colours.textStrong },
 }));

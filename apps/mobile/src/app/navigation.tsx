@@ -1,5 +1,5 @@
 /**
- * The app's navigation: a stack of screens over the tabs (Sessions, Review, Settings), New as a sheet.
+ * The app's navigation: a stack of screens over the tabs (Sessions, Review, Settings) and New.
  * Screens push routes; the shell in App.tsx draws the top of the stack.
  */
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
@@ -10,6 +10,7 @@ import {
   type NavigationState,
   opened,
   pushed,
+  replaced,
   selected,
   topOf,
   wentBack,
@@ -23,13 +24,13 @@ export interface Navigation {
   readonly tab: HomeTab;
   readonly selectTab: (tab: HomeTab) => void;
   readonly push: (route: Route) => void;
+  /** Swaps the top screen for `route`. */
+  readonly replace: (route: Route) => void;
   readonly back: () => void;
   /** Opens a route from outside the app (a widget's link): Home, or the route on top of it. */
   readonly open: (route: Route) => void;
-  /** The New agent session sheet; `workspaceId` preselects one. */
-  readonly newSession: { readonly open: boolean; readonly workspaceId: string | null };
+  /** Opens a new agent session; `workspaceId` preselects one. */
   readonly openNewSession: (workspaceId?: string) => void;
-  readonly closeNewSession: () => void;
 }
 
 const NavigationContext = createContext<Navigation | null>(null);
@@ -45,16 +46,13 @@ export const NavigationProvider = ({ children }: { readonly children: ReactNode 
       tab: state.tab,
       selectTab: (tab) => setState((current) => selected(current, tab)),
       push: (route) => setState((current) => pushed(current, route)),
+      replace: (route) => setState((current) => replaced(current, route)),
       back: () => setState(wentBack),
       open,
-      newSession: state.newSession,
       openNewSession: (workspaceId) =>
-        setState((current) => ({
-          ...current,
-          newSession: { open: true, workspaceId: workspaceId ?? null },
-        })),
-      closeNewSession: () =>
-        setState((current) => ({ ...current, newSession: initialNavigation.newSession })),
+        setState((current) =>
+          pushed(current, { screen: "newSession", workspaceId: workspaceId ?? null })
+        ),
     }),
     [state, open]
   );

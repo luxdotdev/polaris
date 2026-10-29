@@ -12,7 +12,7 @@ import {
 } from "@polaris/protocol";
 import { sessionId, snapshot, turn } from "./daemon.testing.ts";
 
-export type Dataset = "demo" | "worst" | "one" | "empty";
+export type Dataset = "demo" | "worst" | "one" | "empty" | "started";
 
 export interface GalleryData {
   readonly session: Partial<AgentSession>;
@@ -117,6 +117,43 @@ const EMPTY: GalleryData = {
   turns: [],
   live: [],
 };
+
+/** Just sent from New session (MX-AS): starting, turn 1, its first tool run streaming. */
+const STARTED = (): GalleryData => ({
+  session: {
+    title: "Fix the relay reconnect backoff when the tunnel flaps",
+    model: "claude-opus-5-5",
+    state: "starting",
+  },
+  workspaceName: "polaris",
+  turns: [
+    {
+      turn: turn(0, {
+        prompt:
+          "Fix the relay reconnect backoff when the tunnel flaps. Cap it at 30s and keep the jitter.",
+        status: "working",
+        startedAt: new Date().toISOString(),
+        endedAt: null,
+      }),
+      items: [],
+    },
+  ],
+  live: [
+    SessionStreamItem.cases.Synchronized.make({ sequence: Sequence.make(1) }),
+    SessionStreamItem.cases.ItemProgress.make({
+      turnId: TurnId.make("t-0"),
+      item: TurnItem.cases.ToolCall.make({
+        id: "a",
+        name: "Read",
+        kind: "read",
+        input: { file_path: "packages/client/src/relay/reconnect.ts" },
+        output: null,
+        status: "running",
+      }),
+      subagentId: null,
+    }),
+  ],
+});
 
 const HOME = "/Users/aleksandra.wisniewska-kowalczyk/code/northwind-billing-reconciliation";
 
@@ -278,6 +315,7 @@ export const DATASETS: Readonly<Record<Dataset, () => GalleryData>> = {
   worst: WORST,
   one: () => ONE,
   empty: () => EMPTY,
+  started: STARTED,
 };
 
 /** The dataset's Snapshot, as the Host sends it first. */

@@ -1,16 +1,18 @@
 /**
- * The new agent session sheet's decisions (Paper M6; DESIGN.md, New session): where it runs by
- * default, the lines that say so, the permission modes, the branch a new Worktree takes, and the
- * command Start sends.
+ * A new agent session's decisions (Paper MX-AO; DESIGN.md, Mobile chrome redesign · phase 3):
+ * where it runs by default, the place line and recent workspaces, the permission modes, the
+ * branch a new Worktree takes, and the command the first send dispatches.
  */
 import {
   type AttachmentId,
   type Capability,
   Command,
+  type ConnectionState,
   type HarnessKind,
   ModelId,
   PermissionMode,
   permissionModeFor,
+  type ReasoningEffort,
   SessionId,
   SessionPlacement,
   type Workspace,
@@ -21,12 +23,16 @@ import { Option, Predicate, Schema } from "effect";
 /** How this phone reaches a Host (DESIGN.md, Mobile App: Hosts). */
 export type Route = "relay" | "network";
 
-/** What the sheet knows about one Host. */
+/** What a new session knows about one Host. */
 export interface SheetHost {
   readonly hostId: string;
   readonly hostName: string;
   /** Only a connected Host can be chosen. */
   readonly connected: boolean;
+  /** Its Connection State, for the workspace sheet's dot. */
+  readonly state: ConnectionState;
+  /** The round trip of its last ping, in ms; null before one. */
+  readonly latencyMs: number | null;
   /** Null while the Host's route isn't known. */
   readonly route: Route | null;
   /** The Daemon's home directory, to show paths as `~/…`; null before `hello`. */
@@ -36,10 +42,12 @@ export interface SheetHost {
   readonly capabilities: ReadonlyArray<Capability>;
 }
 
-/** The parts of an agent session the sheet's defaults read. */
+/** The parts of an agent session the defaults read. */
 export interface SessionUse {
   readonly workspaceId: string;
   readonly harness: string;
+  /** The Model it last ran on; null for the Harness's default. */
+  readonly model?: string | null;
   readonly updatedAt: string;
 }
 
@@ -66,7 +74,7 @@ export const lastUsedTarget = (hosts: ReadonlyArray<SheetHost>): Target | null =
 };
 
 /**
- * Where the sheet opens: the Workspace asked for, else the last used one (with its Host), else
+ * Where a new session opens: the Workspace asked for, else the last used one (with its Host), else
  * the first Workspace of the first connected Host.
  */
 export const defaultTarget = (
@@ -102,13 +110,70 @@ export const lastUsedHarnesses = (host: SheetHost): ReadonlyMap<string, string> 
   return used;
 };
 
-/** "Runs on Mac Studio · via Polaris Relay", or "· on this network". */
-export const routeLine = (host: SheetHost): string => {
-  const runsOn = `Runs on ${host.hostName}`;
+/** The composer's head: "mac-studio / polaris". */
+export const placeLine = (host: SheetHost, workspace: Workspace): string =>
+  `${host.hostName} / ${workspace.name}`;
 
-  if (host.route === "relay") return `${runsOn} · via Polaris Relay`;
+/** A recent workspace chip: its name, and its Host's when that isn't the current one's. */
+export interface RecentChip {
+  readonly target: Target;
+  readonly name: string;
+  /** Named faintly beside a workspace on another Host; null on the current Host. */
+  readonly hostName: string | null;
+}
 
-  return host.route === "network" ? `${runsOn} · on this network` : runsOn;
+/** How many recent workspaces MX-AO's row offers. */
+export const RECENT_LIMIT = 5;
+
+/**
+ * The workspaces of the newest sessions on connected Hosts, newest first, once each, leaving
+ * out the current one.
+ */
+export const recentChips = (
+  hosts: ReadonlyArray<SheetHost>,
+  current: Target | null,
+  limit = RECENT_LIMIT
+): ReadonlyArray<RecentChip> => {
+  const uses = hosts
+    .filter((h) => h.connected)
+    .flatMap((host) => {
+      const shown = new Map(visible(host).map((w) => [String(w.id), w]));
+
+      return host.sessions.flatMap((s) => {
+        const workspace = shown.get(s.workspaceId);
+
+        return workspace === undefined ? [] : [{ host, workspace, at: s.updatedAt }];
+      });
+    })
+    .sort((a, b) => b.at.localeCompare(a.at));
+
+  const seen = new Set<string>();
+  const chips: Array<RecentChip> = [];
+
+  for (const { host, workspace } of uses) {
+    const key = `${host.hostId}\u0000${workspace.id}`;
+    const isCurrent = current?.hostId === host.hostId && current.workspaceId === workspace.id;
+
+    if (seen.has(key) || isCurrent) continue;
+    seen.add(key);
+    chips.push({
+      target: { hostId: host.hostId, workspaceId: workspace.id },
+      name: workspace.name,
+      hostName: current === null || current.hostId === host.hostId ? null : host.hostName,
+    });
+  }
+
+  return chips.slice(0, limit);
+};
+
+/** The Model the Host's newest session on `harness` ran; null when none named one. */
+export const lastUsedModel = (host: SheetHost, harness: string): string | null => {
+  let best: SessionUse | null = null;
+
+  for (const s of host.sessions)
+    if (s.harness === harness && (best === null || s.updatedAt > best.updatedAt)) best = s;
+
+  return best?.model ?? null;
 };
 
 /** A path under the Host's home as `~/…`. */
@@ -153,7 +218,7 @@ export const permissionModesOn = (host: SheetHost): ReadonlyArray<PermissionOpti
   hasPlanMode(host) ? PERMISSION_MODES : PERMISSION_MODES.filter((p) => p.mode !== "plan");
 
 /**
- * The mode the sheet shows for the Host: the last one started there, else Plan; a Host without
+ * The mode a new session shows for the Host: the last one started there, else Plan; a Host without
  * plan mode gets Supervised instead.
  */
 export const permissionModeOn = (
@@ -223,16 +288,18 @@ export interface StartChoices {
   readonly workspaceId: WorkspaceId;
   readonly harness: HarnessKind;
   readonly model: string | null;
+  /** Null for the Model's default. */
+  readonly effort?: ReasoningEffort | null;
   readonly prompt: string;
   readonly newWorktree: boolean;
   readonly permissionMode: PermissionMode;
   /** The Host's capabilities: `plan` falls back to `supervised` without `session.plan-mode`. */
   readonly capabilities: ReadonlyArray<Capability>;
-  /** Staged on the Host before Start, in the order attached. */
+  /** Staged on the Host before the send, in the order attached. */
   readonly attachments?: ReadonlyArray<AttachmentId>;
 }
 
-/** The StartSession command Start sends. */
+/** The StartSession command the first send dispatches. */
 export const startCommand = (choices: StartChoices): Command =>
   Command.cases.StartSession.make({
     sessionId: choices.sessionId,
@@ -246,7 +313,7 @@ export const startCommand = (choices: StartChoices): Command =>
       : SessionPlacement.cases.InPlace.make({}),
     permissionMode: permissionModeFor(choices.permissionMode, choices.capabilities),
     model: choices.model === null ? null : ModelId.make(choices.model),
-    effort: null,
+    effort: choices.effort ?? null,
     prompt: choices.prompt.trim(),
     attachments: [...(choices.attachments ?? [])],
   });

@@ -1,10 +1,11 @@
 /**
- * The screens each route draws. The thread is S2's, New agent session is S5's sheet, and
- * Link this iPhone is `link/LinkScreen.tsx`.
+ * The screens each route draws. The thread is S2's, a new agent session is MX-AO's blank thread,
+ * and Link this iPhone is `link/LinkScreen.tsx`.
  */
 import { SessionId } from "@polaris/protocol";
 import { useDuoThread } from "../duo/DuoShell.tsx";
-import { NewSessionSheet as NewAgentSessionSheet } from "../newSession/index.ts";
+import { NewSessionScreen, useSheetData } from "../newSession/index.ts";
+import { useHosts } from "../runtime/hosts.tsx";
 import { ThreadScreen } from "../thread/index.ts";
 import { useNavigation } from "./navigation.tsx";
 
@@ -12,12 +13,14 @@ import { useNavigation } from "./navigation.tsx";
 export const ThreadRoute = (props: {
   readonly hostId: string;
   readonly sessionId: string;
+  readonly rise?: true | undefined;
   readonly onBack: () => void;
 }) => (
   <ThreadScreen
     hostId={props.hostId}
     sessionId={SessionId.make(props.sessionId)}
     onBack={props.onBack}
+    rise={props.rise === true}
     {...useDuoThread()}
   />
 );
@@ -30,16 +33,25 @@ export { ReviewScreen as ReviewRoute } from "../review/index.ts";
 /** The Review tab: agent sessions ready to review across Hosts. */
 export { ReviewTab } from "../review/index.ts";
 
-/** The New agent session sheet; a started session opens its thread. */
-export const NewSessionSheet = (props: { readonly onClose: () => void }) => {
+/** A new agent session; once it starts, its thread takes the screen's place. */
+export const NewSessionRoute = (props: {
+  readonly workspaceId: string | null;
+  readonly onBack: () => void;
+}) => {
   const navigation = useNavigation();
-  const { workspaceId } = navigation.newSession;
+  const { hosts, api } = useSheetData();
+  const connections = useHosts();
 
   return (
-    <NewAgentSessionSheet
-      onClose={props.onClose}
-      {...(workspaceId === null ? {} : { workspaceId })}
-      onStarted={(hostId, sessionId) => navigation.push({ screen: "thread", hostId, sessionId })}
+    <NewSessionScreen
+      hosts={hosts}
+      api={api}
+      {...(props.workspaceId === null ? {} : { workspaceId: props.workspaceId })}
+      connectionFor={(hostId) => connections.find((c) => c.hostId === hostId) ?? null}
+      onStarted={(hostId, sessionId) =>
+        navigation.replace({ screen: "thread", hostId, sessionId, rise: true })
+      }
+      onBack={props.onBack}
     />
   );
 };

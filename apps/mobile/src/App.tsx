@@ -11,7 +11,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-cont
 import { NavigationProvider, useNavigation } from "./app/navigation.tsx";
 import {
   ConstellationRoute,
-  NewSessionSheet,
+  NewSessionRoute,
   ReviewRoute,
   ReviewTab,
   ThreadRoute,
@@ -30,6 +30,7 @@ import { galleryOn, RowGallery } from "./home/ui/Gallery.tsx";
 import { HorizonScreen } from "./horizon";
 import { InboxProvider } from "./inbox/index.ts";
 import { HostsScreen } from "./hosts/HostsScreen.tsx";
+import { NewSessionGallery, newSessionGalleryOn } from "./newSession/Gallery.tsx";
 import { LinkScreen } from "./link/LinkScreen.tsx";
 import { usePush, usePushLinks } from "./push/usePush.ts";
 import { RelayProvider, useRelay } from "./relay/RelayProvider.tsx";
@@ -125,8 +126,11 @@ const Screen = () => {
       hosts: () => (
         <HostsScreen onBack={navigation.back} onLink={() => navigation.push({ screen: "link" })} />
       ),
-      thread: ({ hostId, sessionId }) => (
-        <ThreadRoute hostId={hostId} sessionId={sessionId} onBack={navigation.back} />
+      thread: ({ hostId, sessionId, rise }) => (
+        <ThreadRoute hostId={hostId} sessionId={sessionId} rise={rise} onBack={navigation.back} />
+      ),
+      newSession: ({ workspaceId }) => (
+        <NewSessionRoute workspaceId={workspaceId} onBack={navigation.back} />
       ),
       constellation: ({ hostId, constellationId }) => (
         <ConstellationRoute
@@ -202,6 +206,15 @@ const Shell = () => {
       </SheetHost>
     );
 
+  if (newSessionGalleryOn())
+    return (
+      <SheetHost>
+        <InboxProvider>
+          <NewSessionGallery />
+        </InboxProvider>
+      </SheetHost>
+    );
+
   if (composerGalleryOn())
     return (
       <SheetHost>
@@ -216,9 +229,6 @@ const Shell = () => {
           <DuoShell>
             <Screen />
           </DuoShell>
-          {navigation.newSession.open ? (
-            <NewSessionSheet onClose={navigation.closeNewSession} />
-          ) : null}
           {__DEV__ ? <SheetDemo /> : null}
           {__DEV__ ? <AcceptDemo /> : null}
         </View>

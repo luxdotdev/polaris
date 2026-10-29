@@ -1,6 +1,6 @@
 /**
  * Every Host's Connection State and followed feed as React state, for Home, Hosts, the Review
- * tab and its badge, the New agent session sheet and the widgets. One feed per Host for the
+ * tab and its badge, a new agent session and the widgets. One feed per Host for the
  * app's life, shared by every reader; it waits out Reconnecting and Offline.
  */
 import {

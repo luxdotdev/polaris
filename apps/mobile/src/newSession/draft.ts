@@ -1,24 +1,19 @@
 /**
- * The sheet's prompt draft, kept on this phone until Start: a new session has no id yet, so the
- * Host's per-session drafts (continuity.saveDraft) can't hold it.
+ * A new session's prompt drafts, one per Host and Workspace, kept on this phone until the first
+ * send: a new session has no id yet, so the Host's per-session drafts (continuity.saveDraft) can't
+ * hold them.
  */
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useRef, useState } from "react";
+import { type DraftStore, draftKey, draftWriter } from "./draftWriter.ts";
+import type { Target } from "./model.ts";
 
-const KEY = "polaris.newSession.draft";
-
-/** Typing pauses this long before the draft is written. */
-const SAVE_DELAY_MS = 500;
-
-export interface DraftStore {
-  readonly load: () => Promise<string | null>;
-  readonly save: (text: string) => Promise<void>;
-}
+export type { DraftStore } from "./draftWriter.ts";
 
 export const secureDraftStore: DraftStore = {
-  load: () => SecureStore.getItemAsync(KEY),
-  save: (text) =>
-    text.trim() === "" ? SecureStore.deleteItemAsync(KEY) : SecureStore.setItemAsync(KEY, text),
+  load: (key) => SecureStore.getItemAsync(key),
+  save: (key, text) =>
+    text.trim() === "" ? SecureStore.deleteItemAsync(key) : SecureStore.setItemAsync(key, text),
 };
 
 export type DraftStatus = "saved" | "saving" | "idle";
@@ -28,53 +23,63 @@ export interface Draft {
   readonly setText: (text: string) => void;
   /** "saved" once the latest non-empty text is written. */
   readonly status: DraftStatus;
-  /** Forgets the draft (after Start). */
+  /** Forgets this place's draft (after the first send). */
   readonly clear: () => Promise<void>;
 }
 
-export const useDraft = (store: DraftStore = secureDraftStore): Draft => {
+/** The draft of the chosen Host and Workspace; switching place keeps the last one's draft. */
+export const useDraft = (target: Target | null, store: DraftStore = secureDraftStore): Draft => {
+  const key = target === null ? null : draftKey(target);
   const [text, setTextState] = useState("");
   const [status, setStatus] = useState<DraftStatus>("idle");
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const touched = useRef(false);
-  const latest = useRef(0);
+  const latest = useRef<{ key: string | null; text: string }>({ key, text: "" });
+
+  const [writer] = useState(() =>
+    draftWriter(store, (savedKey, saved) => {
+      // Newer typing keeps "saving" until its own write lands.
+      if (savedKey === latest.current.key && saved === latest.current.text)
+        setStatus(saved.trim() === "" ? "idle" : "saved");
+    })
+  );
 
   useEffect(() => {
-    void store.load().then((saved) => {
-      if (saved === null || touched.current) return;
-      setTextState(saved);
-      setStatus("saved");
-    });
-
-    return () => {
-      if (timer.current !== null) clearTimeout(timer.current);
-    };
-  }, [store]);
-
-  const setText = (next: string) => {
-    touched.current = true;
-    setTextState(next);
-    setStatus(next.trim() === "" ? "idle" : "saving");
-
-    if (timer.current !== null) clearTimeout(timer.current);
-
-    const write = ++latest.current;
-
-    timer.current = setTimeout(() => {
-      void store.save(next).then(() => {
-        // Newer typing keeps "saving" until its own write lands.
-        if (write === latest.current) setStatus(next.trim() === "" ? "idle" : "saved");
-      });
-    }, SAVE_DELAY_MS);
-  };
-
-  const clear = async () => {
-    if (timer.current !== null) clearTimeout(timer.current);
-    latest.current++;
+    latest.current = { key, text: "" };
     setTextState("");
     setStatus("idle");
-    await store.save("");
-  };
 
-  return { text, setText, status, clear };
+    if (key === null) return;
+    const mark = latest.current;
+
+    void writer.flush().then(() =>
+      store.load(key).then((saved) => {
+        // Typing (or another place) since the switch wins over the stored draft.
+        if (saved === null || latest.current !== mark) return;
+        latest.current = { key, text: saved };
+        setTextState(saved);
+        setStatus("saved");
+      })
+    );
+  }, [key, store, writer]);
+
+  useEffect(() => () => void writer.flush(), [writer]);
+
+  return {
+    text,
+    status,
+    setText: (next) => {
+      latest.current = { key, text: next };
+      setTextState(next);
+
+      if (key === null) return;
+      setStatus(next.trim() === "" ? "idle" : "saving");
+      writer.write(key, next);
+    },
+    clear: async () => {
+      latest.current = { key, text: "" };
+      setTextState("");
+      setStatus("idle");
+
+      if (key !== null) await writer.clear(key);
+    },
+  };
 };

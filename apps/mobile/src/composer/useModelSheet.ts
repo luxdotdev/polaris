@@ -45,6 +45,8 @@ export interface ModelSheetInput {
   readonly note: string | null;
   /** Other Harnesses a Fork can move to; empty without a finished Turn. */
   readonly forkTo: ReadonlyArray<HarnessOption>;
+  /** "fork": picking another Harness forks the session; "choose": it is the one it starts on. */
+  readonly harnessPick: "fork" | "choose";
   readonly permission: PermissionMode;
   readonly permissions: ReadonlyArray<PermissionOption>;
   /** Why the last change didn't go through; null when it did. */
@@ -192,6 +194,7 @@ export const useModelSheet = (ctx: ModelSheetContext): ModelSheetInput => {
     change,
     note: CHANGE_NOTES[change.kind],
     forkTo: ctx.lastFinished !== null && ctx.capabilities.includes("session.fork") ? forkable : [],
+    harnessPick: "fork",
     permission: session.permissionMode,
     permissions: permissionModesFor(ctx.capabilities),
     error,

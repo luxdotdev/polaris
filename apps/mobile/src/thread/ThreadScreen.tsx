@@ -22,7 +22,15 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { AppState, FlatList, KeyboardAvoidingView, Pressable, Text, View } from "react-native";
+import {
+  AppState,
+  FlatList,
+  KeyboardAvoidingView,
+  type LayoutRectangle,
+  Pressable,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "../app/navigation.tsx";
 import { Celestial, sessionCelestial } from "../celestial";
@@ -37,6 +45,7 @@ import { openThread, type ThreadController } from "./controller.ts";
 import { hostThreadSource } from "./hostSource.ts";
 import { useMenuActions } from "../menus/index.ts";
 import { type MobileColours, themedStyles } from "../theme/index.ts";
+import { RiseHorizon, RiseLayer, SLOT_SIZE, useRise } from "./Rise.tsx";
 import { Diamond, Row, type RowSession, type ThreadFocus } from "./Row.tsx";
 import { type HeaderLine, headerLine, outgoingRows, threadRows, type ThreadRow } from "./rows.ts";
 import { chipAction, openCritical, type Suggestion, suggestions } from "./suggestions.ts";
@@ -64,6 +73,8 @@ export interface ThreadScreenProps {
   readonly atLatest?: ReactNode;
   /** Over the suggestions and composer: the lead's notice of a claim handed to the user. */
   readonly aboveComposer?: ReactNode;
+  /** Just started from New session: the celestial rises off the horizon into the header (MX-AS). */
+  readonly rise?: boolean;
 }
 
 interface HeldThread {
@@ -130,12 +141,18 @@ const Header = ({
   celestial,
   criticals,
   onBack,
+  rising = false,
+  onSlot,
 }: {
   readonly title: string;
   readonly line: HeaderLine;
   readonly celestial: HeaderBody | null;
   readonly criticals: number;
   readonly onBack: () => void;
+  /** The celestial is still on its way up (MX-AS): its slot stays empty. */
+  readonly rising?: boolean;
+  /** The slot's place in the header, for the rise to land in. */
+  readonly onSlot?: (slot: LayoutRectangle) => void;
 }) => {
   const styles = useStyles();
 
@@ -153,12 +170,17 @@ const Header = ({
         </Text>
       </Pressable>
       {celestial === null ? null : (
-        <Celestial
-          body={celestial.body}
-          harness={celestial.harness}
-          size={24}
-          working={celestial.working}
-        />
+        <View
+          style={rising ? styles.slotEmpty : null}
+          onLayout={({ nativeEvent }) => onSlot?.(nativeEvent.layout)}
+        >
+          <Celestial
+            body={celestial.body}
+            harness={celestial.harness}
+            size={SLOT_SIZE}
+            working={celestial.working}
+          />
+        </View>
       )}
       <View style={styles.titles}>
         <Text style={styles.title} numberOfLines={1} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
@@ -237,8 +259,10 @@ export const ThreadScreen = ({
   belowHeader,
   atLatest,
   aboveComposer,
+  rise: risen = false,
 }: ThreadScreenProps) => {
   const connection = useHost(hostId);
+  const rise = useRise(risen);
   const navigation = useNavigation();
   const styles = useStyles();
   const onMenuAction = useMenuActions();
@@ -405,62 +429,70 @@ export const ThreadScreen = ({
             }}
             criticals={criticals.length}
             onBack={onBack}
+            rising={rise.rising}
+            onSlot={rise.onSlot}
           />
         )}
         {belowHeader}
-        <FlatList
-          style={[styles.list, away ? styles.offline : null]}
-          contentContainerStyle={styles.listContent}
-          data={rows}
-          inverted
-          keyExtractor={keyOf}
-          renderItem={({ item }) => (
-            <Row
-              row={item}
-              criticalPaths={criticalPaths}
-              onToggle={toggle}
-              onFocus={onFocus}
-              focused={item.key === focusedKey}
-              onEditSteer={editSteer}
-              hostId={hostId}
-              session={rowSession}
-              onMenuAction={onMenuAction}
-            />
-          )}
-          ListHeaderComponent={
-            <>
-              {atLatest}
-              {critical === null ? null : (
-                <FindingRow
-                  finding={critical}
-                  onPress={
-                    onFocus === undefined || last === null
-                      ? undefined
-                      : () =>
-                          onFocus({
-                            key: `finding:${critical.id}`,
-                            turnId: last.id,
-                            kind: "finding",
-                            label: critical.title,
-                            paths: [critical.path],
-                          })
-                  }
-                />
-              )}
-            </>
-          }
-          // Inverted: the end is the top, the oldest Turn; older ones page in from there.
-          onEndReached={() => controller?.loadOlder()}
-          onEndReachedThreshold={1.5}
-          ListFooterComponent={<OlderNote loading={state.older === "loading"} />}
-          initialNumToRender={16}
-          maxToRenderPerBatch={12}
-          windowSize={9}
-          removeClippedSubviews
-          onViewableItemsChanged={onViewable.current}
-          viewabilityConfig={VIEWABILITY}
-          keyboardDismissMode="interactive"
-        />
+        <View
+          style={styles.list}
+          onLayout={({ nativeEvent }) => rise.onTranscript(nativeEvent.layout)}
+        >
+          <RiseHorizon rise={rise} />
+          <FlatList
+            style={[styles.list, away ? styles.offline : null]}
+            contentContainerStyle={styles.listContent}
+            data={rows}
+            inverted
+            keyExtractor={keyOf}
+            renderItem={({ item }) => (
+              <Row
+                row={item}
+                criticalPaths={criticalPaths}
+                onToggle={toggle}
+                onFocus={onFocus}
+                focused={item.key === focusedKey}
+                onEditSteer={editSteer}
+                hostId={hostId}
+                session={rowSession}
+                onMenuAction={onMenuAction}
+              />
+            )}
+            ListHeaderComponent={
+              <>
+                {atLatest}
+                {critical === null ? null : (
+                  <FindingRow
+                    finding={critical}
+                    onPress={
+                      onFocus === undefined || last === null
+                        ? undefined
+                        : () =>
+                            onFocus({
+                              key: `finding:${critical.id}`,
+                              turnId: last.id,
+                              kind: "finding",
+                              label: critical.title,
+                              paths: [critical.path],
+                            })
+                    }
+                  />
+                )}
+              </>
+            }
+            // Inverted: the end is the top, the oldest Turn; older ones page in from there.
+            onEndReached={() => controller?.loadOlder()}
+            onEndReachedThreshold={1.5}
+            ListFooterComponent={<OlderNote loading={state.older === "loading"} />}
+            initialNumToRender={16}
+            maxToRenderPerBatch={12}
+            windowSize={9}
+            removeClippedSubviews
+            onViewableItemsChanged={onViewable.current}
+            viewabilityConfig={VIEWABILITY}
+            keyboardDismissMode="interactive"
+          />
+        </View>
         <View
           style={[
             styles.bottom,
@@ -511,6 +543,11 @@ export const ThreadScreen = ({
             onStop={() => void controller?.interrupt()}
           />
         </View>
+        <RiseLayer
+          rise={rise}
+          body={sessionCelestial(session.celestial)}
+          harness={session.harness}
+        />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -569,6 +606,7 @@ const makeStyles = (colours: MobileColours) =>
       paddingRight: 16,
     },
     back: { width: 20, height: 36, justifyContent: "center" },
+    slotEmpty: { opacity: 0 },
     backGlyph: { fontSize: 32, lineHeight: 34, color: colours.starlight },
     titles: { flex: 1, minWidth: 0, gap: 2 },
     title: { ...mobileType.title, fontWeight: "600", color: colours.textStrong },

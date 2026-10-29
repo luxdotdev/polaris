@@ -1,4 +1,4 @@
-/** What the sheet calls on a Host's DaemonRpcs. */
+/** What a new session calls on a Host's DaemonRpcs. */
 import type {
   Command,
   CommandId,

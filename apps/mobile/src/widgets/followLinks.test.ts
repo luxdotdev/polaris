@@ -1,11 +1,5 @@
 import { expect, test } from "bun:test";
-import {
-  initialNavigation,
-  type NavigationState,
-  opened,
-  topOf,
-  wentBack,
-} from "../app/navigationState.ts";
+import { type NavigationState, opened, topOf, wentBack } from "../app/navigationState.ts";
 import { followWidgetLinks, type LinkSource } from "./followLinks.ts";
 import { HOME_LINK, sessionLink } from "./links.ts";
 
@@ -29,11 +23,10 @@ const linking = (initial: string | null) => {
   };
 };
 
-/** Warm on Review with the New agent session sheet open. */
+/** Warm on Review with a new agent session open over it. */
 const warm: NavigationState = {
-  ...initialNavigation,
+  stack: [{ screen: "tabs" }, { screen: "newSession", workspaceId: "ws1" }],
   tab: "review",
-  newSession: { open: true, workspaceId: "ws1" },
 };
 
 const thread = { screen: "thread", hostId: "mac/studio 1", sessionId: "s1" } as const;
@@ -50,7 +43,7 @@ test.each([
   ["launch URL", "initial"],
   ["URL event", "event"],
 ] as const)(
-  "a session widget's %s opens its thread over Home's Sessions, sheet closed",
+  "a session widget's %s opens its thread over Home's Sessions, new session closed",
   async (_, path) => {
     const link = sessionLink(thread.hostId, thread.sessionId);
     const run = follow(path === "initial" ? link : null);
@@ -60,7 +53,6 @@ test.each([
     if (path === "event") run.links.deliver(link);
 
     expect(topOf(run.state())).toEqual(thread);
-    expect(run.state().newSession.open).toBe(false);
 
     const back = wentBack(run.state());
 
@@ -72,7 +64,7 @@ test.each([
 test.each([
   ["launch URL", "initial"],
   ["URL event", "event"],
-] as const)("the Home widget's %s opens Home's Sessions, sheet closed", async (_, path) => {
+] as const)("the Home widget's %s opens Home's Sessions, new session closed", async (_, path) => {
   const run = follow(path === "initial" ? HOME_LINK : null);
 
   await Bun.sleep(0);
@@ -82,7 +74,6 @@ test.each([
   expect(run.state()).toMatchObject({
     stack: [{ screen: "tabs" }],
     tab: "sessions",
-    newSession: { open: false },
   });
 });
 

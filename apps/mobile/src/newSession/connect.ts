@@ -1,4 +1,4 @@
-/** The sheet's calls and Hosts over the app's HostConnections (src/runtime/hostConnection.ts). */
+/** A new session's calls and Hosts over the app's HostConnections (src/runtime/hostConnection.ts). */
 import type { Workspace } from "@polaris/protocol";
 import type { HostConnection } from "../runtime/hostConnection.ts";
 import type { NewSessionApi } from "./api.ts";
@@ -30,7 +30,7 @@ export const newSessionApi = (hosts: ReadonlyArray<HostConnection>): NewSessionA
   },
 });
 
-/** A Host as the sheet sees it: the name the user gave it, its route and its feed. */
+/** A Host as a new session sees it: the name the user gave it, its route and its feed. */
 export const sheetHost = (connection: HostConnection, feed: HostFeed | null): SheetHost => {
   const status = connection.status();
 
@@ -38,6 +38,8 @@ export const sheetHost = (connection: HostConnection, feed: HostFeed | null): Sh
     hostId: connection.hostId,
     hostName: connection.name,
     connected: status.state === "connected",
+    state: status.state,
+    latencyMs: status.latencyMs,
     route: connection.route === "relay" ? "relay" : "network",
     homeDir: status.host?.homeDir ?? null,
     workspaces: feed?.workspaces ?? [],

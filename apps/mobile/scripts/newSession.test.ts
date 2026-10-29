@@ -1,6 +1,6 @@
 /**
- * The sheet's calls against the real Daemon through the app's HostConnection and the dev bridge:
- * Start makes an agent session in the chosen workspace, with the Harness, Model and placement picked.
+ * A new session's calls against the real Daemon through the app's HostConnection and the dev bridge:
+ * the first send makes an agent session in the chosen workspace, with the Harness, Model and placement picked.
  */
 import { launchDaemon, type TestDaemon } from "@polaris/sdk/testing";
 import { SessionId, SessionStreamItem, WorkspaceId } from "@polaris/protocol";
@@ -17,7 +17,6 @@ import {
   newSessionId,
   hasPlanMode,
   permissionModeOn,
-  routeLine,
   startCommand,
 } from "../src/newSession/model.ts";
 
@@ -79,15 +78,15 @@ const sessionIn = (sessionId: string) =>
       )
   );
 
-test("the Host reads as its own name on this network", () => {
+test("the Host reads as its own name, connected, on this network", () => {
   const host = sheetHost(connection, null);
 
-  expect(routeLine(host)).toBe("Runs on Mac Studio · on this network");
+  expect(host).toMatchObject({ hostName: "Mac Studio", state: "connected", route: "network" });
   expect(permissionModeOn(host, undefined)).toBe("plan");
   expect(host.homeDir).not.toBeNull();
 });
 
-test("Start makes a real agent session on a new worktree with the chosen harness", async () => {
+test("the first send makes a real agent session on a new worktree with the chosen harness", async () => {
   const api = newSessionApi([connection]);
   const harness = defaultHarness(harnessOptions(await api.availability(daemon.hostId)), new Map());
 
