@@ -111,7 +111,7 @@ describe("a queued turn's lines", () => {
 
   test("the hero names the host before the files; a well after, and a clean one says so", () => {
     expect(heroMeta(clean, true)).toBe("Turn 3 · Mac Studio · 2 files");
-    expect(wellMeta(clean, true)).toBe("Turn 3 · 2 files · Mac Studio · no findings");
+    expect(wellMeta(clean, true)).toBe("Turn 3 · 2 files · no findings · Mac Studio");
     expect(wellMeta(item("x", 1, { kind: "unreviewed" }), false)).toBe("Turn 3 · 2 files");
   });
 });

@@ -134,13 +134,13 @@ const parts = (...all: ReadonlyArray<string | null>) =>
 export const heroMeta = (item: QueueItem, withHost: boolean): string =>
   parts(turnLabel(item), withHost ? shortHostName(item.row.hostName) : null, filesLabel(item.turn));
 
-/** A well's line: "Turn 3 · 2 files · lucas-rpi"; a clean one adds "no findings". */
+/** A well's line: "Turn 3 · 2 files · lucas-rpi"; a clean one says "no findings" before the host. */
 export const wellMeta = (item: QueueItem, withHost: boolean): string =>
   parts(
     turnLabel(item),
     filesLabel(item.turn),
-    withHost ? shortHostName(item.row.hostName) : null,
-    isClean(item) ? "no findings" : null
+    isClean(item) ? "no findings" : null,
+    withHost ? shortHostName(item.row.hostName) : null
   );
 
 /** What a well shows where its tally would be when there is none to show. */

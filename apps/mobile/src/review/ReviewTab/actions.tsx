@@ -210,5 +210,5 @@ const useStyles = themedStyles((c) => ({
   label: { ...mobileType.subhead, fontWeight: mobileWeight.medium, color: c.textStrong },
   notice: { ...mobileType.footnote, color: c.failedText, maxWidth: 220 },
   ghost: { height: 34, justifyContent: "center", paddingHorizontal: 15, borderRadius: 999 },
-  ghostLabel: { ...mobileType.subhead, fontWeight: mobileWeight.medium, color: c.textDefault },
+  ghostLabel: { ...mobileType.footnote, fontWeight: mobileWeight.medium, color: c.textSubtle },
 }));

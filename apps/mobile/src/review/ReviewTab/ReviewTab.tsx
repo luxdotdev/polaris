@@ -10,12 +10,14 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSettledHosts } from "../../home/feed/settled.ts";
 import { homeHostsOf, useFollowedHosts } from "../../home/feed/useFollowedHosts.ts";
+import { useDevHomeData } from "../../home/feed/useHomeHosts.ts";
 import type { HomeHost } from "../../home/model/home.ts";
 import { HORIZON_INSET } from "../../horizon/index.tsx";
 import { useMenuActions } from "../../menus/index.ts";
 import { themedStyles } from "../../theme/index.ts";
 import { type ReadyEmpty, type ReadyToReview, readyToReview } from "../ready.ts";
 import { QueueHeader } from "./Header.tsx";
+import { paperQueueHosts, paperQueueTurns } from "./paperQueue.testing.ts";
 import { type HeroActions, ReviewHero } from "./Hero.tsx";
 import { buildQueue, queueItem, turnKey } from "./queue.ts";
 import { useQueueTurns } from "./useQueueTurns.tsx";
@@ -28,7 +30,9 @@ interface Ready {
 
 const useReady = (): Ready => {
   const followed = useFollowedHosts();
-  const hosts = useSettledHosts(useMemo(() => homeHostsOf(followed), [followed]));
+  const live = useSettledHosts(useMemo(() => homeHostsOf(followed), [followed]));
+  const paper = useDevHomeData() === "paper";
+  const hosts = paper ? paperQueueHosts : live;
 
   return { hosts, ready: useMemo(() => readyToReview(hosts), [hosts]) };
 };
@@ -106,7 +110,9 @@ export const ReviewTab = ({ tabBarHeight, onOpen, onLink, onHosts }: ReviewTabPr
   const now = useNow();
   const onMenu = useMenuActions();
   const [workspace, setWorkspace] = useState<string | null>(null);
-  const { turns, loaders } = useQueueTurns(hosts, ready.rows);
+  const read = useQueueTurns(hosts, ready.rows);
+  const paper = useDevHomeData() === "paper";
+  const turns = paper ? paperQueueTurns : read.turns;
 
   const workspaces = useMemo(
     () => [...new Set(ready.rows.map((row) => row.workspaceName).filter((name) => name !== ""))],
@@ -136,7 +142,7 @@ export const ReviewTab = ({ tabBarHeight, onOpen, onLink, onHosts }: ReviewTabPr
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      {loaders}
+      {paper ? null : read.loaders}
       <QueueHeader
         queue={ready.empty === null ? queue : null}
         hostCount={hosts.length}

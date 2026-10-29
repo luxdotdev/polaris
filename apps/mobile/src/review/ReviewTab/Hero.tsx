@@ -20,7 +20,7 @@ import { LongPressMenu, type MenuAction, sessionMenu } from "../../menus/index.t
 import { themedStyles, useReducedMotion, useTheme } from "../../theme/index.ts";
 import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../../theme/textScale.ts";
 import { highest, SEVERITIES } from "../model.ts";
-import { SeverityGlyph, SeverityTally, severityText } from "../severity.tsx";
+import { SeverityGlyph, severityLabel, severityText } from "../severity.tsx";
 import { AskToFix, QueueAccept } from "./actions.tsx";
 import { heroKicker, heroMeta, type QueueItem, riskNote } from "./queue.ts";
 
@@ -148,7 +148,7 @@ const Page = ({ item, actions }: { readonly item: QueueItem; readonly actions: H
           </View>
         </Pressable>
       </LongPressMenu>
-      <SeverityTally counts={item.tally} />
+      <Readout item={item} />
       {top === undefined ? null : <TopFinding item={item} finding={top} />}
       {top === undefined && note !== null ? (
         <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.note}>
@@ -167,6 +167,37 @@ const Page = ({ item, actions }: { readonly item: QueueItem; readonly actions: H
         </Pressable>
         <QueueAccept item={item} />
       </View>
+    </View>
+  );
+};
+
+/** MX-K's readout: every cell a well in its severity's colour; only an open Critical is tinted. */
+const Readout = ({ item }: { readonly item: QueueItem }) => {
+  const styles = useStyles();
+  const { colours } = useTheme();
+
+  return (
+    <View style={styles.readout}>
+      {SEVERITIES.map((severity) => {
+        const count = item.tally[severity];
+        const tinted = severity === "critical" && count > 0;
+
+        return (
+          <View
+            key={severity}
+            accessibilityLabel={`${count} ${severityLabel[severity].toLowerCase()}`}
+            style={[styles.cell, tinted ? styles.criticalCell : null]}
+          >
+            <SeverityGlyph severity={severity} size={9} />
+            <Text
+              maxFontSizeMultiplier={CHROME_TEXT_SCALE}
+              style={[styles.cellCount, { color: severityText(colours, severity) }]}
+            >
+              {count}
+            </Text>
+          </View>
+        );
+      })}
     </View>
   );
 };
@@ -322,7 +353,24 @@ const useStyles = themedStyles((c) => ({
   },
   findingPlace: { ...mono, color: c.textSubtle, maxWidth: 140 },
   reason: { ...mobileType.footnote, lineHeight: 18, color: c.textSubtle },
-  fix: { flexDirection: "row", marginLeft: -15, marginBottom: -6 },
+  fix: { flexDirection: "row", marginLeft: -15, marginTop: -4, marginBottom: -8 },
+  readout: { flexDirection: "row", gap: 6 },
+  cell: {
+    flex: 1,
+    height: 32,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    backgroundColor: c.wellRaised,
+  },
+  criticalCell: {
+    borderWidth: 1,
+    borderColor: `${c.severityCritical}40`,
+    backgroundColor: c.severityCriticalFill,
+  },
+  cellCount: { ...mobileType.subhead, fontWeight: mobileWeight.medium },
   actions: {
     flexDirection: "row",
     alignItems: "flex-start",
