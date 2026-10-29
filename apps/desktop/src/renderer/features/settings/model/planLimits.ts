@@ -44,6 +44,8 @@ export interface LimitRow {
   readonly name: string;
   /** "Max · live" while a session runs, else "Pro · as of 40m ago" / "as of 13:01". */
   readonly caption: string;
+  /** "live", "as of 40m ago": the caption's freshness alone. */
+  readonly fresh: string;
   readonly windows: ReadonlyArray<LimitWindow>;
 }
 
@@ -170,6 +172,7 @@ export const limitRows = (
       harness,
       name: harnessEntry(harness)?.name ?? harness,
       caption: plan === null ? capitalize(fresh) : `${capitalize(plan)} · ${fresh}`,
+      fresh,
       windows: sorted.map((l) =>
         limitWindow(
           l,

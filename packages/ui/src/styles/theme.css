@@ -36,6 +36,7 @@
   --color-raised: light-dark(#ffffff, #26272b);
   --color-well: light-dark(#f6f7f9, #222327);
   --color-well-raised: light-dark(#f6f7f9, #1a1b1d);
+  --midnight: 0;
 }
 
 [data-theme="midnight"],
@@ -49,6 +50,8 @@
   --color-raised: light-dark(#ffffff, #141518);
   --color-well: light-dark(#f6f7f9, #0e0f12);
   --color-well-raised: light-dark(#f6f7f9, #0e0f12);
+  /* 1 under Midnight: inherited, so the nearest theme wins (the horizon reads it). */
+  --midnight: 1;
 }
 
 /* Inside a popover or instrument card, bg-well is the well for a raised surface. */
