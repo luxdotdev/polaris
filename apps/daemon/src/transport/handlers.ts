@@ -20,6 +20,7 @@ import {
   Sequence,
   Unsupported,
   ResourceError,
+  RestartError,
   encodePairingString,
   VoiceError,
   PROTOCOL_VERSION,
@@ -364,6 +365,8 @@ export const defaultHandlers = (options: {
     "remoteAccess.status": () => Effect.flatMap(RemoteAccessControl, (control) => control.status),
     "remoteAccess.enable": () => Effect.flatMap(RemoteAccessControl, (control) => control.enable),
     "remoteAccess.disable": () => Effect.flatMap(RemoteAccessControl, (control) => control.disable),
+    "host.restartPreview": () => Effect.fail(new RestartError({ message: notYet("Restart") })),
+    "host.prepareRestart": () => Effect.fail(new RestartError({ message: notYet("Restart") })),
 
     // Token-less Clients only: the Relay route and Linked Devices (ADR 0083).
     "relayRoute.status": () => Effect.flatMap(RelayRoute, (route) => route.status),

@@ -1,7 +1,7 @@
 /**
  * Recovery: the session machine's `daemon.recover`, sent to every session when
  * the Engine starts (cause `restart`) and to the sessions whose Harness lives in
- * the Daemon process right before an upgrade exec (cause `upgrade`).
+ * the Daemon process right before an upgrade exec or a Client's Restart daemon (cause `upgrade`).
  * See docs/adr/0004-restart-recovery-never-continues-a-turn.md.
  */
 import { Effect } from "effect";

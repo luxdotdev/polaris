@@ -32,6 +32,8 @@ export interface WindowsTaskFacts {
   readonly running: ControlReply | null;
   /** The version being installed. */
   readonly version: string;
+  /** `install --restart`: stop and start the running Daemon even when nothing changed. */
+  readonly restart?: boolean;
 }
 
 export interface WindowsTaskPlan {
@@ -52,7 +54,7 @@ export const planWindowsTask = (facts: WindowsTaskFacts): WindowsTaskPlan => {
   if (otherVersion || facts.changed.binary) return { register, stop: "upgrade", start: true };
 
   // A new task definition only applies to a loop started from it.
-  if (register) return { register, stop: "restart", start: true };
+  if (register || facts.restart === true) return { register, stop: "restart", start: true };
 
   return { register, stop: null, start: false };
 };
@@ -279,7 +281,8 @@ export const activateWindowsTask = Effect.fnUntraced(function* (
   target: WindowsTaskTarget,
   changed: { readonly binary: boolean; readonly serviceFile: boolean },
   version: string,
-  replace: boolean
+  replace: boolean,
+  restart: boolean = false
 ) {
   const existing = yield* inspectTask(target);
   const claim = claimTask(existing, target.home, replace);
@@ -299,6 +302,7 @@ export const activateWindowsTask = Effect.fnUntraced(function* (
     changed,
     running: yield* runningDaemon(target.home),
     version,
+    restart,
   });
 
   if (plan.register) yield* registerTask(target.task, target.definition);

@@ -46,6 +46,14 @@ describe("planWindowsTask", () => {
     });
   });
 
+  test("install --restart stops and starts the Daemon though nothing changed (Restart daemon)", () => {
+    expect(planWindowsTask(facts({ restart: true }))).toEqual({
+      register: false,
+      stop: "restart",
+      start: true,
+    });
+  });
+
   test("a task removed by hand is registered again", () => {
     expect(planWindowsTask(facts({ registered: false, running: null }))).toEqual({
       register: true,

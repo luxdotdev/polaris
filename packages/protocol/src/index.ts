@@ -28,6 +28,8 @@ export * from "./extensions.ts";
 
 export * from "./remoteAccess.ts";
 
+export * from "./restart.ts";
+
 export * from "./linkedDevices.ts";
 
 export * from "./pairingString.ts";

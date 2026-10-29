@@ -18,6 +18,7 @@ import { lazyConstellationHandlers, lazyHostResources } from "./lazy.ts";
 import { installDebugHooks, reportStartupModules } from "../debug.ts";
 import { Engine } from "../engine/Engine.ts";
 import { EngineRpcHandlers } from "../engine/rpc.ts";
+import { RestartRpcHandlers } from "../engine/restartRpc.ts";
 import { Continuity, ContinuityRpcsLive } from "../continuity/index.ts";
 import { FileSearchLive } from "../files/FileSearch.ts";
 import { PredictionRpcsLive } from "../prediction/index.ts";
@@ -127,6 +128,7 @@ export const daemonHandlers = Layer.mergeAll(
   PredictionRpcsLive,
   CommitMessageRpcsLive,
   EngineRpcHandlers,
+  RestartRpcHandlers,
   ContinuityRpcsLive.pipe(Layer.provide(Continuity.layer)),
   HostStatsRpcsLive.pipe(Layer.provide(HostStats.layer())),
   PushNotifierLive,
@@ -172,6 +174,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "constellation.defaults",
   "extensions",
   "remote-access",
+  "host.restart",
   "linked-devices",
   "presence",
   "voice",

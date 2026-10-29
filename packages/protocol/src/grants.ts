@@ -77,6 +77,8 @@ export const RPC_GRANTS = {
   "remoteAccess.status": "client",
   "remoteAccess.enable": "client",
   "remoteAccess.disable": "client",
+  "host.restartPreview": "client",
+  "host.prepareRestart": "client",
   "relayRoute.status": "client",
   "relayRoute.enable": "client",
   "relayRoute.disable": "client",

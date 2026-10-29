@@ -75,6 +75,8 @@ export const DEVICE_RPCS = {
   "remoteAccess.status": "local",
   "remoteAccess.enable": "local",
   "remoteAccess.disable": "local",
+  "host.restartPreview": "local",
+  "host.prepareRestart": "local",
   "relayRoute.status": "local",
   "relayRoute.enable": "local",
   "relayRoute.disable": "local",

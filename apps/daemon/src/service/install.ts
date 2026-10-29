@@ -551,6 +551,8 @@ export interface InstallOptions {
   readonly launchdTiming?: LaunchdTiming;
   /** Windows: take over this home's task even when it runs another installed home. */
   readonly replaceTask?: boolean;
+  /** Windows: stop and start the task's Daemon even when nothing changed (Restart daemon). */
+  readonly restart?: boolean;
 }
 
 /** What `current` and the service file were before an install, to roll back to. */
@@ -626,7 +628,8 @@ export const install = Effect.fn("install")(function* (
         windowsTarget(ctx),
         changed,
         options.version,
-        options.replaceTask === true
+        options.replaceTask === true,
+        options.restart === true
       )
     ),
     Match.orElse(() =>
