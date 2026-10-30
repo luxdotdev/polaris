@@ -104,6 +104,13 @@ export const DEVICE_RPCS = {
   // A phone or an Extension must never quiet the pushes (ENG-495).
   "presence.report": "local",
   "host.stats.watch": "local",
+  "byteStream.credit": "local",
+  "hostAddress.open": "local",
+  "browser.host": "local",
+  "browser.claim": "local",
+  "browser.release": "local",
+  "browser.acceptStream": "local",
+  "browser.closeStream": "local",
   "attachments.stage": "device",
   "attachments.read": "device",
   "attachments.settings": "local",

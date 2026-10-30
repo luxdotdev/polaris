@@ -10,6 +10,10 @@ export * from "./availability.ts";
 
 export * from "./bridge.ts";
 
+export * from "./browser.ts";
+
+export * from "./byteStreams.ts";
+
 export * from "./capabilities.ts";
 
 export * from "./commands.ts";
@@ -19,6 +23,8 @@ export * from "./continuity.ts";
 export * from "./presence.ts";
 
 export * from "./hostStats.ts";
+
+export * from "./hostAddress.ts";
 
 export * from "./domain.ts";
 
