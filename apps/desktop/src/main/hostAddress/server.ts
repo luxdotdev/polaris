@@ -9,11 +9,12 @@ import {
   connect,
   createServer,
   isIP,
+  type AddressInfo,
   type LookupFunction,
   type Server,
   type Socket,
 } from "node:net";
-import { Effect, Fiber, Predicate, type Scope, Stream } from "effect";
+import { Effect, Fiber, type Scope, Stream } from "effect";
 import {
   greetingReply,
   Parsed,
@@ -206,9 +207,14 @@ function pipeHost<R>(
   options: SocksServerOptions<R>
 ) {
   const stream = options.open({ hostname: route.hostname, port: route.port }).pipe(
-    Effect.tap(() => Effect.sync(() => socket.write(requestReply(SocksReply.succeeded)))),
-    Effect.flatMap((transport) => pipeTransport(socket, transport, rest)),
-    Effect.catch((code) => Effect.sync(() => reply(socket, code))),
+    Effect.matchEffect({
+      onFailure: (code) => Effect.sync(() => reply(socket, code)),
+      onSuccess: (transport) =>
+        Effect.andThen(
+          Effect.sync(() => socket.write(requestReply(SocksReply.succeeded))),
+          pipeTransport(socket, transport, rest)
+        ),
+    }),
     Effect.catchCause(() => Effect.void),
     Effect.scoped,
     Effect.ensuring(Effect.sync(() => socket.destroy()))
@@ -298,10 +304,11 @@ export const startSocksServer = <R>(options: SocksServerOptions<R>): Promise<Soc
 
     server.once("error", reject);
     server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
+      // SAFETY: a TCP server listening on a port reports an AddressInfo.
+      const { port } = server.address() as AddressInfo;
 
       resolve({
-        port: Predicate.isObject(address) ? address.port : 0,
+        port,
         close: () =>
           new Promise<void>((done) => {
             server.close(() => done());

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { connect, createServer, type Socket } from "node:net";
-import { Effect, Predicate, Queue, Stream } from "effect";
+import { type AddressInfo, connect, createServer, type Socket } from "node:net";
+import { type Cause, Effect, Queue, Stream } from "effect";
 import {
   type HostAddressTransport,
   lookupOutside,
@@ -14,7 +14,7 @@ const isHostAddress = (name: string) =>
 
 /** A Host side that echoes every byte back in upper case, then ends after "BYE". */
 const echoTransport = Effect.gen(function* () {
-  const queue = yield* Queue.unbounded<Uint8Array, Queue.Done>();
+  const queue = yield* Queue.unbounded<Uint8Array, Cause.Done>();
 
   const transport: HostAddressTransport = {
     incoming: Stream.fromQueue(queue),
@@ -49,7 +49,7 @@ const start = async (options: {
   readonly direct?: Array<string>;
   readonly directPort?: number;
 }) => {
-  server = await startSocksServer({
+  server = await startSocksServer<never>({
     isHostAddress,
     run: (effect) => Effect.runFork(effect),
     open: (target) => {
@@ -79,7 +79,7 @@ const socks = (port: number, target: Uint8Array, payload: string) =>
       socket.on("data", (chunk) => {
         const first = received.length === 0;
 
-        received = Buffer.concat([received, chunk]);
+        received = Buffer.concat([received, Buffer.from(chunk)]);
 
         if (first && received.length >= 2)
           socket.write(new Uint8Array([...target, ...Buffer.from(payload)]));
@@ -157,7 +157,8 @@ describe("the SOCKS server", () => {
 
     await new Promise<void>((resolve) => site.listen(0, "127.0.0.1", resolve));
 
-    const address = site.address();
+    // SAFETY: a TCP server listening on a port reports an AddressInfo.
+    const address = site.address() as AddressInfo;
 
     const opened: Array<Opened> = [];
 
@@ -166,7 +167,7 @@ describe("the SOCKS server", () => {
     const port = await start({
       opened,
       direct,
-      directPort: Predicate.isObject(address) ? address.port : 0,
+      directPort: address.port,
     });
 
     const result = await socks(port, domain("printer2", 80), "GET /");
