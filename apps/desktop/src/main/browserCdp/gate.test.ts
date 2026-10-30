@@ -66,6 +66,8 @@ const world = () => {
   const debuggees = new Map<string, Debuggee>();
   const listeners = new Set<(event: BrowserTabEvent) => void>();
   const routing = tabRouting();
+  const closed: Array<string> = [];
+  const state = { failFast: false };
   let next = 1;
 
   const publish = (event: BrowserTabEvent) => listeners.forEach((listener) => listener(event));
@@ -82,9 +84,19 @@ const world = () => {
 
   const all: CdpTabs = {
     sessionTabs: () => [...tabs.values()],
+    hasTabs: () => tabs.size > 0,
     debuggeeOf: (tabId) => debuggees.get(tabId) ?? null,
-    openTab: async ({ url }) => add(url),
-    closeTab: async () => undefined,
+    openTab: async ({ url }) => {
+      const created = add(url);
+
+      // A setup that fails before the gate starts waiting (the Host already removed).
+      if (state.failFast) routing.unrouted(created.tabId, new Error("rpi was removed"));
+
+      return created;
+    },
+    closeTab: async ({ tabId }) => {
+      closed.push(tabId);
+    },
     activateTab: async () => undefined,
     allowsUrl: () => true,
     setAgentDriving: () => undefined,
@@ -118,9 +130,16 @@ const world = () => {
     return sent.find((message) => message.id === id);
   };
 
+  /** The relay's `Polaris.hello` with the tabs it remembers. */
+  const hello = async (urls: ReadonlyArray<string>) => {
+    facade.receive({ method: "Polaris.hello", params: { tabs: urls.map((url) => ({ url })) } });
+
+    for (let i = 0; i < 4; i++) await Bun.sleep(0);
+  };
+
   const debuggee = (tabId: string) => debuggees.get(tabId) ?? new Debuggee();
 
-  return { tabs, add, publish, routing, call, sent, debuggee };
+  return { tabs, add, publish, routing, call, hello, sent, debuggee, closed, state };
 };
 
 const Targets = Schema.Struct({
@@ -174,13 +193,44 @@ describe("CDP and a tab's routing", () => {
     expect([debuggee(failed.tabId).sent, debuggee(opened).sent]).toEqual([[], []]);
   });
 
+  test("a setup that fails before createTarget waits still answers, and the agent's tab closes", async () => {
+    const { call, state, closed, tabs } = world();
+
+    state.failFast = true;
+    const created = await call(1, "Target.createTarget", { url: "http://localhost:3000/" });
+
+    expect(created?.error?.message).toContain("rpi was removed");
+    expect(closed).toEqual([...tabs.keys()]);
+  });
+
+  test("a restored tab not routed yet isn't opened again when the relay says hello", async () => {
+    const { add, hello, tabs } = world();
+
+    add("http://localhost:3000/");
+    await hello(["http://localhost:3000/"]);
+
+    expect([...tabs.values()].map((tab) => tab.url)).toEqual(["http://localhost:3000/"]);
+  });
+
+  test("a setup that finishes after its Host was removed doesn't expose the tab", async () => {
+    const { add, call, routing } = world();
+    const tab = add("http://localhost:3000/");
+    const begun = routing.begin(tab.tabId);
+
+    routing.unrouted(tab.tabId, new Error("rpi was removed"));
+    routing.routed(tab.tabId, begun);
+    const attach = await call(1, "Target.attachToTarget", { targetId: tab.tabId, flatten: true });
+
+    expect(attach?.error?.message).toContain("No target");
+  });
+
   test("once routed a tab appears with its current fields, and navigating reaches Chromium", async () => {
     const { add, call, routing, tabs, debuggee, sent } = world();
     const tab = add("about:blank");
 
     await call(1, "Target.setDiscoverTargets", { discover: true });
     tabs.set(tab.tabId, tabAt(tab.tabId, "http://localhost:3000/", "App"));
-    routing.routed(tab.tabId);
+    routing.routed(tab.tabId, routing.begin(tab.tabId));
 
     const session = sessionOf(
       await call(2, "Target.attachToTarget", { targetId: tab.tabId, flatten: true })
@@ -198,7 +248,7 @@ describe("CDP and a tab's routing", () => {
     const { add, call, routing, debuggee, sent } = world();
     const tab = add("http://localhost:3000/");
 
-    routing.routed(tab.tabId);
+    routing.routed(tab.tabId, routing.begin(tab.tabId));
 
     const session = sessionOf(
       await call(1, "Target.attachToTarget", { targetId: tab.tabId, flatten: true })

@@ -469,7 +469,7 @@ export const cdpFacade = (input: CdpFacadeInput): CdpFacade => {
   const hello = async (message: CdpJson | undefined) => {
     const decoded = decode.hello(message);
 
-    if (Option.isSome(decoded) && targets.known.size === 0)
+    if (Option.isSome(decoded) && targets.known.size === 0 && !tabs.hasTabs(hostKey, sessionId))
       for (const { url } of decoded.value.tabs) {
         try {
           const tab = await tabs.openTab({

@@ -19,6 +19,11 @@ interface Waiter {
 
 export const tabRouting = () => {
   const routed = new Set<BrowserTabId>();
+  /** Bumped whenever a tab loses routing, so a setup begun before then can't route it. */
+  const epochs = new Map<BrowserTabId, number>();
+  const epochOf = (tabId: BrowserTabId) => epochs.get(tabId) ?? 0;
+  /** Why a tab's latest setup failed, until another begins, so a late `whenRouted` hears it. */
+  const failed = new Map<BrowserTabId, unknown>();
   const waiters = new Map<BrowserTabId, Array<Waiter>>();
   const listeners = new Set<(tabId: BrowserTabId, routed: boolean) => void>();
 
@@ -43,6 +48,8 @@ export const tabRouting = () => {
     whenRouted: (tabId) => {
       if (routed.has(tabId)) return Promise.resolve();
 
+      if (failed.has(tabId)) return Promise.reject(failed.get(tabId));
+
       return new Promise((resolve, reject) =>
         waiters.set(tabId, [...(waiters.get(tabId) ?? []), { resolve, reject }])
       );
@@ -56,17 +63,30 @@ export const tabRouting = () => {
 
   return {
     view,
-    /** The tab's partition setup succeeded. */
-    routed: (tabId: BrowserTabId) => {
+    /** A setup begins: its epoch, which `routed` honours only while still current. */
+    begin: (tabId: BrowserTabId) => {
+      failed.delete(tabId);
+
+      return epochOf(tabId);
+    },
+    /** The tab's setup, begun at `epoch`, succeeded; false when routing was lost since. */
+    routed: (tabId: BrowserTabId, epoch: number) => {
+      if (epoch !== epochOf(tabId)) return false;
       set(tabId, true);
       settle(tabId, (waiter) => waiter.resolve());
+
+      return true;
     },
     /** The setup failed, or the Host's routing was retired: the tab is unrouted. */
     unrouted: (tabId: BrowserTabId, cause: unknown) => {
+      epochs.set(tabId, epochOf(tabId) + 1);
+      failed.set(tabId, cause);
       set(tabId, false);
       settle(tabId, (waiter) => waiter.reject(cause));
     },
     forget: (tabId: BrowserTabId) => {
+      epochs.set(tabId, epochOf(tabId) + 1);
+      failed.delete(tabId);
       routed.delete(tabId);
       settle(tabId, (waiter) => waiter.reject(new Error("the tab closed")));
     },

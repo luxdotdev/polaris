@@ -22,7 +22,9 @@ import {
   parseRequest,
   proxyCredential,
   ProxyRequest,
+  proxyChallenge,
   proxyResponse,
+  isUpstreamChallenge,
   type ProxyStatus,
   splitHead,
   TUNNEL_ESTABLISHED,
@@ -63,6 +65,8 @@ export interface ProxyServer {
   readonly port: number;
   /** The password Electron's `login` event answers with, for this server only. */
   readonly secret: string;
+  /** This server's challenge realm, random per launch; `login` answers only this one. */
+  readonly realm: string;
   /**
    * Stops relaying: open connections end and new ones are closed unread. The port stays
    * held, so no other process can take it while partitions still point at it.
@@ -250,6 +254,46 @@ const openDirect =
       }))
     );
 
+/** Enough of a response to hold its status line. */
+const STATUS_LINE_BYTES = 64;
+
+/**
+ * A forwarded request's response, but a 407 from the Host becomes this proxy's 502 and ends
+ * there: relayed, Chromium would answer it with the proxy's credential.
+ */
+const refusingChallenges = (transport: HostAddressTransport): HostAddressTransport => {
+  let pending: Uint8Array | null = new Uint8Array();
+  let refused = false;
+
+  const screen = (chunk: Uint8Array): Uint8Array => {
+    if (pending === null) return chunk;
+    const head = concat(pending, chunk);
+    const end = Buffer.from(head).indexOf("\r\n");
+
+    if (end === -1 && head.length < STATUS_LINE_BYTES) {
+      pending = head;
+
+      return new Uint8Array();
+    }
+
+    pending = null;
+    const line = Buffer.from(head.subarray(0, end === -1 ? STATUS_LINE_BYTES : end));
+
+    refused = isUpstreamChallenge(line.toString("latin1"));
+
+    return refused ? proxyResponse(502) : head;
+  };
+
+  return {
+    ...transport,
+    incoming: transport.incoming.pipe(
+      Stream.map(screen),
+      Stream.takeUntil(() => refused),
+      Stream.filter((chunk) => chunk.length > 0)
+    ),
+  };
+};
+
 const answer = (socket: Socket, status: ProxyStatus) => {
   socket.end(proxyResponse(status));
 };
@@ -307,8 +351,10 @@ function relay<R>(
         Effect.gen(function* () {
           if (relayed.established !== null) socket.write(relayed.established);
 
-          if (relayed.head !== null) yield* transport.write(relayed.head);
-          yield* pipeTransport(socket, transport, rest, relayed.limit);
+          if (relayed.head === null)
+            return yield* pipeTransport(socket, transport, rest, relayed.limit);
+          yield* transport.write(relayed.head);
+          yield* pipeTransport(socket, refusingChallenges(transport), rest, relayed.limit);
         }),
     }),
     Effect.catchCause(() => Effect.void),
@@ -325,7 +371,11 @@ function relay<R>(
  * Reads the request head, however it is split, then checks the credential before anything
  * else in it: without the secret, the answer is a 407 and nothing is opened.
  */
-function handshake<R>(socket: Socket, credential: Uint8Array, options: ProxyServerOptions<R>) {
+function handshake<R>(
+  socket: Socket,
+  { credential, realm }: { readonly credential: Uint8Array; readonly realm: string },
+  options: ProxyServerOptions<R>
+) {
   let received: Uint8Array = new Uint8Array();
 
   socket.setTimeout(options.handshakeTimeoutMs ?? 10_000, () => socket.destroy());
@@ -340,7 +390,7 @@ function handshake<R>(socket: Socket, credential: Uint8Array, options: ProxyServ
         socket.off("data", onData);
         socket.setTimeout(0);
 
-        if (!authorized(lines, credential)) return answer(socket, 407);
+        if (!authorized(lines, credential)) return void socket.end(proxyChallenge(realm));
         socket.pause();
         relay(socket, parseRequest(lines), rest, options);
       },
@@ -355,6 +405,7 @@ export const startProxyServer = <R>(options: ProxyServerOptions<R>): Promise<Pro
   new Promise((resolve, reject) => {
     const secret = randomBytes(32).toString("base64url");
     const credential = proxyCredential(secret);
+    const realm = `Polaris ${randomBytes(12).toString("base64url")}`;
     const sockets = new Set<Socket>();
     const max = options.maxConnections ?? 256;
 
@@ -364,7 +415,7 @@ export const startProxyServer = <R>(options: ProxyServerOptions<R>): Promise<Pro
       if (retired || sockets.size >= max) return void socket.destroy();
       sockets.add(socket);
       socket.once("close", () => sockets.delete(socket));
-      handshake(socket, credential, options);
+      handshake(socket, { credential, realm }, options);
     });
 
     server.once("error", reject);
@@ -375,6 +426,7 @@ export const startProxyServer = <R>(options: ProxyServerOptions<R>): Promise<Pro
       resolve({
         port,
         secret,
+        realm,
         retire: () => {
           retired = true;
 

@@ -10,9 +10,6 @@ import { Data } from "effect";
 /** The user name in the proxy's Basic credential; the secret is the password. */
 export const PROXY_USER = "polaris";
 
-/** The realm of the proxy's Basic challenge, which `login` must name to get the secret. */
-export const PROXY_REALM = "Polaris";
-
 /** A request head larger than this is refused unread. */
 export const MAX_HEAD_BYTES = 16 * 1024;
 
@@ -163,29 +160,37 @@ export const parseRequest = (lines: ReadonlyArray<string>): ProxyRequest => {
 export const isIpLiteral = (hostname: string) => isIP(hostname) !== 0;
 
 /** The statuses the proxy answers with when it doesn't relay. */
-export type ProxyStatus = 400 | 403 | 407 | 502 | 503 | 504;
+export type ProxyStatus = 400 | 403 | 502 | 503 | 504;
 
 const REASONS: Readonly<Record<ProxyStatus, string>> = {
   400: "Bad Request",
   403: "Forbidden",
-  407: "Proxy Authentication Required",
   502: "Bad Gateway",
   503: "Service Unavailable",
   504: "Gateway Timeout",
 };
 
-/** A response that ends the connection; a 407 asks for the Basic credential. */
+const closing = (lines: ReadonlyArray<string>): Uint8Array =>
+  Buffer.from([...lines, "Content-Length: 0", "Connection: close", "", ""].join("\r\n"));
+
+/** A response that ends the connection. */
 export const proxyResponse = (status: ProxyStatus): Uint8Array =>
-  Buffer.from(
-    [
-      `HTTP/1.1 ${status} ${REASONS[status]}`,
-      ...(status === 407 ? [`Proxy-Authenticate: Basic realm="${PROXY_REALM}"`] : []),
-      "Content-Length: 0",
-      "Connection: close",
-      "",
-      "",
-    ].join("\r\n")
-  );
+  closing([`HTTP/1.1 ${status} ${REASONS[status]}`]);
+
+/** The 407 asking for the credential, in this proxy's own realm, which `login` must name. */
+export const proxyChallenge = (realm: string): Uint8Array =>
+  closing([
+    "HTTP/1.1 407 Proxy Authentication Required",
+    `Proxy-Authenticate: Basic realm="${realm}"`,
+  ]);
+
+const UPSTREAM_407 = /^HTTP\/1\.[01] 407(?: |$)/;
+
+/**
+ * Whether a response from the Host starts as a 407. Chromium would take it for this proxy's
+ * own challenge, so the proxy answers 502 instead and relays nothing of it.
+ */
+export const isUpstreamChallenge = (statusLine: string) => UPSTREAM_407.test(statusLine);
 
 export const TUNNEL_ESTABLISHED: Uint8Array = Buffer.from(
   "HTTP/1.1 200 Connection Established\r\n\r\n"

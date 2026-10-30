@@ -121,14 +121,20 @@ export const electronViews = (deps: ViewsDeps) => {
   };
 
   const loads = tabLoads({
-    ready: (tabId) =>
-      setUp(tabId).then(
-        () => routing.routed(tabId),
+    ready: (tabId) => {
+      const epoch = routing.begin(tabId);
+
+      return setUp(tabId).then(
+        () => {
+          // retireHost or destroy ran while this setup was in flight.
+          if (!routing.routed(tabId, epoch)) throw new Error("the tab's routing was retired");
+        },
         (cause: unknown) => {
           routing.unrouted(tabId, cause);
           throw cause;
         }
-      ),
+      );
+    },
     open: (tabId, url) =>
       withView(tabId, (view) => void view.webContents.loadURL(url).catch(() => {})),
     fail: (tabId, url, cause) => {

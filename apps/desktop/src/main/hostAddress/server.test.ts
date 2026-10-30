@@ -37,6 +37,19 @@ const echoTransport = (written: Array<string>) =>
     return transport;
   });
 
+/** A Host side that answers its first bytes with `response`, then ends. */
+const fixedTransport = (response: string) =>
+  Effect.gen(function* () {
+    const queue = yield* Queue.unbounded<Uint8Array, Cause.Done>();
+
+    const transport: HostAddressTransport = {
+      incoming: Stream.fromQueue(queue),
+      write: () => Effect.andThen(Queue.offer(queue, Buffer.from(response)), Queue.end(queue)),
+    };
+
+    return transport;
+  });
+
 let server: ProxyServer | null = null;
 
 afterEach(async () => {
@@ -48,6 +61,8 @@ interface Start {
   readonly opened?: Array<Target>;
   readonly written?: Array<string>;
   readonly fail?: ProxyStatus;
+  /** The Host's whole response to the first bytes it gets, instead of the echo. */
+  readonly respond?: (realm: string) => string;
   readonly direct?: Array<string>;
   readonly directPort?: number;
   readonly handshakeTimeoutMs?: number;
@@ -64,9 +79,11 @@ const start = async (options: Start = {}) => {
     open: (target) => {
       options.opened?.push(target);
 
-      return options.fail === undefined
+      if (options.fail !== undefined) return Effect.fail(options.fail);
+
+      return options.respond === undefined
         ? echoTransport(options.written ?? [])
-        : Effect.fail(options.fail);
+        : fixedTransport(options.respond(server?.realm ?? ""));
     },
     connectDirect: (hostname, port) => {
       options.direct?.push(`${hostname}:${port}`);
@@ -126,7 +143,7 @@ describe("the proxy's credential", () => {
     );
 
     expect(statusOf(received)).toBe("HTTP/1.1 407 Proxy Authentication Required");
-    expect(received).toContain('Proxy-Authenticate: Basic realm="Polaris"');
+    expect(received).toContain(`Proxy-Authenticate: Basic realm="${proxy.realm}"`);
     expect(opened).toEqual([]);
   });
 
@@ -311,5 +328,33 @@ describe("the proxy's direct connections", () => {
     );
 
     expect([statusOf(received), remote.destroyed]).toEqual(["HTTP/1.1 504 Gateway Timeout", true]);
+  });
+});
+
+describe("a 407 from the Host", () => {
+  test("is never relayed, even in this proxy's own realm: the browser gets a 502", async () => {
+    const proxy = await start({
+      respond: (realm) =>
+        `HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm="${realm}"\r\n\r\n`,
+    });
+
+    const { received } = await exchange(
+      proxy.port,
+      `GET http://localhost:3000/ HTTP/1.1\r\n${basic(proxy.secret)}\r\n\r\n`
+    );
+
+    expect(statusOf(received)).toBe("HTTP/1.1 502 Bad Gateway");
+    expect(received).not.toContain("Proxy-Authenticate");
+  });
+
+  test("other responses pass through untouched", async () => {
+    const proxy = await start({ respond: () => "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok" });
+
+    const { received } = await exchange(
+      proxy.port,
+      `GET http://localhost:3000/ HTTP/1.1\r\n${basic(proxy.secret)}\r\n\r\n`
+    );
+
+    expect(received).toBe("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok");
   });
 });

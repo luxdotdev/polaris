@@ -172,6 +172,7 @@ const fakeTabs = () => {
   const port: CdpTabs = {
     sessionTabs: (_host, sessionId) =>
       Array.from(tabs.values()).filter((t) => t.sessionId === sessionId),
+    hasTabs: (_host, sessionId) => Array.from(tabs.values()).some((t) => t.sessionId === sessionId),
     debuggeeOf: (tabId) => debuggees.get(tabId) ?? null,
     openTab: async (input) => {
       opened.push(input);

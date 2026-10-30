@@ -18,6 +18,8 @@ const allTabsOf = (browsers: () => Browsers | null): CdpTabs => {
 
   return {
     sessionTabs: (hostKey, sessionId) => browsers()?.sessionTabs(hostKey, sessionId).tabs ?? [],
+    hasTabs: (hostKey, sessionId) =>
+      (browsers()?.sessionTabs(hostKey, sessionId).tabs.length ?? 0) > 0,
     debuggeeOf: (tabId) => browsers()?.contentsOf(tabId)?.debugger ?? null,
     openTab: (input) => ready().openTab(input),
     closeTab: async ({ hostKey, sessionId, tabId }) => ready().closeTab(hostKey, sessionId, tabId),

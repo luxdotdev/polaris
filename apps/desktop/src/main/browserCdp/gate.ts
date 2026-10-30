@@ -15,7 +15,15 @@ export const routedTabs = (tabs: CdpTabs, routing: TabRoutingView): CdpTabs => (
   openTab: async (input) => {
     const tab = await tabs.openTab(input);
 
-    await routing.whenRouted(tab.tabId);
+    try {
+      await routing.whenRouted(tab.tabId);
+    } catch (cause) {
+      // An agent's tab that can't be routed goes, so retries don't pile up failed tabs.
+      const ref = { hostKey: input.hostKey, sessionId: input.sessionId, tabId: tab.tabId };
+
+      await tabs.closeTab(ref).catch(() => undefined);
+      throw cause;
+    }
 
     return tab;
   },
