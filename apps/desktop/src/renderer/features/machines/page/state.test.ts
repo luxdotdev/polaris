@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { ConnectionStatusView, MachineView } from "../../../../shared/api.ts";
 import { HostId } from "@polaris/protocol";
-import { pageLine, pill } from "./state.ts";
+import { clientCopy } from "../../../../shared/clientCopy.ts";
+import { hostName, listLine, pageLine, pill } from "./state.ts";
 
 const NOW = 1_800_000_000_000;
 
@@ -84,4 +85,38 @@ test("the header's line has the alias, platform, workspaces and daemon version",
   expect(pageLine(view, 4, "0.5.0")).toBe(
     "ssh lucas-mac-studio · macOS arm64 · 4 workspaces · daemon 0.5.0"
   );
+});
+
+describe("the local Host's row (Paper HS-D2)", () => {
+  const local = (label: string): MachineView => ({
+    ...machine({
+      host: {
+        hostId: HostId.make("l"),
+        hostname: "lucas-mbp",
+        platform: "darwin-arm64",
+        daemonVersion: "0.5.0",
+        homeDir: "/Users/lucas",
+        startedAt: "2026-10-30T00:00:00.000Z",
+      },
+    }),
+    kind: "local",
+    alias: null,
+    label,
+  });
+
+  // "This Mac" on macOS, "This PC" on Windows: the Client's own word for itself.
+  const thisClient = clientCopy().localHost;
+
+  test("is titled This Mac, with the name the user gave it in the mono line", () => {
+    expect(hostName(local("MacBook Pro"))).toBe(thisClient);
+    expect(listLine(local("MacBook Pro"))).toBe("MacBook Pro · macOS arm64");
+  });
+
+  test("never repeats This Mac in its line when the user left the default name", () => {
+    expect(listLine(local(thisClient))).toBe("macOS arm64");
+  });
+
+  test("a remote host keeps its own name", () => {
+    expect(hostName(machine())).toBe("Mac Studio");
+  });
 });

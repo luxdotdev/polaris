@@ -16,7 +16,7 @@ import type { CSSProperties } from "react";
 import type { MachineView } from "../../../../shared/api.ts";
 import { clientCopy } from "../../../../shared/clientCopy.ts";
 import { ChevronGlyph, ColourSquare, ConnectionPill, DotsGlyph } from "./parts.tsx";
-import type { Pill } from "./state.ts";
+import { hostName, type Pill } from "./state.ts";
 
 /** The kit's page title: 22/28 Semibold, scaled with text size. */
 const TITLE: CSSProperties = {
@@ -113,7 +113,7 @@ export const Header = (props: HeaderProps) => {
       <ColourSquare colour={machine.colour} size={14} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <h1 className="text-text-strong truncate font-[600] tracking-[-0.01em]" style={TITLE}>
-          {machine.label}
+          {hostName(machine)}
         </h1>
         <span className="text-text-subtle truncate font-mono text-[11px] leading-4">{line}</span>
       </div>

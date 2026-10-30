@@ -111,7 +111,7 @@ export const SCENES: ReadonlyArray<Scene> = [
 const thisMac = (update: DaemonUpdateView) =>
   machine(
     "local",
-    "This Mac",
+    "MacBook Pro",
     null,
     connected("darwin-arm64", update.installedVersion ?? "0.5.0", null),
     update

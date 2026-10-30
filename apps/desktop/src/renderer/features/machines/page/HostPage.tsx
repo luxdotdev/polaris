@@ -25,7 +25,7 @@ import { useEscape } from "./escape.ts";
 import { HarnessesCard } from "./HarnessesCard.tsx";
 import { Breadcrumb, Header, RemoveConfirm } from "./Header.tsx";
 import { RemoteAccessCard, routesOf } from "./RemoteAccessCard.tsx";
-import { type Pill, pageLine, pill, type RestartPhase } from "./state.ts";
+import { hostName, type Pill, pageLine, pill, type RestartPhase } from "./state.ts";
 import { VitalsCard } from "./VitalsCard.tsx";
 
 const phaseOf = (state: RestartState): RestartPhase => {
@@ -122,7 +122,7 @@ const Head = ({
 
   return (
     <div className="flex flex-col gap-3.5 pb-2">
-      <Breadcrumb label={machine.label} onBack={onBack} />
+      <Breadcrumb label={hostName(machine)} onBack={onBack} />
       {removing ? (
         <RemoveConfirm
           label={machine.label}

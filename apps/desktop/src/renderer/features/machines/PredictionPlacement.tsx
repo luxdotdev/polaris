@@ -14,14 +14,12 @@ const choices: ReadonlyArray<SettingsOption<PredictionPlacementChoice>> = [
   { value: "off", label: "Off" },
 ];
 
-/** Per-Host setting, editable even while the Host is Offline. */
+/**
+ * Per-Host setting, editable even while the Host is Offline. One line on the host page (HS-D);
+ * what Auto picks and the model servers' memory are on Editor → Tab completion.
+ */
 export const PredictionPlacement = ({ hostKey }: { readonly hostKey: string }) => {
   const [preferences, setPreferences] = useState<PredictionPreferences | null>(null);
-
-  const [resources, setResources] = useState<{
-    readonly rssBytes: number;
-    readonly processes: number;
-  } | null>(null);
 
   const [saving, setSaving] = useState(false);
 
@@ -32,12 +30,6 @@ export const PredictionPlacement = ({ hostKey }: { readonly hostKey: string }) =
       .request("prediction.settings.get", { hostKey })
       .then((result) => {
         if (active && result.ok) setPreferences(result.value);
-      });
-
-    void polaris()
-      .request("prediction.resources.get", {})
-      .then((result) => {
-        if (active && result.ok) setResources(result.value);
       });
 
     return () => {
@@ -61,16 +53,10 @@ export const PredictionPlacement = ({ hostKey }: { readonly hostKey: string }) =
     }
   };
 
-  const memory =
-    resources !== null && resources.processes > 0
-      ? ` · Model servers here use ${Math.round(resources.rssBytes / 1024 ** 2)} MiB`
-      : "";
-
   return (
     <div data-testid="prediction-placement">
       <SettingsSelectRow
         title="Run tab completion on"
-        caption={`Auto chooses the stronger machine with a local model server${memory}`}
         value={preferences?.placement ?? "auto"}
         options={choices}
         disabled={preferences === null || saving}
