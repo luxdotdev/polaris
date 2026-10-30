@@ -30,7 +30,7 @@ export type Tone = "neutral" | "accepted" | "needs-you" | "failed" | "faint";
 
 /** Why a Task needs you, in the order Needs you ranks them (spec §5). */
 export type Attention =
-  | { readonly kind: "approval"; readonly since: string }
+  | { readonly kind: "approval"; readonly since: string; readonly secret?: boolean }
   | { readonly kind: "question"; readonly text: string }
   | { readonly kind: "handed" }
   | { readonly kind: "stopped" }
@@ -105,7 +105,10 @@ const attentionOf = (
   )
     return null;
 
-  if (worker.approvalSince !== null) return { kind: "approval", since: worker.approvalSince };
+  if (worker.approvalSince !== null)
+    return worker.approvalSecret === true
+      ? { kind: "approval", since: worker.approvalSince, secret: true }
+      : { kind: "approval", since: worker.approvalSince };
   const question = userQuestion(c, attempt.id);
 
   if (question !== null) return { kind: "question", text: question };

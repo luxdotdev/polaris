@@ -14,7 +14,10 @@ export interface ForYou {
 const SAYS: Readonly<Record<Attention["kind"], (title: string, a: Attention) => string>> = {
   question: (title, a) => (a.kind === "question" ? `${title} asks: “${a.text}”` : title),
   handed: (title) => `${title}: the lead handed it up for your review`,
-  approval: (title) => `${title} waits for your approval`,
+  approval: (title, a) =>
+    a.kind === "approval" && a.secret === true
+      ? `${title} is asking for a secret`
+      : `${title} waits for your approval`,
   stopped: (title) => `${title} stopped without claiming`,
   setup: (title) => `${title}: worktree setup failed`,
   stalled: (title) => `${title} holds a slot and hasn't started`,

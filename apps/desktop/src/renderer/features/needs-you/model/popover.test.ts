@@ -51,4 +51,23 @@ describe("waitingCopy", () => {
     expect(copy?.code).toBeNull();
     expect(copy?.text).toBe("Spike asks: Run bun test");
   });
+
+  test("a secret is named by the agent's label, with nothing to approve and no reason", () => {
+    const secret = new ApprovalRequest({
+      id: RequestId.make("r1"),
+      sessionId: SessionId.make("s1"),
+      turnId: TurnId.make("s1-t1"),
+      kind: "secret",
+      title: "Tailscale auth key",
+      detail: "Make one under Settings → Keys",
+      options: [],
+      openedAt: "2026-10-28T20:00:00.000Z",
+    });
+
+    const copy = waitingCopy(waiting(secret), Date.now());
+
+    expect(copy?.code).toBeNull();
+    expect(copy?.kicker[1]).toBe("secret");
+    expect(copy?.text).toBe("Spike is asking for a secret: Tailscale auth key");
+  });
 });

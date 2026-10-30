@@ -2,6 +2,7 @@
 import type { ConnectionState, SessionState } from "@polaris/protocol";
 import { capacityReset } from "../features/constellation/model/failure.ts";
 import { waitingOn, waitingPhrase } from "../features/session/model/background.ts";
+import { secretLine } from "../features/session/model/secret.ts";
 import type { SessionEntry } from "../store/hostModel.ts";
 import { tildePath } from "../../shared/hostPath.ts";
 
@@ -60,6 +61,8 @@ export const sessionLine = (entry: SessionEntry, activity: string | null = null)
   const request = entry.pendingApprovals[0];
 
   if (request !== undefined) {
+    if (request.kind === "secret") return secretLine(request.title);
+
     return request.kind === "question" ? request.title : `Wants to ${lowerFirst(request.title)}`;
   }
 

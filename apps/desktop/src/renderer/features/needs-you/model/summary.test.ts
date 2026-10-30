@@ -1,8 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { BackgroundTask, SessionNotification, TurnId } from "@polaris/protocol";
+import {
+  ApprovalRequest,
+  BackgroundTask,
+  RequestId,
+  SessionId,
+  SessionNotification,
+  TurnId,
+} from "@polaris/protocol";
 import { C1, HOSTS, MODELS } from "../../sessions/preview/fixtures.ts";
 import { host, hostModel, sessionWith } from "./inbox.testing.ts";
-import { notificationsOf, turnsOf } from "./summary.ts";
+import type { WaitingSession } from "./inbox.ts";
+import { notificationsOf, toSummary, turnsOf } from "./summary.ts";
 
 describe("turnsOf", () => {
   const all = turnsOf({ hosts: HOSTS, models: MODELS, views: {} });
@@ -207,5 +215,45 @@ describe("notificationsOf", () => {
     });
 
     expect(shown.map((n) => `${n.sessionId}`)).toEqual(["mine"]);
+  });
+});
+
+describe("toSummary", () => {
+  test("a Secret Request reaches main by its label only, never its reason", () => {
+    const request = new ApprovalRequest({
+      id: RequestId.make("r1"),
+      sessionId: SessionId.make("s1"),
+      turnId: TurnId.make("s1-t1"),
+      kind: "secret",
+      title: "Tailscale auth key",
+      detail: "Make one under Settings → Keys in the admin console",
+      options: [],
+      openedAt: "2026-10-30T09:00:00.000Z",
+    });
+
+    const waiting: WaitingSession = {
+      key: "local:s1",
+      hostKey: "local",
+      hostLabel: "Mac Studio",
+      workspace: "polaris",
+      branch: null,
+      entry: {
+        session: sessionWith("s1", { state: "needs-you" }),
+        pendingApprovals: [request],
+        lastTurnPreview: null,
+        subagents: [],
+      },
+      requests: [request],
+      since: request.openedAt,
+    };
+
+    const summary = toSummary({
+      inbox: { waiting: [waiting], also: [], answered: [], count: 1 },
+      focused: null,
+    });
+
+    expect(summary.sessions[0]?.requests).toEqual([
+      { requestId: "r1", kind: "secret", title: "Tailscale auth key", detail: null, options: [] },
+    ]);
   });
 });

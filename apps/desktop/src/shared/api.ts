@@ -78,6 +78,7 @@ import type { ResourceMethod } from "./resourcesContract.ts";
 import type { RemoteAccessMethod } from "./remoteAccessContract.ts";
 import type { RestartDaemonResult, RestartPreviewView } from "./restart.ts";
 import type { VoiceRequestOutputs } from "./voiceContract.ts";
+import type { SecretRequestOutputs } from "./secretContract.ts";
 import type { LinkedDevicesRequestOutputs } from "./linkedDevicesContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
 import type { GitRequestOutputs, GitSubscriptionItems } from "./gitContract.ts";
@@ -426,6 +427,7 @@ export interface RequestOutputs
     RemoteAccessRequestOutputs,
     LinkedDevicesRequestOutputs,
     VoiceRequestOutputs,
+    SecretRequestOutputs,
     PredictionPlacementOutputs,
     PredictionOutcomeOutputs {
   "constellation.stats": ConstellationStatsView;
