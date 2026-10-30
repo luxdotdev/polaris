@@ -28,8 +28,6 @@ export interface VisualizationFrameProps {
   readonly onOpenLink: (url: string) => void;
   /** It tried to load another page and was refused (DESIGN.md, Stopped). */
   readonly onStopped: () => void;
-  /** Called after the frame saved its `pv.state`. */
-  readonly onState?: () => void;
   readonly store?: VisualizationStateStore;
   readonly style?: StyleProp<ViewStyle>;
 }
@@ -40,7 +38,6 @@ export const VisualizationFrame = ({
   onHeight,
   onOpenLink,
   onStopped,
-  onState,
   store = fileStateStore,
   style,
 }: VisualizationFrameProps) => {
@@ -97,7 +94,7 @@ export const VisualizationFrame = ({
         },
         "pv:open-link": ({ url }) => onOpenLink(url),
         "pv:state": ({ state }) => {
-          if (writer.offer(state)) onState?.();
+          writer.offer(state);
         },
       })
     );

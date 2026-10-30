@@ -3,11 +3,13 @@
  * with its title line, the frame inline without inner scrolling, and Expand to a full-height sheet.
  */
 import { mobileType } from "@polaris/ui/tokens";
-import { memo, useCallback, useRef, useState } from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import { memo, useCallback, useState } from "react";
+import { Pressable, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { Celestial } from "../celestial";
+import { InstrumentSheet, SheetHeader } from "../sheet/index.tsx";
+import { maxHeight } from "../sheet/detents.ts";
 import type { CelestialBody, HarnessKind } from "@polaris/protocol";
 import { type MobileColours, themedStyles, useTheme } from "../theme/index.ts";
 import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
@@ -84,50 +86,52 @@ export interface VisualizationCardProps {
   readonly session: CardSession | undefined;
 }
 
+/** The sheet's chrome above its body (padding, grabber, header and gaps), in points. */
+const SHEET_CHROME = 76;
+
 const ExpandedSheet = ({
   visualization,
+  open,
   onClose,
   onStopped,
-  onState,
 }: {
   readonly visualization: Visualization;
+  readonly open: boolean;
   readonly onClose: () => void;
   readonly onStopped: () => void;
-  readonly onState: () => void;
 }) => {
   const styles = useStyles();
   const insets = useSafeAreaInsets();
+  const window = useWindowDimensions();
+
+  const height =
+    maxHeight({ height: window.height, topInset: insets.top }) -
+    SHEET_CHROME -
+    Math.max(insets.bottom, 16);
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.sheet, { marginTop: insets.top + 10 }]}>
-        <View style={styles.grabber} />
-        <View style={styles.sheetHeader}>
-          <Glyph />
-          <Text
-            style={styles.sheetTitle}
-            numberOfLines={1}
-            accessibilityRole="header"
-            maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
-          >
-            {visualization.title}
-          </Text>
+    <InstrumentSheet open={open} onClose={onClose} detents={["large"]}>
+      <SheetHeader
+        title={visualization.title}
+        mark={<Glyph />}
+        control={
           <Pressable style={styles.done} onPress={onClose} accessibilityRole="button" hitSlop={8}>
             <Text style={styles.doneLabel}>Done</Text>
           </Pressable>
-        </View>
-        <View style={[styles.sheetBody, { paddingBottom: Math.max(18, insets.bottom) }]}>
+        }
+      />
+      <View style={[styles.sheetBody, { height }]}>
+        {open ? (
           <VisualizationFrame
             visualization={visualization}
             mode="expanded"
             onOpenLink={(url) => confirmLink(visualization.title, url)}
             onStopped={onStopped}
-            onState={onState}
             style={styles.fill}
           />
-        </View>
+        ) : null}
       </View>
-    </Modal>
+    </InstrumentSheet>
   );
 };
 
@@ -200,11 +204,10 @@ const VisualizationCardView = ({
   const { id, title } = visualization;
   const [height, setHeight] = useState<number | null>(() => heights.get(id) ?? null);
   const [expanded, setExpanded] = useState(false);
+  // The sheet joins the host on the first Expand and stays, so closing can animate.
+  const [sheeted, setSheeted] = useState(false);
   const [stopped, setStopped] = useState(false);
   const [openedRevision, setOpenedRevision] = useState(false);
-  // The sheet saved state the inline frame hasn't seen: reload it when the sheet closes.
-  const [generation, setGeneration] = useState(0);
-  const sheetSaved = useRef(false);
 
   const onHeight = useCallback(
     (next: number) => {
@@ -227,15 +230,15 @@ const VisualizationCardView = ({
   const shown = Math.min(height ?? INLINE_BODY_MAX, INLINE_BODY_MAX);
   const overflows = height !== null && height > INLINE_BODY_MAX;
 
+  const expand = () => {
+    setSheeted(true);
+    setExpanded(true);
+  };
+
+  // The inline frame steps aside while the sheet is open and reads the saved state on its return.
   const close = () => {
+    flushState(id);
     setExpanded(false);
-
-    if (sheetSaved.current) {
-      flushState(id);
-      setGeneration((n) => n + 1);
-    }
-
-    sheetSaved.current = false;
   };
 
   return (
@@ -246,7 +249,7 @@ const VisualizationCardView = ({
         <Pressable
           style={styles.titleLine}
           disabled={stopped}
-          onPress={() => setExpanded(true)}
+          onPress={expand}
           accessibilityRole="button"
           accessibilityLabel={`${title}, expand`}
         >
@@ -261,9 +264,8 @@ const VisualizationCardView = ({
         <Stopped />
       ) : (
         <View style={{ height: shown }}>
-          {live ? (
+          {live && !expanded ? (
             <VisualizationFrame
-              key={generation}
               visualization={visualization}
               mode="inline"
               onHeight={onHeight}
@@ -275,11 +277,7 @@ const VisualizationCardView = ({
           {overflows ? (
             <>
               <Fade colour={colours.panel} />
-              <Pressable
-                style={styles.tapToExpand}
-                onPress={() => setExpanded(true)}
-                accessibilityRole="button"
-              >
+              <Pressable style={styles.tapToExpand} onPress={expand} accessibilityRole="button">
                 <Text style={styles.tapLabel} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
                   Tap to expand
                 </Text>
@@ -288,16 +286,14 @@ const VisualizationCardView = ({
           ) : null}
         </View>
       )}
-      {expanded ? (
+      {stopped || !sheeted ? null : (
         <ExpandedSheet
           visualization={visualization}
+          open={expanded}
           onClose={close}
           onStopped={stop}
-          onState={() => {
-            sheetSaved.current = true;
-          }}
         />
-      ) : null}
+      )}
     </View>
   );
 };
@@ -353,29 +349,6 @@ const makeStyles = (colours: MobileColours) =>
     stopped: { padding: 16, gap: 4 },
     stoppedTitle: { ...mobileType.subhead, fontWeight: "500", color: colours.textDefault },
     stoppedBody: { ...mobileType.footnote, color: colours.textSubtle },
-    sheet: {
-      flex: 1,
-      backgroundColor: colours.panel,
-      borderTopLeftRadius: 22,
-      borderTopRightRadius: 22,
-      overflow: "hidden",
-    },
-    grabber: {
-      alignSelf: "center",
-      width: 36,
-      height: 5,
-      borderRadius: 3,
-      marginTop: 6,
-      backgroundColor: colours.hairline,
-    },
-    sheetHeader: {
-      height: 48,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 10,
-      paddingHorizontal: 18,
-    },
-    sheetTitle: { ...mobileType.heading, fontWeight: "600", color: colours.textStrong, flex: 1 },
     done: {
       height: 30,
       paddingHorizontal: 14,
@@ -386,5 +359,5 @@ const makeStyles = (colours: MobileColours) =>
       borderColor: colours.hairline,
     },
     doneLabel: { ...mobileType.footnote, fontWeight: "500", color: colours.textStrong },
-    sheetBody: { flex: 1, paddingHorizontal: 18, paddingTop: 6 },
+    sheetBody: { paddingHorizontal: 8 },
   }) as const;

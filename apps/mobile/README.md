@@ -192,15 +192,21 @@ call's output and finds the earlier ones a later call `replaces` (they collapse 
   (`FrameMessage`): the height (clamped, inline at most 260pt under the 40pt title line), an https
   link opened only after the native action sheet, and `pv.state` kept in the document directory
   under `visualizations/<id>.json`. Theme changes go in as `pv:theme` through `injectJavaScript`.
+- writes `pv.state` through `stateWriter.ts`: a state over 64 KB (UTF-8) is dropped, and writes
+  land at most twice a second, the latest winning.
 
-`live.ts` caps live WebViews at three, the ones nearest the screen; the others keep their height
-without a WebView. Expand opens a full-height sheet with the frame at `mode: expanded`.
+A frame nested in the fragment (even inside a closed shadow root) loads `about:srcdoc`, which the
+policy refuses, so the card stops. `live.ts` caps live WebViews at three, the ones nearest the
+screen; the others keep their height without a WebView. Expand opens an `InstrumentSheet` (RN's
+`Modal` doesn't present here) with the frame at `mode: expanded`; the inline frame unmounts while
+it is open and reads the saved state when it closes.
 
 react-native-webview is a native module: rebuild the development client after pulling it in
 (`bun run --cwd apps/mobile ios`); prebuild adds its pod, nothing else. The thread gallery's
 Visuals data (`EXPO_PUBLIC_POLARIS_GALLERY=thread`, launched with `-polarisDevData visuals`) shows
-the package's examples, a revised one, one still drawing and an egress probe that tries `fetch`,
-an image, WebRTC and navigating away.
+the package's examples, a counter kept in `pv.state`, a revised one, one still drawing, an egress
+probe that tries `fetch`, an image, WebRTC and navigating away, and a nested-frame probe.
+`-polarisDevVisuals loan|revised|probe` ends the thread at that Turn.
 
 ## Markdown
 

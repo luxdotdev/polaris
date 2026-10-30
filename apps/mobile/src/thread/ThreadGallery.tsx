@@ -14,6 +14,7 @@ import { type GalleryHost, galleryHost } from "./galleryHost.testing.ts";
 import { ThreadScreen } from "./ThreadScreen.tsx";
 import { threadKey, threads } from "./threads.ts";
 import { DATASETS, type Dataset, sessionId } from "./worstCase.testing.ts";
+import { setVisualsScene } from "../visualization/gallery.testing.ts";
 
 // Read whole: Expo inlines EXPO_PUBLIC_ variables only where they are named in full.
 const env: unknown = process.env.EXPO_PUBLIC_POLARIS_GALLERY;
@@ -39,6 +40,10 @@ const SCRIPT = launched("polarisDevThreadState", DevThreadState);
 const DATA = launched("polarisDevData", Schema.Literals(["worst", "visuals"]));
 
 const WORST = DATA === "worst";
+
+setVisualsScene(
+  launched("polarisDevVisuals", Schema.Literals(["loan", "revised", "probe"])) ?? "all"
+);
 
 const MOONLIT = THEME === "moonlit" || launched("polarisDevTheme", ThemeName) === "moonlit";
 

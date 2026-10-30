@@ -43,10 +43,29 @@ const PROBE: VisualizeInput = {
   show("rtc", stun(window));
   window.pvShadowReport = (text) => show("shadow", text);
 </script>
-<p class="pv-caption">nested frame in a closed shadow root: <span id="shadow">none ran</span></p>
-<div><template shadowrootmode="closed"><iframe srcdoc="<script>parent.pvShadowReport(typeof RTCPeerConnection === 'function' ? (function(){var p=new RTCPeerConnection({iceServers:[{urls:'stun:127.0.0.1:3478'}]});p.createDataChannel('x');p.createOffer().then(function(o){return p.setLocalDescription(o)});return 'RTC available'})() : 'RTC removed')</script>"></iframe></template></div>
 <script>
   document.getElementById("nav").addEventListener("click", () => { location.href = "https://example.com/?leak=2"; });
+</script>`,
+};
+
+/** A frame nested in a closed shadow root, which the page's own guards can't reach. */
+const NESTED: VisualizeInput = {
+  title: "Nested-frame probe",
+  html: String.raw`<script>window.pvShadowReport = (text) => { document.getElementById("shadow").textContent = text; };</script>
+<p class="pv-caption">nested frame in a closed shadow root: <span id="shadow">none ran</span></p>
+<div><template shadowrootmode="closed"><iframe srcdoc="<script>parent.pvShadowReport(typeof RTCPeerConnection === 'function' ? (function(){var p=new RTCPeerConnection({iceServers:[{urls:'stun:127.0.0.1:3478'}]});p.createDataChannel('x');p.createOffer().then(function(o){return p.setLocalDescription(o)});return 'RTC available'})() : 'RTC removed')</script>"></iframe></template></div>`,
+};
+
+/** Counts taps into pv.state, so a relaunch shows whether the count was kept. */
+const COUNTER: VisualizeInput = {
+  title: "Saved counter",
+  html: String.raw`<div class="pv-stat"><div class="pv-stat-label">taps kept in pv.state</div><div class="pv-stat-value" id="n">0</div></div>
+<p><button id="add">Add one</button></p>
+<script>
+  let n = pv.state.get() ?? 0;
+  const show = () => { document.getElementById("n").textContent = String(n); };
+  show();
+  document.getElementById("add").addEventListener("click", () => { n += 1; pv.state.set(n); show(); });
 </script>`,
 };
 
@@ -85,12 +104,13 @@ const read = (id: string, path: string) =>
     status: "completed",
   });
 
-export const visualsTurns = () => [
+const ALL_TURNS = () => [
   {
     turn: turn(0, { prompt: "What would the payments be at 6.5% versus 7%?" }),
     items: [
       read("r1", "/repo/docs/loans.md"),
       read("r2", "/repo/docs/rates.md"),
+      visualize("counter", COUNTER),
       visualize("loan", loanCalculator),
       reply("a1", "Drag the rate: at 7% the payment rises by about $130 a month."),
     ],
@@ -106,7 +126,11 @@ export const visualsTurns = () => [
   },
   {
     turn: turn(2, { prompt: "Try to reach the network from a visualization." }),
-    items: [visualize("probe", PROBE), reply("a3", "Neither request should get out.")],
+    items: [
+      visualize("probe", PROBE),
+      visualize("nested", NESTED),
+      reply("a3", "Neither request should get out."),
+    ],
   },
   {
     turn: turn(3, { prompt: "Draw the timeline again.", status: "working", endedAt: null }),
@@ -114,7 +138,24 @@ export const visualsTurns = () => [
   },
 ];
 
-export const visualsLive = (): ReadonlyArray<SessionStreamItem> => [
+/** Where the thread ends: every Turn, or the loan, revised or probe Turn last on screen. */
+export type VisualsScene = "all" | "loan" | "revised" | "probe";
+
+const LAST: Readonly<Record<VisualsScene, number>> = { all: 4, loan: 1, revised: 2, probe: 3 };
+
+let scene: VisualsScene = "all";
+
+/** The gallery's launch argument picks the scene before the data is built. */
+export const setVisualsScene = (next: VisualsScene) => {
+  scene = next;
+};
+
+export const visualsTurns = () => ALL_TURNS().slice(0, LAST[scene]);
+
+export const visualsLive = (): ReadonlyArray<SessionStreamItem> =>
+  scene === "all" ? liveDrawing() : [];
+
+const liveDrawing = (): ReadonlyArray<SessionStreamItem> => [
   StreamItem.cases.Synchronized.make({ sequence: Sequence.make(1) }),
   StreamItem.cases.ItemProgress.make({
     turnId: TurnId.make("t-3"),
