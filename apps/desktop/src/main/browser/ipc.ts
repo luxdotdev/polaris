@@ -71,6 +71,7 @@ export const browserHandlers = (browsers: Registry | undefined): Handlers => {
     "browser.show": done((b, { hostKey, sessionId, bounds }) => b.show(hostKey, sessionId, bounds)),
     "browser.hide": done((b, { hostKey, sessionId }) => b.hide(hostKey, sessionId)),
     "browser.forget": done((b, { hostKey, sessionIds }) => b.forget(hostKey, sessionIds)),
+    "browser.working": done((b, { sessions }) => b.setWorking(sessions)),
     "browser.pick": ({ hostKey, sessionId, tabId }) =>
       browsers === undefined
         ? Effect.fail(UNAVAILABLE)

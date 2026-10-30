@@ -62,7 +62,7 @@ export interface CdpTabs {
   readonly activateTab: (tab: TabRef) => Promise<void>;
   /** The Browser's navigation policy: false for a URL no tab may show. */
   readonly allowsUrl: (url: string) => boolean;
-  /** The tab's indicator: an agent drives it over CDP right now. */
+  /** The tab's indicator: the agent sent it a command that acts on it (`driving.ts`). */
   readonly setAgentDriving: (tabId: BrowserTabId, driving: boolean) => void;
   /** The session's tabs as they change: a `Snapshot` first, then each change. */
   readonly subscribe: (

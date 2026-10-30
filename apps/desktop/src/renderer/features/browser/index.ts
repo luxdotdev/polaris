@@ -10,4 +10,6 @@ export { agentOpened, type OutputPlace } from "./model.ts";
 
 export { BrowserForget } from "./forget.tsx";
 
+export { BrowserWorking } from "./working.tsx";
+
 export { browserUi, markBrowserActivity, setBrowserShown, useBrowserUi } from "./state.ts";

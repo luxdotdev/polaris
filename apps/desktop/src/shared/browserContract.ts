@@ -122,6 +122,10 @@ export const BrowserRequestInputs = {
   "browser.cancelPick": OnTab,
   /** Closes these sessions' tabs and forgets them: the renderer names sessions once archived. */
   "browser.forget": Schema.Struct({ hostKey: HostKey, sessionIds: Schema.Array(SessionId) }),
+  /** Every session mid-Turn: an agent drives a tab only during its session's Turn. */
+  "browser.working": Schema.Struct({
+    sessions: Schema.Array(Schema.Struct({ hostKey: HostKey, sessionId: SessionId })),
+  }),
 } as const;
 
 export type BrowserMethod = keyof typeof BrowserRequestInputs;
@@ -141,6 +145,7 @@ export interface BrowserRequestOutputs {
   readonly "browser.pick": BrowserPickResult | null;
   readonly "browser.cancelPick": null;
   readonly "browser.forget": null;
+  readonly "browser.working": null;
 }
 
 export const BrowserSubscriptionInputs = {

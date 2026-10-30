@@ -11,6 +11,7 @@ import {
   BrowserTabId,
   BrowserTabOpener,
 } from "../../shared/browserContract.ts";
+import { drives } from "./driving.ts";
 import { hubOf } from "./hub.ts";
 import type { CdpTabs } from "./ports.ts";
 import { decodeHandle, refusalOf, tabRefusalOf } from "./refusals.ts";
@@ -196,7 +197,8 @@ export const cdpFacade = (input: CdpFacadeInput): CdpFacade => {
     const gone = targets.detach(session);
 
     if (gone === null) return;
-    tabs.setAgentDriving(gone.tabId, gone.hub.size() > 0);
+
+    if (gone.hub.size() === 0) tabs.setAgentDriving(gone.tabId, false);
 
     if (announce)
       emit({
@@ -243,7 +245,6 @@ export const cdpFacade = (input: CdpFacadeInput): CdpFacade => {
     });
 
     session = targets.attached(tab.tabId, hub, release);
-    tabs.setAgentDriving(tab.tabId, true);
     emit({
       method: "Target.attachedToTarget",
       params: { sessionId: session, targetInfo: targets.infoOf(tab), waitingForDebugger: false },
@@ -371,6 +372,7 @@ export const cdpFacade = (input: CdpFacadeInput): CdpFacade => {
         }
 
         tabOpened(tab);
+        tabs.setAgentDriving(tab.tabId, true);
 
         return { targetId: tab.tabId };
       },
@@ -454,6 +456,8 @@ export const cdpFacade = (input: CdpFacadeInput): CdpFacade => {
     const route = targets.routeOf(command.sessionId);
 
     if (route === null) return reply(command, { error: failure(noSession()) });
+
+    if (drives(command.method)) tabs.setAgentDriving(route.tabId, true);
 
     if (command.method === "IO.close") {
       const handle = decodeHandle(command.params);
