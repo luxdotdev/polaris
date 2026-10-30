@@ -39,7 +39,7 @@ const HostGroup = ({
   return (
     <View style={styles.group}>
       <View style={styles.kicker}>
-        <Text style={styles.hostName} numberOfLines={1}>
+        <Text style={styles.hostName} numberOfLines={1} ellipsizeMode="middle">
           {host.hostName.toUpperCase()}
         </Text>
         {off ? <StateDot state={host.state} /> : null}
@@ -69,7 +69,7 @@ const HostGroup = ({
                   <Text style={styles.name} numberOfLines={1}>
                     {w.name}
                   </Text>
-                  <Text style={styles.path} numberOfLines={1}>
+                  <Text style={styles.path} numberOfLines={1} ellipsizeMode="middle">
                     {displayPath(w.path, host.homeDir)}
                     {w.isGitRepo ? "" : " · not a git repo"}
                   </Text>

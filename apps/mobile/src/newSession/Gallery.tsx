@@ -1,6 +1,7 @@
 /**
  * A development screen of a new session's states from fixtures, for screenshots: launch a
- * development build with `-polarisDevNewSession <ao|aq|ar|as>` (and `-polarisDevTheme`).
+ * development build with `-polarisDevNewSession <ao|aq|ar|as>` (and `-polarisDevTheme`,
+ * `-polarisDevData worst` for break-ui's hosts).
  */
 import {
   HarnessAvailability,
@@ -91,6 +92,64 @@ const RPI: SheetHost = {
   capabilities: [],
 };
 
+const LONG_PATH =
+  "/Users/aleksandra.wisniewska-kowalczyk/Developer/northwind-industries-holdings/platform-monorepo-customer-facing-dashboard-v2";
+
+const extra = (hostId: string, hostName: string, workspaces: ReadonlyArray<string>): SheetHost => ({
+  ...RPI,
+  hostId,
+  hostName,
+  route: "network",
+  latencyMs: 12,
+  workspaces: workspaces.map((path, i) => workspace(`${hostId}-${i}`, path)),
+  sessions: [],
+});
+
+/** break-ui: a long host name, long workspace names and paths, six hosts, one with none. */
+const WORST: ReadonlyArray<SheetHost> = [
+  {
+    ...STUDIO,
+    hostName: "aleksandra-wisniewska-kowalczyk-macbook-pro-16-northwind",
+    homeDir: "/Users/aleksandra.wisniewska-kowalczyk",
+    workspaces: [
+      workspace("polaris", LONG_PATH),
+      ...Array.from({ length: 14 }, (_, i) =>
+        workspace(
+          `ws-${i}`,
+          `/Users/aleksandra.wisniewska-kowalczyk/code/service-${i}-${"x".repeat(i)}`
+        )
+      ),
+    ],
+    sessions: [used("polaris", 1)],
+  },
+  { ...RPI, hostName: "Jo", workspaces: [] },
+  extra("build", "build-farm-ubuntu-24-04-arm64-07", [
+    "/srv/ci/northwind-industries-holdings-release-pipeline",
+  ]),
+  extra("tokyo", "東京-render-farm-01", ["/home/レンダー/プロジェクト-アニメーション"]),
+  extra("gpu", "gpu-box", ["/opt/ml/train"]),
+  extra("ci", "ci-runner-ephemeral-3f9c2a1b", ["/tmp/ci"]),
+];
+
+const DEV_DATA = __DEV__
+  ? launchArgument("polarisDevData", Schema.is(Schema.Literal("worst")))
+  : null;
+
+/** In AR, the long-named host was the last used and has nothing ready (the Pi's harnesses). */
+const SWAPPED = new Map([
+  ["studio", "rpi"],
+  ["rpi", "studio"],
+]);
+
+const worstHosts = (state: GalleryState): ReadonlyArray<SheetHost> =>
+  state === "ar"
+    ? WORST.map((host) => ({
+        ...host,
+        hostId: SWAPPED.get(host.hostId) ?? host.hostId,
+        sessions: host.hostId === "studio" ? [used("polaris", 0.5)] : host.sessions,
+      }))
+    : WORST;
+
 const HOSTS: Readonly<Record<GalleryState, ReadonlyArray<SheetHost>>> = {
   ao: [STUDIO, RPI],
   aq: [STUDIO, { ...RPI, connected: false, state: "reconnecting", latencyMs: null }],
@@ -172,7 +231,7 @@ const Started = () => {
 export const NewSessionGallery = () => {
   const { setTheme } = useTheme();
   const state: GalleryState = STATE ?? "ao";
-  const hosts = HOSTS[state];
+  const hosts = DEV_DATA === "worst" && state !== "as" ? worstHosts(state) : HOSTS[state];
   const [fake] = useState(() => api(state));
   const [placing, setPlacing] = useState(false);
 
