@@ -13,6 +13,7 @@ import { type MobileColours, themedStyles, useTheme } from "../theme/index.ts";
 import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 import { confirmLink } from "./confirmLink.ts";
 import type { Visualization } from "./model.ts";
+import { flushState } from "./stateWriter.ts";
 import { VisualizationFrame } from "./VisualizationFrame.tsx";
 
 /** The card is 300pt; its title line takes 40. */
@@ -229,7 +230,11 @@ const VisualizationCardView = ({
   const close = () => {
     setExpanded(false);
 
-    if (sheetSaved.current) setGeneration((n) => n + 1);
+    if (sheetSaved.current) {
+      flushState(id);
+      setGeneration((n) => n + 1);
+    }
+
     sheetSaved.current = false;
   };
 

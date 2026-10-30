@@ -32,11 +32,20 @@ const PROBE: VisualizeInput = {
   image.onload = () => show("img", "reached");
   image.onerror = () => show("img", "blocked");
   image.src = "https://example.com/favicon.ico?leak=1";
-  const child = document.createElement("iframe");
-  child.style.display = "none";
-  document.body.appendChild(child);
-  const rtc = [window, child.contentWindow].map((w) => w && typeof w.RTCPeerConnection === "function");
-  show("rtc", rtc.some(Boolean) ? "available " + rtc.join("/") : "removed");
+  // Tries a STUN binding to the host's local listener (scripts in /tmp during ENG-599's check).
+  const stun = (w) => {
+    if (typeof w.RTCPeerConnection !== "function") return "removed";
+    const peer = new w.RTCPeerConnection({ iceServers: [{ urls: "stun:127.0.0.1:3478" }] });
+    peer.createDataChannel("x");
+    peer.createOffer().then((offer) => peer.setLocalDescription(offer));
+    return "available";
+  };
+  show("rtc", stun(window));
+  window.pvShadowReport = (text) => show("shadow", text);
+</script>
+<p class="pv-caption">nested frame in a closed shadow root: <span id="shadow">none ran</span></p>
+<div><template shadowrootmode="closed"><iframe srcdoc="<script>parent.pvShadowReport(typeof RTCPeerConnection === 'function' ? (function(){var p=new RTCPeerConnection({iceServers:[{urls:'stun:127.0.0.1:3478'}]});p.createDataChannel('x');p.createOffer().then(function(o){return p.setLocalDescription(o)});return 'RTC available'})() : 'RTC removed')</script>"></iframe></template></div>
+<script>
   document.getElementById("nav").addEventListener("click", () => { location.href = "https://example.com/?leak=2"; });
 </script>`,
 };

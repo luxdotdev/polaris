@@ -17,6 +17,7 @@ import {
 } from "./frame.ts";
 import { clampHeight, parseFrameMessage, type Visualization } from "./model.ts";
 import { fileStateStore, type VisualizationStateStore } from "./stateStore.ts";
+import { writerFor } from "./stateWriter.ts";
 
 export interface VisualizationFrameProps {
   readonly visualization: Visualization;
@@ -63,6 +64,10 @@ export const VisualizationFrame = ({
     [html, title, mode, id, store]
   );
 
+  const writer = useMemo(() => writerFor(id, store), [id, store]);
+
+  useEffect(() => () => writer.flush(), [writer]);
+
   // A new document starts a new load, so it gets its own policy.
   const policy = useMemo(() => navigationPolicy(), [document]);
 
@@ -92,8 +97,7 @@ export const VisualizationFrame = ({
         },
         "pv:open-link": ({ url }) => onOpenLink(url),
         "pv:state": ({ state }) => {
-          store.write(id, state);
-          onState?.();
+          if (writer.offer(state)) onState?.();
         },
       })
     );
