@@ -17,7 +17,7 @@ const Input = Schema.Struct({
 });
 
 export type VisualizationView =
-  | { readonly phase: "drawing"; readonly title: string }
+  | { readonly phase: "drawing"; readonly title: string; readonly startedAt: string | null }
   | {
       readonly phase: "shown";
       /** Polaris's id for it (`viz_…`): what a later call's `replaces` names. */
@@ -39,7 +39,7 @@ export const visualizationView = (item: ToolCallItem): VisualizationView | null 
   const input: typeof Input.Type = Option.getOrElse(decodeInput(item.input), () => ({}));
   const title = input.title ?? "";
 
-  if (item.status === "running") return { phase: "drawing", title };
+  if (item.status === "running") return { phase: "drawing", title, startedAt: item.startedAt };
 
   if (item.status !== "completed" || input.html === undefined) return null;
 
@@ -61,7 +61,8 @@ export const revisedBy = (earlier: VisualizationView, later: VisualizationView):
 
 const shownCache = new WeakMap<TurnView, ReadonlyArray<VisualizationView>>();
 
-const shownIn = (view: TurnView): ReadonlyArray<VisualizationView> => {
+/** A Turn's Visualizations, in order. */
+export const shownIn = (view: TurnView): ReadonlyArray<VisualizationView> => {
   const hit = shownCache.get(view);
 
   if (hit !== undefined) return hit;
@@ -78,18 +79,19 @@ const shownIn = (view: TurnView): ReadonlyArray<VisualizationView> => {
   return shown;
 };
 
-/** The ids of the session's Visualizations a later one revised; they collapse to "Revised below". */
-export const revisedIds = (turns: ReadonlyArray<TurnView>): ReadonlySet<string> => {
-  const shown = turns.flatMap(shownIn);
-
-  return new Set(
+/** Of Visualizations in order, the ids a later one revised; they collapse to "Revised below". */
+export const revisedAmong = (shown: ReadonlyArray<VisualizationView>): ReadonlySet<string> =>
+  new Set(
     shown.flatMap((earlier, n) =>
       earlier.phase === "shown" && shown.slice(n + 1).some((later) => revisedBy(earlier, later))
         ? [earlier.id]
         : []
     )
   );
-};
+
+/** The session's revised Visualizations. */
+export const revisedIds = (turns: ReadonlyArray<TurnView>): ReadonlySet<string> =>
+  revisedAmong(turns.flatMap(shownIn));
 
 /** A refused or failed call's Polaris row. */
 export const visualize = ({ title = "" }: typeof Input.Type): Built => ({
@@ -104,3 +106,15 @@ export const visualize = ({ title = "" }: typeof Input.Type): Built => ({
 });
 
 export const VisualizeInput = Input;
+
+/** Each Visualization's Turn number, from the shown Turns. */
+export const visualizationTurns = (
+  groups: ReadonlyArray<{ readonly number: number; readonly views: ReadonlyArray<TurnView> }>
+): ReadonlyMap<string, number> =>
+  new Map(
+    groups.flatMap((group) =>
+      group.views
+        .flatMap(shownIn)
+        .flatMap((v) => (v.phase === "shown" ? [[v.id, group.number] as const] : []))
+    )
+  );

@@ -52,7 +52,7 @@ const request = (message: FrameMessage): FrameRequest | null =>
 
 /** A message event's request, only when it came from `frame`, the frame's own window. */
 export const frameRequest = (
-  event: Pick<MessageEvent, "source" | "data">,
+  event: Pick<MessageEvent<unknown>, "source" | "data">,
   frame: Window | null
 ): FrameRequest | null => {
   if (frame === null || event.source !== frame) return null;

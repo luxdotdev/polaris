@@ -142,6 +142,8 @@ export const createMainWindow = (input: MainWindowInput) => {
   win.webContents.on("will-navigate", (event, target) => {
     if (!trusted(target)) event.preventDefault();
   });
+  // CSP doesn't cover WebRTC, and the app never uses it: no UDP leaves a Visualization frame.
+  win.webContents.setWebRTCIPHandlingPolicy("disable_non_proxied_udp");
   // `will-navigate` sees the main frame only; a Visualization frame never leaves its document.
   win.webContents.on("will-frame-navigate", (event) => {
     if (!event.isMainFrame && !subframeMayLoad(event.url)) event.preventDefault();

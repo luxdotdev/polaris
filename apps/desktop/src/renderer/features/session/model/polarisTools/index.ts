@@ -19,9 +19,11 @@ export { type BannerRecord, withBanner } from "./session.ts";
 export type * from "./types.ts";
 
 export {
+  revisedAmong,
   revisedBy,
   revisedIds,
   type VisualizationView,
+  visualizationTurns,
   visualizationView,
 } from "./visualization.ts";
 
