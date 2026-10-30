@@ -68,13 +68,14 @@ export interface RegistryDeps {
   readonly kept: ReadonlyArray<KeptSession>;
   readonly save: (sessions: ReadonlyArray<KeptSession>) => void;
   readonly nextId: () => BrowserTabId;
-  /** The session's Workspace when no caller named it (an agent's tab): asks the Host. */
+  /** The session's Workspace as its Host has it, or null for a session the Host doesn't know. */
   readonly workspaceOf: (hostKey: string, sessionId: SessionId) => Promise<WorkspaceId | null>;
 }
 
 export interface OpenTab {
   readonly hostKey: string;
   readonly sessionId: SessionId;
+  /** The Workspace the caller expects; refused unless it is the session's own. */
   readonly workspaceId?: WorkspaceId | undefined;
   readonly url: string;
   readonly openedBy: BrowserTabOpener;
@@ -162,12 +163,12 @@ export const createRegistry = (deps: RegistryDeps) => {
 
     const existing = stateOf(hostKey, sessionId);
 
-    const workspace =
-      existing?.workspaceId ?? workspaceId ?? (await deps.workspaceOf(hostKey, sessionId));
+    // Main asks the Host, never the caller, which partition a session's first tab gets.
+    const workspace = existing?.workspaceId ?? (await deps.workspaceOf(hostKey, sessionId));
 
     if (workspace === null) throw new BrowserRefused("No such session");
 
-    if (existing !== null && workspaceId !== undefined && existing.workspaceId !== workspaceId)
+    if (workspaceId !== undefined && workspaceId !== workspace)
       throw new BrowserRefused("This session's Browser is in another workspace");
 
     const before = stateOf(hostKey, sessionId) ?? emptyTabs(hostKey, sessionId, workspace);

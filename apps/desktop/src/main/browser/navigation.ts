@@ -25,6 +25,10 @@ export const allowedUrl = (url: string): boolean => {
   return parsed !== null && SCHEMES.has(parsed.protocol) && parsed.hostname !== "";
 };
 
+/** True when a frame may navigate to `url`: an iframe may also show its `srcdoc`. */
+export const allowedFrameUrl = (url: string, isMainFrame: boolean): boolean =>
+  allowedUrl(url) || (!isMainFrame && url === "about:srcdoc");
+
 const LOOPBACK_V4 = /^127(?:\.\d{1,3}){3}$/;
 
 /**

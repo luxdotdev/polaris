@@ -50,6 +50,13 @@ const fakeViews = () => {
   return { views, live, log, onScreen: () => onScreen };
 };
 
+/** The sessions the fake Host knows, and their Workspaces. */
+const ON_HOST = new Map([
+  [sid("s1"), wid("w1")],
+  [sid("s2"), wid("w1")],
+  [sid("s-agent"), wid("w-agent")],
+]);
+
 const setup = (kept: ReadonlyArray<KeptSession> = []) => {
   const fake = fakeViews();
   const claims: Array<string> = [];
@@ -68,7 +75,7 @@ const setup = (kept: ReadonlyArray<KeptSession> = []) => {
     },
     // SAFETY: test ids.
     nextId: () => `tab-${++next}` as BrowserTabId,
-    workspaceOf: async (_host, session) => (session === sid("s-agent") ? wid("w-agent") : null),
+    workspaceOf: async (host, session) => (host === "mac" ? (ON_HOST.get(session) ?? null) : null),
   });
 
   return { registry, fake, claims, saved: () => saved };
@@ -128,6 +135,32 @@ describe("tab lists", () => {
 
     expect(await refused(open(registry, "localhost:9999"))).toBe(true);
     expect(fake.live.size).toBe(MAX_TABS);
+  });
+
+  test("a first tab gets the partition its Host names, whatever Workspace the renderer says", async () => {
+    const { registry, fake } = setup();
+
+    const elsewhere = registry.openTab({
+      hostKey: "mac",
+      sessionId: sid("s1"),
+      workspaceId: wid("w2"),
+      url: "localhost:3000",
+      openedBy: USER,
+    });
+
+    expect(await refused(elsewhere)).toBe(true);
+
+    const ghost = registry.openTab({
+      hostKey: "mac",
+      sessionId: sid("ghost"),
+      workspaceId: wid("w1"),
+      url: "localhost:3000",
+      openedBy: USER,
+    });
+
+    expect(await refused(ghost)).toBe(true);
+    expect(fake.log).toEqual([]);
+    expect(registry.sessionTabs("mac", sid("s1")).tabs).toEqual([]);
   });
 
   test("a session's Browser stays in its first workspace", async () => {
@@ -236,6 +269,20 @@ describe("kept across restarts", () => {
     expect(fake.live.size).toBe(1);
     expect(fake.onScreen()).toBeNull();
     expect(claims.at(-1)).toBe("release mac/s1");
+  });
+
+  test("a session kept with more tabs than the cap comes back with the cap", () => {
+    const many = Array.from({ length: MAX_TABS + 6 }, (_, n) => ({
+      url: `http://localhost:${3000 + n}/`,
+      title: null,
+      openedBy: USER,
+    }));
+
+    const { registry } = setup([
+      { hostKey: "mac", sessionId: sid("s1"), workspaceId: wid("w1"), tabs: many, active: 0 },
+    ]);
+
+    expect(registry.sessionTabs("mac", sid("s1")).tabs).toHaveLength(MAX_TABS);
   });
 
   test("forgetting reaches sessions only kept on disk", async () => {
