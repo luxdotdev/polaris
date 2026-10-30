@@ -20,6 +20,7 @@ import type {
   AttachmentSettings,
   AutoArchiveSettings,
   IdleCompactionSettings,
+  VisualsSettings,
   AttachmentUsage,
   StagedAmount,
   Capability,
@@ -501,6 +502,8 @@ export interface RequestOutputs
   "sessions.setAutoArchive": null;
   "sessions.idleCompaction": Plain<IdleCompactionSettings>;
   "sessions.setIdleCompaction": null;
+  "sessions.visuals": Plain<VisualsSettings>;
+  "sessions.setVisuals": null;
   "continuity.markRead": Plain<ReadPosition>;
   "continuity.saveDraft": Plain<ComposerDraft>;
   "review.runRiskSummary": Rpc.Success<typeof RunRiskSummary>;
