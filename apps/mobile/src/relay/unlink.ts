@@ -3,6 +3,7 @@
  * before the Keychain forgets it. A Host that doesn't answer keeps trusting the key.
  */
 import { Effect } from "effect";
+import { unregisterLiveActivity } from "../live/registration.ts";
 import { UNREGISTER_WAIT_MS, unregisterPush } from "../push/registration.ts";
 import type { HostConnection } from "../runtime/hostConnection.ts";
 
@@ -54,8 +55,11 @@ export const unlinkFrom = async <H extends { readonly hostId: string }>(
       targets.has(connection.hostId) && hosts.some((host) => host.hostId === connection.hostId)
   );
 
-  // Each Host drops the push registration, then revokes the key, before anything is forgotten.
-  await unregisterPush(open, waitMs.unregister);
+  // Each Host drops the push and Live Activity registrations, then revokes the key.
+  await Promise.all([
+    unregisterPush(open, waitMs.unregister),
+    unregisterLiveActivity(open, waitMs.unregister),
+  ]);
   const revoked = await revokeOnHosts(open, waitMs.revoke);
 
   return {

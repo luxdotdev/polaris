@@ -33,6 +33,8 @@ const open = async (sealed: string) => {
   return Schema.decodeUnknownSync(Schema.fromJsonString(HostSlice))(plain);
 };
 
+const CELESTIALS = ["claude/tilted-ring", "codex/twin-ring", "opencode/star-spark"];
+
 const atLimits = (char: string): HostSlice => ({
   v: 1,
   hostId: "host-1",
@@ -45,16 +47,19 @@ const atLimits = (char: string): HostSlice => ({
     sessionId: "s1",
     session: char.repeat(200 / char.length),
     line: char.repeat(400 / char.length),
+    harness: char.repeat(40 / char.length),
   },
   need: {
     at: 1_793_000_050,
     sessionId: "s2",
     session: char.repeat(200 / char.length),
     line: char.repeat(400 / char.length),
+    harness: char.repeat(40 / char.length),
     requestId: "r1",
     kind: "approval",
   },
   needs: 2,
+  celestials: CELESTIALS,
 });
 
 test.each([
@@ -71,15 +76,43 @@ test.each([
   expect(opened.need?.requestId).toBe("r1");
   expect(opened.need?.sessionId).toBe("s2");
   expect(opened.since).toBe(1_793_000_000);
-  expect(atLimits(char).step?.line.startsWith(opened.step?.line.replace(/…$/, "") ?? "x")).toBe(
+  expect(atLimits(char).need?.line.startsWith(opened.need?.line.replace(/…$/, "") ?? "x")).toBe(
     true
   );
+  // Under the takeover the step and celestials aren't drawn, so they give way first.
+  expect([opened.step, opened.celestials]).toEqual([null, undefined]);
 });
 
-test("a short slice is sealed unchanged", async () => {
-  const slice: HostSlice = { ...atLimits("a"), host: "studio", step: null, need: null, needs: 0 };
+test("a short slice is sealed unchanged, its three celestials and Harness names included", async () => {
+  const short = atLimits("a");
+
+  const slice: HostSlice = {
+    ...short,
+    host: "studio",
+    step: short.step && {
+      ...short.step,
+      session: "Fix the relay",
+      line: "bun test",
+      harness: "Claude Code",
+    },
+    need: null,
+    needs: 0,
+  };
 
   expect(await open(await sealSlice(pushKey, slice))).toEqual(slice);
+});
+
+test("the lines give way to the celestials, and the celestials to the Host's name", async () => {
+  const working = (char: string): HostSlice => ({ ...atLimits(char), need: null, needs: 0 });
+  const ascii = await open(await sealSlice(pushKey, working("a")));
+
+  expect([ascii.celestials, ascii.host]).toEqual([CELESTIALS, working("a").host]);
+  expect(ascii.step?.line.endsWith("…")).toBe(true);
+
+  const crabs = await open(await sealSlice(pushKey, { ...working("🦀"), hostId: "h".repeat(200) }));
+
+  expect(crabs.celestials).toBeUndefined();
+  expect(crabs.host).not.toBe(working("🦀").host);
 });
 
 test("every Host the activity carries fits one liveactivity push, takeover alert included", async () => {

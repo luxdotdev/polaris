@@ -3,26 +3,36 @@
  * user's agent sessions are working and since when, the newest tool step, and the oldest open
  * approval or question. Reviewer and walkthrough sessions are the Daemon's own and don't count. Pure.
  */
-import type {
-  AgentSession,
-  ApprovalRequest,
-  DomainEvent,
-  HostStreamItem,
-  TurnItem,
+import {
+  type AgentSession,
+  type ApprovalRequest,
+  CELESTIAL_PLANETS,
+  type DomainEvent,
+  harnessEntry,
+  type HostStreamItem,
+  type TurnItem,
 } from "@polaris/protocol";
-import type { HostSlice, LiveLine, LiveNeed } from "@polaris/protocol/relay";
+import {
+  type HostSlice,
+  type LiveLine,
+  type LiveNeed,
+  MAX_LIVE_CELESTIALS,
+} from "@polaris/protocol/relay";
 import { Match } from "effect";
 
 interface Tracked {
   readonly title: string;
+  /** The Harness kind, for the celestial's hue. */
+  readonly harness: string;
+  readonly body: string;
   /** Unix seconds its working Turn started; null while it isn't working. */
   readonly since: number | null;
 }
 
-/** A step or need before the session's title is filled in at render. */
-type Line = Omit<LiveLine, "session">;
+/** A step or need before the session's title and Harness are filled in at render. */
+type Line = Omit<LiveLine, "session" | "harness">;
 
-type Need = Omit<LiveNeed, "session">;
+type Need = Omit<LiveNeed, "session" | "harness">;
 
 export interface SliceState {
   readonly synchronized: boolean;
@@ -44,6 +54,8 @@ const isUsers = (session: AgentSession) => session.origin === null || session.or
 
 const tracked = (session: AgentSession): Tracked => ({
   title: session.title,
+  harness: session.harness,
+  body: session.celestial ?? CELESTIAL_PLANETS[0],
   since:
     session.state === "working"
       ? seconds(session.currentUserTurn?.startedAt ?? session.updatedAt)
@@ -152,7 +164,26 @@ export const renderSlice = (
   host: { readonly hostId: string; readonly hostName: string }
 ): SliceContent => {
   const title = (sessionId: string) => state.sessions.get(sessionId)?.title ?? "";
-  const starts = [...state.sessions.values()].flatMap((s) => (s.since === null ? [] : [s.since]));
+
+  // The push title's name ("Claude Code"); omitted for a session this fold doesn't know.
+  const named = <L extends { readonly sessionId: string }>(line: L) => {
+    const kind = state.sessions.get(line.sessionId)?.harness;
+
+    const out: L & { session: string; harness?: string } = {
+      ...line,
+      session: title(line.sessionId),
+    };
+
+    if (kind !== undefined) out.harness = harnessEntry(kind)?.name ?? kind;
+
+    return out;
+  };
+
+  const working = [...state.sessions.values()].flatMap((s) =>
+    s.since === null ? [] : [{ ...s, since: s.since }]
+  );
+
+  const starts = working.map((s) => s.since);
   const oldest = [...state.needs.values()].sort((a, b) => a.at - b.at)[0];
 
   return {
@@ -161,9 +192,13 @@ export const renderSlice = (
     host: host.hostName,
     working: starts.length,
     since: starts.length === 0 ? null : Math.min(...starts),
-    step: state.step === null ? null : { ...state.step, session: title(state.step.sessionId) },
-    need: oldest === undefined ? null : { ...oldest, session: title(oldest.sessionId) },
+    step: state.step === null ? null : named(state.step),
+    need: oldest === undefined ? null : named(oldest),
     needs: state.needs.size,
+    celestials: working
+      .sort((a, b) => b.since - a.since)
+      .slice(0, MAX_LIVE_CELESTIALS)
+      .map(({ body, harness }) => `${harness}/${body}`),
   };
 };
 

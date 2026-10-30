@@ -5,73 +5,15 @@
  */
 import {
   encodeHostSlice,
+  fitSlice,
   fromBase64Url,
   type HostSlice,
   LIVE_HPKE_INFO,
-  MAX_LIVE_PLAINTEXT_BYTES,
   PUSH_ENC_BYTES,
   toBase64Url,
 } from "@polaris/protocol/relay";
 import { Option } from "effect";
 import { pushSuite } from "./seal.ts";
-
-const bytes = (slice: HostSlice) => new TextEncoder().encode(encodeHostSlice(slice)).byteLength;
-
-const cut = (text: string, points: number) => {
-  const chars = Array.from(text);
-
-  return chars.length <= points ? text : `${chars.slice(0, Math.max(0, points - 1)).join("")}…`;
-};
-
-interface Field {
-  readonly get: (slice: HostSlice) => string;
-  readonly set: (slice: HostSlice, text: string) => HostSlice;
-}
-
-const lineField = (part: "step" | "need", key: "line" | "session"): Field => ({
-  get: (slice) => slice[part]?.[key] ?? "",
-  set: (slice, text) => {
-    const line = slice[part];
-
-    return line === null ? slice : { ...slice, [part]: { ...line, [key]: text } };
-  },
-});
-
-/** Cut first to last: the tool lines, then the session titles, then the Host's name. */
-const FIELDS: ReadonlyArray<Field> = [
-  lineField("step", "line"),
-  lineField("need", "line"),
-  lineField("step", "session"),
-  lineField("need", "session"),
-  { get: (slice) => slice.host, set: (slice, host) => ({ ...slice, host }) },
-];
-
-const fitField = (slice: HostSlice, field: Field) => {
-  const text = field.get(slice);
-  let low = 0;
-  let high = Array.from(text).length;
-
-  while (low < high) {
-    const middle = Math.ceil((low + high) / 2);
-
-    if (bytes(field.set(slice, cut(text, middle))) <= MAX_LIVE_PLAINTEXT_BYTES) low = middle;
-    else high = middle - 1;
-  }
-
-  return field.set(slice, cut(text, low));
-};
-
-/** `slice` with its fields cut, in FIELDS' order, until its sealed form fits. */
-export const fitSlice = (slice: HostSlice): HostSlice => {
-  let fitted = slice;
-
-  for (const field of FIELDS) {
-    if (bytes(fitted) <= MAX_LIVE_PLAINTEXT_BYTES) return fitted;
-    fitted = fitField(fitted, field);
-  }
-
-  return fitted;
-};
 
 const info = new TextEncoder().encode(LIVE_HPKE_INFO);
 

@@ -13,6 +13,7 @@ import {
   type Workspace,
 } from "@polaris/protocol";
 import { Match } from "effect";
+import { stepLine } from "../../live/step.ts";
 
 /** An agent session as plain data: the fold copies and patches it. */
 export type Session = { readonly [K in keyof AgentSession]: AgentSession[K] };
@@ -29,6 +30,13 @@ export interface SessionEntry {
   readonly replyPreview: string | null;
 }
 
+/** The newest tool step on the Host, for the Live Activity (src/live): Unix seconds. */
+export interface FeedStep {
+  readonly at: number;
+  readonly sessionId: string;
+  readonly line: string;
+}
+
 export interface HostFeedState {
   readonly sequence: number;
   /** True once the Daemon said everything up to now was sent. */
@@ -36,6 +44,8 @@ export interface HostFeedState {
   readonly workspaces: ReadonlyMap<string, Workspace>;
   readonly sessions: ReadonlyMap<string, SessionEntry>;
   readonly constellations: ReadonlyMap<string, ConstellationListing>;
+  /** Null until a tool step completes this launch: a Snapshot carries none. */
+  readonly step: FeedStep | null;
 }
 
 export const emptyHostFeed: HostFeedState = {
@@ -44,6 +54,7 @@ export const emptyHostFeed: HostFeedState = {
   workspaces: new Map(),
   sessions: new Map(),
   constellations: new Map(),
+  step: null,
 };
 
 const withEntry = <V>(map: ReadonlyMap<string, V>, key: string, value: V | undefined) => {
@@ -179,6 +190,15 @@ const fold = (event: DomainEvent): Fold =>
         onConstellation(constellationId, (summary) => ({ ...summary, state })),
       LeadChanged: ({ constellationId, to }) =>
         onConstellation(constellationId, (summary) => ({ ...summary, leadSessionId: to })),
+      TurnItemCompleted:
+        ({ sessionId, item }): Fold =>
+        (state, at) => {
+          const line = stepLine(item);
+
+          return line === null || !state.sessions.has(sessionId)
+            ? state
+            : { ...state, step: { at: Math.floor(Date.parse(at) / 1000), sessionId, line } };
+        },
     }),
     Match.orElse(() => unchanged)
   );
@@ -200,6 +220,7 @@ const fromSnapshot = (snapshot: Extract<HostStreamItem, { _tag: "Snapshot" }>): 
   constellations: new Map(
     (snapshot.constellations ?? []).map((constellation) => [constellation.id, constellation])
   ),
+  step: null,
 });
 
 /** Applies one item of the Host's feed. Replayed events (an old sequence) are ignored. */

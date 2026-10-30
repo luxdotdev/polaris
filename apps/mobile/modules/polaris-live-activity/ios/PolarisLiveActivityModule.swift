@@ -7,11 +7,6 @@ import Foundation
 private func hex(_ data: Data) -> String { data.map { String(format: "%02x", $0) }.joined() }
 
 @available(iOS 17.2, *)
-private func decodeState(_ json: String) throws -> PolarisActivityAttributes.ContentState {
-  try JSONDecoder().decode(PolarisActivityAttributes.ContentState.self, from: Data(json.utf8))
-}
-
-@available(iOS 17.2, *)
 private var current: Activity<PolarisActivityAttributes>? {
   Activity<PolarisActivityAttributes>.activities.first { $0.activityState == .active }
 }
@@ -23,8 +18,9 @@ public class PolarisLiveActivityModule: Module {
   public func definition() -> ModuleDefinition {
     Name("PolarisLiveActivity")
 
-    /// `pushToken {activityId, token}` per activity; `pushToStartToken {token}` per install.
-    Events("pushToken", "pushToStartToken")
+    /// `pushToken {activityId, token}` per activity; `pushToStartToken {token}` per install;
+    /// `answer` when the takeover's intent has an answer for `takeAnswers`.
+    Events("pushToken", "pushToStartToken", "answer")
 
     OnStartObserving {
       guard #available(iOS 17.2, *) else { return }
@@ -34,6 +30,24 @@ public class PolarisLiveActivityModule: Module {
         }
       }
       if let activity = current { self.watch(activity) }
+      LiveAnswers.shared.onAnswer = { [weak self] in self?.sendEvent("answer", [:]) }
+    }
+
+    OnStopObserving {
+      LiveAnswers.shared.onAnswer = nil
+    }
+
+    /// The takeover's answers not yet taken: `{hostId, sessionId, requestId, decision}`.
+    Function("takeAnswers") { () -> [[String: String]] in LiveAnswers.shared.take() }
+
+    /// Lets the intent that asked return: `id` is `<hostId>:<requestId>`.
+    Function("answered") { (id: String) in LiveAnswers.shared.done(id) }
+
+    /// The live activity's update token, if it has one yet: a `pushToken` event may have gone
+    /// out before JS listened.
+    Function("pushToken") { () -> String? in
+      guard #available(iOS 17.2, *) else { return nil }
+      return current?.pushToken.map(hex)
     }
 
     Function("enabled") { () -> Bool in
@@ -41,13 +55,18 @@ public class PolarisLiveActivityModule: Module {
       return ActivityAuthorizationInfo().areActivitiesEnabled
     }
 
-    /// Starts the one activity (or adopts the live one) with `state` as ContentState JSON.
-    AsyncFunction("start") { (state: String) -> String? in
-      guard #available(iOS 17.2, *) else { return nil }
-      if let activity = current { return activity.id }
+    /// Starts the one activity with each Host's slice JSON, sealed here, or shows it on the live
+    /// one; null below iOS 17.2 or before the push key exists.
+    AsyncFunction("start") { (slices: [String]) -> String? in
+      guard #available(iOS 17.2, *), let state = try LiveSeal.state(slices) else { return nil }
+      if let activity = current {
+        self.watch(activity)
+        await activity.update(.init(state: state, staleDate: Date().addingTimeInterval(15 * 60)))
+        return activity.id
+      }
       let activity = try Activity.request(
         attributes: PolarisActivityAttributes(),
-        content: .init(state: try decodeState(state), staleDate: nil),
+        content: .init(state: state, staleDate: Date().addingTimeInterval(15 * 60)),
         pushType: .token
       )
       self.watch(activity)
@@ -55,12 +74,14 @@ public class PolarisLiveActivityModule: Module {
     }
 
     /// `timestamp` is Unix seconds: an update older than the one shown is dropped, push or not.
-    AsyncFunction("update") { (state: String, timestamp: Double, alert: Bool) in
-      guard #available(iOS 17.2, *), let activity = current else { return }
+    AsyncFunction("update") { (slices: [String], timestamp: Double, alert: Bool) in
+      guard #available(iOS 17.2, *), let activity = current, let state = try LiveSeal.state(slices) else {
+        return
+      }
       let alerting =
         alert ? AlertConfiguration(title: "Polaris", body: "An agent session needs you.", sound: .default) : nil
       await activity.update(
-        .init(state: try decodeState(state), staleDate: nil),
+        .init(state: state, staleDate: Date().addingTimeInterval(15 * 60)),
         alertConfiguration: alerting,
         timestamp: Date(timeIntervalSince1970: timestamp)
       )

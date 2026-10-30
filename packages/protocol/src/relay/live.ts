@@ -17,6 +17,8 @@ export const LiveLine = Schema.Struct({
   sessionId: Schema.String,
   session: Schema.String,
   line: Schema.String,
+  /** The session's Harness by name, as push titles name it ("Claude Code"); absent from older Hosts. */
+  harness: Schema.optionalKey(Schema.String),
 });
 
 export type LiveLine = typeof LiveLine.Type;
@@ -28,6 +30,17 @@ export const LiveNeed = Schema.Struct({
 });
 
 export type LiveNeed = typeof LiveNeed.Type;
+
+/**
+ * A working session's celestial as `<harness kind>/<body>` ("claude/tilted-ring"): drawn in its
+ * Harness's hue. A string, not a struct, so three fit a slice's few hundred bytes.
+ */
+export const LiveCelestial = Schema.String.check(Schema.isPattern(/^[a-z0-9-]+\/[a-z0-9-]+$/));
+
+export type LiveCelestial = typeof LiveCelestial.Type;
+
+/** Celestials one slice carries: the activity draws at most three. */
+export const MAX_LIVE_CELESTIALS = 3;
 
 /** One Host's part of the activity: what it has working, its newest step, its oldest Needs You. */
 export const HostSlice = Schema.Struct({
@@ -43,6 +56,10 @@ export const HostSlice = Schema.Struct({
   /** The oldest open request, and how many are open. */
   need: Schema.NullOr(LiveNeed),
   needs: Schema.Number,
+  /** The newest-started working sessions' celestials; absent from older Hosts. */
+  celestials: Schema.optionalKey(
+    Schema.Array(LiveCelestial).check(Schema.isMaxLength(MAX_LIVE_CELESTIALS))
+  ),
 });
 
 export type HostSlice = typeof HostSlice.Type;
