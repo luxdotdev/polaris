@@ -702,7 +702,7 @@ Adapted from ChatDCA, which follows Claude Code; DESIGN.md sets the look.
 
 ### Visualizations (ENG-595)
 
-Accepted, not built; Paper page "Visualizations", V1 to V9. A Visualization (CONTEXT.md) runs in the zero-egress frame of ADR 0089; this section sets how it looks around and inside that frame.
+Proposed, awaiting review, not built; Paper page "Visualizations", V1 to V9. A Visualization (CONTEXT.md) runs in the zero-egress frame of ADR 0089; this section sets how it looks around and inside that frame.
 
 - **Placement.** A Visualization takes the place of the `visualize` call that drew it, in the 26px prose lane like a Subagent, and is never folded into a Tool Run: the calls before it fold as usual and the next run starts after it. It is a `panel` card with a 12px radius, a 1px inset `#FFFFFF12` ring, clipped corners and no shadow.
 - **Title line.** 40px on `well`, a hairline below; padding 12px left and 7px right, gap 10px. A 14px pixel three-bar glyph in `text-subtle`, then the agent's title in 14/18 medium `text-strong` (one line, ellipsis). The only control is **Expand**: a ghost pill 26px tall, 9px/11px padding, a `#FFFFFF1A` hairline, a 12px arrows icon and "Expand" in `caption` `text-default`. No copy, download, reload or menu.
