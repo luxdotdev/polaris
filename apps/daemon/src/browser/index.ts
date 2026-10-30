@@ -4,7 +4,9 @@
  */
 export { browserDefaults } from "./defaults.ts";
 
-export { CdpRelay, type CdpEndpoint, cdpRelayUrl } from "./cdpRelay.ts";
+export { CdpRelay, type CdpEndpoint, type CdpRelayOptions, cdpRelayUrl } from "./cdpRelay.ts";
+
+export { CdpRelayStore, CdpRelayStoreError, RememberedTab } from "./relayStore.ts";
 
 export { BrowserHosting, BrowserStreamRefused } from "./hosting.ts";
 

@@ -252,6 +252,8 @@ export interface HostDirectoryInput {
   readonly invalidateLanguage?: (hostKey: string) => void;
   /** Whether the user is at this computer; told to every Host that asks (ENG-495). */
   readonly presence?: Stream.Stream<UserPresence>;
+  /** Serves the Host's Browser streams on each live session (`browserCdp/`, ENG-616). */
+  readonly browserHost?: (sessions: Stream.Stream<LiveSession | null>) => Effect.Effect<void>;
 }
 
 /** The Hosts this app connects to, and their views for the renderers. */
@@ -275,6 +277,7 @@ export class HostDirectory extends Context.Service<
     languageEpoch,
     invalidateLanguage,
     presence,
+    browserHost,
   }: HostDirectoryInput) =>
     Layer.effect(
       HostDirectory,
@@ -358,6 +361,11 @@ export class HostDirectory extends Context.Service<
                 ? Effect.void
                 : reportPresence(connection.sessionChanges, presence);
 
+            const browsers =
+              browserHost === undefined || connection.sessionChanges === undefined
+                ? Effect.void
+                : browserHost(connection.sessionChanges);
+
             const track = changes.pipe(
               Stream.runForEach(() =>
                 Effect.gen(function* () {
@@ -377,7 +385,7 @@ export class HostDirectory extends Context.Service<
               )
             );
 
-            const tracker = yield* Effect.all([track, report], {
+            const tracker = yield* Effect.all([track, report, browsers], {
               concurrency: "unbounded",
               discard: true,
             }).pipe(Effect.forkIn(scope));

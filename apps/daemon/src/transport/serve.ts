@@ -70,6 +70,7 @@ import { languagesAvailable, lazyLanguageHandlers } from "./lazyLanguages.ts";
 import { lazyReviewer } from "./lazyReviewer.ts";
 import { lazyUsage } from "./lazyUsage.ts";
 import { LiveNotifierLive } from "../push/liveNotifier.ts";
+import { BrowserHosting, CdpRelay } from "../browser/index.ts";
 import { PushNotifierLive } from "../push/notifier.ts";
 
 /** Exit status when another Daemon already holds the lock or answers on the socket. */
@@ -106,6 +107,12 @@ const engineServices = Layer.mergeAll(Engine.layer, releaseWhenQuiet()).pipe(
       WorktreeTrackerLive,
       ReviewCheckoutGitLive,
       Layer.suspend(() => workspaceTrustLayer(paths().root)),
+      // The per-session CDP relay (ENG-616); `BrowserHosting` is the stub until ENG-613 lands.
+      Layer.suspend(() =>
+        CdpRelay.layer({ home: paths().root, version: VERSION }).pipe(
+          Layer.provide(BrowserHosting.layerStub)
+        )
+      ),
       AttachmentStoreLive(),
       TerminalsDaemonLive,
       ReviewerPolicyLive,
