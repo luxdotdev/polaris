@@ -19,6 +19,14 @@ export interface PagePick {
   readonly rect: { readonly x: number; readonly y: number; width: number; height: number };
 }
 
+/** How long each page-derived field may be, in characters; main decodes against the same. */
+export interface PickLimits {
+  readonly url: number;
+  readonly title: number;
+  readonly selector: number;
+  readonly html: number;
+}
+
 /** A CSS selector that matches `element` alone in its document, kept short and readable. */
 export function selectorOf(element: PageElement, escape: (value: string) => string): string {
   const unique = (selector: string) => {
@@ -29,7 +37,9 @@ export function selectorOf(element: PageElement, escape: (value: string) => stri
     }
   };
 
-  const quoted = (value: string) => `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+  // A CSS string: quotes and backslashes escaped, line breaks as code points (`\\a `).
+  const quoted = (value: string) =>
+    `"${value.replace(/["\\]/g, (c) => `\\${c}`).replace(/[\n\r\f]/g, (c) => `\\${c.charCodeAt(0).toString(16)} `)}"`;
 
   // Build-generated class names (css-1x2y3z, sc-AbCdE, _a1b2c3) change between builds.
   const stable = (name: string) =>
@@ -95,7 +105,7 @@ export function selectorOf(element: PageElement, escape: (value: string) => stri
 export function pickInPage(
   page: PageGlobals,
   select: (element: PageElement, escape: (value: string) => string) => string,
-  htmlLimit: number
+  limits: PickLimits
 ): Promise<PagePick | null> {
   const { document } = page;
 
@@ -186,10 +196,10 @@ export function pickInPage(
       const html = element.outerHTML;
 
       return {
-        url: page.location.href,
-        title: document.title,
-        selector: select(element, page.CSS.escape),
-        html: html.slice(0, htmlLimit),
+        url: page.location.href.slice(0, limits.url),
+        title: document.title.slice(0, limits.title),
+        selector: select(element, page.CSS.escape).slice(0, limits.selector),
+        html: html.slice(0, limits.html),
         htmlLength: html.length,
         rect: {
           x: left,
@@ -205,7 +215,7 @@ export function pickInPage(
     };
 
     const onKey = (event: PageEvent) => {
-      if (event.key !== "Escape") return;
+      if (event.key !== "Escape" || !event.isTrusted) return;
       swallow(event);
       finish(null);
     };
@@ -222,7 +232,9 @@ export function pickInPage(
       page.requestAnimationFrame(() => page.requestAnimationFrame(() => resolve(pick)));
     }
 
+    // Only the user's own input counts: a page could dispatch a click at an element it chose.
     host.addEventListener("mousemove", (event) => {
+      if (!event.isTrusted) return;
       current = under(event);
       paint();
     });
@@ -231,13 +243,16 @@ export function pickInPage(
     host.addEventListener("click", (event) => {
       swallow(event);
 
+      if (!event.isTrusted) return;
+
       const element = under(event);
 
       finish(element === null ? null : picked(element));
     });
     host.addEventListener("contextmenu", (event) => {
       swallow(event);
-      finish(null);
+
+      if (event.isTrusted) finish(null);
     });
     page.addEventListener("keydown", onKey, true);
     page.addEventListener("scroll", paint, true);
@@ -252,7 +267,7 @@ export function cancelPick(page: PageGlobals): void {
 }
 
 /** The script that starts a pick, for `executeJavaScriptInIsolatedWorld`: the world's window. */
-export const pickScript = (htmlLimit: number) =>
-  `(${pickInPage.toString()})(window, ${selectorOf.toString()}, ${JSON.stringify(htmlLimit)})`;
+export const pickScript = (limits: PickLimits) =>
+  `(${pickInPage.toString()})(window, ${selectorOf.toString()}, ${JSON.stringify(limits)})`;
 
 export const cancelScript = () => `(${cancelPick.toString()})(window)`;

@@ -5,13 +5,15 @@
 import { Option, Schema } from "effect";
 import type { WebContents } from "electron";
 import { BrowserPickResult } from "../../../shared/browserContract.ts";
-import { cancelScript, pickScript } from "./page.ts";
+import { cancelScript, type PickLimits, pickScript } from "./page.ts";
 
 /** Isolated worlds 1–999 are Electron's and extensions'; this one is pick mode's alone. */
 const PICK_WORLD = 1618;
 
-/** The outer HTML the agent gets, in characters. */
-export const HTML_EXCERPT = 4000;
+/** What the page may answer for each field, in characters; the outer HTML is the excerpt. */
+export const PICK_LIMITS: PickLimits = { url: 2048, title: 300, selector: 1000, html: 4000 };
+
+const upTo = (limit: number) => Schema.String.check(Schema.isMaxLength(limit));
 
 /** Past this the screenshot is scaled down: a whole-page pick stays a sane attachment. */
 const MAX_SCREENSHOT_BYTES = 4 * 1024 * 1024;
@@ -25,16 +27,16 @@ const PageRect = Schema.Struct({
 
 const PagePick = Schema.NullOr(
   Schema.Struct({
-    url: Schema.String,
-    title: Schema.String,
-    selector: Schema.String,
-    html: Schema.String,
-    htmlLength: Schema.Int,
+    url: upTo(PICK_LIMITS.url),
+    title: upTo(PICK_LIMITS.title),
+    selector: upTo(PICK_LIMITS.selector),
+    html: upTo(PICK_LIMITS.html),
+    htmlLength: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
     rect: PageRect,
   })
 );
 
-/** What the page answered, or null for a cancel or an answer that isn't a pick. */
+/** What the page answered, or null for a cancel or an answer that isn't a bounded pick. */
 export const decodePagePick = Schema.decodeUnknownOption(PagePick);
 
 /** The HTML as the agent reads it: cut where the page cut it, saying how much is missing. */
@@ -60,14 +62,17 @@ const screenshotOf = async (contents: WebContents, rect: Electron.Rectangle | nu
   if (rect === null) return new Uint8Array();
 
   const image = await contents.capturePage(rect);
-  const png = image.toPNG();
+  let png = image.toPNG();
 
-  if (png.byteLength <= MAX_SCREENSHOT_BYTES) return new Uint8Array(png);
+  // PNG size isn't linear in the pixels: shrink until it fits, else attach no screenshot.
+  for (let round = 0; round < 4 && png.byteLength > MAX_SCREENSHOT_BYTES; round++) {
+    const scale = Math.sqrt(MAX_SCREENSHOT_BYTES / png.byteLength) * 0.9;
+    const width = Math.max(1, Math.floor(image.getSize().width * scale ** (round + 1)));
 
-  const scale = Math.sqrt(MAX_SCREENSHOT_BYTES / png.byteLength);
-  const width = Math.max(1, Math.floor(image.getSize().width * scale));
+    png = image.resize({ width, quality: "good" }).toPNG();
+  }
 
-  return new Uint8Array(image.resize({ width, quality: "good" }).toPNG());
+  return png.byteLength <= MAX_SCREENSHOT_BYTES ? new Uint8Array(png) : new Uint8Array();
 };
 
 /**
@@ -78,46 +83,66 @@ export const pickIn = async (
   contents: WebContents,
   abort: Promise<void>
 ): Promise<BrowserPickResult | null> => {
+  let ended = false;
   let stop = () => {};
 
-  const ended = new Promise<null>((resolve) => (stop = () => resolve(null)));
+  const stopped = new Promise<null>((resolve) => {
+    stop = () => {
+      ended = true;
+      resolve(null);
+    };
+  });
+
+  const inPage = (_event: Electron.Event, _url: string, isMainFrame: boolean) => {
+    if (isMainFrame) stop();
+  };
 
   const listen = (on: boolean) => {
     const method = on ? "on" : "off";
 
     contents[method]("did-navigate", stop);
+    contents[method]("did-navigate-in-page", inPage);
     contents[method]("render-process-gone", stop);
     contents[method]("destroyed", stop);
   };
 
   listen(true);
   void abort.then(stop);
-  contents.focus();
 
-  const answer: unknown = await Promise.race([
-    contents
-      .executeJavaScriptInIsolatedWorld(PICK_WORLD, [{ code: pickScript(HTML_EXCERPT) }], true)
-      .catch(() => null),
-    ended,
-  ]);
+  // Cancels hold until the capture is done: a pick from a page that moved on is dropped.
+  try {
+    contents.focus();
 
-  listen(false);
+    const answer: unknown = await Promise.race([
+      contents
+        .executeJavaScriptInIsolatedWorld(PICK_WORLD, [{ code: pickScript(PICK_LIMITS) }], true)
+        .catch(() => null),
+      stopped,
+    ]);
 
-  const page = Option.getOrNull(decodePagePick(answer));
+    const page = Option.getOrNull(decodePagePick(answer));
 
-  if (page === null || contents.isDestroyed()) {
-    if (!contents.isDestroyed()) cancelPickIn(contents);
+    if (page === null || ended || contents.isDestroyed()) {
+      cancelPickIn(contents);
 
-    return null;
+      return null;
+    }
+
+    const rect = captureRect(page.rect, contents.getZoomFactor());
+    const screenshot = await Promise.race([screenshotOf(contents, rect), stopped]);
+
+    if (screenshot === null || ended || contents.isDestroyed()) return null;
+
+    return BrowserPickResult.make({
+      url: page.url,
+      title: page.title,
+      selector: page.selector,
+      html: htmlExcerpt(page.html, page.htmlLength),
+      screenshot,
+    });
+  } finally {
+    if (!contents.isDestroyed()) listen(false);
   }
-
-  return BrowserPickResult.make({
-    url: page.url,
-    title: page.title,
-    selector: page.selector,
-    html: htmlExcerpt(page.html, page.htmlLength),
-    screenshot: await screenshotOf(contents, captureRect(page.rect, contents.getZoomFactor())),
-  });
 };
 
 /** Ends the page's pick mode, if it has one. */

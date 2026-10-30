@@ -40,6 +40,8 @@ export interface PageNode extends PageElement {
 
 export interface PageEvent {
   readonly key?: string;
+  /** False for an event a page script dispatched; only the user's own input picks. */
+  readonly isTrusted: boolean;
   readonly clientX: number;
   readonly clientY: number;
   preventDefault: () => void;

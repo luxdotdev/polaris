@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Option } from "effect";
 import type { PageElement, PageEvent, PageGlobals, PageNode } from "./dom.ts";
-import { decodePagePick } from "./index.ts";
+import { decodePagePick, PICK_LIMITS } from "./index.ts";
 import { cancelScript, pickScript, selectorOf } from "./page.ts";
 
 interface EventInit {
@@ -104,9 +104,9 @@ const evaluate = (script: string) => {
 };
 
 /** Starts a pick as main does, settling with the answer as main decodes it. */
-const start = async (limit = 4000) => {
+const start = async (html = PICK_LIMITS.html) => {
   // oxlint-disable-next-line no-eval -- the test runs the serialised script as the page would.
-  const answer: unknown = await (0, eval)(pickScript(limit));
+  const answer: unknown = await (0, eval)(pickScript({ ...PICK_LIMITS, html }));
 
   return Option.getOrNull(decodePagePick(answer));
 };
@@ -127,8 +127,12 @@ describe("pick mode in the page", () => {
     document.elementsFromPoint = () => [overlay(), target];
   };
 
-  const click = (target: TestElement) =>
-    target.dispatchEvent(new page.MouseEvent("click", { bubbles: true, cancelable: true }));
+  /** The user's own input: a real browser marks it trusted, which no page script can forge. */
+  const byUser = (event: PageEvent) => Object.defineProperty(event, "isTrusted", { value: true });
+
+  const mouseClick = () => new page.MouseEvent("click", { bubbles: true, cancelable: true });
+
+  const click = (target: TestElement) => target.dispatchEvent(byUser(mouseClick()));
 
   test("a click answers the element, cut to the limit, and takes the overlay away", async () => {
     document.title = "Todos";
@@ -146,6 +150,51 @@ describe("pick mode in the page", () => {
       htmlLength: '<button id="add" class="primary">Add a todo</button>'.length,
     });
     expect(document.querySelector("polaris-pick")).toBeNull();
+  });
+
+  test("a click the page dispatches itself never picks", async () => {
+    document.body.innerHTML = `<button id="add">Add</button><input id="secret" value="x">`;
+
+    const pick = start();
+
+    // The page finds the overlay and fakes a click while the pointer is over its own choice.
+    pointAt(element("#secret"));
+    overlay().dispatchEvent(mouseClick());
+    page.dispatchEvent(new page.KeyboardEvent("keydown", { key: "Escape", cancelable: true }));
+    expect(document.querySelector("polaris-pick")).not.toBeNull();
+
+    pointAt(element("#add"));
+    click(overlay());
+    expect((await pick)?.selector).toBe("#add");
+  });
+
+  test("a page's title and selector are cut to their limits", async () => {
+    document.title = "t".repeat(PICK_LIMITS.title + 50);
+    document.body.innerHTML = `<button aria-label="${"a".repeat(PICK_LIMITS.selector)}">x</button>`;
+
+    const pick = start();
+
+    pointAt(element("button"));
+    click(overlay());
+
+    const answer = await pick;
+
+    expect(answer?.title.length).toBe(PICK_LIMITS.title);
+    expect(answer?.selector.length).toBe(PICK_LIMITS.selector);
+  });
+
+  test("main drops an answer over the limits, as a page could forge one", () => {
+    const forged = {
+      url: "http://localhost/",
+      title: "t".repeat(PICK_LIMITS.title + 1),
+      selector: "#a",
+      html: "<a></a>",
+      htmlLength: 7,
+      rect: { x: 0, y: 0, width: 1, height: 1 },
+    };
+
+    expect(Option.isNone(decodePagePick(forged))).toBe(true);
+    expect(Option.isSome(decodePagePick({ ...forged, title: "ok" }))).toBe(true);
   });
 
   test("the page never sees the click", async () => {
@@ -166,7 +215,9 @@ describe("pick mode in the page", () => {
   test("Escape, a cancel from main, or a second pick each end it with null", async () => {
     const escaped = start();
 
-    page.dispatchEvent(new page.KeyboardEvent("keydown", { key: "Escape", cancelable: true }));
+    page.dispatchEvent(
+      byUser(new page.KeyboardEvent("keydown", { key: "Escape", cancelable: true }))
+    );
     expect(await escaped).toBeNull();
 
     const cancelled = start();
