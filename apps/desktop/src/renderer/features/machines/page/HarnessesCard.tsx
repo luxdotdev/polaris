@@ -27,7 +27,7 @@ interface Tile {
 
 const TileView = ({ tile, onSignIn }: { readonly tile: Tile; readonly onSignIn: () => void }) => (
   <div
-    className="flex min-w-16 flex-1 basis-16 flex-col items-center gap-2"
+    className="flex min-w-16 flex-1 basis-0 flex-col items-center gap-2"
     data-testid={`harness-${tile.kind}`}
     title={tile.text}
   >
@@ -40,7 +40,7 @@ const TileView = ({ tile, onSignIn }: { readonly tile: Tile; readonly onSignIn: 
     </span>
     <span
       className={cn(
-        "text-center text-[11px] leading-[14px] whitespace-nowrap",
+        "w-full text-center text-[11px] leading-[14px] text-balance",
         tile.ready ? "text-text-default" : "text-text-subtle"
       )}
     >
@@ -93,6 +93,7 @@ export const HarnessesCard = ({ machine }: { readonly machine: MachineView }) =>
   return (
     <SettingsCard
       title="Harnesses"
+      data-testid="harnesses-card"
       aside={`${ready} of ${tiles.length} ready`}
       status={plansOf(machine, report)}
       action={
