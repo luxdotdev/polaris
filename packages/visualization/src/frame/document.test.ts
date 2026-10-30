@@ -248,6 +248,29 @@ describe("the frame runtime", () => {
     expect(frame.window.document.querySelector("output")?.textContent).toBe("7%");
   });
 
+  test("nested frames are removed, also from a closed shadow root; document.write is refused", async () => {
+    const frame = runFrame(
+      build({
+        mode: "expanded",
+        html: `<div id="host"></div><script>
+        window.shadow = document.getElementById("host").attachShadow({ mode: "closed" });
+        shadow.appendChild(document.createElement("iframe"));
+        document.body.appendChild(document.createElement("object"));
+        try { document.write("<p>x</p>"); window.wrote = true; } catch (error) { window.wrote = String(error.message); }
+      </script>`,
+      })
+    );
+
+    await Bun.sleep(0);
+
+    expect([
+      frame.evaluate(
+        'shadow.querySelectorAll("iframe").length + document.querySelectorAll("iframe, object").length'
+      ),
+      frame.global("wrote"),
+    ]).toEqual([0, "document.write isn't available in a Visualization"]);
+  });
+
   // Chart.js's responsive sizing needs layout happy-dom lacks; scripts/browser-check.ts runs those.
   test.each([
     ["flow chart", flowChart],
