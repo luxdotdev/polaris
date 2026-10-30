@@ -108,6 +108,15 @@ const EGRESS = `<img src="${origin}/img"><link rel="stylesheet" href="${origin}/
   const own = document.createElement("iframe");
   own.srcdoc = ${JSON.stringify(rtcChild("script child")).replaceAll("</", "<\\/")};
   document.body.appendChild(own);
+  const nested = ${JSON.stringify(rtcChild("shadow child")).replaceAll("</", "<\\/")};
+  const shadow = document.createElement("div");
+  document.body.appendChild(shadow);
+  const inShadow = document.createElement("iframe");
+  inShadow.srcdoc = nested;
+  shadow.attachShadow({ mode: "closed" }).appendChild(inShadow);
+  const dsd = '<div><template shadowrootmode="closed"><iframe srcdoc="' + nested.replaceAll('"', "&quot;") + '"></iframe></template></div>';
+  try { document.write(dsd); } catch (e) { report("document.write threw"); }
+  try { shadow.setHTMLUnsafe(dsd); } catch (e) { report("setHTMLUnsafe threw"); }
   const child = document.createElement("iframe");
   document.body.appendChild(child);
   try { rtc(child.contentWindow.RTCPeerConnection, "rtc via child frame"); } catch (e) { report("rtc via child frame blocked"); }
@@ -205,7 +214,13 @@ check("fetch was blocked", egress.includes("fetch blocked"), JSON.stringify(egre
 check("WebRTC can't be constructed", egress.includes("rtc blocked"), JSON.stringify(egress));
 
 check(
-  "nested srcdoc frames never ran",
+  "document.write and setHTMLUnsafe are refused",
+  egress.includes("document.write threw") && egress.includes("setHTMLUnsafe threw"),
+  JSON.stringify(egress)
+);
+
+check(
+  "nested srcdoc frames never ran (inserted, scripted, in a closed shadow root)",
   !messages.some((m) => m.data.what?.endsWith("child ran")),
   JSON.stringify(messages.filter((m) => m.frame === null))
 );

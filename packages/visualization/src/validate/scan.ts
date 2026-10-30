@@ -72,7 +72,7 @@ const firstScriptUrl = (html: string): string | undefined => {
 
 /** Nested browsing contexts: each is a fresh realm the frame's own blocks don't reach. */
 const NESTED_FRAME =
-  /<\s*(?:iframe|frame|object|embed)\b|\bsrcdoc\s*=|["'`]srcdoc["'`]|createElement\(\s*["'`](?:iframe|frame|object|embed)["'`]/i;
+  /<\s*(?:iframe|frame|object|embed)\b|\bsrcdoc\s*=|["'`]srcdoc["'`]|createElement\(\s*["'`](?:iframe|frame|object|embed)["'`]|\bshadowroot(?:mode)?\s*=|\bdocument\s*\.\s*write(?:ln)?\s*\(|\b(?:set|parse)HTMLUnsafe\b/i;
 
 /** The first snippet that would load or link to something outside the frame. */
 export const findExternalUrl = (html: string): string | undefined =>

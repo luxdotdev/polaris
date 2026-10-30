@@ -14,19 +14,58 @@ var root = document.documentElement;
 
 // A nested frame is a fresh realm with WebRTC intact, so none may stay: removed as it is inserted.
 var NESTED = "iframe, frame, object, embed";
+var WATCH = { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "srcdoc", "data"] };
+var watched = new WeakSet();
 
-function removeNested(node) {
-  if (node.nodeType !== 1) return;
-  if (node.matches(NESTED)) node.remove();
-  else node.querySelectorAll(NESTED).forEach(function (nested) { nested.remove(); });
+function sweep(node) {
+  if (node.nodeType !== 1 && node.nodeType !== 11) return;
+  if (node.nodeType === 1 && node.matches(NESTED)) return node.remove();
+  node.querySelectorAll(NESTED).forEach(function (nested) { nested.remove(); });
+  if (node.shadowRoot) watch(node.shadowRoot);
+  node.querySelectorAll("*").forEach(function (element) { if (element.shadowRoot) watch(element.shadowRoot); });
 }
 
-new MutationObserver(function (records) {
+var nestedObserver = new MutationObserver(function (records) {
   records.forEach(function (record) {
-    record.addedNodes.forEach(removeNested);
-    if (record.type === "attributes") removeNested(record.target);
+    record.addedNodes.forEach(sweep);
+    if (record.type === "attributes") sweep(record.target);
   });
-}).observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "srcdoc", "data"] });
+});
+
+function watch(target) {
+  if (watched.has(target)) return;
+  watched.add(target);
+  nestedObserver.observe(target, WATCH);
+  sweep(target);
+}
+
+function lock(owner, name, value) {
+  try {
+    Object.defineProperty(owner, name, { value: value, writable: false, configurable: false });
+  } catch (error) {}
+}
+
+// The observer can't see into a shadow root, so each new one is watched too.
+var attachShadow = Element.prototype.attachShadow;
+lock(Element.prototype, "attachShadow", function () {
+  var shadow = attachShadow.apply(this, arguments);
+  watch(shadow);
+  return shadow;
+});
+
+// These parse declarative shadow roots, which can be closed and so out of reach: not available.
+function refused(name) {
+  return function () { throw new Error(name + " isn't available in a Visualization"); };
+}
+[Document.prototype, document].forEach(function (owner) {
+  lock(owner, "write", refused("document.write"));
+  lock(owner, "writeln", refused("document.writeln"));
+});
+lock(Element.prototype, "setHTMLUnsafe", refused("setHTMLUnsafe"));
+if (window.ShadowRoot) lock(ShadowRoot.prototype, "setHTMLUnsafe", refused("setHTMLUnsafe"));
+lock(Document, "parseHTMLUnsafe", refused("Document.parseHTMLUnsafe"));
+
+watch(document);
 var names = Object.create(null);
 config.names.forEach(function (name) { names[name] = true; });
 var unsafe = new RegExp(config.unsafe);
