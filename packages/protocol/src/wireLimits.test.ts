@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { Deferred, Effect, Fiber, Queue, Stream } from "effect";
 import { encodeBlobFrame, encodeJsonFrame } from "./frame.ts";
-import { makeWire } from "./wire.ts";
+import { BlobError, makeWire } from "./wire.ts";
 
 test.each(["complete", "receiving", "aborted"] as const)(
   "a flood of zero-byte %s blobs closes at the metadata limit",
@@ -163,3 +163,31 @@ test.each([false, true])(
     );
   }
 );
+
+// Only a tombstone the consumer left goes at the sender's end; a too-large one waits for its take.
+test("an over-limit blob ended before anyone takes it still fails the take as too large", async () => {
+  const error = await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const incoming = yield* Queue.unbounded<Uint8Array>();
+        const received = yield* Queue.unbounded<void>();
+
+        const wire = yield* makeWire(
+          { incoming: Stream.fromQueue(incoming), write: () => Effect.void, close: Effect.void },
+          () => Queue.offer(received, undefined).pipe(Effect.asVoid),
+          { maxBlobBytes: 4 }
+        );
+
+        yield* Queue.offer(incoming, encodeBlobFrame("big", new Uint8Array(8), false));
+        yield* Queue.offer(incoming, encodeBlobFrame("big", new Uint8Array(), true));
+        yield* Queue.offer(incoming, encodeJsonFrame("barrier"));
+        yield* Queue.take(received);
+
+        return yield* wire.takeBlob("big").pipe(Effect.timeout("1 second"), Effect.flip);
+      })
+    )
+  );
+
+  expect(error).toBeInstanceOf(BlobError);
+  expect(error instanceof BlobError ? error.reason : null).toBe("too-large");
+});

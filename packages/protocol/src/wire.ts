@@ -164,6 +164,8 @@ interface InBlob {
   inflight: number;
   status: "receiving" | "complete" | "failed";
   claimed: false | "whole" | "stream";
+  /** The consumer stopped reading it (`forget`): only such a tombstone goes at the sender's end. */
+  forgotten: boolean;
   /** A stream claim whose Stream was actually run; an unrun claim is swept like an unclaimed blob. */
   started: boolean;
   idleTimeout: boolean;
@@ -397,6 +399,7 @@ export const makeWire = Effect.fnUntraced(function* (
         credited: 0,
         inflight: 0,
         claimed: false,
+        forgotten: false,
         started: false,
         idleTimeout: true,
         longLived: false,
@@ -451,14 +454,9 @@ export const makeWire = Effect.fnUntraced(function* (
       return Effect.fail(new TransportError({ message: "incoming blob count limit exceeded" }));
 
     if (blob.status !== "receiving") {
-      // A tombstone the consumer left (see `forget`): the sender's last frame means nothing more
-      // can arrive for this id, so it stops counting against the limit now, not at the sweep.
-      if (
-        frame.final &&
-        blob.status === "failed" &&
-        !blob.claimed &&
-        inBlobs.get(frame.blobId) === blob
-      )
+      // A tombstone the consumer left (`forget`) goes at the sender's last frame; any other
+      // failure (too large, aborted) stays for a later take to report, until the sweep.
+      if (frame.final && blob.forgotten && inBlobs.get(frame.blobId) === blob)
         inBlobs.delete(frame.blobId);
 
       return;
@@ -537,6 +535,7 @@ export const makeWire = Effect.fnUntraced(function* (
         // and let the sweep forget the entry once the sender has moved on.
         failBlob(blobId, blob, "closed", "the consumer stopped reading");
         blob.claimed = false;
+        blob.forgotten = true;
 
         return;
       }
