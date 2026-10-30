@@ -9,7 +9,7 @@ import { Keyboard, Pressable, StyleSheet, Switch, Text, View } from "react-nativ
 import { StateDot, stateLineColour } from "../hosts/StateDot.tsx";
 import { InstrumentSheet, SheetHeader, Well } from "../sheet";
 import { themedStyles, useTheme } from "../theme/index.ts";
-import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
+import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 import { displayPath, type SheetHost, type Target } from "./model.ts";
 
 /** "4 ms" while connected; otherwise the state, as Hosts words it. */
@@ -39,11 +39,17 @@ const HostGroup = ({
   return (
     <View style={styles.group}>
       <View style={styles.kicker}>
-        <Text style={styles.hostName} numberOfLines={1} ellipsizeMode="middle">
+        <Text
+          style={styles.hostName}
+          numberOfLines={1}
+          ellipsizeMode="middle"
+          maxFontSizeMultiplier={CHROME_TEXT_SCALE}
+        >
           {host.hostName.toUpperCase()}
         </Text>
         {off ? <StateDot state={host.state} /> : null}
         <Text
+          maxFontSizeMultiplier={CHROME_TEXT_SCALE}
           style={[styles.readout, off ? { color: stateLineColour(host.state, colours) } : null]}
         >
           {hostReadout(host)}
@@ -156,14 +162,18 @@ export const WorkspaceSheet = ({
 
 const useStyles = themedStyles((colours) => ({
   group: { gap: 8 },
+  // A long host name keeps its line; the state and readout wrap under it rather than squeeze it.
   kicker: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
-    gap: 6,
+    columnGap: 6,
+    rowGap: 2,
     paddingHorizontal: 8,
     paddingTop: 6,
   },
   hostName: {
+    flexShrink: 1,
     fontFamily: mobileFont.mono,
     fontSize: 11,
     lineHeight: 14,
