@@ -341,6 +341,13 @@
         "tailwindcss": "^4.3.3",
       },
     },
+    "packages/visualization": {
+      "name": "@polaris/visualization",
+      "version": "0.0.0",
+      "dependencies": {
+        "effect": "4.0.0-rc.118",
+      },
+    },
     "tooling": {
       "name": "@polaris/tooling",
       "version": "0.0.0",
@@ -1270,6 +1277,8 @@
     "@polaris/tooling": ["@polaris/tooling@workspace:tooling"],
 
     "@polaris/ui": ["@polaris/ui@workspace:packages/ui"],
+
+    "@polaris/visualization": ["@polaris/visualization@workspace:packages/visualization"],
 
     "@preact/signals-core": ["@preact/signals-core@1.14.4", "", {}, "sha512-HNB6HYeYKhQbJ1aKl+YRjrS4+QWHLKX6qKoUsfS/m0vqzsVaEBiZiaKbG/e+NKk2ch5ALQr/ihWaMHxiCuuWHA=="],
 
