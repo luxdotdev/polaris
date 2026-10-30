@@ -3,11 +3,12 @@ import { SessionId } from "@polaris/protocol";
 import { existsSync, mkdtempSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect, Exit, Layer, Logger, ManagedRuntime, Scope } from "effect";
+import { type Duration, Effect, Exit, Layer, Logger, ManagedRuntime, Scope } from "effect";
 import { CdpRelay } from "../../browser/cdpRelay.ts";
 import {
   AgentBrowser,
   type AgentBrowserInstaller,
+  type InstallPolicy,
   type InstalledAgentBrowser,
 } from "../../install/agentBrowser/index.ts";
 import { BrowserMcp, type BrowserMcpServer } from "./index.ts";
@@ -34,7 +35,9 @@ const relaying = relay(() => Effect.succeed({ url: URL }));
 const harness = (
   relayLayer: Layer.Layer<CdpRelay>,
   installed: InstalledAgentBrowser | null = { binary: "/opt/ab" },
-  installer?: AgentBrowserInstaller
+  installer?: AgentBrowserInstaller,
+  policy: InstallPolicy = { attemptTimeoutMs: 5_000, retryDelaysMs: [] },
+  setupTimeout: Duration.Input = "5 seconds"
 ) => {
   const dir = mkdtempSync(join(tmpdir(), "browser-mcp-"));
   dirs.push(dir);
@@ -42,13 +45,17 @@ const harness = (
   const logger = Logger.make((entry) => logs.push(Logger.formatSimple.log(entry)));
 
   const runtime = ManagedRuntime.make(
-    BrowserMcp.layerAt(() => join(dir, "sessions")).pipe(
+    BrowserMcp.layerAt(() => join(dir, "sessions"), { setupTimeout }).pipe(
       Layer.provide(
         Layer.mergeAll(
           relayLayer,
           installer === undefined
             ? AgentBrowser.layerAt(installed)
-            : AgentBrowser.layerWith(() => ({ root: "/nonexistent", platform: "test" }), installer)
+            : AgentBrowser.layerWith(
+                () => ({ root: "/nonexistent", platform: "test" }),
+                installer,
+                policy
+              )
         )
       ),
       Layer.provideMerge(Logger.layer([logger]))
@@ -179,5 +186,48 @@ describe("BrowserMcp", () => {
     expect(server).toBeNull();
     expect(installs).toBe(2);
     expect(h.logs.join("\n")).toContain("installing agent-browser failed (HTTP 503)");
+  });
+
+  test("a relay that never answers can't hold the session's open past the setup bound", async () => {
+    const h = harness(
+      relay(() => Effect.never),
+      { binary: "/opt/ab" },
+      undefined,
+      undefined,
+      "50 millis"
+    );
+
+    const { server } = await h.open();
+
+    expect(server).toBeNull();
+    expect(h.logs.join("\n")).toContain("setting up the Browser took too long");
+  });
+
+  test("a stalled download is cancelled and retried", async () => {
+    const signals: AbortSignal[] = [];
+
+    const h = harness(
+      relaying,
+      null,
+      {
+        onDisk: async () => null,
+        install: (options) =>
+          new Promise((_, reject) => {
+            signals.push(options.signal!);
+            options.signal?.addEventListener("abort", () => reject(new Error("cancelled")));
+          }),
+      },
+      { attemptTimeoutMs: 20, retryDelaysMs: [5] }
+    );
+
+    await h.open();
+
+    while (signals.length < 2 || !signals[1]!.aborted) await Bun.sleep(5);
+    await Bun.sleep(5);
+    await h.open();
+
+    expect(signals.slice(0, 2).every((signal) => signal.aborted)).toBe(true);
+    expect(h.logs.join("\n")).toContain("installing agent-browser failed (timed out after 0 min)");
+    expect(signals).toHaveLength(3);
   });
 });

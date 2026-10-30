@@ -28,14 +28,47 @@ export interface AgentBrowserInstaller {
   readonly install: (options: InstallOptions) => Promise<InstalledAgentBrowser>;
 }
 
-/** One install at a time, shared by every caller; a failed one is retried by the next call. */
-const background = (options: () => InstallOptions, installer: AgentBrowserInstaller) => {
+export interface InstallPolicy {
+  /** Each attempt is cancelled after this; a stalled download can't hold the install forever. */
+  readonly attemptTimeoutMs: number;
+  /** The waits before each retry; after the last attempt fails, the next caller starts again. */
+  readonly retryDelaysMs: ReadonlyArray<number>;
+}
+
+const POLICY: InstallPolicy = { attemptTimeoutMs: 10 * 60_000, retryDelaysMs: [5_000, 30_000] };
+
+const attempts = (
+  install: AgentBrowserInstaller["install"],
+  resolved: InstallOptions,
+  policy: InstallPolicy,
+  delays: ReadonlyArray<number> = policy.retryDelaysMs
+): Promise<InstalledAgentBrowser> => {
+  const signal = AbortSignal.timeout(policy.attemptTimeoutMs);
+  const minutes = Math.round(policy.attemptTimeoutMs / 60_000);
+
+  return install({ ...resolved, signal }).catch(async (cause: Error) => {
+    const [delay, ...rest] = delays;
+    const reason = signal.aborted ? new Error(`timed out after ${minutes} min`) : cause;
+
+    if (delay === undefined) throw reason;
+    await Bun.sleep(delay);
+
+    return attempts(install, resolved, policy, rest);
+  });
+};
+
+/** One install at a time, shared by every caller, each attempt bounded and retried. */
+const background = (
+  options: () => InstallOptions,
+  installer: AgentBrowserInstaller,
+  policy: InstallPolicy
+) => {
   let ready: InstalledAgentBrowser | null = null;
   let installing: Promise<void> | null = null;
   let failure: string | null = null;
 
   const start = (resolved: InstallOptions) => {
-    installing ??= installer.install(resolved).then(
+    installing ??= attempts(installer.install, resolved, policy).then(
       (installed) => {
         ready = installed;
       },
@@ -83,11 +116,15 @@ export class AgentBrowser extends Context.Service<
     readonly current: Effect.Effect<InstalledAgentBrowser, AgentBrowserUnavailable>;
   }
 >()("polaris/daemon/install/AgentBrowser") {
-  /** Installs into `options().root`; tests pass their own installer. */
+  /** Installs into `options().root`; tests pass their own installer and policy. */
   static readonly layerWith = (
     options: () => InstallOptions,
-    installer: AgentBrowserInstaller = { onDisk: installedOnDisk, install: installAgentBrowser }
-  ) => Layer.sync(AgentBrowser, () => AgentBrowser.of({ current: background(options, installer) }));
+    installer: AgentBrowserInstaller = { onDisk: installedOnDisk, install: installAgentBrowser },
+    policy: InstallPolicy = POLICY
+  ) =>
+    Layer.sync(AgentBrowser, () =>
+      AgentBrowser.of({ current: background(options, installer, policy) })
+    );
 
   static readonly layer = AgentBrowser.layerWith(() => ({
     root: join(paths().root, "tools", "agent-browser"),

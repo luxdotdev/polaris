@@ -4,17 +4,25 @@
  */
 import type { SessionId } from "@polaris/protocol";
 import { join } from "node:path";
-import { Cause, Context, Effect, Layer, type Scope } from "effect";
+import { Cause, Context, type Duration, Effect, Layer, type Scope } from "effect";
 import { CdpRelay } from "../../browser/cdpRelay.ts";
 import { AgentBrowser } from "../../install/agentBrowser/index.ts";
 import { paths } from "../../paths.ts";
-import { sessionConfigs } from "./sessionConfig.ts";
+import { type ConfigFiles, sessionConfigs } from "./sessionConfig.ts";
 
 /** Not `browser`: a user's own server of that name would shadow or be shadowed by it. */
 export const BROWSER_MCP_NAME = "polaris_browser";
 
 /** Shut a session's agent-browser daemon down after 10 idle minutes; attached ones never would. */
 const IDLE_TIMEOUT_MS = "600000";
+
+/** The most a session's open waits for its Browser; then it opens without one. */
+const SETUP_TIMEOUT: Duration.Input = "10 seconds";
+
+export interface BrowserMcpOptions {
+  readonly setupTimeout?: Duration.Input;
+  readonly files?: ConfigFiles;
+}
 
 /** Nothing here is secret: the relay URL is in the file `AGENT_BROWSER_CONFIG` names. */
 export interface BrowserMcpServer {
@@ -58,7 +66,7 @@ export class BrowserMcp extends Context.Service<
   }
 >()("polaris/daemon/harness/BrowserMcp") {
   /** Session configs go in `dir()`, read on the first session. */
-  static readonly layerAt = (dir: () => string) =>
+  static readonly layerAt = (dir: () => string, options: BrowserMcpOptions = {}) =>
     Layer.effect(
       BrowserMcp,
       Effect.gen(function* () {
@@ -71,11 +79,16 @@ export class BrowserMcp extends Context.Service<
             Effect.gen(function* () {
               const { binary } = yield* agentBrowser.current;
               const { url } = yield* relay.issue(sessionId);
-              configs ??= sessionConfigs(dir());
+              configs ??= sessionConfigs(dir(), options.files);
               const config = yield* configs(sessionId, url);
 
               return agentBrowserServer(binary, sessionId, config);
             }).pipe(
+              Effect.timeoutOrElse({
+                duration: options.setupTimeout ?? SETUP_TIMEOUT,
+                orElse: () =>
+                  Effect.fail(new Error("setting up the Browser took too long; skipped")),
+              }),
               Effect.catchCause((cause) =>
                 Effect.as(
                   Effect.logWarning(
