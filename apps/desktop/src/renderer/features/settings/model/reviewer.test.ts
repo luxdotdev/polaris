@@ -3,6 +3,8 @@ import type { HarnessAvailability } from "@polaris/protocol";
 import type { Plain } from "../../../../shared/api.ts";
 import type { ProbedHost } from "./harnesses.ts";
 import {
+  AUTO_CHAIN,
+  chainLabel,
   DEFAULT_POLICY,
   type HostReviewer,
   overridesOf,
@@ -51,6 +53,14 @@ describe("the Reviewer every host runs", () => {
     expect(sharedDefault([loaded(), loaded()])).toEqual({ choice: SOL, differs: false });
     expect(sharedDefault([loaded(), { kind: "loading" }]).differs).toBe(false);
     expect(sharedDefault([loaded(), loaded({ ...SOL, effort: "low" })]).differs).toBe(true);
+  });
+
+  test("automatic reads as its chain, with Claude model ids named until the harness lists them", () => {
+    expect(AUTO_CHAIN.map((choice) => chainLabel(choice))).toEqual([
+      "Claude Code · Opus 5.5 high",
+      "Codex · GPT-6.1-Sol",
+    ]);
+    expect(chainLabel(SOL, () => "GPT-6.1 Sol")).toBe("Codex · GPT-6.1 Sol high");
   });
 
   test("the heading names it, or says it picks automatically", () => {
