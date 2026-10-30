@@ -199,6 +199,19 @@ export function liveAt(step: number, seed: number): Pick<FieldFrame, "step" | "b
   return { step, breath: 1 + BREATH.depth * noise1(seed ^ 0x5bd1e995, step / BREATH.steps) };
 }
 
+/** A horizontal span in CSS px. */
+export interface Span {
+  readonly from: number;
+  readonly to: number;
+}
+
+/** The widest span the scatter can reach in a field `width` wide. */
+export function scatterReach(width: number): Span {
+  const reach = SCATTER.rx * 1.15;
+
+  return { from: width * SCATTER.minX - reach, to: width * SCATTER.maxX + reach };
+}
+
 /** The scatter in a `width`×`height` field: wandering between its bounds, still at step 0. */
 export function scatterAt(width: number, height: number, frame: FieldFrame): Scatter {
   const t = frame.step;
