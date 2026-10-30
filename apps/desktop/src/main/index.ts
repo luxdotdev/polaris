@@ -73,6 +73,8 @@ import {
 } from "./protocol.ts";
 import { internetFetch } from "./net.ts";
 import { distrustInSession } from "./tls/distrust.ts";
+import { createHostAddresses, type HostAddresses } from "./hostAddress/index.ts";
+import { isLocalHost, openThroughHost } from "./hostAddress/open.ts";
 import { openPrices } from "./prices.ts";
 import { openSnapshotCache } from "./snapshotCache.ts";
 import type { SessionPrefsPatch } from "../shared/contract.ts";
@@ -188,6 +190,9 @@ let needsYou: NeedsYouCenter | null = null;
 let browsers: Browsers | null = null;
 
 let presenceWatch: PresenceWatch | null = null;
+
+/** Each Workspace's Browser partition, its Host addresses sent to its Host (ADR 0093). */
+let hostAddresses: HostAddresses | null = null;
 
 let reviews: ReviewNotifier | null = null;
 
@@ -409,6 +414,13 @@ const start = async () => {
     }),
     githubLayer({ userData, env, secureStorage })
   );
+  const clientRuntime = runtime;
+
+  hostAddresses = createHostAddresses({
+    isLocal: (hostKey) => clientRuntime.runSync(isLocalHost(hostKey)),
+    open: openThroughHost,
+    run: (effect) => clientRuntime.runFork(effect),
+  });
   languageRuntime = createMainLanguageApi({
     runtime,
     identities: languageIdentities,
@@ -452,6 +464,8 @@ const start = async () => {
     userData,
     // The one main window, created below.
     window: () => BrowserWindow.getAllWindows().find((w) => !w.isDestroyed()) ?? null,
+    configureSession: (hostKey, _workspaceId, partition) =>
+      hostAddresses?.configureBrowserSession(hostKey, partition) ?? Promise.resolve(),
   });
 
   ipc = registerIpc({
@@ -594,7 +608,12 @@ const finishQuit = () => {
   const stopLocal = localHost === null ? undefined : Effect.runPromise(localHost.stop);
 
   presenceWatch?.dispose();
-  void Promise.allSettled([runtime?.dispose(), stopLocal, predictionOutcomes?.close()]).then(() => {
+  void Promise.allSettled([
+    runtime?.dispose(),
+    stopLocal,
+    predictionOutcomes?.close(),
+    hostAddresses?.dispose(),
+  ]).then(() => {
     if (restartForUpdate && updates?.get().phase === "ready") updates.install();
     else app.quit();
   });

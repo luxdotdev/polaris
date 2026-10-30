@@ -3,6 +3,7 @@
  * data:, chrome:, devtools: or the app's own origin). The same check guards the URL bar, agent
  * and page navigations, redirects and popups.
  */
+import { isHostAddress as isHostAddressHostname } from "@polaris/protocol";
 
 const SCHEMES = new Set(["http:", "https:"]);
 
@@ -25,23 +26,11 @@ export const allowedUrl = (url: string): boolean => {
   return parsed !== null && SCHEMES.has(parsed.protocol) && parsed.hostname !== "";
 };
 
-const LOOPBACK_V4 = /^127(?:\.\d{1,3}){3}$/;
-
 /**
  * A loopback name, which in a Browser always means the Agent Session's Host (CONTEXT.md, Host
- * address): localhost, any `*.localhost`, 127.0.0.0/8 and ::1.
+ * address): the Daemon's own check, so the badge, the proxy and `hostAddress.open` agree.
  */
-export const isHostAddressName = (hostname: string): boolean => {
-  const name = hostname.toLowerCase().replace(/\.$/, "");
-
-  return (
-    name === "localhost" ||
-    name.endsWith(".localhost") ||
-    LOOPBACK_V4.test(name) ||
-    name === "[::1]" ||
-    name === "::1"
-  );
-};
+export const isHostAddressName = (hostname: string): boolean => isHostAddressHostname(hostname);
 
 /** True when `url` is a Host address: the URL bar shows the badge instead of the padlock. */
 export const isHostAddress = (url: string): boolean => {
