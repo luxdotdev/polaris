@@ -42,6 +42,26 @@ describe("validateVisualization rejects", () => {
     ["external-url", "an iframe", '<iframe src="https://example.com"></iframe>'],
     ["external-url", "an object", '<object data="https://example.com/a.pdf"></object>'],
     ["external-url", "an embed", '<embed src="https://example.com/a.swf">'],
+    ["external-url", "a srcdoc iframe", '<iframe srcdoc="<p>x</p>"></iframe>'],
+    ["external-url", "an object without a URL", "<object></object>"],
+    [
+      "external-url",
+      "a frame built in script",
+      "<script>document.body.append(document.createElement('iframe'));</script>",
+    ],
+    ["external-url", "srcdoc set from script", "<script>frame.srcdoc = html;</script>"],
+    [
+      "external-url",
+      "srcdoc set as an attribute",
+      "<script>f.setAttribute('srcdoc', html);</script>",
+    ],
+    [
+      "external-url",
+      "a declarative shadow root",
+      '<div><template shadowrootmode="closed"><p>x</p></template></div>',
+    ],
+    ["external-url", "document.write", "<script>document.write(markup);</script>"],
+    ["external-url", "setHTMLUnsafe", "<script>host.setHTMLUnsafe(markup);</script>"],
     [
       "external-url",
       "a form action",
