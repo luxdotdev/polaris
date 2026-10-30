@@ -43,6 +43,7 @@ import { admissionOf } from "../extensions/admission.ts";
 import { deviceOf } from "../linkedDevices/connection.ts";
 import { RelayRoute } from "../linkedDevices/route.ts";
 import { HostPresence } from "../presence/index.ts";
+import { browserDefaults } from "../browser/index.ts";
 
 const notADevice = () =>
   new PushRegistrationError({
@@ -74,6 +75,7 @@ export const defaultHandlers = (options: {
 }) =>
   ServerRpcs.toLayer({
     ...languageDefaults,
+    ...browserDefaults,
     "prediction.capability": () =>
       Effect.fail(
         new PredictionError({

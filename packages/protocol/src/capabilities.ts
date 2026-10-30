@@ -151,6 +151,13 @@ export const Capability = Schema.Literals([
   /** `terminal.attachBinary`: terminal output as raw bytes on the blob channel, not base64 JSON. */
   "terminal.binary",
   "blobs",
+  /** `hostAddress.open` and `byteStream.credit`: Host-address streams to the Host's loopback (ADR 0093). */
+  "host-address",
+  /**
+   * `browser.*` and `byteStream.credit`: Browser hosting and Browser streams (ADR 0092). A Client
+   * announces it when it can host Browsers; the Daemon refuses `browser.host` from one that didn't.
+   */
+  "browser.host",
   /** `usage.query` and `usage.watch`: Usage and Plan Limits on this Host. */
   "usage",
   /**
