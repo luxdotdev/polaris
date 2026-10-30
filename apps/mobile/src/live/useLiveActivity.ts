@@ -10,11 +10,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AppState, Platform } from "react-native";
 import { PolarisLiveActivity } from "../../modules/polaris-live-activity/index.ts";
 import { PolarisPush } from "../../modules/polaris-push/index.ts";
-import { useFollowedHosts } from "../home/feed/useFollowedHosts.ts";
-import { answerHost, deliverAnswer, unsentNotice } from "../push/deliver.ts";
+import { type FollowedHostState, useFollowedHosts } from "../home/feed/useFollowedHosts.ts";
+import { ANSWER_WAIT_MS, answerHost, deliverAnswer, unsentNotice } from "../push/deliver.ts";
 import type { PushLinkedHost } from "../push/usePush.ts";
 import { useHosts } from "../runtime/hosts.tsx";
-import { decodeLiveAnswer, type LiveAnswer, liveAnswerId, liveAnswerOf } from "./answer.ts";
+import {
+  confirmedBy,
+  decodeLiveAnswer,
+  type LiveAnswer,
+  liveAnswerId,
+  liveAnswerOf,
+} from "./answer.ts";
 import {
   IDLE_END_MS,
   type LiveAction,
@@ -200,7 +206,37 @@ const useRegistrations = (
 };
 
 /** Answers from the takeover's Approve, Always here and Deny, as a notification's are sent. */
+/** The request changed, was answered, or the slice named a Host that doesn't have it. */
+const UNCONFIRMED = {
+  title: "Your answer wasn't sent",
+  body: "That request has changed or was already answered. Open Polaris to answer.",
+};
+
+/** Resolves once the Host's feed has been seen this launch, or null after `timeoutMs`. */
+const seenFeed = (
+  followed: { current: ReadonlyArray<FollowedHostState> },
+  hostId: string,
+  timeoutMs: number
+) =>
+  new Promise<FollowedHostState["followed"]["state"] | null>((resolve) => {
+    const started = Date.now();
+
+    const look = () => {
+      const host = followed.current.find(({ connection }) => connection.hostId === hostId);
+
+      if (host?.followed.seen === true) return resolve(host.followed.state);
+
+      if (Date.now() - started >= timeoutMs) return resolve(null);
+      setTimeout(look, 250);
+    };
+
+    look();
+  });
+
 const useAnswers = (loaded: boolean) => {
+  const seen = useFollowedHosts();
+  const followed = useRef(seen);
+  followed.current = seen;
   const connections = useHosts();
   const current = useRef(connections);
   current.current = connections;
@@ -225,9 +261,22 @@ const useAnswers = (loaded: boolean) => {
       const answer = liveAnswerOf(taken);
 
       try {
-        const hosts = () => current.current.map(answerHost);
-        const outcome = await deliverAnswer(loadedPromise, hosts, answer);
+        await loadedPromise;
+        const feed = await seenFeed(followed, taken.hostId, ANSWER_WAIT_MS);
         const host = current.current.find((h) => h.hostId === answer.hostId);
+
+        if (feed !== null && !confirmedBy(feed, taken)) {
+          await Notifications.scheduleNotificationAsync({ content: UNCONFIRMED, trigger: null });
+
+          return;
+        }
+
+        const hosts = () => current.current.map(answerHost);
+
+        // An unseen feed means the Host never came up: unconfirmed, so it isn't sent.
+        const outcome =
+          feed === null ? "offline" : await deliverAnswer(loadedPromise, hosts, answer);
+
         const notice = unsentNotice(outcome, host?.name ?? null);
 
         if (notice !== null)

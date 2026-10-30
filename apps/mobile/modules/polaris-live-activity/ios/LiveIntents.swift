@@ -23,21 +23,25 @@ struct LiveAnswerIntent: LiveActivityIntent {
   @Parameter(title: "Host") var hostId: String
   @Parameter(title: "Session") var sessionId: String
   @Parameter(title: "Request") var requestId: String
+  /// The request's line as the takeover showed it: the app answers only if the Host says the same.
+  @Parameter(title: "Line") var line: String
   @Parameter(title: "Answer") var decision: LiveDecision
 
   init() {}
 
-  init(hostId: String, sessionId: String, requestId: String, decision: LiveDecision) {
+  init(hostId: String, sessionId: String, requestId: String, line: String, decision: LiveDecision) {
     self.hostId = hostId
     self.sessionId = sessionId
     self.requestId = requestId
+    self.line = line
     self.decision = decision
   }
 
   /// Hands the answer to JS and waits, within the intent's background time, until it was sent.
   func perform() async throws -> some IntentResult {
     await LiveAnswers.shared.submit([
-      "hostId": hostId, "sessionId": sessionId, "requestId": requestId, "decision": decision.rawValue,
+      "hostId": hostId, "sessionId": sessionId, "requestId": requestId, "line": line,
+      "decision": decision.rawValue,
     ])
     return .result()
   }

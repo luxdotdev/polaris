@@ -23,14 +23,17 @@ struct LiveAnswerIntent: LiveActivityIntent {
   @Parameter(title: "Host") var hostId: String
   @Parameter(title: "Session") var sessionId: String
   @Parameter(title: "Request") var requestId: String
+  /// The request's line as the takeover showed it: the app answers only if the Host says the same.
+  @Parameter(title: "Line") var line: String
   @Parameter(title: "Answer") var decision: LiveDecision
 
   init() {}
 
-  init(hostId: String, sessionId: String, requestId: String, decision: LiveDecision) {
+  init(hostId: String, sessionId: String, requestId: String, line: String, decision: LiveDecision) {
     self.hostId = hostId
     self.sessionId = sessionId
     self.requestId = requestId
+    self.line = line
     self.decision = decision
   }
 

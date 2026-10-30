@@ -238,7 +238,8 @@ private struct LiveAnswers: View {
   }
 
   private func answer(_ decision: LiveDecision) -> LiveAnswerIntent {
-    LiveAnswerIntent(hostId: hostId, sessionId: need.sessionId, requestId: need.requestId, decision: decision)
+    LiveAnswerIntent(
+      hostId: hostId, sessionId: need.sessionId, requestId: need.requestId, line: need.line, decision: decision)
   }
 
   var body: some View {
