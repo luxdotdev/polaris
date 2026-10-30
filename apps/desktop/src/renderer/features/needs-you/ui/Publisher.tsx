@@ -56,7 +56,10 @@ export const NeedsYouPublisher = () => {
     [hosts, models, views, pulls, summaries]
   );
 
-  const notifications = useMemo(() => notificationsOf({ hosts, models }), [hosts, models]);
+  const notifications = useMemo(
+    () => notificationsOf({ hosts, models, views }),
+    [hosts, models, views]
+  );
 
   const summary = useMemo(() => {
     // Settings, Review and Edit cover the session pane: its session isn't on screen.

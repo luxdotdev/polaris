@@ -187,6 +187,10 @@ _Avoid_: Plan, run, workflow, pipeline
 The Agent Session that owns a Constellation: it maps the Tasks, starts their Attempts, hears their outcomes and can hand the Constellation over to a new Lead.
 _Avoid_: Orchestrator (that is the view), conductor, parent
 
+**Worker**:
+An Agent Session that carries a Constellation's Attempts and isn't its Lead. It belongs to its Constellation: session lists leave it out and reach it through its Lead, and it notifies the user only when it Needs You.
+_Avoid_: Child session, subagent (that is a Harness's own helper)
+
 **Task**:
 A stable unit of work in a Constellation, with dependencies on other Tasks; it is carried out by one or more Attempts, and its state follows its latest Attempt.
 _Avoid_: Job, step, ticket

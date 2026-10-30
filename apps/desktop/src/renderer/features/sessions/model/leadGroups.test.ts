@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { activeSessions } from "../../../routes/topBar.ts";
+import { activeSessions, needsYou } from "../../../routes/topBar.ts";
 import { sessionOrder } from "../../../routes/selection.ts";
 import { type Attempt, SessionId, TaskId, WorktreeSetupRun } from "@polaris/protocol";
 import { approval } from "../../../store/fixtures.testing.ts";
@@ -234,6 +234,48 @@ describe("sidebarItems", () => {
 
     expect(result.constellations).toBe(0);
     expect(result.items.every((i) => i.kind === "session")).toBe(true);
+  });
+
+  test("an archived Constellation's workers stay out of the list; one that needs you stays", () => {
+    const archived = {
+      ...C2,
+      constellation: { ...C2.constellation, state: "archived" as const },
+    };
+
+    const workers = new Set<string>(
+      C2.constellation.attempts
+        .map((a) => a.sessionId)
+        .filter((id) => id !== C2.constellation.leadSessionId)
+    );
+
+    const listed = sidebarItems({ hostKey: "local", entries, views: [archived], lookup, setups })
+      .items.flatMap((i) => (i.kind === "session" ? [i.entry] : []))
+      .filter((e) => workers.has(e.session.id));
+
+    expect(listed.map((e) => [`${e.session.id}`, needsYou(e)])).toEqual(
+      entries
+        .filter((e) => workers.has(e.session.id) && needsYou(e))
+        .map((e) => [`${e.session.id}`, true])
+    );
+    expect(entries.some((e) => workers.has(e.session.id) && !needsYou(e))).toBe(true);
+  });
+
+  test("a session the Daemon marks as a worker leaves the list unless it needs you", () => {
+    const glossary = entries.find((e) => e.session.id === "glossary");
+
+    if (glossary === undefined) throw new Error("glossary is in the fixtures");
+
+    const worker = {
+      ...glossary,
+      session: { ...glossary.session, worker: { constellationId: C1.constellation.id } },
+    };
+
+    const asking = { ...worker, pendingApprovals: [approval] };
+
+    const plain = (entry: typeof glossary) =>
+      sidebarItems({ hostKey: "local", entries: [entry], views: [], lookup, setups }).items.length;
+
+    expect([plain(glossary), plain(worker), plain(asking)]).toEqual([1, 0, 1]);
   });
 });
 

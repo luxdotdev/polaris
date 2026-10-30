@@ -2,7 +2,7 @@
  * Home (Paper H4) as data: the summary, the workspace chips and the sections ranked needs you,
  * working, recent, built from every Host's followed feed. Pure, so every state is testable.
  */
-import type { ApprovalRequest, ConnectionState } from "@polaris/protocol";
+import { type ApprovalRequest, type ConnectionState, isWorkerSession } from "@polaris/protocol";
 import type { FollowedHost } from "../feed/follow.ts";
 import type { ConstellationListing, Session, SessionEntry } from "../feed/fold.ts";
 import { counted, harnessName, shortHostName } from "./format.ts";
@@ -237,8 +237,9 @@ export const buildHome = (hosts: ReadonlyArray<HomeHost>, workspace: string | nu
 
   const isLead = (p: Placed) => leads.has(`${p.host.hostId}/${p.entry.session.id}`);
 
+  // A Constellation worker is reached through its Lead's row; only its Needs You is listed (ENG-586).
   const needing = shown.filter(needsYou).map(sessionRow);
-  const rest = shown.filter((p) => !needsYou(p) && !isLead(p));
+  const rest = shown.filter((p) => !needsYou(p) && !isLead(p) && !isWorkerSession(p.entry.session));
 
   const working = [
     ...constellations.filter((row) => ACTIVE_CONSTELLATION.has(row.constellation.state)),
@@ -257,7 +258,9 @@ export const buildHome = (hosts: ReadonlyArray<HomeHost>, workspace: string | nu
   return {
     hostCount: hosts.length,
     needsYou: placed.filter(needsYou).length,
-    working: placed.filter((p) => !needsYou(p) && WORKING.has(p.entry.session.state)).length,
+    working: placed.filter(
+      (p) => !needsYou(p) && !isWorkerSession(p.entry.session) && WORKING.has(p.entry.session.state)
+    ).length,
     attention: attentionLine(hosts),
     workspaceCount: names.length,
     chips: [

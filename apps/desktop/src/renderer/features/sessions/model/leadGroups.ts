@@ -18,6 +18,7 @@ import {
 } from "../../constellation/model/setup.ts";
 import { LANE_MAX } from "../../constellation/model/lane.ts";
 import { stoppedWithoutClaiming } from "../../constellation/model/stopped.ts";
+import { isWorker, workerSessionsOf } from "../../constellation/model/workers.ts";
 import { ancestors, rootGroup } from "../../constellation/model/tree.ts";
 import type { ConstellationView } from "../source.ts";
 
@@ -396,12 +397,18 @@ export const sidebarItems = ({ hostKey, entries, views, lookup, setups }: GroupI
     )
   );
 
+  const workers = workerSessionsOf(views);
+
+  // A worker no Lead row carries (its Constellation ended, or its Lead is elsewhere) stays
+  // out of the list unless it needs you (ENG-586).
   const items = entries.flatMap((entry): Array<SidebarItem> => {
     const group = groups.get(entry.session.id);
 
     if (group !== undefined) return [{ kind: "lead", group }];
 
-    return nested.has(entry.session.id) ? [] : [{ kind: "session", entry }];
+    if (nested.has(entry.session.id)) return [];
+
+    return isWorker(entry.session, workers) && !needsYou(entry) ? [] : [{ kind: "session", entry }];
   });
 
   return { items, constellations: groups.size };

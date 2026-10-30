@@ -1,17 +1,26 @@
 import { expect, test } from "bun:test";
 import {
   AgentSession,
+  ApprovalRequest,
+  ConstellationId,
   DomainEvent,
   EventEnvelope,
   HostStreamItem,
+  RequestId,
   Sequence,
   SessionId,
   SessionSummary,
+  TurnId,
   WorkspaceId,
 } from "@polaris/protocol";
 import { applyHostItem, emptyHostState, hostView } from "./hostView.ts";
 
-const session = (id: string, state: AgentSession["state"], updatedAt: string) =>
+const session = (
+  id: string,
+  state: AgentSession["state"],
+  updatedAt: string,
+  worker: AgentSession["worker"] = null
+) =>
   new AgentSession({
     id: SessionId.make(id),
     workspaceId: WorkspaceId.make("w1"),
@@ -29,6 +38,7 @@ const session = (id: string, state: AgentSession["state"], updatedAt: string) =>
     turnCount: 1,
     contextUsage: null,
     lastError: null,
+    worker,
     createdAt: updatedAt,
     updatedAt,
   });
@@ -96,4 +106,47 @@ test("a removed Workspace takes its sessions, archived ones included", () => {
 
   expect(view.sessions).toEqual([]);
   expect(view.archived).toEqual([]);
+});
+
+test("a Constellation worker is left out unless it needs you; its approvals stay", () => {
+  const worker = (id: string, state: AgentSession["state"]) =>
+    session(id, state, "2026-10-05T00:00:00.000Z", {
+      constellationId: ConstellationId.make("c1"),
+    });
+
+  const request = new ApprovalRequest({
+    id: RequestId.make("r1"),
+    sessionId: SessionId.make("asking"),
+    turnId: TurnId.make("t1"),
+    kind: "command",
+    title: "Run bun test",
+    detail: null,
+    options: [],
+    openedAt: "2026-10-05T00:00:00.000Z",
+  });
+
+  const view = viewOf([
+    HostStreamItem.cases.Snapshot.make({
+      sequence: Sequence.make(5),
+      workspaces: [],
+      worktrees: [],
+      sessions: [
+        summary(session("mine", "idle", "2026-10-02T00:00:00.000Z")),
+        summary(worker("working", "working")),
+        summary(worker("done", "archived")),
+        new SessionSummary({
+          session: worker("asking", "needs-you"),
+          pendingApprovals: [request],
+          lastTurnPreview: null,
+          subagents: [],
+        }),
+      ],
+    }),
+  ]);
+
+  expect([
+    view.sessions.map((entry) => String(entry.session.id)),
+    view.archived.map((entry) => String(entry.session.id)),
+    view.approvals.map((approval) => String(approval.id)),
+  ]).toEqual([["asking", "mine"], [], ["r1"]]);
 });

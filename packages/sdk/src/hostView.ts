@@ -3,14 +3,15 @@
  * approvals waiting on the user, folded from `subscribeHost` the way the
  * Daemon folds its log. A Snapshot resets it.
  */
-import type {
-  AgentSession,
-  ApprovalRequest,
-  DomainEvent,
-  HostStreamItem,
-  Sequence,
-  Turn,
-  Workspace,
+import {
+  type AgentSession,
+  type ApprovalRequest,
+  type DomainEvent,
+  type HostStreamItem,
+  isWorkerSession,
+  type Sequence,
+  type Turn,
+  type Workspace,
 } from "@polaris/protocol";
 import { Match } from "effect";
 
@@ -41,11 +42,14 @@ export interface HostView {
   /** Why the Host can't be shown (`subscribeHosts` only); null otherwise. */
   readonly error: Error | null;
   readonly workspaces: ReadonlyArray<Workspace>;
-  /** Most recently updated first; archived sessions are left out. */
+  /**
+   * Most recently updated first; archived sessions are left out, and so are Constellation
+   * workers' unless they need you (`AgentSession.worker`): their Lead stands for them.
+   */
   readonly sessions: ReadonlyArray<SessionEntry>;
-  /** The archived sessions, most recently updated first. */
+  /** The archived sessions, most recently updated first; workers' left out. */
   readonly archived: ReadonlyArray<SessionEntry>;
-  /** Every session's pending approvals, oldest first. */
+  /** Every session's pending approvals, workers' included, oldest first. */
   readonly approvals: ReadonlyArray<ApprovalRequest>;
 }
 
@@ -198,6 +202,9 @@ export const applyHostItem = (state: HostState, item: HostStreamItem): HostState
     })
   );
 
+const needsYou = (entry: SessionEntry) =>
+  entry.session.state === "needs-you" || entry.pendingApprovals.length > 0;
+
 export const hostView = (
   state: HostState,
   host: { readonly hostId: string; readonly hostName: string },
@@ -207,16 +214,18 @@ export const hostView = (
     b.session.updatedAt.localeCompare(a.session.updatedAt)
   );
 
-  const sessions = newestFirst.filter((entry) => entry.session.state !== "archived");
+  const active = newestFirst.filter((entry) => entry.session.state !== "archived");
 
   return {
     ...host,
     connected,
     error: null,
     workspaces: [...state.workspaces.values()].filter((workspace) => !workspace.hidden),
-    sessions,
-    archived: newestFirst.filter((entry) => entry.session.state === "archived"),
-    approvals: sessions
+    sessions: active.filter((entry) => !isWorkerSession(entry.session) || needsYou(entry)),
+    archived: newestFirst.filter(
+      (entry) => entry.session.state === "archived" && !isWorkerSession(entry.session)
+    ),
+    approvals: active
       .flatMap((entry) => entry.pendingApprovals)
       .sort((a, b) => a.openedAt.localeCompare(b.openedAt)),
   };
