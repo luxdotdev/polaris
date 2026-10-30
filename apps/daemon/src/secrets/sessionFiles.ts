@@ -32,8 +32,12 @@ export interface SessionSecretFiles {
   readonly discard: (path: string) => Effect.Effect<void>;
   /** Deletes every secret of the session (it was archived or removed). */
   readonly forget: (sessionId: SessionId) => Effect.Effect<void>;
-  /** `item` with each live secret of the session replaced by `[secret]`, in every field. */
-  readonly redact: (sessionId: SessionId, item: TurnItem) => TurnItem;
+  /**
+   * `item` with every live secret on the Host replaced by `[secret]`, in every field. Any agent
+   * running as this user could read another session's file, so redaction isn't per session.
+   */
+  readonly redact: (item: TurnItem) => TurnItem;
+  readonly redactText: (text: string) => string;
 }
 
 /** `text` with each secret, as JSON escapes it, replaced by `[secret]`. */
@@ -49,6 +53,14 @@ const failed = (message: string) => (cause: unknown) =>
   new SessionSecretError({
     message: `${message}: ${cause instanceof Error ? cause.message : String(cause)}`,
   });
+
+/** One path segment per session whatever its id holds ("..", "/"): the id's UTF-8 bytes in hex. */
+const segmentOf = (sessionId: SessionId) => Buffer.from(sessionId, "utf8").toString("hex");
+
+const sessionOf = (segment: string): SessionId | null =>
+  /^(?:[0-9a-f]{2})+$/.test(segment)
+    ? SessionId.make(Buffer.from(segment, "hex").toString("utf8"))
+    : null;
 
 const removeQuietly = (path: string) =>
   Effect.promise(() => rm(path, { force: true, recursive: true }).catch(() => undefined));
@@ -95,8 +107,14 @@ export const sessionSecretFiles = Effect.fn("sessionSecretFiles")(function* (
   const sessions = yield* Effect.promise(() => readdir(root).catch(() => []));
 
   for (const name of sessions) {
-    const sessionId = SessionId.make(name);
+    const sessionId = sessionOf(name);
     const dir = join(root, name);
+
+    if (sessionId === null) {
+      yield* removeQuietly(dir);
+      continue;
+    }
+
     const files = yield* Effect.promise(() => readdir(dir).catch(() => []));
 
     for (const file of files) {
@@ -116,12 +134,17 @@ export const sessionSecretFiles = Effect.fn("sessionSecretFiles")(function* (
     }
   }
 
+  const redactable = () =>
+    [...live.values()]
+      .flatMap((paths) => [...paths.values()])
+      .filter((secret) => secret.length >= MIN_REDACTED_LENGTH);
+
   const files: SessionSecretFiles = {
-    reserve: (sessionId) => join(root, sessionId, randomBytes(16).toString("hex")),
+    reserve: (sessionId) => join(root, segmentOf(sessionId), randomBytes(16).toString("hex")),
     write: (sessionId, path, value) =>
       Effect.tryPromise({
         try: async () => {
-          const dir = join(root, sessionId);
+          const dir = join(root, segmentOf(sessionId));
           await mkdir(dir, { recursive: true, mode: 0o700 });
           await chmod(root, 0o700);
           await chmod(dir, 0o700);
@@ -136,18 +159,23 @@ export const sessionSecretFiles = Effect.fn("sessionSecretFiles")(function* (
       Effect.suspend(() => {
         live.delete(sessionId);
 
-        return removeQuietly(join(root, sessionId));
+        return removeQuietly(join(root, segmentOf(sessionId)));
       }),
-    redact: (sessionId, item) => {
-      const secrets = [...(live.get(sessionId)?.values() ?? [])].filter(
-        (secret) => secret.length >= MIN_REDACTED_LENGTH
-      );
+    redact: (item) => {
+      const secrets = redactable();
 
       if (secrets.length === 0) return item;
       const json = JSON.stringify(item);
       const redacted = replaceAll(json, secrets);
 
       return redacted === json ? item : decodeItem(redacted);
+    },
+    redactText: (text) => {
+      const secrets = redactable();
+
+      return secrets.length === 0
+        ? text
+        : secrets.reduce((acc, secret) => acc.split(secret).join(REDACTED), text);
     },
   };
 

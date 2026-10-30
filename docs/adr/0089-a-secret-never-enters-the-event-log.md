@@ -30,7 +30,8 @@ valueless `Provided` decision is committed.**
 - **Answer.** The Client sends `secret.provide{sessionId, requestId, value}` with the value as
   `Schema.Redacted`, like `voice.setKey` (ADR 0079). The Daemon writes the file, then commits
   `ApprovalResolved` with `Provided`, which has no value. Decline is the ordinary `Deny`.
-- **Delivery.** The file is `~/.polaris/secrets/sessions/<sessionId>/<random>`: directory 0700,
+- **Delivery.** The file is `~/.polaris/secrets/sessions/<session>/<random>`, `<session>` being
+  the session id's bytes in hex so a Client-chosen id can't name a path outside the store: directory 0700,
   file 0600, written to a temp file and renamed. The tool returns its path and never the value. It
   is readable any number of times by that Agent Session's later Turns; a Fork asks again.
 - **Lifetime.** Fixed 24 h, or until the Agent Session is archived or removed. One timer per live
@@ -39,8 +40,10 @@ valueless `Provided` decision is committed.**
   returns to Working and the tool returns `timed_out`. The agent carries on with what it can and
   ends its Turn if it is blocked. Stop and restart withdraw it as for any approval. A value arriving
   after withdrawal is rejected and discarded.
-- **Redaction.** Before a Tool Call's output is committed, the Daemon replaces the exact value of
-  each live secret of that Agent Session with `[secret]`.
+- **Redaction.** Before an item is committed or streamed, the Daemon replaces the exact value of
+  every live secret on the Host with `[secret]`; any agent running as the Daemon's user could
+  read another session's file. Approval text and Turn errors are redacted too; a streamed delta
+  only when the whole secret falls inside it, since the completed item is redacted in full.
 - **Clients.** The Desktop App and Mobile App answer. Extensions skip the kind. A push names only
   the label and opens the card; it has no quick action.
 

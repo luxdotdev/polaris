@@ -13,7 +13,6 @@ import {
   type SessionId,
   Subagent,
   type TurnId,
-  type TurnItem,
   Worktree,
 } from "@polaris/protocol";
 import { Context, Effect, Exit, Layer, Option, Scope, Stream } from "effect";
@@ -64,7 +63,9 @@ const make = (
 ): Supervisor["Service"] => {
   const { store, live, progress } = rt;
   // A live secret printed by a command never reaches the log or a Client (ADR 0089).
-  const redact = (sessionId: SessionId, item: TurnItem) => secrets.files.redact(sessionId, item);
+  const redact = secrets.files.redact;
+  const redactText = secrets.files.redactText;
+  const redactNullable = (text: string | null) => (text === null ? null : redactText(text));
 
   /** True when the policy answered the request itself, on the session's live Harness. */
   const answeredByPolicy = (
@@ -188,7 +189,8 @@ const make = (
                   turnId: event.turnId,
                   itemId: event.itemId,
                   field: event.field,
-                  text: event.text,
+                  // Only a secret whole within one delta; the completed item is redacted in full.
+                  text: redactText(event.text),
                   subagentId: event.subagentId ?? null,
                 })
               )
@@ -271,7 +273,7 @@ const make = (
             DomainEvent.cases.TurnItemCompleted.make({
               sessionId,
               turnId: e.turnId,
-              item: redact(sessionId, e.item),
+              item: redact(e.item),
               subagentId: e.subagentId ?? null,
             }),
           ]);
@@ -288,8 +290,8 @@ const make = (
                     sessionId,
                     turnId: e.turnId,
                     kind: e.kind,
-                    title: e.title,
-                    detail: e.detail,
+                    title: redactText(e.title),
+                    detail: redactNullable(e.detail),
                     options: [...e.options],
                     questions: [...(e.questions ?? [])],
                     openedAt: at,
@@ -365,7 +367,7 @@ const make = (
     Effect.suspend(() => {
       const items = progress.get(sessionId) ?? new Map<string, Progress>();
       const subagentId = event.subagentId ?? null;
-      const item = redact(sessionId, event.item);
+      const item = redact(event.item);
       items.set(item.id, { turnId: event.turnId, item, subagentId });
       progress.set(sessionId, items);
 
@@ -400,7 +402,7 @@ const make = (
         type: "harness.turnEnded",
         turnId: event.turnId,
         status: event.status,
-        error: event.error,
+        error: redactNullable(event.error),
         checkpoint: after,
         limit: yield* limitOf(sessionId, event, at),
         at,
