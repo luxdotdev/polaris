@@ -183,3 +183,50 @@ export function CodeIcon({ size = 16, strokeWidth = STROKE, ...props }: NucleoIc
     </svg>
   );
 }
+
+/** Nucleo UI outline `SquareDashedCursorOutline18`. */
+export function PickElementIcon({ size = 16, strokeWidth = STROKE, ...props }: NucleoIconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 18 18"
+      aria-hidden="true"
+      focusable="false"
+      {...props}
+    >
+      <path
+        d="m2.75,6.25v-1.5c0-1.105.895-2,2-2h2"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></path>
+      <path
+        d="m11.25,2.75h2c1.105,0,2,.895,2,2v1.5"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></path>
+      <path
+        d="m6.75,15.25h-2c-1.105,0-2-.895-2-2v-1.5"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></path>
+      <path
+        d="m9.184,8.77l6.854,2.504c.289.106.28.517-.012.611l-3.137,1.004-1.004,3.137c-.094.293-.505.301-.611.012l-2.504-6.854c-.094-.258.156-.508.414-.414Z"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={strokeWidth}
+      ></path>
+    </svg>
+  );
+}
