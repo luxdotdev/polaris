@@ -140,6 +140,7 @@ export const DEVICE_RPCS = {
   "git.init": "local",
   "git.sync": "local",
   "git.watch": "local",
+  "git.log": "local",
   "review.checkoutStatus": "local",
   "review.runRiskSummary": "device",
   "review.runWalkthrough": "local",

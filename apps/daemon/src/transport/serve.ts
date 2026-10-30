@@ -222,6 +222,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "git.init",
   "git.watch",
   "git.sync",
+  "git.log",
   "session.feedback",
   "session.accept",
   "review.checkouts",

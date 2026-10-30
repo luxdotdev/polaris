@@ -12,7 +12,7 @@ import { hostInSentence } from "../../../shell/hostCopy.ts";
 import { Advanced } from "./Advanced.tsx";
 import { useHostLanguages, useLanguageRecords, useRecord } from "./hooks.ts";
 import { HostPicker, pickable } from "./HostPicker.tsx";
-import { CommitMessagesCard, type CommitPreview } from "./CommitMessages.tsx";
+import { CommitMessagesCard, type CommitSource, useLastCommit } from "./CommitMessages.tsx";
 import { LanguagesCard, readySummary } from "./Languages.tsx";
 import type { PolicyWorkspace } from "./MarkdownImages.tsx";
 import { languageRows, rowEnabled, syntaxOnly, syntaxOnlyLine } from "./model.ts";
@@ -28,8 +28,8 @@ export interface EditorSettingsProps {
   /** Open editors re-read their settings: every Host's when `hostKey` is null. */
   readonly refreshEditors: (hostKey: string | null) => void;
   readonly refreshPreviews: (hostKey: string, workspaceId: P.WorkspaceId) => void;
-  /** The workspace's last commit for the Commit messages preview; null shows the example (ENG-624). */
-  readonly lastCommit?: CommitPreview | null;
+  /** The git checkout whose last commit the Commit messages preview shows; null shows the example. */
+  readonly commitWorkspace?: CommitSource | null;
 }
 
 const ScreenGlyph = () => (
@@ -60,6 +60,15 @@ const notice = (
   return loaded ? null : `Checking ${hostInSentence(picked)}…`;
 };
 
+/** Only a connected Daemon with `git.log` is asked; any other shows the example. */
+const commitSource = (hosts: ReadonlyArray<HostView>, workspace: CommitSource | null) => {
+  const host = workspace === null ? undefined : hosts.find((h) => h.key === workspace.hostKey);
+
+  return host?.status.state === "connected" && host.status.capabilities.includes("git.log")
+    ? workspace
+    : null;
+};
+
 const NO_LANGUAGES: ReadonlyArray<P.LanguageSyntaxId> = [];
 
 export const EditorSettings = ({
@@ -70,7 +79,7 @@ export const EditorSettings = ({
   keys,
   refreshEditors,
   refreshPreviews,
-  lastCommit = null,
+  commitWorkspace = null,
 }: EditorSettingsProps) => {
   const [chosen, setChosen] = useState<string | null>(null);
   const [advanced, setAdvanced] = useState(false);
@@ -90,6 +99,8 @@ export const EditorSettings = ({
       ),
     [refreshEditors, live]
   );
+
+  const lastCommit = useLastCommit(commitSource(hosts, commitWorkspace));
 
   const app = useRecord(api, hosts[0]?.key ?? "local", APP_SCOPE, committed);
 
