@@ -6,7 +6,7 @@
 import { cn } from "@polaris/ui";
 import type { MachineView } from "../../../../shared/api.ts";
 import { ChevronGlyph, ColourSquare, StateDot } from "../page/parts.tsx";
-import { listLine, pill } from "../page/state.ts";
+import { hostName, listLine, pill } from "../page/state.ts";
 import { Sparkline } from "../stats/charts.tsx";
 import { useHostStats } from "../stats/hooks.ts";
 import { cpuFigure, cpuSeries, LIST_SAMPLES } from "../stats/model.ts";
@@ -23,13 +23,14 @@ export const HostListRow = ({ machine, now, onOpen }: HostListRowProps) => {
   const stats = useHostStats(machine.key, connected);
   // Offline keeps an empty track; Reconnecting keeps the samples it had, and reads "—".
   const values = state.state === "offline" || stats === null ? [] : cpuSeries(stats);
+  const name = hostName(machine);
 
   return (
     <li data-testid={`machine-${machine.key}`} data-state={state.state}>
       <button
         type="button"
         onClick={onOpen}
-        aria-label={`${machine.label}, ${state.label}`}
+        aria-label={`${name}, ${state.label}`}
         className={cn(
           "bg-raised hover:bg-fill-hover flex h-[60px] w-full cursor-default items-center gap-3.5 rounded-[12px] pr-3 pl-4 text-left shadow-[inset_0_0_0_1px_var(--color-hairline)]",
           state.state === "reconnecting" && "opacity-(--opacity-dimmed)"
@@ -37,7 +38,7 @@ export const HostListRow = ({ machine, now, onOpen }: HostListRowProps) => {
       >
         <ColourSquare colour={machine.colour} size={10} />
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="text-body text-text-default truncate font-medium">{machine.label}</span>
+          <span className="text-body text-text-default truncate font-medium">{name}</span>
           <span className="text-text-subtle truncate font-mono text-[11px] leading-4">
             {listLine(machine)}
           </span>
@@ -47,7 +48,7 @@ export const HostListRow = ({ machine, now, onOpen }: HostListRowProps) => {
           count={LIST_SAMPLES}
           height={16}
           colour={machine.colour}
-          label={`CPU on ${machine.label}`}
+          label={`CPU on ${name}`}
         />
         <span className="text-text-subtle tabular w-[34px] shrink-0 text-right font-mono text-[11px] leading-4">
           {connected ? cpuFigure(stats) : "—"}

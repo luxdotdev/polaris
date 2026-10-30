@@ -18,6 +18,7 @@ import {
   type PredictionPreferences,
 } from "../../../../shared/predictionPlacement.ts";
 import { modelName } from "../../editor/prediction/store.ts";
+import { ColourSquare } from "../../machines/page/parts.tsx";
 import type { PlacementRow } from "./placementRows.ts";
 
 const RECOMMENDED = "recommended";
@@ -120,14 +121,7 @@ const Row = ({
     className="px-panel flex items-center gap-3 py-[calc(var(--spacing-gap)+3px)]"
     data-testid="placement-row"
   >
-    <span
-      aria-hidden
-      className={cn(
-        "size-2 shrink-0 rounded-[2px]",
-        colour === null && "border-text-subtle border"
-      )}
-      style={colour === null ? undefined : { backgroundColor: colour }}
-    />
+    <ColourSquare colour={colour} size={8} />
     <div className="flex min-w-0 flex-1 flex-col">
       <span className="text-body text-text-default truncate" title={row.name}>
         {row.name}

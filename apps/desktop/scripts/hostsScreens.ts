@@ -38,6 +38,7 @@ const app = await electron.launch({
     ...process.env,
     POLARIS_DESKTOP_LOCAL_SOCKET: daemon.socketPath,
     POLARIS_DESKTOP_BENCH_HARNESS: "1",
+    POLARIS_DESKTOP_LOCAL_LABEL: "MacBook Pro",
     POLARIS_DESKTOP_USER_DATA: seenUserData(join(home, "user-data")),
     POLARIS_DESKTOP_HIDDEN: "1",
   },
@@ -241,6 +242,47 @@ try {
   await page.evaluate(
     `window.polaris.request("settings.setAppearance", { patch: { motion: "system" } })`
   );
+
+  // The blurb is one line, and the list names the local Host "This Mac" with its own name below.
+  await open(page, "states");
+
+  const lines = Number(
+    await page.evaluate(`(() => {
+      const el = document.querySelector('[data-testid="hosts-settings"] p');
+      return Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight));
+    })()`)
+  );
+
+  if (lines !== 1) throw new Error(`the Hosts blurb wraps to ${lines} lines`);
+  await expectText(page, "MacBook Pro · macOS arm64");
+  await host(page, "local");
+  await card(page, "daemon-card", "daemon-this-mac-dark-calm");
+
+  const cut = await page.evaluate(
+    `[...document.querySelectorAll('[data-testid="prediction-placement"] *')].some((el) => el.scrollWidth > el.clientWidth)`
+  );
+
+  if (cut) throw new Error("Run tab completion on is cut off");
+
+  // The real This Mac, on the Daemon this script started: its sparkline advances within 3 s.
+  await page.evaluate(`location.hash = ""; location.reload()`);
+  await page.waitForLoadState("domcontentloaded");
+  await page
+    .locator('[data-host="local"][data-connection="connected"]')
+    .waitFor({ timeout: 20_000 });
+  await app.evaluate(({ Menu }) => {
+    Menu.getApplicationMenu()?.getMenuItemById("settings.open")?.click();
+  });
+  await page.getByTestId("settings").getByRole("button", { name: "Hosts", exact: true }).click();
+  const real = page.getByTestId("machine-local").getByTestId("sparkline");
+  const bars = async () => (await real.getAttribute("data-bars")) ?? "";
+  const opened = await bars();
+
+  await page.waitForTimeout(3_000);
+
+  if ((await bars()) === opened) throw new Error("the real This Mac sparkline stood still for 3 s");
+  console.log("hosts: the real This Mac sparkline advances");
+  await shot(page, "list-real-dark");
   console.log("hosts: ok");
 } finally {
   await app.close();
