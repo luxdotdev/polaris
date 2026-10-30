@@ -11,6 +11,22 @@ var root = document.documentElement;
     Object.defineProperty(window, name, { value: undefined, writable: false, configurable: false });
   } catch (error) {}
 });
+
+// A nested frame is a fresh realm with WebRTC intact, so none may stay: removed as it is inserted.
+var NESTED = "iframe, frame, object, embed";
+
+function removeNested(node) {
+  if (node.nodeType !== 1) return;
+  if (node.matches(NESTED)) node.remove();
+  else node.querySelectorAll(NESTED).forEach(function (nested) { nested.remove(); });
+}
+
+new MutationObserver(function (records) {
+  records.forEach(function (record) {
+    record.addedNodes.forEach(removeNested);
+    if (record.type === "attributes") removeNested(record.target);
+  });
+}).observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "srcdoc", "data"] });
 var names = Object.create(null);
 config.names.forEach(function (name) { names[name] = true; });
 var unsafe = new RegExp(config.unsafe);
