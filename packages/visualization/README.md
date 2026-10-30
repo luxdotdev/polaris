@@ -29,6 +29,7 @@ default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-s
 - **Libraries.** With `libraries: "auto"` (the default) a document inlines Chart.js only when the fragment names `Chart` or `pv.chart`, and D3 only for `d3` or `pv.flow`: the same fragment always gets the same document. `"all"` inlines both.
 - **Messages.** The frame posts to `window.parent` with target `*` (its origin is opaque), or, in a React Native WebView, `window.ReactNativeWebView.postMessage(JSON)`. It accepts `pv:theme` only from `window.parent` (or, in a WebView, a message with no source), as an object or a JSON string, on `window` or `document`.
 - **State.** `pv.state` is posted as an envelope `{ pv: 1, value, tabs }`: the agent's value beside the kit's remembered tabs. Clients store it as an opaque value and pass it back as `options.state`.
+- **Nested frames.** The bootstrap removes any `<iframe>`, `<frame>`, `<object>` or `<embed>` as it is added: a nested `srcdoc` frame is a fresh realm where WebRTC, which CSP does not cover, would work again.
 - **Links.** A click on any `<a href>` other than `#…` never navigates; an https one posts `pv:open-link`.
 
 ## The kit
@@ -49,4 +50,4 @@ Inlined into frames as the exact upstream files, pinned by sha256 in `src/vendor
 ## Checks
 
 - `bun run test`: validation rules, the document and its runtime (scripts run in one `node:vm` context over happy-dom, so they share a global lexical scope as in a browser), tokens against `@polaris/ui`, the vendored hashes, the guidance.
-- `bun run check:browser`: the documents in real Chrome inside `<iframe sandbox="allow-scripts" srcdoc>`: no request reaches a local server (img, CSS, @import, font, fetch, WebSocket, beacon, form, iframe, object), heights grow and shrink, `pv:theme` applies live, the examples render at 360 and 728 px. `--shots <dir>` saves screenshots. happy-dom enforces no CSP, so the CSP is only checked here.
+- `bun run check:browser`: the documents in real Chrome inside `<iframe sandbox="allow-scripts" srcdoc>`: no request reaches a local server (img, CSS, @import, font, fetch, WebSocket, beacon, form, iframe, object), WebRTC sends no STUN packet (also from a nested `srcdoc` frame, which the bootstrap removes), heights grow and shrink, `pv:theme` applies live, the examples render at 360 and 728 px. `--shots <dir>` saves screenshots. happy-dom enforces no CSP, so the CSP is only checked here.
