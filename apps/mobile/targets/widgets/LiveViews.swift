@@ -243,7 +243,8 @@ private struct LiveAnswers: View {
   }
 
   var body: some View {
-    if need.kind == "approval" {
+    // A line the Daemon cut to fit can't be checked against the request: answer it in the app.
+    if need.kind == "approval" && !need.line.hasSuffix("…") {
       HStack(spacing: 8) {
         Button(intent: answer(.approve)) { pill("Approve", palette.panel, palette.textStrong) }
         Button(intent: answer(.always)) { pill("Always here", palette.textStrong, palette.raised) }
@@ -251,7 +252,7 @@ private struct LiveAnswers: View {
       }
       .buttonStyle(.plain)
     } else {
-      // A question needs its choices: it opens the session.
+      // A question needs its choices, and a cut line its whole text: it opens the session.
       Link(destination: URL(string: sessionLink(hostId: hostId, sessionId: need.sessionId))!) {
         pill(LiveCopy.answerInApp, palette.panel, palette.textStrong)
       }

@@ -12,7 +12,7 @@ export const LiveAnswer = Schema.Struct({
   hostId: Schema.String,
   sessionId: SessionId,
   requestId: RequestId,
-  /** The request's line as the takeover showed it; cut with "…" when the slice was too long. */
+  /** The request's line as the takeover showed it, whole: a cut line is answered in the app. */
   line: Schema.String,
   decision: Schema.Literals(["approve", "always", "deny"]),
 });
@@ -37,11 +37,8 @@ export const confirmedBy = (feed: HostFeedState, answer: LiveAnswer): boolean =>
     .get(answer.sessionId)
     ?.pendingApprovals.find((pending) => pending.id === answer.requestId);
 
-  if (request === undefined) return false;
-
-  return answer.line.endsWith("…")
-    ? request.title.startsWith(answer.line.slice(0, -1))
-    : request.title === answer.line;
+  // Exact: a prefix match would let a forged "…" stand for any request.
+  return request !== undefined && request.title === answer.line;
 };
 
 /** The id the module's `answered` takes to let the intent return. */

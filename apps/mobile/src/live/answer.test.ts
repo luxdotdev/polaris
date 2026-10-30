@@ -42,7 +42,8 @@ const feed = applyHostItem(
 );
 
 test.each([
-  ["the line it shows, cut", { line: "git push or…" }, true],
+  ["a cut line", { line: "git push or…" }, false],
+  ["nothing but the cut mark", { line: "…" }, false],
   ["the whole line", { line: "git push origin main" }, true],
   ["other words for the request", { line: "ls" }, false],
   ["a request open on another session", { sessionId: "s2", line: "git push origin main" }, false],
