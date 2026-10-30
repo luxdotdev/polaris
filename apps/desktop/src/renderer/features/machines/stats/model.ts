@@ -22,19 +22,20 @@ export const HISTORY = 60;
 /** The host list's sparkline: 40 samples, 80px. */
 export const LIST_SAMPLES = 40;
 
-/** `History` replaces the ring; a `Sample` joins it, dropping the oldest past HISTORY. */
-export const foldStats = (state: HostStats | null, item: HostStatsItem): HostStats | null => {
-  if (HostStatsItem.guards.History(item))
-    return {
-      cores: item.cores,
-      intervalMs: item.intervalMs,
-      samples: item.samples.slice(-HISTORY),
-    };
-
-  if (state === null) return null;
-
-  return { ...state, samples: [...state.samples, item.sample].slice(-HISTORY) };
-};
+/**
+ * `History` replaces the ring; a `Sample` joins it, dropping the oldest past HISTORY. Items
+ * arrive structured-cloned over IPC, so this branches on `_tag`: a Schema guard wants class instances.
+ */
+export const foldStats = (state: HostStats | null, item: HostStatsItem): HostStats | null =>
+  HostStatsItem.match(item, {
+    History: ({ cores, intervalMs, samples }) => ({
+      cores,
+      intervalMs,
+      samples: samples.slice(-HISTORY),
+    }),
+    Sample: ({ sample }) =>
+      state === null ? null : { ...state, samples: [...state.samples, sample].slice(-HISTORY) },
+  });
 
 /**
  * One column per sample, right-aligned in `count` columns: a bar's height in px, on 2px
