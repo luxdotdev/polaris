@@ -11,7 +11,7 @@ import { createOnboarding } from "./features/onboarding/index.ts";
 import { installPalette } from "./features/palette/index.ts";
 import { startProofSession } from "./proof.ts";
 import { createCommandRegistry } from "./routes/commands.ts";
-import { installKeyboard } from "./routes/keyboard.ts";
+import { installKeyboard, installMouseButtons } from "./routes/keyboard.ts";
 import { onOpenPullEvent, onOpenReviewEvent } from "./routes/review.ts";
 import { onDeepLinkEvent } from "./routes/deepLink.ts";
 import { createNavigation } from "./routes/navigation.ts";
@@ -153,6 +153,8 @@ window.polaris.onAppEvent((event) => {
 });
 
 installKeyboard({ actions: navigation.actions, registry: commands });
+
+installMouseButtons(commands);
 
 exposeSwitchTimes();
 

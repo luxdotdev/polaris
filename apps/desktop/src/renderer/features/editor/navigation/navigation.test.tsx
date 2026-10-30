@@ -99,17 +99,13 @@ describe("language commands", () => {
   test("the field commands open their UI; the rest go to the queries", () => {
     const ran: string[] = [];
 
-    const fake: Pick<LanguageQueries, "run" | "back" | "forward"> = {
+    const fake: Pick<LanguageQueries, "run"> = {
       run: async (_key, command) => void ran.push(command),
-      back: () => void ran.push("back"),
-      forward: () => void ran.push("forward"),
     };
 
     runNavigation("file", "problems", fake);
-    runNavigation("file", "back", fake);
-    runNavigation("file", "forward", fake);
     runNavigation("file", "symbol-search", fake);
-    expect(ran).toEqual(["problems", "back", "forward"]);
+    expect(ran).toEqual(["problems"]);
     expect(navigationStore.getState().symbols).toBe("file");
   });
 });

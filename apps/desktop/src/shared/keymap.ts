@@ -17,6 +17,8 @@ export type CommandId =
   | "session.new"
   | "session.next"
   | "session.previous"
+  | "navigation.back"
+  | "navigation.forward"
   | "session.focusComposer"
   | "session.interrupt"
   | "session.background"
@@ -364,6 +366,9 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     keys: ["CmdOrCtrl+Alt+Up", "Ctrl+Shift+Tab"],
     menu: "Go",
   },
+  // Also the mouse's back and forward buttons (routes/keyboard.ts).
+  { id: "navigation.back", title: "Back", keys: ["CmdOrCtrl+["], menu: "Go" },
+  { id: "navigation.forward", title: "Forward", keys: ["CmdOrCtrl+]"], menu: "Go" },
   {
     id: "session.new",
     title: "New session",

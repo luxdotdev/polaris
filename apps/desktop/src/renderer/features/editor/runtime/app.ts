@@ -3,6 +3,8 @@
  * the Daemon's files, drafts in `localStorage`, Settings → Editor, and the
  * vim commands wired to tabs and saving.
  */
+import { editPlaces } from "../../../routes/history.ts";
+import { editorPlaces, trackPlaces } from "../navigation/places.ts";
 import { runNavigation } from "../navigation/run.ts";
 import { bindAppRefactors } from "./refactors.ts";
 import { indexedDbGroups } from "../refactors/storage.ts";
@@ -130,6 +132,9 @@ export const ensureEditor = ({
 
     globalThis.addEventListener("pagehide", disposeIdentities, { once: true });
   }
+
+  editPlaces.current = editorPlaces;
+  trackPlaces();
 
   editorLanguages = new EditorLanguageCoordinator(app, undefined, languageIdentity);
   editorLanguageQueries = new LanguageQueries(editorLanguages);

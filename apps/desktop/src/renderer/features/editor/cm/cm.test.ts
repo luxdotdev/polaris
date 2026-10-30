@@ -44,6 +44,8 @@ describe("shell chords stay the shell's", () => {
     expect(keys).not.toContain("Mod-i");
     expect(keys).not.toContain("Mod-Alt-ArrowUp");
     expect(keys).toContain("Mod-/");
+    // Outdent and indent stay the editor's while it has focus, over Back and Forward.
+    expect(keys.filter((k) => k === "Mod-[" || k === "Mod-]")).toEqual(["Mod-[", "Mod-]"]);
     expect(kept.length).toBeGreaterThan(defaultKeymap.length - 8);
   });
 });

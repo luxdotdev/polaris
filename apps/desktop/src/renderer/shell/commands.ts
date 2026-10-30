@@ -195,6 +195,8 @@ export const shellCommands = ({
     },
     "session.next": { run: step(1) },
     "session.previous": { run: step(-1) },
+    "navigation.back": { run: actions.back, enabled: actions.canGoBack },
+    "navigation.forward": { run: actions.forward, enabled: actions.canGoForward },
     "session.focusComposer": {
       run: () => document.querySelector<HTMLElement>(COMPOSER)?.focus(),
       enabled: () => document.querySelector(COMPOSER) !== null,
