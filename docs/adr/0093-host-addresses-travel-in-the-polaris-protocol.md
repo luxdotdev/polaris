@@ -12,9 +12,11 @@ are also reached over WSL, Windows pipes, and later the Polaris Relay for Linked
 
 ## Decision
 
-The Browser's Workspace partition proxies Host addresses only (a PAC script, with `<-loopback>`
-so Chromium does not bypass the proxy for them) to a SOCKS5 server in the Desktop App's main
-process. Each SOCKS connection becomes a byte stream in the Polaris protocol that the Daemon
+A remote Host's Browser partitions send Host addresses (bypass rules with `<-loopback>`;
+Chromium never runs a PAC script for loopback) to an HTTP proxy on 127.0.0.1 in the Desktop
+App's main process. The proxy requires a per-launch secret, which Electron's `login` event
+supplies for that Host's partitions only, so no other local process can use it to reach the
+Host's loopback; if the proxy is down, Host addresses fail closed. Each proxied connection becomes a byte stream in the Polaris protocol that the Daemon
 opens to its own loopback, passing the hostname through unresolved so Portless can route by
 SNI and Host header. The page keeps its origin (`localhost:3000`, `https://app.localhost`), so
 cookies, OAuth redirects and HMR WebSockets keep working. A Host address accepts any TLS
@@ -22,6 +24,8 @@ certificate: its bytes travel only over Polaris's authenticated link and the Hos
 
 ## Considered Options
 
+- An unauthenticated SOCKS5 proxy (the first design): any local process could tunnel into the
+  Host's loopback, and Chromium cannot send SOCKS5 credentials.
 - SSH dynamic forwarding (`-O forward -D`) on the private ControlMaster: a free SOCKS5 proxy,
   but SSH Hosts only, and it reverses the "no forwardings" stance of `packages/client/src/ssh.ts`.
 - Rewriting Host addresses to local forwarded ports: changes the origin and breaks cookies and
