@@ -1,7 +1,7 @@
-/** Advanced (Paper L4): collapsed; custom servers, executable overrides and Markdown images, per Host. */
+/** Advanced (SR-02, Paper L4): custom servers, executable overrides and Markdown images, per Host. */
 import * as P from "@polaris/protocol";
-import { DisclosureChevron } from "@polaris/ui";
-import { useMemo, useState } from "react";
+import { SettingsCard, SettingsWell } from "@polaris/ui";
+import { useMemo } from "react";
 import type { LanguageApi } from "../../../../shared/api.ts";
 import { CustomServers } from "./CustomServers.tsx";
 import { useRecord, type Committed } from "./hooks.ts";
@@ -83,6 +83,7 @@ const Sections = ({
   );
 };
 
+/** Opened from the Languages card's Advanced… button, as its own card under it. */
 export const Advanced = (props: {
   readonly api: LanguageApi | undefined;
   readonly host: AdvancedHost | null;
@@ -91,31 +92,23 @@ export const Advanced = (props: {
   readonly committed: Committed;
   readonly onPolicySaved: (workspaceId: P.WorkspaceId) => void;
 }) => {
-  const [open, setOpen] = useState(false);
   const { api, host } = props;
 
   return (
-    <section aria-label="Advanced" className="flex flex-col gap-4">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-        className="flex cursor-default items-center gap-2 self-start px-0.5 py-1 text-left"
-      >
-        <DisclosureChevron open={open} size={12} className="text-text-subtle" />
-        <span className="text-body text-text-default font-medium">Advanced</span>
-        <span className="text-caption text-text-subtle">
-          Custom language servers and executable overrides, per host
-        </span>
-      </button>
-      {open &&
-        (api && host ? (
+    <SettingsCard
+      aria-label="Advanced"
+      title="Advanced"
+      aside={host === null ? undefined : `Custom servers and overrides on ${host.label}`}
+    >
+      <SettingsWell rows={false} className="px-panel py-panel">
+        {api && host ? (
           <Sections {...props} api={api} host={host} />
         ) : (
           <p className="text-caption text-text-subtle">
             Pick a connected host to change its language servers.
           </p>
-        ))}
-    </section>
+        )}
+      </SettingsWell>
+    </SettingsCard>
   );
 };

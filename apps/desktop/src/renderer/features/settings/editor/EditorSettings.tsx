@@ -1,22 +1,23 @@
 /**
- * Settings → Editor (DESIGN.md, Settings: Editor · languages; Paper L4): the
- * preferences, then Languages on the picked Host, then Advanced, collapsed.
+ * Settings → Editor (DESIGN.md, Settings redesign SR-02): Editing beside Commit messages,
+ * Tab completion, then Languages on the picked Host, with Advanced opened from its footer.
  */
 import { clientCopy } from "../../../../shared/clientCopy.ts";
 import * as P from "@polaris/protocol";
+import { SettingsButton, SettingsGrid, SettingsPage } from "@polaris/ui";
 import { useCallback, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { HostView, LanguageApi } from "../../../../shared/api.ts";
 import { hostInSentence } from "../../../shell/hostCopy.ts";
-import { Column, PageHeader } from "../ui/parts.tsx";
 import { Advanced } from "./Advanced.tsx";
 import { useHostLanguages, useLanguageRecords, useRecord } from "./hooks.ts";
 import { HostPicker, pickable } from "./HostPicker.tsx";
-import { LanguageList } from "./Languages.tsx";
+import { CommitMessagesCard, type CommitPreview } from "./CommitMessages.tsx";
+import { LanguagesCard, readySummary } from "./Languages.tsx";
 import type { PolicyWorkspace } from "./MarkdownImages.tsx";
 import { languageRows, rowEnabled, syntaxOnly, syntaxOnlyLine } from "./model.ts";
 import { Preferences, type EditorKeys } from "./Preferences.tsx";
-import { APP_SCOPE, type SettingsScope } from "./records.ts";
+import { APP_SCOPE, type SettingsScope, withKey } from "./records.ts";
 
 export interface EditorSettingsProps {
   readonly tabCompletion?: ReactNode;
@@ -27,7 +28,16 @@ export interface EditorSettingsProps {
   /** Open editors re-read their settings: every Host's when `hostKey` is null. */
   readonly refreshEditors: (hostKey: string | null) => void;
   readonly refreshPreviews: (hostKey: string, workspaceId: P.WorkspaceId) => void;
+  /** The workspace's last commit for the Commit messages preview; null shows the example (ENG-624). */
+  readonly lastCommit?: CommitPreview | null;
 }
+
+const ScreenGlyph = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
+    <rect x="1.5" y="2" width="9" height="6.5" rx="1" fill="none" stroke="currentColor" />
+    <path d="M4 10.5h4" stroke="currentColor" strokeLinecap="round" />
+  </svg>
+);
 
 const firstPickable = (hosts: ReadonlyArray<HostView>) =>
   (hosts.find((h) => pickable(h) && h.kind === "local") ?? hosts.find(pickable))?.key ?? null;
@@ -60,8 +70,10 @@ export const EditorSettings = ({
   keys,
   refreshEditors,
   refreshPreviews,
+  lastCommit = null,
 }: EditorSettingsProps) => {
   const [chosen, setChosen] = useState<string | null>(null);
+  const [advanced, setAdvanced] = useState(false);
   const hostKey = chosen ?? firstPickable(hosts);
   const picked = hosts.find((h) => h.key === hostKey);
   const live = picked !== undefined && pickable(picked) ? picked.key : null;
@@ -111,47 +123,62 @@ export const EditorSettings = ({
 
   const identity = picked?.status.host ?? null;
 
+  const languagesNotice = notice(api, picked, facts.failed, facts.catalog !== null);
+
   return (
-    <Column>
-      <PageHeader
-        title="Editor"
-        blurb={`How code reads and behaves in the Edit view. Language tools run on each host; ${clientCopy().machine} keeps your preferences.`}
-      />
-      <Preferences
-        record={app.record}
-        failed={app.failed}
-        onChange={(change) => void app.update(change)}
-        keys={keys}
-      />
+    <SettingsPage
+      title="Editor"
+      blurb="How code reads and behaves in Edit. Language tools run on each host."
+      scope={`${clientCopy().localHost} · language tools per host`}
+      scopeIcon={<ScreenGlyph />}
+    >
+      <SettingsGrid className="items-stretch">
+        <Preferences
+          record={app.record}
+          failed={app.failed}
+          onChange={(change) => void app.update(change)}
+          keys={keys}
+        />
+        {keys.commitMessages === undefined ? null : (
+          <CommitMessagesCard lastCommit={lastCommit} chooser={keys.commitMessages} />
+        )}
+      </SettingsGrid>
       {tabCompletion}
-      <div className="flex items-end justify-between gap-4 pt-2">
-        <div className="flex flex-col gap-0.5">
-          <h2 className="text-heading-sm text-text-strong leading-[18px] font-medium">Languages</h2>
-          <p className="text-caption text-text-subtle">
-            What each language has on the host you pick.
-          </p>
-        </div>
-        <HostPicker hosts={hosts} value={hostKey} onChange={setChosen} />
-      </div>
-      <LanguageList
+      <LanguagesCard
         rows={rows}
         enabled={(row) => rowEnabled(row, settingsOf)}
         onToggle={(row, on) => void switches.toggle(row.syntaxIds, on)}
         footLine={facts.catalog === null ? null : syntaxOnlyLine(syntaxOnly(facts.catalog))}
-        notice={notice(api, picked, facts.failed, facts.catalog !== null)}
-      />
-      <Advanced
-        api={api}
-        host={
-          live !== null && identity !== null && picked !== undefined
-            ? { key: live, id: identity.hostId, label: picked.label }
-            : null
+        notice={languagesNotice}
+        summary={
+          languagesNotice === null && picked !== undefined ? readySummary(rows, picked.label) : null
         }
-        providers={facts.catalog?.integrations.flatMap((i) => i.providers.map((p) => p.id)) ?? []}
-        workspaces={live === null ? [] : workspacesOf(live)}
-        committed={committed}
-        onPolicySaved={(workspaceId) => live !== null && refreshPreviews(live, workspaceId)}
+        picker={<HostPicker hosts={hosts} value={hostKey} onChange={setChosen} />}
+        download={{
+          checked: app.record?.settings.downloadLanguageToolsAutomatically ?? true,
+          disabled: app.record === null,
+          onChange: (on) => void app.update(withKey("downloadLanguageToolsAutomatically", on)),
+        }}
+        action={
+          <SettingsButton aria-expanded={advanced} onClick={() => setAdvanced(!advanced)}>
+            Advanced…
+          </SettingsButton>
+        }
       />
-    </Column>
+      {advanced ? (
+        <Advanced
+          api={api}
+          host={
+            live !== null && identity !== null && picked !== undefined
+              ? { key: live, id: identity.hostId, label: picked.label }
+              : null
+          }
+          providers={facts.catalog?.integrations.flatMap((i) => i.providers.map((p) => p.id)) ?? []}
+          workspaces={live === null ? [] : workspacesOf(live)}
+          committed={committed}
+          onPolicySaved={(workspaceId) => live !== null && refreshPreviews(live, workspaceId)}
+        />
+      ) : null}
+    </SettingsPage>
   );
 };

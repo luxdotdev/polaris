@@ -258,12 +258,8 @@ try {
   // S1: Harnesses.
   await setAppearance(page, SKIES[0].patch);
   await nav("Harnesses");
-  await page.getByTestId("harness-group").first().waitFor({ timeout: 10_000 });
+  await page.getByTestId("harness-row").first().waitFor({ timeout: 10_000 });
   await page.waitForTimeout(3_000);
-  // A Harness ready everywhere folds; open Claude Code's if it did.
-  const folded = page.locator('button[aria-expanded="false"]', { hasText: "Claude Code" });
-
-  if ((await folded.count()) > 0) await folded.click();
 
   for (const sky of SKIES) {
     await setAppearance(page, sky.patch);
