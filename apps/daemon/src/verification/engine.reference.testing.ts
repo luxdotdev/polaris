@@ -85,6 +85,7 @@ export const abstractEvent = (envelope: EventEnvelope): AEvent => {
         ...base,
         what: `withdrawn:${c.requestId}:${c.withdrawnBy}`,
         requestId: c.requestId,
+        reason: c.reason,
       }),
       TurnsAccepted: (c) => ({
         ...base,

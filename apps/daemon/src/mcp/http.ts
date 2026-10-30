@@ -1,7 +1,7 @@
 import { Effect, Option, Schema } from "effect";
 import type { McpBinding } from "./binding.ts";
 import { EventStore } from "../store/EventStore.ts";
-import { type Notifier, notifier, sessionTools } from "./sessions/index.ts";
+import { type Notifier, notifier, type SessionTools, sessionTools } from "./sessions/index.ts";
 import {
   type ConstellationCommands,
   type LeadStarted,
@@ -117,7 +117,11 @@ const responseFor = async (
 };
 
 /** One listener per Host; JSON responses only, with no SSE connection or per-session process. */
-export const mcpHttp = (commands: ConstellationCommands, port = 0) =>
+export const mcpHttp = (
+  commands: ConstellationCommands,
+  port = 0,
+  requestSecret?: SessionTools["requestSecret"]
+) =>
   Effect.gen(function* () {
     const tokens = yield* McpTokens;
     const store = yield* Effect.serviceOption(EventStore);
@@ -129,7 +133,7 @@ export const mcpHttp = (commands: ConstellationCommands, port = 0) =>
 
     // The same commands reach Claude's in-process tools, so they serve the session tools too.
     if (Option.isSome(store) && notifications !== null)
-      attachSessionTools(commands, sessionTools(store.value, notifications));
+      attachSessionTools(commands, sessionTools(store.value, notifications, requestSecret));
 
     const server = yield* Effect.acquireRelease(
       Effect.sync(() =>

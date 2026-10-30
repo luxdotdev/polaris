@@ -5,6 +5,7 @@
  */
 import {
   type Sequence,
+  type ApprovalDecision,
   type ApprovalRequest,
   type DomainEvent,
   type EventEnvelope,
@@ -50,6 +51,16 @@ export interface SessionModel {
   readonly session: SessionData | null;
   readonly turns: ReadonlyArray<TurnView>;
   readonly pendingApprovals: ReadonlyArray<ApprovalRequest>;
+  /** Secret Requests that ended while this feed was open, so their cards say how (ADR 0089). */
+  readonly settledSecrets?: ReadonlyArray<SettledSecret>;
+}
+
+/** How a Secret Request ended: its value saved, declined, or withdrawn (a timeout too). */
+export type SecretOutcome = "provided" | "declined" | "ended";
+
+export interface SettledSecret {
+  readonly request: ApprovalRequest;
+  readonly outcome: SecretOutcome;
 }
 
 export const emptySessionModel: SessionModel = {
@@ -106,6 +117,24 @@ const withoutRequest = (model: SessionModel, requestId: string): SessionModel =>
   ...model,
   pendingApprovals: model.pendingApprovals.filter((r) => r.id !== requestId),
 });
+
+/** An Allow or Answer can't settle a secret (the Daemon refuses both), so it reads as ended. */
+const secretOutcomeOf = (decision: ApprovalDecision): SecretOutcome =>
+  Match.value(decision).pipe(
+    Match.tag("Provided", () => "provided" as const),
+    Match.tag("Deny", () => "declined" as const),
+    Match.orElse(() => "ended" as const)
+  );
+
+/** Drops the request from pending; a Secret Request is kept, settled, so its card stays. */
+const settle = (model: SessionModel, requestId: string, outcome: SecretOutcome): SessionModel => {
+  const request = model.pendingApprovals.find((r) => r.id === requestId);
+  const next = withoutRequest(model, requestId);
+
+  if (request?.kind !== "secret") return next;
+
+  return { ...next, settledSecrets: [...(model.settledSecrets ?? []), { request, outcome }] };
+};
 
 /** Turn or Subagent: what holds items and their live progress. */
 export interface Holder {
@@ -351,13 +380,13 @@ const fold = (event: DomainEvent): Fold =>
           pendingApprovals: [...withoutRequest(m, request.id).pendingApprovals, request],
         }),
       ApprovalResolved:
-        ({ requestId }): Fold =>
+        ({ requestId, decision }): Fold =>
         (m) =>
-          withoutRequest(m, requestId),
+          settle(m, requestId, secretOutcomeOf(decision)),
       ApprovalWithdrawn:
         ({ requestId }): Fold =>
         (m) =>
-          withoutRequest(m, requestId),
+          settle(m, requestId, "ended"),
     })
   );
 
@@ -397,6 +426,8 @@ export const applySessionItem = (model: SessionModel, item: SessionStreamItem): 
         session: snapshot.session,
         turns: snapshot.turns.map(turnViewOf),
         pendingApprovals: snapshot.pendingApprovals,
+        // A resync keeps the cards of secrets settled since this feed opened.
+        settledSecrets: model.settledSecrets ?? [],
       }),
       Event: ({ envelope }) => applyEnvelope(model, envelope),
       Delta: ({ turnId, itemId, field, text, subagentId }) =>

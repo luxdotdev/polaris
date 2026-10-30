@@ -12,7 +12,9 @@ import {
   Dispatch,
   GetRiskSummary,
   MarkRead,
+  ProvideSecret,
   ReadTurns,
+  type RequestId,
   SaveDraft,
   HostStreamItem,
   type Sequence,
@@ -32,7 +34,7 @@ import {
   RiskSummaryRef,
 } from "@polaris/protocol";
 import { type LiveSource, makeFeed, type SequenceMark } from "@polaris/client/resume";
-import { Data, Effect, Option, Predicate, Stream } from "effect";
+import { Data, Effect, Option, Predicate, type Redacted, Stream } from "effect";
 import { type RpcClient, RpcGroup } from "effect/rpc";
 import type { RpcClientError } from "effect/rpc/RpcClientError";
 
@@ -48,6 +50,12 @@ export interface ThreadSource {
   readonly session: (sessionId: SessionId) => Stream.Stream<SessionStreamItem, ThreadFailure>;
   /** A retry passes the same `commandId`, so the Host applies the command once. */
   readonly dispatch: (command: Command, commandId: CommandId) => Effect.Effect<void, ThreadFailure>;
+  /** Saves a Secret Request's value on the Host (ADR 0089); a refusal carries the Host's words. */
+  readonly provideSecret: (
+    sessionId: SessionId,
+    requestId: RequestId,
+    value: Redacted.Redacted<string>
+  ) => Effect.Effect<void, ThreadFailure>;
   /** Every session's read position and draft; ends at once on a Host without continuity. */
   readonly continuity: Stream.Stream<ContinuityItem, ThreadFailure>;
   readonly markRead: (
@@ -130,7 +138,8 @@ export const ThreadRpcs = RpcGroup.make(
   SaveDraft,
   GetRiskSummary,
   WatchRiskSummary,
-  ReadTurns
+  ReadTurns,
+  ProvideSecret
 );
 
 export type ThreadClient = RpcClient.RpcClient<RpcGroup.Rpcs<typeof ThreadRpcs>, RpcClientError>;
@@ -247,6 +256,8 @@ export const daemonThreadSource = (options: DaemonThreadOptions): ThreadSource =
       ).pipe(Stream.mapError(failure)),
     dispatch: (command, commandId) =>
       withClient(live, (client) => Effect.asVoid(client.dispatch({ commandId, command }))),
+    provideSecret: (sessionId, requestId, value) =>
+      withClient(live, (client) => client["secret.provide"]({ sessionId, requestId, value })),
     continuity: has("session.continuity")
       ? Stream.unwrap(
           Effect.map(

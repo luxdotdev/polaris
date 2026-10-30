@@ -31,7 +31,7 @@ import {
   type WorkspaceId,
   WorktreeId,
 } from "@polaris/protocol";
-import { Effect, Match, Result } from "effect";
+import { Effect, Match, Predicate, Result } from "effect";
 import {
   lastTurn,
   patchTurn,
@@ -575,12 +575,14 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
         running: ctx.runningCommands,
       }),
     RespondToApproval: (c) =>
-      onSession(d, c.sessionId, {
-        type: "approval.respond",
-        requestId: c.requestId,
-        decision: c.decision,
-        resolvedBy: ctx.deviceLabel,
-      }),
+      Predicate.isTagged(c.decision, "Provided")
+        ? d.reject("send a secret with secret.provide")
+        : onSession(d, c.sessionId, {
+            type: "approval.respond",
+            requestId: c.requestId,
+            decision: c.decision,
+            resolvedBy: ctx.deviceLabel,
+          }),
     RenameSession: (c) => renameSession(d, c),
     PinSession: (c) => pinSession(d, c),
     SetResumeAtReset: (c) => setResumeAtReset(d, c),

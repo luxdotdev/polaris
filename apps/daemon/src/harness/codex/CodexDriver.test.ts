@@ -1,7 +1,14 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { ApprovalDecision, RequestId, SessionId, TurnId, TurnItem } from "@polaris/protocol";
+import {
+  ApprovalDecision,
+  RequestId,
+  SECRET_REQUEST_MAX_TIMEOUT_MS,
+  SessionId,
+  TurnId,
+  TurnItem,
+} from "@polaris/protocol";
 import { Effect, Schema } from "effect";
 import { HarnessEvent } from "../HarnessDriver.ts";
 import { polarisInstructions } from "../../constellation/skills/preamble.ts";
@@ -20,6 +27,12 @@ const withSession = sessionWith(makeCodexDriver);
 afterEach(() => {
   for (const fn of cleanup.splice(0)) fn();
 });
+
+const PolarisServerConfig = Schema.decodeUnknownSync(
+  Schema.Struct({
+    config: Schema.Record(Schema.String, Schema.Struct({ tool_timeout_sec: Schema.Number })),
+  })
+);
 
 describe("Codex driver against a fake app-server", () => {
   test("replays a recorded full Turn", async () => {
@@ -725,6 +738,11 @@ describe("Constellation attachment", () => {
         developerInstructions: polarisInstructions({ constellation: attachment }),
         config: { "mcp_servers.polaris": { url: attachment.url } },
       });
+      // A Secret Request waits up to an hour; Codex would cut the call at its 60 s default.
+      const { config } = PolarisServerConfig(server.requests(method)[0]?.params);
+      expect(config["mcp_servers.polaris"]?.tool_timeout_sec).toBeGreaterThan(
+        SECRET_REQUEST_MAX_TIMEOUT_MS / 1000
+      );
     }
   });
   test("unattached thread start and resume receive common context without MCP config", async () => {

@@ -99,6 +99,26 @@ export const commandApproval = (
     openedAt,
   });
 
+/** A Secret Request: the agent's label as its title, its reason as the detail. */
+export const secretRequest = (
+  sessionId: string,
+  id: string,
+  label: string,
+  reason: string,
+  openedAt = AT
+) =>
+  new ApprovalRequest({
+    id: RequestId.make(id),
+    sessionId: SessionId.make(sessionId),
+    turnId: TurnId.make(`${sessionId}-t1`),
+    kind: "secret",
+    title: label,
+    detail: reason,
+    options: [],
+    placeholder: "tskey-auth-…",
+    openedAt,
+  });
+
 export const question = (
   sessionId: string,
   id: string,

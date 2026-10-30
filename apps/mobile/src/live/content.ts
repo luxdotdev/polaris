@@ -74,7 +74,8 @@ export const hostSlice = (host: LiveHost): HostSlice => {
             ...named(sessions.get(oldest.sessionId)),
             line: oldest.title,
             requestId: oldest.id,
-            kind: oldest.kind === "question" ? "question" : "approval",
+            // A secret has no Approve: like a question, the takeover opens the app.
+            kind: oldest.kind === "question" || oldest.kind === "secret" ? "question" : "approval",
           },
     needs: requests.length,
     celestials: [...working]

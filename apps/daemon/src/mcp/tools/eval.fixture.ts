@@ -397,6 +397,7 @@ const sessionToolNames = new Set([
   "read_worker",
   "wait_for_command",
   "notify",
+  "request_secret",
   "sessions",
   "search_history",
   "read_history",

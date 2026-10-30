@@ -1,10 +1,12 @@
 /**
  * The composer's floating notice strip (Paper MX-E): the oldest open request with "+n" for the
  * rest, else Working. A permission shows Approve and Deny beside a command that fits one line,
- * and opens to every line (and Always here) otherwise; questions show their options and Send.
+ * and opens to every line (and Always here) otherwise; questions show their options and Send;
+ * a Secret Request its masked field (`SecretCard.tsx`).
  */
 import type { ApprovalDecision, ApprovalRequest, HarnessKind, RequestId } from "@polaris/protocol";
 import { mobileType } from "@polaris/ui/tokens";
+import { Match } from "effect";
 import { useEffect, useRef, useState } from "react";
 import {
   Pressable,
@@ -30,7 +32,9 @@ import { haptics } from "../motion";
 import { type MobileColours, useTheme } from "../theme";
 import { CONTENT_TEXT_SCALE, CONTROL_TEXT_SCALE } from "../theme/textScale.ts";
 import { elapsed, harnessHue, harnessName } from "./labels.ts";
+import type { SecretOutcome } from "./fold.ts";
 import { answered, answersDecision, pick, type Picks, requestCard } from "./requests.ts";
+import { SecretCard, SecretSettled } from "./SecretCard.tsx";
 
 export interface PendingRequestsProps {
   readonly requests: ReadonlyArray<ApprovalRequest>;
@@ -39,6 +43,10 @@ export interface PendingRequestsProps {
   /** False while the Host isn't connected: shown, not answerable. */
   readonly enabled: boolean;
   readonly onRespond: (requestId: RequestId, decision: ApprovalDecision) => void;
+  /** Sends a Secret Request's value by `secret.provide`; never a RespondToApproval. */
+  readonly onProvideSecret: (requestId: RequestId, typed: string) => void;
+  /** How the latest Turn's Secret Request ended, if one did. */
+  readonly settled?: SecretOutcome | null;
 }
 
 export interface NoticeStripProps extends PendingRequestsProps {
@@ -361,13 +369,27 @@ const Notice = ({
     onRespond: (decision) => props.onRespond(request.id, decision),
   };
 
+  const body = Match.value(notice).pipe(
+    Match.discriminatorsExhaustive("kind")({
+      question: () => <Questions {...card} />,
+      secret: (secret) => (
+        <SecretCard
+          request={request}
+          headline={secret.headline}
+          live={card.live}
+          onProvide={(typed) => props.onProvideSecret(request.id, typed)}
+          onDecline={() => card.onRespond(decisionOf({ kind: "deny" }))}
+        />
+      ),
+      approval: (approval) => (
+        <Permission notice={approval} card={card} open={open} onToggle={() => setOpen(!open)} />
+      ),
+    })
+  );
+
   return (
     <View style={styles.column}>
-      {notice.kind === "question" ? (
-        <Questions {...card} />
-      ) : (
-        <Permission notice={notice} card={card} open={open} onToggle={() => setOpen(!open)} />
-      )}
+      {body}
       {props.errors.has(request.id) ? (
         <Text
           style={[styles.failed, { color: colours.failedText }]}
@@ -397,19 +419,25 @@ export const PendingRequests = (props: NoticeStripProps) => {
     requests: props.requests,
     working: props.workingSince !== null,
     harness,
+    settled: props.settled ?? null,
   });
 
   if (strip === null) return null;
   const opened = all && strip.more > 0;
   const shown = opened ? noticesOf(props.requests, harness) : [strip.notice];
 
-  const notices = shown.map((notice) => (
-    <Notice
-      key={notice.kind === "working" ? "working" : notice.request.id}
-      notice={notice}
-      props={props}
-    />
-  ));
+  const notices = [
+    strip.settled === null ? null : <SecretSettled key="settled" settled={strip.settled} />,
+    ...shown.map((notice) =>
+      notice === null ? null : (
+        <Notice
+          key={notice.kind === "working" ? "working" : notice.request.id}
+          notice={notice}
+          props={props}
+        />
+      )
+    ),
+  ];
 
   return (
     <View style={[styles.strip, panel(colours)]}>

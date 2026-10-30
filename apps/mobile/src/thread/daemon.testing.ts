@@ -27,6 +27,8 @@ import {
   RiskSummaryKey,
   RiskSummaryLayers,
   RiskSummaryRef,
+  SecretRejected,
+  type SecretRejectedReason,
   Sequence,
   SessionId,
   SessionStreamItem,
@@ -40,7 +42,7 @@ import {
   Workspace,
   WorkspaceId,
 } from "@polaris/protocol";
-import { Deferred, Effect, PubSub, Queue, Stream } from "effect";
+import { Deferred, Effect, PubSub, Queue, Redacted, Stream } from "effect";
 import { RpcTest } from "effect/rpc";
 import { RpcClientDefect, RpcClientError } from "effect/rpc/RpcClientError";
 import { type ThreadClient, ThreadRpcs } from "./source.ts";
@@ -202,6 +204,10 @@ export interface FakeHost {
   readonly holdSaves: () => void;
   /** The next saveDraft fails, as when the connection drops mid-write. */
   readonly failNextSave: () => void;
+  /** Each `secret.provide` the Host accepted: the request and the value it would write. */
+  readonly secrets: ReadonlyArray<{ readonly requestId: RequestId; readonly value: string }>;
+  /** The next `secret.provide` is refused with `SecretRejected`. */
+  readonly rejectNextSecret: (reason: SecretRejectedReason, message: string) => void;
   readonly release: () => Effect.Effect<void>;
 }
 
@@ -228,6 +234,8 @@ export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOption
   const reads: Array<number> = [];
   const summariesAsked: Array<string> = [];
   const pagesAsked: Array<number> = [];
+  const secrets: Array<{ readonly requestId: RequestId; readonly value: string }> = [];
+  let secretRefusal: SecretRejected | null = null;
   const drafts = new Map<SessionId, ComposerDraft>();
   let readPosition: ReadPosition | null = null;
   let revision = 0;
@@ -335,6 +343,16 @@ export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOption
           hasMore: page.length < before.length,
         });
       }),
+    "secret.provide": ({ requestId, value }) => {
+      const refused = secretRefusal;
+      secretRefusal = null;
+
+      if (refused !== null) return Effect.fail(refused);
+
+      return Effect.sync(() => {
+        secrets.push({ requestId, value: Redacted.value(value) });
+      });
+    },
     "review.watchRiskSummary": ({ summaryId }) =>
       Stream.fromIterable(
         [...(options.summaries?.values() ?? [])].filter((summary) => summary.id === summaryId)
@@ -399,6 +417,10 @@ export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOption
     pagesAsked,
     failNextSave: () => {
       failNext = true;
+    },
+    secrets,
+    rejectNextSecret: (reason, message) => {
+      secretRefusal = new SecretRejected({ reason, message });
     },
     holdSaves: () => {
       gate = Deferred.makeUnsafe<void>();

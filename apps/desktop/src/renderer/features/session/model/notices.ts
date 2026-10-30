@@ -74,6 +74,7 @@ const WANTS: Readonly<Record<ApprovalRequest["kind"], string>> = {
   "file-change": "wants to change files",
   tool: "wants to use a tool",
   question: "has a question",
+  secret: "is asking for a secret",
 };
 
 /**

@@ -8,6 +8,7 @@ import { PredictionOutcomeInputs } from "./predictionOutcomes.ts";
  */
 import {
   AcceptBranch,
+  ApprovalKind,
   addedNullable,
   AttachmentSettings,
   AutoArchiveSettings,
@@ -51,6 +52,7 @@ import { ResourceRequestInputs } from "./resourcesContract.ts";
 import { RemoteAccessRequestInputs } from "./remoteAccessContract.ts";
 import { LinkedDevicesRequestInputs } from "./linkedDevicesContract.ts";
 import { VoiceRequestInputs } from "./voiceContract.ts";
+import { SecretRequestInputs } from "./secretContract.ts";
 import { GitHubRequestInputs, GitHubSubscriptionInputs } from "./githubContract.ts";
 import { GitRequestInputs, GitSubscriptionInputs } from "./gitContract.ts";
 import { BRANCH_PREFIX } from "./sessionPrefs.ts";
@@ -509,7 +511,7 @@ export const RequestInputs = {
         requests: Schema.Array(
           Schema.Struct({
             requestId: Schema.String,
-            kind: Schema.Literals(["command", "file-change", "tool", "question"]),
+            kind: ApprovalKind,
             title: Schema.String,
             detail: Schema.NullOr(Schema.String),
             options: Schema.Array(Schema.String),
@@ -569,6 +571,7 @@ export const RequestInputs = {
   ...RemoteAccessRequestInputs,
   ...LinkedDevicesRequestInputs,
   ...VoiceRequestInputs,
+  ...SecretRequestInputs,
 } as const;
 
 export type RequestMethod = keyof typeof RequestInputs;

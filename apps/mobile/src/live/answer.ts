@@ -37,8 +37,8 @@ export const confirmedBy = (feed: HostFeedState, answer: LiveAnswer): boolean =>
     .get(answer.sessionId)
     ?.pendingApprovals.find((pending) => pending.id === answer.requestId);
 
-  // Exact: a prefix match would let a forged "…" stand for any request.
-  return request !== undefined && request.title === answer.line;
+  // Exact: a prefix match would let a forged "…" stand for any request. A secret is never decided.
+  return request !== undefined && request.kind !== "secret" && request.title === answer.line;
 };
 
 /** The id the module's `answered` takes to let the intent return. */

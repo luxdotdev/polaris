@@ -304,8 +304,10 @@ export const approvalDecision = (
     Allow: ({ remember }): Gen.FileChangeRequestApprovalResponse => ({
       decision: remember ? "acceptForSession" : "accept",
     }),
-    Deny: () => ({ decision: "decline" }),
-    Answer: () => ({ decision: "decline" }),
+    Deny: (): Gen.FileChangeRequestApprovalResponse => ({ decision: "decline" }),
+    Answer: (): Gen.FileChangeRequestApprovalResponse => ({ decision: "decline" }),
+    // Only Secret Requests take Provided, and no Harness asks one: decline.
+    Provided: (): Gen.FileChangeRequestApprovalResponse => ({ decision: "decline" }),
   });
 
 export const permissionsDecision = (
@@ -356,6 +358,8 @@ export const elicitationDecision = (
     }),
     Answer: ({ text }) => ({ action: "accept", content: { answer: text }, _meta: null }),
     Deny: () => ({ action: "decline", content: null, _meta: null }),
+    // Only Secret Requests take Provided, and no Harness asks one: decline.
+    Provided: () => ({ action: "decline", content: null, _meta: null }),
   });
 
 /** A provider error body, as Codex passes it through in an error's message. */

@@ -8,6 +8,7 @@ import { CallCommandId, idempotency, type Idempotency } from "./idempotency.ts";
 import { notifyTool, readWorkerTool, waitForCommandTool } from "./session.ts";
 import { historyTools } from "./history.ts";
 import { unavailableSessions, type SessionTools } from "../sessions/index.ts";
+import { requestSecretTool } from "./secret.ts";
 import {
   toolFactory,
   rejection,
@@ -126,6 +127,7 @@ export const constellationTools = (
     ...catalog,
     wait,
     notifyTool(binding.sessionId, sessions, idsFor(commands)),
+    requestSecretTool(binding.sessionId, sessions),
     ...historyTools(binding.sessionId, sessions),
   ];
 };

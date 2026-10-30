@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   ApprovalDecision,
+  ApprovalRequest,
   Compaction,
   ContextUsage,
   type DomainEvent,
@@ -9,7 +10,7 @@ import {
   TurnDetail,
   TurnItem,
 } from "@polaris/protocol";
-import { applySessionItems, emptySessionModel } from "./sessionModel.ts";
+import { applySessionItems, emptySessionModel, type SecretOutcome } from "./sessionModel.ts";
 import {
   approval,
   envelope,
@@ -165,5 +166,70 @@ describe("session model", () => {
     ]);
 
     expect(answered.pendingApprovals).toEqual([]);
+  });
+
+  const secret = new ApprovalRequest({
+    id: approval.id,
+    sessionId,
+    turnId,
+    kind: "secret",
+    title: "Tailscale auth key",
+    detail: null,
+    options: [],
+    openedAt: approval.openedAt,
+  });
+
+  const resolved = (decision: ApprovalDecision) =>
+    E.ApprovalResolved.make({
+      sessionId,
+      requestId: secret.id,
+      decision,
+      resolvedBy: "Mac Studio",
+    });
+
+  const D = ApprovalDecision.cases;
+
+  test.each<readonly [string, DomainEvent, SecretOutcome]>([
+    ["saved", resolved(D.Provided.make({})), "provided"],
+    ["declined", resolved(D.Deny.make({ reason: null })), "declined"],
+    [
+      "timed out",
+      E.ApprovalWithdrawn.make({
+        sessionId,
+        requestId: secret.id,
+        withdrawnBy: "daemon",
+        reason: "timed out",
+      }),
+      "ended",
+    ],
+  ])("a %s Secret Request leaves pending but keeps its card, settled", (_name, ended, outcome) => {
+    const asked = applySessionItems(started, [
+      event(4, E.ApprovalRequested.make({ request: secret })),
+    ]);
+
+    const model = applySessionItems(asked, [event(5, ended)]);
+
+    expect(model.pendingApprovals).toEqual([]);
+    expect(model.settledSecrets).toEqual([{ request: secret, outcome }]);
+  });
+
+  test("an ordinary approval settles into nothing", () => {
+    const asked = applySessionItems(started, [
+      event(4, E.ApprovalRequested.make({ request: approval })),
+    ]);
+
+    const model = applySessionItems(asked, [
+      event(
+        5,
+        E.ApprovalResolved.make({
+          sessionId,
+          requestId: approval.id,
+          decision: D.Deny.make({ reason: null }),
+          resolvedBy: "Mac Studio",
+        })
+      ),
+    ]);
+
+    expect(model.settledSecrets ?? []).toEqual([]);
   });
 });

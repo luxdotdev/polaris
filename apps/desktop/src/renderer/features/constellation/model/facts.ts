@@ -36,6 +36,8 @@ export interface WorkerFacts {
   readonly quietSince: string | null;
   /** Since when an approval has waited on the user, if one does. */
   readonly approvalSince: string | null;
+  /** The approval waiting is a Secret Request, answered only in the worker's card. */
+  readonly approvalSecret?: boolean;
   /** The worker ended without a Claim after its one nudge. */
   readonly stoppedWithoutClaiming: boolean;
   /** Whether the worker's session has a Turn in flight; null when no Daemon has said. */

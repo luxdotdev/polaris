@@ -298,6 +298,7 @@ const POLARIS_VERBS = new Map<string, readonly [running: string, done: string]>(
   ["ask", ["Asking the lead", "Asked the lead"]],
   ["claim", ["Claiming", "Claimed"]],
   ["propose", ["Proposing a task", "Proposed a task"]],
+  ["request_secret", ["Asking you for a secret", "Asked you for a secret"]],
 ]);
 
 const sentenceCase = (name: string) => {

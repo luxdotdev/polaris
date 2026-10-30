@@ -94,6 +94,7 @@ export const DEVICE_RPCS = {
   "voice.transcribe": "device",
   "voice.settings": "local",
   "voice.setKey": "local",
+  "secret.provide": "device",
   "sessions.autoArchive": "local",
   "sessions.setAutoArchive": "local",
   "sessions.idleCompaction": "local",

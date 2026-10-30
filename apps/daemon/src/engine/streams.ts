@@ -73,14 +73,21 @@ const decodes =
     return needed === null || capabilities.includes(needed);
   };
 
+/** Pending requests a Client can decode: a Secret Request only with `approval.secret`. */
+const pendingFor = (record: SessionRecord, capabilities: ReadonlyArray<Capability>) =>
+  [...record.pending.values()].filter(
+    (request) => request.kind !== "secret" || capabilities.includes("approval.secret")
+  );
+
 const summaryOf = (
   record: SessionRecord,
   subagents: boolean,
-  workers: ReturnType<typeof workerSessions>
+  workers: ReturnType<typeof workerSessions>,
+  capabilities: ReadonlyArray<Capability>
 ) =>
   new SessionSummary({
     session: markedWorker(record.session, workers),
-    pendingApprovals: [...record.pending.values()],
+    pendingApprovals: pendingFor(record, capabilities),
     lastTurnPreview: lastTurn(record)?.prompt.slice(0, 140) ?? null,
     subagents: subagents ? [...record.subagents.values()] : [],
   });
@@ -159,7 +166,7 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
               workspaces: [...model.workspaces.values()],
               worktrees: [...model.worktrees.values()],
               sessions: [...model.sessions.values()].map((r) =>
-                summaryOf(r, withSubagents, workers)
+                summaryOf(r, withSubagents, workers, capabilities)
               ),
               constellations: capabilities.includes("constellation")
                 ? [...model.constellations.values()].map((record) =>
@@ -201,7 +208,8 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
     record: SessionRecord,
     cut: Sequence,
     turnLimit: number | null,
-    withSubagents: boolean
+    withSubagents: boolean,
+    capabilities: ReadonlyArray<Capability>
   ) =>
     Effect.gen(function* () {
       const total = record.session.turnCount;
@@ -221,7 +229,7 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
         sequence: cut,
         session: record.session,
         turns: newestWithin(yield* turnDetails([...older, ...recent], cut, withSubagents)),
-        pendingApprovals: [...record.pending.values()],
+        pendingApprovals: pendingFor(record, capabilities),
       });
     }).pipe(Effect.orDie);
 
@@ -315,7 +323,9 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
         const head: Array<SessionStreamItem> = [];
 
         if (afterSequence === null || afterSequence > cut) {
-          head.push(yield* sessionSnapshot(record, cut, options.turnLimit, withSubagents));
+          head.push(
+            yield* sessionSnapshot(record, cut, options.turnLimit, withSubagents, capabilities)
+          );
         } else {
           const events = yield* store
             .readEvents({ after: afterSequence, upTo: cut, sessionId })
