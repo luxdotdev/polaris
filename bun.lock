@@ -349,6 +349,10 @@
       "dependencies": {
         "effect": "4.0.0-rc.118",
       },
+      "devDependencies": {
+        "happy-dom": "20.14.5",
+        "playwright-core": "1.63.0",
+      },
     },
     "tooling": {
       "name": "@polaris/tooling",
