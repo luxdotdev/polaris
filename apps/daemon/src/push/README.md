@@ -38,6 +38,10 @@ ticket can't stand in for it. The Daemon checks it and the key, keeps the regist
 forgets it and sends `live {slice: null}` so the relay drops this Host's slice. The relay's
 `live-gone` (APNs no longer knows the token, or the ticket fails) drops the registration.
 
+The widget extension opens slices with the push key from the shared Keychain, or on a device
+from polaris-push's App Group copy (ADR 0090); `live.widget.test.ts` opens `live.ts`'s slices with
+the extension's own Swift (needs swiftc).
+
 Presence doesn't hold slices: the activity is the phone's, and the relay sends it anyway.
 
 ## Presence (ENG-495)

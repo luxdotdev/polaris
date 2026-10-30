@@ -2,6 +2,7 @@
 // apps/daemon/src/push/live.ts seals) and folds them into what the activity shows.
 import CryptoKit
 import Foundation
+import os
 
 struct LiveLine: Decodable {
   let at: Double
@@ -48,7 +49,10 @@ struct HostSlice: Decodable {
   let celestials: [String]?
 }
 
-/// Matches modules/polaris-push: the same group, service and account.
+/// Why the activity couldn't open a slice, in Release with no content (docs/adr/0090).
+let liveLog = Logger(subsystem: "dev.lux.polaris.widgets", category: "live")
+
+/// Matches modules/polaris-push: the same group, service and account, then its App Group copy.
 enum LiveKeychain {
   static func load() -> P256.KeyAgreement.PrivateKey? {
     var item: CFTypeRef?
@@ -59,24 +63,84 @@ enum LiveKeychain {
       kSecAttrAccessGroup as String: "HWD6374DUX.dev.lux.polaris.shared",
       kSecReturnData as String: true,
     ]
-    guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
-      let data = item as? Data
-    else { return nil }
-    return try? P256.KeyAgreement.PrivateKey(rawRepresentation: data)
+    let status = SecItemCopyMatching(query as CFDictionary, &item)
+    if status == errSecSuccess, let data = item as? Data,
+      let key = try? P256.KeyAgreement.PrivateKey(rawRepresentation: data)
+    {
+      return key
+    }
+    liveLog.error("push key: Keychain read failed, status \(status, privacy: .public)")
+    return fileKey()
+  }
+
+  /// The copy modules/polaris-push keeps in the App Group container.
+  static func fileKey() -> P256.KeyAgreement.PrivateKey? {
+    guard
+      let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.dev.lux.polaris")?
+        .appendingPathComponent("push-key-1")
+    else {
+      liveLog.error("push key: no App Group container")
+      return nil
+    }
+    do {
+      return try P256.KeyAgreement.PrivateKey(rawRepresentation: Data(contentsOf: url))
+    } catch {
+      liveLog.error("push key: App Group copy unreadable: \(String(describing: error), privacy: .public)")
+      return nil
+    }
   }
 }
 
-func openSlice(_ sealed: String, key: P256.KeyAgreement.PrivateKey) -> HostSlice? {
+/// Where opening a slice stopped.
+enum LiveOpenFailure: Error, Equatable {
+  case malformed
+  case open
+  /// The failing field's path and kind, never its value.
+  case decode(String)
+  case version(Int)
+}
+
+private func describe(_ error: DecodingError) -> String {
+  let path = { (context: DecodingError.Context) in
+    context.codingPath.map(\.stringValue).joined(separator: ".")
+  }
+  switch error {
+  case .keyNotFound(let key, let context): return "missing \(path(context)).\(key.stringValue)"
+  case .typeMismatch(_, let context): return "type mismatch at \(path(context))"
+  case .valueNotFound(_, let context): return "null at \(path(context))"
+  case .dataCorrupted(let context): return "not JSON at \(path(context))"
+  @unknown default: return "unknown"
+  }
+}
+
+func tryOpenSlice(_ sealed: String, key: P256.KeyAgreement.PrivateKey) -> Result<HostSlice, LiveOpenFailure> {
   var base64 = sealed.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
   base64 += String(repeating: "=", count: (4 - base64.count % 4) % 4)
-  guard let bytes = Data(base64Encoded: base64), bytes.count > 65,
+  guard let bytes = Data(base64Encoded: base64), bytes.count > 65 else { return .failure(.malformed) }
+  guard
     var recipient = try? HPKE.Recipient(
       privateKey: key, ciphersuite: .P256_SHA256_AES_GCM_256,
       info: Data("polaris-live/1".utf8), encapsulatedKey: bytes.prefix(65)),
-    let plain = try? recipient.open(bytes.dropFirst(65), authenticating: Data()),
-    let slice = try? JSONDecoder().decode(HostSlice.self, from: plain), slice.v == 1
-  else { return nil }
-  return slice
+    let plain = try? recipient.open(bytes.dropFirst(65), authenticating: Data())
+  else { return .failure(.open) }
+  do {
+    let slice = try JSONDecoder().decode(HostSlice.self, from: plain)
+    return slice.v == 1 ? .success(slice) : .failure(.version(slice.v))
+  } catch let error as DecodingError {
+    return .failure(.decode(describe(error)))
+  } catch {
+    return .failure(.decode("unknown"))
+  }
+}
+
+/// The slice, or nil with the reason logged.
+func openSlice(_ sealed: String, key: P256.KeyAgreement.PrivateKey) -> HostSlice? {
+  switch tryOpenSlice(sealed, key: key) {
+  case .success(let slice): return slice
+  case .failure(let failure):
+    liveLog.error("slice not opened: \(String(describing: failure), privacy: .public)")
+    return nil
+  }
 }
 
 /// What the activity draws at most of the working sessions' celestials.
