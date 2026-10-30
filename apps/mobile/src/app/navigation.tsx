@@ -3,6 +3,7 @@
  * Screens push routes; the shell in App.tsx draws the top of the stack.
  */
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
+import { Platform, Settings } from "react-native";
 
 import {
   type HomeTab,
@@ -35,8 +36,19 @@ export interface Navigation {
 
 const NavigationContext = createContext<Navigation | null>(null);
 
+/** A development build's `-polarisDevRoute hosts|review|settings`: where it opens, for screenshots. */
+const launchedNavigation = (): NavigationState => {
+  const value: unknown = __DEV__ && Platform.OS === "ios" ? Settings.get("polarisDevRoute") : null;
+
+  if (value === "hosts") return pushed(initialNavigation, { screen: "hosts" });
+
+  if (value === "review" || value === "settings") return selected(initialNavigation, value);
+
+  return initialNavigation;
+};
+
 export const NavigationProvider = ({ children }: { readonly children: ReactNode }) => {
-  const [state, setState] = useState<NavigationState>(initialNavigation);
+  const [state, setState] = useState<NavigationState>(launchedNavigation);
 
   const open = useCallback((route: Route) => setState((current) => opened(current, route)), []);
 

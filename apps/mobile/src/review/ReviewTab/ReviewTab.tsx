@@ -178,7 +178,12 @@ export const ReviewTab = ({ tabBarHeight, onOpen, onLink, onHosts }: ReviewTabPr
             ))}
           </ScrollView>
         ) : (
-          <Empty empty={ready.empty} hosts={hosts} onLink={onLink} onHosts={onHosts} />
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={{ paddingBottom: tabBarHeight + 16 }}
+          >
+            <Empty empty={ready.empty} hosts={hosts} onLink={onLink} onHosts={onHosts} />
+          </ScrollView>
         )}
       </View>
     </HorizonScreen>

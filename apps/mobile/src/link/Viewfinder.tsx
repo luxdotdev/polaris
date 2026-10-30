@@ -6,6 +6,7 @@ import { mobileType } from "@polaris/ui/tokens";
 import { type BarcodeScanningResult, CameraView, useCameraPermissions } from "expo-camera";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Defs, Path, RadialGradient, Rect, Stop } from "react-native-svg";
+import { CHROME_TEXT_SCALE } from "../theme/textScale.ts";
 import { themedStyles, useTheme } from "../theme/index.ts";
 
 const BRACKETS =
@@ -32,7 +33,7 @@ const Camera = ({ onCode }: { readonly onCode: (text: string) => void }) => {
       onPress={() => void request()}
       disabled={permission?.canAskAgain === false}
     >
-      <Text style={styles.cameraOffText}>
+      <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.cameraOffText}>
         {permission?.canAskAgain === false
           ? "Camera access is off. Turn it on in Settings, or paste the link."
           : "Allow the camera to scan the code"}

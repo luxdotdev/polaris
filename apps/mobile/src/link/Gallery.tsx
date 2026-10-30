@@ -1,7 +1,7 @@
 /**
  * A development screen of Link this iPhone in each step (MX-AH to MX-AM): launch a development
  * build with `-polarisDevLink scan|paste|linking|linked|failed` (`-polarisDevTheme moonlit`,
- * `-polarisDevMotion reduced`).
+ * `-polarisDevMotion reduced`, `-polarisDevData worst|one` for break-ui's data).
  */
 import { Schema } from "effect";
 import { useEffect } from "react";
@@ -24,14 +24,49 @@ const LAUNCHED = __DEV__ ? launchArgument("polarisDevLink", Schema.is(DevLink)) 
 
 export const linkGalleryOn = (): boolean => LAUNCHED !== null;
 
-const FOUND = { hostName: "mac-studio", hosts: ["mac-studio", "lucas-rpi"] };
+const DevData = Schema.Literals(["demo", "worst", "one"]);
+
+type DevData = typeof DevData.Type;
+
+const LONG_HOST = "aleksandra-wisniewska-kowalczyk-macbook-pro-16-northwind";
+
+const DATA: Readonly<
+  Record<
+    DevData,
+    { readonly hostName: string; readonly hosts: ReadonlyArray<string>; readonly failure: string }
+  >
+> = {
+  demo: {
+    hostName: "mac-studio",
+    hosts: ["mac-studio", "lucas-rpi"],
+    failure: "This link expired. Make a new one in the desktop app.",
+  },
+  worst: {
+    hostName: LONG_HOST,
+    hosts: [
+      LONG_HOST,
+      "lucas-rpi",
+      "build-farm-ubuntu-24-04-arm64-07",
+      "Jo",
+      "mac-studio",
+      "ci-runner-ephemeral-3f9c2a1b",
+    ],
+    failure: `${LONG_HOST} didn't answer. The link may be used or expired, or the host is offline.`,
+  },
+  one: { hostName: "pi", hosts: ["pi"], failure: "That isn't a Polaris link." },
+};
+
+const DATASET =
+  DATA[(__DEV__ ? launchArgument("polarisDevData", Schema.is(DevData)) : null) ?? "demo"];
+
+const FOUND = { hostName: DATASET.hostName, hosts: DATASET.hosts };
 
 const STEPS: Readonly<Record<DevLink, LinkStep>> = {
   scan: { kind: "scan" },
   paste: { kind: "paste" },
   linking: { kind: "linking", ...FOUND },
   linked: { kind: "linked", ...FOUND },
-  failed: { kind: "failed", message: "This link expired. Make a new one in the Desktop App." },
+  failed: { kind: "failed", message: DATASET.failure },
 };
 
 const noop = () => undefined;

@@ -2,6 +2,7 @@
 import { mobileType } from "@polaris/ui/tokens";
 import { Pressable, Text, View } from "react-native";
 import { themedStyles } from "../theme/index.ts";
+import { CHROME_TEXT_SCALE } from "../theme/textScale.ts";
 
 export const BackBar = ({
   label,
@@ -23,7 +24,9 @@ export const BackBar = ({
         <View style={[styles.arm, { transform: [{ rotate: "-45deg" }], top: 13.4 }]} />
         <View style={[styles.arm, { transform: [{ rotate: "45deg" }], top: 18.6 }]} />
       </View>
-      <Text style={styles.label}>{label}</Text>
+      <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.label}>
+        {label}
+      </Text>
     </Pressable>
   );
 };

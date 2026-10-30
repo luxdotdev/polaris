@@ -19,6 +19,7 @@ export const DevHomeData = Schema.Literals([
   "paper",
   "none",
   "offline",
+  "unreachable",
 ]);
 
 export type DevHomeData = typeof DevHomeData.Type;

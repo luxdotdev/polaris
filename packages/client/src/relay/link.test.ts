@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { encodeLinkEnvelope, HostId, type SharedHost } from "@polaris/protocol";
 import { relayAddress } from "@polaris/protocol/relay";
 import { Effect } from "effect";
-import { checkLinkedHosts, type LinkFailed, readLink } from "./link.ts";
+import { deviceKeys, generateDeviceSecrets } from "./device.ts";
+import { checkLinkedHosts, type LinkFailed, linkDevice, readLink } from "./link.ts";
 
 const bytes = (length: number) => crypto.getRandomValues(new Uint8Array(length));
 
@@ -56,5 +57,29 @@ describe("checkLinkedHosts", () => {
     expect(
       failure(checkLinkedHosts([known], [{ ...known, relayUrl: "wss://evil.example/v1" }]))
     ).toBe("host-changed");
+  });
+});
+
+describe("linkDevice", () => {
+  test("an expired link says so in lowercase product words, before dialling the relay", async () => {
+    const expired = {
+      link: {
+        ...(await host("MacBook Pro", "wss://relay.polaris.lux.dev/v1")),
+        secret: key(),
+        expiresAt: new Date(Date.now() - 1_000).toISOString(),
+      },
+      hosts: [],
+    };
+
+    const keys = await deviceKeys(generateDeviceSecrets());
+
+    const message = await Effect.runPromise(
+      Effect.match(linkDevice(expired, keys, "iPhone"), {
+        onSuccess: () => null,
+        onFailure: (e) => e.message,
+      })
+    );
+
+    expect(message).toBe("This link expired. Make a new one in the desktop app.");
   });
 });

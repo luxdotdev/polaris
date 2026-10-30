@@ -5,13 +5,16 @@
  */
 import type { LinkedHost } from "@polaris/client/relay";
 import { mobileFont, mobileType } from "@polaris/ui/tokens";
-import { useMemo, useRef, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Pressable, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import { Dither } from "../dither/index.ts";
 import { InstrumentSheet, SheetHeader, SheetKicker } from "../sheet/index.tsx";
+import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE, CONTROL_TEXT_SCALE } from "../theme/textScale.ts";
 import { themedStyles, useTheme } from "../theme/index.ts";
 import { hostsLine, type LinkOutcome, type LinkStep, type Linking, linking } from "./linking.ts";
+import { fittedSheetHeight } from "./model.ts";
 import { Viewfinder } from "./Viewfinder.tsx";
 
 /** The pairing sheet's copy (MX-AH, MX-AJ): the Mac is the user's own. */
@@ -52,21 +55,6 @@ export interface ScanSheetProps extends ScanSheetCopy {
   readonly onLinked?: ((hosts: ReadonlyArray<LinkedHost>) => void) | undefined;
 }
 
-/** Each step's height (MX-AH, MX-AK, MX-AL, MX-AM); a titled sheet adds its header. */
-const HEIGHTS: Readonly<Record<LinkStep["kind"], number>> = {
-  scan: 430,
-  paste: 430,
-  linking: 152,
-  linked: 152,
-  failed: 268,
-};
-
-const HEADER_HEIGHT = 52;
-
-/** The sheet's height at `step`: the horizon behind the pairing sheet rests on it. */
-export const scanSheetHeight = (step: LinkStep, titled: boolean): number =>
-  HEIGHTS[step.kind] + (titled ? HEADER_HEIGHT : 0);
-
 const noop = () => undefined;
 
 /** MX-AJ's Scan | Paste control, shown while pasting. */
@@ -87,7 +75,12 @@ const Segments = ({
       onPress={() => onSelect(kind)}
       style={[styles.segment, selected && styles.segmentOn]}
     >
-      <Text style={[styles.segmentText, selected && styles.segmentTextOn]}>{label}</Text>
+      <Text
+        maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
+        style={[styles.segmentText, selected && styles.segmentTextOn]}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 
@@ -115,6 +108,7 @@ const PasteField = ({
     <View style={styles.pasteCard}>
       <TextInput
         style={styles.input}
+        maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
         value={pasted}
         onChangeText={setPasted}
         placeholder="polaris-link:…"
@@ -122,7 +116,7 @@ const PasteField = ({
         autoCapitalize="none"
         autoCorrect={false}
         multiline
-        accessibilityLabel="Link from the Desktop App"
+        accessibilityLabel="Link from the desktop app"
       />
       <Pressable
         style={({ pressed }) => [styles.link, pressed && styles.pressed]}
@@ -130,7 +124,9 @@ const PasteField = ({
         onPress={() => onLink(pasted)}
         disabled={pasted.trim() === ""}
       >
-        <Text style={styles.linkText}>Link</Text>
+        <Text maxFontSizeMultiplier={CONTROL_TEXT_SCALE} style={styles.linkText}>
+          Link
+        </Text>
       </Pressable>
     </View>
   );
@@ -172,10 +168,14 @@ const StatusRow = ({
         {linked ? <Check /> : <Dither color={colours.starlight} size={16} moving />}
       </View>
       <View style={styles.statusText}>
-        <Text style={styles.statusTitle} numberOfLines={1}>
+        <Text
+          maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
+          style={styles.statusTitle}
+          numberOfLines={1}
+        >
           {hostsLine(step.hosts.length, step.hostName)}
         </Text>
-        <Text style={styles.statusDetail}>
+        <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.statusDetail}>
           {linked ? "Linked this iPhone" : "Linking through the Polaris Relay…"}
         </Text>
       </View>
@@ -191,9 +191,13 @@ const FailureWell = ({ message }: { readonly message: string }) => {
     <View style={styles.failure} accessible accessibilityLiveRegion="assertive">
       <View style={styles.failureHead}>
         <View style={styles.failureDot} />
-        <Text style={styles.failureKicker}>COULDN'T LINK</Text>
+        <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.failureKicker}>
+          COULDN'T LINK
+        </Text>
       </View>
-      <Text style={styles.failureMessage}>{message}</Text>
+      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.failureMessage}>
+        {message}
+      </Text>
     </View>
   );
 };
@@ -213,7 +217,9 @@ const PrimaryButton = ({
       onPress={onPress}
       style={({ pressed }) => [styles.primary, pressed && styles.pressed]}
     >
-      <Text style={styles.primaryText}>{label}</Text>
+      <Text maxFontSizeMultiplier={CONTROL_TEXT_SCALE} style={styles.primaryText}>
+        {label}
+      </Text>
     </Pressable>
   );
 };
@@ -233,7 +239,9 @@ const WideButton = ({
       onPress={onPress}
       style={({ pressed }) => [styles.wide, pressed && styles.pressed]}
     >
-      <Text style={styles.wideText}>{label}</Text>
+      <Text maxFontSizeMultiplier={CONTROL_TEXT_SCALE} style={styles.wideText}>
+        {label}
+      </Text>
     </Pressable>
   );
 };
@@ -254,7 +262,9 @@ const TextButton = ({
       hitSlop={10}
       style={({ pressed }) => [styles.textButton, pressed && styles.pressedText]}
     >
-      <Text style={styles.textButtonText}>{label}</Text>
+      <Text maxFontSizeMultiplier={CONTROL_TEXT_SCALE} style={styles.textButtonText}>
+        {label}
+      </Text>
     </Pressable>
   );
 };
@@ -301,7 +311,9 @@ const ScanStep = ({
     <>
       {titled ? null : <SheetKicker parts={[copy.kicker ?? "Scan from your Mac"]} />}
       <Viewfinder scanning={step.kind === "scan"} onCode={submit} />
-      <Text style={styles.instruction}>{copy.instruction}</Text>
+      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.instruction}>
+        {copy.instruction}
+      </Text>
       <WideButton label="Paste a link instead" onPress={() => show("paste")} />
     </>
   );
@@ -323,7 +335,9 @@ const PasteStep = ({
   return (
     <>
       <Segments pasting onSelect={show} />
-      <Text style={styles.instruction}>{copy.pasteInstruction}</Text>
+      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.instruction}>
+        {copy.pasteInstruction}
+      </Text>
       <PasteField pasted={pasted} setPasted={setPasted} onLink={submit} />
     </>
   );
@@ -334,18 +348,28 @@ export const ScanSheetView = ({
   open,
   onClose,
   linking: state,
+  onHeight,
   ...copy
 }: ScanSheetCopy & {
   readonly open: boolean;
   readonly onClose?: (() => void) | undefined;
   readonly linking: LinkingState;
+  /** The sheet's height whenever it changes: the pairing sky's horizon rests on it. */
+  readonly onHeight?: ((height: number) => void) | undefined;
 }) => {
   const { step, show } = state;
   // The pasted text survives a switch to Scan and back.
   const [pasted, setPasted] = useState("");
+  const [measured, setMeasured] = useState({ kind: step.kind, height: 0 });
   const titled = copy.title !== undefined || onClose !== undefined;
+  const { bottom } = useSafeAreaInsets();
+  const { fontScale } = useWindowDimensions();
+  const body = measured.kind === step.kind ? measured.height : 0;
+  const height = fittedSheetHeight(step, titled, body, bottom, fontScale);
 
-  const body = (() => {
+  useEffect(() => onHeight?.(height), [height, onHeight]);
+
+  const content = (() => {
     switch (step.kind) {
       case "scan":
         return <ScanStep copy={copy} titled={titled} linking={state} />;
@@ -371,12 +395,19 @@ export const ScanSheetView = ({
       onClose={onClose ?? noop}
       dismissible={onClose !== undefined}
       scrim={onClose !== undefined}
-      detents={[scanSheetHeight(step, titled)]}
+      detents={[height]}
     >
       {titled ? (
         <SheetHeader title={copy.title ?? ""} {...(onClose === undefined ? {} : { onClose })} />
       ) : null}
-      {body}
+      <View
+        style={{ gap: 10 }}
+        onLayout={({ nativeEvent }) =>
+          setMeasured({ kind: step.kind, height: nativeEvent.layout.height })
+        }
+      >
+        {content}
+      </View>
     </InstrumentSheet>
   );
 };

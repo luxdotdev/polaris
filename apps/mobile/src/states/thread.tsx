@@ -6,6 +6,7 @@ import { mobileFont, mobileType } from "@polaris/ui/tokens";
 import { Pressable, Text, View, type TextStyle, type ViewStyle } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
 import { type MobileColours, themedStyles, useTheme } from "../theme/index.ts";
+import { CONTENT_TEXT_SCALE, CONTROL_TEXT_SCALE } from "../theme/textScale.ts";
 
 export interface ReconnectingLineProps {
   /** The Host's name ("lucas-rpi"). */
@@ -20,11 +21,18 @@ export const ReconnectingLine = ({ host, onRetry }: ReconnectingLineProps) => {
   return (
     <View style={styles.line} accessibilityLiveRegion="polite">
       <View style={styles.ring} />
-      <Text style={styles.lineText} numberOfLines={1}>
+      <Text maxFontSizeMultiplier={CONTROL_TEXT_SCALE} style={styles.lineText} numberOfLines={1}>
         Reconnecting to {host}…
       </Text>
       <Pressable accessibilityRole="button" hitSlop={10} onPress={onRetry}>
-        {({ pressed }) => <Text style={[styles.retry, pressed && styles.dim]}>Retry now</Text>}
+        {({ pressed }) => (
+          <Text
+            maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
+            style={[styles.retry, pressed && styles.dim]}
+          >
+            Retry now
+          </Text>
+        )}
       </Pressable>
     </View>
   );
@@ -80,20 +88,28 @@ export const BubbleFootnote = ({ state }: { readonly state: BubbleState | null }
   if (state === null) return null;
 
   if (state.kind === "queued")
-    return <Text style={styles.queued}>Queued · sends when {state.host} is back</Text>;
+    return (
+      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.queued}>
+        Queued · sends when {state.host} is back
+      </Text>
+    );
 
   return (
     <View style={styles.failedBlock}>
       <View style={styles.failure} accessibilityLiveRegion="assertive">
         <FailedMark color={colours.failed} />
-        <Text style={styles.failureText}>{state.message}</Text>
+        <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.failureText}>
+          {state.message}
+        </Text>
       </View>
       <Pressable
         accessibilityRole="button"
         onPress={state.onSendAgain}
         style={({ pressed }) => [styles.sendAgain, pressed && styles.pressed]}
       >
-        <Text style={styles.sendAgainText}>Send again</Text>
+        <Text maxFontSizeMultiplier={CONTROL_TEXT_SCALE} style={styles.sendAgainText}>
+          Send again
+        </Text>
       </Pressable>
     </View>
   );

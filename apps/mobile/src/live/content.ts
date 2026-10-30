@@ -52,7 +52,7 @@ export const hostSlice = (host: LiveHost): HostSlice => {
   const working = users.filter(({ session }) => session.state === "working");
   const starts = working.map(since);
   const requests = users.flatMap((entry) => entry.pendingApprovals);
-  const oldest = requests.toSorted((a, b) => seconds(a.openedAt) - seconds(b.openedAt))[0];
+  const oldest = [...requests].sort((a, b) => seconds(a.openedAt) - seconds(b.openedAt))[0];
 
   const stepLine: LiveLine | null =
     step === null ? null : { ...step, ...named(sessions.get(step.sessionId)) };
@@ -77,8 +77,8 @@ export const hostSlice = (host: LiveHost): HostSlice => {
             kind: oldest.kind === "question" ? "question" : "approval",
           },
     needs: requests.length,
-    celestials: working
-      .toSorted((a, b) => since(b) - since(a))
+    celestials: [...working]
+      .sort((a, b) => since(b) - since(a))
       .slice(0, MAX_LIVE_CELESTIALS)
       .map(({ session }) => `${session.harness}/${session.celestial ?? CELESTIAL_PLANETS[0]}`),
   };
@@ -90,10 +90,10 @@ const isBusy = (slice: HostSlice) => slice.working > 0 || slice.needs > 0;
 export const liveContent = (hosts: ReadonlyArray<LiveHost>): LiveContent => {
   const slices = hosts.map((host) => ({ address: host.hostAddress, slice: hostSlice(host) }));
 
-  const kept = slices
-    .toSorted((a, b) => Number(isBusy(b.slice)) - Number(isBusy(a.slice)))
+  const kept = [...slices]
+    .sort((a, b) => Number(isBusy(b.slice)) - Number(isBusy(a.slice)))
     .slice(0, MAX_LIVE_HOSTS)
-    .toSorted((a, b) => a.address.localeCompare(b.address));
+    .sort((a, b) => a.address.localeCompare(b.address));
 
   return {
     slices: kept.map(({ slice }) => encodeHostSlice(fitSlice(slice))),

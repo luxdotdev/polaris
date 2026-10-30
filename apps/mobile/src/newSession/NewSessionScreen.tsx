@@ -99,12 +99,19 @@ const PlaceLine = ({
         <>
           <View style={[styles.dot, { backgroundColor: dotColour(host, colours) }]} />
           <Text
-            style={styles.placeLine}
+            style={[styles.placeHost, styles.placeHostName]}
+            numberOfLines={1}
+            ellipsizeMode="middle"
+            maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
+          >
+            {host.hostName}
+          </Text>
+          <Text
+            style={[styles.placeLine, styles.placeWorkspaceName]}
             numberOfLines={1}
             maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
           >
-            <Text style={styles.placeHost}>{host.hostName}</Text>
-            <Text style={styles.placeSlash}> / </Text>
+            <Text style={styles.placeSlash}>/ </Text>
             <Text style={styles.placeWorkspace}>{workspace.name}</Text>
           </Text>
         </>
@@ -328,6 +335,9 @@ const useStyles = themedStyles((colours) => ({
     lineHeight: 16,
     color: colours.textSubtle,
   },
+  // The workspace keeps its room; a long host name gives way first, in the middle.
+  placeHostName: { flexShrink: 1, minWidth: 48 },
+  placeWorkspaceName: { flexShrink: 0, maxWidth: "62%" },
   placeSlash: { color: colours.textFaint },
   placeWorkspace: { fontWeight: "600", color: colours.textStrong },
 }));

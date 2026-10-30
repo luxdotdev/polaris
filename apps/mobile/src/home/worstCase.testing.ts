@@ -19,7 +19,15 @@ import {
 import type { HomeHost } from "./model/home.ts";
 import { paperHomeHosts } from "./paperData.testing.ts";
 
-export type DevHomeData = "worst" | "empty" | "one" | "huge" | "paper" | "none" | "offline";
+export type DevHomeData =
+  | "worst"
+  | "empty"
+  | "one"
+  | "huge"
+  | "paper"
+  | "none"
+  | "offline"
+  | "unreachable";
 
 const host = (
   hostId: string,
@@ -218,6 +226,33 @@ export const unreachableRpi: HomeHost = {
   failure: "the relay closed the socket (1006)",
 };
 
+const away = (hostId: string, name: string, failure: string | null, tried = true): HomeHost => ({
+  ...unreachableRpi,
+  hostId,
+  name,
+  connection: tried ? "reconnecting" : "offline",
+  failure,
+});
+
+/** break-ui: six hosts away at once, long names, a long failure and one with none. */
+export const sixAway: ReadonlyArray<HomeHost> = [
+  away(
+    "studio",
+    "aleksandra-wisniewska-kowalczyk-macbook-pro-16-northwind",
+    "couldn't reach wss://relay.northwind-industries-holdings.example.com/v1: TLS handshake failed: certificate has expired or is not yet valid (CERT_HAS_EXPIRED)"
+  ),
+  unreachableRpi,
+  away(
+    "build",
+    "build-farm-ubuntu-24-04-arm64-07",
+    "ssh: connect to host 10.0.4.17 port 22: Operation timed out",
+    false
+  ),
+  away("tokyo", "東京-render-farm-01", null),
+  away("jo", "Jo", "the relay closed the socket (1006)", false),
+  away("ci", "ci-runner-ephemeral-3f9c2a1b", "no route to host"),
+];
+
 export const devHomeHosts: Record<DevHomeData, ReadonlyArray<HomeHost>> = {
   worst: [studio, rpi, vm],
   empty: [empty],
@@ -226,4 +261,5 @@ export const devHomeHosts: Record<DevHomeData, ReadonlyArray<HomeHost>> = {
   paper: paperHomeHosts,
   none: [],
   offline: [unreachableRpi],
+  unreachable: sixAway,
 };

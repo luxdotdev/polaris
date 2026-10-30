@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { useTheme } from "../theme";
-import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
+import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 
 const CloseGlyph = ({ color }: { readonly color: string }) => (
   <Svg width={12} height={12} viewBox="0 0 12 12">
@@ -49,6 +49,7 @@ export const SheetHeader = ({
       {subtitle === undefined ? (
         <Text
           accessibilityRole="header"
+          maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
           numberOfLines={titleLines}
           style={[styles.title, { color: colours.textStrong }]}
         >
@@ -58,6 +59,7 @@ export const SheetHeader = ({
         <View style={styles.titles}>
           <Text
             accessibilityRole="header"
+            maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
             numberOfLines={titleLines}
             style={[styles.title, { color: colours.textStrong }]}
           >
@@ -73,7 +75,12 @@ export const SheetHeader = ({
         </View>
       )}
       {kicker === undefined ? null : (
-        <Text style={[styles.count, { color: colours.textSubtle }]}>{kicker}</Text>
+        <Text
+          maxFontSizeMultiplier={CHROME_TEXT_SCALE}
+          style={[styles.count, { color: colours.textSubtle }]}
+        >
+          {kicker}
+        </Text>
       )}
       <View style={styles.spacer} />
       {control ??
@@ -137,7 +144,10 @@ export const SheetKicker = ({ parts }: { readonly parts: ReadonlyArray<string | 
 
   return (
     <View style={styles.kickerRow}>
-      <Text style={[styles.kicker, { color: colours.textSubtle }]}>
+      <Text
+        maxFontSizeMultiplier={CHROME_TEXT_SCALE}
+        style={[styles.kicker, { color: colours.textSubtle }]}
+      >
         {parts.join(" · ").toUpperCase()}
       </Text>
     </View>
@@ -163,14 +173,23 @@ export const StatusFooter = ({ status, children, note, action }: StatusFooterPro
     <View style={[styles.footer, { borderTopColor: colours.hairline }]}>
       <View style={styles.statusLine}>
         {status === undefined ? null : (
-          <Text numberOfLines={1} style={[styles.status, { color: colours.textSubtle }]}>
+          <Text
+            numberOfLines={1}
+            maxFontSizeMultiplier={CHROME_TEXT_SCALE}
+            style={[styles.status, { color: colours.textSubtle }]}
+          >
             {status}
           </Text>
         )}
         {children}
       </View>
       {note === undefined ? null : (
-        <Text style={[styles.status, styles.note, { color: colours.textFaint }]}>{note}</Text>
+        <Text
+          maxFontSizeMultiplier={CHROME_TEXT_SCALE}
+          style={[styles.status, styles.note, { color: colours.textFaint }]}
+        >
+          {note}
+        </Text>
       )}
       {action}
     </View>
@@ -190,7 +209,11 @@ export const StatusItem = ({
   return (
     <View style={styles.item}>
       <View style={[styles.dot, { backgroundColor: color }]} />
-      <Text numberOfLines={1} style={[styles.status, styles.label, { color: colours.textSubtle }]}>
+      <Text
+        numberOfLines={1}
+        maxFontSizeMultiplier={CHROME_TEXT_SCALE}
+        style={[styles.status, styles.label, { color: colours.textSubtle }]}
+      >
         {label}
       </Text>
     </View>

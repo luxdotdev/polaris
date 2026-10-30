@@ -35,6 +35,7 @@ struct HomeWidgetView: View {
         }
         Spacer(minLength: 0)
       }
+      .frame(maxWidth: .infinity, alignment: .leading)
       .padding(.horizontal, 16)
       .padding(.top, 14)
     }

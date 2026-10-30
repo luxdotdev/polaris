@@ -168,7 +168,7 @@ struct LiveWorking: View {
         LiveCelestials(summary: summary, size: 24)
         Text(LiveCopy.working(summary.working))
           .font(.system(size: 22, weight: .semibold)).foregroundStyle(palette.textStrong.color)
-          .lineLimit(1)
+          .lineLimit(1).minimumScaleFactor(0.8).layoutPriority(1)
         if !header {
           Spacer(minLength: 8)
           LiveElapsed(since: summary.since)
@@ -212,9 +212,9 @@ struct LiveTakeover: View {
         HStack(spacing: 8) {
           Text(need.session).font(.system(size: 15)).foregroundStyle(palette.textDefault.color).lineLimit(1)
           Spacer(minLength: 0)
-          // The host stays readable; a long session title is cut first.
+          // A long host name gives way in the middle, so the session title keeps most of the row.
           Text(host.name).font(mono(13)).foregroundStyle(palette.textSubtle.color).lineLimit(1)
-            .layoutPriority(1)
+            .truncationMode(.middle).frame(maxWidth: 132, alignment: .trailing).layoutPriority(1)
         }
         Text(need.line).font(mono(13)).foregroundStyle(palette.textDefault.color).lineLimit(2)
           .padding(.horizontal, 12).padding(.vertical, 8)

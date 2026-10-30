@@ -2,6 +2,7 @@
  * Linking as a pure model (DESIGN.md, Mobile chrome redesign · phase 3; Paper MX-AH to MX-AM):
  * each step of the scan sheet, how an event moves it, and the star's light in each.
  */
+import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 
 /** What a scanned or pasted text named: the Host it came from, then every Host it shares. */
 export interface FoundHosts {
@@ -86,3 +87,41 @@ export const hostsLine = (count: number, hostName: string): string =>
 
 /** How long "Linked this iPhone" stays before the app moves on by itself (MX-AL, no button). */
 export const LINKED_DWELL_MS = 1600;
+
+/** Each step's height (MX-AH, MX-AK, MX-AL, MX-AM); a titled sheet adds its header. */
+const HEIGHTS: Readonly<Record<LinkStep["kind"], number>> = {
+  scan: 430,
+  paste: 430,
+  linking: 152,
+  linked: 152,
+  failed: 268,
+};
+
+const HEADER_HEIGHT = 52;
+
+/** The sheet's height at `step`: the horizon behind the pairing sheet rests on it. */
+export const scanSheetHeight = (step: LinkStep, titled: boolean): number =>
+  HEIGHTS[step.kind] + (titled ? HEADER_HEIGHT : 0);
+
+/** The sheet frame around the body: its top padding, grabber row and gap (`sheet/frame.tsx`). */
+const FRAME_TOP = 8 + 9 + 10;
+
+/**
+ * The step's height, grown to fit a body taller than its artboard (a long failure, Dynamic Type),
+ * so the last button is never cut off; `body` is 0 until it has been measured.
+ */
+export const fittedSheetHeight = (
+  step: LinkStep,
+  titled: boolean,
+  body: number,
+  bottomInset: number,
+  fontScale = 1
+): number => {
+  // The header's 26pt title line grows with Dynamic Type, up to its cap.
+  const header = HEADER_HEIGHT + 26 * (Math.min(Math.max(fontScale, 1), CONTENT_TEXT_SCALE) - 1);
+
+  return Math.max(
+    scanSheetHeight(step, titled),
+    Math.ceil(FRAME_TOP + (titled ? header : 0) + body + Math.max(bottomInset, 16))
+  );
+};

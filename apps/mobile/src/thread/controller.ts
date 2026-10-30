@@ -139,6 +139,9 @@ export interface ThreadControllerOptions {
 export const droppedSend = (hostName = "the host") =>
   `Couldn't send: the daemon on ${hostName} closed the connection while the turn was on its way. Send again once the host is back.`;
 
+/** A steer, interrupt or follow-up whose answer was lost: never the transport's own words. */
+export const lostAnswer = (hostName = "the host") => `Lost the connection to ${hostName}`;
+
 export const openThread = (
   source: ThreadSource,
   sessionId: SessionId,
@@ -210,7 +213,13 @@ export const openThread = (
 
   /** `dispatch`, answering why it failed as the user reads it. */
   const send = (slot: string, command: Command): Promise<string | null> =>
-    dispatch(slot, command).then((error) => error?.message ?? null);
+    dispatch(slot, command).then((error) =>
+      error === null
+        ? null
+        : error.ambiguous === true
+          ? lostAnswer(options.hostName)
+          : error.message
+    );
 
   const drafts: DraftSync = makeDraftSync({
     delayMs: options.draftDelayMs ?? DRAFT_SAVE_DELAY_MS,

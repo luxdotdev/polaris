@@ -1,14 +1,13 @@
 /**
  * A development screen of a new session's states from fixtures, for screenshots: launch a
- * development build with `-polarisDevNewSession <ao|aq|ar|as>` (and `-polarisDevTheme`).
+ * development build with `-polarisDevNewSession <ao|aq|ar|as>` (and `-polarisDevTheme`,
+ * `-polarisDevData worst` for break-ui's hosts).
  */
 import {
   HarnessAvailability,
   HarnessModels,
   type HarnessStatus,
   HostHarnesses,
-  Model,
-  ModelId,
   SessionId,
   Timestamp,
   Workspace,
@@ -17,12 +16,11 @@ import {
 import { Schema } from "effect";
 import { useEffect, useState } from "react";
 import { Platform, Settings } from "react-native";
-import { rememberModels } from "../composer/modelNames.ts";
 import { GalleryHosts } from "../runtime/hosts.tsx";
 import { ThemeName, useTheme } from "../theme";
 import { type GalleryHost, galleryHost } from "../thread/galleryHost.testing.ts";
 import { ThreadScreen } from "../thread/ThreadScreen.tsx";
-import { DATASETS } from "../thread/worstCase.testing.ts";
+import { DATASETS, GALLERY_MODELS } from "../thread/worstCase.testing.ts";
 import type { NewSessionApi } from "./api.ts";
 import type { DraftStore } from "./draftWriter.ts";
 import type { SheetHost } from "./model.ts";
@@ -94,6 +92,64 @@ const RPI: SheetHost = {
   capabilities: [],
 };
 
+const LONG_PATH =
+  "/Users/aleksandra.wisniewska-kowalczyk/Developer/northwind-industries-holdings/platform-monorepo-customer-facing-dashboard-v2";
+
+const extra = (hostId: string, hostName: string, workspaces: ReadonlyArray<string>): SheetHost => ({
+  ...RPI,
+  hostId,
+  hostName,
+  route: "network",
+  latencyMs: 12,
+  workspaces: workspaces.map((path, i) => workspace(`${hostId}-${i}`, path)),
+  sessions: [],
+});
+
+/** break-ui: a long host name, long workspace names and paths, six hosts, one with none. */
+const WORST: ReadonlyArray<SheetHost> = [
+  {
+    ...STUDIO,
+    hostName: "aleksandra-wisniewska-kowalczyk-macbook-pro-16-northwind",
+    homeDir: "/Users/aleksandra.wisniewska-kowalczyk",
+    workspaces: [
+      workspace("polaris", LONG_PATH),
+      ...Array.from({ length: 14 }, (_, i) =>
+        workspace(
+          `ws-${i}`,
+          `/Users/aleksandra.wisniewska-kowalczyk/code/service-${i}-${"x".repeat(i)}`
+        )
+      ),
+    ],
+    sessions: [used("polaris", 1)],
+  },
+  { ...RPI, hostName: "Jo", workspaces: [] },
+  extra("build", "build-farm-ubuntu-24-04-arm64-07", [
+    "/srv/ci/northwind-industries-holdings-release-pipeline",
+  ]),
+  extra("tokyo", "東京-render-farm-01", ["/home/レンダー/プロジェクト-アニメーション"]),
+  extra("gpu", "gpu-box", ["/opt/ml/train"]),
+  extra("ci", "ci-runner-ephemeral-3f9c2a1b", ["/tmp/ci"]),
+];
+
+const DEV_DATA = __DEV__
+  ? launchArgument("polarisDevData", Schema.is(Schema.Literal("worst")))
+  : null;
+
+/** In AR, the long-named host was the last used and has nothing ready (the Pi's harnesses). */
+const SWAPPED = new Map([
+  ["studio", "rpi"],
+  ["rpi", "studio"],
+]);
+
+const worstHosts = (state: GalleryState): ReadonlyArray<SheetHost> =>
+  state === "ar"
+    ? WORST.map((host) => ({
+        ...host,
+        hostId: SWAPPED.get(host.hostId) ?? host.hostId,
+        sessions: host.hostId === "studio" ? [used("polaris", 0.5)] : host.sessions,
+      }))
+    : WORST;
+
 const HOSTS: Readonly<Record<GalleryState, ReadonlyArray<SheetHost>>> = {
   ao: [STUDIO, RPI],
   aq: [STUDIO, { ...RPI, connected: false, state: "reconnecting", latencyMs: null }],
@@ -127,32 +183,13 @@ const NONE = HostHarnesses.make({
   checkedAt: "2026-10-29T09:00:00Z",
 });
 
-const MODELS = [
-  new Model({
-    id: ModelId.make("claude-opus-5-5"),
-    name: "Opus 5",
-    description: "Most capable",
-    efforts: ["low", "medium", "high", "max"],
-    defaultEffort: "high",
-    isDefault: true,
-  }),
-  new Model({
-    id: ModelId.make("claude-sonnet-5"),
-    name: "Sonnet 5",
-    description: "Fast and capable",
-    efforts: ["low", "medium", "high"],
-    defaultEffort: "medium",
-    isDefault: false,
-  }),
-];
-
 const api = (state: GalleryState): NewSessionApi => ({
   availability: (hostId) => Promise.resolve(state === "ar" && hostId === "rpi" ? NONE : READY),
   models: (_, harness) =>
     Promise.resolve(
       HarnessModels.make({
         harness,
-        models: MODELS,
+        models: GALLERY_MODELS,
         switchesModel: true,
         backgroundsCommands: false,
         runsShellCommands: true,
@@ -171,8 +208,6 @@ const Started = () => {
   useEffect(() => {
     let opened: GalleryHost | null = null;
 
-    // What the new session listed before the hand-off; the fake Host lists nothing itself.
-    rememberModels("gallery-started", "claude", MODELS);
     void galleryHost("gallery-started", "mac-studio", DATASETS.started()).then((made) => {
       opened = made;
       setHost(made);
@@ -196,7 +231,7 @@ const Started = () => {
 export const NewSessionGallery = () => {
   const { setTheme } = useTheme();
   const state: GalleryState = STATE ?? "ao";
-  const hosts = HOSTS[state];
+  const hosts = DEV_DATA === "worst" && state !== "as" ? worstHosts(state) : HOSTS[state];
   const [fake] = useState(() => api(state));
   const [placing, setPlacing] = useState(false);
 
