@@ -36,8 +36,8 @@ widget reads the Keychain first and falls back to that copy.**
 
 - The key is now also protected by file data protection inside the App Group, not only by the
   Keychain. Only apps and extensions signed by our team with that group can read either. The
-  copy is in device backups' scope, where the Keychain item (`ThisDeviceOnly`) is not: a restored
-  backup on another phone carries a key no Host seals to any more once the device re-registers.
+  copy is excluded from backups, like the Keychain item (`ThisDeviceOnly`), and a rotation whose
+  write fails removes the old copy rather than leave a rotated-out key on disk.
 - The Notification Service Extension keeps reading the Keychain; it works there.
 - If the device logs show the Keychain read succeeding, the fallback is dead weight and the
   cause is elsewhere: the logs say which step failed.

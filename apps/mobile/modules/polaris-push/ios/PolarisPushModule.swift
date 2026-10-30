@@ -54,10 +54,18 @@ private enum PushKeyFile {
       .appendingPathComponent("push-key-1")
   }
 
+  /// A failed write removes the old copy, so a rotated-out key never stays on disk.
   static func store(_ key: P256.KeyAgreement.PrivateKey) {
-    guard let url = url() else { return }
-    try? key.rawRepresentation.write(
-      to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    guard var url = url() else { return }
+    do {
+      try key.rawRepresentation.write(
+        to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+      var values = URLResourceValues()
+      values.isExcludedFromBackup = true
+      try url.setResourceValues(values)
+    } catch {
+      try? FileManager.default.removeItem(at: url)
+    }
   }
 
   static func mirror(_ key: P256.KeyAgreement.PrivateKey) {
