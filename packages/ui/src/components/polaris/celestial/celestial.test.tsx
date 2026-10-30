@@ -1,8 +1,14 @@
-import { CELESTIAL_MOONS, CELESTIAL_PLANETS, CELESTIAL_STARS } from "@polaris/protocol";
+import {
+  CELESTIAL_MOONS,
+  CELESTIAL_PLANETS,
+  CELESTIAL_RARE,
+  CELESTIAL_STARS,
+} from "@polaris/protocol";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "bun:test";
 
 import {
+  bodyHue,
   Celestial,
   CELESTIAL_FRAMES,
   celestialCells,
@@ -14,7 +20,7 @@ import {
 
 afterEach(cleanup);
 
-const BODIES = [...CELESTIAL_PLANETS, ...CELESTIAL_STARS, ...CELESTIAL_MOONS];
+const BODIES = [...CELESTIAL_PLANETS, ...CELESTIAL_STARS, ...CELESTIAL_MOONS, ...CELESTIAL_RARE];
 
 const picture = (cells: ReturnType<typeof celestialCells>) =>
   cells.map((c) => `${c.x},${c.y},${c.tone}`).join(" ");
@@ -36,14 +42,28 @@ describe("the Celestial set", () => {
     }
   });
 
-  test("every body moves inside itself while Working, never past its still outline", () => {
-    for (const body of BODIES) {
+  test("every body but the Death Star moves inside itself while Working", () => {
+    for (const body of BODIES.filter((b) => b !== "death-star")) {
       const frames = Array.from({ length: CELESTIAL_FRAMES }, (_, f) => celestialCells(body, f));
       const outline = new Set(celestialCells(body).map((c) => `${c.x},${c.y}`));
 
       expect(new Set(frames.map(picture)).size).toBeGreaterThan(1);
       expect(frames.flat().every((c) => outline.has(`${c.x},${c.y}`))).toBe(true);
     }
+  });
+
+  test("the Death Star fires its laser past its outline while Working, and rests still", () => {
+    const outline = new Set(celestialCells("death-star").map((c) => `${c.x},${c.y}`));
+
+    const frames = Array.from({ length: CELESTIAL_FRAMES }, (_, f) =>
+      celestialCells("death-star", f)
+    );
+
+    const beam = frames.map((cells) => cells.filter((c) => !outline.has(`${c.x},${c.y}`)));
+
+    expect(beam.some((cells) => cells.length > 0)).toBe(true);
+    expect(beam.flat().every((c) => c.tone === "laser")).toBe(true);
+    expect(beam.some((cells) => cells.length === 0)).toBe(true);
   });
 
   test("a body from a newer Daemon is drawn as the first planet", () => {
@@ -60,6 +80,21 @@ describe("the Celestial set", () => {
 });
 
 describe("Celestial", () => {
+  test("the Death Star wears grey whatever its Harness; planets wear their Harness's hue", () => {
+    const { container, rerender } = render(
+      <Celestial body="death-star" harness="codex" size={16} />
+    );
+
+    const hue = () =>
+      container
+        .querySelector<HTMLElement>("[data-slot=celestial]")
+        ?.style.getPropertyValue("--celestial-hue");
+
+    expect(hue()).toBe(bodyHue("death-star") ?? "none");
+    rerender(<Celestial body="ringed" harness="codex" size={16} />);
+    expect(hue()).not.toBe(bodyHue("death-star"));
+  });
+
   test("only a Working Celestial carries the 12 fps strip", () => {
     const { container, rerender } = render(<Celestial body="ringed" harness="claude" size={24} />);
 

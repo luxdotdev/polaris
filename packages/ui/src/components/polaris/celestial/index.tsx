@@ -5,7 +5,9 @@ import { cn } from "../../../lib/cn";
 import type { CssVars } from "../../../lib/css";
 import { hueVar, type Harness } from "../../../lib/hue";
 import {
+  bodyHue,
   CELESTIAL_FRAME_MS,
+  CELESTIAL_LASER,
   CELESTIAL_FRAMES,
   CELESTIAL_GRID,
   type Cell,
@@ -14,7 +16,9 @@ import {
 } from "./bodies";
 
 export {
+  bodyHue,
   CELESTIAL_FRAME_MS,
+  CELESTIAL_LASER,
   CELESTIAL_FRAMES,
   celestialCells,
   isKnownCelestial,
@@ -27,7 +31,7 @@ export type CelestialSize = 16 | 24 | 32;
 
 export interface CelestialProps extends HTMLAttributes<HTMLSpanElement> {
   readonly body: CelestialBody;
-  /** Drawn in its Harness's hue; an unknown Harness is neutral. */
+  /** Drawn in its Harness's hue (the Death Star in grey); an unknown Harness is neutral. */
   readonly harness: Harness;
   readonly size: CelestialSize;
   /** Animates inside the body at 12 fps; Reduce Motion keeps it still. */
@@ -35,11 +39,11 @@ export interface CelestialProps extends HTMLAttributes<HTMLSpanElement> {
   readonly dormant?: boolean;
 }
 
-const TONES: readonly Tone[] = ["light", "hue", "shade", "glint"];
+const TONES: readonly Tone[] = ["light", "hue", "shade", "glint", "laser"];
 
 /** One path per tone, every cell a 1×1 square, offset by whole grid widths for a strip. */
 function paths(frames: ReadonlyArray<readonly Cell[]>) {
-  const d: Record<Tone, string> = { light: "", hue: "", shade: "", glint: "" };
+  const d: Record<Tone, string> = { light: "", hue: "", shade: "", glint: "", laser: "" };
 
   frames.forEach((cells, frame) => {
     const offset = frame * CELESTIAL_GRID;
@@ -48,7 +52,16 @@ function paths(frames: ReadonlyArray<readonly Cell[]>) {
   });
 
   return TONES.flatMap((tone) =>
-    d[tone] === "" ? [] : [<path key={tone} d={d[tone]} className={`polaris-celestial-${tone}`} />]
+    d[tone] === ""
+      ? []
+      : [
+          <path
+            key={tone}
+            d={d[tone]}
+            className={`polaris-celestial-${tone}`}
+            style={tone === "laser" ? { fill: CELESTIAL_LASER } : undefined}
+          />,
+        ]
   );
 }
 
@@ -80,7 +93,7 @@ export function Celestial({
   ...props
 }: CelestialProps) {
   const vars: CssVars = {
-    "--celestial-hue": hueVar(harness),
+    "--celestial-hue": bodyHue(body) ?? hueVar(harness),
     "--celestial-frames": CELESTIAL_FRAMES,
     "--celestial-frame-ms": `${CELESTIAL_FRAME_MS}ms`,
     width: size,

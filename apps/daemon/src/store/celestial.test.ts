@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   AgentSession,
   CELESTIAL_PLANETS,
+  CELESTIAL_RARE,
   DomainEvent,
   EventEnvelope,
   Sequence,
@@ -9,7 +10,7 @@ import {
   Timestamp,
   WorkspaceId,
 } from "@polaris/protocol";
-import { pickCelestial } from "./celestial.ts";
+import { DEATH_STAR_ODDS, pickCelestial } from "./celestial.ts";
 import { emptyModel, project, type ReadModel } from "./model.ts";
 
 const AT = Timestamp.make("2026-10-28T00:00:00.000Z");
@@ -90,6 +91,28 @@ describe("pickCelestial", () => {
     }));
 
     expect(pickCelestial(records, session("new"))).toBe(CELESTIAL_PLANETS.at(-1) ?? "none");
+  });
+});
+
+describe("the Death Star", () => {
+  const [deathStar] = CELESTIAL_RARE;
+  const ids = Array.from({ length: 20_000 }, (_, i) => `session-${i}`);
+  const lucky = ids.filter((id) => pickCelestial([], session(id)) === deathStar);
+
+  test("about one new session in a hundred gets it in place of a planet", () => {
+    const expected = ids.length / DEATH_STAR_ODDS;
+
+    expect(lucky.length).toBeGreaterThan(expected * 0.7);
+    expect(lucky.length).toBeLessThan(expected * 1.3);
+  });
+
+  test("a lucky session gets a planet while another active one in its Workspace shows it", () => {
+    const [id = "none"] = lucky;
+    const shown = [{ session: session("other", { celestial: deathStar }) }];
+
+    const picked = pickCelestial(shown, session(id));
+
+    expect(CELESTIAL_PLANETS.some((planet) => planet === picked)).toBe(true);
   });
 });
 
