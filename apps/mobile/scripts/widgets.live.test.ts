@@ -2,6 +2,7 @@
  * The Live Activity's contract: slices the app builds (src/live/content.ts), folded by the
  * extension's own Swift (targets/widgets/LiveSlices.swift). Needs swiftc, so it runs on a Mac.
  */
+import { CELESTIAL_PLANETS, CELESTIAL_RARE } from "@polaris/protocol";
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -16,7 +17,7 @@ import {
   summary,
 } from "../src/home/fixtures.testing.ts";
 import { type LiveHost, liveContent } from "../src/live/content.ts";
-import { LIVE_CELESTIALS_PATH, liveCelestialsSwift } from "./liveCelestials.ts";
+import { LIVE_CELESTIALS_PATH, liveCelestialsSwift, TONES } from "./liveCelestials.ts";
 
 const swiftc = Bun.which("swiftc");
 
@@ -103,4 +104,29 @@ test.skipIf(swiftc === null)("the extension folds the app's slices across Hosts"
 
 test("the extension's celestials match @polaris/ui's and the Harness hues", () => {
   expect(readFileSync(LIVE_CELESTIALS_PATH, "utf8")).toBe(liveCelestialsSwift());
+});
+
+/** The generated Swift table named `name`, as key → numbers. */
+const table = (name: string): Map<string, number[]> => {
+  const block = new RegExp(`let ${name}: \\[String: \\[\\w+\\]\\] = \\[\\n([^]*?)\\n\\]`).exec(
+    liveCelestialsSwift()
+  )?.[1];
+
+  return new Map(
+    [...(block ?? "").matchAll(/"([\w-]+)": \[([^\]]*)\]/g)].map(([, key, list]) => [
+      key ?? "",
+      (list ?? "").split(", ").map(Number),
+    ])
+  );
+};
+
+test("every body a session can get has its runs, in tones every palette has", () => {
+  const bodies = table("liveBodies");
+  const used = [...bodies.values()].flatMap((runs) => runs.filter((_, i) => i % 4 === 3));
+  const palettes = [...table("liveHarnessTones").values(), ...table("liveBodyTones").values()];
+
+  expect([...CELESTIAL_PLANETS, ...CELESTIAL_RARE].filter((body) => !bodies.has(body))).toEqual([]);
+  expect(Math.max(...used)).toBe(TONES.length - 1);
+  expect(palettes.every((tones) => tones.length === TONES.length)).toBe(true);
+  expect(table("liveBodyTones").has("death-star")).toBe(true);
 });

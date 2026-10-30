@@ -22,7 +22,7 @@ export interface CelestialArt {
   readonly layers: ReadonlyArray<CelestialLayer>;
 }
 
-const TONES: readonly Tone[] = ["light", "hue", "shade", "glint"];
+const TONES: readonly Tone[] = ["light", "hue", "shade", "glint", "laser"];
 
 const rect = (x: number, y: number, width: number) => `M${x} ${y}h${width}v1h${-width}z`;
 
