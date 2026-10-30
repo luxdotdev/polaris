@@ -16,6 +16,8 @@ export interface RelayServerOptions {
   /** The Daemon's version, for `/json/version`'s `Browser`. */
   readonly version: string;
   readonly store: CdpRelayStore["Service"];
+  /** Whether `token` opens `sessionId` now: a live token of a session that is still live. */
+  readonly authenticate: (sessionId: SessionId, token: string) => Effect.Effect<boolean>;
   readonly hooks: RelaySocketHooks;
   /** Whether a Desktop App hosts the session now, for discovery's answer. */
   readonly hosted: (sessionId: SessionId) => Effect.Effect<boolean>;
@@ -126,7 +128,7 @@ const fetchOf =
     if (Option.isNone(route)) return new Response(null, { status: 404 });
 
     const authentic = await Effect.runPromise(
-      options.store.authenticate(route.value.sessionId, route.value.token).pipe(Effect.orDie)
+      options.authenticate(route.value.sessionId, route.value.token)
     );
 
     if (!authentic) return new Response(null, { status: 401 });

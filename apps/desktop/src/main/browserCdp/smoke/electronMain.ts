@@ -168,6 +168,7 @@ const serve = () =>
       sessionId: mine,
       tabs,
       send: (message) => void socket.write(encodeCdpMessage(message)),
+      overflow: () => socket.destroy(),
       versions: {
         chrome: process.versions.chrome ?? "",
         v8: process.versions.v8 ?? "",

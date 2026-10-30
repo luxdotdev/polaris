@@ -7,7 +7,7 @@
 import { Database } from "bun:sqlite";
 import { chmodSync } from "node:fs";
 import { createHash, randomBytes } from "node:crypto";
-import type { SessionId } from "@polaris/protocol";
+import { SessionId } from "@polaris/protocol";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
 export class CdpRelayStoreError extends Schema.TaggedError<CdpRelayStoreError>()(
@@ -32,6 +32,10 @@ const decodeCount = Schema.decodeUnknownSync(Row);
 
 const TabsRow = Schema.Struct({ tabs: Schema.String });
 
+const IdRow = Schema.Struct({ id: SessionId });
+
+const decodeIdRow = Schema.decodeUnknownSync(IdRow);
+
 const decodeTabsRow = Schema.decodeUnknownOption(TabsRow);
 
 const TOKEN = /^[a-f0-9]{64}$/;
@@ -50,6 +54,8 @@ export class CdpRelayStore extends Context.Service<
     ) => Effect.Effect<boolean, CdpRelayStoreError>;
     /** Revokes every token of the session, in memory and on disk. */
     readonly revoke: (sessionId: SessionId) => Effect.Effect<void, CdpRelayStoreError>;
+    /** Every session with a live token on disk, for reconciling against Session State. */
+    readonly sessions: Effect.Effect<ReadonlyArray<SessionId>, CdpRelayStoreError>;
     readonly remember: (
       sessionId: SessionId,
       tabs: ReadonlyArray<RememberedTab>
@@ -120,6 +126,12 @@ export class CdpRelayStore extends Context.Service<
 
               return row.n > 0;
             }),
+          sessions: run(() =>
+            db
+              .query("SELECT DISTINCT session_id AS id FROM cdp_tokens WHERE revoked = 0")
+              .all()
+              .map((row) => decodeIdRow(row).id)
+          ),
           revoke: (sessionId) =>
             run(() => {
               issued.delete(sessionId);

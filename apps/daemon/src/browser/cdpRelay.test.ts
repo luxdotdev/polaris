@@ -11,9 +11,15 @@ import {
   parseCdpMessage,
   SessionId,
 } from "@polaris/protocol";
-import { type Cause, Context, Effect, Exit, Layer, Queue, Scope, Stream } from "effect";
+import { type Cause, Context, Effect, Exit, Latch, Layer, Queue, Scope, Stream } from "effect";
 import { shortTemp } from "../platform/testing.ts";
-import { CdpRelay } from "./cdpRelay.ts";
+import {
+  CdpRelay,
+  type CdpRelayOptions,
+  CdpSessionNotLive,
+  RELAY_MAX_SOCKETS_PER_SESSION,
+  type SessionPresence,
+} from "./cdpRelay.ts";
 import { BrowserHosting } from "./hosting.ts";
 import { CdpRelayStore } from "./relayStore.ts";
 
@@ -32,6 +38,16 @@ const desktops = new Map<SessionId, DesktopEnd>();
 
 const hosted = new Set<SessionId>([s1, s2]);
 
+/** Session State as the relay sees it; sessions not listed are live. */
+const presence = new Map<SessionId, SessionPresence>();
+
+const sessions: CdpRelayOptions["sessions"] = {
+  presence: (sessionId) => Effect.succeed(presence.get(sessionId) ?? "live"),
+};
+
+/** Closed to hold every Browser stream in its opening state. */
+const opening = Latch.makeUnsafe(true);
+
 const unused = () => Effect.die(new Error("not part of this test"));
 
 const fakeHosting = Layer.succeed(BrowserHosting)(
@@ -47,6 +63,7 @@ const fakeHosting = Layer.succeed(BrowserHosting)(
     open: (sessionId) =>
       Effect.gen(function* () {
         if (!hosted.has(sessionId)) return yield* new NoDesktopApp({ sessionId });
+        yield* opening.await;
         const toDesktop = yield* Queue.unbounded<Uint8Array, Cause.Done>();
         const toDaemon = yield* Queue.unbounded<Uint8Array, Cause.Done>();
         const decoder = new CdpMessageDecoder();
@@ -86,7 +103,7 @@ let relay: CdpRelay["Service"];
 
 beforeAll(async () => {
   relay = await Effect.runPromise(
-    Layer.build(CdpRelay.layer({ home: root, version: "0.0.0-test" })).pipe(
+    Layer.build(CdpRelay.layer({ home: root, version: "0.0.0-test", sessions })).pipe(
       Effect.map((context) => Context.get(context, CdpRelay)),
       Effect.provide(fakeHosting),
       Scope.provide(scope)
@@ -309,4 +326,105 @@ test("only token hashes persist; a restarted store still authenticates an issued
   await once((store) => store.revoke(s1));
   expect(await once((store) => store.authenticate(s1, token))).toBe(false);
   expect(await once((store) => store.authenticate(s1, reissued))).toBe(false);
+}, 15_000);
+
+test("a flooding agent is closed: too many commands held while the stream opens, or too many sockets", async () => {
+  const { url } = await Effect.runPromise(relay.issue(s1));
+  opening.closeUnsafe();
+  const held = await connect(url);
+
+  for (let id = 1; id <= 65; id++)
+    held.socket.send(
+      JSON.stringify({ id, method: "Runtime.evaluate", params: { expression: "1" } })
+    );
+  const closed = await held.closed;
+  expect(closed.code).toBe(1009);
+  expect(closed.reason).toBe("input buffer full");
+
+  const big = await connect(url);
+  big.socket.send(
+    JSON.stringify({
+      id: 1,
+      method: "Runtime.evaluate",
+      params: { expression: "x".repeat(1024 * 1024 + 1) },
+    })
+  );
+  expect((await big.closed).code).toBe(1009);
+  opening.openUnsafe();
+
+  const agents = [];
+
+  for (let i = 0; i < RELAY_MAX_SOCKETS_PER_SESSION; i++) agents.push(await connect(url));
+  const extra = await connect(url);
+  const refused = await extra.closed;
+  expect(refused.code).toBe(1013);
+  expect(refused.reason).toBe("too many connections");
+  agents.forEach((agent) => agent.socket.close());
+  await Promise.all(agents.map((agent) => agent.closed));
+  // The refused socket never counted: the next one is admitted.
+  const again = await connect(url);
+  await until(() => desktops.get(s1)?.received.length === 1, "hello");
+  again.socket.close();
+}, 15_000);
+
+test("a token is issued and admitted only for a live session, and dies with the session", async () => {
+  const s3 = SessionId.make("session-three");
+  const unknown = SessionId.make("session-nobody");
+  hosted.add(s3);
+  presence.set(unknown, "unknown");
+  const refused = await Effect.runPromise(Effect.flip(relay.issue(unknown)));
+  expect(refused).toBeInstanceOf(CdpSessionNotLive);
+  expect([refused.sessionId, refused.presence]).toEqual([unknown, "unknown"]);
+
+  const { url } = await Effect.runPromise(relay.issue(s3));
+  const agent = await connect(url);
+  await until(() => desktops.get(s3)?.received.length === 1, "hello");
+  // Archived without the live event reaching the relay: the next request sees it.
+  presence.set(s3, "archived");
+  expect((await fetch(`${httpOf(url)}/json/version`)).status).toBe(401);
+  expect((await agent.closed).code).toBe(1008);
+
+  const admitted = await new Promise<boolean>((resolve) => {
+    const socket = new WebSocket(url);
+    socket.addEventListener("error", () => resolve(false));
+    socket.addEventListener("open", () => resolve(true));
+  });
+
+  expect(admitted).toBe(false);
+  const gone = await Effect.runPromise(Effect.flip(relay.issue(s3)));
+  expect(gone.presence).toBe("archived");
+}, 15_000);
+
+test("tokens of sessions archived while the Daemon was down die when it starts", async () => {
+  const home = mkdtempSync(shortTemp("polaris-cdp-restart-"));
+  const s4 = SessionId.make("session-four");
+  hosted.add(s4);
+
+  const withRelay = <A>(body: (relay: CdpRelay["Service"]) => Promise<A>) =>
+    Effect.runPromise(
+      Effect.scoped(
+        Layer.build(CdpRelay.layer({ home, version: "0.0.0-test", sessions })).pipe(
+          Effect.flatMap((context) => Effect.promise(() => body(Context.get(context, CdpRelay)))),
+          Effect.provide(fakeHosting)
+        )
+      )
+    );
+
+  const url = await withRelay(async (first) => (await Effect.runPromise(first.issue(s4))).url);
+  presence.set(s4, "archived");
+  await withRelay(async (second) => {
+    // Same token, same session: refused before any socket or event, by the startup sweep.
+    const sameToken = url.slice(url.lastIndexOf("/") + 1);
+
+    const store = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* CdpRelayStore).authenticate(s4, sameToken);
+      }).pipe(Effect.provide(CdpRelayStore.layer(join(home, "browser-cdp.sqlite"))))
+    );
+
+    expect(store).toBe(false);
+    const gone = await Effect.runPromise(Effect.flip(second.issue(s4)));
+    expect(gone.presence).toBe("archived");
+  });
+  rmSync(home, { recursive: true, force: true });
 }, 15_000);

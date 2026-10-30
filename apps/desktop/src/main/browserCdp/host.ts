@@ -25,6 +25,9 @@ export interface BrowserHostDeps {
 /** Credits are granted once this much of the Daemon's bytes is consumed, not per chunk. */
 const CREDIT_BATCH_BYTES = BYTE_STREAM_WINDOW_BYTES / 4;
 
+/** Messages for the Daemon held while its window is closed, before the stream is failed. */
+export const OUTBOUND_MAX_MESSAGES = 1024;
+
 interface StreamEnd {
   /** The Daemon consumed this many of our bytes. */
   readonly credit: (bytes: number) => void;
@@ -86,18 +89,29 @@ export const serveBrowserHost = (
 
     const openStream = Effect.fn("browserHost.open")(function* (open: Open) {
       if (open.purpose !== "cdp" || streams.has(open.streamId)) return;
-      const outbound = yield* Queue.unbounded<Uint8Array, Cause.Done>();
+
+      const outbound = yield* Queue.make<Uint8Array, Cause.Done>({
+        capacity: OUTBOUND_MAX_MESSAGES,
+        strategy: "dropping",
+      });
+
       const upstream = yield* Queue.unbounded<Uint8Array, Cause.Done>();
       const pump = creditedPump(outbound, upstream, open.window);
       const decoder = new CdpMessageDecoder();
       let ended = false;
+
+      const fail = () => Effect.runFork(end("failed"));
 
       const facade = cdpFacade({
         hostKey: deps.hostKey,
         sessionId: open.sessionId,
         tabs: deps.tabs,
         versions: deps.versions,
-        send: (message) => void Queue.offerUnsafe(outbound, encodeCdpMessage(message)),
+        // A Daemon that stops taking our bytes, or an agent past a bound, ends the stream.
+        send: (message) => {
+          if (!Queue.offerUnsafe(outbound, encodeCdpMessage(message))) fail();
+        },
+        overflow: fail,
       });
 
       const end = (reason: ByteStreamCloseReason | null) =>

@@ -41,8 +41,15 @@ export const CLOSE_TOO_LARGE = 1009;
 
 export const CLOSE_ERROR = 1011;
 
+export const CLOSE_TRY_AGAIN_LATER = 1013;
+
 /** Messages the relay queues for the Desktop App before it closes a flooding agent. */
 export const RELAY_MAX_QUEUED_MESSAGES = 256;
+
+/** Commands (and their bytes) held while the Browser stream opens, before the agent is closed. */
+export const RELAY_MAX_PENDING_MESSAGES = 64;
+
+export const RELAY_MAX_PENDING_BYTES = 1024 * 1024;
 
 export interface RelaySocketHooks {
   readonly open: (
@@ -53,8 +60,8 @@ export interface RelaySocketHooks {
     sessionId: SessionId,
     tabs: ReadonlyArray<RememberedTab>
   ) => Effect.Effect<void>;
-  /** The socket is open and relaying, or waiting to refuse. */
-  readonly opened: (socket: RelaySocket) => void;
+  /** The socket is open and relaying, or waiting to refuse; false refuses it (too many). */
+  readonly opened: (socket: RelaySocket) => boolean;
   /** The socket is gone, whoever closed it. */
   readonly closed: (socket: RelaySocket) => void;
 }
@@ -76,7 +83,9 @@ const errorReply = (id: CdpMessage["id"], message: string): CdpMessage => ({
 export class RelaySocket {
   /** Commands that arrived before the Browser stream opened; null once it opened or refused. */
   private pending: Array<CdpMessage> | null = [];
+  private pendingBytes = 0;
   private refusedWith: string | null = null;
+  private admitted = false;
   private fiber: Fiber.Fiber<void, never> | null = null;
   private done = false;
   private readonly drained = Latch.makeUnsafe(true);
@@ -95,7 +104,14 @@ export class RelaySocket {
 
   /** Opens the Browser stream and relays until either side closes. */
   start(): void {
-    this.hooks.opened(this);
+    if (!this.hooks.opened(this)) {
+      this.done = true;
+      this.socket.close(CLOSE_TRY_AGAIN_LATER, "too many connections");
+
+      return;
+    }
+
+    this.admitted = true;
     this.fiber = Effect.runFork(relayLoop(this));
   }
 
@@ -121,8 +137,16 @@ export class RelaySocket {
       return;
     }
 
-    if (this.pending !== null) this.pending.push(message);
-    else if (this.refusedWith !== null) this.refuse([message], this.refusedWith);
+    if (this.pending !== null) {
+      this.pendingBytes += data.length;
+
+      if (
+        this.pending.length >= RELAY_MAX_PENDING_MESSAGES ||
+        this.pendingBytes > RELAY_MAX_PENDING_BYTES
+      )
+        this.close(CLOSE_TOO_LARGE, "input buffer full");
+      else this.pending.push(message);
+    } else if (this.refusedWith !== null) this.refuse([message], this.refusedWith);
     else this.forward(message);
   }
 
@@ -191,7 +215,8 @@ export class RelaySocket {
     this.drained.openUnsafe();
 
     if (this.fiber !== null) Effect.runFork(Fiber.interrupt(this.fiber));
-    this.hooks.closed(this);
+
+    if (this.admitted) this.hooks.closed(this);
   }
 }
 

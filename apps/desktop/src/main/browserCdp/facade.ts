@@ -13,7 +13,11 @@ import {
 } from "../../shared/browserContract.ts";
 import { hubOf } from "./hub.ts";
 import type { CdpTabs } from "./ports.ts";
-import { refusalOf } from "./refusals.ts";
+import { decodeHandle, refusalOf, tabRefusalOf } from "./refusals.ts";
+
+/** Commands awaiting a tab's answer before the facade closes the stream on a flooding agent. */
+export const MAX_COMMANDS_IN_FLIGHT = 256;
+
 import { Targets } from "./targets.ts";
 
 export interface CdpVersions {
@@ -29,6 +33,8 @@ export interface CdpFacadeInput {
   /** A message for the agent, or for the relay (`Polaris.*`). */
   readonly send: (message: CdpMessage) => void;
   readonly versions: CdpVersions;
+  /** The agent overran a bound; the facade has closed itself and the stream should end. */
+  readonly overflow?: (reason: string) => void;
 }
 
 export interface CdpFacade {
@@ -72,6 +78,8 @@ const WithSessionId = Schema.Struct({ sessionId: Schema.String });
 
 const Navigate = Schema.Struct({ url: Schema.String });
 
+const WithStream = Schema.Struct({ stream: Schema.String });
+
 const NestedAttached = Schema.Struct({
   sessionId: Schema.String,
   targetInfo: Schema.Struct({ type: Schema.String }),
@@ -91,6 +99,7 @@ const decode = {
   attach: Schema.decodeUnknownOption(Attach),
   sessionId: Schema.decodeUnknownOption(WithSessionId),
   navigate: Schema.decodeUnknownOption(Navigate),
+  stream: Schema.decodeUnknownOption(WithStream),
   nestedAttached: Schema.decodeUnknownOption(NestedAttached),
   discover: Schema.decodeUnknownOption(Discover),
   autoAttach: Schema.decodeUnknownOption(AutoAttach),
@@ -153,9 +162,11 @@ const changedTab = (
 export const cdpFacade = (input: CdpFacadeInput): CdpFacade => {
   const { hostKey, sessionId, tabs, send } = input;
   const targets = new Targets(sessionId);
+  const handles = new Set<string>();
   let discover = false;
   let autoAttach = false;
   let closed = false;
+  let inFlight = 0;
 
   const emit = (message: CdpMessage) => {
     if (!closed) send(message);
@@ -353,6 +364,12 @@ export const cdpFacade = (input: CdpFacadeInput): CdpFacade => {
           openedBy: BrowserTabOpener.cases.Agent.make({}),
         });
 
+        // The agent left while its tab opened: nothing attaches, and the tab goes with it.
+        if (closed) {
+          await tabs.closeTab({ hostKey, sessionId, tabId: tab.tabId }).catch(() => undefined);
+          throw new CdpCommandError(-32000, "The Browser closed");
+        }
+
         tabOpened(tab);
 
         return { targetId: tab.tabId };
@@ -379,17 +396,39 @@ export const cdpFacade = (input: CdpFacadeInput): CdpFacade => {
         : { id: command.id, sessionId: command.sessionId, ...body }
     );
 
+  const overflow = (reason: string) => {
+    if (closed) return;
+    closed = true;
+    unsubscribe();
+    targets.allSessions().forEach((session) => detach(session, false));
+    input.overflow?.(reason);
+  };
+
   const run = async (command: Command, body: () => Promise<CdpJson> | CdpJson) => {
+    if (inFlight >= MAX_COMMANDS_IN_FLIGHT)
+      return overflow(`${MAX_COMMANDS_IN_FLIGHT} commands awaiting answers`);
+    inFlight += 1;
+
     try {
-      reply(command, { result: await body() });
+      const result = await body();
+      // Streams a tab hands out (response bodies, PDFs) are the only ones IO may read.
+      const stream = decode.stream(result);
+
+      if (Option.isSome(stream)) handles.add(stream.value.stream);
+      reply(command, { result });
     } catch (thrown) {
       const error = thrown instanceof Error ? thrown : new Error(String(thrown));
       reply(command, { error: failure(error) });
+    } finally {
+      inFlight -= 1;
     }
   };
 
   const dispatch = (command: Command) => {
-    const refusal = refusalOf(command.method, command.params);
+    const refusal =
+      command.sessionId === undefined
+        ? refusalOf(command.method, command.params)
+        : tabRefusalOf(command.method, command.params, handles);
 
     if (refusal !== null) return reply(command, { error: { code: -32000, message: refusal } });
     const handler = browserHandlers.get(command.method);
@@ -416,6 +455,12 @@ export const cdpFacade = (input: CdpFacadeInput): CdpFacade => {
 
     if (route === null) return reply(command, { error: failure(noSession()) });
 
+    if (command.method === "IO.close") {
+      const handle = decodeHandle(command.params);
+
+      if (Option.isSome(handle)) handles.delete(handle.value.handle);
+    }
+
     return void run(command, () =>
       route.hub.send(command.method, command.params ?? {}, route.nested ?? undefined)
     );
@@ -427,14 +472,16 @@ export const cdpFacade = (input: CdpFacadeInput): CdpFacade => {
     if (Option.isSome(decoded) && targets.known.size === 0)
       for (const { url } of decoded.value.tabs) {
         try {
-          tabOpened(
-            await tabs.openTab({
-              hostKey,
-              sessionId,
-              url,
-              openedBy: BrowserTabOpener.cases.User.make({}),
-            })
-          );
+          const tab = await tabs.openTab({
+            hostKey,
+            sessionId,
+            url,
+            openedBy: BrowserTabOpener.cases.User.make({}),
+          });
+
+          // Reopened for the user, so a tab stays even when the agent is gone; just don't attach.
+          if (closed) return;
+          tabOpened(tab);
         } catch {
           // A URL the Browser refuses now stays closed; the rest still reopen.
         }
@@ -468,9 +515,9 @@ export const cdpFacade = (input: CdpFacadeInput): CdpFacade => {
 
   const close = () => {
     if (closed) return;
+    closed = true;
     unsubscribe();
     targets.allSessions().forEach((session) => detach(session, false));
-    closed = true;
   };
 
   return { receive, close };

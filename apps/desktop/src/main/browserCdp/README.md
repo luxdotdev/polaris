@@ -14,7 +14,14 @@ The facade is a browser-level endpoint over one session's tabs:
 - Every other method needs a `sessionId` from `attachToTarget` and goes to that tab's `webContents.debugger` (`hub.ts`), including the sessions Chromium opens under the tab (frames, workers). A browser-type target under a tab never routes.
 - Another session's tab is no target: `No target with given id found`.
 
-Refused with code -32000 (`refusals.ts`): everything browser-wide (`Browser.close`, `Browser.grantPermissions`, `Browser.setWindowBounds`, `Browser.setContentsSize`, `Target.createBrowserContext`, `Target.attachToBrowserTarget`, `Target.exposeDevToolsProtocol`, the `SystemInfo`, `Tethering`, `Memory`, `HeadlessExperimental`, `Extensions`, `PWA` and `Autofill` domains, and the rest of the list in `REFUSED_METHODS`), `DOM.setFileInputFiles`, `Page.setInterceptFileChooserDialog`, `Network.loadNetworkResource` and `Input.dispatchDragEvent` with files (they read files on the Desktop App's machine or fetch on its behalf), and `Browser.setDownloadBehavior`/`Page.setDownloadBehavior` other than `deny`/`default` without a path. `Page.navigate` follows the Browser's navigation policy (`allowedUrl`).
+On a tab session, only an allowlist reaches Chromium (`refusals.ts`):
+
+- Whole domains: Accessibility, Animation, Audits, Console, CSS, DOM, DOMDebugger, DOMSnapshot, Debugger, Emulation, Fetch, Input, Inspector, Log, Network, Overlay, Page, Performance, Profiler, Runtime, Security. These act on the tab's own frame tree; agent-browser's `core` tools use Runtime, DOM, Accessibility, Input, Page and Network.
+- Mediated one by one: `Target.setAutoAttach` (the tab's frames and workers); `IO.read` and `IO.close` only for a stream this facade's tab handed out (`Fetch.takeResponseBodyAsStream`, `Network.takeResponseBodyForInterceptionAsStream`, `Page.printToPDF`), since IO handles are browser-wide; `IO.resolveBlob`; `Page.navigate` through the Browser's navigation policy (`allowedUrl`); `Browser.setDownloadBehavior` and `Page.setDownloadBehavior` only as `deny` or `default` without a path; `Input.dispatchDragEvent` without files.
+- Refused inside the allowed domains, with code -32000: `DOM.setFileInputFiles`, `Page.setInterceptFileChooserDialog`, `Network.loadNetworkResource` (they read files on the Desktop App's machine or fetch on its behalf).
+- Everything else is refused with code -32000: the Storage, ServiceWorker, Tracing, SystemInfo, Tethering, Memory, HeadlessExperimental, Extensions, PWA and Autofill domains (Storage's cookie methods without a `browserContextId` reach the default context, not the tab's partition), the browser-wide `Browser.*` and `Target.*` methods in `REFUSED_METHODS`, and any domain not listed (WebAuthn, IndexedDB, CacheStorage, …).
+
+Bounds: at most 256 commands await a tab's answer per facade, and at most 1024 messages wait for the Daemon's window; past either the facade closes and the stream ends with `failed`. A tab that finishes opening after the facade closed is closed again, never attached.
 
 ## Driving a tab
 

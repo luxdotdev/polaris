@@ -7,7 +7,7 @@ import {
   BrowserTabId,
   BrowserTabOpener,
 } from "../../shared/browserContract.ts";
-import { cdpFacade } from "./facade.ts";
+import { cdpFacade, MAX_COMMANDS_IN_FLIGHT } from "./facade.ts";
 import type {
   CdpDebuggee,
   CdpTabs,
@@ -54,7 +54,12 @@ class FakeDebuggee implements CdpDebuggee {
   sendCommand(method: string, params?: CdpJson, sessionId?: string): Promise<CdpJson> {
     this.commands.push({ method, params, sessionId });
 
+    if (method === "Runtime.evaluate" && params !== undefined && "hang" in Object(params))
+      return new Promise(() => undefined);
+
     if (method === "Runtime.evaluate") return Promise.resolve({ result: { value: 42 } });
+
+    if (method === "Fetch.takeResponseBodyAsStream") return Promise.resolve({ stream: "h1" });
 
     if (method === "Page.navigate")
       return Promise.reject(new Error("Cannot navigate to invalid URL"));
@@ -135,6 +140,8 @@ const fakeTabs = () => {
   const driving = new Map<string, boolean>();
   const opened: Array<OpenTabInput> = [];
   const closed: Array<string> = [];
+  const gates: Array<() => void> = [];
+  let holdOpens = false;
   let next = 1;
 
   const add = (
@@ -169,6 +176,8 @@ const fakeTabs = () => {
     openTab: async (input) => {
       opened.push(input);
 
+      if (holdOpens) await new Promise<void>((resolve) => gates.push(resolve));
+
       if (input.url.startsWith("file:")) throw new Error("BrowserRefused: file URLs do not open");
       const created = add(input.sessionId, input.url, null, input.openedBy);
       publish(
@@ -199,7 +208,13 @@ const fakeTabs = () => {
     },
   };
 
-  return { port, add, debuggee, publish, driving, opened, closed, tabs };
+  const holdOpening = () => {
+    holdOpens = true;
+
+    return () => gates.splice(0).forEach((release) => release());
+  };
+
+  return { port, add, debuggee, publish, driving, opened, closed, tabs, holdOpening };
 };
 
 const SessionResult = Schema.Struct({ sessionId: Schema.String });
@@ -214,6 +229,7 @@ const targetOf = (message: CdpMessage) =>
 
 const facadeOn = (world: ReturnType<typeof fakeTabs>, sessionId = mine) => {
   const sent: Array<CdpMessage> = [];
+  const overflows: Array<string> = [];
 
   const facade = cdpFacade({
     hostKey: host,
@@ -221,6 +237,7 @@ const facadeOn = (world: ReturnType<typeof fakeTabs>, sessionId = mine) => {
     tabs: world.port,
     send: (message) => sent.push(message),
     versions: { chrome: "140.0.0.0", v8: "14.0", userAgent: "Polaris Test" },
+    overflow: (reason) => overflows.push(reason),
   });
 
   const call = async (
@@ -243,7 +260,7 @@ const facadeOn = (world: ReturnType<typeof fakeTabs>, sessionId = mine) => {
 
   const events = (method: string) => sent.filter((message) => message.method === method);
 
-  return { facade, sent, call, events };
+  return { facade, sent, call, events, overflows };
 };
 
 test("the agent sees and attaches to this session's tabs only; another session's tab is no target", async () => {
@@ -320,6 +337,10 @@ test("browser-wide methods are refused, with and without a session", async () =>
     ["Page.setInterceptFileChooserDialog", { enabled: true }],
     ["Network.loadNetworkResource", { url: "file:///etc/hosts", options: {} }],
     ["Input.dispatchDragEvent", { type: "drop", x: 1, y: 1, data: { files: ["/etc/hosts"] } }],
+    ["Storage.getCookies", {}],
+    ["Storage.clearDataForOrigin", { origin: "*", storageTypes: "all" }],
+    ["ServiceWorker.enable", {}],
+    ["Tracing.start", {}],
   ];
 
   let id = 10;
@@ -433,7 +454,7 @@ test("page commands and events travel under the facade's session ids, nested ses
     sessionId: "BROWSER1",
     targetInfo: { type: "browser" },
   });
-  const viaBrowser = await call(10, "Browser.getVersion", {}, "BROWSER1");
+  const viaBrowser = await call(10, "Runtime.evaluate", { expression: "1" }, "BROWSER1");
   expect(viaBrowser.error).toMatchObject({ code: -32001 });
 
   const detached = await call(8, "Target.detachFromTarget", { sessionId: session });
@@ -614,4 +635,117 @@ test("the relay's hello reopens remembered tabs only into an empty Browser, and 
     id: null,
     error: { code: -32600, message: "Message must have integer 'id' property" },
   });
+});
+
+test("a tab session sends only its own domains: unlisted ones are refused, and IO reads only streams the tab handed out", async () => {
+  const world = fakeTabs();
+  const a = world.add(mine, "http://localhost:3000/");
+  const debuggee = world.debuggee(a.tabId);
+  const { call } = facadeOn(world);
+
+  const session = sessionOf(
+    await call(1, "Target.attachToTarget", { targetId: a.tabId, flatten: true })
+  );
+
+  const unlisted = [
+    "WebAuthn.enable",
+    "IndexedDB.requestDatabaseNames",
+    "CacheStorage.requestCacheNames",
+    "Browser.getVersion",
+    "Target.getTargets",
+    "WebMCP.enable",
+  ];
+
+  let id = 2;
+
+  for (const method of unlisted) {
+    const refused = await call(id++, method, {}, session);
+    expect(refused.error).toEqual({
+      code: -32000,
+      message: `${method} is not available through this Browser: only a tab's own domains are.`,
+    });
+  }
+
+  const foreign = await call(id++, "IO.read", { handle: "stolen" }, session);
+  expect(foreign.error).toEqual({
+    code: -32000,
+    message: "IO.read may only read a stream this tab handed out.",
+  });
+
+  const issued = await call(id++, "Fetch.takeResponseBodyAsStream", { requestId: "r1" }, session);
+  expect(issued.result).toEqual({ stream: "h1" });
+  const read = await call(id++, "IO.read", { handle: "h1" }, session);
+  expect(read.result).toEqual({});
+  await call(id++, "IO.close", { handle: "h1" }, session);
+  const afterClose = await call(id++, "IO.read", { handle: "h1" }, session);
+  expect(afterClose.error).toMatchObject({ code: -32000 });
+
+  // Page-level auto-attach for the tab's frames is the one Target method a session keeps.
+  const auto = await call(
+    id++,
+    "Target.setAutoAttach",
+    { autoAttach: true, flatten: true },
+    session
+  );
+
+  expect(auto.result).toEqual({});
+  expect(debuggee.commands.map((c) => c.method)).toEqual([
+    "Emulation.setFocusEmulationEnabled",
+    "Fetch.takeResponseBodyAsStream",
+    "IO.read",
+    "IO.close",
+    "Target.setAutoAttach",
+  ]);
+});
+
+test("too many commands awaiting answers close the facade and tell the stream", async () => {
+  const world = fakeTabs();
+  const a = world.add(mine, "http://localhost:3000/");
+  const debuggee = world.debuggee(a.tabId);
+  const { facade, sent, overflows, call } = facadeOn(world);
+
+  const session = sessionOf(
+    await call(1, "Target.attachToTarget", { targetId: a.tabId, flatten: true })
+  );
+
+  for (let id = 2; id <= MAX_COMMANDS_IN_FLIGHT + 1; id++)
+    facade.receive({ id, method: "Runtime.evaluate", params: { hang: true }, sessionId: session });
+  expect(overflows).toEqual([]);
+  facade.receive({
+    id: MAX_COMMANDS_IN_FLIGHT + 2,
+    method: "Runtime.evaluate",
+    params: { hang: true },
+    sessionId: session,
+  });
+  expect(overflows).toEqual([`${MAX_COMMANDS_IN_FLIGHT} commands awaiting answers`]);
+  expect(debuggee.attached).toBe(false);
+  expect(world.driving.get(a.tabId)).toBe(false);
+  facade.receive({ id: 999, method: "Browser.getVersion" });
+  expect(sent.some((m) => m.id === 999)).toBe(false);
+});
+
+test("a tab that finishes opening after the facade closed is never attached, and goes", async () => {
+  const world = fakeTabs();
+  const release = world.holdOpening();
+  const { facade, sent } = facadeOn(world);
+  facade.receive({
+    id: 1,
+    method: "Target.setAutoAttach",
+    params: { autoAttach: true, flatten: true },
+  });
+  facade.receive({
+    id: 2,
+    method: "Target.createTarget",
+    params: { url: "http://localhost:3000/late" },
+  });
+  await Bun.sleep(0);
+  expect(world.opened).toHaveLength(1);
+
+  facade.close();
+  release();
+  await Bun.sleep(0);
+  await Bun.sleep(0);
+  expect(world.closed).toEqual(["tab-1"]);
+  expect(world.driving.get("tab-1")).toBeUndefined();
+  expect(sent.some((m) => m.id === 2)).toBe(false);
 });
