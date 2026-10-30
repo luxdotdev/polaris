@@ -4,7 +4,7 @@
  * to fit the peer's credit; the peer's blob arrives as `transport.incoming`, and each chunk is
  * granted back once the consumer has taken it. Neither side's buffer can grow past its window.
  */
-import { type Cause, Deferred, Effect, Queue, Stream } from "effect";
+import { Cause, Deferred, Effect, Exit, Queue, Stream } from "effect";
 import { BLOB_CHUNK_BYTES } from "./frame.ts";
 import { type ByteTransport, TransportError } from "./wire.ts";
 
@@ -108,8 +108,11 @@ export interface ByteStreamEndpointOptions<E extends { readonly message: string 
 
 export interface ByteStreamEndpoint {
   readonly transport: ByteTransport;
-  /** Our bytes toward the peer: offer it as the blob the peer reads. Ends when the transport closes. */
-  readonly outgoing: Stream.Stream<Uint8Array>;
+  /**
+   * Our bytes toward the peer: offer it as the blob the peer reads. A clean close ends it; a
+   * failure fails it, which aborts that blob so the peer's `incoming` fails rather than ends.
+   */
+  readonly outgoing: Stream.Stream<Uint8Array, TransportError>;
   /** The peer consumed `bytes` of `outgoing`. False when that exceeds what was outstanding: fail the stream. */
   readonly credited: (bytes: number) => boolean;
   /** The peer closed the stream cleanly: `incoming` ends, `outgoing` ends, writes fail. */
@@ -124,10 +127,10 @@ export interface ByteStreamEndpoint {
 export const makeByteStreamEndpoint = Effect.fnUntraced(function* <
   E extends { readonly message: string },
 >(options: ByteStreamEndpointOptions<E>): Effect.fn.Return<ByteStreamEndpoint, never> {
-  const queue = yield* Queue.unbounded<Uint8Array, Cause.Done>();
+  const queue = yield* Queue.unbounded<Uint8Array, TransportError | Cause.Done>();
   const closed = yield* Deferred.make<void>();
-  /** Succeeds on a clean close (incoming ends), fails on `fail` (incoming fails). */
-  const ended = yield* Deferred.make<void, TransportError>();
+  /** Only ever fails, and only on `fail`: a clean close lets `incoming` drain to its blob's end. */
+  const failed = yield* Deferred.make<never, TransportError>();
   const peerCredit = makeCreditWindow(options.peerWindow);
   const pieceBytes = Math.min(options.peerWindow, BLOB_CHUNK_BYTES);
   const grantThreshold = Math.max(1, Math.floor(options.window / 4));
@@ -145,12 +148,20 @@ export const makeByteStreamEndpoint = Effect.fnUntraced(function* <
       return options.grant(granted);
     });
 
-  const finish = (exit: Effect.Effect<void, TransportError>, error: TransportError) => {
+  const finish = (error: TransportError | null) => {
     if (isClosed) return;
     isClosed = true;
-    Deferred.doneUnsafe(ended, exit);
-    peerCredit.fail(error);
-    Queue.endUnsafe(queue);
+
+    // A failure aborts `outgoing` (failing the peer's blob) and interrupts `incoming`; a clean
+    // close ends `outgoing` and lets `incoming` drain, its interrupt never firing.
+    if (error !== null) {
+      Deferred.doneUnsafe(failed, Exit.fail(error));
+      Queue.failCauseUnsafe(queue, Cause.fail(error));
+    } else {
+      Queue.endUnsafe(queue);
+    }
+
+    peerCredit.fail(error ?? new TransportError({ message: "byte stream closed" }));
     Deferred.doneUnsafe(closed, Effect.void);
   };
 
@@ -164,13 +175,13 @@ export const makeByteStreamEndpoint = Effect.fnUntraced(function* <
       }
     });
 
-  const end = () => finish(Effect.void, new TransportError({ message: "byte stream closed" }));
+  const end = () => finish(null);
 
   return {
     transport: {
       incoming: options.incoming.pipe(
         Stream.mapError((error) => new TransportError({ message: error.message })),
-        Stream.interruptWhen(Deferred.await(ended)),
+        Stream.interruptWhen(Deferred.await(failed)),
         Stream.tap((chunk) => grant(chunk.byteLength))
       ),
       write,
@@ -179,10 +190,7 @@ export const makeByteStreamEndpoint = Effect.fnUntraced(function* <
     outgoing: Stream.fromQueue(queue),
     credited: peerCredit.grant,
     end,
-    fail: (message) => {
-      const error = new TransportError({ message });
-      finish(Effect.fail(error), error);
-    },
+    fail: (message) => finish(new TransportError({ message })),
     closed: Deferred.await(closed),
   };
 });

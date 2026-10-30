@@ -19,6 +19,7 @@ import {
   makeByteStreamEndpoint,
   type NotFound,
   type SessionId,
+  TransportError,
   Unsupported,
 } from "@polaris/protocol";
 import {
@@ -69,7 +70,7 @@ export const openHostAddressStream = Effect.fnUntraced(function* (
   if (!session.capabilities.includes("host-address"))
     return yield* new Unsupported({ capability: "host-address" });
 
-  const outgoing = yield* Deferred.make<Stream.Stream<Uint8Array>>();
+  const outgoing = yield* Deferred.make<Stream.Stream<Uint8Array, TransportError>>();
   const upstream = yield* session.blobs.offer(Stream.unwrap(Deferred.await(outgoing)));
 
   const opened = yield* Deferred.make<
@@ -193,7 +194,7 @@ export const hostBrowsers = Effect.fnUntraced(function* (
 
     const accept = Effect.gen(function* () {
       if (entry.closed) return yield* new Unsupported({ capability: "browser.host" });
-      const outgoing = yield* Deferred.make<Stream.Stream<Uint8Array>>();
+      const outgoing = yield* Deferred.make<Stream.Stream<Uint8Array, TransportError>>();
       const upstream = yield* session.blobs.offer(Stream.unwrap(Deferred.await(outgoing)));
 
       const endpoint = yield* makeByteStreamEndpoint({

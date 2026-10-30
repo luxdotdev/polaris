@@ -7,13 +7,19 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
-import { type AddressInfo, createServer, type Server, type Socket } from "node:net";
+import {
+  type AddressInfo,
+  connect as netConnect,
+  createServer,
+  type Server,
+  type Socket,
+} from "node:net";
 import { join } from "node:path";
 import {
+  type ByteStreamSession,
   connectRpc,
   hostBrowsers,
   HostTarget,
-  type LiveSession,
   makeHostConnection,
   openHostAddressStream,
   socketTransport,
@@ -24,7 +30,9 @@ import {
   type ByteStreamId,
   type ByteTransport,
   type Capability,
+  readEvents,
   SessionId,
+  writeEvents,
 } from "@polaris/protocol";
 import { localEndpoint } from "@polaris/protocol/endpoint";
 import { type Duration, Effect, Exit, Fiber, Layer, Predicate, Queue, Scope, Stream } from "effect";
@@ -192,6 +200,42 @@ const client = (
 
     return yield* connection.awaitSession;
   });
+
+/**
+ * A Client over a node socket we can destroy to simulate a hard connection drop: no graceful
+ * close runs, so the Daemon never sees a clean end for the streams it hosts there.
+ */
+const hardConnection = Effect.fnUntraced(function* () {
+  const socket = yield* Effect.acquireRelease(
+    Effect.callback<Socket, Error>((resume) => {
+      const connecting = netConnect(localEndpoint(home));
+      connecting.once("connect", () => resume(Effect.succeed(connecting)));
+      connecting.once("error", (error) => resume(Effect.fail(error)));
+    }),
+    (socket) => Effect.sync(() => socket.destroy())
+  );
+
+  const connection = yield* connectRpc({
+    incoming: readEvents(socket),
+    write: writeEvents(socket),
+    close: Effect.sync(() => socket.end()),
+  });
+
+  const hello = yield* connection.client.hello({
+    clientName: "test",
+    clientVersion: "0",
+    deviceLabel: "dropping",
+    capabilities: CLIENT_CAPABILITIES,
+  });
+
+  const session: ByteStreamSession = {
+    client: connection.client,
+    blobs: connection.blobs,
+    capabilities: hello.capabilities,
+  };
+
+  return { session, drop: () => socket.destroy() };
+});
 
 /** Writes `payload` and collects what comes back until `expected` bytes, then closes. */
 const roundTrip = (transport: ByteTransport, payload: Uint8Array) =>
@@ -368,7 +412,7 @@ describe("Host-address streams", () => {
     expect(result.incomingEnded).toBe(true);
   }, 15_000);
 
-  test.todo("a sender never has more than one window in flight, so RPCs keep flowing beside a stalled transfer", async () => {
+  test("a sender never has more than one window in flight, so RPCs keep flowing beside a stalled transfer", async () => {
     const TOTAL = 8 * 1024 * 1024;
 
     const result = await run(
@@ -435,7 +479,11 @@ describe("Host-address streams", () => {
     expect(result.total).toBe(TOTAL);
   }, 20_000);
 
-  test.todo("a Client's write past the Daemon's window waits for the Host to read", async () => {
+  test("a Client's write past the Daemon's window waits for the Host to read", async () => {
+    // Far more than any loopback kernel buffer: once the Host stops reading, the Daemon's
+    // socket fills, it grants no more credit, and the Client's write cannot finish.
+    const TOTAL = 32 * BYTE_STREAM_WINDOW_BYTES;
+
     const result = await run(
       Effect.gen(function* () {
         yield* daemon();
@@ -455,13 +503,10 @@ describe("Host-address streams", () => {
 
         yield* eventually(() => held !== null);
 
-        // Twice the window: the second half can't go until the first is read.
         let done = false;
 
         const write = yield* Effect.forkChild(
-          stream
-            .write(bytes(2 * BYTE_STREAM_WINDOW_BYTES, 9))
-            .pipe(Effect.ensuring(Effect.sync(() => (done = true))))
+          stream.write(bytes(TOTAL, 9)).pipe(Effect.ensuring(Effect.sync(() => (done = true))))
         );
 
         yield* Effect.sleep("400 millis");
@@ -472,7 +517,7 @@ describe("Host-address streams", () => {
         });
         held!.resume();
         yield* Fiber.join(write);
-        const drained = yield* eventually(() => read === 2 * BYTE_STREAM_WINDOW_BYTES);
+        const drained = yield* eventually(() => read === TOTAL);
 
         return { blocked, drained };
       })
@@ -566,7 +611,7 @@ describe("Browser hosting", () => {
   const s2 = SessionId.make("s2");
 
   /** The Desktop App side: hosts, and answers every offer as `mode` says (accepted ones land in `accepted`). */
-  const desktop = (session: LiveSession, mode: "accept" | "refuse" | "ignore" = "accept") =>
+  const desktop = (session: ByteStreamSession, mode: "accept" | "refuse" | "ignore" = "accept") =>
     Effect.gen(function* () {
       const host = yield* hostBrowsers(session);
       const accepted = yield* Queue.unbounded<ByteTransport>();
@@ -647,7 +692,7 @@ describe("Browser hosting", () => {
     30_000
   );
 
-  test.todo("streams go to the last claimer, else the most recently present host; a move revokes", async () => {
+  test("streams go to the last claimer, else the most recently present host; a move revokes", async () => {
     const result = await run(
       Effect.gen(function* () {
         const { hosting } = yield* daemon();
@@ -764,7 +809,7 @@ describe("Browser hosting", () => {
     expect(result.stale).toBe("NotFound");
   }, 15_000);
 
-  test.todo("a refused or unanswered offer fails the open; a host's streams end with its connection", async () => {
+  test("a refused or unanswered offer fails the open; a host's streams end with its connection", async () => {
     const result = await run(
       Effect.gen(function* () {
         const { hosting } = yield* daemon({ acceptTimeout: "300 millis" });
@@ -778,18 +823,15 @@ describe("Browser hosting", () => {
         const unanswered = yield* hosting.open(s1, "cdp").pipe(Effect.flip);
         const waitedMs = performance.now() - started;
 
-        // An accepted stream, then the hosting connection drops.
-        const scope = yield* Scope.make();
+        // An accepted stream, then the hosting connection drops hard (no graceful close).
+        const dropping = yield* hardConnection();
+        const droppingHost = yield* desktop(dropping.session);
 
-        const dropping = yield* desktop(
-          yield* client("socket", { key: "dropping" }).pipe(Scope.provide(scope))
-        ).pipe(Scope.provide(scope));
-
-        yield* dropping.host.claim(s2);
+        yield* droppingHost.host.claim(s2);
         const stream = yield* hosting.open(s2, "cdp");
-        yield* Queue.take(dropping.accepted);
+        yield* Queue.take(droppingHost.accepted);
         const reading = yield* Effect.forkChild(collectAll(stream.incoming).pipe(Effect.exit));
-        yield* Scope.close(scope, Exit.void);
+        dropping.drop();
         const ended = yield* Fiber.join(reading);
 
         const gone = yield* hosting.current(s2).pipe(

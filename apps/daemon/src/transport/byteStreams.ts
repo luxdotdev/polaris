@@ -21,7 +21,7 @@ import { type Cause, Context, Effect, Queue, Stream } from "effect";
 import type { Rpc } from "effect/rpc";
 import { BrowserHosting, ByteStreamQuota, HostAddressStreams } from "../browser/index.ts";
 import { ClientCapabilities } from "../engine/rpc.ts";
-import { BlobChannel } from "../services.ts";
+import { BlobChannel, ServiceError } from "../services.ts";
 
 type OpenPayload = typeof HostAddressOpen.payloadSchema.Type;
 
@@ -69,7 +69,15 @@ const openHostAddress = (
           Effect.asVoid(Queue.offer(items, HostAddressStreamItem.cases.Credit.make({ bytes }))),
       });
 
-      const downstream = yield* blobs.offer(endpoint.outgoing);
+      // Offer our bytes as the downstream blob; a failure aborts it, so the mapped reason is moot.
+      const downstream = yield* blobs.offer(
+        endpoint.outgoing.pipe(
+          Stream.mapError(
+            (error) => new ServiceError({ service: "host-address-stream", message: error.message })
+          )
+        )
+      );
+
       const streamId = allocateStreamId();
       const mine = held.get(connectionId) ?? new Map<ByteStreamId, ByteStreamEndpoint>();
       mine.set(streamId, endpoint);

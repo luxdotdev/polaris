@@ -17,6 +17,7 @@ import {
   NoDesktopApp,
   NotFound,
   SessionId,
+  TransportError,
   Unsupported,
 } from "@polaris/protocol";
 import {
@@ -32,8 +33,16 @@ import {
   Stream,
 } from "effect";
 import { HostPresence } from "../presence/index.ts";
-import type { BlobChannel } from "../services.ts";
+import { type BlobChannel, ServiceError } from "../services.ts";
 import { ByteStreamQuota } from "./quota.ts";
+
+/** A byte-stream's `outgoing` as a blob source: its failure aborts the blob, so the reason is moot. */
+const asBlobSource = (stream: Stream.Stream<Uint8Array, TransportError>) =>
+  stream.pipe(
+    Stream.mapError(
+      (error) => new ServiceError({ service: "browser-stream", message: error.message })
+    )
+  );
 
 /** The hosting Desktop App closed or refused the stream before it carried the session's bytes. */
 export class BrowserStreamRefused extends Schema.TaggedError<BrowserStreamRefused>()(
@@ -56,7 +65,7 @@ type StreamState =
       readonly sessionId: SessionId;
       readonly accepted: Deferred.Deferred<Accepted, BrowserStreamRefused>;
       /** What the offered `downstream` blob carries: the endpoint's bytes, or nothing when refused. */
-      readonly outgoing: Deferred.Deferred<Stream.Stream<Uint8Array>>;
+      readonly outgoing: Deferred.Deferred<Stream.Stream<Uint8Array, TransportError>>;
     }
   | { readonly kind: "open"; readonly sessionId: SessionId; readonly endpoint: ByteStreamEndpoint };
 
@@ -276,13 +285,16 @@ export class BrowserHosting extends Context.Service<
 
       const streamId = allocateStreamId();
       const accepted = yield* Deferred.make<Accepted, BrowserStreamRefused>();
-      const outgoing = yield* Deferred.make<Stream.Stream<Uint8Array>>();
+      const outgoing = yield* Deferred.make<Stream.Stream<Uint8Array, TransportError>>();
       host.streams.set(streamId, { kind: "pending", sessionId, accepted, outgoing });
       // Ending our side (the scope closed, or `close`) tells the Desktop App; a refusal already has.
       yield* Effect.addFinalizer(() =>
         Effect.sync(() => endStream(host, streamId, "closed", true))
       );
-      const downstream = yield* host.blobs.offer(Stream.unwrap(Deferred.await(outgoing)));
+
+      const downstream = yield* host.blobs.offer(
+        asBlobSource(Stream.unwrap(Deferred.await(outgoing)))
+      );
 
       yield* Queue.offer(
         host.items,
