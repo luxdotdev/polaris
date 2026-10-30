@@ -202,7 +202,24 @@ const PROXY_AUTH_HEADER = /^proxy-authenticat(?:e|ion-info)[ \t]*:/i;
 
 const PROXY_AUTH_NAME = /proxy-authenticat/i;
 
-const BARE_CR = /\r(?!\n)/;
+const TAB = 0x09;
+
+const LF = 0x0a;
+
+const CR = 0x0d;
+
+/** Whether the head has bytes Chromium drops or splits lines at (NUL, a bare CR, other controls). */
+const misreadable = (head: string) => {
+  for (let i = 0; i < head.length; i++) {
+    const code = head.charCodeAt(i);
+    const control = code < 0x20 || code === 0x7f;
+
+    if (control && code !== TAB && code !== LF && !(code === CR && head.charCodeAt(i + 1) === LF))
+      return true;
+  }
+
+  return false;
+};
 
 const headEnd = (text: string, from: number) => {
   const crlf = text.indexOf("\n\r\n", from);
@@ -244,8 +261,8 @@ export const screenResponse = (bytes: Uint8Array): ResponseScreen => {
 
     const stripped = withoutProxyAuth(head);
 
-    // Chromium also ends lines at a bare CR; any proxy auth header left is one we misread.
-    if (code === 407 || code < 100 || BARE_CR.test(head) || PROXY_AUTH_NAME.test(stripped))
+    // Any proxy auth header left after stripping is one we misread.
+    if (code === 407 || code < 100 || misreadable(head) || PROXY_AUTH_NAME.test(stripped))
       return ResponseScreen.Refuse();
     heads.push(stripped);
 

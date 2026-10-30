@@ -431,8 +431,12 @@ describe("a 407 from the Host", () => {
     ],
     ["with a bare CR anywhere in a head", () => "HTTP/1.1 200 OK\r\nX-A: b\rc\r\n\r\nok"],
     [
+      "with a NUL in a header name",
+      () => "HTTP/1.1 200 OK\r\nProxy-Authen\0ticate: Basic\r\n\r\nok",
+    ],
+    [
       "with a proxy auth header it can't strip",
-      (realm: string) => `HTTP/1.1 200 OK\r\n\v${challenge(realm)}\r\n\r\nok`,
+      (realm: string) => `HTTP/1.1 200 OK\r\nX-A: b\r\n ${challenge(realm)}\r\n\r\nok`,
     ],
   ])("a response %s gets a 502", async (_, respond) => {
     const proxy = await start({ respond });
