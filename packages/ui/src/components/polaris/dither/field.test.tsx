@@ -60,7 +60,7 @@ describe("the live dither field", () => {
     render(
       <StrictMode>
         <div>
-          <DitherField hue="claude" scatter seed={3} />
+          <DitherField hue="claude" seed={3} />
         </div>
       </StrictMode>
     );

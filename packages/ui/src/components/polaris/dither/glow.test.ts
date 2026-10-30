@@ -11,7 +11,6 @@ import {
   onLattice,
   paintFrame,
   RESTING,
-  SCATTER,
   sparseAlpha,
   STILL,
   Trail,
@@ -46,7 +45,7 @@ const HEIGHT = 42;
 
 const COLORS: FieldColors = {
   hue: [1, 0, 0],
-  scatter: [2, 0, 0],
+  trail: [2, 0, 0],
   sparse: [3, 0, 0],
   hueAlpha: 0.29,
 };
@@ -54,10 +53,10 @@ const COLORS: FieldColors = {
 interface Dot {
   readonly x: number;
   readonly y: number;
-  readonly ink: "hue" | "scatter" | "sparse";
+  readonly ink: "hue" | "trail" | "sparse";
 }
 
-const INKS = ["hue", "scatter", "sparse"] as const;
+const INKS = ["hue", "trail", "sparse"] as const;
 
 function dots(frame: FieldFrame): Dot[] {
   const pixels = new Uint32Array(WIDTH * HEIGHT);
@@ -77,7 +76,6 @@ const live = (step: number, seed: number): FieldFrame => ({
   ...STILL,
   ...liveAt(step, seed),
   seed,
-  scatter: true,
 });
 
 const fingerprint = (frame: FieldFrame) =>
@@ -111,24 +109,15 @@ describe("the Working strip's dither field", () => {
     expect([...alphas].filter((a) => a > 0)).toEqual([0.29]);
   });
 
-  test("live, the corner stays within Paper's top-left reach and the scatter stays small", () => {
+  test("live, the corner stays within Paper's top-left reach and nothing else is lit", () => {
     for (const seed of [1, 42, 0xdeadbeef]) {
       for (let step = 0; step < 600; step += 7) {
         const frame = dots(live(step, seed));
         const corner = frame.filter((d) => d.ink === "hue");
-        const scatter = frame.filter((d) => d.ink === "scatter");
 
         expect(Math.max(...corner.map((d) => d.x))).toBeLessThan(160);
         expect(Math.max(...corner.map((d) => d.y))).toBeLessThan(44);
-
-        const xs = scatter.map((d) => d.x);
-        const ys = scatter.map((d) => d.y);
-
-        expect(Math.max(...xs) - Math.min(...xs)).toBeLessThanOrEqual(2 * SCATTER.rx * 1.15);
-        expect(Math.max(...ys) - Math.min(...ys)).toBeLessThanOrEqual(2 * SCATTER.ry);
-        expect(Math.min(...xs)).toBeGreaterThan(WIDTH * SCATTER.minX - SCATTER.rx * 1.15);
-        expect(Math.max(...xs)).toBeLessThan(WIDTH * SCATTER.maxX + SCATTER.rx * 1.15);
-        expect(scatter.length).toBeLessThan(80);
+        expect(corner.length).toBe(frame.length);
       }
     }
   });
@@ -154,10 +143,10 @@ describe("the Working strip's dither field", () => {
   });
 
   test("the still frame's corner holds whatever the seed: no drift, no breath", () => {
-    const corner = (seed: number) => fingerprint({ ...live(0, seed), scatter: false });
+    const corner = (seed: number) => fingerprint(live(0, seed));
 
     expect(corner(1)).toBe(corner(99));
-    expect(corner(1)).not.toBe(fingerprint({ ...live(12, 1), scatter: false }));
+    expect(corner(1)).not.toBe(fingerprint(live(12, 1)));
   });
 
   test("a bloom floods the corner, reaches further, then settles to rest", () => {
@@ -184,11 +173,11 @@ describe("the Working strip's dither field", () => {
     expect(sparseAlpha(200, 16, { ...frame, presence: 0 })).toBe(0);
   });
 
-  test("under the pointer the trail is Paper's sparse, flat scatter, not a round blob", () => {
+  test("under the pointer the trail is Paper's sparse, flat patch, not a round blob", () => {
     const trail = new Trail(WIDTH / DOT_PITCH, HEIGHT / DOT_PITCH);
 
     for (let k = 0; k < 10; k++) trail.update(16, 280 + k * 4, 21, 1);
-    const lit = dots({ ...STILL, trail }).filter((d) => d.ink === "scatter");
+    const lit = dots({ ...STILL, trail }).filter((d) => d.ink === "trail");
     const xs = lit.map((d) => d.x);
     const ys = lit.map((d) => d.y);
     const width = Math.max(...xs) - Math.min(...xs);

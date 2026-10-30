@@ -162,7 +162,7 @@ export function WorkingStrip({
       data-slot="working-strip"
       className="gap-row-x pr-gap relative flex h-[42px] shrink-0 items-center overflow-clip pl-[18px]"
     >
-      <LiveDither harness={harness} active scatter bloom={status ?? "working"} />
+      <LiveDither harness={harness} active bloom={status ?? "working"} />
       <Dither hue={harness} size={12} moving className="relative" />
       <span className="text-body relative shrink-0 font-medium whitespace-nowrap text-(--harness-text)">
         {children ?? `${harnessHue(harness).name} is working`}
