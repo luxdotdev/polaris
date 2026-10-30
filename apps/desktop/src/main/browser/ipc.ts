@@ -71,8 +71,16 @@ export const browserHandlers = (browsers: Registry | undefined): Handlers => {
     "browser.show": done((b, { hostKey, sessionId, bounds }) => b.show(hostKey, sessionId, bounds)),
     "browser.hide": done((b, { hostKey, sessionId }) => b.hide(hostKey, sessionId)),
     "browser.forget": done((b, { hostKey, sessionIds }) => b.forget(hostKey, sessionIds)),
-    // Pick mode is ENG-618's.
-    "browser.pick": () => Effect.fail(UNAVAILABLE),
+    "browser.pick": ({ hostKey, sessionId, tabId }) =>
+      browsers === undefined
+        ? Effect.fail(UNAVAILABLE)
+        : Effect.tryPromise({
+            try: () => browsers.pick(hostKey, sessionId, tabId),
+            catch: failure,
+          }),
+    "browser.cancelPick": done((b, { hostKey, sessionId, tabId }) =>
+      b.cancelPick(hostKey, sessionId, tabId)
+    ),
   };
 };
 

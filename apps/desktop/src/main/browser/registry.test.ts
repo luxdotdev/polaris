@@ -36,6 +36,12 @@ const fakeViews = () => {
     forward: () => {},
     reload: () => {},
     devtools: () => {},
+    pick: (tabId) => {
+      log.push(`pick ${tabId}`);
+
+      return Promise.resolve(null);
+    },
+    cancelPick: () => {},
     show: (tabId, bounds) => {
       onScreen = bounds.width === 0 ? null : tabId;
     },
@@ -122,6 +128,8 @@ describe("tab lists", () => {
     await open(registry, "localhost:4000", "s2");
     expect(() => registry.closeTab("mac", sid("s2"), mine.tabId)).toThrow(BrowserRefused);
     expect(() => registry.activateTab("laptop", sid("s1"), mine.tabId)).toThrow(BrowserRefused);
+    // A pick reads the page and captures it: never in another session's tab.
+    expect(() => registry.pick("mac", sid("s2"), mine.tabId)).toThrow(BrowserRefused);
     expect(registry.sessionTabs("mac", sid("s1")).tabs).toHaveLength(1);
 
     expect(await refused(open(registry, "file:///etc/passwd"))).toBe(true);

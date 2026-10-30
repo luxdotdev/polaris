@@ -7,6 +7,7 @@ import type { SessionId, WorkspaceId } from "@polaris/protocol";
 import { Predicate } from "effect";
 import {
   type BrowserBounds,
+  type BrowserPickResult,
   type BrowserTab,
   type BrowserTabChange,
   BrowserTabEvent,
@@ -48,6 +49,10 @@ export interface ViewHost {
   readonly forward: (tabId: BrowserTabId) => void;
   readonly reload: (tabId: BrowserTabId, ignoreCache: boolean) => void;
   readonly devtools: (tabId: BrowserTabId, open: boolean) => void;
+  /** Pick mode in the tab: the clicked element, or null when cancelled (ENG-618). */
+  readonly pick: (tabId: BrowserTabId) => Promise<BrowserPickResult | null>;
+  /** Ends the tab's pick mode; its `pick` answers null. */
+  readonly cancelPick: (tabId: BrowserTabId) => void;
   /** Puts the tab on screen at `bounds` (empty bounds cover it), every other view off it. */
   readonly show: (tabId: BrowserTabId, bounds: BrowserBounds) => void;
   /** Takes every view off screen. */
@@ -343,6 +348,10 @@ export const createRegistry = (deps: RegistryDeps) => {
       deps.views.reload(viewOf(hostKey, sessionId, tabId), ignoreCache),
     devtools: (hostKey: string, sessionId: SessionId, tabId: BrowserTabId, open: boolean) =>
       deps.views.devtools(viewOf(hostKey, sessionId, tabId), open),
+    pick: (hostKey: string, sessionId: SessionId, tabId: BrowserTabId) =>
+      deps.views.pick(viewOf(hostKey, sessionId, tabId)),
+    cancelPick: (hostKey: string, sessionId: SessionId, tabId: BrowserTabId) =>
+      deps.views.cancelPick(viewOf(hostKey, sessionId, tabId)),
     activateTab,
     tabChanged,
     show,

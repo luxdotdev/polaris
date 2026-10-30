@@ -70,6 +70,7 @@ const UI_BROWSER: ReadonlyArray<readonly [string, string]> = [
   ["ReloadIcon", "ArrowRotateClockwiseOutline18"],
   ["CursorIcon", "CursorDefaultOutline18"],
   ["CodeIcon", "CodeOutline18"],
+  ["PickElementIcon", "SquareDashedCursorOutline18"],
 ];
 
 /** Polaris name → Nucleo pixel outline 24px component. Polaris-owned concepts only. */
