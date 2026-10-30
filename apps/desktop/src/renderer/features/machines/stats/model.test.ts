@@ -50,6 +50,15 @@ describe("the stats ring", () => {
     expect(state.samples.at(-1)?.cpuPercent).toBe(92);
   });
 
+  test("a history that crossed IPC (structured-cloned, its samples plain objects) fills the ring", () => {
+    const cloned = structuredClone(history([sample(1), sample(2)]));
+    const next = structuredClone(HostStatsItem.cases.Sample.make({ sample: sample(3) }));
+
+    expect(foldStats(foldStats(null, cloned), next)?.samples.map((s) => s.cpuPercent)).toEqual([
+      1, 2, 3,
+    ]);
+  });
+
   test("a sample before the history is ignored, and a new history replaces the ring", () => {
     expect(foldStats(null, HostStatsItem.cases.Sample.make({ sample: sample(5) }))).toBeNull();
     expect(foldStats(stats([sample(1), sample(2)]), history([sample(9)]))?.samples).toHaveLength(1);
