@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PinnedFile } from "../../prediction/managed/catalog.ts";
-import { installAgentBrowser, NoAgentBrowserBuild } from "./install.ts";
+import { installAgentBrowser, installedOnDisk, NoAgentBrowserBuild } from "./install.ts";
 
 const SCRIPT = new TextEncoder().encode("#!/bin/sh\necho agent-browser 9.9.9\n");
 
@@ -76,5 +76,15 @@ describe("installAgentBrowser", () => {
       )
     );
     expect(t.fetched()).toBe(0);
+  });
+
+  test("an installed binary is found on disk without a download; a partial one is not", async () => {
+    const t = setup(SCRIPT);
+
+    expect(await installedOnDisk(t.options)).toBeNull();
+    const { binary } = await installAgentBrowser(t.options);
+    expect(await installedOnDisk(t.options)).toEqual({ binary });
+    await Bun.write(binary, SCRIPT.slice(1));
+    expect(await installedOnDisk(t.options)).toBeNull();
   });
 });

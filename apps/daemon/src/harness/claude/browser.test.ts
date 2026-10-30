@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { SessionId } from "@polaris/protocol";
-import { Effect, Exit, Scope } from "effect";
-import { agentBrowserServer, type BrowserMcp } from "../browser/index.ts";
+import { Effect, Exit, Layer, Scope } from "effect";
+import { CdpRelay } from "../../browser/cdpRelay.ts";
+import { AgentBrowser } from "../../install/agentBrowser/index.ts";
+import { agentBrowserServer, BrowserMcp } from "../browser/index.ts";
 import type { OpenOptions } from "../HarnessDriver.ts";
 import { makeClaudeDriver } from "./ClaudeDriver.ts";
 import { FakeClaude } from "./fakeClaude.ts";
@@ -17,14 +19,17 @@ const browser: BrowserMcp["Service"] = {
     }),
 };
 
-const optionsOf = async (overrides: Partial<OpenOptions>) => {
+const optionsOf = async (
+  overrides: Partial<OpenOptions>,
+  service: BrowserMcp["Service"] = browser
+) => {
   const fake = new FakeClaude();
 
   const driver = makeClaudeDriver({
     query: fake.query,
     claudePath: () => "/opt/bin/claude",
     stagingDir: "/tmp/polaris-staging",
-    browser,
+    browser: service,
   });
 
   const scope = Effect.runSync(Scope.make());
@@ -84,5 +89,41 @@ describe("the Browser's MCP server in Claude Code", () => {
 
     expect(o.mcpServers).toEqual({});
     expect(asked).toEqual([]);
+  });
+
+  test("a session opens at once while agent-browser is still installing", async () => {
+    const installs: string[] = [];
+
+    const layer = BrowserMcp.layerAt(() => "/nonexistent/browser-sessions").pipe(
+      Layer.provide(
+        Layer.mergeAll(
+          Layer.succeed(CdpRelay)(
+            CdpRelay.of({
+              issue: () => Effect.succeed({ url: "ws://127.0.0.1:1/browser/s/t" }),
+              revoke: () => Effect.void,
+            })
+          ),
+          AgentBrowser.layerWith(() => ({ root: "/nonexistent", platform: "darwin-arm64" }), {
+            onDisk: async () => null,
+            install: (options) => {
+              installs.push(options.platform);
+
+              return new Promise(() => {});
+            },
+          })
+        )
+      )
+    );
+
+    const service = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* BrowserMcp;
+      }).pipe(Effect.provide(layer))
+    );
+
+    const o = await optionsOf({}, service);
+
+    expect(o.mcpServers).toBeUndefined();
+    expect(installs).toEqual(["darwin-arm64"]);
   });
 });

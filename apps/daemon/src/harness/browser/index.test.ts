@@ -5,7 +5,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, Exit, Layer, Logger, ManagedRuntime, Scope } from "effect";
 import { CdpRelay } from "../../browser/cdpRelay.ts";
-import { AgentBrowser, type InstalledAgentBrowser } from "../../install/agentBrowser/index.ts";
+import {
+  AgentBrowser,
+  type AgentBrowserInstaller,
+  type InstalledAgentBrowser,
+} from "../../install/agentBrowser/index.ts";
 import { BrowserMcp, type BrowserMcpServer } from "./index.ts";
 
 const SESSION = SessionId.make("s1");
@@ -29,7 +33,8 @@ const relaying = relay(() => Effect.succeed({ url: URL }));
 
 const harness = (
   relayLayer: Layer.Layer<CdpRelay>,
-  installed: InstalledAgentBrowser | null = { binary: "/opt/ab" }
+  installed: InstalledAgentBrowser | null = { binary: "/opt/ab" },
+  installer?: AgentBrowserInstaller
 ) => {
   const dir = mkdtempSync(join(tmpdir(), "browser-mcp-"));
   dirs.push(dir);
@@ -38,7 +43,14 @@ const harness = (
 
   const runtime = ManagedRuntime.make(
     BrowserMcp.layerAt(() => join(dir, "sessions")).pipe(
-      Layer.provide(Layer.mergeAll(relayLayer, AgentBrowser.layerAt(installed))),
+      Layer.provide(
+        Layer.mergeAll(
+          relayLayer,
+          installer === undefined
+            ? AgentBrowser.layerAt(installed)
+            : AgentBrowser.layerWith(() => ({ root: "/nonexistent", platform: "test" }), installer)
+        )
+      ),
       Layer.provideMerge(Logger.layer([logger]))
     )
   );
@@ -113,5 +125,59 @@ describe("BrowserMcp", () => {
 
     expect(h.logs.join("\n")).toContain("/browser/s1/<redacted>");
     expect(h.logs.join("\n")).not.toContain("s3cret-token");
+  });
+
+  test("sessions share one background install and get the Browser once it lands", async () => {
+    let installs = 0;
+    let finish: (installed: InstalledAgentBrowser) => void = () => {};
+
+    let installed: InstalledAgentBrowser | null = null;
+
+    const h = harness(relaying, null, {
+      onDisk: async () => installed,
+      install: () => {
+        installs += 1;
+
+        return new Promise((resolve) => {
+          finish = (done) => {
+            installed = done;
+            resolve(done);
+          };
+        });
+      },
+    });
+
+    const [first, second] = await Promise.all([h.open(), h.open()]);
+
+    expect([first.server, second.server]).toEqual([null, null]);
+    expect(installs).toBe(1);
+    expect(h.logs.join("\n")).toContain("later sessions get the Browser");
+    finish({ binary: "/opt/ab" });
+    await Bun.sleep(0);
+    const third = await h.open();
+
+    expect(third.server?.command).toBe("/opt/ab");
+    expect(installs).toBe(1);
+  });
+
+  test("a failed install is reported and tried again by the next session", async () => {
+    let installs = 0;
+
+    const h = harness(relaying, null, {
+      onDisk: async () => null,
+      install: async () => {
+        installs += 1;
+
+        throw new Error("HTTP 503");
+      },
+    });
+
+    await h.open();
+    await Bun.sleep(0);
+    const { server } = await h.open();
+
+    expect(server).toBeNull();
+    expect(installs).toBe(2);
+    expect(h.logs.join("\n")).toContain("installing agent-browser failed (HTTP 503)");
   });
 });

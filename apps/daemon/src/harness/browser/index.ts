@@ -69,8 +69,8 @@ export class BrowserMcp extends Context.Service<
         return BrowserMcp.of({
           forSession: (sessionId) =>
             Effect.gen(function* () {
+              const { binary } = yield* agentBrowser.current;
               const { url } = yield* relay.issue(sessionId);
-              const { binary } = yield* agentBrowser.ensure;
               configs ??= sessionConfigs(dir());
               const config = yield* configs(sessionId, url);
 
