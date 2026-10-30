@@ -18,6 +18,8 @@
  *     [--person-only]
  *
  * `--person-only` skips 1 and 4 (a Harness that can't run a Turn still gets a Browser).
+ * `--agent-only` runs 1, 3 and 4 only. With `--local-socket <path>` and the alias `local`, the
+ * Host is this machine's Daemon on that socket instead (no SSH, no Portless or Vite needed).
  *
  * Uses ~/.ssh/config read only, and edits only `<vite dir>/message.js` on the Host (restored).
  * Needs a built app (`bun run build`).
@@ -50,15 +52,19 @@ if (alias === undefined || out === undefined || alias.startsWith("--")) {
   process.exit(2);
 }
 
-const remoteCommand = option("--remote-command");
+const agentOnly = args.includes("--agent-only");
+
+const localSocket = args.includes("--local-socket") ? option("--local-socket") : null;
+
+const remoteCommand = localSocket === null ? option("--remote-command") : "";
 
 const appDir = option("--app-dir");
 
 const appUrl = option("--app-url");
 
-const viteDir = option("--vite-dir");
+const viteDir = agentOnly ? "" : option("--vite-dir");
 
-const viteUrl = option("--vite-url");
+const viteUrl = agentOnly ? "" : option("--vite-url");
 
 const harness = option("--harness", "claude");
 
@@ -81,8 +87,9 @@ writeFileSync(
   JSON.stringify({
     theme: "dark",
     welcomeSeen: true,
-    local: { enabled: false },
-    hosts: [{ alias, remoteCommand }],
+    ...(localSocket === null
+      ? { local: { enabled: false }, hosts: [{ alias, remoteCommand }] }
+      : { hosts: [] }),
     sessionDefaults: { claude: fullAccess, codex: fullAccess },
   })
 );
@@ -97,11 +104,16 @@ const onHost = (command: string) => {
   return run.stdout;
 };
 
+const hostEnv =
+  localSocket === null
+    ? process.env
+    : { ...process.env, POLARIS_DESKTOP_LOCAL_SOCKET: localSocket };
+
 const launch = () =>
   electron.launch({
     executablePath: electronBinary(),
     args: ["--use-mock-keychain", APP_DIR],
-    env: { ...process.env, POLARIS_DESKTOP_USER_DATA: userData, POLARIS_DESKTOP_HIDDEN: "1" },
+    env: { ...hostEnv, POLARIS_DESKTOP_USER_DATA: userData, POLARIS_DESKTOP_HIDDEN: "1" },
   });
 
 /** The visible page views' captures, laid over the renderer for one screenshot. */
@@ -400,36 +412,43 @@ try {
 
   if (personOnly) await anySession(page, "Reply with the single word ready.");
   else await agentDrives(app, page);
-  const cookie = await hostAddresses(app, page);
 
-  await pickAndSend(app, page);
+  if (agentOnly) {
+    await pickAndSend(app, page);
+    await quitMidTurn();
+  } else {
+    const cookie = await hostAddresses(app, page);
 
-  if (personOnly) {
-    await app.close();
-    app = await launch();
-    page = await app.firstWindow();
-    await sizeWindow(app, 1440, 900);
-    await connected(page);
-    await page.locator('[data-slot="chip"]', { hasText: "app" }).first().click();
-    await visible(page, "session-state").first().waitFor({ timeout: 20_000 });
-  } else await quitMidTurn();
+    await pickAndSend(app, page);
 
-  // The cookie is the Workspace's: it comes back after the restart, and not in another one.
-  await showBrowser(page);
-  await openTab(page, appUrl);
-  const kept = await waitForText(app, /cookie: /, "the app after a restart");
+    if (personOnly) {
+      await app.close();
+      app = await launch();
+      page = await app.firstWindow();
+      await sizeWindow(app, 1440, 900);
+      await connected(page);
+      await page.locator('[data-slot="chip"]', { hasText: "app" }).first().click();
+      await visible(page, "session-state").first().waitFor({ timeout: 20_000 });
+    } else await quitMidTurn();
 
-  assert.ok(kept.includes(cookie), `the cookie ${cookie} survived the restart`);
-  step(`after a restart the app still sends ${cookie}`);
-  await shoot(app, page, "09-cookie-after-restart");
-  await openWorkspace(page, viteDir);
-  await anySession(page, "Reply with the single word ready.");
-  await openTab(page, appUrl);
-  const other = await waitForText(app, /cookie: /, "the app in the other Workspace");
+    // The cookie is the Workspace's: it comes back after the restart, and not in another one.
+    await showBrowser(page);
+    await openTab(page, appUrl);
+    const kept = await waitForText(app, /cookie: /, "the app after a restart");
 
-  assert.match(other, /cookie: none/, "another Workspace starts without the cookie");
-  step("the other Workspace's Browser starts without it");
-  await shoot(app, page, "10-other-workspace");
+    assert.ok(kept.includes(cookie), `the cookie ${cookie} survived the restart`);
+    step(`after a restart the app still sends ${cookie}`);
+    await shoot(app, page, "09-cookie-after-restart");
+    await openWorkspace(page, viteDir);
+    await anySession(page, "Reply with the single word ready.");
+    await openTab(page, appUrl);
+    const other = await waitForText(app, /cookie: /, "the app in the other Workspace");
+
+    assert.match(other, /cookie: none/, "another Workspace starts without the cookie");
+    step("the other Workspace's Browser starts without it");
+    await shoot(app, page, "10-other-workspace");
+  }
+
   await app.close();
   app = null;
 } catch (error) {
