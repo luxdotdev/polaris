@@ -10,12 +10,22 @@ import { polaris } from "../bridge.ts";
 
 const OVERLAYS = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]';
 
-/** True while a dialog, menu or listbox is open anywhere in the window. */
+/**
+ * True while a dialog, menu or listbox floats in a portal (a child of `body` beside the app's
+ * root). In-tree ones, such as the transcript's Turns rail, never sit over the page.
+ */
+export const overlayOpen = (body: HTMLElement): boolean =>
+  [...body.children].some(
+    (child) =>
+      child.id !== "root" && (child.matches(OVERLAYS) || child.querySelector(OVERLAYS) !== null)
+  );
+
+/** True while a dialog, menu or listbox is open over the window. */
 export const useOverlayOpen = () => {
-  const [open, setOpen] = useState(() => document.querySelector(OVERLAYS) !== null);
+  const [open, setOpen] = useState(() => overlayOpen(document.body));
 
   useEffect(() => {
-    const check = () => setOpen(document.querySelector(OVERLAYS) !== null);
+    const check = () => setOpen(overlayOpen(document.body));
     const observer = new MutationObserver(check);
 
     // Radix portals mount and unmount as children of body.
