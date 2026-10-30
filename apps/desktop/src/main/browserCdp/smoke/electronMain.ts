@@ -5,8 +5,8 @@
  */
 import { createServer } from "node:net";
 import { CdpMessageDecoder, encodeCdpMessage, SessionId } from "@polaris/protocol";
-import { Predicate } from "effect";
-import { app, BrowserWindow, WebContentsView } from "electron";
+import { Predicate, Schema } from "effect";
+import { app, BrowserWindow, session, WebContentsView } from "electron";
 import {
   BrowserTab,
   BrowserTabEvent,
@@ -85,6 +85,8 @@ const open = async (sessionId: SessionId, url: string, openedBy: BrowserTabOpene
     webPreferences: {
       backgroundThrottling: false,
       offscreen: process.env.POLARIS_SMOKE_OFFSCREEN === "1",
+      // One partition per session here, as the Browser keeps one per Workspace.
+      partition: `smoke-${sessionId}`,
     },
   });
 
@@ -188,6 +190,44 @@ const serve = () =>
     socket.on("error", () => facade.close());
   }).listen(socketPath, () => console.log("READY"));
 
+const Cookies = Schema.Struct({ cookies: Schema.Array(Schema.Struct({ name: Schema.String })) });
+
+const cookieNames = Schema.decodeUnknownSync(Cookies);
+
+/**
+ * What a tab session's cookie methods reach: set one in `theirs`' partition, then read and
+ * clear from `mine`'s. Logged as `COOKIES {...}` for the smoke to assert.
+ */
+const cookieCheck = async () => {
+  const [theirs, mine] = Array.from(held.values(), (entry) => entry.view.webContents.debugger);
+
+  if (theirs === undefined || mine === undefined) return;
+  theirs.attach("1.3");
+  mine.attach("1.3");
+  await theirs.sendCommand("Network.setCookie", {
+    name: "polaris",
+    value: "theirs",
+    url: startUrl,
+  });
+  const seenByMine = cookieNames(await mine.sendCommand("Network.getAllCookies")).cookies;
+  const seenByTheirs = cookieNames(await theirs.sendCommand("Network.getAllCookies")).cookies;
+  const seenByDefault = await session.defaultSession.cookies.get({});
+  await mine.sendCommand("Network.clearBrowserCookies");
+  const afterClear = cookieNames(await theirs.sendCommand("Network.getAllCookies")).cookies;
+  await theirs.sendCommand("Network.clearBrowserCookies");
+  theirs.detach();
+  mine.detach();
+  const names = (cookies: ReadonlyArray<{ readonly name: string }>) => cookies.map((c) => c.name);
+  console.log(
+    `COOKIES ${JSON.stringify({
+      theirs: names(seenByTheirs),
+      mine: names(seenByMine),
+      default: names(seenByDefault),
+      theirsAfterMineCleared: names(afterClear),
+    })}`
+  );
+};
+
 console.log("BOOT");
 
 process.on("uncaughtException", (error: Error) => console.log(`UNCAUGHT ${String(error)}`));
@@ -202,6 +242,7 @@ app
     });
     await open(theirs, "about:blank", BrowserTabOpener.cases.User.make({}));
     await open(mine, startUrl, BrowserTabOpener.cases.User.make({}));
+    await cookieCheck().catch((error: Error) => console.log(`COOKIES-FAILED ${String(error)}`));
     serve();
   })
   .catch((error: Error) => console.log(`FAILED ${String(error)}`));

@@ -63,6 +63,10 @@ export const REFUSED_METHODS: ReadonlySet<string> = new Set([
   "DOM.setFileInputFiles",
   "Page.setInterceptFileChooserDialog",
   "Network.loadNetworkResource",
+  // TLS checks stay on for public sites; Host addresses are trusted by their partition instead.
+  "Security.setIgnoreCertificateErrors",
+  "Security.setOverrideCertificateErrors",
+  "Security.handleCertificateError",
 ]);
 
 /** Domains that describe or control the Desktop App's Chromium or its storage, not one tab. */
