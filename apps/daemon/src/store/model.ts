@@ -376,6 +376,7 @@ export const patchSession = (session: AgentSession, patch: SessionPatch): AgentS
     acceptedThroughIndex: session.acceptedThroughIndex,
     pullRequest: session.pullRequest,
     origin: session.origin,
+    worker: session.worker,
     pinnedAt: session.pinnedAt,
     limitResetsAt: session.limitResetsAt,
     resumeAtReset: session.resumeAtReset,

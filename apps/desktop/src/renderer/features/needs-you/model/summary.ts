@@ -10,6 +10,7 @@ import type {
 } from "../../../../shared/needsYou.ts";
 import type { HostModel, SessionEntry } from "../../../store/hostModel.ts";
 import { digestStarted, type Digest } from "../../constellation/model/index.ts";
+import { isWorker, workerSessionsOf } from "../../constellation/model/workers.ts";
 import { waitingOn } from "../../session/model/background.ts";
 import type { ConstellationView } from "../../sessions/source.ts";
 import type { Inbox } from "./inbox.ts";
@@ -55,15 +56,7 @@ const userTurnOf = (entry: SessionEntry) => {
 
 /** Constellation workers' sessions: their Lead reports on them, so their Turns aren't news. */
 const workerSessions = (views: TurnsInput["views"]) =>
-  new Set(
-    Object.values(views).flatMap((list) =>
-      list.flatMap(({ constellation }) =>
-        constellation.attempts
-          .map((a) => a.sessionId)
-          .filter((id) => id !== constellation.leadSessionId)
-      )
-    )
-  );
+  workerSessionsOf(Object.values(views).flat());
 
 /** Each Lead session's digests, by Host and session. */
 const leadDigests = (views: TurnsInput["views"]) =>
@@ -95,7 +88,7 @@ export const turnsOf = ({
     return [...model.sessions.values()].flatMap((entry): Array<NeedsYouTurn> => {
       const { id, state, title, harness } = entry.session;
 
-      if ((state !== "working" && state !== "idle") || workers.has(id)) return [];
+      if ((state !== "working" && state !== "idle") || isWorker(entry.session, workers)) return [];
       const lead = digests.get(`${host.key}\u0000${id}`);
       const turnId = entry.lastTurnId ?? null;
       const userTurn = userTurnOf(entry);
@@ -128,14 +121,22 @@ export const turnsOf = ({
   });
 };
 
-/** Every session's latest agent notification (MCP `notify`), for main to show once each. */
+/**
+ * Every session's latest agent notification (MCP `notify`), for main to show once each; a
+ * worker's are left out, as only its Needs You is the user's (ENG-586).
+ */
 export const notificationsOf = ({
   hosts,
   models,
-}: Pick<TurnsInput, "hosts" | "models">): Array<NeedsYouNotification> =>
-  hosts.flatMap((host) =>
+  views = {},
+}: Pick<TurnsInput, "hosts" | "models"> & {
+  readonly views?: TurnsInput["views"];
+}): Array<NeedsYouNotification> => {
+  const workers = workerSessions(views);
+
+  return hosts.flatMap((host) =>
     [...(models[host.key]?.sessions.values() ?? [])].flatMap((entry) =>
-      entry.lastNotification === undefined
+      entry.lastNotification === undefined || isWorker(entry.session, workers)
         ? []
         : [
             {
@@ -151,6 +152,7 @@ export const notificationsOf = ({
           ]
     )
   );
+};
 
 export const toSummary = ({
   inbox,

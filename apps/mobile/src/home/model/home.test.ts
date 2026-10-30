@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { type ConnectionState, type HostStreamItem, RequestId } from "@polaris/protocol";
+import {
+  type ConnectionState,
+  ConstellationId,
+  type HostStreamItem,
+  RequestId,
+} from "@polaris/protocol";
 import { applyHostItem, emptyHostFeed } from "../feed/fold.ts";
 import {
   commandApproval,
@@ -216,5 +221,38 @@ describe("can't reach your hosts", () => {
     expect(
       unreachableOf([away("a", null, "offline"), away("b", null, "reconnecting")]).reconnecting
     ).toBe(true);
+  });
+});
+
+describe("constellation workers", () => {
+  const worker = (input: Parameters<typeof session>[0]) =>
+    session({ ...input, worker: { constellationId: ConstellationId.make("c1") } });
+
+  const home = buildHome(
+    [
+      host("Mac Studio", [
+        snapshot({
+          sessions: [
+            summary(session({ id: "lead", state: "working" })),
+            summary(worker({ id: "LA1", state: "working" })),
+            summary(worker({ id: "V", state: "dormant" })),
+            summary(worker({ id: "L1", state: "needs-you" }), [
+              commandApproval("L1", "r1", "bun test", minutesAgo(2)),
+            ]),
+          ],
+          constellations: [constellation("eng-558", "lead")],
+        }),
+        synchronized(),
+      ]),
+    ],
+    null
+  );
+
+  test("a worker is reached through its lead's row, not listed apart", () => {
+    expect([keys(home.sections.working), keys(home.sections.recent)]).toEqual([["eng-558"], []]);
+  });
+
+  test("a worker that needs you is still in needs you, counted there and not as working", () => {
+    expect([keys(home.sections.needsYou), home.needsYou, home.working]).toEqual([["L1"], 1, 1]);
   });
 });

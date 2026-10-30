@@ -50,6 +50,7 @@ export interface SessionInput {
   readonly celestial?: string | null;
   readonly lastReplyPreview?: string | null;
   readonly origin?: AgentSession["origin"];
+  readonly worker?: AgentSession["worker"];
 }
 
 export const session = (input: SessionInput) =>
@@ -75,6 +76,7 @@ export const session = (input: SessionInput) =>
     celestial: input.celestial ?? null,
     lastReplyPreview: input.lastReplyPreview ?? null,
     origin: input.origin ?? null,
+    worker: input.worker ?? null,
     createdAt: AT,
     updatedAt: input.updatedAt ?? AT,
   });

@@ -8,10 +8,12 @@ import {
   backgroundTasks,
   leadNotified,
   notified,
+  sessionCreated,
   snapshot,
   synchronized,
   turnEnded,
   turnStarted,
+  workerSession,
 } from "./push.testing.ts";
 
 const host = { hostId: "host-1", hostName: "studio" };
@@ -174,5 +176,39 @@ describe("push plan", () => {
     expect(
       run([...start, [5, attemptStarted()], [100, turnEnded("t1", "Claimed")]], 100_000)
     ).toEqual([]);
+  });
+
+  // The Host stream never carries AttemptStarted: the Snapshot's mark is what the plan sees.
+  test("a worker the Snapshot marks pushes only its Needs You: no finished Turn or notify", () => {
+    const sent = run(
+      [
+        [0, snapshot(workerSession)],
+        [0, synchronized()],
+        [10, turnStarted("t1")],
+        [100, turnEnded("t1", "Claimed")],
+        [200, notified("n1", false)],
+        [300, approvalRequested("r1")],
+      ],
+      100_000
+    );
+
+    expect(sent.map((m) => [m.kind, m.sessionId, m.requestId])).toEqual([
+      ["needs-you", "s1", "r1"],
+    ]);
+  });
+
+  test("a session made as a worker is marked from its SessionCreated", () => {
+    const sent = run(
+      [
+        [0, snapshot()],
+        [0, synchronized()],
+        [5, sessionCreated(workerSession)],
+        [10, turnStarted("t1")],
+        [100, turnEnded("t1", "Claimed")],
+      ],
+      100_000
+    );
+
+    expect(sent).toEqual([]);
   });
 });

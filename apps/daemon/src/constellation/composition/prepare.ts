@@ -113,6 +113,7 @@ export const prepareSession = Effect.fn("Constellation.prepareSession")(function
       turnCount: 0,
       contextUsage: null,
       lastError: null,
+      worker: { constellationId: input.graph.id },
       createdAt: at,
       updatedAt: at,
     });

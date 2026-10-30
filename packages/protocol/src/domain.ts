@@ -24,6 +24,7 @@ import {
   ReasoningEffort,
 } from "./models.ts";
 import { WorktreeSetup, WorktreeSetupRun } from "./worktreeSetup.ts";
+import { ConstellationId } from "./constellation/domain.ts";
 import { FeedbackBatch, PullRequestRef } from "./review.ts";
 
 export { Timestamp } from "./ids.ts";
@@ -272,6 +273,18 @@ export const SessionOrigin = Schema.Literals(["reviewer", "walkthrough"]);
 
 export type SessionOrigin = typeof SessionOrigin.Type;
 
+/**
+ * Marks a Constellation worker's session: it is reached through its Constellation, so session
+ * lists leave it out unless it needs you, and it pushes only Needs You (ENG-586).
+ */
+export const SessionWorker = Schema.Struct({ constellationId: ConstellationId });
+
+export type SessionWorker = typeof SessionWorker.Type;
+
+/** Whether a session is a Constellation worker's (`AgentSession.worker`). */
+export const isWorkerSession = (session: { readonly worker?: SessionWorker | null }) =>
+  session.worker != null;
+
 export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
   id: SessionId,
   workspaceId: WorkspaceId,
@@ -313,6 +326,8 @@ export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
   pullRequest: optionalNullable(PullRequestRef),
   /** Set by the Daemon for a Reviewer's or walkthrough's own session; absent for the user's. */
   origin: optionalNullable(SessionOrigin),
+  /** Set by the Daemon on a Constellation worker's session (`SessionWorker`); null for the rest. */
+  worker: optionalNullable(SessionWorker),
   /** When the user pinned it to the top of the list (`PinSession`); null when it isn't. */
   pinnedAt: optionalNullable(Timestamp),
   /** While Limited: when the usage limit resets; null when the Harness didn't say. */

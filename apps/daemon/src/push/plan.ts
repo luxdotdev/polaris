@@ -1,7 +1,8 @@
 /**
  * Which pushes the Host's events call for, as the Desktop App plans its banners: one per new
  * approval or question (Needs You), one per `SessionNotified`, and one when a Turn ends and its
- * session stays Idle with no background tasks for `SETTLE_MS` (docs/adr/0073). Pure.
+ * session stays Idle with no background tasks for `SETTLE_MS` (docs/adr/0073). A Constellation
+ * worker pushes only Needs You: its Lead reports the rest (ENG-586). Pure.
  */
 import {
   type AgentSession,
@@ -9,6 +10,7 @@ import {
   type DomainEvent,
   harnessEntry,
   type HostStreamItem,
+  isWorkerSession,
   type SessionNotification,
   type Turn,
 } from "@polaris/protocol";
@@ -26,6 +28,8 @@ interface Tracked {
   readonly harness: string;
   readonly working: boolean;
   readonly backgroundTasks: number;
+  /** A Constellation worker's (`AgentSession.worker`): it pushes only Needs You (ENG-586). */
+  readonly worker: boolean;
   /** A Turn ended: its index and reply, and when the session settled (null while tasks are live). */
   readonly ended: {
     readonly index: number;
@@ -39,15 +43,12 @@ export interface PlanState {
   readonly sessions: ReadonlyMap<string, Tracked>;
   /** Lead Turns Polaris started for a digest (LeadNotified): their ends aren't the user's news. */
   readonly digestTurns: ReadonlySet<string>;
-  /** Constellation workers' sessions (AttemptStarted): their Lead reports on them. */
-  readonly workers: ReadonlySet<string>;
 }
 
 export const emptyPlan: PlanState = {
   synchronized: false,
   sessions: new Map(),
   digestTurns: new Set(),
-  workers: new Set(),
 };
 
 export interface PlanContext {
@@ -87,6 +88,7 @@ const tracked = (session: AgentSession): Tracked => ({
   harness: harnessName(session.harness),
   working: session.state === "working",
   backgroundTasks: session.backgroundTasks.length,
+  worker: isWorkerSession(session),
   ended: null,
 });
 
@@ -184,7 +186,7 @@ const withTasks =
 const endTurn = (state: PlanState, turn: Turn, now: number): PlanState => {
   const quiet =
     state.digestTurns.has(turn.id) ||
-    state.workers.has(turn.sessionId) ||
+    state.sessions.get(turn.sessionId)?.worker === true ||
     turn.idleCompaction === true;
 
   const digestTurns = new Set(state.digestTurns);
@@ -249,7 +251,7 @@ const applyEvent = (state: PlanState, event: DomainEvent, context: PlanContext):
         return {
           state,
           send:
-            session === undefined || !state.synchronized
+            session === undefined || session.worker || !state.synchronized
               ? []
               : [notified(sessionId, session, notification, context)],
         };
@@ -257,7 +259,7 @@ const applyEvent = (state: PlanState, event: DomainEvent, context: PlanContext):
       LeadNotified: ({ turnId, steered }) =>
         same(steered ? state : { ...state, digestTurns: new Set(state.digestTurns).add(turnId) }),
       AttemptStarted: ({ attempt }) =>
-        same({ ...state, workers: new Set(state.workers).add(attempt.sessionId) }),
+        same(update(state, attempt.sessionId, (s) => ({ ...s, worker: true }), now)),
     }),
     Match.orElse(() => same(state))
   );

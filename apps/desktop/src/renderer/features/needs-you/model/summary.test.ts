@@ -170,4 +170,42 @@ describe("notificationsOf", () => {
       },
     ]);
   });
+
+  test("a worker named by its graph or marked by the Daemon shows none; the user's session does", () => {
+    const lastNotification = new SessionNotification({
+      id: "n1",
+      title: "Claimed",
+      body: "Ready for review",
+      at: "2026-10-12T00:00:00Z",
+      automatic: false,
+    });
+
+    const named = C1.constellation.attempts.find(
+      (a) => a.sessionId !== C1.constellation.leadSessionId
+    )?.sessionId;
+
+    if (named === undefined) throw new Error("C1 has a worker");
+    const marked = { worker: { constellationId: C1.constellation.id } };
+
+    const model = hostModel([
+      { session: sessionWith(named) },
+      { session: sessionWith("marked", marked) },
+      { session: sessionWith("mine") },
+    ]);
+
+    const local = {
+      ...model,
+      sessions: new Map(
+        [...model.sessions].map(([id, entry]) => [id, { ...entry, lastNotification }])
+      ),
+    };
+
+    const shown = notificationsOf({
+      hosts: [host("local", "Mac Studio")],
+      models: { local },
+      views: { local: [C1] },
+    });
+
+    expect(shown.map((n) => `${n.sessionId}`)).toEqual(["mine"]);
+  });
 });

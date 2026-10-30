@@ -42,3 +42,28 @@ describe("jump menu Workspaces", () => {
     expect(hostItems(data)[0]?.detail).toBe("1 workspace");
   });
 });
+
+describe("jump menu Sessions", () => {
+  test("a Constellation worker is left to its Lead unless it needs you", () => {
+    const withWorkers = {
+      local: hostModel([
+        {
+          id: "polaris",
+          sessions: [
+            { id: "mine", state: "idle" },
+            { id: "worker", state: "working", worker: true },
+            { id: "asking", state: "needs-you", worker: true },
+          ],
+        },
+      ]),
+    };
+
+    const items = sessionItems({
+      bar: barHosts({ hosts: [hostView("local")], models: withWorkers }),
+      models: withWorkers,
+      machineBar: false,
+    });
+
+    expect(items.map((i) => i.title).toSorted()).toEqual(["asking", "mine"]);
+  });
+});

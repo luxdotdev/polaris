@@ -1,6 +1,7 @@
 /** Hosts, Workspaces and sessions for the routing tests. */
 import {
   AgentSession,
+  ConstellationId,
   type SessionState,
   SessionId,
   SessionSummary,
@@ -39,6 +40,8 @@ export interface SessionSpec {
   readonly id: string;
   readonly state: SessionState;
   readonly createdAt?: string;
+  /** A Constellation worker's session, as the Daemon marks it. */
+  readonly worker?: boolean;
 }
 
 export interface WorkspaceSpec {
@@ -86,6 +89,7 @@ export const hostModel = (workspaces: ReadonlyArray<WorkspaceSpec>): HostModel =
               turnCount: 1,
               contextUsage: null,
               lastError: null,
+              worker: s.worker === true ? { constellationId: ConstellationId.make("c1") } : null,
               createdAt: s.createdAt ?? time(0),
               updatedAt: time(0),
             }),

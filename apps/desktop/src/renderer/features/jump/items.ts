@@ -4,7 +4,13 @@
  * Built from the store, so results follow live state. Commands live in the
  * Command Palette (⇧⌘P), not here (spec Q21).
  */
-import type { SessionId, SessionState, WorkspaceId, WorktreeId } from "@polaris/protocol";
+import {
+  isWorkerSession,
+  type SessionId,
+  type SessionState,
+  type WorkspaceId,
+  type WorktreeId,
+} from "@polaris/protocol";
 import { harnessHue } from "@polaris/ui";
 import type { OpenPull } from "../../../shared/api.ts";
 import { recentKey } from "../../routes/selection.ts";
@@ -69,7 +75,12 @@ export const sessionItems = ({ bar, models }: JumpData): ReadonlyArray<JumpItem>
 
     if (model === undefined) return [];
 
-    return activeSessions(model).map((entry): JumpItem => {
+    // A Constellation worker is reached through its Lead, unless it needs you (ENG-586).
+    const listed = activeSessions(model).filter(
+      (entry) => !isWorkerSession(entry.session) || shownState(entry) === "needs-you"
+    );
+
+    return listed.map((entry): JumpItem => {
       const { session } = entry;
       const state = shownState(entry);
       const workspace = model.workspaces.get(session.workspaceId)?.name ?? "";
