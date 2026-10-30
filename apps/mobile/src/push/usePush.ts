@@ -79,6 +79,7 @@ const useAnswers = (loaded: boolean) => {
     const answer = async (response: Notifications.NotificationResponse) => {
       const found = answerOf({
         actionIdentifier: response.actionIdentifier,
+        category: response.notification.request.content.categoryIdentifier,
         userInfo: userInfoOf(response),
       });
 
@@ -195,6 +196,7 @@ export const usePushLinks = (open: (route: Route) => void) => {
 
       const route = routeOf({
         actionIdentifier: response.actionIdentifier,
+        category: response.notification.request.content.categoryIdentifier,
         userInfo: userInfoOf(response),
       });
 

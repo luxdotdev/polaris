@@ -4,12 +4,14 @@
  */
 import type { ApprovalRequest } from "@polaris/protocol";
 import { approvalDetail } from "../home/model/lines.ts";
+import type { SecretOutcome } from "../thread/fold.ts";
 
 const WANTS: Readonly<Record<ApprovalRequest["kind"], string>> = {
   command: "wants to run",
   "file-change": "wants to change files",
   tool: "wants to use a tool",
   question: "has a question",
+  secret: "asks for a secret",
 };
 
 /** What fits beside Approve and Deny on the narrowest iPhone; longer opens to the whole request. */
@@ -36,12 +38,17 @@ export type StripNotice =
       readonly compact: boolean;
     }
   | { readonly kind: "question"; readonly request: ApprovalRequest }
+  /** A Secret Request: its masked field, Save securely and Decline; never Approve. */
+  | { readonly kind: "secret"; readonly request: ApprovalRequest; readonly headline: string }
   | { readonly kind: "working" };
 
 export interface Strip {
-  readonly notice: StripNotice;
+  /** Null when only a Secret Request's outcome is left to say. */
+  readonly notice: StripNotice | null;
   /** Requests behind this one. */
   readonly more: number;
+  /** How the latest Turn's Secret Request ended, above the notice once nothing else is asked. */
+  readonly settled: SecretOutcome | null;
 }
 
 /** Bidi controls and zero-width marks: they reorder or hide what a command really says. */
@@ -58,6 +65,9 @@ const fitsOneLine = (text: string) => PLAIN.test(text) && text.length <= COMPACT
 
 const noticeOf = (request: ApprovalRequest, harness: string): StripNotice => {
   if (request.kind === "question") return { kind: "question", request };
+
+  if (request.kind === "secret")
+    return { kind: "secret", request, headline: `${harness} ${WANTS.secret}` };
   const raw = approvalDetail(request)?.text ?? null;
   const detail = raw === null ? null : revealHidden(raw);
 
@@ -87,15 +97,19 @@ export const stripOf = ({
   requests,
   working,
   harness,
+  settled = null,
 }: {
   readonly requests: ReadonlyArray<ApprovalRequest>;
   readonly working: boolean;
   /** The Harness's name, "Claude Code". */
   readonly harness: string;
+  readonly settled?: SecretOutcome | null;
 }): Strip | null => {
   const oldest = noticesOf(requests, harness)[0];
 
-  if (oldest !== undefined) return { notice: oldest, more: requests.length - 1 };
+  if (oldest !== undefined) return { notice: oldest, more: requests.length - 1, settled: null };
 
-  return working ? { notice: { kind: "working" }, more: 0 } : null;
+  if (working) return { notice: { kind: "working" }, more: 0, settled };
+
+  return settled === null ? null : { notice: null, more: 0, settled };
 };

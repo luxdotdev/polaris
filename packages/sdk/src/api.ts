@@ -12,6 +12,9 @@ export {
 
 export type { ConnectError, OpenTransport } from "./connection.ts";
 
+/** What an Extension announces in `hello`; never `approval.secret` (ADR 0089). */
+export { SDK_CAPABILITIES } from "./connection.ts";
+
 export {
   CommandRejected,
   ExtensionTokenRejected,
