@@ -79,7 +79,7 @@ Every row takes `title` and `caption` (one line each), plus `nested` (indents it
   defaultLabel="After 7 days" onChange={setOverride} />
 ```
 
-**`SettingsConfirmRow`** confirms a destructive action in place, never in a modal. It takes `title`, `caption`, `action` (the row's danger button), `consequence`, `confirm` (a label that names its object), `onConfirm`, and `disabledReason` (disables the action and replaces the caption with the reason). Its children are other row actions, shown beside the danger button.
+**`SettingsConfirmRow`** confirms a destructive action in place, never in a modal. It takes `title`, `caption`, `action` (the row's button that asks), `actionVariant` (`danger` by default; `secondary` for a routine row action such as Revoke or Unlink, SR-07 and SR-08), `consequence`, `confirm` (a label that names its object), `onConfirm`, and `disabledReason` (disables the action and replaces the caption with the reason). Its children are other row actions, shown beside the action.
 
 While it asks, the row takes a faint `failed` tint, the caption becomes the consequence, and Cancel holds focus. Esc cancels and puts focus back on the action.
 

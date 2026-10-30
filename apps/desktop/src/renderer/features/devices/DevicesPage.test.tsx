@@ -117,6 +117,7 @@ test("unlinking a device unlinks it on every host it's on", async () => {
 
   const row = within(await view.findByTestId("device-row"));
   expect(row.getByText("Linked Oct 20 · not seen yet")).toBeTruthy();
+  expect(row.getByRole("button", { name: "Unlink" }).dataset.variant).toBe("secondary");
   fireEvent.click(row.getByRole("button", { name: "Unlink" }));
   fireEvent.click(row.getByRole("button", { name: "Unlink Lucas's iPhone" }));
 

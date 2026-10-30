@@ -36,24 +36,28 @@ export const WhenItRuns = ({
   <SettingsCard title="When it runs">
     <SettingsWell>
       <SettingsToggleRow
+        wrap
         title="When a pull request opens in Review"
         caption="Kept per head commit; new commits are reviewed on their own"
         checked={policy.onPullRequests}
         onCheckedChange={(on) => onChange({ onPullRequests: on })}
       />
       <SettingsToggleRow
+        wrap
         title="When you open an agent session in Review or accept its turns"
         caption="Rules still run after every turn"
         checked={policy.onSessions}
         onCheckedChange={(on) => onChange({ onSessions: on })}
       />
       <SettingsToggleRow
+        wrap
         title="Write a walkthrough"
         caption="Lands first on Overview, rewritten when the head moves"
         checked={walkthrough}
         onCheckedChange={onWalkthrough}
       />
       <SettingsSelectRow
+        wrap
         title="Ask first for large changes"
         caption={
           walkthrough
@@ -77,8 +81,8 @@ const CheckRow = ({
   readonly what?: string;
   readonly aside: string;
 }) => (
-  <SettingsRow title={name} caption={what}>
-    <span className="text-caption text-text-subtle">{aside}</span>
+  <SettingsRow wrap title={name} caption={what}>
+    <span className="text-caption text-text-subtle whitespace-nowrap">{aside}</span>
   </SettingsRow>
 );
 

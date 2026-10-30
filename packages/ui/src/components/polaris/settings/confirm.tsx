@@ -4,12 +4,21 @@ import { cn } from "../../../lib/cn";
 import { SettingsButton } from "./button";
 import { ROW_PAD } from "./tones";
 
+/** Cancel's Starlight ring on any focus, since a click that opens the confirm isn't keyboard focus. */
+const HELD_FOCUS =
+  "focus:outline-starlight focus:outline-2 focus:outline-offset-2 focus:outline-solid";
+
 export interface SettingsConfirmRowProps {
   readonly title: ReactNode;
   /** The caption while nothing is asked. */
   readonly caption?: ReactNode;
-  /** The row's danger button ("Revoke"). */
+  /** The row's button that asks ("Revoke"). */
   readonly action: string;
+  /**
+   * How that button looks before it asks: `danger` (the default, "Remove workspace…"), or
+   * `secondary` where the row is routine until confirmed ("Revoke", "Unlink"; SR-07, SR-08).
+   */
+  readonly actionVariant?: "danger" | "secondary";
   /** The caption while it asks: what goes ("Revoking disconnects it now…"). */
   readonly consequence: ReactNode;
   /** The confirming button, naming its object ("Revoke Even G2"). */
@@ -29,6 +38,7 @@ export function SettingsConfirmRow({
   title,
   caption,
   action,
+  actionVariant = "danger",
   consequence,
   confirm,
   onConfirm,
@@ -65,7 +75,7 @@ export function SettingsConfirmRow({
           {children}
           <SettingsButton
             ref={trigger}
-            variant="danger"
+            variant={actionVariant}
             disabled={disabledReason !== undefined}
             onClick={() => setAsking(true)}
           >
@@ -93,7 +103,7 @@ export function SettingsConfirmRow({
         <span className="text-caption text-text-default">{consequence}</span>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <SettingsButton ref={cancel} variant="ghost" onClick={stop}>
+        <SettingsButton ref={cancel} variant="ghost" className={HELD_FOCUS} onClick={stop}>
           Cancel
         </SettingsButton>
         <SettingsButton

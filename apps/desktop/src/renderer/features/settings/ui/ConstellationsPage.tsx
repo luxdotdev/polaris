@@ -105,6 +105,18 @@ const StarChart = ({ backend, ui }: { readonly backend: string; readonly ui: str
   </SettingsWell>
 );
 
+/** Once the card is wide enough, the selects line up in columns across rows (SR-04). */
+const ROLE_WELL =
+  "@min-[640px]/workers:grid @min-[640px]/workers:grid-cols-[minmax(180px,1fr)_auto_auto_auto_auto] @min-[640px]/workers:gap-x-3";
+
+const ROLE_ROW = [
+  "px-panel flex flex-wrap items-center gap-3 py-3",
+  "@min-[640px]/workers:col-span-full @min-[640px]/workers:grid @min-[640px]/workers:grid-cols-subgrid",
+  "@min-[640px]/workers:[&>div:nth-child(2)]:contents",
+  "@min-[640px]/workers:[&_[data-slot=select-trigger]]:w-full @min-[640px]/workers:[&_[data-slot=select-trigger]]:justify-start",
+  "@min-[640px]/workers:[&_[data-slot=select-trigger]>svg:last-child]:ml-auto",
+].join(" ");
+
 const RoleRow = ({
   title,
   caption,
@@ -121,10 +133,10 @@ const RoleRow = ({
   const modelHost = useModelHost();
 
   return (
-    <div className="px-panel flex flex-wrap items-center gap-3 py-3" data-testid="worker-role">
+    <div className={ROLE_ROW} data-testid="worker-role">
       <div className="flex min-w-[220px] flex-1 flex-col gap-0.5">
         <span className="text-body text-text-default truncate">{title}</span>
-        <span className="text-caption text-text-subtle truncate">{caption}</span>
+        <span className="text-caption text-text-subtle">{caption}</span>
       </div>
       <ReviewerChoice
         value={value}
@@ -178,9 +190,10 @@ const WorkersStartOn = () => {
         <SettingsButton onClick={() => openSettings("usage")}>Spend in Usage…</SettingsButton>
       }
       data-testid="constellation-defaults"
+      className="@container/workers"
     >
       <StarChart backend={defaults.backend.harness} ui={defaults.ui.harness} />
-      <SettingsWell>
+      <SettingsWell className={ROLE_WELL}>
         {ROLES.map(({ role, title, caption }) => (
           <RoleRow
             key={role}
