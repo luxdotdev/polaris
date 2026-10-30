@@ -313,12 +313,16 @@ Vite's HMR applies an edit made on the Host, the app's cookie survives a reload 
 its Workspace and is absent from another Workspace's Browser; an element picked in the Browser
 goes out with the next message; and the app quits mid-Turn while the agent waits to use the
 Browser, then shows "No Desktop App is connected to show this Browser." in the Turn once it is
-back. `--person-only` skips the two agent parts. Screenshots go to `<out dir>`.
+back. `--person-only` skips the two agent parts. `--agent-only` runs only the agent parts (driving,
+the pick, the quit), and with `--local-socket <path>` and the alias `local` the Host is a Daemon on
+this Mac instead: no SSH, no Portless or Vite. Screenshots go to `<out dir>`.
 
 Checked on `lucas-rpi` (ENG-612) with the real Portless 0.15.12 (`portless proxy start -p 1355`,
 its state under a throwaway `HOME`) at `https://app.localhost:1355` and Vite 7 at
-`http://localhost:5173`, against a dev Daemon in `/tmp/pe`: every person-driven step passed. The
-agent steps need a Harness signed in on the Host.
+`http://localhost:5173`, against a dev Daemon in `/tmp/pe`: every step passed with Claude Code.
+Codex ran the agent parts against this Mac's Host (`--local-socket`, a branch Daemon in `/tmp/pc`)
+and passed. A fresh Daemon's first session can start without Browser tools while agent-browser
+installs ("later sessions get the Browser"); start the check after it has installed.
 
 ## Known gaps
 
