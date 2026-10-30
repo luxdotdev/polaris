@@ -29,6 +29,7 @@
     "@polaris/client": "workspace:*",
     "@polaris/predict": "workspace:*",
     "@polaris/protocol": "workspace:*",
+    "@polaris/visualization": "workspace:*",
     "effect": "4.0.0-rc.118",
     "uqr": "0.1.3",
     "xstate": "6.0.0-alpha.61",

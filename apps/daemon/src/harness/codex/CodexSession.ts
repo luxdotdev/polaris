@@ -61,6 +61,7 @@ import { requestCompat } from "./compat.ts";
 import { collaborationFor, setCollaboration } from "./collaboration.ts";
 import { threadSandboxing } from "./confinement.ts";
 import { polarisInstructions } from "../../constellation/skills/preamble.ts";
+import type { ConstellationAttachment } from "../constellation/attachment.ts";
 import { type HarnessCall, harnessCallOf } from "./slash.ts";
 import { logStart } from "../startLog.ts";
 
@@ -93,6 +94,12 @@ const decode = <S extends Schema.Decoder<unknown>>(schema: S) => {
 
   return (input: P.RpcPayload): S["Type"] | null => Option.getOrNull(decodeOption(input));
 };
+
+/** A Polaris MCP server's config; `visualize` runs unasked under every policy, plan included. */
+const polarisServer = (attachment: ConstellationAttachment) =>
+  attachment.tools.some((t) => t.name === "visualize")
+    ? { url: attachment.url, tools: { visualize: { approval_mode: "approve" } } }
+    : { url: attachment.url };
 
 const decodeInitialize = decode(P.InitializeResponse);
 
@@ -201,7 +208,7 @@ export const openSession = (
       common.config = Object.fromEntries(
         attachments.map((a, index) => [
           `mcp_servers.polaris${index === 0 ? "" : `_${index}`}`,
-          { url: a.url },
+          polarisServer(a),
         ])
       );
     }

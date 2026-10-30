@@ -7,6 +7,8 @@ import { resolvers } from "./resolve.ts";
 import { CallCommandId, idempotency, type Idempotency } from "./idempotency.ts";
 import { notifyTool, readWorkerTool, waitForCommandTool } from "./session.ts";
 import { historyTools } from "./history.ts";
+import { memoryVisualizations, visualizeTool } from "./visualize.ts";
+import type { VisualizationLog } from "../tokens.ts";
 import { unavailableSessions, type SessionTools } from "../sessions/index.ts";
 import {
   toolFactory,
@@ -21,6 +23,8 @@ import {
 export { errorResult } from "./shared.ts";
 
 export type { BoundTool, ConstellationCommands, LeadStarted, McpToolResult } from "./shared.ts";
+
+export type { VisualizationLog } from "../tokens.ts";
 
 export { unavailableCommands } from "./unavailable.ts";
 
@@ -44,6 +48,28 @@ export const attachSessionTools = (commands: ConstellationCommands, sessions: Se
   sessionsByCommands.set(commands, sessions);
 };
 
+const visualizationsByCommands = new WeakMap<ConstellationCommands, VisualizationLog>();
+
+/** Where `visualize` records the ids it returns; `mcpHttp` attaches the Daemon's durable log. */
+export const attachVisualizations = (commands: ConstellationCommands, log: VisualizationLog) => {
+  visualizationsByCommands.set(commands, log);
+};
+
+const visualizationsFor = (commands: ConstellationCommands) => {
+  const known = visualizationsByCommands.get(commands);
+
+  if (known !== undefined) return known;
+  const log = memoryVisualizations();
+  visualizationsByCommands.set(commands, log);
+
+  return log;
+};
+
+export interface CatalogOptions {
+  /** False when the Visuals setting was `off` as the session opened: no `visualize`. */
+  readonly visualize?: boolean;
+}
+
 /** A closed Lead binding starts its `next` Constellation; any other starts its own id. */
 const startTarget = (binding: McpBinding, started?: LeadStarted): StartTarget => {
   const next = McpBinding.isAnyOf(["Lead"])(binding) ? binding.next : undefined;
@@ -60,7 +86,8 @@ const startTarget = (binding: McpBinding, started?: LeadStarted): StartTarget =>
 export const constellationTools = (
   binding: McpBinding,
   commands: ConstellationCommands,
-  started?: LeadStarted
+  started?: LeadStarted,
+  options: CatalogOptions = {}
 ): ReadonlyArray<BoundTool> => {
   const caller = sessionBinding(binding);
 
@@ -127,5 +154,8 @@ export const constellationTools = (
     wait,
     notifyTool(binding.sessionId, sessions, idsFor(commands)),
     ...historyTools(binding.sessionId, sessions),
+    ...(options.visualize === false
+      ? []
+      : [visualizeTool(binding.sessionId, visualizationsFor(commands))]),
   ];
 };

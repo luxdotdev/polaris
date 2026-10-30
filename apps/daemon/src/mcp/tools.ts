@@ -1,5 +1,6 @@
 export {
   attachSessionTools,
+  attachVisualizations,
   constellationTools,
   errorResult,
   unavailableCommands,
@@ -7,6 +8,7 @@ export {
 
 export type {
   BoundTool,
+  CatalogOptions,
   McpToolResult,
   ConstellationCommands,
   LeadStarted,
