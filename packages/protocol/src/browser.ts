@@ -10,7 +10,13 @@
  */
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
-import { ByteCount, ByteStreamCloseReason, ByteStreamId, ByteStreamRpcs } from "./byteStreams.ts";
+import {
+  ByteCount,
+  ByteStreamCloseReason,
+  ByteStreamId,
+  ByteStreamRpcs,
+  ByteStreamWindow,
+} from "./byteStreams.ts";
 import { HostAddressRpcs } from "./hostAddress.ts";
 import { NotFound, Unsupported } from "./errors.ts";
 import { BlobId, SessionId } from "./ids.ts";
@@ -52,7 +58,7 @@ export const BrowserHostItem = Schema.TaggedUnion({
     sessionId: SessionId,
     purpose: BrowserStreamPurpose,
     downstream: BlobId,
-    window: ByteCount,
+    window: ByteStreamWindow,
   },
   /** The Daemon consumed `bytes` of the stream's `upstream`: the Client may send that many more. */
   Credit: { streamId: ByteStreamId, bytes: ByteCount },
@@ -93,7 +99,7 @@ export const BrowserRelease = Rpc.make("browser.release", {
  * Client buffers of `downstream` before it grants `byteStream.credit`.
  */
 export const BrowserAcceptStream = Rpc.make("browser.acceptStream", {
-  payload: { streamId: ByteStreamId, upstream: BlobId, window: ByteCount },
+  payload: { streamId: ByteStreamId, upstream: BlobId, window: ByteStreamWindow },
   error: Schema.Union([NotFound, Unsupported]),
 });
 

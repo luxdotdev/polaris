@@ -56,6 +56,8 @@ import { ResourceRpcsLive } from "../resources/rpc.ts";
 import { HostStats, HostStatsRpcsLive } from "../hostStats/index.ts";
 import { paths } from "../paths.ts";
 import { startServer } from "./server.ts";
+import { ByteStreamRpcsLive } from "./byteStreams.ts";
+import { BrowserHosting, ByteStreamQuota, HostAddressStreams } from "../browser/index.ts";
 import { configuredGatewayPort } from "../gateway/index.ts";
 import { workspaceTrustLayer } from "./workspaceTrust.ts";
 import {
@@ -136,6 +138,15 @@ const engineServices = Layer.mergeAll(Engine.layer, releaseWhenQuiet()).pipe(
 
 const daemonServices = lazyReviewer.pipe(Layer.provideMerge(engineServices));
 
+/** Host-address and Browser streams (ENG-613); `HostPresence` comes from the transport. */
+const byteStreamHandlers = ByteStreamRpcsLive.pipe(
+  Layer.provide(
+    Layer.mergeAll(HostAddressStreams.layer, BrowserHosting.layerLive()).pipe(
+      Layer.provideMerge(ByteStreamQuota.layer())
+    )
+  )
+);
+
 /** Every real handler layer the Daemon mounts. Compose new modules' layers here. */
 export const daemonHandlers = Layer.mergeAll(
   PredictionCapabilityLive,
@@ -162,7 +173,8 @@ export const daemonHandlers = Layer.mergeAll(
   lazyAcceptHandlers,
   ReviewerRpcsLive,
   TerminalRpcsLive.pipe(Layer.provide(TerminalsDaemonLive)),
-  VoiceRpcsLive.pipe(Layer.provide(Layer.merge(DeepgramLive, HostSecrets.layer)))
+  VoiceRpcsLive.pipe(Layer.provide(Layer.merge(DeepgramLive, HostSecrets.layer))),
+  byteStreamHandlers
 ).pipe(Layer.provide(daemonServices));
 
 /** What the lazy language handlers serve: unavailable where no language artifact runs. */
@@ -258,6 +270,8 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "usage",
   "host.resources",
   "host.stats",
+  "host-address",
+  "browser.host",
 ];
 
 /**

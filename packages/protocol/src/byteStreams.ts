@@ -23,8 +23,19 @@ export type ByteStreamId = typeof ByteStreamId.Type;
 /** The window a side offers when it has no reason to pick another: four blob chunks. */
 export const BYTE_STREAM_WINDOW_BYTES = 1024 * 1024;
 
-/** Bytes a side will buffer unread, or grants back once it has consumed them. */
+/** The largest window a side may ask its peer to honour: what one stream can hold unread. */
+export const BYTE_STREAM_MAX_WINDOW_BYTES = 64 * 1024 * 1024;
+
+/** Byte streams one connection may hold open at once, of both kinds together. */
+export const MAX_BYTE_STREAMS_PER_CONNECTION = 128;
+
+/** Bytes a side grants back once it has consumed them. */
 export const ByteCount = Schema.Int.check(Schema.isGreaterThanOrEqualTo(1));
+
+/** Bytes a side will buffer unread of the peer's blob, bounded so no stream can ask for more. */
+export const ByteStreamWindow = Schema.Int.check(
+  Schema.isBetween({ minimum: 1, maximum: BYTE_STREAM_MAX_WINDOW_BYTES })
+);
 
 /**
  * Why a byte stream ended in both directions. `closed`: one side finished normally.

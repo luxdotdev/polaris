@@ -12,6 +12,8 @@ export * from "./bridge.ts";
 
 export * from "./browser.ts";
 
+export * from "./byteStreamFlow.ts";
+
 export * from "./byteStreams.ts";
 
 export * from "./cdpFraming.ts";
