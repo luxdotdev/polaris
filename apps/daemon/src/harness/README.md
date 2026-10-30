@@ -19,3 +19,12 @@ One driver per Harness (`claude/`, `codex/`, `opencode/`, `acp/`, and `bench/` f
 | ACP (Gemini, Copilot) | the latest `available_commands_update` a session in `cwd` sent | none |
 
 Answers are cached per Harness and directory. **Nothing runs at idle**: no timers or watchers. An answer older than 60 s is served as is and read again in the background, once; `refresh` reads again before answering; concurrent askers share one listing, and a failed listing is never cached.
+
+## The Browser's MCP server
+
+`browser/` gives each Claude Code and Codex session that isn't read-only `agent-browser mcp --tools core` as the stdio MCP server `polaris_browser` (ADR 0092). It uses the session's CDP relay URL from `CdpRelay.issue` and the binary from `install/agentBrowser`. If either is missing, the session opens without it and a warning is logged with the token redacted. ACP and OpenCode don't get it yet (ENG-623).
+
+- **The relay URL is never on argv.** agent-browser reads it as `AGENT_BROWSER_CDP`; `mcp --cdp` is ignored by its tool calls. The Claude Agent SDK puts `mcpServers` on `claude`'s argv, so the entry names `${POLARIS_BROWSER_CDP}`, which Claude Code expands from its own env. Codex gets it in `thread/start`'s config over the app-server socket.
+- **Not pre-allowed.** It's absent from Claude's `allowedTools` and has no Codex `approval_mode`, so each call follows the session's permission mode. Codex itself lets tools annotated read-only through (snapshot, get title).
+- **`core` profile**, pinned: navigation, snapshots, clicks and typing, waits, reads, screenshots, eval and tabs, 29 tools. `state` and `network` reach cookies, credentials and the auth vault; `debug` can install Chrome.
+- Each session's agent-browser daemon is `AGENT_BROWSER_SESSION=polaris-<sessionId>`, with a 10-minute idle timeout (an attached browser otherwise never times out) and Polaris's empty config, so the user's `~/.agent-browser/config.json` can't change the attach.
