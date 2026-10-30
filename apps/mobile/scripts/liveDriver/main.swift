@@ -26,7 +26,7 @@ let working = LiveSummary(slices: [
   slice(
     "mac-studio", working: 2, step: step("Polaris planning", "Write apps/site/public/index.html"),
     celestials: ["claude/tilted-ring", "codex/twin-ring"]),
-  slice("lucas-rpi", working: 1, step: nil, celestials: ["claude/banded"]),
+  slice("lucas-rpi", working: 1, step: nil, celestials: ["claude/death-star"]),
   slice("linux-vm", working: 0, step: nil, celestials: []),
 ])
 
