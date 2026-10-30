@@ -7,8 +7,6 @@ import {
   HarnessModels,
   type HarnessStatus,
   HostHarnesses,
-  Model,
-  ModelId,
   SessionId,
   Timestamp,
   Workspace,
@@ -17,12 +15,11 @@ import {
 import { Schema } from "effect";
 import { useEffect, useState } from "react";
 import { Platform, Settings } from "react-native";
-import { rememberModels } from "../composer/modelNames.ts";
 import { GalleryHosts } from "../runtime/hosts.tsx";
 import { ThemeName, useTheme } from "../theme";
 import { type GalleryHost, galleryHost } from "../thread/galleryHost.testing.ts";
 import { ThreadScreen } from "../thread/ThreadScreen.tsx";
-import { DATASETS } from "../thread/worstCase.testing.ts";
+import { DATASETS, GALLERY_MODELS } from "../thread/worstCase.testing.ts";
 import type { NewSessionApi } from "./api.ts";
 import type { DraftStore } from "./draftWriter.ts";
 import type { SheetHost } from "./model.ts";
@@ -127,32 +124,13 @@ const NONE = HostHarnesses.make({
   checkedAt: "2026-10-29T09:00:00Z",
 });
 
-const MODELS = [
-  new Model({
-    id: ModelId.make("claude-opus-5-5"),
-    name: "Opus 5",
-    description: "Most capable",
-    efforts: ["low", "medium", "high", "max"],
-    defaultEffort: "high",
-    isDefault: true,
-  }),
-  new Model({
-    id: ModelId.make("claude-sonnet-5"),
-    name: "Sonnet 5",
-    description: "Fast and capable",
-    efforts: ["low", "medium", "high"],
-    defaultEffort: "medium",
-    isDefault: false,
-  }),
-];
-
 const api = (state: GalleryState): NewSessionApi => ({
   availability: (hostId) => Promise.resolve(state === "ar" && hostId === "rpi" ? NONE : READY),
   models: (_, harness) =>
     Promise.resolve(
       HarnessModels.make({
         harness,
-        models: MODELS,
+        models: GALLERY_MODELS,
         switchesModel: true,
         backgroundsCommands: false,
         runsShellCommands: true,
@@ -171,8 +149,6 @@ const Started = () => {
   useEffect(() => {
     let opened: GalleryHost | null = null;
 
-    // What the new session listed before the hand-off; the fake Host lists nothing itself.
-    rememberModels("gallery-started", "claude", MODELS);
     void galleryHost("gallery-started", "mac-studio", DATASETS.started()).then((made) => {
       opened = made;
       setHost(made);

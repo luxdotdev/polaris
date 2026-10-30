@@ -5,11 +5,12 @@
 import type { DaemonClient } from "@polaris/client/rpc";
 import { HostId, HostInfo, Timestamp } from "@polaris/protocol";
 import { Effect, Exit, Scope, Stream } from "effect";
+import { rememberModels } from "../composer/modelNames.ts";
 import type { HostConnection, HostStatus, LiveHost } from "../runtime/hostConnection.ts";
 import { NotConnected } from "../runtime/hostConnection.ts";
 // oxlint-disable-next-line anti-slop-effect/no-service-constructor-imports -- dev gallery: the tests' fake Host has no Layer.
 import { makeFakeHost } from "./daemon.testing.ts";
-import { type GalleryData, snapshotOf } from "./worstCase.testing.ts";
+import { GALLERY_MODELS, type GalleryData, snapshotOf } from "./worstCase.testing.ts";
 
 export interface GalleryHost {
   readonly connection: HostConnection;
@@ -31,6 +32,8 @@ export const galleryHost = async (
   data: GalleryData
 ): Promise<GalleryHost> => {
   const scope = Scope.makeUnsafe();
+
+  rememberModels(hostId, "claude", GALLERY_MODELS);
 
   const fake = await Effect.runPromise(
     makeFakeHost({ workspaceName: data.workspaceName }).pipe(Scope.provide(scope))

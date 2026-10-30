@@ -4,6 +4,8 @@
  */
 import {
   type AgentSession,
+  Model,
+  ModelId,
   SessionStreamItem,
   Sequence,
   type Turn,
@@ -21,6 +23,26 @@ export interface GalleryData {
   /** Pushed after the Snapshot: what is still streaming into the Turn in flight. */
   readonly live: ReadonlyArray<SessionStreamItem>;
 }
+
+/** What the gallery's Claude Code lists: the fake Host answers no `harness.models` itself. */
+export const GALLERY_MODELS: ReadonlyArray<Model> = [
+  new Model({
+    id: ModelId.make("claude-opus-5-5"),
+    name: "Opus 5.5",
+    description: "Most capable",
+    efforts: ["low", "medium", "high", "max"],
+    defaultEffort: "high",
+    isDefault: true,
+  }),
+  new Model({
+    id: ModelId.make("claude-sonnet-5"),
+    name: "Sonnet 5",
+    description: "Fast and capable",
+    efforts: ["low", "medium", "high"],
+    defaultEffort: "medium",
+    isDefault: false,
+  }),
+];
 
 const START = Date.parse("2026-10-27T09:24:00.000Z");
 
