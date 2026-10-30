@@ -15,6 +15,18 @@ const COLOUR: Record<SyntaxGroup, string> = {
   punctuation: "text-syntax-punctuation",
 };
 
+/** Runs as coloured spans; plain runs stay bare text. */
+export const SyntaxRuns = ({ runs }: { readonly runs: LineRuns }) =>
+  runs.map((run, i) =>
+    run.group === null ? (
+      run.text
+    ) : (
+      <span key={i} className={COLOUR[run.group]}>
+        {run.text}
+      </span>
+    )
+  );
+
 interface LineCodeProps {
   readonly text: string;
   readonly runs: LineRuns | undefined;
@@ -28,16 +40,6 @@ export const LineCode = ({ text, runs, wrap }: LineCodeProps) => (
       wrap ? "wrap-break-word whitespace-pre-wrap" : "truncate whitespace-pre"
     )}
   >
-    {runs === undefined
-      ? text
-      : runs.map((run, i) =>
-          run.group === null ? (
-            run.text
-          ) : (
-            <span key={i} className={COLOUR[run.group]}>
-              {run.text}
-            </span>
-          )
-        )}
+    {runs === undefined ? text : <SyntaxRuns runs={runs} />}
   </span>
 );
