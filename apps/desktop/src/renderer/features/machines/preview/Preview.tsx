@@ -97,7 +97,26 @@ const simulateUpdate = (feed: Feed, hostKey: string) => {
 const Input = Schema.Struct({
   hostKey: Schema.optional(Schema.String),
   enabled: Schema.optional(Schema.NullOr(Schema.Boolean)),
+  url: Schema.optional(Schema.String),
 });
+
+/** Each host's Polaris Relay: on and reaching one phone on Mac Studio, off elsewhere. */
+const relays = new Map<string, string>([["studio", "wss://relay.lux.dev/v1"]]);
+
+const relayOf = (hostKey: string): Result<unknown> => {
+  const url = relays.get(hostKey) ?? null;
+
+  return {
+    ok: true,
+    value: {
+      state: url === null ? "off" : "on",
+      url,
+      connected: url !== null,
+      hostAddress: `${hostKey}.relay`,
+      hostNoiseKey: "preview",
+    },
+  };
+};
 
 /** Each host's remote access, off until switched on. */
 const remoteAccessOn = new Set<string>();
@@ -117,12 +136,29 @@ const remoteAccessOf = (hostKey: string): Result<unknown> => {
   };
 };
 
+const tailscaleAnswer = (method: string, hostKey: string) => {
+  if (method === "remoteAccess.enable") remoteAccessOn.add(hostKey);
+
+  if (method === "remoteAccess.disable") remoteAccessOn.delete(hostKey);
+
+  return remoteAccessOf(hostKey);
+};
+
+/** Turning the relay on keeps the URL it was given; off forgets it. */
+const relayAnswer = (method: string, hostKey: string, url: string | undefined) => {
+  if (method === "relayRoute.enable" && url !== undefined) relays.set(hostKey, url);
+
+  if (method === "relayRoute.disable") relays.delete(hostKey);
+
+  return relayOf(hostKey);
+};
+
 /** The three update requests change the feed; "Add a host" is answered on the `wsl` scene; the rest "unsupported" (a toast). */
 const answer = (
   feed: Feed,
   scene: Scene,
   method: string,
-  { hostKey, enabled }: typeof Input.Type
+  { hostKey, enabled, url }: typeof Input.Type
 ): Result<unknown> | null => {
   switch (method) {
     case "machines.wslDistros":
@@ -160,13 +196,13 @@ const answer = (
     case "remoteAccess.enable":
     case "remoteAccess.disable":
     case "remoteAccess.status":
-      if (hostKey === undefined) return null;
-
-      if (method === "remoteAccess.enable") remoteAccessOn.add(hostKey);
-
-      if (method === "remoteAccess.disable") remoteAccessOn.delete(hostKey);
-
-      return remoteAccessOf(hostKey);
+      return hostKey === undefined ? null : tailscaleAnswer(method, hostKey);
+    case "relayRoute.enable":
+    case "relayRoute.disable":
+    case "relayRoute.status":
+      return hostKey === undefined ? null : relayAnswer(method, hostKey, url);
+    case "devices.list":
+      return { ok: true, value: hostKey === "studio" ? [{ unlinkedAt: null }] : [] };
     case "clipboard.write":
       return OK;
     case "machines.restartPreview":

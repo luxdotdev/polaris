@@ -47,23 +47,23 @@ export const sharedDefault = (hosts: ReadonlyArray<HostReviewer>): SharedDefault
 export const harnessName = (kind: string) =>
   HARNESS_CATALOGUE.find((h) => h.kind === kind)?.name ?? kind;
 
-const capital = (word: string) => word.charAt(0).toUpperCase() + word.slice(1);
+const capitalised = (part: string) =>
+  part === "gpt" ? "GPT" : part.charAt(0).toUpperCase() + part.slice(1);
 
-/**
- * A Model id as a name until the Harness lists it: "gpt-6.1-sol" → "GPT-6.1-Sol",
- * "claude-opus-5-5" → "Opus 5.5".
- */
-export const prettyModel = (id: string) => {
-  const claude = /^claude-([a-z]+)-(\d+(?:-\d+)*)$/.exec(id);
+/** "claude-opus-5-5-20260101" → "Opus 5.5": Claude Code lists aliases, so full ids never match. */
+const claudeName = (rest: string) => {
+  const parts = rest.split("-").filter((p) => !/^\d{8}$/.test(p));
+  const words = parts.filter((p) => !/^\d+$/.test(p)).map(capitalised);
+  const version = parts.filter((p) => /^\d+$/.test(p)).join(".");
 
-  if (claude !== null)
-    return `${capital(claude[1] ?? "")} ${(claude[2] ?? "").replaceAll("-", ".")}`;
-
-  return id
-    .split("-")
-    .map((part) => (part === "gpt" ? "GPT" : capital(part)))
-    .join("-");
+  return [...words, version].filter((p) => p !== "").join(" ");
 };
+
+/** A Model id as a name until the Harness lists it: "gpt-6.1-sol" → "GPT-6.1-Sol". */
+export const prettyModel = (id: string) =>
+  id.startsWith("claude-")
+    ? claudeName(id.slice("claude-".length))
+    : id.split("-").map(capitalised).join("-");
 
 /** "high" → "High", as Paper names efforts. */
 export const effortLabel = (effort: string) => effort.charAt(0).toUpperCase() + effort.slice(1);

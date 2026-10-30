@@ -9,6 +9,8 @@ import { createNavigation } from "../../../routes/navigation.ts";
 import { AppProvider } from "../../../shell/hooks.ts";
 import { type AppState, type Connection, initialState } from "../../../store/store.ts";
 import { standInBridge } from "../../bridge.ts";
+import type { WorkerCap } from "../../settings/model/resources.ts";
+import { setResourcesClient } from "../../settings/resources.ts";
 import { HostPage } from "./HostPage.tsx";
 
 afterEach(() => {
@@ -239,5 +241,58 @@ describe("the host page", () => {
       "—",
       "—",
     ]);
+  });
+});
+
+describe("Capacity", () => {
+  const caps = (workerCap: WorkerCap) => {
+    const set: Array<number | null> = [];
+
+    const answer = () =>
+      Promise.resolve({
+        ok: true,
+        value: { resources: [], resourceLeases: [], waiting: [], overdueLeaseIds: [], workerCap },
+      } as const);
+
+    setResourcesClient({
+      get: answer,
+      declare: answer,
+      remove: answer,
+      release: answer,
+      setCap: (_, cap) => {
+        set.push(cap);
+
+        return answer();
+      },
+    });
+
+    return set;
+  };
+
+  const connected = machine({ status: { ...offline, state: "connected" } });
+
+  test("Resources… opens the resources alone; Workers at once stays in Capacity's header", async () => {
+    caps({ cap: 4, default: 4, working: 1, waiting: 0 });
+    mount(connected, { preview: nothing, result: back });
+    await settle();
+
+    fireEvent.click(screen.getByRole("button", { name: "Resources…" }));
+    await settle();
+
+    expect(screen.getByTestId("host-resources").textContent).toContain("None on this host.");
+    expect(screen.getAllByRole("button", { name: /more workers|increase workers/i })).toHaveLength(
+      1
+    );
+  });
+
+  test("a cap set by hand goes back to automatic from Capacity", async () => {
+    const set = caps({ cap: 6, default: 4, working: 1, waiting: 0 });
+    mount(connected, { preview: nothing, result: back });
+    await settle();
+
+    fireEvent.click(screen.getByRole("button", { name: "Automatic (4)" }));
+    await settle();
+
+    expect(set).toEqual([null]);
   });
 });
