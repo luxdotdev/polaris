@@ -317,10 +317,12 @@ describe("advanced", () => {
     );
     const { refreshed } = renderPage(undefined, fake);
     fireEvent.click(page().getByRole("button", { name: /Advanced/ }));
-    const remove = await page().findByRole("button", { name: "Remove zls" });
+    const servers = within(await page().findByRole("region", { name: "Custom language servers" }));
 
-    expect(page().getByText("/usr/local/bin/zls")).toBeTruthy();
-    await act(async () => fireEvent.click(remove));
+    expect(servers.getByText("/usr/local/bin/zls")).toBeTruthy();
+    fireEvent.click(servers.getByRole("button", { name: "Remove" }));
+    expect(fake.records.get(JSON.stringify(scope))?.revision).toBe(3);
+    await act(async () => fireEvent.click(servers.getByRole("button", { name: "Remove zls" })));
 
     await waitFor(() => expect(fake.records.get(JSON.stringify(scope))?.revision).toBe(4));
     expect(fake.records.get(JSON.stringify(scope))?.settings.customServers).toBeUndefined();

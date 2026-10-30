@@ -52,23 +52,17 @@ export const readiness = (groups: ReadonlyArray<HarnessGroup>): string => {
   return `${ready} of ${rows.length} ready${signIn === 0 ? "" : ` · ${signIn} ${signIn === 1 ? "needs" : "need"} sign-in`}`;
 };
 
-/** Every cell that can be signed in from here, in matrix order. */
-export const signIns = (groups: ReadonlyArray<HarnessGroup>): ReadonlyArray<SignIn> =>
-  groups.flatMap((group) =>
-    group.rows.flatMap((row) =>
-      row.action?.kind === "sign-in"
-        ? [
-            {
-              harness: group.kind,
-              name: group.name,
-              hostKey: row.hostKey,
-              hostLabel: row.hostLabel,
-              argv: row.action.argv,
-            },
-          ]
-        : []
-    )
-  );
+/** A cell's sign-in, when its harness needs one on that host. */
+const signInOf = (group: HarnessGroup, row: HostRow): SignIn | undefined =>
+  row.action?.kind === "sign-in"
+    ? {
+        harness: group.kind,
+        name: group.name,
+        hostKey: row.hostKey,
+        hostLabel: row.hostLabel,
+        argv: row.action.argv,
+      }
+    : undefined;
 
 /** The sign-in kinds the hosts report ("Claude Max"), each once. */
 export const signInKinds = (
@@ -135,10 +129,14 @@ const Matrix = ({
   groups,
   hosts,
   colours,
+  signingIn,
+  onSignIn,
 }: {
   readonly groups: ReadonlyArray<HarnessGroup>;
   readonly hosts: ReadonlyArray<ProbedHost>;
   readonly colours: Readonly<Record<string, string | null>>;
+  readonly signingIn: SignIn | null;
+  readonly onSignIn: (signIn: SignIn) => void;
 }) => {
   const away = new Set(
     hosts
@@ -180,23 +178,41 @@ const Matrix = ({
             <Mark kind={group.kind} size={18} />
             <span className="text-body truncate">{group.name}</span>
           </span>
-          {group.rows.map((row) => (
-            <span
-              key={row.hostKey}
-              role="cell"
-              className="flex min-w-[110px] flex-1 items-center"
-              aria-label={`${group.name} on ${row.hostLabel}: ${row.version ?? row.text}`}
-            >
-              <Cell row={row} away={away.has(row.hostKey)} />
-            </span>
-          ))}
+          {group.rows.map((row) => {
+            const signIn = away.has(row.hostKey) ? undefined : signInOf(group, row);
+
+            return (
+              <span
+                key={row.hostKey}
+                role="cell"
+                className="flex min-w-[110px] flex-1 items-center gap-2"
+                aria-label={`${group.name} on ${row.hostLabel}: ${row.version ?? row.text}`}
+              >
+                {signIn === undefined ? (
+                  <Cell row={row} away={away.has(row.hostKey)} />
+                ) : (
+                  <SettingsButton
+                    variant="ghost"
+                    aria-label={`Sign in to ${group.name} on ${row.hostLabel}`}
+                    aria-pressed={
+                      signingIn?.harness === signIn.harness && signingIn.hostKey === signIn.hostKey
+                    }
+                    onClick={() => onSignIn(signIn)}
+                  >
+                    Sign in
+                  </SettingsButton>
+                )}
+              </span>
+            );
+          })}
         </div>
       ))}
     </SettingsWell>
   );
 };
 
-const ReadinessCard = ({
+/** The matrix, each cell needing sign-in with its own button; the terminal opens under it. */
+export const ReadinessCard = ({
   groups,
   hosts,
   colours,
@@ -208,25 +224,26 @@ const ReadinessCard = ({
   readonly refresh: (hostKey: string) => void;
 }) => {
   const [signingIn, setSigningIn] = useState<SignIn | null>(null);
-  const next = signIns(groups)[0];
-  const many = new Set(signIns(groups).map((s) => s.hostKey)).size < signIns(groups).length;
 
   return (
     <SettingsCard
       title="Readiness"
       aside={readiness(groups)}
       status={[...signInKinds(hosts), "Polaris never reads your keys"].join(" · ")}
-      action={
-        next === undefined || signingIn !== null ? undefined : (
-          <SettingsButton onClick={() => setSigningIn(next)}>
-            {many ? `Sign in to ${next.name} on ${next.hostLabel}` : `Sign in on ${next.hostLabel}`}
-          </SettingsButton>
-        )
-      }
     >
-      <Matrix groups={groups} hosts={hosts} colours={colours} />
+      <Matrix
+        groups={groups}
+        hosts={hosts}
+        colours={colours}
+        signingIn={signingIn}
+        onSignIn={setSigningIn}
+      />
       {signingIn === null ? null : (
-        <SettingsWell rows={false} aria-label={`Sign in to ${signingIn.name}`}>
+        <SettingsWell
+          key={`${signingIn.harness}@${signingIn.hostKey}`}
+          rows={false}
+          aria-label={`Sign in to ${signingIn.name} on ${signingIn.hostLabel}`}
+        >
           <slots.HarnessTerminal
             hostKey={signingIn.hostKey}
             argv={signingIn.argv}
@@ -346,7 +363,7 @@ const HarnessCard = ({
           <Mark kind={group.kind} size={24} />
           <span className="flex min-w-0 flex-col">
             <span className="truncate">{group.name}</span>
-            <span className="text-caption text-text-subtle truncate font-normal">
+            <span className="text-caption text-text-subtle font-normal whitespace-normal">
               {group.caption}
             </span>
           </span>

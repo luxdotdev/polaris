@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import type { HarnessAvailability } from "@polaris/protocol";
 import type { Plain } from "../../../../shared/api.ts";
 import { harnessGroups, type ProbedHost } from "../model/harnesses.ts";
-import { installedSomewhere, readiness, signInKinds, signIns } from "./HarnessesPage.tsx";
+import { installedSomewhere, readiness, signInKinds } from "./HarnessesPage.tsx";
 
 const availability = (
   harness: string,
@@ -42,18 +42,6 @@ test("the matrix counts ready cells across every harness and host, and who needs
   const cells = groups.length * HOSTS.length;
 
   expect(readiness(groups)).toBe(`3 of ${cells} ready · 1 needs sign-in`);
-});
-
-test("sign-in is offered for the cell that needs it, with that harness's own command", () => {
-  expect(signIns(groups)).toEqual([
-    {
-      harness: "claude",
-      name: "Claude Code",
-      hostKey: "vm",
-      hostLabel: "Linux VM",
-      argv: ["/usr/local/bin/claude", "login"],
-    },
-  ]);
 });
 
 test("sign-in kinds are listed once each, or per harness for its card", () => {
