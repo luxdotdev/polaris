@@ -10,6 +10,9 @@ import { Data } from "effect";
 /** The user name in the proxy's Basic credential; the secret is the password. */
 export const PROXY_USER = "polaris";
 
+/** The realm of the proxy's Basic challenge, which `login` must name to get the secret. */
+export const PROXY_REALM = "Polaris";
+
 /** A request head larger than this is refused unread. */
 export const MAX_HEAD_BYTES = 16 * 1024;
 
@@ -176,7 +179,7 @@ export const proxyResponse = (status: ProxyStatus): Uint8Array =>
   Buffer.from(
     [
       `HTTP/1.1 ${status} ${REASONS[status]}`,
-      ...(status === 407 ? ['Proxy-Authenticate: Basic realm="Polaris"'] : []),
+      ...(status === 407 ? [`Proxy-Authenticate: Basic realm="${PROXY_REALM}"`] : []),
       "Content-Length: 0",
       "Connection: close",
       "",

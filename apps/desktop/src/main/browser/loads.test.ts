@@ -70,4 +70,30 @@ describe("a tab's loads", () => {
 
     expect(log).toEqual(["open http://localhost:5173/"]);
   });
+
+  test("back, forward and reload wait for setup too, and a failed setup runs none of them", async () => {
+    const { loads, setups, log } = setup();
+
+    loads.step(TAB, "http://localhost:3000/", () => log.push("back"));
+    await tick();
+    const before = [...log];
+
+    setups[0]!.reject(new Error("setProxy failed"));
+    await tick();
+
+    expect(before).toEqual([]);
+    expect(log).toEqual(["failed http://localhost:3000/"]);
+    expect(loads.failedUrl(TAB)).toBe("http://localhost:3000/");
+  });
+
+  test("retired routing drops a load still waiting and shows the failure", async () => {
+    const { loads, setups, log } = setup();
+
+    loads.load(TAB, "http://localhost:3000/");
+    loads.retire(TAB, "http://localhost:3000/", new Error("rpi was removed"));
+    setups[0]!.resolve();
+    await tick();
+
+    expect(log).toEqual(["failed http://localhost:3000/"]);
+  });
 });

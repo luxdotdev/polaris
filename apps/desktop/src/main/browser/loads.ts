@@ -13,22 +13,42 @@ export interface TabLoadsDeps {
   readonly fail: (tabId: BrowserTabId, url: string, cause: unknown) => void;
 }
 
+/** A load of `url`, or a history step (`go`) on the page at `url`. */
+interface Step {
+  readonly url: string;
+  readonly go: (() => void) | null;
+}
+
 export const tabLoads = ({ ready, open, fail }: TabLoadsDeps) => {
   const failed = new Map<BrowserTabId, string>();
 
-  const loads = latestLoads<BrowserTabId>(open, (tabId, url, cause) => {
+  const failWith = (tabId: BrowserTabId, url: string, cause: unknown) => {
     failed.set(tabId, url);
     fail(tabId, url, cause);
-  });
+  };
+
+  const loads = latestLoads<BrowserTabId, Step>(
+    (tabId, step) => (step.go === null ? open(tabId, step.url) : step.go()),
+    (tabId, step, cause) => failWith(tabId, step.url, cause)
+  );
+
+  const request = (tabId: BrowserTabId, step: Step) => {
+    failed.delete(tabId);
+    loads.request(tabId, step, ready(tabId));
+  };
 
   return {
     /** Loads `url` once the partition is ready; a later load of the tab wins over this one. */
-    load: (tabId: BrowserTabId, url: string) => {
-      failed.delete(tabId);
-      loads.request(tabId, url, ready(tabId));
-    },
+    load: (tabId: BrowserTabId, url: string) => request(tabId, { url, go: null }),
+    /** Back, forward or reload on the page at `url`, also only once the partition is ready. */
+    step: (tabId: BrowserTabId, url: string, go: () => void) => request(tabId, { url, go }),
     /** The URL whose load the setup failed, which a reload tries again; null otherwise. */
     failedUrl: (tabId: BrowserTabId) => failed.get(tabId) ?? null,
+    /** Routing was taken away: loads still waiting are dropped and the tab shows `cause`. */
+    retire: (tabId: BrowserTabId, url: string, cause: unknown) => {
+      loads.forget(tabId);
+      failWith(tabId, url, cause);
+    },
     forget: (tabId: BrowserTabId) => {
       loads.forget(tabId);
       failed.delete(tabId);

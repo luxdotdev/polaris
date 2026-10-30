@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { type AddressInfo, connect, createServer } from "node:net";
+import { type AddressInfo, connect, createServer, Socket } from "node:net";
 import { type Cause, Effect, Queue, Stream } from "effect";
 import { PROXY_USER, type ProxyStatus } from "./proxy.ts";
 import {
@@ -51,6 +51,9 @@ interface Start {
   readonly direct?: Array<string>;
   readonly directPort?: number;
   readonly handshakeTimeoutMs?: number;
+  readonly connectTimeoutMs?: number;
+  /** The direct socket, for a test that controls it; `net.connect` to `directPort` otherwise. */
+  readonly remote?: Socket;
   readonly maxConnections?: number;
 }
 
@@ -68,9 +71,10 @@ const start = async (options: Start = {}) => {
     connectDirect: (hostname, port) => {
       options.direct?.push(`${hostname}:${port}`);
 
-      return connect(options.directPort ?? port, "127.0.0.1");
+      return options.remote ?? connect(options.directPort ?? port, "127.0.0.1");
     },
     handshakeTimeoutMs: options.handshakeTimeoutMs,
+    connectTimeoutMs: options.connectTimeoutMs,
     maxConnections: options.maxConnections,
   });
 
@@ -277,5 +281,35 @@ describe("the proxy's limits", () => {
     held.destroy();
     expect([received, opened]).toEqual(["", []]);
     expect(closedAt).toBeLessThan(1_000);
+  });
+});
+
+describe("the proxy's direct connections", () => {
+  test("a load cancelled while its connection opens destroys that connection", async () => {
+    const remote = new Socket();
+    const proxy = await start({ remote });
+
+    const browser = connect(proxy.port, "127.0.0.1", () =>
+      browser.write(`CONNECT printer2:80 HTTP/1.1\r\n${basic(proxy.secret)}\r\n\r\n`)
+    );
+
+    await Bun.sleep(100);
+    browser.destroy();
+    await Bun.sleep(100);
+
+    expect(remote.destroyed).toBe(true);
+  });
+
+  test("a connection that never opens answers 504 after the deadline", async () => {
+    const remote = new Socket();
+    const proxy = await start({ remote, connectTimeoutMs: 100 });
+
+    const { received } = await exchange(
+      proxy.port,
+      `CONNECT printer2:80 HTTP/1.1\r\n${basic(proxy.secret)}\r\n\r\n`,
+      2_000
+    );
+
+    expect([statusOf(received), remote.destroyed]).toEqual(["HTTP/1.1 504 Gateway Timeout", true]);
   });
 });

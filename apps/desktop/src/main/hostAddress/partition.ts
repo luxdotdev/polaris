@@ -28,3 +28,12 @@ export const configurePartition = async (
     callback(isHostAddress(request.hostname) ? 0 : chromiumVerdict(request))
   );
 };
+
+/**
+ * A removed Host's partition: Host-address certificates lose their pass and pooled sockets to
+ * the old proxy close. The proxy settings stay on the retired proxy, which refuses everything.
+ */
+export const retirePartition = async (session: Session) => {
+  session.setCertificateVerifyProc((request, callback) => callback(chromiumVerdict(request)));
+  await session.closeAllConnections();
+};

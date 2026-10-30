@@ -438,7 +438,15 @@ const start = async () => {
     open: openThroughHost,
     run: (effect) => clientRuntime.runFork(effect),
   });
-  clientRuntime.runFork(whenHostRemoved(hostAddresses.forget));
+  const removedHosts = hostAddresses;
+
+  // A removed Host's tabs stop and lose CDP before its proxy stops relaying.
+  clientRuntime.runFork(
+    whenHostRemoved(async (hostKey) => {
+      browsers?.retireHost(hostKey);
+      await removedHosts.forget(hostKey);
+    })
+  );
   languageRuntime = createMainLanguageApi({
     runtime,
     identities: languageIdentities,

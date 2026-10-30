@@ -6,8 +6,8 @@
 import { isHostAddress } from "@polaris/protocol";
 import type { Effect, Fiber } from "effect";
 import type { AuthInfo, Session } from "electron";
-import { configurePartition, type PartitionRoute } from "./partition.ts";
-import { PROXY_USER } from "./proxy.ts";
+import { configurePartition, type PartitionRoute, retirePartition } from "./partition.ts";
+import { PROXY_REALM, PROXY_USER } from "./proxy.ts";
 import { type OpenHostAddress, type ProxyServer, startProxyServer } from "./server.ts";
 
 export interface ProxyCredentials {
@@ -27,9 +27,12 @@ export interface HostAddresses {
    */
   readonly proxyLogin: (
     session: Session | undefined,
-    authInfo: Pick<AuthInfo, "isProxy" | "host" | "port">
+    authInfo: Pick<AuthInfo, "isProxy" | "host" | "port" | "realm">
   ) => ProxyCredentials | null;
-  /** Stops a removed Host's proxy; its partitions' Host addresses fail until set up again. */
+  /**
+   * A removed Host: its partitions lose the Host-address certificate rule, then its proxy
+   * stops relaying. The proxy keeps its port until no partition points at it any more.
+   */
   readonly forget: (hostKey: string) => Promise<void>;
   readonly dispose: () => Promise<void>;
 }
@@ -41,6 +44,8 @@ export interface HostAddressesInput<R> {
   readonly run: (effect: Effect.Effect<void, never, R>) => Fiber.Fiber<void>;
   /** Applies a route to a partition; `configurePartition` outside tests. */
   readonly configure?: (session: Session, route: PartitionRoute) => Promise<void>;
+  /** Takes a removed Host's rules off a partition; `retirePartition` outside tests. */
+  readonly retire?: (session: Session) => Promise<void>;
 }
 
 interface Setup {
@@ -53,10 +58,27 @@ export const createHostAddresses = <R>({
   open,
   run,
   configure = (session, route) => configurePartition(session, route, isHostAddress),
+  retire = retirePartition,
 }: HostAddressesInput<R>): HostAddresses => {
   const servers = new Map<string, Promise<ProxyServer>>();
   const started = new Map<string, ProxyServer>();
   const setups = new Map<Session, Setup>();
+  /** Retired proxies, each with the partitions still pointing at it. */
+  const retired = new Map<ProxyServer, Set<Session>>();
+
+  const release = async (server: ProxyServer) => {
+    if ((retired.get(server)?.size ?? 0) > 0) return;
+    retired.delete(server);
+    await server.close();
+  };
+
+  /** A partition set up again no longer points at any retired proxy. */
+  const moved = (session: Session) =>
+    Promise.all(
+      [...retired].map(async ([server, sessions]) => {
+        if (sessions.delete(session)) await release(server);
+      })
+    );
 
   const serverFor = (hostKey: string) => {
     let server = servers.get(hostKey);
@@ -84,13 +106,21 @@ export const createHostAddresses = <R>({
     );
 
   const forget = async (hostKey: string) => {
-    const server = servers.get(hostKey);
+    const server = await servers.get(hostKey)?.catch(() => null);
+
+    const sessions = [...setups].flatMap(([session, setup]) =>
+      setup.hostKey === hostKey ? [session] : []
+    );
 
     servers.delete(hostKey);
     started.delete(hostKey);
+    sessions.forEach((session) => setups.delete(session));
+    await Promise.all(sessions.map((session) => retire(session).catch(() => undefined)));
 
-    for (const [session, setup] of setups) if (setup.hostKey === hostKey) setups.delete(session);
-    await (await server?.catch(() => null))?.close();
+    if (server == null) return;
+    server.retire();
+    retired.set(server, new Set(sessions));
+    await release(server);
   };
 
   return {
@@ -98,7 +128,7 @@ export const createHostAddresses = <R>({
       const current = setups.get(session);
 
       if (current?.hostKey === hostKey) return current.ready;
-      const ready = setUp(hostKey, session);
+      const ready = setUp(hostKey, session).then(() => moved(session).then(() => undefined));
 
       setups.set(session, { hostKey, ready });
       ready.catch(() => {
@@ -111,8 +141,10 @@ export const createHostAddresses = <R>({
       const setup = session === undefined ? undefined : setups.get(session);
       const server = setup === undefined ? undefined : started.get(setup.hostKey);
 
-      if (server === undefined || !authInfo.isProxy) return null;
+      if (server === undefined || !authInfo.isProxy || authInfo.realm !== PROXY_REALM) return null;
 
+      // A 407 relayed from a page's server arrives as this proxy's challenge too; the secret
+      // still only ever goes to this proxy, which strips it before forwarding.
       return authInfo.host === "127.0.0.1" && authInfo.port === server.port
         ? { username: PROXY_USER, password: server.secret }
         : null;
@@ -120,6 +152,8 @@ export const createHostAddresses = <R>({
     forget,
     dispose: async () => {
       await Promise.all([...servers.keys()].map(forget));
+      await Promise.all([...retired.keys()].map((server) => server.close()));
+      retired.clear();
     },
   };
 };

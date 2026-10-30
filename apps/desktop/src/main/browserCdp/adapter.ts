@@ -3,10 +3,11 @@
  * owner of tabs; the facade sees a session's tabs and each tab's `webContents.debugger`.
  */
 import { allowedUrl, type Browsers } from "../browser/index.ts";
+import { routedTabs } from "./gate.ts";
 import type { CdpTabs } from "./ports.ts";
 
 /** `browsers` is read on each call: main creates the registry after the Client runtime. */
-export const cdpTabsOf = (browsers: () => Browsers | null): CdpTabs => {
+const allTabsOf = (browsers: () => Browsers | null): CdpTabs => {
   const ready = (): Browsers => {
     const current = browsers();
 
@@ -28,3 +29,17 @@ export const cdpTabsOf = (browsers: () => Browsers | null): CdpTabs => {
       browsers()?.subscribe(hostKey, sessionId, listener) ?? (() => undefined),
   };
 };
+
+/** Only tabs whose partition is routed, so CDP can't load a Host address before it is. */
+export const cdpTabsOf = (browsers: () => Browsers | null): CdpTabs =>
+  routedTabs(allTabsOf(browsers), {
+    isRouted: (tabId) => browsers()?.routing.isRouted(tabId) ?? false,
+    whenRouted: async (tabId) => {
+      const current = browsers();
+
+      if (current === null) throw new Error("The Browser is not ready yet");
+
+      return current.routing.whenRouted(tabId);
+    },
+    onChange: (listener) => browsers()?.routing.onChange(listener) ?? (() => undefined),
+  });

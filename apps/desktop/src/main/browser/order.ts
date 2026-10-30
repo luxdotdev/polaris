@@ -7,14 +7,14 @@
  * Loads that wait for their partition; one asked for since supersedes one still waiting. A
  * partition that fails to set up starts nothing: the latest load hears of it through `failed`.
  */
-export const latestLoads = <K>(
-  start: (key: K, url: string) => void,
-  failed: (key: K, url: string, cause: unknown) => void = () => {}
+export const latestLoads = <K, V = string>(
+  start: (key: K, url: V) => void,
+  failed: (key: K, url: V, cause: unknown) => void = () => {}
 ) => {
   const latest = new Map<K, number>();
 
   return {
-    request: (key: K, url: string, ready: Promise<void>) => {
+    request: (key: K, url: V, ready: Promise<void>) => {
       const turn = (latest.get(key) ?? 0) + 1;
 
       latest.set(key, turn);

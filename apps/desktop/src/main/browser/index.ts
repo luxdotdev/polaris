@@ -106,7 +106,13 @@ export const createBrowsers = (input: BrowsersInput) => {
     workspaceOf: workspaceOn(input.runtime),
   });
 
-  return { ...registry, contentsOf: views.contentsOf, flush: file.flush };
+  return {
+    ...registry,
+    contentsOf: views.contentsOf,
+    routing: views.routing,
+    retireHost: views.retireHost,
+    flush: file.flush,
+  };
 };
 
 export type Browsers = ReturnType<typeof createBrowsers>;

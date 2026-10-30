@@ -7,6 +7,7 @@ import type { WorkspaceId } from "@polaris/protocol";
 import { type BrowserWindow, session, type WebContents, WebContentsView } from "electron";
 import type { BrowserTab, BrowserTabId } from "../../shared/browserContract.ts";
 import { SETUP_FAILED_PAGE, setupFailedPage, tabLoads } from "./loads.ts";
+import { tabRouting } from "./routing.ts";
 import { allowedFrameUrl, allowedUrl, isHostAddress } from "./navigation.ts";
 import { distrustInSession } from "../tls/distrust.ts";
 import { cancelPickIn, pickIn } from "./pick/index.ts";
@@ -77,6 +78,7 @@ export const electronViews = (deps: ViewsDeps) => {
   const picking = new Map<BrowserTabId, () => void>();
   const places = new Map<BrowserTabId, { hostKey: string; workspaceId: WorkspaceId }>();
   const prepared = new Set<string>();
+  const routing = tabRouting();
 
   const partitionOf = (hostKey: string, workspaceId: WorkspaceId) => {
     const name = browserPartition(hostKey, workspaceId);
@@ -106,18 +108,27 @@ export const electronViews = (deps: ViewsDeps) => {
     if (view !== undefined && !view.webContents.isDestroyed()) use(view);
   };
 
+  const setUp = async (tabId: BrowserTabId) => {
+    const place = places.get(tabId);
+
+    if (place === undefined) throw new Error("the tab is closed");
+
+    return deps.configureSession(
+      place.hostKey,
+      place.workspaceId,
+      partitionOf(place.hostKey, place.workspaceId)
+    );
+  };
+
   const loads = tabLoads({
-    ready: async (tabId) => {
-      const place = places.get(tabId);
-
-      if (place === undefined) throw new Error("the tab is closed");
-
-      return deps.configureSession(
-        place.hostKey,
-        place.workspaceId,
-        partitionOf(place.hostKey, place.workspaceId)
-      );
-    },
+    ready: (tabId) =>
+      setUp(tabId).then(
+        () => routing.routed(tabId),
+        (cause: unknown) => {
+          routing.unrouted(tabId, cause);
+          throw cause;
+        }
+      ),
     open: (tabId, url) =>
       withView(tabId, (view) => void view.webContents.loadURL(url).catch(() => {})),
     fail: (tabId, url, cause) => {
@@ -132,6 +143,29 @@ export const electronViews = (deps: ViewsDeps) => {
 
   const load = (tabId: BrowserTabId, url: string) => {
     if (allowedUrl(url)) loads.load(tabId, url);
+  };
+
+  /** A history step, once the partition is ready like any load. */
+  const step = (tabId: BrowserTabId, go: (view: WebContentsView) => void) =>
+    withView(tabId, (view) =>
+      loads.step(tabId, view.webContents.getURL(), () => withView(tabId, go))
+    );
+
+  /**
+   * A removed Host: its tabs stop, lose CDP, and show why; a reload sets them up again. Runs
+   * before the Host's proxy stops, so no page still points at a port another process can take.
+   */
+  const retireHost = (hostKey: string) => {
+    for (const [tabId, place] of places) {
+      if (place.hostKey !== hostKey) continue;
+      const cause = new Error(`${hostKey} was removed`);
+
+      routing.unrouted(tabId, cause);
+      withView(tabId, (view) => {
+        view.webContents.stop();
+        loads.retire(tabId, view.webContents.getURL(), cause);
+      });
+    }
   };
 
   const endPick = (tabId: BrowserTabId) => picking.get(tabId)?.();
@@ -179,12 +213,12 @@ export const electronViews = (deps: ViewsDeps) => {
     },
     load,
     back: (tabId) =>
-      withView(tabId, (view) => {
+      step(tabId, (view) => {
         if (view.webContents.navigationHistory.canGoBack())
           view.webContents.navigationHistory.goBack();
       }),
     forward: (tabId) =>
-      withView(tabId, (view) => {
+      step(tabId, (view) => {
         if (view.webContents.navigationHistory.canGoForward())
           view.webContents.navigationHistory.goForward();
       }),
@@ -192,7 +226,7 @@ export const electronViews = (deps: ViewsDeps) => {
       const failed = loads.failedUrl(tabId);
 
       if (failed !== null) return load(tabId, failed);
-      withView(tabId, (view) =>
+      step(tabId, (view) =>
         ignoreCache ? view.webContents.reloadIgnoringCache() : view.webContents.reload()
       );
     },
@@ -236,13 +270,18 @@ export const electronViews = (deps: ViewsDeps) => {
       views.delete(tabId);
       places.delete(tabId);
       loads.forget(tabId);
+      routing.forget(tabId);
     },
   };
 
   return {
     host,
-    /** The tab's page, for CDP (ENG-617); null before its view exists. */
+    retireHost,
+    /** Which tabs are routed: the CDP facade sees only those (`browserCdp/gate.ts`). */
+    routing: routing.view,
+    /** The tab's page, for CDP (ENG-617); null until its partition is routed. */
     contentsOf: (tabId: BrowserTabId): WebContents | null => {
+      if (!routing.view.isRouted(tabId)) return null;
       const contents = views.get(tabId)?.webContents;
 
       return contents === undefined || contents.isDestroyed() ? null : contents;

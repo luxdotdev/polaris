@@ -53,6 +53,8 @@ export interface ProxyServerOptions<R> {
   readonly connectDirect?: (hostname: string, port: number) => Socket;
   /** How long a connection may take to send an authorized request; 10 s by default. */
   readonly handshakeTimeoutMs?: number | undefined;
+  /** How long a direct connection may take to open; 10 s by default. */
+  readonly connectTimeoutMs?: number | undefined;
   /** Connections beyond this are closed unread; 256 by default. */
   readonly maxConnections?: number | undefined;
 }
@@ -61,6 +63,11 @@ export interface ProxyServer {
   readonly port: number;
   /** The password Electron's `login` event answers with, for this server only. */
   readonly secret: string;
+  /**
+   * Stops relaying: open connections end and new ones are closed unread. The port stays
+   * held, so no other process can take it while partitions still point at it.
+   */
+  readonly retire: () => void;
   readonly close: () => Promise<void>;
 }
 
@@ -205,23 +212,38 @@ const DIRECT_FAILURES = new Map<string | undefined, ProxyStatus>([
  * A name outside the Host addresses, as Chromium sends it when the bypass list misses it
  * (`printer2`): main's DNS and a TCP connection; TLS inside it stays Chromium's.
  */
-const openDirect =
-  (connectDirect: (hostname: string, port: number) => Socket) =>
-  ({ hostname, port }: Target): Effect.Effect<HostAddressTransport, ProxyStatus, Scope.Scope> =>
-    Effect.acquireRelease(
-      Effect.callback<Socket, ProxyStatus>((resume) => {
-        const remote = connectDirect(hostname, port);
+/** Waits for the connection, interruptibly: a cancelled load stops waiting at once. */
+const connected = (remote: Socket) =>
+  Effect.callback<Socket, ProxyStatus>((resume) => {
+    const failed = (error: NodeJS.ErrnoException) =>
+      resume(Effect.fail(DIRECT_FAILURES.get(error.code) ?? 502));
 
-        remote.once("error", (error: NodeJS.ErrnoException) =>
-          resume(Effect.fail(DIRECT_FAILURES.get(error.code) ?? 502))
-        );
-        remote.once("connect", () => {
-          remote.removeAllListeners("error").on("error", () => remote.destroy());
-          resume(Effect.succeed(remote));
-        });
-      }),
+    const ready = () => {
+      remote.off("error", failed).on("error", () => remote.destroy());
+      resume(Effect.succeed(remote));
+    };
+
+    remote.once("error", failed).once("connect", ready);
+
+    return Effect.sync(() => remote.off("error", failed).off("connect", ready));
+  });
+
+const openDirect =
+  (connectDirect: (hostname: string, port: number) => Socket, timeoutMs: number) =>
+  ({ hostname, port }: Target): Effect.Effect<HostAddressTransport, ProxyStatus, Scope.Scope> =>
+    // The socket's cleanup is registered before any wait, so an interrupt always destroys it.
+    Effect.acquireRelease(
+      Effect.sync(() => connectDirect(hostname, port)),
       (remote) => Effect.sync(() => remote.destroy())
     ).pipe(
+      Effect.flatMap((remote) =>
+        connected(remote).pipe(
+          Effect.timeoutOrElse({
+            duration: timeoutMs,
+            orElse: () => Effect.fail<ProxyStatus>(504),
+          })
+        )
+      ),
       Effect.map((remote) => ({
         incoming: Stream.fromAsyncIterable<Uint8Array, unknown>(remote, (error) => error),
         write: (bytes: Uint8Array) => writeTo(remote, bytes),
@@ -274,7 +296,8 @@ function relay<R>(
     route.kind === "host"
       ? options.open
       : openDirect(
-          options.connectDirect ?? ((host, port) => connect({ host, port, lookup: directLookup }))
+          options.connectDirect ?? ((host, port) => connect({ host, port, lookup: directLookup })),
+          options.connectTimeoutMs ?? 10_000
         );
 
   const stream = open(route.target).pipe(
@@ -335,8 +358,10 @@ export const startProxyServer = <R>(options: ProxyServerOptions<R>): Promise<Pro
     const sockets = new Set<Socket>();
     const max = options.maxConnections ?? 256;
 
+    let retired = false;
+
     const server: Server = createServer({ noDelay: true }, (socket) => {
-      if (sockets.size >= max) return void socket.destroy();
+      if (retired || sockets.size >= max) return void socket.destroy();
       sockets.add(socket);
       socket.once("close", () => sockets.delete(socket));
       handshake(socket, credential, options);
@@ -350,6 +375,11 @@ export const startProxyServer = <R>(options: ProxyServerOptions<R>): Promise<Pro
       resolve({
         port,
         secret,
+        retire: () => {
+          retired = true;
+
+          for (const socket of sockets) socket.destroy();
+        },
         close: () =>
           new Promise<void>((done) => {
             server.close(() => done());

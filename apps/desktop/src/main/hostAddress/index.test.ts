@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { connect } from "node:net";
+import { connect, createServer } from "node:net";
 import { Effect } from "effect";
 import type { Session } from "electron";
 import { createHostAddresses, type HostAddresses } from "./index.ts";
@@ -18,6 +18,7 @@ afterEach(async () => {
 /** Host addresses whose partition setup fails while `failing` holds, recording each route. */
 const setup = (local = false) => {
   const routes: Array<PartitionRoute> = [];
+  const retired: Array<Session> = [];
   const state = { failing: false };
 
   hostAddresses = createHostAddresses<never>({
@@ -29,10 +30,43 @@ const setup = (local = false) => {
 
       if (state.failing) throw new Error("setProxy failed");
     },
+    retire: async (session) => {
+      retired.push(session);
+    },
   });
 
-  return { hostAddresses, routes, state };
+  return { hostAddresses, routes, retired, state };
 };
+
+const login = (port: number) => ({ isProxy: true, host: "127.0.0.1", port, realm: "Polaris" });
+
+/** Whether another process could listen on `port` now. */
+const canBind = (port: number) =>
+  new Promise<boolean>((resolve) => {
+    const other = createServer();
+
+    other.once("error", () => resolve(false));
+    other.listen(port, "127.0.0.1", () => other.close(() => resolve(true)));
+  });
+
+/** An authenticated CONNECT to a Host address on `port`, and whatever comes back. */
+const connectTo = (port: number, secret: string) =>
+  new Promise<string>((resolve) => {
+    const credential = Buffer.from(`polaris:${secret}`).toString("base64");
+
+    const socket = connect(port, "127.0.0.1", () =>
+      socket.write(
+        `CONNECT localhost:3000 HTTP/1.1\r\nProxy-Authorization: Basic ${credential}\r\n\r\n`
+      )
+    );
+
+    let received = "";
+
+    socket.on("data", (chunk) => (received += Buffer.from(chunk).toString()));
+    socket.on("error", () => {});
+    socket.on("close", () => resolve(received));
+    setTimeout(() => socket.destroy(), 500);
+  });
 
 const portOf = (route: PartitionRoute | undefined) =>
   route?.kind === "remote" ? route.proxyPort : -1;
@@ -57,27 +91,27 @@ describe("a partition's setup", () => {
     expect(routes.map((route) => route.kind)).toEqual(["remote", "remote"]);
   });
 
-  test("a removed Host's proxy stops, and its partitions are set up on a new one", async () => {
-    const { hostAddresses, routes } = setup();
+  test("a removed Host's partitions lose their rules, and its port stays held until they move", async () => {
+    const { hostAddresses, routes, retired } = setup();
     const session = fakeSession();
 
     await hostAddresses.configureBrowserSession("rpi", session);
     const before = portOf(routes[0]);
+    const secret = hostAddresses.proxyLogin(session, login(before))?.password ?? "";
 
     await hostAddresses.forget("rpi");
 
-    const refused = await new Promise((resolve) => {
-      const probe = connect(before, "127.0.0.1");
-
-      probe.once("connect", () => resolve(probe.destroy() && false));
-      probe.once("error", () => resolve(true));
-    });
+    const whileRetired = {
+      retired: retired.includes(session),
+      bindable: await canBind(before),
+      answer: await connectTo(before, secret),
+    };
 
     await hostAddresses.configureBrowserSession("rpi", session);
 
-    expect(refused).toBe(true);
-    expect(routes).toHaveLength(2);
+    expect(whileRetired).toEqual({ retired: true, bindable: false, answer: "" });
     expect(portOf(routes[1])).not.toBe(before);
+    expect(await canBind(before)).toBe(true);
   });
 });
 
@@ -89,7 +123,7 @@ describe("the proxy's login", () => {
 
     await hostAddresses.configureBrowserSession("rpi", session);
     const port = portOf(routes[0]);
-    const proxy = { isProxy: true, host: "127.0.0.1", port };
+    const proxy = login(port);
 
     expect(hostAddresses.proxyLogin(session, proxy)?.username).toBe("polaris");
     expect(hostAddresses.proxyLogin(session, proxy)?.password.length).toBeGreaterThanOrEqual(32);
@@ -99,7 +133,8 @@ describe("the proxy's login", () => {
       hostAddresses.proxyLogin(session, { ...proxy, isProxy: false }),
       hostAddresses.proxyLogin(session, { ...proxy, port: port + 1 }),
       hostAddresses.proxyLogin(session, { ...proxy, host: "app.localhost" }),
-    ]).toEqual([null, null, null, null, null]);
+      hostAddresses.proxyLogin(session, { ...proxy, realm: "upstream" }),
+    ]).toEqual([null, null, null, null, null, null]);
   });
 
   test("a partition on this machine's Host goes direct and has no proxy to answer", async () => {
@@ -109,8 +144,13 @@ describe("the proxy's login", () => {
     await hostAddresses.configureBrowserSession("local", session);
 
     expect(routes).toEqual([{ kind: "local" }]);
-    expect(hostAddresses.proxyLogin(session, { isProxy: true, host: "127.0.0.1", port: 1 })).toBe(
-      null
-    );
+    expect(
+      hostAddresses.proxyLogin(session, {
+        isProxy: true,
+        host: "127.0.0.1",
+        port: 1,
+        realm: "Polaris",
+      })
+    ).toBe(null);
   });
 });
