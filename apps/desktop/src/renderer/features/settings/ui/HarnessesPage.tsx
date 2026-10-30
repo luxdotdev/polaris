@@ -172,7 +172,7 @@ const Matrix = ({
           role="row"
           data-testid="harness-row"
           className={cn(
-            "px-panel flex items-center gap-3 py-[calc(var(--spacing-row-pad)+1px)]",
+            "px-panel flex items-center gap-3 py-[calc(var(--spacing-gap)+4px)]",
             !installedSomewhere(group) && "text-text-subtle"
           )}
         >
@@ -378,7 +378,7 @@ const NotInstalledCard = ({ groups }: { readonly groups: ReadonlyArray<HarnessGr
         return (
           <div
             key={group.kind}
-            className="px-panel flex items-center gap-3 py-[calc(var(--spacing-row-pad)+1px)]"
+            className="px-panel flex items-center gap-3 py-[calc(var(--spacing-gap)+4px)]"
           >
             <Mark kind={group.kind} />
             <span className="flex min-w-0 flex-1 flex-col">

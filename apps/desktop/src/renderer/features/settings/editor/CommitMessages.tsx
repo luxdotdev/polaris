@@ -2,7 +2,7 @@
  * SR-02's Commit messages card: what a draft looks like, from the workspace's last real commit
  * or a static example, and who drafts it (the Harness and Model chips).
  */
-import { Kicker, SettingsCard, SettingsRow, SettingsWell } from "@polaris/ui";
+import { Kicker, SettingsCard, SettingsWell } from "@polaris/ui";
 import type { ReactNode } from "react";
 
 export interface CommitPreview {
@@ -55,7 +55,10 @@ export const CommitMessagesCard = ({
             </p>
           )}
         </div>
-        <SettingsRow title="Drafted by">{chooser}</SettingsRow>
+        <div className="px-panel flex flex-wrap items-center gap-x-3 gap-y-2 py-[calc(var(--spacing-gap)+4px)]">
+          <span className="text-body text-text-default flex-1 whitespace-nowrap">Drafted by</span>
+          <div className="flex min-w-0 shrink items-center">{chooser}</div>
+        </div>
       </SettingsWell>
     </SettingsCard>
   );

@@ -35,7 +35,7 @@ const FactRow = ({ fact }: { readonly fact: Fact }) => (
   </div>
 );
 
-const ROW = "px-panel flex flex-col gap-3 py-[calc(var(--spacing-row-pad)+1px)]";
+const ROW = "px-panel flex flex-col gap-3 py-[calc(var(--spacing-gap)+4px)]";
 
 /** Fixed lanes: tile, name and state, disclosure, switch; an empty switch slot keeps them aligned. */
 export const IntegrationRow = ({

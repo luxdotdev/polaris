@@ -117,7 +117,7 @@ const Row = ({
   readonly onChange: PreferencesChange;
 }) => (
   <div
-    className="px-panel flex items-center gap-3 py-[calc(var(--spacing-row-pad)-2px)]"
+    className="px-panel flex items-center gap-3 py-[calc(var(--spacing-gap)+3px)]"
     data-testid="placement-row"
   >
     <span

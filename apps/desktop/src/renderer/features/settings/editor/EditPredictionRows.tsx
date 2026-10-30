@@ -104,7 +104,7 @@ export const EditPredictionRows = ({
       <SettingsRow title="Accept key" caption="Tab by default · a Keyboard page will remap it">
         <Kbd aria-label={`Accept key: ${acceptKey()}`}>{acceptKey()}</Kbd>
       </SettingsRow>
-      <div className="px-panel flex flex-wrap items-center gap-2 py-[calc(var(--spacing-row-pad)+1px)]">
+      <div className="px-panel flex flex-wrap items-center gap-2 py-[calc(var(--spacing-gap)+4px)]">
         <span className="text-body text-text-default min-w-0 flex-1">Off in</span>
         {disabled.length > 0 && (
           <ul className="flex flex-wrap gap-1.5" aria-label="Languages with tab completion off">
