@@ -1,6 +1,6 @@
 import "../../test/dom.testing.ts";
 import { cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { Result } from "../../../shared/api.ts";
 import type { LinkResultView } from "../../../shared/linkedDevicesContract.ts";
 import { type FakeBridge, installFakeBridge } from "../../test/bridge.testing.ts";
@@ -116,7 +116,7 @@ test("unlinking a device unlinks it on every host it's on", async () => {
   const view = page();
 
   const row = within(await view.findByTestId("device-row"));
-  expect(row.getByText("Linked Oct 20 · on 2 hosts")).toBeTruthy();
+  expect(row.getByText("Linked Oct 20 · not seen yet")).toBeTruthy();
   fireEvent.click(row.getByRole("button", { name: "Unlink" }));
   fireEvent.click(row.getByRole("button", { name: "Unlink Lucas's iPhone" }));
 
@@ -159,11 +159,55 @@ test("with the relay off everywhere, linking points to Hosts instead", async () 
   const opened: Array<true> = [];
   const view = page(() => opened.push(true));
 
-  await view.findAllByText("Relay off");
+  await view.findAllByRole("button", { name: "Turn on" });
   expect(view.queryByRole("button", { name: "Link a device" })).toBeNull();
+  expect(view.getByText("Turn on the Polaris Relay for a host to link a device.")).toBeTruthy();
   fireEvent.click(view.getByRole("button", { name: "Open hosts" }));
 
   for (const turnOn of view.getAllByRole("button", { name: "Turn on" })) fireEvent.click(turnOn);
 
   expect(opened).toEqual([true, true, true]);
+});
+
+describe("the reach map's packets", () => {
+  afterEach(() => {
+    delete document.documentElement.dataset.reduceMotion;
+  });
+
+  /** Mac Studio's relay connected with the iPhone fresh; the Pi's relay still connecting. */
+  const oneLiveRoute = async () => {
+    const iphone = noiseKey();
+    const fresh = new Date(Date.now() - 60_000).toISOString();
+    const connected = await route("on");
+    const connecting = await route("on", false);
+    fake.answer("relayRoute.status", ({ hostKey }) => ({
+      ok: true,
+      value: hostKey === "studio" ? connected : connecting,
+    }));
+    fake.answerOk("devices.list", [await phone({ noiseKey: iphone, lastUsedAt: fresh })]);
+  };
+
+  const packets = (view: ReturnType<typeof page>) => view.queryAllByTestId("packet").length;
+
+  test("three cross each segment of the live route, and none the connecting one", async () => {
+    await oneLiveRoute();
+    const view = page();
+
+    await view.findByText("1 device live, through 1 of 2 hosts");
+    expect(packets(view)).toBe(2 * 3);
+  });
+
+  test("Reduce Motion keeps the map still, and turning it on mid-flow stops them", async () => {
+    await oneLiveRoute();
+    document.documentElement.dataset.reduceMotion = "true";
+    const view = page();
+
+    await view.findByText("1 device live, through 1 of 2 hosts");
+    expect(packets(view)).toBe(0);
+
+    document.documentElement.dataset.reduceMotion = "false";
+    await waitFor(() => expect(packets(view)).toBe(6));
+    document.documentElement.dataset.reduceMotion = "true";
+    await waitFor(() => expect(packets(view)).toBe(0));
+  });
 });
