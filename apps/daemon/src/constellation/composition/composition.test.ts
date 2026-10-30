@@ -245,6 +245,10 @@ test("production composition acquires a slot before first Turn, installs MCP/env
           expect(prepared?.status).toBe("completed");
           expect(prepared?.output).toBe("setup-ready");
           expect(Date.parse(prepared!.endedAt!)).toBeLessThanOrEqual(Date.parse(attempt.startedAt));
+          // A new worker Session is marked, so session lists and pushes leave it to its Lead.
+          expect((yield* store.model).sessions.get(attempt.sessionId)!.session.worker).toEqual({
+            constellationId: CID,
+          });
           expect(holds).toBe(0);
 
           expect(driver.sessions).toHaveLength(0);

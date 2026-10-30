@@ -17,6 +17,7 @@ import {
   WorkspaceId,
 } from "@polaris/protocol";
 import { draft } from "../engine/constellation.testing.ts";
+import { patchSession } from "../store/model.ts";
 
 const at = "2026-10-27T12:00:00.000Z";
 
@@ -43,13 +44,23 @@ export const session = new AgentSession({
   updatedAt: at,
 });
 
-export const snapshot = (): HostStreamItem =>
+/** The session as a Constellation worker's, as the Host stream's Snapshot marks it. */
+export const workerSession = patchSession(session, {
+  worker: { constellationId: ConstellationId.make("c1") },
+});
+
+export const snapshot = (listed: AgentSession = session): HostStreamItem =>
   HostStreamItem.cases.Snapshot.make({
     sequence: Sequence.make(1),
     workspaces: [],
     worktrees: [],
     sessions: [
-      new SessionSummary({ session, pendingApprovals: [], lastTurnPreview: null, subagents: [] }),
+      new SessionSummary({
+        session: listed,
+        pendingApprovals: [],
+        lastTurnPreview: null,
+        subagents: [],
+      }),
     ],
   });
 
@@ -156,3 +167,6 @@ export const attemptStarted = () =>
       attempt: draft(undefined, "a1", SESSION_ID),
     })
   );
+
+export const sessionCreated = (created: AgentSession) =>
+  event(DomainEvent.cases.SessionCreated.make({ session: created, actor: null }));

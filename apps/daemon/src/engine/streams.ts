@@ -32,6 +32,7 @@ import {
 } from "../store/model.ts";
 import { EngineRuntime } from "./runtime.ts";
 import { newestWithin } from "./turnBudget.ts";
+import { markedWorker, workerSessions } from "./workers.ts";
 
 export interface SessionSubscription {
   readonly sessionId: SessionId;
@@ -72,9 +73,13 @@ const decodes =
     return needed === null || capabilities.includes(needed);
   };
 
-const summaryOf = (record: SessionRecord, subagents: boolean) =>
+const summaryOf = (
+  record: SessionRecord,
+  subagents: boolean,
+  workers: ReturnType<typeof workerSessions>
+) =>
   new SessionSummary({
-    session: record.session,
+    session: markedWorker(record.session, workers),
     pendingApprovals: [...record.pending.values()],
     lastTurnPreview: lastTurn(record)?.prompt.slice(0, 140) ?? null,
     subagents: subagents ? [...record.subagents.values()] : [],
@@ -138,6 +143,8 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
         const head: Array<HostStreamItem> = [];
 
         if (afterSequence === null || afterSequence > cut) {
+          const workers = workerSessions(model);
+
           head.push(
             HostStreamItem.cases.Snapshot.make({
               sequence: cut,
@@ -151,7 +158,9 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
                 : [],
               workspaces: [...model.workspaces.values()],
               worktrees: [...model.worktrees.values()],
-              sessions: [...model.sessions.values()].map((r) => summaryOf(r, withSubagents)),
+              sessions: [...model.sessions.values()].map((r) =>
+                summaryOf(r, withSubagents, workers)
+              ),
               constellations: capabilities.includes("constellation")
                 ? [...model.constellations.values()].map((record) =>
                     constellationSummaryOf(record.graph)

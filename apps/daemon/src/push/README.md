@@ -6,7 +6,7 @@ service carry each payload sealed to the device and can't read it.
 
 | File | What |
 |---|---|
-| `plan.ts` | Which Host stream items push: each new approval or question at once; each `SessionNotified` at once, as `notify` (an agent's `notify`, or Polaris's own when a Constellation needs the user); a finished Turn once its session stays Idle with no background tasks for 3 s (ADR 0073), except a Lead Turn Polaris started for a digest and a Constellation worker's Turns. Pure. |
+| `plan.ts` | Which Host stream items push: each new approval or question at once; each `SessionNotified` at once, as `notify` (an agent's `notify`, or Polaris's own when a Constellation needs the user); a finished Turn once its session stays Idle with no background tasks for 3 s (ADR 0073), except a Lead Turn Polaris started for a digest. A Constellation worker (`AgentSession.worker`, which the Host stream's Snapshot also sets from the graphs) pushes only Needs You (ENG-586). Pure. |
 | `notifier.ts` | `PushNotifier`: follows the Engine's Host stream (`PushHostEvents`) only while some device is registered, runs the plan and its settle timer, and wakes each registered device, or holds a Needs You while the user is present. |
 | `hold.ts` | The Needs You held while the user is at a Desktop App, and which of them they answered there. Pure. |
 | `seal.ts` | HPKE base mode, DHKEM(P-256, HKDF-SHA256) / HKDF-SHA256 / AES-256-GCM, info `polaris-push/1` ([`@hpke/core`](https://github.com/dajiaji/hpke-js), MIT). CryptoKit's `P256_SHA256_AES_GCM_256` opens it. |
