@@ -6,6 +6,7 @@ import type { SessionId, WorkspaceId } from "@polaris/protocol";
 import { type Harness, hueVar } from "@polaris/ui";
 import { useApp } from "../../../shell/hooks.ts";
 import { BrowserPane, useBrowserUi } from "../../browser/index.ts";
+import { hasCapability, useHost } from "../hooks.ts";
 import { pickBrowser } from "../output/browser.ts";
 import { uiKey } from "../state.ts";
 import { OutputTab } from "./SubagentOutput.tsx";
@@ -54,6 +55,7 @@ export const SessionBrowser = ({
   readonly harness: Harness | null;
 }) => {
   const hostLabel = useApp((s) => s.hosts.find((h) => h.key === hostKey)?.label ?? "the host");
+  const canAttach = hasCapability(useHost(hostKey), "attachments.stage");
 
   return (
     <BrowserPane
@@ -62,6 +64,7 @@ export const SessionBrowser = ({
       sessionId={sessionId}
       harness={harness}
       hostLabel={hostLabel}
+      canAttach={canAttach}
     />
   );
 };

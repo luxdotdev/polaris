@@ -17,6 +17,7 @@ import {
   harnessTextVar,
   IconButton,
   LockIcon,
+  PickElementIcon,
   PixelSparkleIcon,
   PlusIcon,
   ReloadIcon,
@@ -28,6 +29,7 @@ import type { BrowserTab, BrowserTabId } from "../../../shared/browserContract.t
 import { polaris } from "../bridge.ts";
 import { browserKey } from "./feed.ts";
 import { displayUrl, tabLabel } from "./model.ts";
+import { attachPick } from "./pick.ts";
 import { useBrowserPlacement, useOverlayOpen } from "./placement.ts";
 import { useBrowserUi } from "./state.ts";
 
@@ -38,6 +40,8 @@ export interface BrowserPaneProps {
   readonly harness: Harness | null;
   /** The Host's name, for the empty state ("Host addresses load from Mac Studio"). */
   readonly hostLabel: string;
+  /** The Host stages attachments, so a picked element can go to the next message. */
+  readonly canAttach: boolean;
 }
 
 type Target = Pick<BrowserPaneProps, "hostKey" | "sessionId">;
@@ -141,6 +145,8 @@ const Origin = ({ tab }: { readonly tab: BrowserTab | null }) => {
 interface BarProps {
   readonly tab: BrowserTab | null;
   readonly target: Target;
+  /** Pick mode: null when the Host can't take the pick as an attachment. */
+  readonly pick: { readonly on: boolean; readonly toggle: () => void } | null;
   readonly workspaceId: WorkspaceId;
   /** The bar opens a new tab rather than navigating this one (the + button). */
   readonly adding: boolean;
@@ -254,6 +260,18 @@ const Toolbar = (props: BarProps) => {
       <span className="w-1 shrink-0" />
       <UrlBar {...props} />
       <span className="w-1 shrink-0" />
+      {props.pick === null ? null : (
+        <IconButton
+          size="sm"
+          label={props.pick.on ? "Stop picking" : "Pick an element"}
+          icon={<PickElementIcon size={14} />}
+          aria-pressed={props.pick.on}
+          disabled={tab === null}
+          onClick={props.pick.toggle}
+          className={props.pick.on ? "bg-fill-selected text-text-strong" : undefined}
+          data-testid="browser-pick"
+        />
+      )}
       <IconButton
         size="sm"
         label={devtools ? "Close DevTools" : "Open DevTools"}
@@ -292,19 +310,67 @@ const Driving = ({
   );
 };
 
-export const BrowserPane = ({
-  hostKey,
-  workspaceId,
-  sessionId,
-  harness,
-  hostLabel,
-}: BrowserPaneProps) => {
+/** Over the page while pick mode is on: what to do, and how to stop. */
+const Picking = ({ onCancel }: { readonly onCancel: () => void }) => (
+  <div
+    className="border-hairline bg-surface-sunken text-caption flex h-7 shrink-0 items-center gap-2 border-b px-3"
+    role="status"
+    data-testid="browser-picking"
+  >
+    <PickElementIcon size={12} className="text-text-subtle" />
+    <span className="text-text-default">Click an element to attach it to your next message</span>
+    <button
+      type="button"
+      onClick={onCancel}
+      className="text-text-subtle hover:text-text-strong ml-auto cursor-default"
+    >
+      Cancel <span className="text-text-faint">esc</span>
+    </button>
+  </div>
+);
+
+/** Pick mode in the active tab: the pick goes to the session's composer as a chip. */
+const usePick = (props: BrowserPaneProps, tab: BrowserTab | null) => {
+  const [picking, setPicking] = useState<BrowserTabId | null>(null);
+  const { hostKey, workspaceId, sessionId } = props;
+
+  const start = async (tabId: BrowserTabId) => {
+    setPicking(tabId);
+
+    const result = await polaris().request("browser.pick", { hostKey, sessionId, tabId });
+
+    setPicking((now) => (now === tabId ? null : now));
+
+    if (result.ok && result.value !== null)
+      await attachPick({ hostKey, workspaceId, sessionId }, result.value);
+  };
+
+  const cancel = () => {
+    if (picking !== null)
+      void polaris().request("browser.cancelPick", { hostKey, sessionId, tabId: picking });
+  };
+
+  const on = picking !== null && picking === tab?.tabId;
+
+  return {
+    on,
+    cancel,
+    toggle: () => {
+      if (on) cancel();
+      else if (tab !== null) void start(tab.tabId);
+    },
+  };
+};
+
+export const BrowserPane = (props: BrowserPaneProps) => {
+  const { hostKey, workspaceId, sessionId, harness, hostLabel, canAttach } = props;
   const { tabs } = useBrowserUi(browserKey(hostKey, sessionId));
   const [adding, setAdding] = useState(false);
   const area = useRef<HTMLDivElement>(null);
   const covered = useOverlayOpen();
   const target = { hostKey, sessionId };
   const active = tabs.tabs.find((t) => t.tabId === tabs.active) ?? null;
+  const pick = usePick(props, active);
 
   useBrowserPlacement(area, target, covered);
 
@@ -332,11 +398,13 @@ export const BrowserPane = ({
       <Toolbar
         tab={active}
         target={target}
+        pick={canAttach ? pick : null}
         workspaceId={workspaceId}
         adding={adding}
         onDone={() => setAdding(false)}
       />
       {active?.agentDriving === true ? <Driving tab={active} harness={harness} /> : null}
+      {pick.on ? <Picking onCancel={pick.cancel} /> : null}
       <div ref={area} className="border-hairline relative min-h-0 flex-1 border-t">
         {active === null && tabs.ready ? (
           <div className="grid h-full place-items-center pb-20" data-testid="browser-empty">
