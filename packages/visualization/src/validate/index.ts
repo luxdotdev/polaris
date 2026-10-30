@@ -98,7 +98,7 @@ const contentProblems = (html: string): VisualizationProblem[] => {
     problems.push({
       rule: "external-url",
       message: `The frame has no network access, so ${quote(external)} can never load.`,
-      fix: 'Inline the data as computed values and images as data: URIs; Chart.js (Chart), D3 (d3) and the Polaris kit (pv) are already loaded. To offer a web page, use a link-styled button instead of an <a href>: <button class="pv-link" onclick="pv.openLink(\'https://example.com\')">Docs</button>. In-page #id links and data: URLs are fine.',
+      fix: 'Inline the data as computed values and images as data: URIs, and draw in this page (no <iframe>, srcdoc, <object> or <embed>); Chart.js (Chart), D3 (d3) and the Polaris kit (pv) are already loaded. To offer a web page, use a link-styled button instead of an <a href>: <button class="pv-link" onclick="pv.openLink(\'https://example.com\')">Docs</button>. In-page #id links and data: URLs are fine.',
     });
   }
 
