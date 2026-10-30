@@ -3,8 +3,10 @@
  * `#hosts/current`, `#hosts/failures`, `#hosts/live`, where Update walks a
  * fake host through checking, copying and switching, and `#hosts/wsl`, a
  * Windows PC with WSL Hosts and distros to add, and `#hosts/task`, Windows installs held by
- * a sign-in task another Polaris home holds. Nothing is installed.
+ * a sign-in task another Polaris home holds, and `#hosts/states`, the redesigned list and host
+ * page with live stats and Restart daemon. Nothing is installed.
  */
+import { HostInfo } from "@polaris/protocol";
 import { Option, Schema } from "effect";
 import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
@@ -16,6 +18,10 @@ import { createNavigation } from "../../../routes/navigation.ts";
 import { type AppState, type Connection, initialState } from "../../../store/store.ts";
 import { standInBridge } from "../../bridge.ts";
 import { machinesFor, type Scene, SCENES, SSH_ALIASES, WSL_DISTROS } from "./fixtures.ts";
+import { setResourcesClient } from "../../settings/resources.ts";
+import { fakeResources } from "../../sessions/preview/settingsFixtures.ts";
+import { fakeStats, RESTART_MS, RESTART_PREVIEW, restartOutcome } from "./stats.ts";
+import { availability, hostViews } from "./workers.ts";
 
 const OK: Result<null> = { ok: true, value: null };
 
@@ -48,7 +54,13 @@ const createFeed = (initial: ReadonlyArray<MachineView>) => {
     return () => listeners.delete(listener);
   };
 
-  return { listen, patch, get: () => machines };
+  /** A host's Connection State, for the preview's restart. */
+  const status = (key: string, change: (view: MachineView) => MachineView["status"]) => {
+    machines = machines.map((m) => (m.key === key ? { ...m, status: change(m) } : m));
+    publish();
+  };
+
+  return { listen, patch, status, get: () => machines };
 };
 
 type Feed = ReturnType<typeof createFeed>;
@@ -157,19 +169,76 @@ const answer = (
       return remoteAccessOf(hostKey);
     case "clipboard.write":
       return OK;
+    case "machines.restartPreview":
+      return { ok: true, value: RESTART_PREVIEW };
+    case "harness.availability":
+      return { ok: true, value: availability() };
     default:
       return null;
   }
 };
 
+/** Reconnecting while it restarts, then back with a new start time (or still down when it fails). */
+const restart = (feed: Feed, hostKey: string): Promise<Result<unknown>> => {
+  const before = feed.get().find((m) => m.key === hostKey)?.status ?? null;
+
+  feed.status(hostKey, (m) =>
+    m.status === null ? null : { ...m.status, state: "reconnecting", since: Date.now() }
+  );
+
+  return new Promise((resolve) =>
+    setTimeout(() => {
+      const outcome = restartOutcome(hostKey);
+      const host = before?.host ?? null;
+
+      if (outcome.outcome === "back" && before !== null && host !== null)
+        feed.status(hostKey, () => ({
+          ...before,
+          host: HostInfo.make({
+            hostId: host.hostId,
+            hostname: host.hostname,
+            platform: host.platform,
+            daemonVersion: host.daemonVersion,
+            homeDir: host.homeDir,
+            startedAt: outcome.startedAt,
+          }),
+        }));
+      resolve({ ok: true, value: outcome });
+    }, RESTART_MS)
+  );
+};
+
 const bridgeFor = (feed: Feed, scene: Scene): PolarisApi => ({
   request: (method, input) => {
-    const fields = Option.getOrElse(Schema.decodeUnknownOption(Input)(input), () => ({}));
+    const fields: typeof Input.Type = Option.getOrElse(
+      Schema.decodeUnknownOption(Input)(input),
+      () => ({})
+    );
+
+    if (method === "machines.restartDaemon" && fields.hostKey !== undefined)
+      // SAFETY: restartDaemon's output is a RestartDaemonResult.
+      return restart(feed, fields.hostKey) as never;
 
     // SAFETY: every request this preview answers returns that request's output type.
     return Promise.resolve((answer(feed, scene, method, fields) ?? UNSUPPORTED) as never);
   },
-  subscribe: (kind, _input, listener) => {
+  subscribe: (kind, input, listener) => {
+    const fields: typeof Input.Type = Option.getOrElse(
+      Schema.decodeUnknownOption(Input)(input),
+      () => ({})
+    );
+
+    if (kind === "host.stats" && fields.hostKey !== undefined)
+      // SAFETY: the stats feed's items are HostStatsItems.
+      return fakeStats(fields.hostKey, (items) => listener.items(items as never));
+
+    if (kind === "harness.availability") {
+      // SAFETY: the availability feed's items are HostHarnesses reports.
+      queueMicrotask(() => listener.items([availability() as never]));
+
+      return () => undefined;
+    }
+
     if (kind !== "machines") return () => undefined;
 
     // SAFETY: only the machines feed is answered; its items are machine lists.
@@ -187,7 +256,7 @@ const sceneOf = (hash: string): Scene => {
 export const mountHostsPreview = (root: HTMLElement, hash: string) => {
   const scene = sceneOf(hash);
   const feed = createFeed(machinesFor(scene, Date.now()));
-  const store = createStore<AppState>(() => initialState);
+  const store = createStore<AppState>(() => ({ ...initialState, hosts: hostViews(feed.get()) }));
 
   const connection: Connection = {
     store,
@@ -199,6 +268,7 @@ export const mountHostsPreview = (root: HTMLElement, hash: string) => {
   const navigation = createNavigation({ app: store, storage: null });
 
   standInBridge(bridgeFor(feed, scene));
+  setResourcesClient(fakeResources);
   navigation.actions.openSettings("hosts");
 
   const commands = createCommandRegistry({ platform: "mac" });
