@@ -1,84 +1,88 @@
 /**
- * Linking as the scan sheet steps through it: scan or paste, then one link through the Polaris
- * Relay. The link holds a one-time secret: it goes only to `onLink`, never to a log or the screen.
+ * Linking as the scan sheet steps through it: the model in `model.ts`, plus its one effect, a
+ * single link through the Polaris Relay. The link holds a one-time secret: it goes only to `onLink`.
  */
 import type { LinkedHost } from "@polaris/client/relay";
 import { decodeLinkString } from "@polaris/protocol";
 import { Option } from "effect";
 import type { LinkOutcome } from "../relay/RelayProvider.tsx";
+import {
+  advance,
+  FIRST_STEP,
+  type FoundHosts,
+  type LinkEvent,
+  type LinkStep,
+  LINKED_DWELL_MS,
+  NOT_SAVED,
+  startsLink,
+} from "./model.ts";
 
-export type { LinkOutcome };
+export type { LinkOutcome, LinkStep };
 
-export type LinkStep =
-  | { readonly kind: "scan" }
-  | { readonly kind: "paste" }
-  | { readonly kind: "linking"; readonly hostName: string; readonly count: number }
-  | { readonly kind: "linked"; readonly hostName: string; readonly count: number }
-  | { readonly kind: "failed"; readonly message: string };
-
-export const hostsLine = (count: number, hostName: string): string =>
-  `Found ${count} ${count === 1 ? "host" : "hosts"} on ${hostName}`;
-
-export const NOT_A_LINK = "That isn't a Polaris link.";
-
-/** The Keychain refused the keys; the link itself was used. */
-export const NOT_SAVED = "Couldn't save the link on this iPhone. Make a new one and try again.";
+export { hostsLine, NOT_A_LINK, NOT_SAVED } from "./model.ts";
 
 export interface LinkingOptions {
   readonly onLink: (link: string) => Promise<LinkOutcome>;
   readonly onStep: (step: LinkStep) => void;
+  /** After "Linked this iPhone" has stood for its dwell, with every Host the link named. */
   readonly onLinked?: ((hosts: ReadonlyArray<LinkedHost>) => void) | undefined;
+  /** The dwell's timer; tests pass their own. */
+  readonly later?: (run: () => void, ms: number) => void;
 }
 
 export interface Linking {
   /** A scanned code or the pasted text; ignored while a link is under way. */
   readonly submit: (text: string) => void;
   /** Back to the scanner or the paste field. */
-  readonly show: (kind: "scan" | "paste") => void;
+  readonly show: (view: "scan" | "paste") => void;
 }
 
-export const linking = ({ onLink, onStep, onLinked }: LinkingOptions): Linking => {
-  let step: LinkStep = { kind: "scan" };
-  let busy = false;
+const found = (text: string): FoundHosts | null => {
+  const envelope = Option.getOrNull(decodeLinkString(text));
 
-  const go = (next: LinkStep) => {
-    step = next;
-    onStep(next);
+  if (envelope === null) return null;
+  const hostName = envelope.link.hostName;
+
+  return { hostName, hosts: [hostName, ...envelope.hosts.map((host) => host.hostName)] };
+};
+
+export const linking = ({
+  onLink,
+  onStep,
+  onLinked,
+  later = (run, ms) => void setTimeout(run, ms),
+}: LinkingOptions): Linking => {
+  let step = FIRST_STEP;
+
+  const dispatch = (event: LinkEvent): LinkStep => {
+    const before = step;
+
+    step = advance(step, event);
+
+    if (step !== before) onStep(step);
+
+    return before;
   };
 
+  const link = (text: string) =>
+    onLink(text).then(
+      (outcome) => {
+        if (!outcome.linked) return void dispatch({ kind: "refused", message: outcome.message });
+        dispatch({ kind: "linked", hosts: outcome.hosts.map((host) => host.hostName) });
+        later(() => onLinked?.(outcome.hosts), LINKED_DWELL_MS);
+      },
+      () => void dispatch({ kind: "refused", message: NOT_SAVED })
+    );
+
   return {
-    show: (kind) => {
-      if (!busy) go({ kind });
-    },
+    show: (view) => void dispatch({ kind: "show", view }),
     submit: (text) => {
-      if (busy) return;
-      const envelope = Option.getOrNull(decodeLinkString(text));
+      const before = dispatch({
+        kind: "read",
+        found: step.kind === "linking" ? null : found(text),
+      });
 
-      // A QR code that isn't a Polaris link is ignored while scanning.
-      if (envelope === null) {
-        if (step.kind === "paste") go({ kind: "failed", message: NOT_A_LINK });
-
-        return;
-      }
-
-      busy = true;
-      const hostName = envelope.link.hostName;
-      const count = 1 + envelope.hosts.length;
-      go({ kind: "linking", hostName, count });
-
-      const failed = (message: string) => {
-        busy = false;
-        go({ kind: "failed", message });
-      };
-
-      onLink(text).then(
-        (outcome) => {
-          if (!outcome.linked) return failed(outcome.message);
-          go({ kind: "linked", hostName, count });
-          onLinked?.(outcome.hosts);
-        },
-        () => failed(NOT_SAVED)
-      );
+      if (startsLink(before, step)) void link(text);
     },
   };
 };

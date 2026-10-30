@@ -1,54 +1,112 @@
 /**
- * Link this iPhone (Paper M8, MX-AH): the night sky over the scan sheet, which scans the code the
- * Desktop App shows in Settings → Devices, or takes its pasted link, and links once.
+ * Link this iPhone (DESIGN.md, Mobile chrome redesign · phase 3; Paper MX-AH to MX-AM): the sky and
+ * the Polaris star over the scan sheet. The star stays in place; only its light follows the link.
  */
 import type { LinkedHost } from "@polaris/client/relay";
 import { mobileType } from "@polaris/ui/tokens";
-import { Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useState } from "react";
+import { Text, useWindowDimensions, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { HORIZON_HEIGHT } from "../horizon/index.tsx";
+import { RIDGE_TOP } from "../horizon/scene.ts";
 import { useRelay } from "../relay/RelayProvider.tsx";
 import { themedStyles } from "../theme/index.ts";
-import { PAIRING_COPY, ScanSheet } from "./ScanSheet.tsx";
+import { starLight } from "./model.ts";
+import {
+  type LinkingState,
+  PAIRING_COPY,
+  ScanSheetView,
+  scanSheetHeight,
+  useLinking,
+} from "./ScanSheet.tsx";
 import { Sky } from "./Sky.tsx";
+import { STAR_SIZE } from "./Star.tsx";
 
-export interface LinkScreenProps {
-  readonly onLinked: (hosts: ReadonlyArray<LinkedHost>) => void;
+/** MX-AH: the star rests at most 300pt down and clear of the scan step's ridge by 24pt. */
+const STAR_LOWEST = 300;
+
+const RIDGE_GAP = 24;
+
+const HEADING_GAP = 20;
+
+/** One place for the star in every step: between the heading and the scan step's ridge. */
+const starTopFor = (height: number, headingBottom: number, titled: boolean): number => {
+  const ridge = height - scanSheetHeight({ kind: "scan" }, titled) - HORIZON_HEIGHT + RIDGE_TOP;
+
+  return Math.round(
+    Math.max(headingBottom + HEADING_GAP, Math.min(STAR_LOWEST, ridge - STAR_SIZE - RIDGE_GAP))
+  );
+};
+
+export interface PairingProps {
+  readonly linking: LinkingState;
   /** Absent on first run: there is nothing to go back to. */
   readonly onCancel?: (() => void) | undefined;
 }
 
-export const LinkScreen = ({ onLinked, onCancel }: LinkScreenProps) => {
+/** The screen drawn from a linking state; `LinkScreen` links through the Polaris Relay. */
+export const Pairing = ({ linking, onCancel }: PairingProps) => {
   const styles = useStyles();
-  const relay = useRelay();
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  const [headingBottom, setHeadingBottom] = useState(0);
+  const titled = onCancel !== undefined;
+  const { step } = linking;
 
   return (
     <View style={styles.screen}>
-      <Sky />
-      <SafeAreaView style={styles.content} edges={["top"]}>
-        <View style={styles.heading}>
-          <Text style={styles.title} accessibilityRole="header">
-            Link this iPhone
-          </Text>
-          <Text style={styles.lead}>
-            Your agent sessions run on your Mac. Link it to follow them and answer from here.
-          </Text>
-        </View>
-      </SafeAreaView>
-      <ScanSheet
-        open
-        {...PAIRING_COPY}
-        onClose={onCancel}
-        onLink={relay.link}
-        onLinked={onLinked}
+      <Sky
+        light={starLight(step)}
+        starTop={starTopFor(height, headingBottom, titled)}
+        lift={scanSheetHeight(step, titled)}
+        hosts={step.kind === "linked" ? step.hosts : undefined}
       />
+      <View
+        style={[styles.heading, { paddingTop: insets.top + 60 }]}
+        onLayout={({ nativeEvent }) =>
+          setHeadingBottom(nativeEvent.layout.y + nativeEvent.layout.height)
+        }
+      >
+        <Text style={styles.title} accessibilityRole="header">
+          Link this iPhone
+        </Text>
+        <Text style={styles.lead}>
+          Your agent sessions run on your Mac. Link it to follow them and answer from here.
+        </Text>
+      </View>
+      <ScanSheetView open {...PAIRING_COPY} onClose={onCancel} linking={linking} />
     </View>
   );
 };
 
+export interface LinkScreenProps {
+  /** Once "Linked this iPhone" has stood a moment: the app moves on by itself. */
+  readonly onLinked: (hosts: ReadonlyArray<LinkedHost>) => void;
+  readonly onCancel?: (() => void) | undefined;
+}
+
+export const LinkScreen = ({ onLinked, onCancel }: LinkScreenProps) => {
+  const relay = useRelay();
+  const linking = useLinking({ onLink: relay.link, onLinked });
+
+  return <Pairing linking={linking} onCancel={onCancel} />;
+};
+
 const useStyles = themedStyles((colours) => ({
   screen: { flex: 1, backgroundColor: colours.ground },
-  content: { flex: 1 },
-  heading: { paddingHorizontal: 36, paddingTop: 56, gap: 10, alignItems: "center" },
-  title: { ...mobileType.largeTitle, color: colours.textStrong, textAlign: "center" },
-  lead: { ...mobileType.callout, lineHeight: 20, color: colours.textSubtle, textAlign: "center" },
+  heading: { paddingHorizontal: 32, gap: 10, alignItems: "center" },
+  title: {
+    ...mobileType.largeTitle,
+    fontWeight: "600",
+    letterSpacing: -0.34,
+    color: colours.textStrong,
+    textAlign: "center",
+  },
+  lead: {
+    ...mobileType.body,
+    fontSize: 16,
+    lineHeight: 22,
+    color: colours.textSubtle,
+    textAlign: "center",
+  },
 }));

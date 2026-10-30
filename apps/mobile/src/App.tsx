@@ -4,7 +4,7 @@
  */
 import { Match } from "effect";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -32,6 +32,7 @@ import { HorizonScreen } from "./horizon";
 import { InboxProvider } from "./inbox/index.ts";
 import { HostsScreen } from "./hosts/HostsScreen.tsx";
 import { NewSessionGallery, newSessionGalleryOn } from "./newSession/Gallery.tsx";
+import { LinkGallery, linkGalleryOn } from "./link/Gallery.tsx";
 import { LinkScreen } from "./link/LinkScreen.tsx";
 import { useLiveActivity } from "./live/useLiveActivity.ts";
 import { usePush, usePushLinks } from "./push/usePush.ts";
@@ -118,10 +119,16 @@ const Screen = () => {
   const navigation = useNavigation();
   const relay = useRelay();
   const [first] = relay.hosts;
+  const mustLink = !__DEV__ && relay.loaded && first === undefined;
+  const [pairing, setPairing] = useState(false);
 
-  // A release build has no other route to a Host, so a fresh phone links first.
-  if (!__DEV__ && relay.loaded && first === undefined)
-    return <LinkScreen onLinked={() => undefined} />;
+  useEffect(() => {
+    if (mustLink) setPairing(true);
+  }, [mustLink]);
+
+  // A release build has no other route to a Host, so a fresh phone links first; the screen stays
+  // through "Linked this iPhone" and moves on by itself.
+  if (mustLink || pairing) return <LinkScreen onLinked={() => setPairing(false)} />;
 
   const screen = Match.value(navigation.top).pipe(
     Match.discriminatorsExhaustive("screen")({
@@ -214,6 +221,13 @@ const Shell = () => {
         <InboxProvider>
           <NewSessionGallery />
         </InboxProvider>
+      </SheetHost>
+    );
+
+  if (linkGalleryOn())
+    return (
+      <SheetHost>
+        <LinkGallery />
       </SheetHost>
     );
 
