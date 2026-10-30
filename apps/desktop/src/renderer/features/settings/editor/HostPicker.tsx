@@ -1,7 +1,6 @@
 /** The Languages card's host picker (SR-02): the Host's colour, its name and a chevron; only connected Hosts can be picked. */
 import {
   ChevronDownIcon,
-  cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
@@ -10,24 +9,14 @@ import {
 } from "@polaris/ui";
 import type { HostView } from "../../../../shared/api.ts";
 import { stateWords } from "../../../shell/hostCopy.ts";
+import { ColourSquare } from "../../machines/page/parts.tsx";
 
 export const pickable = (host: HostView) =>
   host.status.state === "connected" && host.status.host !== null;
 
-/** The Host's own colour (identity); a hollow square when it has none or can't be picked. */
+/** The Host's own colour (identity); a neutral fill when it has none or can't be picked. */
 const Swatch = ({ host }: { readonly host: HostView | undefined }) => (
-  <span
-    aria-hidden
-    className={cn(
-      "size-2 shrink-0 rounded-[2px]",
-      (host === undefined || !pickable(host) || host.colour === null) && "border-text-subtle border"
-    )}
-    style={
-      host !== undefined && pickable(host) && host.colour !== null
-        ? { backgroundColor: host.colour }
-        : undefined
-    }
-  />
+  <ColourSquare colour={host !== undefined && pickable(host) ? host.colour : null} size={8} />
 );
 
 export const HostPicker = ({

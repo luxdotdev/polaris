@@ -51,6 +51,7 @@ const HostSettings = ({
     return (
       <SettingsToggleRow
         title={`Use ${clientCopy().machine} as a host`}
+        wrap
         caption={`Off, Polaris only drives remote hosts and runs nothing on ${clientCopy().machine}`}
         checked={machine.enabled}
         onCheckedChange={(enabled) => void call("machines.setLocalEnabled", { enabled })}
