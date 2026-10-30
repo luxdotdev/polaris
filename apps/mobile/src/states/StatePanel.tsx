@@ -9,6 +9,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { Horizon, HORIZON_HEIGHT } from "../horizon/index.tsx";
 import { PALETTES } from "../horizon/scene.ts";
 import { themedStyles, useTheme } from "../theme/index.ts";
+import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE, CONTROL_TEXT_SCALE } from "../theme/textScale.ts";
 
 /** The one action under the line: `primary` is the filled pill (Link this iPhone). */
 export interface StateAction {
@@ -80,7 +81,9 @@ const Reconnecting = ({ detail }: { readonly detail: string }) => {
   return (
     <View style={styles.reconnecting}>
       <View style={styles.ring} />
-      <Text style={styles.reconnectingText}>Reconnecting · {detail}</Text>
+      <Text maxFontSizeMultiplier={CONTROL_TEXT_SCALE} style={styles.reconnectingText}>
+        Reconnecting · {detail}
+      </Text>
     </View>
   );
 };
@@ -98,7 +101,12 @@ const Action = ({ label, onPress, primary = false }: StateAction) => {
         pressed && styles.pressed,
       ]}
     >
-      <Text style={[styles.actionText, primary && styles.primaryText]}>{label}</Text>
+      <Text
+        maxFontSizeMultiplier={CONTROL_TEXT_SCALE}
+        style={[styles.actionText, primary && styles.primaryText]}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 };
@@ -123,11 +131,23 @@ export const StatePanel = (props: StatePanelProps) => {
       </View>
       <View style={styles.copy}>
         <Fade />
-        <Text style={styles.title} accessibilityRole="header">
+        <Text
+          maxFontSizeMultiplier={CHROME_TEXT_SCALE}
+          style={styles.title}
+          accessibilityRole="header"
+        >
           {title}
         </Text>
-        {line === undefined ? null : <Text style={styles.line}>{line}</Text>}
-        {failure === undefined ? null : <Text style={styles.failure}>{failure}</Text>}
+        {line === undefined ? null : (
+          <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.line}>
+            {line}
+          </Text>
+        )}
+        {failure === undefined ? null : (
+          <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.failure}>
+            {failure}
+          </Text>
+        )}
         {reconnecting === undefined ? null : <Reconnecting detail={reconnecting} />}
         {action === undefined ? null : <Action {...action} />}
       </View>
