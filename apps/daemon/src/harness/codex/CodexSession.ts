@@ -9,6 +9,7 @@
  */
 import {
   ApprovalDecision,
+  type Attachment,
   type PermissionMode,
   RequestId,
   SECRET_REQUEST_MAX_TIMEOUT_MS,
@@ -805,17 +806,24 @@ export const openSession = (
         bindStarted(started.turn.id, turnId, prompt);
       });
 
-    const steerText = (text: string) =>
+    const steerText = (text: string, attachments: ReadonlyArray<Attachment> = []) =>
       Effect.gen(function* () {
         const codexTurnId = activeCodexTurn;
 
         if (codexTurnId === null) return yield* codexError("No Turn is in progress to steer");
+        const input = turnInput(text, attachments);
         yield* conn.request("turn/steer", {
           threadId,
-          input: [{ type: "text", text, text_elements: [] }],
+          input,
           expectedTurnId: codexTurnId,
         } satisfies P.ClientParams["turn/steer"]);
-        steers.fromResponse(codexTurnId, text);
+        // What Codex echoes: its text inputs, the files' note included.
+        const sent = input.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("\n");
+        steers.fromResponse(
+          codexTurnId,
+          sent,
+          attachments.length === 0 ? null : { text, attachments }
+        );
       });
 
     const session: HarnessSession = {

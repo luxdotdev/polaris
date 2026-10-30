@@ -47,6 +47,8 @@ export const Capability = Schema.Literals([
   "harness.spinner-verbs",
   "workspace.setup",
   "session.steer",
+  /** `Steer.attachments`, and the steer's `UserMessage.attachments` (ENG-662). */
+  "session.steer-attachments",
   "session.fork",
   /** The `SetModel` command. */
   "session.set-model",

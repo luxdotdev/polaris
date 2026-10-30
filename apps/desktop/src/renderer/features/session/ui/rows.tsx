@@ -549,6 +549,12 @@ export const ConversationRow = ({ row, ctx }: { row: Row; ctx: RowContext }) => 
         }) ?? (
           <Steered
             text={row.entry.item.text}
+            above={
+              <SentAttachments
+                hostKey={ctx.diff.hostKey}
+                attachments={row.entry.item.attachments}
+              />
+            }
             time={row.startedAt === null ? null : <TurnTime iso={row.startedAt} />}
           />
         ))
