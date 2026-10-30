@@ -1,6 +1,6 @@
 /**
  * The proxy rules of a remote Host's Browser partition. Chromium never consults a PAC script
- * for loopback, `<-loopback>` or not, so the partition proxies everything to the SOCKS server
+ * for loopback, `<-loopback>` or not, so the partition sends everything to its proxy
  * and bypasses the complement of the Host addresses (ADR 0093).
  */
 const LOCALHOST = "localhost";
@@ -71,13 +71,13 @@ const IP_RULES = [
 /**
  * `<-loopback>` first, so Chromium's implicit loopback bypass doesn't send Host addresses to
  * the Client's own loopback. Anything left proxied that isn't a Host address (a name ending
- * in a digit, `0.0.0.0`) reaches the SOCKS server, which loads it directly or refuses it.
+ * in a digit, `0.0.0.0`) reaches the proxy, which loads it directly or refuses it.
  */
 export const PROXY_BYPASS_RULES = ["<-loopback>", ...nameRules(), ...IP_RULES].join(",");
 
 /** The `session.setProxy` config of a remote Host's partition. */
-export const remoteProxyConfig = (socksPort: number) => ({
+export const remoteProxyConfig = (proxyPort: number) => ({
   mode: "fixed_servers" as const,
-  proxyRules: `socks5://127.0.0.1:${socksPort}`,
+  proxyRules: `http://127.0.0.1:${proxyPort}`,
   proxyBypassRules: PROXY_BYPASS_RULES,
 });

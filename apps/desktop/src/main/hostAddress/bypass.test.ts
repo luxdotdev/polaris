@@ -20,7 +20,7 @@ for (const rule of rules.slice(1)) {
   else globs.push(new RegExp(`^${rule.replace(/[.\-_]/g, "\\$&").replace(/\*/g, ".*")}$`));
 }
 
-/** Whether Chromium loads `host` directly rather than through the SOCKS server. */
+/** Whether Chromium loads `host` directly rather than through the proxy. */
 const bypassed = (raw: string) => {
   const host = new URL(`http://${raw}/`).hostname;
   const bare = host.startsWith("[") ? host.slice(1, -1) : host;
@@ -83,7 +83,7 @@ describe("the bypass rules", () => {
     "[::ffff:127.0.0.1]",
     "[::ffff:7f01:ab]",
     "0.0.0.0",
-  ])("%s goes to the SOCKS server", (host) => {
+  ])("%s goes to the proxy", (host) => {
     expect(bypassed(host)).toBe(false);
   });
 

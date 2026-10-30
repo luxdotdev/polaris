@@ -121,6 +121,17 @@ const main = async () => {
 
   const partition = session.fromPartition(browserPartition(config.alias, "check"));
 
+  // As src/main/index.ts answers the proxy's challenge.
+  app.on("login", (event, webContents, _details, authInfo, callback) => {
+    const credentials = hostAddresses.proxyLogin(webContents?.session, authInfo);
+
+    report({ login: credentials !== null, isProxy: authInfo.isProxy, port: authInfo.port });
+
+    if (credentials === null) return;
+    event.preventDefault();
+    callback(credentials.username, credentials.password);
+  });
+
   // As browser/views.ts sets a partition up before it asks for Host addresses.
   distrustInSession(partition);
   await hostAddresses.configureBrowserSession(config.alias, partition);
@@ -133,6 +144,10 @@ const main = async () => {
   for (const url of config.urls) report(await load(win, url));
 
   if (config.hmr !== null) report(await hmr(win, config.hmr));
+
+  // With the Host's proxy stopped, a Host address must fail, never load from this Mac.
+  await hostAddresses.forget(config.alias);
+  report({ afterForget: true, ...(await load(win, config.urls[0] ?? "http://localhost/")) });
   win.destroy();
   await hostAddresses.dispose();
   await runtime.dispose();

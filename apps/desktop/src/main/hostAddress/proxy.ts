@@ -1,0 +1,189 @@
+/**
+ * The HTTP proxy protocol as Chromium speaks it to a remote Host's partition: CONNECT for
+ * https and every WebSocket, absolute-URI requests for plain http. Each request carries
+ * `Proxy-Authorization` with the proxy's secret, which Electron's `login` event supplies.
+ */
+import { timingSafeEqual } from "node:crypto";
+import { isIP } from "node:net";
+import { Data } from "effect";
+
+/** The user name in the proxy's Basic credential; the secret is the password. */
+export const PROXY_USER = "polaris";
+
+/** A request head larger than this is refused unread. */
+export const MAX_HEAD_BYTES = 16 * 1024;
+
+const HEAD_END = Buffer.from("\r\n\r\n");
+
+export type Head = Data.TaggedEnum<{
+  NeedMore: Record<never, never>;
+  TooLarge: Record<never, never>;
+  Done: { readonly lines: ReadonlyArray<string>; readonly rest: Uint8Array };
+}>;
+
+export const Head = Data.taggedEnum<Head>();
+
+/** The request line and header lines once the head has arrived, and the bytes after it. */
+export const splitHead = (bytes: Uint8Array): Head => {
+  const end = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).indexOf(HEAD_END);
+
+  if (end === -1) return bytes.length > MAX_HEAD_BYTES ? Head.TooLarge() : Head.NeedMore();
+
+  if (end > MAX_HEAD_BYTES) return Head.TooLarge();
+
+  return Head.Done({
+    lines: Buffer.from(bytes.subarray(0, end)).toString("latin1").split("\r\n"),
+    rest: bytes.subarray(end + HEAD_END.length),
+  });
+};
+
+/** The `Proxy-Authorization` value a request must carry, byte for byte. */
+export const proxyCredential = (secret: string): Uint8Array =>
+  Buffer.from(`Basic ${Buffer.from(`${PROXY_USER}:${secret}`).toString("base64")}`);
+
+const headerName = (line: string) => line.slice(0, line.indexOf(":")).trim().toLowerCase();
+
+const headerValue = (line: string) => line.slice(line.indexOf(":") + 1).trim();
+
+/** Exactly one `Proxy-Authorization` header, equal to `expected`, compared in constant time. */
+export const authorized = (lines: ReadonlyArray<string>, expected: Uint8Array): boolean => {
+  const given = lines.slice(1).filter((line) => headerName(line) === "proxy-authorization");
+
+  if (given.length !== 1) return false;
+  const value = Buffer.from(headerValue(given[0]!), "latin1");
+
+  return value.length === expected.length && timingSafeEqual(value, expected);
+};
+
+export type ProxyRequest = Data.TaggedEnum<{
+  /** CONNECT: a byte tunnel once the proxy answers 200. */
+  Tunnel: { readonly hostname: string; readonly port: number };
+  /**
+   * An absolute-URI request, its head rewritten for the origin server, and how many body
+   * bytes follow it; null for an upgrade, whose connection then carries its own protocol.
+   */
+  Forward: {
+    readonly hostname: string;
+    readonly port: number;
+    readonly head: Uint8Array;
+    readonly body: number | null;
+  };
+  Invalid: Record<never, never>;
+}>;
+
+export const ProxyRequest = Data.taggedEnum<ProxyRequest>();
+
+/** Brackets come off IPv6 literals; names stay exactly as sent. */
+const bare = (host: string) =>
+  host.startsWith("[") && host.endsWith("]") ? host.slice(1, -1) : host;
+
+const validPort = (port: number) => Number.isInteger(port) && port >= 1 && port <= 65_535;
+
+const tunnel = (authority: string): ProxyRequest => {
+  const colon = authority.lastIndexOf(":");
+  const hostname = bare(authority.slice(0, colon));
+  const port = Number(authority.slice(colon + 1));
+
+  return colon > 0 && hostname !== "" && validPort(port)
+    ? ProxyRequest.Tunnel({ hostname, port })
+    : ProxyRequest.Invalid();
+};
+
+/** Hop-by-hop and proxy headers never reach the origin server, the credential above all. */
+const DROPPED = new Set(["proxy-authorization", "proxy-connection", "connection", "keep-alive"]);
+
+/**
+ * The body's length from `Content-Length`, 0 without one; chunked request bodies are refused,
+ * since the proxy relays exactly one request per connection and must know where it ends.
+ */
+const bodyLength = (headers: ReadonlyArray<string>): number | null => {
+  if (headers.some((line) => headerName(line) === "transfer-encoding")) return null;
+
+  const lengths = headers.flatMap((line) =>
+    headerName(line) === "content-length" ? [headerValue(line)] : []
+  );
+
+  if (lengths.length === 0) return 0;
+
+  return lengths.length === 1 && /^\d{1,15}$/.test(lengths[0]!) ? Number(lengths[0]) : null;
+};
+
+/**
+ * The origin-form request for the Host. One request per connection (`Connection: close`),
+ * so the response's bytes can be relayed unread, and nothing after this request's body is
+ * sent on; an upgrade keeps `Connection: Upgrade` and the whole connection.
+ */
+const forward = (method: string, target: string, lines: ReadonlyArray<string>): ProxyRequest => {
+  const url = URL.parse(target);
+
+  if (url === null || url.protocol !== "http:" || url.hostname === "")
+    return ProxyRequest.Invalid();
+  const port = url.port === "" ? 80 : Number(url.port);
+  const headers = lines.slice(1).filter((line) => !DROPPED.has(headerName(line)));
+  const upgrade = headers.some((line) => headerName(line) === "upgrade");
+  const body = upgrade ? null : bodyLength(headers);
+
+  if (!upgrade && body === null) return ProxyRequest.Invalid();
+
+  const head = [
+    `${method} ${url.pathname}${url.search} HTTP/1.1`,
+    ...headers,
+    upgrade ? "Connection: Upgrade" : "Connection: close",
+    "",
+    "",
+  ].join("\r\n");
+
+  return ProxyRequest.Forward({
+    hostname: bare(url.hostname),
+    port,
+    head: Buffer.from(head, "latin1"),
+    body,
+  });
+};
+
+/** The request line, read only once the credential has checked out. */
+export const parseRequest = (lines: ReadonlyArray<string>): ProxyRequest => {
+  const [method, target, version, ...extra] = lines[0]!.split(" ");
+
+  if (
+    method === undefined ||
+    target === undefined ||
+    !/^HTTP\/1\.[01]$/.test(version ?? "") ||
+    extra.length > 0
+  )
+    return ProxyRequest.Invalid();
+
+  return method === "CONNECT" ? tunnel(target) : forward(method, target, lines);
+};
+
+/** Whether a target is an IP literal rather than a name. */
+export const isIpLiteral = (hostname: string) => isIP(hostname) !== 0;
+
+/** The statuses the proxy answers with when it doesn't relay. */
+export type ProxyStatus = 400 | 403 | 407 | 502 | 503 | 504;
+
+const REASONS: Readonly<Record<ProxyStatus, string>> = {
+  400: "Bad Request",
+  403: "Forbidden",
+  407: "Proxy Authentication Required",
+  502: "Bad Gateway",
+  503: "Service Unavailable",
+  504: "Gateway Timeout",
+};
+
+/** A response that ends the connection; a 407 asks for the Basic credential. */
+export const proxyResponse = (status: ProxyStatus): Uint8Array =>
+  Buffer.from(
+    [
+      `HTTP/1.1 ${status} ${REASONS[status]}`,
+      ...(status === 407 ? ['Proxy-Authenticate: Basic realm="Polaris"'] : []),
+      "Content-Length: 0",
+      "Connection: close",
+      "",
+      "",
+    ].join("\r\n")
+  );
+
+export const TUNNEL_ESTABLISHED: Uint8Array = Buffer.from(
+  "HTTP/1.1 200 Connection Established\r\n\r\n"
+);

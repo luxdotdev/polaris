@@ -1,29 +1,32 @@
 /**
- * The SOCKS5 server a remote Host's Browser partitions proxy through, on 127.0.0.1 at an
- * ephemeral port. A CONNECT to a Host address becomes a Host-address stream on that Host's
- * connection, its hostname unresolved; any other name loads directly from this machine.
+ * The HTTP proxy a remote Host's Browser partitions use, on 127.0.0.1 at an ephemeral port.
+ * Every request must carry the proxy's per-launch secret. A Host address becomes a
+ * Host-address stream on that Host's connection, its hostname unresolved.
  */
+import { randomBytes } from "node:crypto";
 import { lookup, type LookupAddress, type LookupAllOptions } from "node:dns";
 import {
   BlockList,
   connect,
   createServer,
-  isIP,
   type AddressInfo,
   type LookupFunction,
   type Server,
   type Socket,
 } from "node:net";
-import { Effect, Fiber, type Scope, Stream } from "effect";
+import { Effect, Fiber, Scope, Stream } from "effect";
 import {
-  greetingReply,
-  Parsed,
-  parseGreeting,
+  authorized,
+  Head,
+  isIpLiteral,
   parseRequest,
-  requestReply,
-  SocksReply,
-  SocksTarget,
-} from "./socks.ts";
+  proxyCredential,
+  ProxyRequest,
+  proxyResponse,
+  type ProxyStatus,
+  splitHead,
+  TUNNEL_ESTABLISHED,
+} from "./proxy.ts";
 
 /** A Host-address stream once open: the Host's bytes, and a way to send it ours. */
 export interface HostAddressTransport {
@@ -31,50 +34,50 @@ export interface HostAddressTransport {
   readonly write: (bytes: Uint8Array) => Effect.Effect<void, unknown>;
 }
 
-/** Opens a stream to `hostname:port` on the Host's loopback; fails with the SOCKS reply to send. */
-export type OpenHostAddress<R> = (target: {
+export interface Target {
   readonly hostname: string;
   readonly port: number;
-}) => Effect.Effect<HostAddressTransport, SocksReply, Scope.Scope | R>;
+}
 
-export interface SocksServerOptions<R> {
+/** Opens a stream to `hostname:port` on the Host's loopback; fails with the status to answer. */
+export type OpenHostAddress<R> = (
+  target: Target
+) => Effect.Effect<HostAddressTransport, ProxyStatus, Scope.Scope | R>;
+
+export interface ProxyServerOptions<R> {
   readonly open: OpenHostAddress<R>;
   readonly isHostAddress: (hostname: string) => boolean;
   /** Runs one connection's stream; interrupted when its socket closes. */
   readonly run: (effect: Effect.Effect<void, never, R>) => Fiber.Fiber<void>;
-  /** A direct connection for any other name; `net.connect` by default. */
+  /** A direct connection for any other name; `net.connect` with `lookupOutside` by default. */
   readonly connectDirect?: (hostname: string, port: number) => Socket;
+  /** How long a connection may take to send an authorized request; 10 s by default. */
+  readonly handshakeTimeoutMs?: number | undefined;
+  /** Connections beyond this are closed unread; 256 by default. */
+  readonly maxConnections?: number | undefined;
 }
 
-export interface SocksServer {
+export interface ProxyServer {
   readonly port: number;
+  /** The password Electron's `login` event answers with, for this server only. */
+  readonly secret: string;
   readonly close: () => Promise<void>;
 }
 
 type Route =
-  | { readonly kind: "host"; readonly hostname: string; readonly port: number }
-  | { readonly kind: "direct"; readonly hostname: string; readonly port: number }
+  | { readonly kind: "host"; readonly target: Target }
+  | { readonly kind: "direct"; readonly target: Target }
   | { readonly kind: "refuse" };
 
-const ipRoute = (address: string, port: number, isHostAddress: (name: string) => boolean): Route =>
-  isHostAddress(address) ? { kind: "host", hostname: address, port } : { kind: "refuse" };
-
 /**
- * IP literals, however they arrive, go to the Host only when they are loopback, and never
- * directly from here; any other name loads directly.
+ * IP literals go to the Host only when they are loopback, and never directly from here;
+ * other Host-address names go to the Host, and any other name loads directly.
  */
-export const routeOf = (target: SocksTarget, isHostAddress: (name: string) => boolean): Route =>
-  SocksTarget.$match(target, {
-    Domain: ({ hostname, port }): Route => {
-      if (isIP(hostname.replace(/^\[(.*)\]$/, "$1")) !== 0)
-        return ipRoute(hostname, port, isHostAddress);
+export const routeOf = (target: Target, isHostAddress: (name: string) => boolean): Route => {
+  if (isHostAddress(target.hostname)) return { kind: "host", target };
 
-      return isHostAddress(hostname)
-        ? { kind: "host", hostname, port }
-        : { kind: "direct", hostname, port };
-    },
-    Ip: ({ address, port }): Route => ipRoute(address, port, isHostAddress),
-  });
+  return isIpLiteral(target.hostname) ? { kind: "refuse" } : { kind: "direct", target };
+};
 
 /** Addresses that mean this machine; IPv4-mapped IPv6 as a whole, as names rarely map to it. */
 const thisMachine = () => {
@@ -145,6 +148,26 @@ const writeTo = (socket: Socket, chunk: Uint8Array) =>
     socket.once("drain", done).once("close", done);
   });
 
+/** The browser's bytes, at most `limit` of them when set; the stream then waits for the close. */
+const upstream = (socket: Socket, limit: number | null) => {
+  const bytes = Stream.fromAsyncIterable<Uint8Array, unknown>(socket, (error) => error);
+
+  if (limit === null) return bytes;
+  let left = limit;
+
+  return bytes.pipe(
+    Stream.takeWhile(() => left > 0),
+    Stream.map((chunk) => {
+      const kept = chunk.subarray(0, left);
+
+      left -= kept.length;
+
+      return kept;
+    }),
+    Stream.concat(Stream.never)
+  );
+};
+
 /**
  * Both directions until the browser closes its side or either fails. When the Host's side
  * ends first, the socket half-closes and the browser's side drains.
@@ -152,11 +175,14 @@ const writeTo = (socket: Socket, chunk: Uint8Array) =>
 export const pipeTransport = (
   socket: Socket,
   transport: HostAddressTransport,
-  rest: Uint8Array
+  rest: Uint8Array,
+  limit: number | null = null
 ) => {
+  const first = limit === null ? rest : rest.subarray(0, limit);
+
   const up = Effect.andThen(
-    rest.length === 0 ? Effect.void : transport.write(rest),
-    Stream.fromAsyncIterable<Uint8Array, unknown>(socket, (error) => error).pipe(
+    first.length === 0 ? Effect.void : transport.write(first),
+    upstream(socket, limit === null ? null : limit - first.length).pipe(
       Stream.runForEach((chunk) => transport.write(chunk))
     )
   );
@@ -170,50 +196,97 @@ export const pipeTransport = (
   return Effect.raceFirst(up, down);
 };
 
-const reply = (socket: Socket, code: SocksReply) => {
-  socket.end(requestReply(code));
-};
-
-const DIRECT_FAILURES = new Map<string | undefined, SocksReply>([
-  ["ECONNREFUSED", SocksReply.connectionRefused],
-  ["ENOTFOUND", SocksReply.hostUnreachable],
-  ["EHOSTUNREACH", SocksReply.hostUnreachable],
-  ["ELOOPBACK", SocksReply.notAllowed],
+const DIRECT_FAILURES = new Map<string | undefined, ProxyStatus>([
+  ["ELOOPBACK", 403],
+  ["ETIMEDOUT", 504],
 ]);
 
-const directFailure = (error: NodeJS.ErrnoException): SocksReply =>
-  DIRECT_FAILURES.get(error.code) ?? SocksReply.generalFailure;
+/**
+ * A name outside the Host addresses, as Chromium sends it when the bypass list misses it
+ * (`printer2`): main's DNS and a TCP connection; TLS inside it stays Chromium's.
+ */
+const openDirect =
+  (connectDirect: (hostname: string, port: number) => Socket) =>
+  ({ hostname, port }: Target): Effect.Effect<HostAddressTransport, ProxyStatus, Scope.Scope> =>
+    Effect.acquireRelease(
+      Effect.callback<Socket, ProxyStatus>((resume) => {
+        const remote = connectDirect(hostname, port);
 
-const pipeDirect = (socket: Socket, remote: Socket, rest: Uint8Array) => {
-  remote.once("error", (error) => {
-    if (remote.connecting) reply(socket, directFailure(error));
-    else socket.destroy();
-  });
-  remote.once("connect", () => {
-    socket.write(requestReply(SocksReply.succeeded));
+        remote.once("error", (error: NodeJS.ErrnoException) =>
+          resume(Effect.fail(DIRECT_FAILURES.get(error.code) ?? 502))
+        );
+        remote.once("connect", () => {
+          remote.removeAllListeners("error").on("error", () => remote.destroy());
+          resume(Effect.succeed(remote));
+        });
+      }),
+      (remote) => Effect.sync(() => remote.destroy())
+    ).pipe(
+      Effect.map((remote) => ({
+        incoming: Stream.fromAsyncIterable<Uint8Array, unknown>(remote, (error) => error),
+        write: (bytes: Uint8Array) => writeTo(remote, bytes),
+      }))
+    );
 
-    if (rest.length > 0) remote.write(rest);
-    socket.pipe(remote).on("error", () => remote.destroy());
-    remote.pipe(socket);
-    socket.resume();
-  });
-  socket.once("close", () => remote.destroy());
+const answer = (socket: Socket, status: ProxyStatus) => {
+  socket.end(proxyResponse(status));
 };
 
-function pipeHost<R>(
+/** What goes ahead of the browser's bytes: a 200 to the browser, or the request to the Host. */
+interface Relay {
+  readonly target: Target;
+  readonly established: Uint8Array | null;
+  readonly head: Uint8Array | null;
+  readonly limit: number | null;
+}
+
+const relayOf = (request: ProxyRequest): Relay | null =>
+  ProxyRequest.$match(request, {
+    Tunnel: ({ hostname, port }): Relay => ({
+      target: { hostname, port },
+      established: TUNNEL_ESTABLISHED,
+      head: null,
+      limit: null,
+    }),
+    Forward: ({ hostname, port, head, body }): Relay => ({
+      target: { hostname, port },
+      established: null,
+      head,
+      limit: body,
+    }),
+    Invalid: () => null,
+  });
+
+function relay<R>(
   socket: Socket,
-  route: { readonly hostname: string; readonly port: number },
+  request: ProxyRequest,
   rest: Uint8Array,
-  options: SocksServerOptions<R>
+  options: ProxyServerOptions<R>
 ) {
-  const stream = options.open({ hostname: route.hostname, port: route.port }).pipe(
+  const relayed = relayOf(request);
+
+  if (relayed === null) return answer(socket, 400);
+  const route = routeOf(relayed.target, options.isHostAddress);
+
+  if (route.kind === "refuse") return answer(socket, 403);
+
+  const open =
+    route.kind === "host"
+      ? options.open
+      : openDirect(
+          options.connectDirect ?? ((host, port) => connect({ host, port, lookup: directLookup }))
+        );
+
+  const stream = open(route.target).pipe(
     Effect.matchEffect({
-      onFailure: (code) => Effect.sync(() => reply(socket, code)),
+      onFailure: (status) => Effect.sync(() => answer(socket, status)),
       onSuccess: (transport) =>
-        Effect.andThen(
-          Effect.sync(() => socket.write(requestReply(SocksReply.succeeded))),
-          pipeTransport(socket, transport, rest)
-        ),
+        Effect.gen(function* () {
+          if (relayed.established !== null) socket.write(relayed.established);
+
+          if (relayed.head !== null) yield* transport.write(relayed.head);
+          yield* pipeTransport(socket, transport, rest, relayed.limit);
+        }),
     }),
     Effect.catchCause(() => Effect.void),
     Effect.scoped,
@@ -225,65 +298,28 @@ function pipeHost<R>(
   socket.once("close", () => Effect.runFork(Fiber.interrupt(fiber)));
 }
 
-function start<R>(
-  socket: Socket,
-  target: SocksTarget,
-  rest: Uint8Array,
-  options: SocksServerOptions<R>
-) {
-  const route = routeOf(target, options.isHostAddress);
-
-  if (route.kind === "refuse") return reply(socket, SocksReply.notAllowed);
-
-  if (route.kind === "direct") {
-    const remote = (
-      options.connectDirect ?? ((host, port) => connect({ host, port, lookup: directLookup }))
-    )(route.hostname, route.port);
-
-    return pipeDirect(socket, remote, rest);
-  }
-
-  pipeHost(socket, route, rest, options);
-}
-
-/** Reads the greeting, then the request, from whatever arrives, however it is split. */
-function handshake<R>(socket: Socket, options: SocksServerOptions<R>) {
+/**
+ * Reads the request head, however it is split, then checks the credential before anything
+ * else in it: without the secret, the answer is a 407 and nothing is opened.
+ */
+function handshake<R>(socket: Socket, credential: Uint8Array, options: ProxyServerOptions<R>) {
   let received: Uint8Array = new Uint8Array();
-  let greeted = false;
 
-  const fail = ({ reply: code }: { readonly reply: SocksReply | null }) => {
-    socket.off("data", onData);
-
-    if (code === null) socket.destroy();
-    else reply(socket, code);
-  };
-
-  const onRequest = () =>
-    Parsed.$match(parseRequest(received), {
-      NeedMore: () => undefined,
-      Invalid: fail,
-      Done: ({ value, rest }) => {
-        socket.off("data", onData);
-        socket.pause();
-        start(socket, value, rest, options);
-      },
-    });
+  socket.setTimeout(options.handshakeTimeoutMs ?? 10_000, () => socket.destroy());
 
   const onData = (chunk: Uint8Array) => {
     received = concat(received, chunk);
 
-    if (greeted) return onRequest();
-
-    Parsed.$match(parseGreeting(received), {
+    Head.$match(splitHead(received), {
       NeedMore: () => undefined,
-      Invalid: fail,
-      Done: ({ value: acceptable, rest }) => {
-        socket.write(greetingReply(acceptable));
+      TooLarge: () => socket.destroy(),
+      Done: ({ lines, rest }) => {
+        socket.off("data", onData);
+        socket.setTimeout(0);
 
-        if (!acceptable) return void socket.end();
-        greeted = true;
-        received = rest;
-        onRequest();
+        if (!authorized(lines, credential)) return answer(socket, 407);
+        socket.pause();
+        relay(socket, parseRequest(lines), rest, options);
       },
     });
   };
@@ -292,14 +328,18 @@ function handshake<R>(socket: Socket, options: SocksServerOptions<R>) {
   socket.on("error", () => socket.destroy());
 }
 
-export const startSocksServer = <R>(options: SocksServerOptions<R>): Promise<SocksServer> =>
+export const startProxyServer = <R>(options: ProxyServerOptions<R>): Promise<ProxyServer> =>
   new Promise((resolve, reject) => {
+    const secret = randomBytes(32).toString("base64url");
+    const credential = proxyCredential(secret);
     const sockets = new Set<Socket>();
+    const max = options.maxConnections ?? 256;
 
     const server: Server = createServer({ noDelay: true }, (socket) => {
+      if (sockets.size >= max) return void socket.destroy();
       sockets.add(socket);
       socket.once("close", () => sockets.delete(socket));
-      handshake(socket, options);
+      handshake(socket, credential, options);
     });
 
     server.once("error", reject);
@@ -309,6 +349,7 @@ export const startSocksServer = <R>(options: SocksServerOptions<R>): Promise<Soc
 
       resolve({
         port,
+        secret,
         close: () =>
           new Promise<void>((done) => {
             server.close(() => done());

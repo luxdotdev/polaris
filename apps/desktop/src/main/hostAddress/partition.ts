@@ -6,10 +6,10 @@ import type { Session } from "electron";
 import { chromiumVerdict } from "../tls/distrust.ts";
 import { remoteProxyConfig } from "./bypass.ts";
 
-/** Where the partition's Host addresses go: this machine's loopback, or the SOCKS server. */
+/** Where the partition's Host addresses go: this machine's loopback, or the proxy. */
 export type PartitionRoute =
   | { readonly kind: "local" }
-  | { readonly kind: "remote"; readonly socksPort: number };
+  | { readonly kind: "remote"; readonly proxyPort: number };
 
 export const configurePartition = async (
   session: Session,
@@ -17,7 +17,7 @@ export const configurePartition = async (
   isHostAddress: (hostname: string) => boolean
 ) => {
   await session.setProxy(
-    route.kind === "local" ? { mode: "direct" } : remoteProxyConfig(route.socksPort)
+    route.kind === "local" ? { mode: "direct" } : remoteProxyConfig(route.proxyPort)
   );
   // The pool may hold sockets from a proxy config this partition had before.
   await session.closeAllConnections();

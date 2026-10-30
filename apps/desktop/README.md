@@ -277,7 +277,8 @@ copy of the checked-out commit, with acceptance files and venv added.
 `bun apps/desktop/scripts/hostAddressCheck.ts <alias> --remote-command "<line>" [--hmr <url> <file> <from> <to>] <url>…`
 connects to the Host as the app does, sets up a Workspace's Browser partition (ADR 0093) and
 prints each URL's origin, title and text, then edits a Vite page's source on the Host and checks
-that HMR applies it without a reload. A dev Daemon can run beside the installed one: copy
+that HMR applies it without a reload, and finally stops the Host's proxy and loads the first URL
+again, which must fail rather than load from this Mac. A dev Daemon can run beside the installed one: copy
 `apps/daemon/dist/linux-arm64/polaris` to `/tmp/ph`, run `polaris serve --home /tmp/ph/home`,
 and pass `--remote-command "env POLARIS_HOME=/tmp/ph/home /tmp/ph/polaris bridge"`.
 
@@ -289,6 +290,10 @@ Checked on `lucas-rpi` (ENG-614), against a Portless-style HTTPS server with a s
 - `http://localhost:5173` reaches Vite on `::1`; its HMR WebSocket applies an edit without a reload.
 - `https://example.com` loads directly; `https://self-signed.badssl.com` still fails
   `ERR_CERT_AUTHORITY_INVALID`.
+- The partition's proxy (HTTP on 127.0.0.1, its secret answered through `login`) was asked for
+  credentials once; every later connection reused them.
+- With the proxy stopped, `https://app.localhost:8443` fails `ERR_PROXY_CONNECTION_FAILED`:
+  Chromium doesn't fall back to a direct load.
 - Port 443 itself wasn't checked: the Pi has no passwordless sudo to bind it. The stream doesn't
   care about the port.
 

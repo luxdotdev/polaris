@@ -74,7 +74,7 @@ import {
 import { internetFetch } from "./net.ts";
 import { distrustInSession } from "./tls/distrust.ts";
 import { createHostAddresses, type HostAddresses } from "./hostAddress/index.ts";
-import { isLocalHost, openThroughHost } from "./hostAddress/open.ts";
+import { isLocalHost, openThroughHost, whenHostRemoved } from "./hostAddress/open.ts";
 import { openPrices } from "./prices.ts";
 import { openSnapshotCache } from "./snapshotCache.ts";
 import type { SessionPrefsPatch } from "../shared/contract.ts";
@@ -193,6 +193,15 @@ let presenceWatch: PresenceWatch | null = null;
 
 /** Each Workspace's Browser partition, its Host addresses sent to its Host (ADR 0093). */
 let hostAddresses: HostAddresses | null = null;
+
+// Only a Browser partition's own proxy gets its secret; any other challenge is cancelled.
+app.on("login", (event, webContents, _details, authInfo, callback) => {
+  const credentials = hostAddresses?.proxyLogin(webContents?.session, authInfo) ?? null;
+
+  if (credentials === null) return;
+  event.preventDefault();
+  callback(credentials.username, credentials.password);
+});
 
 let reviews: ReviewNotifier | null = null;
 
@@ -421,6 +430,7 @@ const start = async () => {
     open: openThroughHost,
     run: (effect) => clientRuntime.runFork(effect),
   });
+  clientRuntime.runFork(whenHostRemoved(hostAddresses.forget));
   languageRuntime = createMainLanguageApi({
     runtime,
     identities: languageIdentities,
@@ -465,7 +475,8 @@ const start = async () => {
     // The one main window, created below.
     window: () => BrowserWindow.getAllWindows().find((w) => !w.isDestroyed()) ?? null,
     configureSession: (hostKey, _workspaceId, partition) =>
-      hostAddresses?.configureBrowserSession(hostKey, partition) ?? Promise.resolve(),
+      hostAddresses?.configureBrowserSession(hostKey, partition) ??
+      Promise.reject(new Error("host addresses aren't set up")),
   });
 
   ipc = registerIpc({
