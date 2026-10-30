@@ -114,8 +114,12 @@ export const BrowserRequestInputs = {
   /** Hides the session's Browser and releases it (`browser.release`); its tabs stay open. */
   "browser.hide": Schema.Struct({ hostKey: HostKey, sessionId: SessionId }),
   "browser.devtools": Schema.Struct({ ...OnTab.fields, open: Schema.Boolean }),
-  /** Starts pick mode in the tab; answers the pick, or null when the user cancels it. */
+  /**
+   * Starts pick mode in the tab; answers the pick, or null when the user cancels it, the tab
+   * navigates, hides or closes, or `browser.cancelPick` ends it.
+   */
   "browser.pick": OnTab,
+  "browser.cancelPick": OnTab,
   /** Closes these sessions' tabs and forgets them: the renderer names sessions once archived. */
   "browser.forget": Schema.Struct({ hostKey: HostKey, sessionIds: Schema.Array(SessionId) }),
 } as const;
@@ -135,6 +139,7 @@ export interface BrowserRequestOutputs {
   readonly "browser.hide": null;
   readonly "browser.devtools": null;
   readonly "browser.pick": BrowserPickResult | null;
+  readonly "browser.cancelPick": null;
   readonly "browser.forget": null;
 }
 

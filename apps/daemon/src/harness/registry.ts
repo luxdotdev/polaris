@@ -12,7 +12,8 @@
  * Under launchd / systemd a user's PATH often lacks nvm or Homebrew bins, so
  * `POLARIS_CODEX`, `POLARIS_CLAUDE`, `POLARIS_OPENCODE`, `POLARIS_GEMINI` and
  * `POLARIS_COPILOT` can point at the binaries explicitly.
- * Requires `PlanLimitReporter`, where the drivers report what their Harness exposes.
+ * Requires `PlanLimitReporter`, where the drivers report what their Harness exposes, and
+ * `BrowserMcp`, which gives Claude Code and Codex sessions the Browser's MCP server.
  */
 import type { HarnessKind, KnownHarnessKind } from "@polaris/protocol";
 import { Effect, Layer, Scope } from "effect";
@@ -22,6 +23,7 @@ import { isBenchKind } from "./bench/kinds.ts";
 import { ClaudeHookReceiver } from "./claude/hooks.ts";
 import { type HarnessDriver, HarnessError } from "./HarnessDriver.ts";
 import { PlanLimitReporter } from "./limits/PlanLimitReporter.ts";
+import { BrowserMcp } from "./browser/index.ts";
 import { findExecutable } from "../platform/executable.ts";
 
 const binary = (env: string, name: string): string | null =>
@@ -94,6 +96,7 @@ export const harnessRegistryLayer = (options: RegistryOptions = {}) =>
     Effect.gen(function* () {
       const hookReceiver = yield* ClaudeHookReceiver;
       const { report } = yield* PlanLimitReporter;
+      const browser = yield* BrowserMcp;
       const planLimits = { report };
       // The app-server the Codex driver may start belongs to this layer, not to the first `open`.
       const scope = yield* Effect.scope;
@@ -115,7 +118,9 @@ export const harnessRegistryLayer = (options: RegistryOptions = {}) =>
           "codex",
           DRIVER_CAPABILITIES.codex,
           Effect.promise(() => import("./codex/CodexDriver.ts")).pipe(
-            Effect.flatMap(({ makeCodexDriver }) => makeCodexDriver({ codexPath, planLimits })),
+            Effect.flatMap(({ makeCodexDriver }) =>
+              makeCodexDriver({ codexPath, planLimits, browser })
+            ),
             Scope.provide(scope)
           )
         ),
@@ -129,6 +134,7 @@ export const harnessRegistryLayer = (options: RegistryOptions = {}) =>
                 hookReceiver,
                 claudePath: () => binary("POLARIS_CLAUDE", "claude"),
                 planLimits,
+                browser,
               })
             )
           ),

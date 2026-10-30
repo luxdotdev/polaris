@@ -7,6 +7,7 @@ import type { SessionId, WorkspaceId } from "@polaris/protocol";
 import { Predicate } from "effect";
 import {
   type BrowserBounds,
+  type BrowserPickResult,
   type BrowserTab,
   type BrowserTabChange,
   BrowserTabEvent,
@@ -48,6 +49,10 @@ export interface ViewHost {
   readonly forward: (tabId: BrowserTabId) => void;
   readonly reload: (tabId: BrowserTabId, ignoreCache: boolean) => void;
   readonly devtools: (tabId: BrowserTabId, open: boolean) => void;
+  /** Pick mode in the tab: the clicked element, or null when cancelled (ENG-618). */
+  readonly pick: (tabId: BrowserTabId) => Promise<BrowserPickResult | null>;
+  /** Ends the tab's pick mode; its `pick` answers null. */
+  readonly cancelPick: (tabId: BrowserTabId) => void;
   /** Puts the tab on screen at `bounds` (empty bounds cover it), every other view off it. */
   readonly show: (tabId: BrowserTabId, bounds: BrowserBounds) => void;
   /** Takes every view off screen. */
@@ -68,13 +73,14 @@ export interface RegistryDeps {
   readonly kept: ReadonlyArray<KeptSession>;
   readonly save: (sessions: ReadonlyArray<KeptSession>) => void;
   readonly nextId: () => BrowserTabId;
-  /** The session's Workspace when no caller named it (an agent's tab): asks the Host. */
+  /** The session's Workspace as its Host has it, or null for a session the Host doesn't know. */
   readonly workspaceOf: (hostKey: string, sessionId: SessionId) => Promise<WorkspaceId | null>;
 }
 
 export interface OpenTab {
   readonly hostKey: string;
   readonly sessionId: SessionId;
+  /** The Workspace the caller expects; refused unless it is the session's own. */
   readonly workspaceId?: WorkspaceId | undefined;
   readonly url: string;
   readonly openedBy: BrowserTabOpener;
@@ -162,12 +168,12 @@ export const createRegistry = (deps: RegistryDeps) => {
 
     const existing = stateOf(hostKey, sessionId);
 
-    const workspace =
-      existing?.workspaceId ?? workspaceId ?? (await deps.workspaceOf(hostKey, sessionId));
+    // Main asks the Host, never the caller, which partition a session's first tab gets.
+    const workspace = existing?.workspaceId ?? (await deps.workspaceOf(hostKey, sessionId));
 
     if (workspace === null) throw new BrowserRefused("No such session");
 
-    if (existing !== null && workspaceId !== undefined && existing.workspaceId !== workspaceId)
+    if (workspaceId !== undefined && workspaceId !== workspace)
       throw new BrowserRefused("This session's Browser is in another workspace");
 
     const before = stateOf(hostKey, sessionId) ?? emptyTabs(hostKey, sessionId, workspace);
@@ -342,6 +348,10 @@ export const createRegistry = (deps: RegistryDeps) => {
       deps.views.reload(viewOf(hostKey, sessionId, tabId), ignoreCache),
     devtools: (hostKey: string, sessionId: SessionId, tabId: BrowserTabId, open: boolean) =>
       deps.views.devtools(viewOf(hostKey, sessionId, tabId), open),
+    pick: (hostKey: string, sessionId: SessionId, tabId: BrowserTabId) =>
+      deps.views.pick(viewOf(hostKey, sessionId, tabId)),
+    cancelPick: (hostKey: string, sessionId: SessionId, tabId: BrowserTabId) =>
+      deps.views.cancelPick(viewOf(hostKey, sessionId, tabId)),
     activateTab,
     tabChanged,
     show,

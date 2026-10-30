@@ -3,6 +3,7 @@
  * routed to the Host, a page loaded here could reach this machine's loopback instead.
  */
 import type { BrowserTabId } from "../../shared/browserContract.ts";
+import { latestLoads } from "./order.ts";
 
 export interface TabLoadsDeps {
   /** The tab's partition setup, retried by the caller after a failure. */
@@ -13,33 +14,23 @@ export interface TabLoadsDeps {
 }
 
 export const tabLoads = ({ ready, open, fail }: TabLoadsDeps) => {
-  const latest = new Map<BrowserTabId, number>();
   const failed = new Map<BrowserTabId, string>();
-  let next = 0;
+
+  const loads = latestLoads<BrowserTabId>(open, (tabId, url, cause) => {
+    failed.set(tabId, url);
+    fail(tabId, url, cause);
+  });
 
   return {
     /** Loads `url` once the partition is ready; a later load of the tab wins over this one. */
     load: (tabId: BrowserTabId, url: string) => {
-      const ticket = ++next;
-      const current = () => latest.get(tabId) === ticket;
-
-      latest.set(tabId, ticket);
       failed.delete(tabId);
-      ready(tabId).then(
-        () => {
-          if (current()) open(tabId, url);
-        },
-        (cause: unknown) => {
-          if (!current()) return;
-          failed.set(tabId, url);
-          fail(tabId, url, cause);
-        }
-      );
+      loads.request(tabId, url, ready(tabId));
     },
     /** The URL whose load the setup failed, which a reload tries again; null otherwise. */
     failedUrl: (tabId: BrowserTabId) => failed.get(tabId) ?? null,
     forget: (tabId: BrowserTabId) => {
-      latest.delete(tabId);
+      loads.forget(tabId);
       failed.delete(tabId);
     },
   };

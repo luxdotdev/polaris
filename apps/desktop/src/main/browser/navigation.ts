@@ -26,6 +26,10 @@ export const allowedUrl = (url: string): boolean => {
   return parsed !== null && SCHEMES.has(parsed.protocol) && parsed.hostname !== "";
 };
 
+/** True when a frame may navigate to `url`: an iframe may also show its `srcdoc`. */
+export const allowedFrameUrl = (url: string, isMainFrame: boolean): boolean =>
+  allowedUrl(url) || (!isMainFrame && url === "about:srcdoc");
+
 /**
  * A loopback name, which in a Browser always means the Agent Session's Host (CONTEXT.md, Host
  * address): the Daemon's own check, so the badge, the proxy and `hostAddress.open` agree.

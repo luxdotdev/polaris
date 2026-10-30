@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { allowedUrl, isHostAddress, urlFromInput } from "./navigation.ts";
+import { allowedFrameUrl, allowedUrl, isHostAddress, urlFromInput } from "./navigation.ts";
 
 describe("allowedUrl", () => {
   test.each([
@@ -21,6 +21,24 @@ describe("allowedUrl", () => {
     "not a url",
     "http://",
   ])("refuses %s", (url) => expect(allowedUrl(url)).toBe(false));
+});
+
+describe("allowedFrameUrl", () => {
+  test.each([
+    "data:text/html,<script>alert(1)</script>",
+    "blob:http://localhost:3000/0b5c6f1e",
+    "javascript:alert(1)",
+    "file:///etc/passwd",
+    "about:srcdoc",
+  ])("%s loads in no main frame, and in an iframe only when it's a srcdoc", (url) => {
+    expect(allowedFrameUrl(url, true)).toBe(false);
+    expect(allowedFrameUrl(url, false)).toBe(url === "about:srcdoc");
+  });
+
+  test("an iframe loads http and https as a page does", () => {
+    expect(allowedFrameUrl("http://localhost:3000/embed", false)).toBe(true);
+    expect(allowedFrameUrl("https://example.com/", false)).toBe(true);
+  });
 });
 
 describe("urlFromInput", () => {

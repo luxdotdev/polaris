@@ -140,13 +140,15 @@ export const kept = (state: SessionTabs): KeptSession | null => {
   };
 };
 
-/** A kept session's tabs again, under fresh ids; a URL no tab may load now is dropped. */
+/** A kept session's tabs again, under fresh ids; a URL no tab may load now, or past the cap, is dropped. */
 export const restored = (session: KeptSession, nextId: () => BrowserTabId): SessionTabs => {
-  const pairs = session.tabs.flatMap((tab, index) =>
-    allowedUrl(tab.url)
-      ? [{ index, tab: newTab(nextId(), session.sessionId, tab.url, tab.openedBy, tab.title) }]
-      : []
-  );
+  const pairs = session.tabs
+    .flatMap((tab, index) =>
+      allowedUrl(tab.url)
+        ? [{ index, tab: newTab(nextId(), session.sessionId, tab.url, tab.openedBy, tab.title) }]
+        : []
+    )
+    .slice(0, MAX_TABS);
 
   const active = pairs.find(({ index }) => index === session.active) ?? pairs[0] ?? null;
 

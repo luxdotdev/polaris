@@ -38,6 +38,8 @@ import { Availability, AvailabilityRpcsLive } from "../harness/availability/inde
 import { HarnessRpcsLive } from "../harness/HarnessRpcs.ts";
 import { latestRolloutLimits, PlanLimitReporter } from "../harness/limits/index.ts";
 import { HarnessRegistryLive } from "../harness/registry.ts";
+import { BrowserMcp } from "../harness/browser/index.ts";
+import { AgentBrowser } from "../install/agentBrowser/index.ts";
 import { releaseMemory, releaseWhenQuiet } from "../memory/index.ts";
 import { userPath } from "../service/userPath.ts";
 import { takeHandoff } from "../service/upgrade.ts";
@@ -54,7 +56,7 @@ import { HostStats, HostStatsRpcsLive } from "../hostStats/index.ts";
 import { paths } from "../paths.ts";
 import { startServer } from "./server.ts";
 import { ByteStreamRpcsLive } from "./byteStreams.ts";
-import { BrowserHosting, ByteStreamQuota, HostAddressStreams } from "../browser/index.ts";
+import { BrowserHosting, ByteStreamQuota, CdpRelay, HostAddressStreams } from "../browser/index.ts";
 import { configuredGatewayPort } from "../gateway/index.ts";
 import { workspaceTrustLayer } from "./workspaceTrust.ts";
 import {
@@ -88,8 +90,21 @@ const usageServices = lazyUsage(bench ? {} : { planLimitSeed: latestRolloutLimit
   Layer.provide(UsageSessions.layer)
 );
 
+/** The per-session CDP relay (ENG-616); `BrowserHosting` is the stub until ENG-613's hosting lands. */
+const cdpRelay = Layer.suspend(() =>
+  CdpRelay.layer({ home: paths().root, version: VERSION }).pipe(
+    Layer.provide(BrowserHosting.layerStub)
+  )
+);
+
+const browserMcp = BrowserMcp.layer.pipe(
+  Layer.provide(Layer.mergeAll(cdpRelay, AgentBrowser.layer))
+);
+
 /** The drivers report Plan Limits through the reporter, in front of the Usage index's sink. */
-const harnesses = HarnessRegistryLive.pipe(Layer.provide(PlanLimitReporter.layer));
+const harnesses = HarnessRegistryLive.pipe(
+  Layer.provide(Layer.mergeAll(PlanLimitReporter.layer, browserMcp))
+);
 
 /**
  * The services behind the handlers: the event store and engine, git,
