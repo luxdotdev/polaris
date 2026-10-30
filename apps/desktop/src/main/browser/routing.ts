@@ -19,7 +19,7 @@ interface Waiter {
 
 export const tabRouting = () => {
   const routed = new Set<BrowserTabId>();
-  /** Bumped whenever a tab loses routing, so a setup begun before then can't route it. */
+  /** Bumped by each setup and whenever a tab loses routing, so a superseded setup does nothing. */
   const epochs = new Map<BrowserTabId, number>();
   const epochOf = (tabId: BrowserTabId) => epochs.get(tabId) ?? 0;
   /** Why a tab's latest setup failed, until another begins, so a late `whenRouted` hears it. */
@@ -43,6 +43,12 @@ export const tabRouting = () => {
     for (const listener of listeners) listener(tabId, now);
   };
 
+  const unroute = (tabId: BrowserTabId, cause: unknown) => {
+    failed.set(tabId, cause);
+    set(tabId, false);
+    settle(tabId, (waiter) => waiter.reject(cause));
+  };
+
   const view: TabRoutingView = {
     isRouted: (tabId) => routed.has(tabId),
     whenRouted: (tabId) => {
@@ -63,11 +69,14 @@ export const tabRouting = () => {
 
   return {
     view,
-    /** A setup begins: its epoch, which `routed` honours only while still current. */
+    /** A setup begins: its own epoch, which `routed` and `failed` honour only while current. */
     begin: (tabId: BrowserTabId) => {
+      const epoch = epochOf(tabId) + 1;
+
+      epochs.set(tabId, epoch);
       failed.delete(tabId);
 
-      return epochOf(tabId);
+      return epoch;
     },
     /** The tab's setup, begun at `epoch`, succeeded; false when routing was lost since. */
     routed: (tabId: BrowserTabId, epoch: number) => {
@@ -77,12 +86,14 @@ export const tabRouting = () => {
 
       return true;
     },
-    /** The setup failed, or the Host's routing was retired: the tab is unrouted. */
+    /** The Host's routing was retired: the tab is unrouted, and setups begun before can't route it. */
     unrouted: (tabId: BrowserTabId, cause: unknown) => {
       epochs.set(tabId, epochOf(tabId) + 1);
-      failed.set(tabId, cause);
-      set(tabId, false);
-      settle(tabId, (waiter) => waiter.reject(cause));
+      unroute(tabId, cause);
+    },
+    /** The setup begun at `epoch` failed; ignored once a newer setup or a retirement superseded it. */
+    failed: (tabId: BrowserTabId, epoch: number, cause: unknown) => {
+      if (epoch === epochOf(tabId)) unroute(tabId, cause);
     },
     forget: (tabId: BrowserTabId) => {
       epochs.set(tabId, epochOf(tabId) + 1);

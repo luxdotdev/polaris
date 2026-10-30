@@ -24,7 +24,8 @@ import {
   ProxyRequest,
   proxyChallenge,
   proxyResponse,
-  isUpstreamChallenge,
+  ResponseScreen,
+  screenResponse,
   type ProxyStatus,
   splitHead,
   TUNNEL_ESTABLISHED,
@@ -254,12 +255,9 @@ const openDirect =
       }))
     );
 
-/** Enough of a response to hold its status line. */
-const STATUS_LINE_BYTES = 64;
-
 /**
- * A forwarded request's response, but a 407 from the Host becomes this proxy's 502 and ends
- * there: relayed, Chromium would answer it with the proxy's credential.
+ * A forwarded request's response, but a 407 from the Host, in any head before the final one,
+ * becomes this proxy's 502 and ends there: relayed, Chromium would answer it with the secret.
  */
 const refusingChallenges = (transport: HostAddressTransport): HostAddressTransport => {
   let pending: Uint8Array | null = new Uint8Array();
@@ -268,20 +266,24 @@ const refusingChallenges = (transport: HostAddressTransport): HostAddressTranspo
   const screen = (chunk: Uint8Array): Uint8Array => {
     if (pending === null) return chunk;
     const head = concat(pending, chunk);
-    const end = Buffer.from(head).indexOf("\r\n");
 
-    if (end === -1 && head.length < STATUS_LINE_BYTES) {
-      pending = head;
+    return ResponseScreen.$match(screenResponse(head), {
+      NeedMore: () => {
+        pending = head;
 
-      return new Uint8Array();
-    }
+        return new Uint8Array();
+      },
+      Pass: () => {
+        pending = null;
 
-    pending = null;
-    const line = Buffer.from(head.subarray(0, end === -1 ? STATUS_LINE_BYTES : end));
+        return head;
+      },
+      Refuse: () => {
+        refused = true;
 
-    refused = isUpstreamChallenge(line.toString("latin1"));
-
-    return refused ? proxyResponse(502) : head;
+        return proxyResponse(502);
+      },
+    });
   };
 
   return {

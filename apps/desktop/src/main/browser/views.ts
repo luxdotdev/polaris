@@ -130,7 +130,7 @@ export const electronViews = (deps: ViewsDeps) => {
           if (!routing.routed(tabId, epoch)) throw new Error("the tab's routing was retired");
         },
         (cause: unknown) => {
-          routing.unrouted(tabId, cause);
+          routing.failed(tabId, epoch, cause);
           throw cause;
         }
       );

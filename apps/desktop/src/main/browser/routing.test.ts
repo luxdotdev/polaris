@@ -39,4 +39,20 @@ describe("a tab's routing", () => {
 
     expect(routing.view.isRouted(TAB)).toBe(true);
   });
+
+  test("an older setup failing after a newer one began doesn't unroute the tab or fail its waiters", async () => {
+    const routing = tabRouting();
+    const older = routing.begin(TAB);
+    const newer = routing.begin(TAB);
+
+    const waiting = routing.view.whenRouted(TAB).then(
+      () => "routed",
+      (error: Error) => error.message
+    );
+
+    routing.failed(TAB, older, new Error("setProxy failed"));
+
+    expect(routing.routed(TAB, newer)).toBe(true);
+    expect(await waiting).toBe("routed");
+  });
 });

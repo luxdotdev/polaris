@@ -332,29 +332,44 @@ describe("the proxy's direct connections", () => {
 });
 
 describe("a 407 from the Host", () => {
-  test("is never relayed, even in this proxy's own realm: the browser gets a 502", async () => {
-    const proxy = await start({
-      respond: (realm) =>
-        `HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm="${realm}"\r\n\r\n`,
-    });
+  const challenge = (realm: string) => `Proxy-Authenticate: Basic realm="${realm}"`;
+
+  test.each([
+    ["as sent", (realm: string) => `HTTP/1.1 407 Proxy Auth\r\n${challenge(realm)}\r\n\r\n`],
+    ["with bare LFs", (realm: string) => `HTTP/1.1 407\n${challenge(realm)}\n\n`],
+    ["in lowercase after junk", (realm: string) => ` http/1.0 407\r\n${challenge(realm)}\r\n\r\n`],
+    [
+      "after a 100 Continue",
+      (realm: string) =>
+        `HTTP/1.1 100 Continue\r\n\r\nHTTP/1.1 407 Proxy Auth\r\n${challenge(realm)}\r\n\r\n`,
+    ],
+  ])(
+    "is never relayed, %s, even in this proxy's own realm: the browser gets a 502",
+    async (_, respond) => {
+      const proxy = await start({ respond });
+
+      const { received } = await exchange(
+        proxy.port,
+        `GET http://localhost:3000/ HTTP/1.1\r\n${basic(proxy.secret)}\r\n\r\n`
+      );
+
+      expect(statusOf(received)).toBe("HTTP/1.1 502 Bad Gateway");
+      expect(received).not.toContain("Proxy-Authenticate");
+    }
+  );
+
+  test.each([
+    "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok",
+    "HTTP/1.1 103 Early Hints\r\nLink: </a.css>\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok",
+    "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n\r\nHTTP/1.1 407 in the frames",
+  ])("other responses pass through untouched: %j", async (response) => {
+    const proxy = await start({ respond: () => response });
 
     const { received } = await exchange(
       proxy.port,
       `GET http://localhost:3000/ HTTP/1.1\r\n${basic(proxy.secret)}\r\n\r\n`
     );
 
-    expect(statusOf(received)).toBe("HTTP/1.1 502 Bad Gateway");
-    expect(received).not.toContain("Proxy-Authenticate");
-  });
-
-  test("other responses pass through untouched", async () => {
-    const proxy = await start({ respond: () => "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok" });
-
-    const { received } = await exchange(
-      proxy.port,
-      `GET http://localhost:3000/ HTTP/1.1\r\n${basic(proxy.secret)}\r\n\r\n`
-    );
-
-    expect(received).toBe("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok");
+    expect(received).toBe(response);
   });
 });

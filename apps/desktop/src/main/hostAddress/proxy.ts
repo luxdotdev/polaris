@@ -184,13 +184,49 @@ export const proxyChallenge = (realm: string): Uint8Array =>
     `Proxy-Authenticate: Basic realm="${realm}"`,
   ]);
 
-const UPSTREAM_407 = /^HTTP\/1\.[01] 407(?: |$)/;
+export type ResponseScreen = Data.TaggedEnum<{
+  NeedMore: Record<never, never>;
+  /** A final status other than 407: relay everything as it comes. */
+  Pass: Record<never, never>;
+  /** A 407 in any head, or a head too long to read: the proxy answers 502 instead. */
+  Refuse: Record<never, never>;
+}>;
+
+export const ResponseScreen = Data.taggedEnum<ResponseScreen>();
+
+/** A status code as Chromium reads a status line: any case, a little junk, any HTTP version. */
+const STATUS = /http(?:\/[\d.]*)?\s*(\d{3})/i;
+
+const headEnd = (text: string, from: number) => {
+  const crlf = text.indexOf("\n\r\n", from);
+  const lf = text.indexOf("\n\n", from);
+  const ends = [crlf === -1 ? -1 : crlf + 3, lf === -1 ? -1 : lf + 2].filter((at) => at !== -1);
+
+  return ends.length === 0 ? -1 : Math.min(...ends);
+};
 
 /**
- * Whether a response from the Host starts as a 407. Chromium would take it for this proxy's
- * own challenge, so the proxy answers 502 instead and relays nothing of it.
+ * Screens the start of a forwarded response, head by head, until a final status: Chromium
+ * takes any 407 from a proxy connection as the proxy's own challenge, so none may pass.
  */
-export const isUpstreamChallenge = (statusLine: string) => UPSTREAM_407.test(statusLine);
+export const screenResponse = (bytes: Uint8Array): ResponseScreen => {
+  const text = Buffer.from(bytes).toString("latin1");
+
+  for (let at = 0; ;) {
+    const end = headEnd(text, at);
+
+    if (end === -1)
+      return bytes.length > MAX_HEAD_BYTES ? ResponseScreen.Refuse() : ResponseScreen.NeedMore();
+    const firstLine = text.slice(at, text.indexOf("\n", at));
+    const code = Number(STATUS.exec(firstLine)?.[1] ?? 0);
+
+    if (code === 407) return ResponseScreen.Refuse();
+
+    // Interim heads (100 Continue, 103 Early Hints) come before the final one.
+    if (code < 100 || code >= 200 || code === 101) return ResponseScreen.Pass();
+    at = end;
+  }
+};
 
 export const TUNNEL_ESTABLISHED: Uint8Array = Buffer.from(
   "HTTP/1.1 200 Connection Established\r\n\r\n"
