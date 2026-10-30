@@ -254,9 +254,10 @@ try {
   const note = stagedNotes().find((text) => text.includes("Element picked in the Browser"));
 
   assert.ok(note !== undefined, "the note is staged on the Host");
-  assert.match(note, /- CSS selector: `button\.add`/);
-  assert.match(note, new RegExp(`- URL: http://localhost:${port}/todos`));
-  assert.match(note, /- Screenshot: .*element-button-add\.png/);
+  assert.match(note, /\nSelector: button\.add\n/);
+  assert.match(note, new RegExp(`\\nURL: http://localhost:${port}/todos\\n`));
+  assert.match(note, /\nScreenshot: .*element-button-add\.png\n/);
+  assert.match(note, /untrusted page content/);
   assert.match(note, /<button class="add css-1x9q2z"/);
   console.log(`pick-screens: the staged note\n${note}`);
 
