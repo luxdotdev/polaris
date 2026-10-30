@@ -6,7 +6,7 @@
  * whole command in a hover card (`commandCard.tsx`).
  */
 import { CheckIcon, ChevronDownIcon, ChevronRightIcon, cn, PixelFailedIcon } from "@polaris/ui";
-import { type ReactElement, type RefObject, useEffect, useRef, useState } from "react";
+import { type ReactElement, type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import {
   chooseCollapse,
   COLLAPSE_DELAY_MS,
@@ -15,9 +15,11 @@ import {
 } from "../model/collapse.ts";
 import { plural } from "../model/format.ts";
 import { type ItemView, outputTail } from "../model/items.ts";
+import { shellRuns } from "../model/shellSyntax.ts";
 import { BackgroundAction } from "./backgroundAction.tsx";
 import { CommandCard } from "./commandCard.tsx";
 import { type Hue, LiveMark, WELL } from "./items.tsx";
+import { SyntaxRuns } from "./LineCode.tsx";
 
 type CommandView = Extract<ItemView, { kind: "command" }>;
 
@@ -136,6 +138,8 @@ const Line = ({
   /** Wraps the text as the hover card's trigger while the row itself isn't one. */
   readonly card: ((text: ReactElement) => ReactElement) | null;
 }) => {
+  const runs = useMemo(() => shellRuns(item.command), [item.command]);
+
   const text = (
     <span
       ref={textRef}
@@ -146,7 +150,14 @@ const Line = ({
       )}
       data-testid="command-text"
     >
-      {item.command === "" ? "Running a command" : `${sigil} ${item.command}`}
+      {item.command === "" ? (
+        "Running a command"
+      ) : (
+        <>
+          {`${sigil} `}
+          <SyntaxRuns runs={runs} />
+        </>
+      )}
     </span>
   );
 

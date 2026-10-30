@@ -17,9 +17,10 @@ import {
   hueVar,
   IconButton,
   LiveDither,
+  scatterReach,
   StopIcon,
 } from "@polaris/ui";
-import { useEffect, useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import { Commands } from "../../../commands.ts";
 import { useCommands, useShellActions } from "../../../shell/hooks.ts";
 import { send } from "../../session/dispatch.ts";
@@ -27,6 +28,46 @@ import { type AgentEdit, stripCaption, stripTitle } from "../model/agent.ts";
 import { setFollow } from "../runtime/actions.ts";
 import { useEditor } from "../runtime/store.ts";
 import { commandShortcut } from "../../../../shared/keymap.ts";
+
+/** Whether the scatter's whole reach fits the strip's free gap, clear of the label and controls. */
+export const scatterFits = (width: number, gap: { readonly from: number; readonly to: number }) => {
+  const reach = scatterReach(width);
+
+  return reach.from >= gap.from && reach.to <= gap.to;
+};
+
+/** Re-measured as the strip resizes; the spacer is the gap between the caption and Follow. */
+const useScatterRoom = (
+  strip: RefObject<HTMLElement | null>,
+  gap: RefObject<HTMLElement | null>
+) => {
+  const [fits, setFits] = useState(false);
+
+  useEffect(() => {
+    const el = strip.current;
+    const spacer = gap.current;
+
+    if (el === null || spacer === null) return undefined;
+
+    const measure = () =>
+      setFits(
+        scatterFits(el.clientWidth, {
+          from: spacer.offsetLeft,
+          to: spacer.offsetLeft + spacer.offsetWidth,
+        })
+      );
+
+    const observer = new ResizeObserver(measure);
+
+    observer.observe(el);
+    observer.observe(spacer);
+    measure();
+
+    return () => observer.disconnect();
+  }, [strip, gap]);
+
+  return fits;
+};
 
 export interface AgentStripProps {
   readonly hostKey: string;
@@ -100,6 +141,9 @@ const More = ({ onOpen }: { readonly onOpen: () => void }) => (
 
 export const AgentStrip = ({ hostKey, edit }: AgentStripProps) => {
   const now = useNow();
+  const strip = useRef<HTMLDivElement>(null);
+  const gap = useRef<HTMLSpanElement>(null);
+  const scatter = useScatterRoom(strip, gap);
   const { selectSession } = useShellActions();
   const commands = useCommands();
   const name = harnessHue(edit.harness).name;
@@ -117,6 +161,7 @@ export const AgentStrip = ({ hostKey, edit }: AgentStripProps) => {
 
   return (
     <div
+      ref={strip}
       role="status"
       data-testid="agent-strip"
       className="relative isolate flex h-[42px] shrink-0 items-center gap-2.5 overflow-clip border-y pr-2 pl-4"
@@ -125,7 +170,7 @@ export const AgentStrip = ({ hostKey, edit }: AgentStripProps) => {
         borderBottomColor: `color-mix(in srgb, ${hueVar(edit.harness)} 20%, transparent)`,
       }}
     >
-      <LiveDither harness={edit.harness} active className="-z-10" />
+      <LiveDither harness={edit.harness} active scatter={scatter} className="-z-10" />
       <Dither hue={edit.harness} size={12} moving />
       <span className="text-label shrink-0" style={{ color: harnessTextVar(edit.harness) }}>
         {stripTitle(name)}
@@ -133,7 +178,7 @@ export const AgentStrip = ({ hostKey, edit }: AgentStripProps) => {
       <span className="text-caption text-text-subtle tabular min-w-0 truncate">
         {stripCaption(edit, now)}
       </span>
-      <span className="flex-1" />
+      <span ref={gap} className="flex-1" />
       <FollowToggle />
       <Button
         variant="secondary"

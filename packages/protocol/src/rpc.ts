@@ -87,7 +87,7 @@ import { HarnessCommands } from "./slashCommands.ts";
 import { UsageReport, UsageStreamItem } from "./usage.ts";
 import { NotFound, Unsupported } from "./errors.ts";
 import { SessionTurnRpcs, TurnDetail } from "./turns.ts";
-import { GitError, GitTracking, GitWatchRpcs, GitWriteRpcs } from "./git.ts";
+import { GitError, GitLogRpcs, GitTracking, GitWatchRpcs, GitWriteRpcs } from "./git.ts";
 
 export { NotFound, Unsupported } from "./errors.ts";
 
@@ -761,7 +761,7 @@ export class DaemonRpcs extends RpcGroup.make(
   .merge(LanguageRpcs, PredictionRpcs, SessionTurnRpcs)
   .merge(AutoArchiveRpcs, IdleCompactionRpcs, ContinuityRpcs, PresenceRpcs, HostStatsRpcs)
   .merge(VisualsRpcs)
-  .merge(GitWriteRpcs, GitWatchRpcs, CommitMessageRpcs)
+  .merge(GitWriteRpcs, GitWatchRpcs, GitLogRpcs, CommitMessageRpcs)
   .merge(ExtensionRpcs, RemoteAccessRpcs, LinkedDeviceRpcs, VoiceRpcs, RestartRpcs)
   .merge(SecretRpcs, TerminalRpcs)
   .merge(BrowserStackRpcs) {}

@@ -80,7 +80,7 @@ import type { RemoteAccessMethod } from "./remoteAccessContract.ts";
 import type { RestartDaemonResult, RestartPreviewView } from "./restart.ts";
 import type { VoiceRequestOutputs } from "./voiceContract.ts";
 import type { SecretRequestOutputs } from "./secretContract.ts";
-import type { LinkedDevicesRequestOutputs } from "./linkedDevicesContract.ts";
+import type { LinkedDeviceView, LinkedDevicesRequestOutputs } from "./linkedDevicesContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
 import type { GitRequestOutputs, GitSubscriptionItems } from "./gitContract.ts";
 import type { BrowserRequestOutputs, BrowserSubscriptionItems } from "./browserContract.ts";
@@ -578,6 +578,7 @@ export interface SubscriptionItems
   continuity: ContinuityItem;
   "plan-limits": Plain<PlanLimit>;
   "host.stats": HostStatsItem;
+  "devices.watch": ReadonlyArray<LinkedDeviceView>;
   "review.watchRiskSummary": RiskSummary;
   "inline.propose": InlineStreamItem;
   constellation: ConstellationStreamItem;
