@@ -553,7 +553,14 @@ export const placeItem = (items: ReadonlyArray<TurnItem>, item: TurnItem): Array
 export const inStartOrder = (items: ReadonlyArray<TurnItem>): Array<TurnItem> =>
   items.reduce<Array<TurnItem>>(placeItem, []);
 
-export const ApprovalKind = Schema.Literals(["command", "file-change", "tool", "question"]);
+/** `secret`: a Secret Request (ADR 0089), sent only to Clients with `approval.secret`. */
+export const ApprovalKind = Schema.Literals([
+  "command",
+  "file-change",
+  "tool",
+  "question",
+  "secret",
+]);
 
 export type ApprovalKind = typeof ApprovalKind.Type;
 
@@ -584,6 +591,10 @@ export class ApprovalRequest extends Schema.Class<ApprovalRequest>("ApprovalRequ
   options: Schema.Array(Schema.String),
   /** For questions: every question asked, in order; empty from Daemons before ENG-450. */
   questions: optionalArray(ApprovalQuestion),
+  /** For a Secret Request: the field's hint, such as "tskey-auth-…". */
+  placeholder: optionalNullable(Schema.String),
+  /** For a Secret Request: when it times out unanswered. */
+  expiresAt: optionalNullable(Timestamp),
   openedAt: Timestamp,
 }) {}
 
@@ -596,6 +607,8 @@ export const ApprovalDecision = Schema.TaggedUnion({
     /** Per question, in order: the chosen labels, or the typed answer as one entry. */
     answers: Schema.optionalKey(Schema.Array(Schema.Array(Schema.String))),
   },
+  /** A Secret Request's value reached the Host; the value itself is never recorded (ADR 0089). */
+  Provided: {},
 });
 
 export type ApprovalDecision = typeof ApprovalDecision.Type;

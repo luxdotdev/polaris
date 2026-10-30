@@ -396,6 +396,51 @@ describe("pending requests", () => {
     ));
 });
 
+describe("a Secret Request", () => {
+  const secret = request({ kind: "secret", title: "Tailscale auth key", detail: "To join" });
+
+  const asking = (host: FakeHost, thread: ThreadController) =>
+    Effect.gen(function* () {
+      yield* host.push(snapshot([{ turn: working }], { state: "needs-you" }, [secret]));
+      yield* until(thread, (s) => s.fold !== null);
+    });
+
+  test("goes trimmed by secret.provide, never as a command, and leaves nothing in state", () =>
+    withThread((host, thread) =>
+      Effect.gen(function* () {
+        yield* asking(host, thread);
+        yield* Effect.promise(() => thread.provideSecret(secret.id, "  tskey-auth-k1  \n"));
+
+        expect(host.secrets).toEqual([{ requestId: secret.id, value: "tskey-auth-k1" }]);
+        expect(host.commands).toEqual([]);
+        expect(JSON.stringify(thread.get())).not.toContain("tskey-auth-k1");
+      })
+    ));
+
+  test("a refusal shows the Host's own words on the card", () =>
+    withThread((host, thread) =>
+      Effect.gen(function* () {
+        yield* asking(host, thread);
+        host.rejectNextSecret("ended", "This request already ended");
+        yield* Effect.promise(() => thread.provideSecret(secret.id, "tskey-auth-k1"));
+
+        expect(thread.get().requestErrors.get(secret.id)).toBe("This request already ended");
+        expect(thread.get().answering).toEqual([]);
+      })
+    ));
+
+  test("a value the Host would refuse is never sent, and says why", () =>
+    withThread((host, thread) =>
+      Effect.gen(function* () {
+        yield* asking(host, thread);
+        yield* Effect.promise(() => thread.provideSecret(secret.id, "line one\nline two"));
+
+        expect(host.secrets).toEqual([]);
+        expect(thread.get().requestErrors.get(secret.id)).toBe("Use a single line");
+      })
+    ));
+});
+
 describe("one submission, one command", () => {
   test("text typed after Send survives the send's acknowledgement and is saved", () =>
     withThread((host, thread) =>

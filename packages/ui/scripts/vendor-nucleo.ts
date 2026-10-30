@@ -53,7 +53,7 @@ const UI_MORE: ReadonlyArray<readonly [string, string]> = [
   ["CopyIcon", "CopyOutline18"],
 ];
 
-/** A third UI file, for the same reason: pull and push, and Settings → Voice. */
+/** A third UI file, for the same reason: pull and push, Settings → Voice, and Secret Requests. */
 const UI_SYNC: ReadonlyArray<readonly [string, string]> = [
   ["ArrowDownIcon", "ArrowDownOutline18"],
   ["SyncIcon", "RefreshOutline18"],
@@ -61,6 +61,7 @@ const UI_SYNC: ReadonlyArray<readonly [string, string]> = [
   ["PlugIcon", "Plug2Outline18"],
   ["MicrophoneIcon", "MicrophoneOutline18"],
   ["MobileIcon", "MobileOutline18"],
+  ["ShieldIcon", "ShieldOutline18"],
 ];
 
 /** A fourth UI file: the Browser's chrome in Output. */

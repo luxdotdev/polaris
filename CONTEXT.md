@@ -124,9 +124,17 @@ _Avoid_: Step, exchange
 One use of a tool by an Agent Session within a Turn: a built-in tool, an MCP server's tool, or a Skill being loaded.
 _Avoid_: Activity, step, action
 
+**Secret Request**:
+A request an Agent Session makes for a value the user types, such as an API key, kept out of the conversation and the event log; the agent receives a file path, never the value.
+_Avoid_: Credential prompt, password question
+
 **Tool Run**:
 Consecutive finished Tool Calls in a Turn, shown as one summary line that expands to each call.
 _Avoid_: Run (alone, which reads as an Agent Session), group, batch
+
+**Visualization**:
+An interactive page the agent writes during a Turn and the user uses in place in the conversation: a calculator, a flow chart, a comparison. It can't reach the network or message the agent. A later Visualization can replace it.
+_Avoid_: Artifact, widget, render, canvas
 
 **Goal**:
 A standing objective one Agent Session's Harness pursues across Turns until it is met, paused or cleared, as with Codex's and Claude Code's `/goal`.

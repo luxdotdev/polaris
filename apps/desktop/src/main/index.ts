@@ -70,6 +70,7 @@ import {
   applyDevCsp,
   isTrustedUrl,
   registerAppScheme,
+  serveFrames,
   serveRenderer,
 } from "./protocol.ts";
 import { internetFetch } from "./net.ts";
@@ -97,6 +98,7 @@ import { createAppUpdates, type AppUpdates } from "./updates/index.ts";
 import { cannotInstallHere, installId } from "./updates/identity.ts";
 import { revealAppPath, updatePlatform, windowsAppId } from "./updates/platform.ts";
 import { handleSquirrelStartup } from "./updates/squirrel.ts";
+import { frameDocuments, isFrameUrl } from "./frames.ts";
 
 if (await handleSquirrelStartup(process.platform, process.argv, process.execPath)) app.exit(0);
 
@@ -214,6 +216,8 @@ let restartForUpdate = false;
 let exiting = false;
 
 const trusted = (url: string) => isTrustedUrl(url, devUrl);
+
+const frames = frameDocuments();
 
 const start = async () => {
   // Before any request: the GitHub client, updates and prices all use the default session.
@@ -516,6 +520,7 @@ const start = async () => {
       setSessionDefault,
       setSessions,
       openExternal: (url) => shell.openExternal(url),
+      serveFrame: (document) => frames.serve(document),
       revealInFinder: (path) => shell.showItemInFolder(path),
       sshHosts: () => sshAliasNames(env),
       setWelcomeSeen: () => saveSettings({ welcomeSeen: true }),
@@ -552,9 +557,17 @@ const start = async () => {
   session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) =>
     callback(false)
   );
+  // A Visualization frame (an opaque origin) holds no permission at all, media included.
+  session.defaultSession.setPermissionCheckHandler(
+    (_wc, _permission, origin, details) =>
+      origin !== "null" && !isFrameUrl(details.requestingUrl ?? "")
+  );
 
-  if (devUrl === null) serveRenderer(join(appRoot, "out/renderer"));
-  else applyDevCsp(session.defaultSession, devUrl);
+  if (devUrl === null) serveRenderer(join(appRoot, "out/renderer"), frames);
+  else {
+    serveFrames(frames);
+    applyDevCsp(session.defaultSession, devUrl);
+  }
 
   const win = createMainWindow({
     url: devUrl ?? `${APP_ORIGIN}/index.html`,

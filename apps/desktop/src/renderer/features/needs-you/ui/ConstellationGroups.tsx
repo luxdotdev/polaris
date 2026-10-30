@@ -152,6 +152,34 @@ const Approval = ({ item, now }: ItemProps) => {
   );
 };
 
+/** A Secret Request: its label, and the session whose card takes the value (ADR 0089). */
+const Secret = ({ item, now }: ItemProps) => {
+  const { selectSession } = useShellActions();
+  const request = item.request;
+  const sessionId = item.entry?.session.id;
+  const { hostKey } = item;
+
+  if (request === undefined || sessionId === undefined || hostKey === null) return null;
+  const name = item.taskId ?? "The lead";
+
+  return (
+    <Card
+      kind={item.kind}
+      harness={item.entry?.session.harness ?? "claude"}
+      title={`${name} is asking for a secret`}
+      since={item.since}
+      now={now}
+    >
+      <Body>{request.title}</Body>
+      <Actions>
+        <Button size="xs" onClick={() => selectSession({ hostKey, sessionId })}>
+          Answer in the conversation
+        </Button>
+      </Actions>
+    </Card>
+  );
+};
+
 const AnswerField = ({ group, item, onDone }: ItemProps & { readonly onDone: () => void }) => {
   const [text, setText] = useState("");
   const { question, worker } = item;
@@ -495,9 +523,15 @@ const LeadContext = ({ group, item, now }: ItemProps) => (
 
 const Item = (props: ItemProps) =>
   Match.value(props.item.kind).pipe(
-    Match.when("worker-approval", () => <Approval {...props} />),
+    Match.when("worker-approval", () =>
+      props.item.request?.kind === "secret" ? <Secret {...props} /> : <Approval {...props} />
+    ),
     Match.when("lead", () =>
-      props.item.request?.kind === "question" ? <Question {...props} /> : <Approval {...props} />
+      Match.value(props.item.request?.kind).pipe(
+        Match.when("question", () => <Question {...props} />),
+        Match.when("secret", () => <Secret {...props} />),
+        Match.orElse(() => <Approval {...props} />)
+      )
     ),
     Match.when("question", () => <Question {...props} />),
     Match.when("claim", () => <Claim {...props} />),

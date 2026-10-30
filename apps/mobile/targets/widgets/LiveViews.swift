@@ -38,14 +38,16 @@ struct LiveStar: Shape {
   }
 }
 
-/// A working session's celestial at rest, in its Harness's hue (LiveCelestials.swift).
+/// A working session's celestial, in its Harness's hue or its own (LiveCelestials.swift).
 struct LiveCelestialView: View {
   let celestial: LiveCelestial?
 
   var body: some View {
     Canvas { context, canvas in
       let runs = liveBodies[celestial?.body ?? "ringed"] ?? liveBodies["ringed"] ?? []
-      let tones = celestial.flatMap { liveHarnessTones[$0.harness] } ?? liveNeutralTones
+      let tones =
+        celestial.flatMap { liveBodyTones[$0.body] ?? liveHarnessTones[$0.harness] }
+        ?? liveNeutralTones
       let unit = min(canvas.width, canvas.height) / 16
       for at in stride(from: 0, to: runs.count - 3, by: 4) {
         let rect = CGRect(

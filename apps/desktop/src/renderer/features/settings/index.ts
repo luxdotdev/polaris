@@ -28,4 +28,6 @@ export { ConstellationDefaultsPublisher } from "./defaultsSync.ts";
 
 export { IdleCompactionPublisher } from "./idleCompactionSync.ts";
 
+export { VisualsPublisher } from "./visualsSync.ts";
+
 export { setResourcesClient, type ResourcesClient } from "./resources.ts";

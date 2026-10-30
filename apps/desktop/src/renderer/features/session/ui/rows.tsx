@@ -46,6 +46,9 @@ import { softWrap } from "./softWrap.tsx";
 import { SessionTargetContext } from "./polarisTool/target.ts";
 import { PromptMenu, TurnMenu } from "./turnMenu.tsx";
 import { LimitCard, type UsageLimit } from "./LimitCard.tsx";
+import { SecretCard, SettledSecretCard } from "./SecretCard.tsx";
+import type { SecretOutcome } from "../model/secret.ts";
+import { provideSecret } from "../secrets.ts";
 import type { SessionChrome } from "../chrome.ts";
 
 export interface RowContext {
@@ -348,7 +351,7 @@ const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowCont
   </TurnMenu>
 );
 
-const KIND_WANTS: Record<ApprovalRequest["kind"], string> = {
+const KIND_WANTS: Record<Exclude<ApprovalRequest["kind"], "secret">, string> = {
   command: "wants to run a command",
   "file-change": "wants to change files",
   tool: "wants to use a tool",
@@ -372,7 +375,46 @@ const Question = ({ request, ctx }: { request: ApprovalRequest; ctx: RowContext 
   );
 };
 
-const Approval = ({ request, ctx }: { request: ApprovalRequest; ctx: RowContext }) => {
+/** A Secret Request: never approved, only answered with its value or declined (ADR 0089). */
+const Secret = ({
+  request,
+  settled,
+  ctx,
+}: {
+  request: ApprovalRequest;
+  settled: SecretOutcome | null;
+  ctx: RowContext;
+}) => {
+  if (settled !== null) return <SettledSecretCard request={request} outcome={settled} />;
+
+  const target = {
+    hostKey: ctx.diff.hostKey,
+    sessionId: ctx.diff.sessionId,
+    requestId: request.id,
+  };
+
+  return (
+    <SecretCard
+      key={request.id}
+      request={request}
+      who={ctx.harness === null ? "The agent" : harnessHue(ctx.harness).name}
+      onProvide={(value) => provideSecret(target, value)}
+      onDecline={() => ctx.onRespond(request, Decisions.Deny({ reason: null }))}
+    />
+  );
+};
+
+const Approval = ({
+  request,
+  settled,
+  ctx,
+}: {
+  request: ApprovalRequest;
+  settled: SecretOutcome | null;
+  ctx: RowContext;
+}) => {
+  if (request.kind === "secret") return <Secret request={request} settled={settled} ctx={ctx} />;
+
   if (request.kind === "question") return <Question request={request} ctx={ctx} />;
   const who = ctx.harness === null ? "The agent" : harnessHue(ctx.harness).name;
   const respond = (decision: ApprovalDecision) => ctx.onRespond(request, decision);
@@ -524,7 +566,7 @@ export const ConversationRow = ({ row, ctx }: { row: Row; ctx: RowContext }) => 
         />
       );
     case "approval":
-      return <Approval request={row.request} ctx={ctx} />;
+      return <Approval request={row.request} settled={row.settled} ctx={ctx} />;
     case "ending":
       return <Ending row={row} ctx={ctx} />;
   }

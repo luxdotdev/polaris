@@ -2,7 +2,13 @@ import { expect, test } from "bun:test";
 import { answerOf, PushAction } from "../push/answer.ts";
 import { Option } from "effect";
 import { applyHostItem, emptyHostFeed } from "../home/feed/fold.ts";
-import { commandApproval, session, snapshot, summary } from "../home/fixtures.testing.ts";
+import {
+  commandApproval,
+  secretRequest,
+  session,
+  snapshot,
+  summary,
+} from "../home/fixtures.testing.ts";
 import { confirmedBy, decodeLiveAnswer, liveAnswerOf } from "./answer.ts";
 
 const target = { hostId: "studio", sessionId: "s1", requestId: "r1", line: "git push" };
@@ -16,6 +22,7 @@ test.each([
   (decision, action) => {
     const notification = answerOf({
       actionIdentifier: action,
+      category: "approval",
       userInfo: [{ polaris: { kind: "needs-you", ...target } }],
     });
 
@@ -56,4 +63,25 @@ test.each([
   const answer = Option.getOrThrow(decodeLiveAnswer({ ...target, decision: "approve", ...change }));
 
   expect(confirmedBy(feed, answer)).toBe(confirmed);
+});
+
+test("a takeover's answer never decides a secret, even when its line matches", () => {
+  const withSecret = applyHostItem(
+    emptyHostFeed,
+    snapshot({
+      sessions: [
+        summary(session({ id: "s1", state: "needs-you" }), [
+          secretRequest("s1", "r1", "git push origin main", "To push"),
+        ]),
+      ],
+    })
+  );
+
+  for (const decision of ["approve", "always", "deny"] as const) {
+    const answer = Option.getOrThrow(
+      decodeLiveAnswer({ ...target, line: "git push origin main", decision })
+    );
+
+    expect(confirmedBy(withSecret, answer)).toBe(false);
+  }
 });

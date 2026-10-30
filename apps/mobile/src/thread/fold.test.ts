@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
+  ApprovalDecision,
   DomainEvent,
+  RequestId,
   Sequence,
   SessionStreamItem,
   Subagent,
@@ -8,8 +10,8 @@ import {
   SubagentId,
   TurnDetail,
 } from "@polaris/protocol";
-import { at, event, session, sessionId, snapshot, turn } from "./daemon.testing.ts";
-import { applySessionItem, type SessionFold } from "./fold.ts";
+import { at, event, request, session, sessionId, snapshot, turn } from "./daemon.testing.ts";
+import { applySessionItem, latestSecretOutcome, type SessionFold } from "./fold.ts";
 
 const helper = (id: string, status: Subagent["status"] = "working") =>
   new Subagent({
@@ -59,5 +61,65 @@ describe("subagents", () => {
       "a completed",
       "b working",
     ]);
+  });
+});
+
+describe("a Secret Request's outcome", () => {
+  const secret = request({ kind: "secret", title: "Tailscale auth key", detail: "To join" });
+  const asked = snapshot([{ turn: turn(1, { status: "working" }) }], {}, [secret]);
+
+  const resolved = (decision: ApprovalDecision) =>
+    event(
+      2,
+      DomainEvent.cases.ApprovalResolved.make({
+        sessionId,
+        requestId: secret.id,
+        decision,
+        resolvedBy: "iPhone",
+      })
+    );
+
+  const withdrawn = event(
+    2,
+    DomainEvent.cases.ApprovalWithdrawn.make({
+      sessionId,
+      requestId: secret.id,
+      withdrawnBy: "daemon",
+      reason: "timed out",
+    })
+  );
+
+  test.each([
+    ["provided", resolved(ApprovalDecision.cases.Provided.make({})), "saved"],
+    ["declined", resolved(ApprovalDecision.cases.Deny.make({ reason: null })), "declined"],
+    ["withdrawn", withdrawn, "ended"],
+  ] as const)("%s reads %p while its Turn is the latest", (_, ending, outcome) => {
+    const state = fold(asked, ending);
+
+    expect(state?.pendingApprovals).toEqual([]);
+    expect(state === null ? null : latestSecretOutcome(state)?.outcome).toBe(outcome);
+  });
+
+  test("goes once the next Turn starts, and a permission's answer never makes one", () => {
+    const next = event(3, DomainEvent.cases.TurnStarted.make({ turn: turn(2) }));
+    const later = fold(asked, withdrawn, next);
+    expect(later === null ? "none" : latestSecretOutcome(later)).toBeNull();
+
+    const permission = request({ id: RequestId.make("r-2") });
+
+    const answered = fold(
+      snapshot([{ turn: turn(1, { status: "working" }) }], {}, [permission]),
+      event(
+        2,
+        DomainEvent.cases.ApprovalResolved.make({
+          sessionId,
+          requestId: permission.id,
+          decision: ApprovalDecision.cases.Deny.make({ reason: null }),
+          resolvedBy: "iPhone",
+        })
+      )
+    );
+
+    expect(answered?.secretOutcomes).toEqual([]);
   });
 });

@@ -204,6 +204,24 @@ describe("polarisToolView", () => {
     expect(withBanner(limited, "shown")).toBe(limited);
   });
 
+  test.each([
+    [
+      "Saved. The secret is in /home/u/.polaris/secrets/sessions/s1/ab12, readable for 24 hours.",
+      "saved securely",
+    ],
+    ["The user declined.\nCarry on without it.", "declined"],
+    ["No answer in 10 minutes; the request was withdrawn.", "timed out"],
+  ])("request_secret: the label it asked for, and how it ended (%#)", (text, caption) => {
+    const view = call(
+      "mcp__polaris__request_secret",
+      '{"label":"Tailscale auth key","reason":"To join the tailnet"}',
+      { text }
+    );
+
+    expect(line(view)).toBe("Asked you for a secret Tailscale auth key");
+    expect(view.caption).toBe(caption);
+  });
+
   test("read_worker: whose Turns, each one's state and reply", () => {
     const view = call("polaris.read_worker", '{"task":"B2","turns":2}', {
       text: [

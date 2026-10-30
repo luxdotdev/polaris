@@ -6,12 +6,17 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { ApprovalDecision, SessionId, TurnId } from "@polaris/protocol";
-import { Effect, Exit, Scope, Stream } from "effect";
+import { ApprovalDecision, SessionId, TurnId, WorkspaceId } from "@polaris/protocol";
+import { VisualizeResult } from "@polaris/visualization";
+import { Effect, Exit, Schema, Scope, Stream } from "effect";
 import { removeDir, tempDir } from "../../git/testing.ts";
 import { HarnessEvent } from "../HarnessDriver.ts";
 import { makeClaudeDriver } from "./ClaudeDriver.ts";
 import { fakeAnthropic, type ToolCall } from "./fakeAnthropic.testing.ts";
+import { McpBinding } from "../../mcp/binding.ts";
+import { constellationTools } from "../../mcp/tools.ts";
+import { fakeCommands, leadBinding } from "../../mcp/testing.ts";
+import type { ConstellationAttachment } from "../constellation/attachment.ts";
 
 const enabled = process.env.POLARIS_E2E_CLAUDE_PLAN === "1";
 
@@ -25,7 +30,8 @@ afterEach(() => {
 const plan = async (
   calls: (cwd: string) => ReadonlyArray<ToolCall>,
   decide: (event: HarnessEvent) => ApprovalDecision,
-  turns = 1
+  turns = 1,
+  constellations: ReadonlyArray<ConstellationAttachment> = []
 ) => {
   const base = tempDir("polaris-e2e-plan-");
   cleanup.push(() => removeDir(base));
@@ -47,6 +53,7 @@ const plan = async (
         model: null,
         effort: null,
         resumeCursor: null,
+        constellations,
         environment: {
           ANTHROPIC_API_KEY: "sk-ant-fake",
           ANTHROPIC_BASE_URL: fake.url,
@@ -105,7 +112,48 @@ const PLAN_EXITED = "You have exited plan mode.";
 const approvals = (events: ReadonlyArray<HarnessEvent>) =>
   events.flatMap((e) => (HarnessEvent.$is("ApprovalRequested")(e) ? [e.kind] : []));
 
+/** Claude Code's record of an MCP result: its content blocks, here one JSON text. */
+const decodeOutput = Schema.decodeUnknownSync(
+  Schema.fromJsonString(
+    Schema.Tuple([Schema.Struct({ text: Schema.fromJsonString(VisualizeResult) })])
+  )
+);
+
+/** A plain session's Polaris tools, in process as Claude gets them. */
+const plainTools = (): ConstellationAttachment => {
+  const binding = McpBinding.cases.Plain.make({
+    sessionId: SessionId.make("e2e-plan"),
+    constellationId: leadBinding.constellationId,
+    workspaceId: WorkspaceId.make("workspace"),
+  });
+
+  return {
+    sessionId: binding.sessionId,
+    url: "http://127.0.0.1:1/mcp/unused",
+    instructions: "",
+    tools: constellationTools(binding, fakeCommands().commands),
+  };
+};
+
 describe.skipIf(!enabled)("plan mode in the real claude", () => {
+  test(
+    "visualize runs while planning without asking",
+    async () => {
+      const { events, outputs } = await plan(
+        () => [{ name: "mcp__polaris__visualize", input: { title: "Chart", html: "<p>1</p>" } }],
+        () => ApprovalDecision.cases.Deny.make({ reason: "Should not ask." }),
+        1,
+        [plainTools()]
+      );
+
+      expect(approvals(events)).toEqual([]);
+      const [{ text }] = decodeOutput(outputs[0]);
+      expect(text).toMatchObject({ title: "Chart", bytes: 8 });
+      expect(text.id).toMatch(/^viz_/);
+    },
+    { timeout: 180_000 }
+  );
+
   test(
     "an edit while planning asks first and, declined, writes nothing; the plan is put to the user",
     async () => {

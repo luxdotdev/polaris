@@ -11,7 +11,7 @@ describe("the composer's notice strip", () => {
   });
 
   test("working with nothing asked shows Working", () => {
-    expect(stripOf({ requests: [], working: true, harness: "Claude Code" })?.notice.kind).toBe(
+    expect(stripOf({ requests: [], working: true, harness: "Claude Code" })?.notice?.kind).toBe(
       "working"
     );
   });
@@ -42,7 +42,7 @@ describe("the composer's notice strip", () => {
       harness: "Codex",
     });
 
-    expect(strip?.notice.kind === "working" ? null : strip?.notice.request.id).toBe(
+    expect(strip?.notice?.kind === "approval" ? strip.notice.request.id : null).toBe(
       RequestId.make("early")
     );
     expect(strip?.more).toBe(2);
@@ -76,5 +76,38 @@ describe("the composer's notice strip", () => {
       detail: "$ cat ⟨U+202E⟩gnp.exe",
       compact: false,
     });
+  });
+});
+
+describe("a Secret Request in the strip", () => {
+  const secret = request({ kind: "secret", title: "Tailscale auth key", detail: "To join" });
+
+  test("is its own card, never an approval with Approve", () => {
+    const strip = stripOf({ requests: [secret], working: true, harness: "Codex" });
+
+    expect(strip?.notice).toMatchObject({ kind: "secret", headline: "Codex asks for a secret" });
+  });
+
+  test("once it ends, says how above Working, and alone once the Turn rests", () => {
+    const settled = { request: secret, outcome: "saved" as const };
+
+    expect(stripOf({ requests: [], working: true, harness: "Codex", settled })).toMatchObject({
+      notice: { kind: "working" },
+      settled,
+    });
+    expect(stripOf({ requests: [], working: false, harness: "Codex", settled })).toEqual({
+      notice: null,
+      more: 0,
+      settled,
+    });
+  });
+
+  test("an outcome gives way to a new request", () => {
+    const settled = { request: secret, outcome: "declined" as const };
+    const next = request({ id: RequestId.make("r-2"), detail: "ls" });
+
+    expect(stripOf({ requests: [next], working: false, harness: "Codex", settled })?.settled).toBe(
+      null
+    );
   });
 });

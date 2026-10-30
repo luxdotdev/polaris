@@ -238,6 +238,8 @@ describe("walkthrough persistence and controls", () => {
 
           return { sequence: null };
         }),
+      requestSecret: () => Effect.die("unused"),
+      provideSecret: () => Effect.die("unused"),
       subscribeHost: () => Stream.empty,
       subscribeSession: () => Stream.empty,
       readTurnPage: () => Effect.die("unused"),

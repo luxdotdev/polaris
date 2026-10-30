@@ -7,6 +7,7 @@ import { fileKey } from "../model/drafts.ts";
 import { editorLanguageQueries } from "../runtime/app.ts";
 import { getActiveEditor } from "../runtime/hooks.ts";
 import { LANGUAGE_NAVIGATION, type NavigationAction, shortcutOf } from "./commands.ts";
+import { editorPlaces } from "./places.ts";
 import { runNavigation } from "./run.ts";
 
 const activeKey = () => {
@@ -17,9 +18,9 @@ const activeKey = () => {
 
 /** Back and Forward run only with somewhere to go, so ⌃o/⌃i fall back to vim's own jumps. */
 const canRun = (action: NavigationAction) => {
-  if (action === "back") return editorLanguageQueries?.canGoBack() ?? false;
+  if (action === "back") return editorPlaces.canGoBack();
 
-  if (action === "forward") return editorLanguageQueries?.canGoForward() ?? false;
+  if (action === "forward") return editorPlaces.canGoForward();
 
   return true;
 };

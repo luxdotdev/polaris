@@ -13,8 +13,9 @@ import {
   TurnItem,
 } from "@polaris/protocol";
 import { sessionId, snapshot, turn } from "./daemon.testing.ts";
+import { visualsLive, visualsTurns } from "../visualization/gallery.testing.ts";
 
-export type Dataset = "demo" | "worst" | "one" | "empty" | "started";
+export type Dataset = "demo" | "worst" | "one" | "empty" | "started" | "visuals";
 
 export interface GalleryData {
   readonly session: Partial<AgentSession>;
@@ -338,6 +339,12 @@ export const DATASETS: Readonly<Record<Dataset, () => GalleryData>> = {
   one: () => ONE,
   empty: () => EMPTY,
   started: STARTED,
+  visuals: () => ({
+    session: { title: "Loan options and the release flow", state: "working" },
+    workspaceName: "polaris",
+    turns: visualsTurns(),
+    live: visualsLive(),
+  }),
 };
 
 /** The dataset's Snapshot, as the Host sends it first. */

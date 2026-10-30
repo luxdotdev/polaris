@@ -3,14 +3,14 @@
  * `color-mix(in oklab, hue N%, white|black)`, computed here because React Native has no color-mix.
  */
 import { type HarnessKind, harnessEntry } from "@polaris/protocol";
-import type { Tone } from "@polaris/ui/celestial";
+import { CELESTIAL_LASER, type Tone } from "@polaris/ui/celestial";
 import type { MobileColours } from "../theme/appearance.ts";
 
 export type CelestialPalette = Readonly<Record<Tone, string>>;
 
-/** celestial.css's mixes: the hue's share, and what makes up the rest. */
+/** celestial.css's mixes: the hue's share, and what makes up the rest. The laser is fixed. */
 export const TONE_MIX: Readonly<
-  Record<Tone, { readonly hue: number; readonly with: "white" | "black" }>
+  Record<Exclude<Tone, "laser">, { readonly hue: number; readonly with: "white" | "black" }>
 > = {
   light: { hue: 0.62, with: "white" },
   hue: { hue: 1, with: "white" },
@@ -75,13 +75,13 @@ export const mixOklab = (a: string, share: number, b: string): string => {
 
 const palettes = new Map<string, CelestialPalette>();
 
-/** The four tones of a hue (`#rrggbb`), cached per hue. */
+/** The tones of a hue, and the laser's fixed green (`#rrggbb`), cached per hue. */
 export const celestialPalette = (hue: string): CelestialPalette => {
   const hit = palettes.get(hue);
 
   if (hit !== undefined) return hit;
 
-  const mix = (tone: Tone) => {
+  const mix = (tone: Exclude<Tone, "laser">) => {
     const { hue: share, with: other } = TONE_MIX[tone];
 
     return share === 1 ? hue : mixOklab(hue, share, other === "white" ? "#ffffff" : "#000000");
@@ -92,6 +92,7 @@ export const celestialPalette = (hue: string): CelestialPalette => {
     hue: mix("hue"),
     shade: mix("shade"),
     glint: mix("glint"),
+    laser: CELESTIAL_LASER,
   };
 
   palettes.set(hue, palette);

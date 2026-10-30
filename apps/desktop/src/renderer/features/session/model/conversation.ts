@@ -16,7 +16,7 @@ import type {
   WorktreeSetupRun,
 } from "@polaris/protocol";
 import { Predicate } from "effect";
-import type { TurnView } from "../../../store/sessionModel.ts";
+import type { SecretOutcome, SettledSecret, TurnView } from "../../../store/sessionModel.ts";
 import { isWaiting, type Waiting } from "./background.ts";
 import { formatElapsed, plural } from "./format.ts";
 import { quietOpening } from "./idleCompaction.ts";
@@ -126,7 +126,13 @@ export type Row =
       /** When a single item started (ISO); null for runs, Subagents, or no stamp. */
       readonly startedAt: string | null;
     }
-  | { readonly kind: "approval"; readonly key: string; readonly request: ApprovalRequest }
+  | {
+      readonly kind: "approval";
+      readonly key: string;
+      readonly request: ApprovalRequest;
+      /** A Secret Request that ended while shown: how, so its card says so; else null. */
+      readonly settled: SecretOutcome | null;
+    }
   /** A steer or queued follow-up that hasn't landed yet (`outbox.ts`). */
   | { readonly kind: "outgoing"; readonly key: string; readonly entry: Outgoing }
   /** An Idle session's background tasks still running: what it waits on. */
@@ -289,6 +295,8 @@ export const latestTurnOpen = (turns: ReadonlyArray<TurnView>, folds: Folds): bo
 export interface ConversationInput {
   readonly turns: ReadonlyArray<TurnView>;
   readonly approvals: ReadonlyArray<ApprovalRequest>;
+  /** Secret Requests settled while this feed was open; their cards stay where they asked. */
+  readonly settledSecrets?: ReadonlyArray<SettledSecret>;
   /** Which Turns are open; default: only the last. */
   readonly folds?: Folds;
   /** Steers and follow-ups not landed yet; they close the list. */
@@ -298,16 +306,18 @@ export interface ConversationInput {
   readonly waiting?: Waiting | null;
 }
 
-const approvalRow = (request: ApprovalRequest): Row => ({
+const approvalRow = (request: ApprovalRequest, settled: SecretOutcome | null = null): Row => ({
   kind: "approval",
   key: `approval:${request.id}`,
   request,
+  settled,
 });
 
 /** Every row, in order; pending approvals follow the Turn that asked, or close the list. */
 export const conversationRows = ({
   turns,
   approvals,
+  settledSecrets = [],
   folds = noFolds,
   outbox = [],
   setup = null,
@@ -324,6 +334,9 @@ export const conversationRows = ({
   groups.forEach((group, n) => {
     rows.push(...groupRows(group, open[n] ?? true, n === lastGroup, lastTurnId, titles));
     const ids = new Set(group.views.map((v) => v.turn.id));
+
+    for (const { request, outcome } of settledSecrets)
+      if (ids.has(request.turnId)) rows.push(approvalRow(request, outcome));
 
     for (const request of approvals) {
       if (!ids.has(request.turnId)) continue;

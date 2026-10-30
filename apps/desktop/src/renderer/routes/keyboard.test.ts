@@ -31,6 +31,10 @@ const setup = (platform: KeyPlatform = "mac") => {
     openFolder: noop,
     closeFolder: noop,
     startNewSessionIn: noop,
+    back: noop,
+    forward: noop,
+    canGoBack: () => false,
+    canGoForward: () => false,
   };
 
   const registry = createCommandRegistry({ platform });

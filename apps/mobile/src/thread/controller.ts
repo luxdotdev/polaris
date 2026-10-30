@@ -25,7 +25,7 @@ import {
   type Workspace,
   type WorkspaceId,
 } from "@polaris/protocol";
-import { Effect, Exit, Fiber, Predicate, Stream } from "effect";
+import { Effect, Exit, Fiber, Predicate, Result, Stream } from "effect";
 import {
   composerMode,
   type FollowUp,
@@ -43,6 +43,7 @@ import {
   pendingSend,
   settleSends,
 } from "./sends.ts";
+import { secretValue } from "./secret.ts";
 import { newCommandId, type ThreadFailure, type ThreadSource } from "./source.ts";
 import type { TurnDetail } from "@polaris/protocol";
 
@@ -88,6 +89,8 @@ export interface ThreadController {
   readonly interrupt: () => Promise<void>;
   /** Answers a pending request; a second tap while the first is on its way does nothing. */
   readonly respond: (requestId: RequestId, decision: ApprovalDecision) => Promise<void>;
+  /** Sends a Secret Request's value by `secret.provide`, trimmed; the value is never kept. */
+  readonly provideSecret: (requestId: RequestId, typed: string) => Promise<void>;
   /** Queued follow-ups or a command still on its way: the thread outlives its screen. */
   readonly busy: () => boolean;
   /** The Host's connection came back: drafts that failed to save are written again. */
@@ -447,6 +450,18 @@ export const openThread = (
     if (error !== null) set({ error });
   };
 
+  /** Marks the request answering until `sending` settles, then records why it failed, if it did. */
+  const answering = async (requestId: RequestId, sending: Promise<string | null>) => {
+    const errors = new Map(state.requestErrors);
+    errors.delete(requestId);
+    set({ answering: [...state.answering, requestId], requestErrors: errors });
+    const error = await sending;
+    const after = new Map(state.requestErrors);
+
+    if (error !== null) after.set(requestId, error);
+    set({ answering: state.answering.filter((id) => id !== requestId), requestErrors: after });
+  };
+
   const respond = async (requestId: RequestId, decision: ApprovalDecision) => {
     const slot = `request:${requestId}`;
     const first = !inFlight.has(slot);
@@ -457,14 +472,27 @@ export const openThread = (
     );
 
     if (!first) return void (await sending);
-    const errors = new Map(state.requestErrors);
-    errors.delete(requestId);
-    set({ answering: [...state.answering, requestId], requestErrors: errors });
-    const error = await sending;
-    const after = new Map(state.requestErrors);
+    await answering(requestId, sending);
+  };
 
-    if (error !== null) after.set(requestId, error);
-    set({ answering: state.answering.filter((id) => id !== requestId), requestErrors: after });
+  const provideSecret = async (requestId: RequestId, typed: string) => {
+    if (state.answering.includes(requestId)) return;
+    const value = secretValue(typed);
+
+    if (Result.isFailure(value))
+      return set({ requestErrors: new Map(state.requestErrors).set(requestId, value.failure) });
+
+    const sending = Effect.runPromise(
+      source.provideSecret(sessionId, requestId, value.success).pipe(
+        Effect.match({
+          onSuccess: () => null,
+          onFailure: (error) =>
+            error.ambiguous === true ? lostAnswer(options.hostName) : error.message,
+        })
+      )
+    );
+
+    await answering(requestId, sending);
   };
 
   const loadOlder = () => {
@@ -524,6 +552,7 @@ export const openThread = (
     sendAgain,
     interrupt,
     respond,
+    provideSecret,
     busy: () =>
       followingUp ||
       state.queued.length > 0 ||
