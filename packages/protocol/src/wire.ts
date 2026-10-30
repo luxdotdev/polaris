@@ -121,6 +121,12 @@ export interface TakeStreamOptions {
    * while, such as a terminal's output.
    */
   readonly idleTimeout?: boolean;
+  /**
+   * A byte stream's blob (ADR 0093): no idle timeout, and no `maxBlobBytes` on what it has
+   * carried in total; its sender's credit window bounds what is unread. Only the connection's
+   * `maxBufferedBlobBytes` still applies.
+   */
+  readonly longLived?: boolean;
 }
 
 /** Frames buffered per outgoing stream-sourced blob before its source is paused. */
@@ -143,6 +149,7 @@ interface InBlob {
   status: "receiving" | "complete" | "failed";
   claimed: false | "whole" | "stream";
   idleTimeout: boolean;
+  longLived: boolean;
   touched: number;
   failure: BlobError | null;
   /** A streaming consumer waiting for the next chunk. */
@@ -369,6 +376,7 @@ export const makeWire = Effect.fnUntraced(function* (
         status: "receiving",
         claimed: false,
         idleTimeout: true,
+        longLived: false,
         touched: Date.now(),
         failure: null,
         wake: null,
@@ -412,7 +420,7 @@ export const makeWire = Effect.fnUntraced(function* (
     const length = frame.bytes.byteLength;
 
     if (length > 0) {
-      if (blob.received + length > maxBlobBytes)
+      if (!blob.longLived && blob.received + length > maxBlobBytes)
         return failBlob(frame.blobId, blob, "too-large", `blob exceeds ${maxBlobBytes} bytes`);
 
       if (bufferedBytes + length > maxBuffered)
@@ -507,7 +515,8 @@ export const makeWire = Effect.fnUntraced(function* (
       if (isClosed && blob.status === "receiving")
         failBlob(blobId, blob, "closed", "connection closed before the blob arrived");
       blob.claimed = "stream";
-      blob.idleTimeout = takeOptions.idleTimeout ?? true;
+      blob.longLived = takeOptions.longLived ?? false;
+      blob.idleTimeout = !blob.longLived && (takeOptions.idleTimeout ?? true);
       blob.touched = Date.now();
 
       const pull = Effect.callback<

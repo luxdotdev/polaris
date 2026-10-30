@@ -288,6 +288,43 @@ describe("wire", () => {
     expect(result.stats.bufferedBlobBytes).toBe(0);
   });
 
+  test("a long-lived blob stream carries more than maxBlobBytes in total and never idles out", async () => {
+    const result = await run(
+      Effect.gen(function* () {
+        const { a, b } = yield* makePair();
+        const wa = yield* makeWire(a, () => Effect.void);
+
+        const wb = yield* makeWire(b, () => Effect.void, {
+          maxBlobBytes: 1024,
+          blobIdleTimeoutMs: 100,
+        });
+
+        // 4 KiB in total through a 1 KiB limit, with a pause past the idle timeout in the middle.
+        const source = Stream.concat(
+          Stream.fromIterable(Array.from({ length: 2 }, () => bytes(1024))),
+          Stream.fromEffect(Effect.as(Effect.sleep(300), bytes(2048)))
+        );
+
+        const tunnel = yield* wa.offerBlob(source);
+
+        const carried = yield* wb.takeBlobStream(tunnel, { longLived: true }).pipe(
+          Stream.runFold(
+            () => 0,
+            (n, chunk) => n + chunk.byteLength
+          )
+        );
+
+        // The same source as an ordinary stream take still fails the limit.
+        const ordinary = yield* wa.offerBlob(Stream.fromIterable([bytes(1024), bytes(1024)]));
+        const limited = yield* Effect.flip(Stream.runDrain(wb.takeBlobStream(ordinary)));
+
+        return { carried, limited: limited.reason };
+      })
+    );
+
+    expect(result).toEqual({ carried: 4096, limited: "too-large" });
+  });
+
   test("closed fails on malformed input", async () => {
     const err = await run(
       Effect.gen(function* () {

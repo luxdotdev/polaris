@@ -10,7 +10,7 @@
 import { EventEmitter } from "node:events";
 import { type ByteTransport, readEvents, writeEvents } from "@polaris/protocol";
 import type { Socket, SocketHandler } from "bun";
-import { Effect } from "effect";
+import { Effect, type Scope } from "effect";
 
 type Callback = (error?: Error | null) => void;
 
@@ -141,3 +141,52 @@ export const socketHandlers = (
   onConnection: (transport: ByteTransport) => void
 ): SocketHandler<BunSocketStream | undefined> =>
   streamHandlers((stream) => onConnection(toTransport(stream)));
+
+/** How a loopback connect failed, in `HostAddressFailure`'s terms. */
+export type ConnectFailureKind = "refused" | "unreachable" | "timeout";
+
+export class LoopbackConnectError extends Error {
+  constructor(
+    readonly kind: ConnectFailureKind,
+    message: string
+  ) {
+    super(message);
+  }
+}
+
+const connectFailureKind = (error: Error): ConnectFailureKind => {
+  // SAFETY: a socket connect error is a Node ErrnoException; its `code` is the errno name or undefined.
+  const code = (error as NodeJS.ErrnoException).code ?? "";
+
+  if (code === "ECONNREFUSED") return "refused";
+
+  if (code === "ETIMEDOUT" || error.message.toLowerCase().includes("timed out")) return "timeout";
+
+  return "unreachable";
+};
+
+/**
+ * A TCP connection to `address:port` as a ByteTransport, closed with the scope. `address` is a
+ * loopback literal the caller already validated; nothing here resolves a name.
+ */
+export const connectTcp = (
+  address: string,
+  port: number
+): Effect.Effect<ByteTransport, LoopbackConnectError, Scope.Scope> =>
+  Effect.acquireRelease(
+    Effect.callback<BunSocketStream, LoopbackConnectError>((resume) => {
+      void Bun.connect<BunSocketStream | undefined>({
+        hostname: address,
+        port,
+        socket: {
+          ...streamHandlers((stream) => resume(Effect.succeed(stream))),
+          connectError(_socket, error) {
+            resume(Effect.fail(new LoopbackConnectError(connectFailureKind(error), error.message)));
+          },
+        },
+      }).catch(() => {
+        // `connectError` already settled the callback; the rejection is the same failure.
+      });
+    }),
+    (stream) => Effect.sync(() => stream.end())
+  ).pipe(Effect.map(toTransport));
