@@ -10,15 +10,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HORIZON_HEIGHT } from "../horizon/index.tsx";
 import { RIDGE_TOP } from "../horizon/scene.ts";
 import { useRelay } from "../relay/RelayProvider.tsx";
+import { CHROME_TEXT_SCALE } from "../theme/textScale.ts";
 import { themedStyles } from "../theme/index.ts";
-import { starLight } from "./model.ts";
-import {
-  type LinkingState,
-  PAIRING_COPY,
-  ScanSheetView,
-  scanSheetHeight,
-  useLinking,
-} from "./ScanSheet.tsx";
+import { scanSheetHeight, starLight } from "./model.ts";
+import { type LinkingState, PAIRING_COPY, ScanSheetView, useLinking } from "./ScanSheet.tsx";
 import { Sky } from "./Sky.tsx";
 import { STAR_SIZE } from "./Star.tsx";
 
@@ -52,13 +47,14 @@ export const Pairing = ({ linking, onCancel }: PairingProps) => {
   const [headingBottom, setHeadingBottom] = useState(0);
   const titled = onCancel !== undefined;
   const { step } = linking;
+  const [lift, setLift] = useState(() => scanSheetHeight(step, titled));
 
   return (
     <View style={styles.screen}>
       <Sky
         light={starLight(step)}
         starTop={starTopFor(height, headingBottom, titled)}
-        lift={scanSheetHeight(step, titled)}
+        lift={lift}
         hosts={step.kind === "linked" ? step.hosts : undefined}
       />
       <View
@@ -67,14 +63,24 @@ export const Pairing = ({ linking, onCancel }: PairingProps) => {
           setHeadingBottom(nativeEvent.layout.y + nativeEvent.layout.height)
         }
       >
-        <Text style={styles.title} accessibilityRole="header">
+        <Text
+          maxFontSizeMultiplier={CHROME_TEXT_SCALE}
+          style={styles.title}
+          accessibilityRole="header"
+        >
           Link this iPhone
         </Text>
-        <Text style={styles.lead}>
+        <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.lead}>
           Your agent sessions run on your Mac. Link it to follow them and answer from here.
         </Text>
       </View>
-      <ScanSheetView open {...PAIRING_COPY} onClose={onCancel} linking={linking} />
+      <ScanSheetView
+        open
+        {...PAIRING_COPY}
+        onClose={onCancel}
+        linking={linking}
+        onHeight={setLift}
+      />
     </View>
   );
 };

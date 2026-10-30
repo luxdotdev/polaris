@@ -86,3 +86,36 @@ export const hostsLine = (count: number, hostName: string): string =>
 
 /** How long "Linked this iPhone" stays before the app moves on by itself (MX-AL, no button). */
 export const LINKED_DWELL_MS = 1600;
+
+/** Each step's height (MX-AH, MX-AK, MX-AL, MX-AM); a titled sheet adds its header. */
+const HEIGHTS: Readonly<Record<LinkStep["kind"], number>> = {
+  scan: 430,
+  paste: 430,
+  linking: 152,
+  linked: 152,
+  failed: 268,
+};
+
+const HEADER_HEIGHT = 52;
+
+/** The sheet's height at `step`: the horizon behind the pairing sheet rests on it. */
+export const scanSheetHeight = (step: LinkStep, titled: boolean): number =>
+  HEIGHTS[step.kind] + (titled ? HEADER_HEIGHT : 0);
+
+/** The sheet frame around the body: its top padding, grabber row and gap (`sheet/frame.tsx`). */
+const FRAME_TOP = 8 + 9 + 10;
+
+/**
+ * The step's height, grown to fit a body taller than its artboard (a long failure, Dynamic Type),
+ * so the last button is never cut off; `body` is 0 until it has been measured.
+ */
+export const fittedSheetHeight = (
+  step: LinkStep,
+  titled: boolean,
+  body: number,
+  bottomInset: number
+): number =>
+  Math.max(
+    scanSheetHeight(step, titled),
+    Math.ceil(FRAME_TOP + (titled ? HEADER_HEIGHT : 0) + body + Math.max(bottomInset, 16))
+  );

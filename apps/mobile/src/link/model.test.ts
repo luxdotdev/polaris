@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
+  fittedSheetHeight,
+  scanSheetHeight,
   advance,
   type LinkEvent,
   type LinkStep,
@@ -93,5 +95,22 @@ describe("starLight", () => {
     [failed, "dim"],
   ])("%o lights the star %s", (step, light) => {
     expect(starLight(step)).toBe(light);
+  });
+});
+
+describe("fittedSheetHeight", () => {
+  test("keeps each step's artboard height until its body outgrows it", () => {
+    expect(fittedSheetHeight({ kind: "scan" }, false, 0, 34)).toBe(
+      scanSheetHeight({ kind: "scan" }, false)
+    );
+    expect(fittedSheetHeight(failed, false, 120, 34)).toBe(scanSheetHeight(failed, false));
+  });
+
+  test("grows past the artboard by what the body needs, so the last button isn't cut off", () => {
+    const tall = fittedSheetHeight(failed, false, 300, 34);
+
+    expect(tall).toBeGreaterThan(scanSheetHeight(failed, false));
+    expect(fittedSheetHeight(failed, false, 400, 34) - tall).toBe(100);
+    expect(fittedSheetHeight(failed, true, 300, 34)).toBeGreaterThan(tall);
   });
 });

@@ -8,6 +8,7 @@ import { Animated, Easing, StyleSheet, Text, useWindowDimensions, View } from "r
 import Svg, { Path, Rect } from "react-native-svg";
 import { Horizon, HORIZON_HEIGHT } from "../horizon/index.tsx";
 import { PALETTES } from "../horizon/scene.ts";
+import { CHROME_TEXT_SCALE } from "../theme/textScale.ts";
 import { themedStyles, useReducedMotion, useTheme } from "../theme/index.ts";
 import type { StarLight } from "./model.ts";
 import { Star } from "./Star.tsx";
@@ -74,7 +75,7 @@ const Machine = ({ name, mac }: { readonly name: string; readonly mac: boolean }
 
   return (
     <View style={styles.machine}>
-      <Text style={styles.machineLabel} numberOfLines={1}>
+      <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.machineLabel} numberOfLines={1}>
         {name}
       </Text>
       <Svg width={art.width} height={art.height} viewBox={art.viewBox}>
