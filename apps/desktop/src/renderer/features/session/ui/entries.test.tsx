@@ -85,3 +85,40 @@ test("a working Subagent's hover fill covers its activity line, not only the hea
   expect(filled?.contains(header)).toBe(true);
   expect(header.className).not.toMatch(/hover:bg-/);
 });
+
+test("a finished Subagent's report stays folded until its card opens", () => {
+  const subagent = new Subagent({
+    id: SubagentId.make("toolu_report"),
+    sessionId: SessionId.make("s1"),
+    turnId: TurnId.make("t1"),
+    parentItemId: "toolu_report",
+    title: "Explore the visualize tool",
+    agent: "Explore",
+    model: null,
+    status: "completed",
+    startedAt: "2026-10-01T00:00:00.000Z",
+    endedAt: "2026-10-01T00:01:00.000Z",
+  });
+
+  const { getByRole, queryByTestId } = render(
+    <EntryView
+      entry={{
+        kind: "subagent",
+        card: {
+          id: "toolu_report",
+          subagent,
+          task: null,
+          entries: [],
+          report: "The visualize tool takes a title and html.",
+          activity: null,
+        },
+      }}
+      ctx={{ hue: "claude", onOpenDiff: () => {} }}
+    />
+  );
+
+  expect(queryByTestId("subagent-report")).toBeNull();
+
+  fireEvent.click(getByRole("button", { name: /Explore the visualize tool/ }));
+  expect(queryByTestId("subagent-report")?.textContent).toContain("takes a title and html");
+});

@@ -1,8 +1,8 @@
 /**
  * An agent row's content (`model/runs.ts`): one item, a folded tool run that
- * opens to its calls, or a Subagent where the Turn spawned it. A Subagent
- * shows what it is doing while it works and its final report once done; it
- * opens to its task and its own transcript, grouped the same way.
+ * opens to its calls, or a Subagent where the Turn spawned it. A Subagent is
+ * one row showing what it is doing while it works; it opens to its task, its
+ * own transcript, grouped the same way, and its final report.
  */
 import { CheckIcon, ChevronDownIcon, ChevronRightIcon, cn, PixelFailedIcon } from "@polaris/ui";
 import { useState } from "react";
@@ -208,9 +208,9 @@ const Subagent = ({ card, ctx }: { card: SubagentCard; ctx: Context }) => {
           data-testid="subagent-transcript"
         >
           <SubagentTranscript card={card} ctx={ctx} />
+          <SubagentReport card={card} className="border-hairline mt-1.5 border-t pt-2" />
         </div>
       ) : null}
-      <SubagentReport card={card} className="border-hairline border-t px-3 py-2" />
     </div>
   );
 };
