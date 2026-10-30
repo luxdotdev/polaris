@@ -53,7 +53,7 @@ try {
   daemon = await startDaemon({ home: profile, benchHarness: true });
   app = await electron.launch({
     executablePath: stockElectronBinary(),
-    args: [APP_DIR],
+    args: ["--use-mock-keychain", APP_DIR],
     env: {
       ...process.env,
       POLARIS_DESKTOP_LOCAL_SOCKET: daemon.socketPath,
