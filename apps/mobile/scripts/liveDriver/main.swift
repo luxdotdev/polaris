@@ -45,6 +45,30 @@ let unreadable = LiveSummary(slices: [
   nil,
 ])
 
+// break-ui: six hosts (MAX_LIVE_HOSTS), long titles, a long command, long host names.
+let longTitle = "Migrate the billing reconciliation worker to the new ledger API and backfill Q3 2026"
+let longCommand =
+  "cd /Users/aleksandra.wisniewska-kowalczyk/Developer/northwind && bun run backfill --quarter 2026-Q3 --dry-run=false --timeout 600000"
+let longHost = "aleksandra-wisniewska-kowalczyk-macbook-pro-16-northwind"
+
+let worst = LiveSummary(slices: [
+  slice(longHost, working: 12, step: step(longTitle, longCommand), celestials: ["claude/tilted-ring", "codex/twin-ring", "claude/banded"]),
+  slice("build-farm-ubuntu-24-04-arm64-07", working: 3, step: step("A", "Bash: bun test"), celestials: ["codex/storm"]),
+  slice("東京-render-farm-01", working: 1, step: nil, celestials: ["claude/banded"]),
+  slice("Jo", working: 0, step: nil, celestials: []),
+  slice("ci-runner-ephemeral-3f9c2a1b", working: 0, step: nil, celestials: []),
+  slice("gpu-box", working: 1, step: nil, celestials: ["codex/twin-ring"]),
+])
+
+let worstTakeover = LiveSummary(slices: [
+  slice(
+    longHost, working: 12, step: step(longTitle, longCommand),
+    need: LiveNeed(
+      at: now - 60, sessionId: "s2", session: longTitle, line: longCommand, harness: "Claude Code",
+      requestId: "r1", kind: "approval"),
+    celestials: ["claude/tilted-ring"]),
+] + Array(repeating: slice("gpu-box", working: 1, step: nil, celestials: []), count: 5))
+
 /// The lock screen's card at the iPhone 17 Pro's width, on its wallpaper's night.
 struct LockCard<Content: View>: View {
   let palette: ThemePalette
@@ -97,7 +121,22 @@ func main() {
     render("lock-question-\(theme)", LockCard(palette: palette) { LiveLockScreen(summary: question, palette: palette) })
     render(
       "lock-unreadable-\(theme)", LockCard(palette: palette) { LiveLockScreen(summary: unreadable, palette: palette) })
+    render("lock-worst-\(theme)", LockCard(palette: palette) { LiveLockScreen(summary: worst, palette: palette) })
+    render(
+      "lock-takeover-worst-\(theme)",
+      LockCard(palette: palette) { LiveLockScreen(summary: worstTakeover, palette: palette) })
   }
+  render(
+    "island-compact-worst",
+    HStack {
+      LiveCompactLeading(summary: worstTakeover)
+      Spacer()
+      LiveCompactTrailing(summary: worstTakeover)
+    }
+    .padding(.horizontal, 14).frame(width: 230, height: 37)
+    .background(Color.black, in: Capsule()).padding(12).background(Color(red: 0.02, green: 0.03, blue: 0.09)))
+  render("island-expanded-worst", Island(radius: 44, width: 371) { LiveIslandExpanded(summary: worst) })
+  render("island-takeover-worst", Island(radius: 44, width: 371) { LiveIslandExpanded(summary: worstTakeover) })
   render(
     "island-compact",
     HStack {
