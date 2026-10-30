@@ -15,6 +15,7 @@ colors:
   panel-dark: "#1A1B1D"
   raised-dark: "#26272B"
   well-dark: "#222327"
+  raised-control-dark: "#26272B" # the selected nav item and closed selects; Midnight's is #1C1D21
   text-strong-dark: "#F4F5F7"
   text-default-dark: "#E3E4E8"
   text-subtle-dark: "#9A9CA4"
@@ -31,6 +32,7 @@ colors:
   panel-light: "#FFFFFF"
   raised-light: "#FFFFFF"
   well-light: "#F6F7F9"
+  raised-control-light: "#FFFFFF"
   text-strong-light: "#17181A"
   text-default-light: "#333438"
   text-subtle-light: "#66686F"   # 5.0:1 on surface-sunken, 4.8:1 on fill-selected
@@ -103,7 +105,7 @@ colors:
   harness-claude-code-light: "#C4562F"
   harness-codex: "#6FCBA0"
   harness-codex-light: "#1E8A5C"
-  harness-opencode: "#E58FA8"   # provisional, rose; becomes #E59AC1 when ENG-573 is built
+  harness-opencode: "#E59AC1"   # pink (ENG-573)
   harness-opencode-light: "#B8466A"
   # Harness text in light mode (Working strip, picker chip, the Editor's agent flag); dark text uses the hue itself.
   harness-claude-code-text-light: "#AC4824"
@@ -406,6 +408,7 @@ Accepted 2026-10-29, not built (ENG-564, the owner's picks after directions HS-A
 Accepted 2026-10-29, not built (ENG-573, the owner's picks). Paper "Settings redesign": **SR-Kit** (the parts, Moonlit), one Moonlit artboard per page (**SR-01** to **SR-12**), **SR-08 · Reach flow · motion spec**, and the Midnight variants **SR-01M** (Sessions) and **SR-05M** (Usage). SR-07b (extensions by extension) and SR-08a (device cards) are the options not taken. Every page but Appearance and Hosts (ENG-564) follows this section; where it and Settings (S1 to S7) or "Settings (Phase 3, X-J)" disagree, this section wins, and their states, copy and flows stand otherwise.
 
 - **The page.** Settings keeps the chrome of HS-D: title bar, the settings nav (General, Agents, Machines, Review; About at the sky foot) and the sky. A page is a header (22px Semibold title, one-line blurb in `text-subtle`, a scope pill on the right: "This Mac", "Each host", "All relay hosts", "Saved on each host"), then instrument cards in an ~860px column, stacked or two-up. Below ~760px the two-up cards fall to one column. Prose is one line; a number that changes over time is a chart, not a figure.
+- **The kit in code.** SR-Kit's parts are `@polaris/ui`'s Settings kit (`packages/ui/src/components/polaris/settings`, its README lists each part), shown in the gallery at `?only=settings`.
 - **Cards (SR-Kit 02).** HS-D's instrument card: a header with a title and one aside (a summary, "4 of 5 notifications on", or one control), inset wells of rows (13/18 title, 12/16 caption), and a footer with a mono status line and at most one action. Per-host settings are rows led by the host's colour square; an offline host dims to 55% with a dashed "Not connected" in place of its control. Workspace overrides sit as rows under the default they override, with "Default · …" as their first choice. Destructive actions confirm in place (SR-Kit 05): the row takes a faint `failed` tint, its caption becomes the consequence, Cancel holds focus, and the danger button names its object.
 - **rule/buttons-where-you-click:** anything the user is expected to click is a real button (28px pill: primary, secondary fill, or a ghost with a hairline so it reads as a button), never coloured or quiet text. That covers card footers ("Add a workspace…", "Show all 11", "Pair an extension", "Check now"), row actions (Revoke, Unlink, Replace, Unhide) and links to another page ("Open hosts", "Hosts…", "Edit overrides"). Quiet text actions remain only for a secondary action beside a more important one (Reset under a list) and for items inside an overflow menu.
 - **Selects.** A closed select in a narrow card may show a short label ("Branch from default"); its menu always shows the full wording.
@@ -422,8 +425,8 @@ Accepted 2026-10-29, not built (ENG-573, the owner's picks). Paper "Settings red
 - **SR-10 Reviewer.** The automatic choice drawn as its chain (Claude Code · Opus 5.5 high, else Codex · GPT-6.1-Sol, else rules only), readiness per host, Walkthrough and the overrides footer; When it runs beside What it checks against; the Usage line under them.
 - **SR-11 GitHub accounts.** Accounts (Default badge, ⋯ menu, signed-out state with Sign in again, primary Add account), Account per owner as a table with "Choose account" dashed until set, then Enterprise.
 - **SR-12 About.** The mark, "Polaris {version}" read from the running app (never hard-coded) and the platform line; Updates (the ready state with Restart to update, the automatic check switch, Check now); What Polaris sends; Daemons on your hosts.
-- **Midnight (SR-01M, SR-05M).** Midnight's ground, panels, raised `#141518`, wells `#0E0F12` and 8% hairline, plus a new token, **`raised-control` `#1C1D21`** (added with the build), for the selected nav item and closed selects, which disappear at `#141518` on black. The sky is a new moon.
-- **OpenCode's hue.** `harness-opencode` settles as pink `#E59AC1`, beside Claude Code's coral and Codex's mint; the token (frontmatter, `tokens.css`, the Mobile App's tones, the dither and wash) changes in the build, all together.
+- **Midnight (SR-01M, SR-05M).** Midnight's ground, panels, raised `#141518`, wells `#0E0F12` and 8% hairline, plus **`raised-control` `#1C1D21`** for the selected nav item and closed selects, which disappear at `#141518` on black (Moonlit's `raised-control` is its raised `#26272B`, light's white). The sky is a new moon.
+- **OpenCode's hue.** `harness-opencode` is pink `#E59AC1`, beside Claude Code's coral and Codex's mint, in the frontmatter, `tokens.css`, the Mobile App's tones and widgets, the dither and the wash.
 - **Copy to verify when built.** Consequence lines and captions not yet in the code (Clear now's consequence, the extension reach line, "Extensions allowed voice", "Written by the same reviewer") are placeholders until checked against the behaviour.
 
 ## Colors
@@ -458,7 +461,7 @@ Faintly cool greys (a trace of blue, never readable as blue). Dark background is
 
 ### Harness identity
 
-Each Harness has one fixed hue; every Agent Session with that Harness uses it. Claude Code is `harness-claude-code` (coral orange; `-light` #C4562F). Codex is `harness-codex` (mint; `-light` #1E8A5C). Where the hue is text in light mode, it uses `harness-*-text-light` (rule/signal-text-variants). OpenCode is `harness-opencode` (rose today; settled as pink `#E59AC1` in ENG-573, to land in the token with the build; wash and dither generated by `gen_textures.py` and `gen_dither.py`). These are provisional until checked against the signal colours in real screens. Harness hue appears in the dither, the session's Harness tile, and toasts that Harness sent. It may also colour text and borders in exactly three places: the Working strip (in the composer, and across the top of an Editor file an agent is editing), the Harness picker chip, and an agent's live caret and lines in the Editor (see Components). It never appears on buttons, selection, or body text.
+Each Harness has one fixed hue; every Agent Session with that Harness uses it. Claude Code is `harness-claude-code` (coral orange; `-light` #C4562F). Codex is `harness-codex` (mint; `-light` #1E8A5C). Where the hue is text in light mode, it uses `harness-*-text-light` (rule/signal-text-variants). OpenCode is `harness-opencode` (pink `#E59AC1`, ENG-573; `-light` #B8466A; wash and dither generated by `gen_textures.py` and `gen_dither.py`). These are provisional until checked against the signal colours in real screens. Harness hue appears in the dither, the session's Harness tile, and toasts that Harness sent. It may also colour text and borders in exactly three places: the Working strip (in the composer, and across the top of an Editor file an agent is editing), the Harness picker chip, and an agent's live caret and lines in the Editor (see Components). It never appears on buttons, selection, or body text.
 
 ### Named Rules
 
