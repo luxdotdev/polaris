@@ -3,7 +3,9 @@
  * or a static example, and who drafts it (the Harness and Model chips).
  */
 import { Kicker, SettingsCard, SettingsWell } from "@polaris/ui";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { polaris } from "../../bridge.ts";
 
 export interface CommitPreview {
   readonly subject: string;
@@ -22,11 +24,44 @@ export const commitPreview = (lastCommit: CommitPreview | null) =>
     ? { kicker: "A draft looks like", message: EXAMPLE_COMMIT }
     : { kicker: "Like your last commit", message: lastCommit };
 
+/** A git checkout on a Host whose Daemon answers `git.log`. */
+export interface CommitSource {
+  readonly hostKey: string;
+  readonly cwd: string;
+}
+
+/** The source's newest commit; null while it loads, and when the read fails or finds none. */
+export const useLastCommit = (source: CommitSource | null): CommitPreview | null => {
+  const hostKey = source?.hostKey ?? null;
+  const cwd = source?.cwd ?? null;
+  const key = hostKey === null || cwd === null ? null : `${hostKey}\0${cwd}`;
+  const [read, setRead] = useState<{ key: string; commit: CommitPreview | null } | null>(null);
+
+  useEffect(() => {
+    if (key === null || hostKey === null || cwd === null) return;
+    let live = true;
+
+    void polaris()
+      .request("git.log", { hostKey, cwd, limit: 1 })
+      .then((result) => {
+        const last = result.ok ? result.value.commits[0] : undefined;
+
+        if (live) setRead({ key, commit: last === undefined ? null : last });
+      });
+
+    return () => {
+      live = false;
+    };
+  }, [key, hostKey, cwd]);
+
+  return read?.key === key ? read.commit : null;
+};
+
 export const CommitMessagesCard = ({
   lastCommit,
   chooser,
 }: {
-  /** The workspace's last commit; null until git.log lands (ENG-624), so the example shows. */
+  /** The workspace's last commit (`useLastCommit`); null shows the example. */
   readonly lastCommit: CommitPreview | null;
   /** The Harness and Model chips (CommitMessagesChoice). */
   readonly chooser: ReactNode;

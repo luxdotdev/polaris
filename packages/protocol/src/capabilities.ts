@@ -131,6 +131,8 @@ export const Capability = Schema.Literals([
   "git.watch",
   /** `git.sync` (fetch, pull, push, publish) and `git.status`'s `tracking`. */
   "git.sync",
+  /** `git.log`: recent commits' subjects and bodies (the Commit messages preview in Settings). */
+  "git.log",
   "attachments.stage",
   /** `attachments.read`: a staged attachment's bytes by id, for a message's images on a phone. */
   "attachments.read",
