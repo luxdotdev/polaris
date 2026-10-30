@@ -34,8 +34,12 @@ export interface DeviceSummary {
   readonly linkedAt: string;
   /** The latest session it opened with any Host; null when it hasn't yet. */
   readonly lastSeenAt: string | null;
-  /** Each Host it is linked on, with that Host's id for it. */
-  readonly on: ReadonlyArray<{ readonly hostKey: string; readonly id: LinkedDeviceView["id"] }>;
+  /** Each Host it is linked on, with that Host's id for it and its last session there. */
+  readonly on: ReadonlyArray<{
+    readonly hostKey: string;
+    readonly id: LinkedDeviceView["id"];
+    readonly lastUsedAt: string | null;
+  }>;
   /** Hosts with the relay on that don't have it: "Retry" shares it there. */
   readonly notShared: ReadonlyArray<{ readonly key: string; readonly label: string }>;
 }
@@ -65,7 +69,10 @@ export const devicesOf = (hosts: ReadonlyArray<HostRelay>): ReadonlyArray<Device
         linkedAt:
           seen === undefined || device.createdAt < seen.linkedAt ? device.createdAt : seen.linkedAt,
         lastSeenAt: later(seen?.lastSeenAt ?? null, device.lastUsedAt),
-        on: [...(seen?.on ?? []), { hostKey: host.key, id: device.id }],
+        on: [
+          ...(seen?.on ?? []),
+          { hostKey: host.key, id: device.id, lastUsedAt: device.lastUsedAt },
+        ],
         notShared: [],
       });
     }
@@ -110,6 +117,30 @@ export const lastSeenLine = (device: DeviceSummary, now: number): string =>
   device.lastSeenAt === null
     ? "not seen yet"
     : `last seen ${timeAgo(now - Date.parse(device.lastSeenAt))}`;
+
+/** A row's caption: "Linked Oct 20 · last seen 4 minutes ago", or where it isn't shared yet. */
+export const deviceCaption = (device: DeviceSummary, now: number): string =>
+  device.notShared.length > 0
+    ? sharedLine(device)
+    : `Linked ${day(device.linkedAt)} · ${lastSeenLine(device, now)}`;
+
+/** How recently a device must have opened a session with a Host to count as connected there. */
+export const LIVE_WINDOW_MS = 5 * 60_000;
+
+/**
+ * Whether the device is connected to `host` now: its relay is connected and the device opened a
+ * session there within LIVE_WINDOW_MS. A stopgap until the Daemon reports presence (ENG-629).
+ */
+export const liveOn = (
+  host: HostRelay,
+  on: DeviceSummary["on"][number] | undefined,
+  now: number
+): boolean =>
+  takesDevices(host) &&
+  host.route.connected &&
+  on !== undefined &&
+  on.lastUsedAt !== null &&
+  now - Date.parse(on.lastUsedAt) <= LIVE_WINDOW_MS;
 
 /** The relay lane of "Hosts your devices reach". `action` is "Turn on" when the user can. */
 export const relayLine = (
