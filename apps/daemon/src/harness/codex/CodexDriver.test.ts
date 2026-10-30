@@ -5,6 +5,8 @@ import { ApprovalDecision, RequestId, SessionId, TurnId, TurnItem } from "@polar
 import { Effect, Schema } from "effect";
 import { HarnessEvent } from "../HarnessDriver.ts";
 import { polarisInstructions } from "../../constellation/skills/preamble.ts";
+import { constellationTools } from "../../mcp/tools.ts";
+import { fakeCommands, workerBinding } from "../../mcp/testing.ts";
 import { makeCodexDriver, probeCodex } from "./CodexDriver.ts";
 import { type ClientAnswer, type Handler, readFixture, replay } from "./testing/FakeAppServer.ts";
 import { cleanup, ofTag, scripted, sessionWith, THREAD, turn } from "./testing/session.ts";
@@ -726,6 +728,21 @@ describe("Constellation attachment", () => {
         config: { "mcp_servers.polaris": { url: attachment.url } },
       });
     }
+  });
+  test("visualize runs unasked: its server sets the tool's approval_mode", async () => {
+    const tools = constellationTools(workerBinding, fakeCommands().commands);
+
+    const { server } = await withSession(
+      scripted(() => {}),
+      () => Effect.void,
+      { constellation: { ...attachment, tools } }
+    );
+
+    expect(server.requests("thread/start")[0]?.params).toMatchObject({
+      config: {
+        "mcp_servers.polaris": { tools: { visualize: { approval_mode: "approve" } } },
+      },
+    });
   });
   test("unattached thread start and resume receive common context without MCP config", async () => {
     for (const resumeCursor of [undefined, "existing-thread"]) {

@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { ConstellationRejected, ConstellationFinding } from "@polaris/protocol";
+import { ConstellationRejected, ConstellationFinding, type VisualsLevel } from "@polaris/protocol";
 import type { McpBinding } from "../../mcp/binding.ts";
 import {
   constellationTools,
@@ -16,6 +16,8 @@ export interface ConstellationAttachment {
   readonly instructions: string;
   readonly url: string;
   readonly tools: ReadonlyArray<BoundTool>;
+  /** The Visuals setting as the session opened (`rich` when absent); `off` drops `visualize`. */
+  readonly visuals?: VisualsLevel;
 }
 
 const revoked = () =>
@@ -36,15 +38,18 @@ const revoked = () =>
 export const attachConstellation = Effect.fn("attachConstellation")(function* (
   binding: McpBinding,
   origin: string,
-  commands: ConstellationCommands
+  commands: ConstellationCommands,
+  visuals: VisualsLevel = "rich"
 ) {
   const tokens = yield* McpTokens;
   const token = yield* tokens.issue(binding);
 
   const started: LeadStarted = (sessionId, id) => Effect.ignore(tokens.advanceLeads(sessionId, id));
 
+  const options = { visualize: visuals !== "off" };
+
   // The listed catalog is fixed; each call runs against the binding as it stands now.
-  const tools = constellationTools(binding, commands, started).map((tool): BoundTool => ({
+  const tools = constellationTools(binding, commands, started, options).map((tool): BoundTool => ({
     ...tool,
     call: async (input) => {
       const current = await Effect.runPromise(tokens.authenticate(token));
@@ -52,7 +57,9 @@ export const attachConstellation = Effect.fn("attachConstellation")(function* (
       const bound =
         current === null
           ? undefined
-          : constellationTools(current, commands, started).find((t) => t.name === tool.name);
+          : constellationTools(current, commands, started, options).find(
+              (t) => t.name === tool.name
+            );
 
       return bound === undefined ? revoked() : bound.call(input);
     },
@@ -61,7 +68,8 @@ export const attachConstellation = Effect.fn("attachConstellation")(function* (
   return {
     sessionId: binding.sessionId,
     instructions: constellationInstructions(binding),
-    url: `${origin}/mcp/${token}`,
+    url: `${origin}/mcp/${token}${visuals === "off" ? "?visuals=off" : ""}`,
     tools,
+    visuals,
   } satisfies ConstellationAttachment;
 });

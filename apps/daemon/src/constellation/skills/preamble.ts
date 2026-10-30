@@ -1,4 +1,5 @@
 import type { OpenOptions } from "../../harness/HarnessDriver.ts";
+import { visualizeText } from "../../visuals/guidance.ts";
 
 export const POLARIS_PREAMBLE_VERSION = 3;
 
@@ -48,6 +49,10 @@ export const polarisPreamble = (options: InstructionOptions): string => {
     features.push(
       `History: when you need earlier work from this session (lost to compaction) or from past sessions, search it with ${name(history, "search_history")} rather than guessing; open a match with ${name(history, "read_history")} and find sessions with ${name(history, "sessions")}.`
     );
+
+  const visuals = attachments.find((a) => a.tools.some((t) => t.name === "visualize"));
+
+  if (visuals !== undefined) features.push(visualizeText().guidance(visuals.visuals ?? "rich"));
 
   return [...context, ...features].join("\n");
 };

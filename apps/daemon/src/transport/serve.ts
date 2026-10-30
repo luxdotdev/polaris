@@ -18,6 +18,7 @@ import { lazyConstellationHandlers, lazyHostResources } from "./lazy.ts";
 import { installDebugHooks, reportStartupModules } from "../debug.ts";
 import { Engine } from "../engine/Engine.ts";
 import { EngineRpcHandlers } from "../engine/rpc.ts";
+import { VisualsRpcHandlers } from "../visuals/index.ts";
 import { RestartRpcHandlers } from "../engine/restartRpc.ts";
 import { Continuity, ContinuityRpcsLive } from "../continuity/index.ts";
 import { FileSearchLive } from "../files/FileSearch.ts";
@@ -129,6 +130,7 @@ export const daemonHandlers = Layer.mergeAll(
   PredictionRpcsLive,
   CommitMessageRpcsLive,
   EngineRpcHandlers,
+  VisualsRpcHandlers,
   RestartRpcHandlers,
   ContinuityRpcsLive.pipe(Layer.provide(Continuity.layer)),
   HostStatsRpcsLive.pipe(Layer.provide(HostStats.layer())),
@@ -237,6 +239,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "attachments.settings",
   "sessions.auto-archive",
   "sessions.idle-compaction",
+  "sessions.visuals",
   "terminal",
   "terminal.binary",
   "usage",
