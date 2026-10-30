@@ -43,6 +43,10 @@ const server = Bun.serve({
 
 const origin = `http://127.0.0.1:${server.port}`;
 
+let stunPackets = 0;
+
+const stun = await Bun.udpSocket({ socket: { data: () => void (stunPackets += 1) } });
+
 const HOST_PAGE = `<!doctype html><html><body style="margin:0;background:#1a1b1d">
 <script>
   window.messages = [];
@@ -86,6 +90,19 @@ const EGRESS = `<img src="${origin}/img"><link rel="stylesheet" href="${origin}/
   try { const ws = new WebSocket("${origin.replace("http", "ws")}/ws"); ws.onerror = () => report("ws blocked"); } catch (e) { report("ws threw"); }
   navigator.sendBeacon && navigator.sendBeacon("${origin}/beacon", "x");
   new Image().src = "${origin}/image";
+  const ice = { iceServers: [{ urls: "stun:127.0.0.1:${stun.port}" }] };
+  const rtc = (Peer, label) => {
+    try {
+      const pc = new Peer(ice);
+      pc.createDataChannel("x");
+      pc.createOffer().then((offer) => pc.setLocalDescription(offer)).catch(() => {});
+      report(label + " constructed");
+    } catch (e) { report(label + " blocked"); }
+  };
+  rtc(window.RTCPeerConnection, "rtc");
+  const child = document.createElement("iframe");
+  document.body.appendChild(child);
+  try { rtc(child.contentWindow.RTCPeerConnection, "rtc via child frame"); } catch (e) { report("rtc via child frame blocked"); }
   try { document.getElementById("f").submit(); } catch (e) { report("form threw"); }
   parent.postMessage({ check: "egress", what: "script ran:" + s + ":" + typeof pv.chart }, "*");
 </script>`;
@@ -177,6 +194,14 @@ check(
 
 check("fetch was blocked", egress.includes("fetch blocked"), JSON.stringify(egress));
 
+check("WebRTC can't be constructed", egress.includes("rtc blocked"), JSON.stringify(egress));
+
+check(
+  "no STUN packet left the frame (WebRTC, also via a child frame)",
+  stunPackets === 0,
+  JSON.stringify({ stunPackets, egress })
+);
+
 const growing = heights("growing");
 
 check(
@@ -232,6 +257,8 @@ if (shots !== undefined) {
 await browser.close();
 
 await server.stop(true);
+
+stun.close();
 
 for (const [name, ok, detail] of results)
   console.log(`${ok ? "ok  " : "FAIL"} ${name}${ok ? "" : ` ${detail}`}`);

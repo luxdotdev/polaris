@@ -98,7 +98,7 @@ const contentProblems = (html: string): VisualizationProblem[] => {
     problems.push({
       rule: "external-url",
       message: `The frame has no network access, so ${quote(external)} can never load.`,
-      fix: "Inline the data as computed values and images as data: URIs; Chart.js (Chart), D3 (d3) and the Polaris kit (pv) are already loaded. To offer a web page, use a button that calls pv.openLink(url).",
+      fix: 'Inline the data as computed values and images as data: URIs; Chart.js (Chart), D3 (d3) and the Polaris kit (pv) are already loaded. To offer a web page, use a link-styled button instead of an <a href>: <button class="pv-link" onclick="pv.openLink(\'https://example.com\')">Docs</button>. In-page #id links and data: URLs are fine.',
     });
   }
 
@@ -108,7 +108,7 @@ const contentProblems = (html: string): VisualizationProblem[] => {
     problems.push({
       rule: "navigation",
       message: `${quote(navigation)} would navigate the frame away or open a window, and the frame is removed if it navigates.`,
-      fix: "Remove the location, window.open, <base>, <meta http-equiv=refresh> or target=_top use; update the page in place with script, and use pv.openLink(url) for an https link.",
+      fix: 'Remove the location, window.open, <base>, <meta http-equiv=refresh> or target=_top use; update the page in place with script, and offer an https page with <button class="pv-link" onclick="pv.openLink(\'https://example.com\')">Docs</button>.',
     });
   }
 
