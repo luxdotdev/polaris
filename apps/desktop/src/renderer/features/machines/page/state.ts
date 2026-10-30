@@ -4,6 +4,7 @@
  * name. Pure, so each state's words are tested.
  */
 import type { MachineView } from "../../../../shared/api.ts";
+import { clientCopy } from "../../../../shared/clientCopy.ts";
 import { type ConnectionLine, connectionLine, workspacesText } from "../model.ts";
 import { platformLabel } from "../updates/model.ts";
 import { hostWhere } from "../wsl.ts";
@@ -38,11 +39,25 @@ export const pill = (machine: MachineView, now: number, restart: RestartPhase = 
   };
 };
 
-/** "ssh studio · macOS arm64": the list row's line (no workspace count). */
+const isLocal = (machine: Pick<MachineView, "kind">) => machine.kind === "local";
+
+/** A host's name: "This Mac" for the local Host (HS-D2), whatever the user named it. */
+export const hostName = (machine: Pick<MachineView, "kind" | "label">): string =>
+  isLocal(machine) ? clientCopy().localHost : machine.label;
+
+/** The local Host's own name ("MacBook Pro") goes in its line; "This Mac" is already the title. */
+const where = (machine: MachineView): ReadonlyArray<string> => {
+  if (!isLocal(machine)) return [hostWhere(machine)];
+  const same = machine.label.toLowerCase() === clientCopy().localHost.toLowerCase();
+
+  return same ? [] : [machine.label];
+};
+
+/** "ssh studio · macOS arm64" or "MacBook Pro · macOS arm64": the list row's line. */
 export const listLine = (machine: MachineView): string => {
   const platform = machine.status?.host?.platform ?? null;
 
-  return [hostWhere(machine), ...(platform === null ? [] : [platformLabel(platform)])].join(" · ");
+  return [...where(machine), ...(platform === null ? [] : [platformLabel(platform)])].join(" · ");
 };
 
 /** "ssh studio · macOS arm64 · 4 workspaces · daemon 0.5.0": the page header's line. */

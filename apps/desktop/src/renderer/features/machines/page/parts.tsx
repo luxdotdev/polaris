@@ -38,20 +38,23 @@ export const ConnectionPill = ({ pill }: { readonly pill: Pill }) => (
   </span>
 );
 
+const SQUARE = {
+  8: "size-2 rounded-[2px]",
+  10: "size-2.5 rounded-[3px]",
+  14: "size-3.5 rounded-[4px]",
+} as const;
+
+/** A host's colour; a host without one gets a neutral fill, never an outline (a checkbox look). */
 export const ColourSquare = ({
   colour,
   size,
 }: {
   readonly colour: string | null;
-  readonly size: 10 | 14;
+  readonly size: 8 | 10 | 14;
 }) => (
   <span
     aria-hidden
-    className={cn(
-      "shrink-0",
-      size === 14 ? "size-3.5 rounded-[4px]" : "size-2.5 rounded-[3px]",
-      colour === null && "bg-text-faint"
-    )}
+    className={cn("shrink-0", SQUARE[size], colour === null && "bg-text-faint")}
     style={colour === null ? undefined : { background: colour }}
   />
 );

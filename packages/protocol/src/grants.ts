@@ -142,6 +142,7 @@ export const RPC_GRANTS = {
   "git.init": "client",
   "git.sync": "client",
   "git.watch": "client",
+  "git.log": "client",
   "review.checkoutStatus": "client",
   "review.runRiskSummary": "client",
   "review.runWalkthrough": "client",
