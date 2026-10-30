@@ -53,6 +53,7 @@ import { SecureStorage } from "./secure/index.ts";
 import { iconPng, nameApp, showIcon } from "./identity.ts";
 import { registerIpc } from "./ipc/index.ts";
 import { type Browsers, createBrowsers } from "./browser/index.ts";
+import { cdpTabsOf, electronCdpVersions, hostBrowsers } from "./browserCdp/index.ts";
 import { registerLanguageIpc } from "./ipc/languages.ts";
 import { optionalLanguageCredential } from "./languages/optionalCredential.ts";
 import { LanguageIdentityEpochs } from "./languages/identityEpochs.ts";
@@ -396,6 +397,13 @@ const start = async () => {
       languageEpoch: (hostKey, session) =>
         languageIdentities.bind(hostKey, session)?.connectionEpoch ?? null,
       invalidateLanguage: (hostKey) => languageIdentities.invalidate(hostKey),
+      // Agents drive the session's Browser over CDP through the Daemon's relay (ENG-616).
+      browserHost: (hostKey, sessions) =>
+        hostBrowsers(sessions, {
+          hostKey,
+          tabs: cdpTabsOf(() => browsers),
+          versions: electronCdpVersions(),
+        }),
     },
     machinesLayer({
       settings: { get: () => settings, update: updateSettings },

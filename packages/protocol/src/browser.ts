@@ -35,7 +35,10 @@ export const BrowserStreamPurpose = Schema.Literals(["cdp"]);
 
 export type BrowserStreamPurpose = typeof BrowserStreamPurpose.Type;
 
-/** Ends each CDP message on a `cdp` stream; JSON text never contains a raw newline. */
+/**
+ * Ends each CDP message on a `cdp` stream. Safe only because each end re-serializes a message
+ * compactly before delimiting it (`cdpFraming.ts`): a peer's pretty-printed JSON has raw newlines.
+ */
 export const CDP_MESSAGE_DELIMITER = 0x0a;
 
 export const BrowserHostItem = Schema.TaggedUnion({

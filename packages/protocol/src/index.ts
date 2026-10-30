@@ -14,6 +14,8 @@ export * from "./browser.ts";
 
 export * from "./byteStreams.ts";
 
+export * from "./cdpFraming.ts";
+
 export * from "./capabilities.ts";
 
 export * from "./commands.ts";
