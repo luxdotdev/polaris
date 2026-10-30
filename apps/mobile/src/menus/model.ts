@@ -121,12 +121,12 @@ const ANSWERS: ReadonlyArray<{
 
 /**
  * A permission request's answers, as the Needs You card's menu offers them. A question is
- * answered in words, and a command too long to show inline only in the agent session.
+ * answered in words, a secret and a command too long to show inline only in the agent session.
  */
 const answers = (row: SessionRow): ReadonlyArray<MenuItem> => {
   const { approval } = row;
 
-  if (approval === null || approval.kind === "question") return [];
+  if (approval === null || approval.kind === "question" || approval.kind === "secret") return [];
 
   if (approvalDetail(approval)?.tooLong === true) return [];
 

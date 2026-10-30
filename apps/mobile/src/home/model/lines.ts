@@ -77,6 +77,7 @@ export const askLine = (approval: ApprovalRequest): string =>
     Match.when("file-change", () => "Wants to change files"),
     Match.when("tool", () => "Wants to use a tool"),
     Match.when("question", () => "Asks"),
+    Match.when("secret", () => "Asks for a secret"),
     Match.exhaustive
   );
 
