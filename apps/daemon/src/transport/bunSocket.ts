@@ -9,13 +9,22 @@
  */
 import { EventEmitter } from "node:events";
 import { type ByteTransport, readEvents, writeEvents } from "@polaris/protocol";
-import type { Socket, SocketHandler } from "bun";
+import type { SocketHandler } from "bun";
 import { Effect, Exit, type Scope } from "effect";
 
 type Callback = (error?: Error | null) => void;
 
 /** How long a graceful `end` waits for a stuck peer to drain before it force-terminates. */
 const DRAIN_LIMIT_MS = 10_000;
+
+/** The subset of a Bun `Socket` a stream drives; the real `Socket` satisfies it structurally. */
+export interface SocketLike {
+  write(bytes: Uint8Array): number;
+  end(): void;
+  terminate(): void;
+  pause(): void;
+  resume(): void;
+}
 
 export class BunSocketStream extends EventEmitter {
   destroyed = false;
@@ -24,7 +33,7 @@ export class BunSocketStream extends EventEmitter {
   private endAfterFlush = false;
   private drainDeadline: ReturnType<typeof setTimeout> | undefined;
 
-  constructor(private readonly socket: Socket<BunSocketStream | undefined>) {
+  constructor(private readonly socket: SocketLike) {
     super();
   }
 

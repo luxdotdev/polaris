@@ -152,8 +152,14 @@ interface InBlob {
   size: number;
   /** Bytes received so far, for `maxBlobBytes`. */
   received: number;
+  /** Bytes the consumer has consumed (credited back). `received - credited` is the unread window. */
+  credited: number;
+  /** Bytes handed to the consumer's last pull, credited once it pulls again. */
+  inflight: number;
   status: "receiving" | "complete" | "failed";
   claimed: false | "whole" | "stream";
+  /** A stream claim whose Stream was actually run; an unrun claim is swept like an unclaimed blob. */
+  started: boolean;
   idleTimeout: boolean;
   longLived: boolean;
   /** The consumer's receive window; the unread bytes (`size`) may not exceed it. Null is unbounded. */
@@ -382,7 +388,10 @@ export const makeWire = Effect.fnUntraced(function* (
         size: 0,
         received: 0,
         status: "receiving",
+        credited: 0,
+        inflight: 0,
         claimed: false,
+        started: false,
         idleTimeout: true,
         longLived: false,
         maxUnread: null,
@@ -423,7 +432,7 @@ export const makeWire = Effect.fnUntraced(function* (
 
     if (bufferedBytes + length > maxBuffered) return "connection blob buffer is full";
 
-    if (blob.maxUnread !== null && blob.size + length > blob.maxUnread)
+    if (blob.maxUnread !== null && blob.received - blob.credited + length > blob.maxUnread)
       return "the sender exceeded the stream's receive window";
 
     return null;
@@ -542,21 +551,28 @@ export const makeWire = Effect.fnUntraced(function* (
     blob.maxUnread = takeOptions.maxUnread ?? null;
     blob.touched = Date.now();
 
-    // Anything already buffered past the window is rejected, complete or still receiving.
-    if (blob.maxUnread !== null && blob.size > blob.maxUnread)
+    // Anything already received past the window is rejected, complete or still receiving.
+    if (blob.maxUnread !== null && blob.received - blob.credited > blob.maxUnread)
       failBlob(blobId, blob, "too-large", "the sender exceeded the stream's receive window");
 
     return Stream.suspend(() => {
+      blob.started = true;
+
       const pull = Effect.callback<
         readonly [Uint8Array, ...Array<Uint8Array>],
         BlobError | Cause.Done
       >((resume) => {
+        // A fresh pull means the previous batch is consumed: credit it so the window reopens.
+        blob.credited += blob.inflight;
+        blob.inflight = 0;
+
         const settle = (): boolean => {
           const parts = blob.parts;
 
           if (Arr.isArrayNonEmpty(parts)) {
             blob.parts = [];
             bufferedBytes -= blob.size;
+            blob.inflight += blob.size;
             blob.size = 0;
             resume(Effect.succeed(parts));
 
@@ -619,10 +635,11 @@ export const makeWire = Effect.fnUntraced(function* (
       if (blob.status === "receiving" && blob.idleTimeout && now - blob.touched > idleTimeout) {
         failBlob(blobId, blob, "timeout", `no progress for ${idleTimeout}ms`);
       } else if (
-        !blob.claimed &&
+        (!blob.claimed || (blob.claimed === "stream" && !blob.started)) &&
         blob.status !== "receiving" &&
         now - blob.touched > unclaimedTtl
       ) {
+        // Unclaimed, or a stream claim whose Stream was never run: an eager claim must not pin it.
         inBlobs.delete(blobId);
         release(blob);
       }

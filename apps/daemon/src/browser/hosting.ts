@@ -263,8 +263,8 @@ export class BrowserHosting extends Context.Service<
           : Effect.succeed(host.connectionId);
       });
 
-    // Effective hosting is a function of claims, registrations and presence; recompute it for
-    // every session with streams and revoke any whose recipient is no longer its host.
+    // Recompute the host for every session with streams and revoke any whose recipient is no
+    // longer it. Presence only steers new opens, so this runs on claim, release and (un)register.
     const reconcile = () => {
       const sessions = new Set<SessionId>();
 
@@ -274,9 +274,6 @@ export class BrowserHosting extends Context.Service<
       for (const sessionId of sessions)
         revokeOthers(sessionId, hostOf(sessionId)?.connectionId ?? null);
     };
-
-    // A presence change can move the fallback host, so re-run the reconcile on every one.
-    presence.watch(() => reconcile());
 
     const register = Effect.fn("BrowserHosting.register")(function* (
       connectionId: number,
@@ -452,6 +449,10 @@ export class BrowserHosting extends Context.Service<
         yield* registrations.get(connectionId) === undefined
           ? awaitRegistered(connectionId)
           : Effect.void;
+
+        // The session can be archived while the registration wait is in flight; re-check it.
+        if (!(yield* isHostable(sessionId)))
+          return yield* new NotFound({ what: "session", id: sessionId });
 
         // Bound a connection's claims so a Client cannot grow `claims` without limit.
         if (

@@ -203,61 +203,6 @@ describe("Browser hosting ownership and cleanup", () => {
     expect(result.reroutedTo).toBe(2);
   });
 
-  test("a presence change that moves the fallback host revokes the stale recipient's stream", async () => {
-    const result = await run(
-      Effect.gen(function* () {
-        const present = new Map<number, number>();
-        const listeners: Array<(present: boolean) => void> = [];
-
-        const presence: HostPresence["Service"] = {
-          report: () => 0,
-          disconnect: () => {},
-          present: () => present.size > 0,
-          lastPresentAt: (id) => present.get(id) ?? null,
-          watch: (listener) => {
-            listeners.push(listener);
-
-            return () => {};
-          },
-        };
-
-        const hosting = BrowserHosting.make(presence, ByteStreamQuota.make(), {
-          acceptTimeout: "2 seconds",
-        });
-
-        const mac = yield* registerAndWatch(hosting, 1);
-        yield* hosting.register(2, fakeBlobs);
-        present.set(1, 100); // Only the mac is present: it is the fallback host for the unclaimed s1.
-
-        const scope = yield* Scope.make();
-
-        const open = yield* Effect.forkChild(
-          hosting.open(s1, "cdp").pipe(Scope.provide(scope), Effect.exit)
-        );
-
-        const streamId = yield* Deferred.await(mac.opened);
-        yield* hosting.accept(1, streamId, BlobId.make("up"), W);
-        yield* Fiber.join(open);
-
-        // The laptop becomes the more recently present Host: a presence move, not a claim or
-        // release, so only the presence.watch reconcile revokes the mac's now-stale stream.
-        present.set(2, 200);
-
-        for (const listener of listeners) listener(true);
-
-        const close = yield* Deferred.await(mac.closed).pipe(Effect.timeout("1 second"));
-        const reroutedTo = yield* hosting.current(s1);
-        yield* Scope.close(scope, Exit.void);
-
-        return { reason: close.reason, streamId: close.streamId === streamId, reroutedTo };
-      })
-    );
-
-    expect(result.reason).toBe("revoked");
-    expect(result.streamId).toBe(true);
-    expect(result.reroutedTo).toBe(2);
-  });
-
   test("interrupting a claim that awaits registration drops its waiter but not a sibling's", async () => {
     const result = await run(
       Effect.gen(function* () {
