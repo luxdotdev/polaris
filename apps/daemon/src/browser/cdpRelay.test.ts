@@ -58,6 +58,7 @@ const fakeHosting = Layer.succeed(BrowserHosting)(
     accept: unused,
     close: unused,
     credit: unused,
+    awaitingClaims: () => 0,
     current: (sessionId) =>
       hosted.has(sessionId) ? Effect.succeed(1) : Effect.fail(new NoDesktopApp({ sessionId })),
     open: (sessionId) =>

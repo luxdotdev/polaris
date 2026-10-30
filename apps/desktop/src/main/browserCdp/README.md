@@ -31,4 +31,4 @@ The relay opens each stream with `Polaris.hello { tabs }`, the tabs it remembers
 
 ## Tests
 
-`facade.test.ts` covers filtering, refusals, routing and the hub with a fake debugger. `apps/daemon/src/browser/smoke.e2e.test.ts` runs the real agent-browser through the real relay to a real `WebContentsView` in Electron (`smoke/electronMain.ts`, a stand-in Desktop App behind the same port).
+`facade.test.ts` covers filtering, refusals, routing and the hub with a fake debugger. `apps/daemon/src/browser/smoke.e2e.test.ts` runs the real agent-browser through the real relay, the real `BrowserHosting` and real byte streams to a real `WebContentsView` in Electron (`smoke/electronMain.ts`, a stand-in Desktop App that connects to the Daemon with `@polaris/client` and runs `serveBrowserHost` as the app does).

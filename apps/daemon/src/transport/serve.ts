@@ -56,7 +56,13 @@ import { HostStats, HostStatsRpcsLive } from "../hostStats/index.ts";
 import { paths } from "../paths.ts";
 import { startServer } from "./server.ts";
 import { ByteStreamRpcsLive } from "./byteStreams.ts";
-import { BrowserHosting, ByteStreamQuota, CdpRelay, HostAddressStreams } from "../browser/index.ts";
+import {
+  BrowserHosting,
+  browserHostingSlot,
+  ByteStreamQuota,
+  CdpRelay,
+  HostAddressStreams,
+} from "../browser/index.ts";
 import { configuredGatewayPort } from "../gateway/index.ts";
 import { workspaceTrustLayer } from "./workspaceTrust.ts";
 import {
@@ -90,11 +96,12 @@ const usageServices = lazyUsage(bench ? {} : { planLimitSeed: latestRolloutLimit
   Layer.provide(UsageSessions.layer)
 );
 
-/** The per-session CDP relay (ENG-616); `BrowserHosting` is the stub until ENG-613's hosting lands. */
+/** The relay sits under the Engine; the hosting it uses is built with the transport and bound below. */
+const hostingSlot = browserHostingSlot();
+
+/** The per-session CDP relay (ENG-616), over the Browser hosting the byte-stream handlers bind. */
 const cdpRelay = Layer.suspend(() =>
-  CdpRelay.layer({ home: paths().root, version: VERSION }).pipe(
-    Layer.provide(BrowserHosting.layerStub)
-  )
+  CdpRelay.layer({ home: paths().root, version: VERSION }).pipe(Layer.provide(hostingSlot.layer))
 );
 
 const browserMcp = BrowserMcp.layer.pipe(
@@ -138,7 +145,7 @@ const engineServices = Layer.mergeAll(Engine.layer, releaseWhenQuiet()).pipe(
 const daemonServices = lazyReviewer.pipe(Layer.provideMerge(engineServices));
 
 /** Host-address and Browser streams (ENG-613); `HostPresence` comes from the transport. */
-const byteStreamHandlers = ByteStreamRpcsLive.pipe(
+const byteStreamHandlers = Layer.merge(ByteStreamRpcsLive, hostingSlot.bind).pipe(
   Layer.provide(
     Layer.mergeAll(HostAddressStreams.layer, BrowserHosting.layerLive()).pipe(
       Layer.provideMerge(ByteStreamQuota.layer())

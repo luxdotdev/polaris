@@ -1,11 +1,12 @@
 /**
  * A stand-in Desktop App for the CDP smoke (ENG-616): real `WebContentsView`s behind the
- * `CdpTabs` port, each Unix-socket connection served as a `cdp` stream by the facade. Bundled
- * and launched by `apps/daemon/src/browser/smoke.e2e.test.ts`; not part of the app.
+ * `CdpTabs` port, hosted over the Daemon's real byte streams by `serveBrowserHost`, as the
+ * Desktop App does. Bundled and launched by `apps/daemon/src/browser/smoke.e2e.test.ts`.
  */
-import { createServer } from "node:net";
-import { CdpMessageDecoder, encodeCdpMessage, SessionId } from "@polaris/protocol";
-import { Predicate, Schema } from "effect";
+import { createInterface } from "node:readline";
+import { HostTarget, makeHostConnection } from "@polaris/client";
+import { SessionId } from "@polaris/protocol";
+import { Effect, Predicate, Schema } from "effect";
 import { app, BrowserWindow, session, WebContentsView } from "electron";
 import {
   BrowserTab,
@@ -13,10 +14,11 @@ import {
   BrowserTabId,
   BrowserTabOpener,
 } from "../../../shared/browserContract.ts";
-import { cdpFacade } from "../facade.ts";
+import { serveBrowserHost } from "../host.ts";
 import type { CdpTabs } from "../ports.ts";
+import { electronCdpVersions } from "../versions.ts";
 
-const socketPath = process.env.POLARIS_SMOKE_SOCKET ?? "";
+const daemonSocket = process.env.POLARIS_SMOKE_DAEMON_SOCKET ?? "";
 
 const startUrl = process.env.POLARIS_SMOKE_URL ?? "about:blank";
 
@@ -162,34 +164,36 @@ const tabs: CdpTabs = {
   },
 };
 
-const serve = () =>
-  createServer((socket) => {
-    const decoder = new CdpMessageDecoder();
+/** Connects to the Daemon as the Desktop App does, hosts Browsers, and claims `mine`'s. */
+const host = Effect.gen(function* () {
+  const connection = yield* makeHostConnection({
+    key: "local",
+    name: "Smoke",
+    identity: {
+      name: "polaris-smoke",
+      version: "0.0.0",
+      deviceLabel: "smoke",
+      capabilities: ["blobs", "browser.host"],
+    },
+    target: HostTarget.Local({ socketPath: daemonSocket }),
+  });
 
-    const facade = cdpFacade({
-      hostKey: "local",
-      sessionId: mine,
-      tabs,
-      send: (message) => void socket.write(encodeCdpMessage(message)),
-      overflow: () => socket.destroy(),
-      versions: {
-        chrome: process.versions.chrome ?? "",
-        v8: process.versions.v8 ?? "",
-        userAgent: "Polaris Smoke",
-      },
-    });
+  const live = yield* connection.awaitSession;
+  yield* Effect.forkScoped(
+    serveBrowserHost(live, { hostKey: "local", tabs, versions: electronCdpVersions() })
+  );
+  yield* live.client["browser.claim"]({ sessionId: mine });
+  console.log("HOSTING");
+  yield* Effect.never;
+}).pipe(
+  Effect.scoped,
+  Effect.catch((error) => Effect.sync(() => console.log(`HOSTING-FAILED ${String(error)}`)))
+);
 
-    socket.on("data", (chunk: Buffer) => {
-      try {
-        for (const message of decoder.feed(new Uint8Array(chunk))) facade.receive(message);
-      } catch (error) {
-        console.log(`FRAMING ${String(error)}`);
-        socket.destroy();
-      }
-    });
-    socket.on("close", () => facade.close());
-    socket.on("error", () => facade.close());
-  }).listen(socketPath, () => console.log("READY"));
+/** The smoke says when to host, so it can first see what an agent gets with no Desktop App. */
+createInterface({ input: process.stdin }).on("line", (line) => {
+  if (line === "HOST") Effect.runFork(host);
+});
 
 const Cookies = Schema.Struct({ cookies: Schema.Array(Schema.Struct({ name: Schema.String })) });
 
@@ -244,7 +248,7 @@ app
     await open(theirs, "about:blank", BrowserTabOpener.cases.User.make({}));
     await open(mine, startUrl, BrowserTabOpener.cases.User.make({}));
     await cookieCheck().catch((error: Error) => console.log(`COOKIES-FAILED ${String(error)}`));
-    serve();
+    console.log("READY");
   })
   .catch((error: Error) => console.log(`FAILED ${String(error)}`));
 
@@ -253,5 +257,3 @@ app.on("window-all-closed", () => undefined);
 process.on("SIGTERM", () => app.quit());
 
 process.stdin.on("end", () => app.quit());
-
-process.stdin.resume();

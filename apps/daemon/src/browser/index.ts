@@ -25,6 +25,8 @@ export {
   BrowserStreamRefused,
 } from "./hosting.ts";
 
+export { type BrowserHostingSlot, browserHostingSlot } from "./hostingSlot.ts";
+
 export {
   HostAddressStreams,
   type HostAddressTarget,

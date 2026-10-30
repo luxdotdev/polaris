@@ -29,3 +29,7 @@ The relay and the Desktop App's facade talk with two messages the agent never se
 ## Hosting
 
 `hosting.ts` is the `BrowserHosting` service: which Desktop App connection hosts a session's Browser, and the byte streams to it. The relay only consumes `open` and `current`; the implementation is ENG-613's.
+
+In the Daemon (`transport/serve.ts`) the relay is built under the Engine, because the Harness drivers hand sessions their relay URL, while the hosting the byte-stream handlers use needs `HostPresence`, which only the transport provides. `hostingSlot.ts` bridges the two: the relay gets `browserHostingSlot().layer`, whose calls wait for the hosting, and the handlers' layer composes `.bind`, which fills it with the instance they use. A call that arrives before the transport is up waits rather than failing `NoDesktopApp`.
+
+`smoke.e2e.test.ts` runs the whole path with nothing faked but the Desktop App's window: agent-browser, the relay, `BrowserHosting` behind a real Daemon transport (`transport/byteStreamsHarness.ts`), byte streams over the local socket, and a stand-in Desktop App in Electron running the real `serveBrowserHost` and facade over a real `WebContentsView`. It needs Electron installed in `apps/desktop` and `AGENT_BROWSER_BIN`.
