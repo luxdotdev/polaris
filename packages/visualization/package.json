@@ -5,13 +5,20 @@
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./examples": "./examples/index.ts"
   },
   "scripts": {
     "typecheck": "node ../../node_modules/typescript/bin/tsc -p .",
-    "test": "bun ../../tooling/test/watchdog.ts --pass-with-no-tests"
+    "test": "bun ../../tooling/test/watchdog.ts --pass-with-no-tests",
+    "vendor": "bun scripts/vendor.ts",
+    "check:browser": "bun scripts/browser-check.ts"
   },
   "dependencies": {
     "effect": "4.0.0-rc.118"
+  },
+  "devDependencies": {
+    "happy-dom": "20.14.5",
+    "playwright-core": "1.63.0"
   }
 }
