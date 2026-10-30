@@ -62,9 +62,11 @@ const ICONS: Readonly<Record<SettingsSection, ReactNode>> = {
   about: <PixelPolarisIcon />,
 };
 
-/** An open popover, menu, select or dialog takes esc first. */
+/** An open popover, menu, select, dialog or in-place confirm takes esc first. */
 const layerOpen = () =>
-  document.querySelector("[data-radix-popper-content-wrapper], [role='dialog']") !== null;
+  document.querySelector(
+    "[data-radix-popper-content-wrapper], [role='dialog'], [data-slot='settings-confirm-row'][data-asking]"
+  ) !== null;
 
 const useEscapeCloses = (close: () => void) => {
   useEffect(() => {
