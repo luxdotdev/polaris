@@ -1,7 +1,7 @@
 /**
  * Settings → Sessions (DESIGN.md, Settings): where new sessions work, what a new worktree's
  * branch is called, Output on a Turn's first edit, Needs You and Turn notifications, the Working
- * strip's verbs, idle compaction, where accepted work is committed, Archive, and removing hidden
+ * strip's verbs, idle compaction, Visuals, where accepted work is committed, Archive, and removing hidden
  * workspaces.
  * Each Harness's Model, effort and permissions stay in Settings → Harnesses.
  */
@@ -19,6 +19,7 @@ import { HiddenWorkspaces } from "./HiddenWorkspaces.tsx";
 import { IdleCompaction } from "./IdleCompaction.tsx";
 import { WorktreeSetupSettings } from "./WorktreeSetup.tsx";
 import { TurnNotifications } from "./TurnNotifications.tsx";
+import { Visuals } from "./Visuals.tsx";
 import { WorkingVerbs } from "./WorkingVerbs.tsx";
 
 /** Saved on blur or ↵ when git would take it; otherwise the field says why and keeps the old one. */
@@ -59,6 +60,7 @@ export const SessionsPage = () => {
   return (
     <Column>
       <PageHeader title={info.title} blurb={info.blurb} />
+      <Visuals />
       <Group label="New sessions">
         <SettingRow
           title="Start on a new worktree"

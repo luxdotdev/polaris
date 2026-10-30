@@ -12,6 +12,8 @@ import {
   AttachmentSettings,
   AutoArchiveSettings,
   IdleCompactionSettings,
+  VisualsLevel,
+  VisualsSettings,
   MIN_IDLE_COMPACTION_TOKENS,
   Command,
   CommandId,
@@ -196,6 +198,8 @@ export const SessionPrefs = Schema.Struct({
   constellationDefaults: ConstellationDefaults,
   /** Compact a large session idle for 55 minutes, while its prompt cache is warm (ENG-562). */
   idleCompaction: IdleCompactionPref,
+  /** How readily agents draw a visualization (ENG-598); written to every Host. */
+  visuals: VisualsLevel,
   /** Settings → Editor: vim keys in the Editor (off by default, spec §4). */
   editorVim: Schema.Boolean,
   /** Settings → Editor: save after a short pause in typing (off by default, spec §3). */
@@ -226,6 +230,7 @@ export const SessionPrefsPatch = Schema.Struct({
   workspaceAcceptBranch: Schema.optionalKey(Schema.Record(Schema.String, AcceptBranchMode)),
   constellationDefaults: Schema.optionalKey(ConstellationDefaults),
   idleCompaction: Schema.optionalKey(IdleCompactionPref),
+  visuals: Schema.optionalKey(VisualsLevel),
   editorVim: Schema.optionalKey(Schema.Boolean),
   editorAutosave: Schema.optionalKey(Schema.Boolean),
   editorInlineDiagnostics: Schema.optionalKey(Schema.Boolean),
@@ -371,6 +376,9 @@ export const RequestInputs = {
   "sessions.setAutoArchive": onHost({ settings: AutoArchiveSettings }),
   "sessions.idleCompaction": onHost({}),
   "sessions.setIdleCompaction": onHost({ settings: IdleCompactionSettings }),
+  /** The Visuals setting (capability `sessions.visuals`): how readily agents draw. */
+  "sessions.visuals": onHost({}),
+  "sessions.setVisuals": onHost({ settings: VisualsSettings }),
   /** Continuity (capability `session.continuity`): the last Turn seen, and the composer's draft. */
   "continuity.markRead": onHost({ sessionId: SessionId, turnId: TurnId }),
   "continuity.saveDraft": onHost({
