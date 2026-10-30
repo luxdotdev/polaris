@@ -617,6 +617,8 @@ export const SubscriptionInputs = {
   "plan-limits": onHost({}),
   /** The Host's CPU, load, memory and disk: `History`, then a sample per interval (`host.stats`). */
   "host.stats": onHost({}),
+  /** The Linked Devices with their presence, then again on every change (`devices.watch`). */
+  "devices.watch": onHost({}),
   /** A Risk Summary as it fills in (`review.watchRiskSummary`): the whole summary on each change. */
   "review.watchRiskSummary": onHost({ summaryId: RiskSummaryId }),
   /** An inline proposal (`inline.propose`, capability `inline.propose`); closing it cancels. */

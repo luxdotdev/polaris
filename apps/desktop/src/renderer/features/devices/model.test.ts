@@ -95,7 +95,30 @@ test("the link's countdown", () => {
   expect(timeLeft(expiresAt, Date.parse("2026-10-27T12:06:00.000Z"))).toBe("0:00 left");
 });
 
-describe("a device counts as connected to a host (ENG-629 stopgap)", () => {
+describe("a device counts as connected to a host by the Daemon's presence (ENG-629)", () => {
+  const now = Date.parse("2026-10-27T12:00:00.000Z");
+  const hourAgo = "2026-10-27T11:00:00.000Z";
+
+  test.each([
+    ["a session open for an hour", hourAgo, hourAgo, true, true],
+    ["no session, though used a minute ago", null, "2026-10-27T11:59:00.000Z", true, false],
+    ["a session open while the host's relay is disconnected", hourAgo, hourAgo, false, false],
+  ] as const)("%s", async (_, connectedSince, lastUsedAt, connected, live) => {
+    const host: HostRelay = {
+      key: "studio",
+      label: "Mac Studio",
+      kind: "ready",
+      route: await route("on", connected),
+      devices: [],
+    };
+
+    const { id } = await phone({ noiseKey: noiseKey() });
+
+    expect(liveOn(host, { hostKey: "studio", id, lastUsedAt, connectedSince }, now)).toBe(live);
+  });
+});
+
+describe("a device counts as connected to a host on an older Daemon (stopgap)", () => {
   const now = Date.parse("2026-10-27T12:00:00.000Z");
   const at = (ms: number) => new Date(now - ms).toISOString();
 

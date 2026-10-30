@@ -379,6 +379,7 @@ export const defaultHandlers = (options: {
       Effect.flatMap(RelayRoute, (route) => route.cancelLink(linkId)),
     "devices.add": (device) => Effect.flatMap(RelayRoute, (route) => route.add(device)),
     "devices.list": () => Effect.flatMap(RelayRoute, (route) => route.list),
+    "devices.watch": () => Stream.unwrap(Effect.map(RelayRoute, (route) => route.watch)),
     "devices.unlink": ({ id }) => Effect.flatMap(RelayRoute, (route) => route.unlink(id)),
     "devices.unlinkSelf": (_, { client }) => {
       const device = deviceOf(client);

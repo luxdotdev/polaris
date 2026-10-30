@@ -24,6 +24,8 @@ export const Capability = Schema.Literals([
   "remote-access",
   /** `relayRoute.*` and `devices.*`: the Relay route and Linked Devices (ADR 0080, 0082). */
   "linked-devices",
+  /** `devices.watch`, and `connectedSince` on each Linked Device: which have a session now (ENG-629). */
+  "linked-devices.presence",
   /** A Client announces it when it decodes the `LinkedDevice` Actor; others read it as `Client`. */
   "actor.linked-device",
   /** `voice.transcribe`, `voice.settings` and `voice.setKey` (ADR 0077). */

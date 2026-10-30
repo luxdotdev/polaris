@@ -1,5 +1,5 @@
 import "../../test/dom.testing.ts";
-import { cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { Result } from "../../../shared/api.ts";
 import type { LinkResultView } from "../../../shared/linkedDevicesContract.ts";
@@ -168,6 +168,32 @@ test("with the relay off everywhere, linking points to Hosts instead", async () 
   for (const turnOn of view.getAllByRole("button", { name: "Turn on" })) fireEvent.click(turnOn);
 
   expect(opened).toEqual([true, true, true]);
+});
+
+test("a host with presence keeps the map live while its device's session is open (ENG-629)", async () => {
+  const withPresence = [
+    host("studio", "Mac Studio", "connected", ["linked-devices", "linked-devices.presence"]),
+  ];
+
+  const hourAgo = new Date(Date.now() - 3_600_000).toISOString();
+  const iphone = await phone({ noiseKey: noiseKey(), lastUsedAt: hourAgo });
+
+  fake.answerOk("relayRoute.status", await route("on"));
+  fake.answerOk("devices.list", [iphone]);
+
+  const view = within(
+    render(<Devices hosts={withPresence} onOpenHosts={() => undefined} />).container
+  );
+
+  await view.findByText("No device live right now");
+  const [feed] = fake.feeds("devices.watch");
+  expect(feed?.input).toEqual({ hostKey: "studio" });
+
+  act(() => feed?.listener.items([[{ ...iphone, connectedSince: hourAgo }]]));
+  await view.findByText("1 device live, through 1 of 1 host");
+
+  act(() => feed?.listener.items([[{ ...iphone, connectedSince: null }]]));
+  await view.findByText("No device live right now");
 });
 
 describe("the reach map's packets", () => {
