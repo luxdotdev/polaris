@@ -81,6 +81,7 @@ import type { VoiceRequestOutputs } from "./voiceContract.ts";
 import type { LinkedDevicesRequestOutputs } from "./linkedDevicesContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
 import type { GitRequestOutputs, GitSubscriptionItems } from "./gitContract.ts";
+import type { BrowserRequestOutputs, BrowserSubscriptionItems } from "./browserContract.ts";
 import type { NeedsYouAction, ReviewTarget } from "./needsYou.ts";
 import type {
   CachedHost,
@@ -421,6 +422,7 @@ export interface RequestOutputs
     PredictionUiOutputs,
     GitHubRequestOutputs,
     GitRequestOutputs,
+    BrowserRequestOutputs,
     ConstellationRequestOutputs,
     ResourceRequestOutputs,
     RemoteAccessRequestOutputs,
@@ -553,7 +555,8 @@ export type TerminalItem =
   | { readonly _tag: "Output"; readonly data: Uint8Array }
   | { readonly _tag: "Exit"; readonly code: number | null };
 
-export interface SubscriptionItems extends GitHubSubscriptionItems, GitSubscriptionItems {
+export interface SubscriptionItems
+  extends GitHubSubscriptionItems, GitSubscriptionItems, BrowserSubscriptionItems {
   "prediction.complete": PredictionFeedItem;
   "prediction.edit": EditPredictionFeedItem;
   "prediction.managed.watch": import("@polaris/protocol").ManagedServerStatus;

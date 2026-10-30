@@ -807,6 +807,12 @@ The Orchestrator's lanes, left to right: sidebar (264px), Intent (the rest, neve
 - **Remembered.** Open or closed is kept per session across restarts (the 500 most recently changed); the width is one per window.
 - **Motion.** Opening slides the panel in from the rail's edge on `transform`, 200ms ease-out; Intent reflows once, not per frame. Collapsing is instant. Reduce Motion makes opening instant.
 - **Live.** The diff of a Turn still in flight and the rail's facts follow the files as they change (`files.watch` on the session's cwd, settled over 250ms); no reload needed, on this Mac or a remote Host.
+- **Browser (ENG-615; Paper "Browser (ENG-615)" B1–B3).** Output's tab after Changes (and after Constellation for a Lead): each Agent Session's own tabs, which persist across restarts and close when the session is archived; a session's Browsers share the Workspace's logins (ADR 0092). The rail has a "Browser" row (a globe, then the tab count) that opens the panel on it.
+  - **Chrome.** A 36px tab strip when there are tabs: a globe and the title in `label`. A tab an agent opened shows its Subagent's name in its Harness hue, and while an agent is driving it, a cursor in that hue replaces the globe. Under the strip: back, forward and reload ghost icon buttons, the URL field (`code-inline`, the scheme hidden), and a DevTools toggle. A Host address shows a "Host address" badge (the server icon in `starlight`) in place of the padlock. Enter hands focus to the page.
+  - **Agent driving.** A sunken strip over the page, "{Subagent} is using this tab" in `caption`, with a cursor in the Harness hue.
+  - **Empty.** "Open a host address, like localhost:3000" and the fact "Host addresses load from {Host}; other URLs from this Mac." The URL field takes focus.
+  - **An agent opens a tab.** The Browser comes forward unless the user is in another Output tab or closed Output themselves for this session. Then a 6px dot in the Harness hue follows "Browser" on the tab and on the rail row, until the Browser is shown.
+  - **Page.** A native view laid over the Browser area, so nothing in the renderer can draw over it. While a dialog, menu or listbox is open it is covered (zero bounds), and it hides with the tab or the panel. Only http, https and about:blank load. Pages get no permissions.
 
 ### Terminal
 
