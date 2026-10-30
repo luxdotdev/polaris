@@ -175,6 +175,33 @@ module `modules/polaris-live-activity` and `src/live/`.
   `polaris.theme`; `targets/widgets/Theme.swift` reads it (`PolarisTheme.current`) and holds both
   palettes. `scripts/widgets.theme.test.ts` checks them against `@polaris/ui`'s tokens.
 
+## Visualizations
+
+`src/visualization/` draws the `visualize` Tool Call (ENG-599, ADR 0089, DESIGN.md Visualizations) as
+a card in the thread, never folded into a run: `model.ts` reads the Daemon's `viz_…` id from the
+call's output and finds the earlier ones a later call `replaces` (they collapse to "Revised below");
+`VisualizationFrame` renders `@polaris/visualization`'s `buildFrameDocument` in a
+`react-native-webview` WebView. The frame:
+
+- loads only its own HTML string: `onShouldStartLoadWithRequest` lets `about:blank` through until
+  the first load and refuses everything after, which shows the Stopped notice. `originWhitelist` is
+  `["*"]` on purpose: a URL the whitelist fails is opened in Safari by the library without asking;
+- has no file access, no cache, an incognito data store, WebRTC and `navigator.mediaDevices`
+  removed in every frame before any script, and media capture denied;
+- posts through `window.ReactNativeWebView` (the kit detects it); messages are schema-checked
+  (`FrameMessage`): the height (clamped, inline at most 260pt under the 40pt title line), an https
+  link opened only after the native action sheet, and `pv.state` kept in the document directory
+  under `visualizations/<id>.json`. Theme changes go in as `pv:theme` through `injectJavaScript`.
+
+`live.ts` caps live WebViews at three, the ones nearest the screen; the others keep their height
+without a WebView. Expand opens a full-height sheet with the frame at `mode: expanded`.
+
+react-native-webview is a native module: rebuild the development client after pulling it in
+(`bun run --cwd apps/mobile ios`); prebuild adds its pod, nothing else. The thread gallery's
+Visuals data (`EXPO_PUBLIC_POLARIS_GALLERY=thread`, launched with `-polarisDevData visuals`) shows
+the package's examples, a revised one, one still drawing and an egress probe that tries `fetch`,
+an image, WebRTC and navigating away.
+
 ## Markdown
 
 `src/markdown/` draws agent messages as Markdown, as the Desktop App does with Streamdown: marked's
