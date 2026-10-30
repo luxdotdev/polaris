@@ -20,6 +20,7 @@ enum LiveSeal {
     return (try? P256.KeyAgreement.PrivateKey(rawRepresentation: data))?.publicKey
   }
 
+  @available(iOS 17.0, *)
   static func seal(_ slice: String, to key: P256.KeyAgreement.PublicKey) throws -> String {
     var sender = try HPKE.Sender(
       recipientKey: key, ciphersuite: .P256_SHA256_AES_GCM_256, info: Data("polaris-live/1".utf8))
