@@ -202,6 +202,19 @@ const usagePinned = async (page: Page) => {
   await page.evaluate(`${USAGE_SCROLLER}.scrollTo(0, 0)`);
 };
 
+/** Usage → By constellation on the `#constellations/usage` fixture, each sky and density. */
+const byConstellation = async (page: Page) => {
+  await page.evaluate(`location.hash = "#constellations/usage"; location.reload()`);
+  await page.waitForLoadState("domcontentloaded");
+  await page.getByTestId("usage-constellation").first().waitFor({ timeout: 15_000 });
+
+  for (const look of MATRIX) {
+    await setAppearance(page, look.patch);
+    await page.getByTestId("usage-by-constellation").scrollIntoViewIfNeeded();
+    await shoot(page, `usage-by-constellation-${look.name}`);
+  }
+};
+
 const USAGE_SCROLLER = `document.querySelector('[data-section="usage"]')`;
 
 const attached = (page: Page, selector: string) =>
@@ -330,6 +343,9 @@ try {
   await setAppearance(page, MATRIX[0]?.patch ?? {});
 
   if (wanted("checks")) await settingsChecks({ app, page, nav, shoot, setAppearance });
+
+  // Last: the window reloads into the fixture, since the Daemons here have run no constellation.
+  if (wanted("usage-by-constellation")) await byConstellation(page);
 } finally {
   await app.close();
   await Promise.all(daemons.map((d) => d.stop()));

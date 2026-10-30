@@ -27,6 +27,7 @@ export const DeviceRow = ({
         title={device.name}
         caption={deviceCaption(device, now)}
         action="Unlink"
+        actionVariant="secondary"
         consequence="Unlinking cuts it off from every host now. To use it again, link it again."
         confirm={`Unlink ${device.name}`}
         onConfirm={() => run("Unlinking…", onUnlink)}

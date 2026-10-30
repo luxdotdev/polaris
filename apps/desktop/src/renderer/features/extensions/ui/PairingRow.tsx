@@ -22,6 +22,7 @@ export const PairingRow = ({
         title={pairing.name}
         caption={grantLine(pairing.grant)}
         action="Revoke"
+        actionVariant="secondary"
         consequence="Revoking disconnects it now. To use it again, pair it again."
         confirm={`Revoke ${pairing.name}`}
         onConfirm={() => {
