@@ -1,0 +1,17 @@
+{
+  "name": "@polaris/visualization",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "node ../../node_modules/typescript/bin/tsc -p .",
+    "test": "bun ../../tooling/test/watchdog.ts --pass-with-no-tests"
+  },
+  "dependencies": {
+    "effect": "4.0.0-rc.118"
+  }
+}

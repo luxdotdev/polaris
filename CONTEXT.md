@@ -128,6 +128,10 @@ _Avoid_: Activity, step, action
 Consecutive finished Tool Calls in a Turn, shown as one summary line that expands to each call.
 _Avoid_: Run (alone, which reads as an Agent Session), group, batch
 
+**Visualization**:
+An interactive page the agent writes during a Turn and the user uses in place in the conversation: a calculator, a flow chart, a comparison. It can't reach the network or message the agent. A later Visualization can replace it.
+_Avoid_: Artifact, widget, render, canvas
+
 **Goal**:
 A standing objective one Agent Session's Harness pursues across Turns until it is met, paused or cleared, as with Codex's and Claude Code's `/goal`.
 _Avoid_: Task (a Constellation's unit of work), objective, mission
