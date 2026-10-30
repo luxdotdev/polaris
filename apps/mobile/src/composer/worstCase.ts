@@ -202,7 +202,7 @@ export const MANY_CHIPS: ReadonlyArray<Chip> = NAMES.map((name, n) => ({
 
 /** A dropped send as the controller reports it: nothing resends it, so it is a failure until Send. */
 export const LONG_ERROR =
-  "Couldn't send: the Daemon on mac-studio-of-aleksandra closed the connection while the Turn was on its way. Send again once the Host is back.";
+  "Couldn't send: the daemon on lucas-rpi closed the connection while the turn was on its way. Send again once the host is back.";
 
 /** Models with long names and descriptions, and one with many efforts. */
 export const LONG_MODELS = [

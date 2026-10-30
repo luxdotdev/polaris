@@ -91,13 +91,21 @@ export const TURN_LIMIT = 30;
 interface Failed {
   readonly _tag: string;
   readonly message: string;
+  /** A refused command's own words on `CommandRejected`; other errors carry other reasons. */
+  readonly reason?: unknown;
 }
+
+/** What the Host said when it refused a command, if it did. */
+const refusal = (error: Failed): string | null =>
+  Predicate.isTagged(error, "CommandRejected") && Predicate.isString(error.reason)
+    ? error.reason
+    : null;
 
 const isDisconnect = (error: Failed) => Predicate.isTagged(error, "RpcClientError");
 
 const failure = (error: Failed) =>
   new ThreadFailure({
-    message: error.message === "" ? error._tag : error.message,
+    message: refusal(error) ?? (error.message === "" ? error._tag : error.message),
     ambiguous: isDisconnect(error),
   });
 

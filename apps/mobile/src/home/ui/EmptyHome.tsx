@@ -1,12 +1,14 @@
 /**
- * Home with nothing to list (MX-C's wells on the ground): no Host yet, the first snapshot on its
- * way, none reachable, no agent sessions, or none in a workspace.
+ * Home with nothing to list: no Host yet and none reachable as MX-AV's raised horizon
+ * (`StatePanel`); the first snapshot on its way, no agent sessions, or none in a workspace as
+ * MX-C's wells on the ground.
  */
 import { mobileType } from "@polaris/ui/tokens";
 import { Match } from "effect";
 import { Pressable, Text, View } from "react-native";
 import { themedStyles } from "../../theme/index.ts";
-import type { HomeEmpty } from "../model/home.ts";
+import { StatePanel } from "../../states/StatePanel.tsx";
+import type { HomeEmpty, Unreachable } from "../model/home.ts";
 
 interface Copy {
   readonly title: string;
@@ -15,6 +17,8 @@ interface Copy {
 }
 
 const useStyles = themedStyles((c) => ({
+  // Home's list pads its rows by 10; the raised horizon spans the screen.
+  bleed: { marginHorizontal: -10 },
   empty: {
     marginHorizontal: 10,
     paddingVertical: 20,
@@ -63,14 +67,48 @@ const Loading = ({ styles }: { readonly styles: ReturnType<typeof useStyles> }) 
   </View>
 );
 
+/** Home's empties that raise the horizon (MX-AV): the screen drops its own foot horizon for them. */
+export const raisesHorizon = (empty: HomeEmpty | null) =>
+  empty === "no-hosts" || empty === "unreachable";
+
+const UNREACHABLE_LINE = "Their agent sessions appear here as soon as one connects.";
+
+/**
+ * "Can't reach your hosts" (MX-AV): a Host's own failure in mono, else `line`; an amber
+ * Reconnecting while Polaris still tries; See hosts.
+ */
+export const UnreachablePanel = ({
+  unreachable,
+  line,
+  onHosts,
+}: {
+  readonly unreachable: Unreachable;
+  readonly line: string;
+  readonly onHosts: () => void;
+}) => {
+  const title = "Can't reach your hosts";
+  const action = { label: "See hosts", onPress: onHosts };
+
+  const panel =
+    unreachable.failure === null
+      ? { title, action, line }
+      : { title, action, failure: unreachable.failure };
+
+  if (!unreachable.reconnecting) return <StatePanel {...panel} />;
+
+  return <StatePanel {...panel} reconnecting="Polaris keeps trying" />;
+};
+
 export const EmptyHome = ({
   empty,
+  unreachable,
   workspace,
   onLink,
   onHosts,
   onAll,
 }: {
   readonly empty: HomeEmpty;
+  readonly unreachable: Unreachable;
   readonly workspace: string | null;
   readonly onLink: () => void;
   readonly onHosts: () => void;
@@ -78,18 +116,26 @@ export const EmptyHome = ({
 }) => {
   const styles = useStyles();
 
+  if (empty === "no-hosts")
+    return (
+      <View style={styles.bleed}>
+        <StatePanel
+          title="No hosts yet"
+          line="Link this iPhone from Polaris on your Mac. Its hosts and their agent sessions appear here."
+          action={{ label: "Link this iPhone", onPress: onLink, primary: true }}
+        />
+      </View>
+    );
+
+  if (empty === "unreachable")
+    return (
+      <View style={styles.bleed}>
+        <UnreachablePanel unreachable={unreachable} line={UNREACHABLE_LINE} onHosts={onHosts} />
+      </View>
+    );
+
   const copy = Match.value(empty).pipe(
     Match.when("loading", () => null),
-    Match.when("no-hosts", (): Copy => ({
-      title: "No hosts yet",
-      body: "Link this iPhone from Polaris on your Mac. Its hosts and their agent sessions appear here.",
-      action: { label: "Link this iPhone", run: onLink },
-    })),
-    Match.when("unreachable", (): Copy => ({
-      title: "Can't reach your hosts",
-      body: "Their agent sessions appear here as soon as one connects. Polaris keeps trying.",
-      action: { label: "See hosts", run: onHosts },
-    })),
     Match.when("no-sessions", (): Copy => ({
       title: "No agent sessions yet",
       body: "Start one with New, or from Polaris on your Mac.",

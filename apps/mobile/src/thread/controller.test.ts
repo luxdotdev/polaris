@@ -9,7 +9,7 @@ import {
   TurnItem,
 } from "@polaris/protocol";
 import { Effect, Predicate } from "effect";
-import { type ThreadController, type ThreadState, openThread } from "./controller.ts";
+import { droppedSend, type ThreadController, type ThreadState, openThread } from "./controller.ts";
 import {
   at,
   checkpoint,
@@ -22,6 +22,7 @@ import {
   request,
   sessionId,
   snapshot,
+  started,
   stateChanged,
   summaryAt,
   turn,
@@ -65,7 +66,7 @@ const withThread = (
           capabilities: options.capabilities ?? ALL,
         });
 
-        const thread = openThread(source, sessionId, { draftDelayMs: 10 });
+        const thread = openThread(source, sessionId, { draftDelayMs: 10, hostName: "lucas-rpi" });
 
         yield* Effect.ensuring(
           run(host, thread),
@@ -421,15 +422,132 @@ describe("one submission, one command", () => {
         thread.type("run the tests");
         host.dropNextAnswer();
         yield* Effect.promise(() => thread.submit());
-        expect(thread.get().error).not.toBeNull();
-        expect(thread.get().text).toBe("run the tests");
+        const [lost] = (yield* until(thread, (s) => s.sends[0]?.status === "failed")).sends;
+        expect(lost?.error).toBe(droppedSend("lucas-rpi"));
 
-        yield* Effect.promise(() => thread.submit());
+        thread.sendAgain(lost!.id);
+        yield* until(thread, (s) => s.sends[0]?.status === "sent");
+        yield* host.push(started(2, turn(1, { status: "working", endedAt: null })));
+        yield* until(thread, (s) => s.sends.length === 0);
+        yield* host.push(ended(3, turn(1)));
+        yield* host.push(stateChanged(4, "idle"));
+        yield* until(thread, (s) => s.fold?.turns.at(-1)?.turn.status === "completed");
         thread.type("then lint");
         yield* Effect.promise(() => thread.submit());
+        yield* until(thread, (s) => s.sends.length === 1 && s.sends[0]?.status === "sent");
         const [first, retry, next] = host.commandIds;
         expect(retry).toBe(first);
         expect(next).not.toBe(first);
+      })
+    ));
+});
+
+describe("a send while the host is away (MX-AV)", () => {
+  test("shows queued, goes once the host is back, and leaves when its turn starts", () =>
+    withThread((host, thread) =>
+      Effect.gen(function* () {
+        yield* host.push(snapshot([{ turn: turn(0) }]));
+        yield* until(thread, (s) => s.fold !== null);
+        host.goAway();
+        thread.hostLive(false);
+        thread.type("rerun the flaky test");
+        expect(yield* Effect.promise(() => thread.submit())).toBe(true);
+        yield* settle;
+
+        expect(thread.get().text).toBe("");
+        expect(thread.get().sends.map((entry) => [entry.text, entry.status])).toEqual([
+          ["rerun the flaky test", "queued"],
+        ]);
+        expect(host.commands).toEqual([]);
+
+        yield* host.comeBack();
+        thread.hostLive(true);
+        yield* until(thread, (s) => s.sends[0]?.status === "sent");
+        expect(host.commands.map((c) => Predicate.isTagged(c, "SendTurn") && c.prompt)).toEqual([
+          "rerun the flaky test",
+        ]);
+
+        yield* host.push(started(2, turn(1, { status: "working", endedAt: null })));
+        yield* until(thread, (s) => s.sends.length === 0);
+      })
+    ));
+
+  test("a second message while one is queued waits for its turn, then goes as the next", () =>
+    withThread((host, thread) =>
+      Effect.gen(function* () {
+        yield* host.push(snapshot([{ turn: turn(0) }]));
+        yield* until(thread, (s) => s.fold !== null);
+        host.goAway();
+        thread.hostLive(false);
+        thread.type("first");
+        yield* Effect.promise(() => thread.submit());
+        thread.type("second");
+        yield* Effect.promise(() => thread.submit());
+        expect(thread.get().queued.map((held) => held.text)).toEqual(["second"]);
+
+        yield* host.comeBack();
+        thread.hostLive(true);
+        yield* until(thread, (s) => s.sends[0]?.status === "sent");
+        // An unrelated change on the feed before the first Turn starts sends nothing more.
+        yield* host.push(stateChanged(2, "idle"));
+        yield* settle;
+        expect(host.commands.length).toBe(1);
+
+        yield* host.push(started(3, turn(1, { status: "working", endedAt: null })));
+        yield* host.push(ended(4, turn(1)));
+        yield* host.push(stateChanged(5, "idle"));
+        yield* until(thread, (s) => s.queued.length === 0);
+        yield* settle;
+        expect(host.commands.map((c) => Predicate.isTagged(c, "SendTurn") && c.prompt)).toEqual([
+          "first",
+          "second",
+        ]);
+      })
+    ));
+
+  test("keeps its thread open after the screen lets go, until it is sent", () =>
+    Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const host = yield* makeFakeHost();
+          const registry = makeThreadRegistry();
+          const source = daemonThreadSource({ live: host.live, capabilities: ALL });
+          const lease = registry.acquire("h/s-1", () => openThread(source, sessionId));
+          const thread = lease!.controller;
+          yield* host.push(snapshot([{ turn: turn(0) }]));
+          yield* until(thread, (s) => s.fold !== null);
+          host.goAway();
+          thread.hostLive(false);
+          thread.type("sent from the train");
+          yield* Effect.promise(() => thread.submit());
+          lease!.release();
+
+          expect(registry.acquire("h/s-1", null)?.controller).toBe(thread);
+          yield* host.comeBack();
+          yield* until(thread, (s) => s.sends[0]?.status === "sent");
+          expect(host.commands.length).toBe(1);
+        })
+      )
+    ));
+});
+
+describe("a failed send (MX-AV)", () => {
+  test("stays in the thread with the host's reason, and Send again sends it", () =>
+    withThread((host, thread) =>
+      Effect.gen(function* () {
+        yield* host.push(snapshot([{ turn: turn(0) }]));
+        yield* until(thread, (s) => s.fold !== null);
+        host.refuseNext("the session is archived");
+        thread.type("try again");
+        yield* Effect.promise(() => thread.submit());
+        const [failed] = (yield* until(thread, (s) => s.sends[0]?.status === "failed")).sends;
+        expect(failed?.error).toBe("the session is archived");
+        expect(thread.get().text).toBe("");
+        expect(thread.busy()).toBe(false);
+
+        thread.sendAgain(failed!.id);
+        yield* until(thread, (s) => s.sends[0]?.status === "sent");
+        expect(host.commands.length).toBe(1);
       })
     ));
 });

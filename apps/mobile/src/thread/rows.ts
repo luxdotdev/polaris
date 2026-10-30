@@ -11,6 +11,7 @@ import type { Session, TurnEntry } from "./fold.ts";
 import { compactionLine } from "./idleCompaction.ts";
 import { elapsed } from "./labels.ts";
 import type { OutgoingSteer } from "./outbox.ts";
+import type { OutgoingSend } from "./sends.ts";
 import { runKind, runSummary, toolLabel } from "./steps.ts";
 
 /** What a finished Turn's long-press menu needs (MX-J). */
@@ -27,6 +28,11 @@ export interface TurnFacts {
 }
 
 export type StepTone = "done" | "active" | "failed";
+
+/** What a sent Turn waits on: the Host to be back, or the user, after it failed. */
+export type SendWaiting =
+  | { readonly kind: "queued" }
+  | { readonly kind: "failed"; readonly error: string };
 
 interface RowBase {
   readonly key: string;
@@ -52,6 +58,15 @@ export type ThreadRow = RowBase &
         readonly attachments: ReadonlyArray<Attachment>;
         readonly failed: boolean;
         readonly note: string;
+      }
+    /** A Turn sent from the composer that the thread doesn't show yet (MX-AV). */
+    | {
+        readonly kind: "send";
+        readonly id: string;
+        readonly text: string;
+        readonly attachments: ReadonlyArray<Attachment>;
+        /** Queued while the Host is away; failed, with why. */
+        readonly waiting: SendWaiting | null;
       }
     | {
         readonly kind: "reply";
@@ -448,9 +463,20 @@ export const threadRows = (
 ): ReadonlyArray<ThreadRow> => turns.flatMap((entry) => cachedOpen(entry, expanded));
 
 /** Steers, then queued follow-ups, still on their way, oldest first, for the thread's foot. */
+const waitingOf = (entry: OutgoingSend) =>
+  Match.value(entry.status).pipe(
+    Match.when("queued", (): SendWaiting => ({ kind: "queued" })),
+    Match.when("failed", (): SendWaiting => ({
+      kind: "failed",
+      error: entry.error ?? "Didn't send",
+    })),
+    Match.orElse((): SendWaiting | null => null)
+  );
+
 export const outgoingRows = (
   steers: ReadonlyArray<OutgoingSteer>,
-  queued: ReadonlyArray<FollowUp> = []
+  queued: ReadonlyArray<FollowUp> = [],
+  sends: ReadonlyArray<OutgoingSend> = []
 ): ReadonlyArray<ThreadRow> => [
   ...steers.map((entry): ThreadRow => ({
     kind: "outgoing",
@@ -461,6 +487,15 @@ export const outgoingRows = (
     attachments: [],
     failed: entry.status === "failed",
     note: entry.status === "failed" ? `${entry.error ?? "Didn't send"} · Tap to edit` : "Steering…",
+  })),
+  ...sends.map((entry): ThreadRow => ({
+    kind: "send",
+    key: `send:${entry.id}`,
+    turnId: "",
+    id: entry.id,
+    text: entry.text,
+    attachments: entry.attachments,
+    waiting: waitingOf(entry),
   })),
   ...queued.map((entry, index): ThreadRow => ({
     kind: "outgoing",

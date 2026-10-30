@@ -1,7 +1,8 @@
 /**
  * One open thread, outside React: folds the session's feed, follows its
  * cached findings, syncs the composer's draft (F3's DraftSync), reports the
- * read position, and holds queued follow-ups until the Turn in flight ends.
+ * read position, holds queued follow-ups until the Turn in flight ends, and keeps a
+ * Turn sent while the Host is away until it is back (`sends.ts`).
  * The screen reads it with `useSyncExternalStore`.
  */
 import {
@@ -35,6 +36,13 @@ import {
 import { applySessionItem, type SessionFold, summaryHead, withOlder } from "./fold.ts";
 import { type OutgoingSteer, outgoingSteer, settleSteers } from "./outbox.ts";
 import { newestEndedOnScreen } from "./rows.ts";
+import {
+  dispatchQueued,
+  type OutgoingSend,
+  outgoingSend,
+  pendingSend,
+  settleSends,
+} from "./sends.ts";
 import { newCommandId, type ThreadFailure, type ThreadSource } from "./source.ts";
 import type { TurnDetail } from "@polaris/protocol";
 
@@ -50,7 +58,9 @@ export interface ThreadState {
   readonly queued: ReadonlyArray<FollowUp>;
   /** Steers sent into the Turn in flight that the thread doesn't show yet, oldest first. */
   readonly steers: ReadonlyArray<OutgoingSteer>;
-  /** Why the last send or stop failed. */
+  /** Turns sent from the composer that the thread doesn't show yet, oldest first. */
+  readonly sends: ReadonlyArray<OutgoingSend>;
+  /** Why the last queued follow-up, answer or stop failed. */
   readonly error: string | null;
   /** Pending requests whose answer is on its way to the Host. */
   readonly answering: ReadonlyArray<RequestId>;
@@ -73,6 +83,8 @@ export interface ThreadController {
   readonly queue: (attachments?: ReadonlyArray<Attachment>) => boolean;
   /** Takes a steer that didn't land back into the composer, to send again. */
   readonly editSteer: (id: string) => void;
+  /** Sends a failed Turn again; a retry of one whose answer was lost reuses its command id. */
+  readonly sendAgain: (id: string) => void;
   readonly interrupt: () => Promise<void>;
   /** Answers a pending request; a second tap while the first is on its way does nothing. */
   readonly respond: (requestId: RequestId, decision: ApprovalDecision) => Promise<void>;
@@ -80,6 +92,8 @@ export interface ThreadController {
   readonly busy: () => boolean;
   /** The Host's connection came back: drafts that failed to save are written again. */
   readonly reconnected: () => void;
+  /** Whether the Host is connected now: a Turn sent while it isn't shows as queued. */
+  readonly hostLive: (live: boolean) => void;
   /** Pages in Turns older than the thread holds; does nothing while a page is on its way. */
   readonly loadOlder: () => void;
   /** The Turns with rows on screen while the app is in front. */
@@ -95,6 +109,7 @@ const initial: ThreadState = {
   draftStatus: null,
   queued: [],
   steers: [],
+  sends: [],
   error: null,
   answering: [],
   requestErrors: new Map(),
@@ -116,7 +131,13 @@ const readyForFollowUp = (fold: SessionFold) =>
 export interface ThreadControllerOptions {
   /** The pause after typing before the draft is written; DraftSync's default otherwise. */
   readonly draftDelayMs?: number;
+  /** The Host's name, for a failed send's line. */
+  readonly hostName?: string;
 }
+
+/** A Turn whose answer was lost with the connection: the Host may have it, so only the user resends. */
+export const droppedSend = (hostName = "the host") =>
+  `Couldn't send: the daemon on ${hostName} closed the connection while the turn was on its way. Send again once the host is back.`;
 
 export const openThread = (
   source: ThreadSource,
@@ -135,6 +156,7 @@ export const openThread = (
   let findingsFiber: Fiber.Fiber<void, ThreadFailure> | null = null;
   /** Older Turns paged in so far, oldest first; a fresh Snapshot keeps them. */
   let pages: ReadonlyArray<TurnDetail> = [];
+  let away = false;
   const listeners = new Set<() => void>();
   const fibers: Array<Fiber.Fiber<void, ThreadFailure>> = [];
 
@@ -144,15 +166,15 @@ export const openThread = (
   };
 
   const run = <A>(effect: Effect.Effect<A, ThreadFailure>) => Effect.runPromise(effect);
-  const inFlight = new Map<string, Promise<string | null>>();
+  const inFlight = new Map<string, Promise<ThreadFailure | null>>();
   /** Per action, the command whose outcome is unknown and the id a retry of it reuses. */
   const retained = new Map<string, { readonly command: string; readonly id: CommandId }>();
 
   /**
-   * Sends one command per action (`slot`) at a time; answers why it failed, or
+   * Sends one command per action (`slot`) at a time; answers how it failed, or
    * null. A retry after a dropped connection reuses the command's id.
    */
-  const send = (slot: string, command: Command): Promise<string | null> => {
+  const dispatch = (slot: string, command: Command): Promise<ThreadFailure | null> => {
     const held = inFlight.get(slot);
 
     if (held !== undefined) return held;
@@ -167,7 +189,7 @@ export const openThread = (
           onFailure: (error) => {
             if (error.ambiguous !== true) retained.delete(slot);
 
-            return error.message;
+            return error;
           },
           onSuccess: () => {
             retained.delete(slot);
@@ -185,6 +207,10 @@ export const openThread = (
 
     return sent;
   };
+
+  /** `dispatch`, answering why it failed as the user reads it. */
+  const send = (slot: string, command: Command): Promise<string | null> =>
+    dispatch(slot, command).then((error) => error?.message ?? null);
 
   const drafts: DraftSync = makeDraftSync({
     delayMs: options.draftDelayMs ?? DRAFT_SAVE_DELAY_MS,
@@ -246,7 +272,11 @@ export const openThread = (
           : applied;
 
       if (fold === state.fold || fold === null) return;
-      set({ fold, steers: settleSteers(state.steers, fold.turns) });
+      set({
+        fold,
+        steers: settleSteers(state.steers, fold.turns),
+        sends: settleSends(state.sends, fold.session.turnCount),
+      });
       followFindings(fold);
       sendFollowUp(fold);
     })
@@ -306,6 +336,46 @@ export const openThread = (
     return true;
   };
 
+  const updateSend = (id: string, patch: Partial<OutgoingSend>) =>
+    state.sends.map((held) => (held.id === id ? { ...held, ...patch } : held));
+
+  /** Dispatches once the Host is live (the source waits for it); one slot per send, for its id. */
+  const dispatchSend = async (entry: OutgoingSend) => {
+    // A follow-up queued meanwhile waits for this Turn, not the one before it.
+    followUpTurns = entry.baseline;
+    const failure = await dispatch(`send:${entry.id}`, entry.command);
+
+    if (failure !== null) followUpTurns = null;
+
+    const error = failure?.ambiguous === true ? droppedSend(options.hostName) : failure?.message;
+
+    const sends = updateSend(
+      entry.id,
+      error === undefined ? { status: "sent" } : { status: "failed", error }
+    );
+
+    set({ sends: settleSends(sends, state.fold?.session.turnCount ?? entry.baseline) });
+  };
+
+  const sendAgain = (id: string) => {
+    const held = state.sends.find((entry) => entry.id === id);
+    const turnCount = state.fold?.session.turnCount;
+
+    if (held?.status !== "failed" || turnCount === undefined || pendingSend(state.sends) !== null)
+      return;
+
+    const again: OutgoingSend = {
+      ...held,
+      baseline: turnCount,
+      error: null,
+      status: away ? "queued" : "sending",
+    };
+
+    // Last in the outbox: it goes after anything that went meanwhile.
+    set({ sends: [...state.sends.filter((entry) => entry.id !== id), again] });
+    void dispatchSend(again);
+  };
+
   const editSteer = (id: string) => {
     const held = state.steers.find((entry) => entry.id === id);
 
@@ -327,13 +397,31 @@ export const openThread = (
       canSteer: source.canSteer,
     });
 
-    if (sendQueues(mode, ids)) return queue(attachments);
+    // A Turn still on its way: the next message waits for it, as a follow-up.
+    if (sendQueues(mode, ids) || (mode.kind === "send" && pendingSend(state.sends) !== null))
+      return queue(attachments);
     const command = submitCommand(mode, sessionId, state.text, ids);
 
     // A Send already on its way carries its own attachments, not chips added since.
     if (command === null || inFlight.has("composer")) return false;
 
     if (mode.kind === "steer") return steer(fold, command);
+
+    if (mode.kind === "send") {
+      const entry = outgoingSend({
+        text: state.text,
+        attachments,
+        command,
+        turnCount: fold.session.turnCount,
+        away,
+      });
+
+      set({ sends: [...state.sends, entry] });
+      clearSent();
+      void dispatchSend(entry);
+
+      return true;
+    }
 
     const sentAt = generation;
     const error = await send("composer", command);
@@ -424,16 +512,25 @@ export const openThread = (
     submit,
     queue,
     editSteer,
+    sendAgain,
     interrupt,
     respond,
     busy: () =>
       followingUp ||
       state.queued.length > 0 ||
       inFlight.size > 0 ||
-      state.steers.some((entry) => entry.status !== "failed"),
+      state.steers.some((entry) => entry.status !== "failed") ||
+      pendingSend(state.sends) !== null,
     seen,
     loadOlder,
     reconnected: () => void drafts.retry(),
+    hostLive: (live) => {
+      away = !live;
+
+      const sends = live ? dispatchQueued(state.sends) : state.sends;
+
+      if (sends !== state.sends) set({ sends });
+    },
     dispose: () => {
       void drafts.flush(sessionId).finally(() => drafts.dispose());
       [...fibers, ...(findingsFiber === null ? [] : [findingsFiber])].forEach((fiber) =>

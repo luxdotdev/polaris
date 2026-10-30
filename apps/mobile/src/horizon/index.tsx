@@ -120,8 +120,17 @@ export const Horizon = () => {
   );
 };
 
-/** A top-level screen on the ground with the horizon over its foot; pad scroll content by HORIZON_INSET. */
-export const HorizonScreen = ({ children }: { readonly children: ReactNode }) => {
+/**
+ * A top-level screen on the ground with the horizon over its foot; pad scroll content by
+ * HORIZON_INSET. `foot={false}` leaves it out, for a state that raises the horizon (MX-AV).
+ */
+export const HorizonScreen = ({
+  children,
+  foot = true,
+}: {
+  readonly children: ReactNode;
+  readonly foot?: boolean;
+}) => {
   const { colours } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -131,7 +140,7 @@ export const HorizonScreen = ({ children }: { readonly children: ReactNode }) =>
       <View style={[styles.screen, { paddingLeft: insets.left, paddingRight: insets.right }]}>
         {children}
       </View>
-      <Horizon />
+      {foot ? <Horizon /> : null}
     </View>
   );
 };

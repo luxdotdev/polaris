@@ -7,6 +7,7 @@
 import type { LiveSource } from "@polaris/client/resume";
 import {
   AgentSession,
+  CommandRejected,
   ApprovalRequest,
   type CommandId,
   RequestId,
@@ -187,6 +188,12 @@ export interface FakeHost {
   readonly releaseDispatches: () => Effect.Effect<void>;
   /** The next dispatch is applied but its answer is lost with the connection. */
   readonly dropNextAnswer: () => void;
+  /** The next dispatch is refused by the Host with `reason`. */
+  readonly refuseNext: (reason: string) => void;
+  /** The connection drops: calls wait for the next one, as on a reconnecting Host. */
+  readonly goAway: () => void;
+  /** The next connection is up; calls that waited go on it. */
+  readonly comeBack: () => Effect.Effect<void>;
   readonly reads: ReadonlyArray<number>;
   readonly summariesAsked: ReadonlyArray<string>;
   /** Each `session.turns` call's `beforeIndex`, in order. */
@@ -215,6 +222,9 @@ export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOption
   const saved: Array<string> = [];
   let dispatchGate: Deferred.Deferred<void> | null = null;
   let dropNext = false;
+  let refusal: string | null = null;
+  let back: Deferred.Deferred<void> | null = null;
+  let epoch = 1;
   const reads: Array<number> = [];
   const summariesAsked: Array<string> = [];
   const pagesAsked: Array<number> = [];
@@ -254,15 +264,23 @@ export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOption
         })
       ),
     subscribeSession: () => Stream.fromQueue(feed),
-    dispatch: ({ command, commandId }) =>
-      Effect.flatMap(dispatchGate === null ? Effect.void : Deferred.await(dispatchGate), () =>
-        Effect.sync(() => {
-          commands.push(command);
-          commandIds.push(commandId);
+    dispatch: ({ command, commandId }) => {
+      const reason = refusal;
+      refusal = null;
 
-          return { sequence: null };
-        })
-      ),
+      if (reason !== null) return Effect.fail(new CommandRejected({ commandId, reason }));
+
+      return Effect.flatMap(
+        dispatchGate === null ? Effect.void : Deferred.await(dispatchGate),
+        () =>
+          Effect.sync(() => {
+            commands.push(command);
+            commandIds.push(commandId);
+
+            return { sequence: null };
+          })
+      );
+    },
     "continuity.watch": () =>
       Stream.concat(
         Stream.make(
@@ -341,7 +359,12 @@ export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOption
   };
 
   const host: FakeHost = {
-    live: { next: () => Effect.succeed({ epoch: 1, client: lossy }) },
+    live: {
+      next: () =>
+        Effect.suspend(() =>
+          Effect.as(back === null ? Effect.void : Deferred.await(back), { epoch, client: lossy })
+        ),
+    },
     push: (item) => Effect.asVoid(Queue.offer(feed, item)),
     saveElsewhere: (text) => Effect.asVoid(save(text)),
     commands,
@@ -357,6 +380,20 @@ export const makeFakeHost = Effect.fnUntraced(function* (options: FakeHostOption
     dropNextAnswer: () => {
       dropNext = true;
     },
+    refuseNext: (reason) => {
+      refusal = reason;
+    },
+    goAway: () => {
+      back ??= Deferred.makeUnsafe<void>();
+    },
+    comeBack: () =>
+      Effect.suspend(() => {
+        const waiting = back;
+        back = null;
+        epoch++;
+
+        return waiting === null ? Effect.void : Effect.asVoid(Deferred.succeed(waiting, undefined));
+      }),
     reads,
     summariesAsked,
     pagesAsked,

@@ -14,6 +14,8 @@ import { type GalleryData, snapshotOf } from "./worstCase.testing.ts";
 export interface GalleryHost {
   readonly connection: HostConnection;
   readonly setLive: (live: boolean) => void;
+  /** The next send is applied but its answer is lost with the connection: a failed send. */
+  readonly dropNextAnswer: () => void;
   readonly close: () => void;
 }
 
@@ -104,6 +106,7 @@ export const galleryHost = async (
       on = next;
       listeners.forEach((listener) => listener());
     },
+    dropNextAnswer: fake.dropNextAnswer,
     close: () => void Effect.runPromise(Scope.close(scope, Exit.void)),
   };
 };

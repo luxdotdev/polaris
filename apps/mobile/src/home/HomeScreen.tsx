@@ -22,7 +22,7 @@ import { constellationMenu, type MenuAction, sessionMenu, useMenuActions } from 
 import { themedStyles, useReducedMotion, useTheme } from "../theme/index.ts";
 import { useHomeHosts } from "./feed/useHomeHosts.ts";
 import { type HeroPage, heroKicker, nextUpIndex, nextUpMeta, pageIndex } from "./model/hero.ts";
-import { buildHome, type HomeRow, type SessionRow as Row } from "./model/home.ts";
+import { buildHome, type HomeRow, type SessionRow as Row, unreachableOf } from "./model/home.ts";
 import { rowDestination } from "./model/lines.ts";
 import {
   constellationsOnScreen,
@@ -32,7 +32,7 @@ import {
 } from "./model/sections.ts";
 import { useConstellationProgress } from "./ui/constellationProgress.ts";
 import { DevDataToggle } from "./ui/DevDataToggle.tsx";
-import { EmptyHome } from "./ui/EmptyHome.tsx";
+import { EmptyHome, raisesHorizon } from "./ui/EmptyHome.tsx";
 import { NeedsYouStar } from "./ui/glyphs.tsx";
 import { Header } from "./ui/Header.tsx";
 import { NeedsYouCard, titleOf } from "./ui/NeedsYouCard.tsx";
@@ -357,6 +357,7 @@ export const HomeScreen = ({
   const inbox = useInbox();
 
   const home = useMemo(() => buildHome(shownHosts, workspace), [shownHosts, workspace]);
+  const unreachable = useMemo(() => unreachableOf(shownHosts), [shownHosts]);
 
   const hero: HeroActions = {
     now,
@@ -375,7 +376,7 @@ export const HomeScreen = ({
   );
 
   return (
-    <HorizonScreen>
+    <HorizonScreen foot={!raisesHorizon(home.empty)}>
       <View style={[styles.screen, { paddingTop: insets.top }]}>
         <Header
           home={home}
@@ -406,6 +407,7 @@ export const HomeScreen = ({
             home.empty === null ? undefined : (
               <EmptyHome
                 empty={home.empty}
+                unreachable={unreachable}
                 workspace={workspace}
                 onLink={actions.link}
                 onHosts={actions.openHosts}

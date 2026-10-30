@@ -55,12 +55,15 @@ export const TabBar = ({
   bottom,
   onSelect,
   onNew,
+  newDimmed = false,
 }: {
   readonly active: HomeTab;
   readonly reviewCount: number;
   readonly bottom: number;
   readonly onSelect: (tab: HomeTab) => void;
   readonly onNew: () => void;
+  /** No Host to start one on (MX-AV's "No hosts yet"): New dims and does nothing. */
+  readonly newDimmed?: boolean;
 }) => {
   const { colours } = useTheme();
   const panel = { backgroundColor: colours.panel, borderColor: colours.hairline };
@@ -98,8 +101,10 @@ export const TabBar = ({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="New agent session"
+        accessibilityState={{ disabled: newDimmed }}
+        disabled={newDimmed}
         onPress={onNew}
-        style={[styles.new, { backgroundColor: colours.starlight }]}
+        style={[styles.new, { backgroundColor: colours.starlight }, newDimmed && styles.dimmed]}
       >
         <Svg width={22} height={22} viewBox="0 0 16 16">
           <Path
@@ -115,6 +120,7 @@ export const TabBar = ({
 };
 
 const styles = StyleSheet.create({
+  dimmed: { opacity: 0.35 },
   row: {
     position: "absolute",
     left: 16,

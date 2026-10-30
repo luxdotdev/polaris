@@ -4,11 +4,13 @@
  */
 import type { Attachment, CelestialBody, HarnessKind } from "@polaris/protocol";
 import { mobileType } from "@polaris/ui/tokens";
+import { Match } from "effect";
 import { memo, type ReactNode, useState } from "react";
 import { type LayoutChangeEvent, Pressable, Text, View } from "react-native";
 import { Thumbnails } from "../attachments/index.ts";
 import { Celestial } from "../celestial";
 import { Markdown } from "../markdown/index.ts";
+import { type BubbleState, BubbleFootnote, useBubbleTreatment } from "../states/thread.tsx";
 import { LongPressMenu, type MenuAction, turnMenu } from "../menus/index.ts";
 import { type MobileColours, themedStyles } from "../theme/index.ts";
 import { type ThreadRow, type TurnFacts, turnHeading } from "./rows.ts";
@@ -175,6 +177,10 @@ export interface RowProps {
   readonly focused?: boolean;
   /** Takes a steer that didn't land back into the composer, by its id. */
   readonly onEditSteer?: ((id: string) => void) | undefined;
+  /** Sends a failed Turn again, by its id. */
+  readonly onSendAgain?: ((id: string) => void) | undefined;
+  /** The Host's name, for "Queued · sends when <host> is back". */
+  readonly hostName?: string;
   /** The session's Host, which holds the images its messages carried. */
   readonly hostId: string;
   /** The session, for the step in flight and a finished Turn's menu. */
@@ -213,6 +219,52 @@ const Bubble = ({
       {note === null ? null : (
         <Text style={[styles.note, failed ? styles.noteFailed : null]}>{note}</Text>
       )}
+    </View>
+  );
+};
+
+/** A Turn on its way (MX-AV): queued under its bubble while the Host is away, or failed and outlined. */
+const SendBubble = ({
+  row,
+  hostId,
+  hostName,
+  onSendAgain,
+}: {
+  readonly row: Extract<ThreadRow, { kind: "send" }>;
+  readonly hostId: string;
+  readonly hostName: string;
+  readonly onSendAgain: ((id: string) => void) | undefined;
+}) => {
+  const styles = useStyles();
+  const { waiting } = row;
+
+  const state =
+    waiting === null
+      ? null
+      : Match.value(waiting).pipe(
+          Match.discriminatorsExhaustive("kind")({
+            queued: (): BubbleState => ({ kind: "queued", host: hostName }),
+            failed: ({ error }): BubbleState => ({
+              kind: "failed",
+              message: error,
+              onSendAgain: () => onSendAgain?.(row.id),
+            }),
+          })
+        );
+
+  const treatment = useBubbleTreatment(state);
+
+  return (
+    <View style={[styles.promptLine, waiting === null ? styles.faded : null]}>
+      <Thumbnails hostId={hostId} attachments={row.attachments} />
+      {row.text.trim() === "" ? null : (
+        <View style={[styles.prompt, treatment.view]}>
+          <Text style={[styles.promptText, treatment.text]} selectable>
+            {row.text}
+          </Text>
+        </View>
+      )}
+      <BubbleFootnote state={state} />
     </View>
   );
 };
@@ -293,7 +345,9 @@ const RowView = ({
   onFocus,
   focused = false,
   onEditSteer,
+  onSendAgain,
   hostId,
+  hostName = "the host",
   session,
   onMenuAction,
 }: RowProps) => {
@@ -328,6 +382,8 @@ const RowView = ({
           faded
         />
       );
+    case "send":
+      return <SendBubble row={row} hostId={hostId} hostName={hostName} onSendAgain={onSendAgain} />;
     case "reply":
       return <Reply row={row} session={session} onMenuAction={onMenuAction} />;
     case "receipt":

@@ -13,6 +13,7 @@ import {
   workspace,
 } from "../../home/fixtures.testing.ts";
 import type { HomeHost } from "../../home/model/home.ts";
+import { unreachableRpi } from "../../home/worstCase.testing.ts";
 import { finding, summary as riskSummary } from "../review.testing.ts";
 import type { QueueTurn, TurnRisk } from "./queue.ts";
 
@@ -239,4 +240,11 @@ const HUGE: DevQueue = queue([
   ],
 ]);
 
-export const devQueues = { worst: WORST, empty: EMPTY, one: ONE, huge: HUGE } as const;
+export const devQueues = {
+  worst: WORST,
+  empty: EMPTY,
+  one: ONE,
+  huge: HUGE,
+  none: { hosts: [], turns: new Map() },
+  offline: { hosts: [unreachableRpi], turns: new Map() },
+} satisfies Record<string, DevQueue>;
