@@ -77,10 +77,15 @@ const doc = (html: string, overrides: Partial<FrameDocumentOptions> = {}): strin
     ...overrides,
   });
 
+/** A nested frame that runs its own WebRTC: a fresh realm the bootstrap's block doesn't reach. */
+const rtcChild = (label: string) =>
+  `<script>try { const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:127.0.0.1:${stun.port}" }] }); pc.createDataChannel("x"); pc.createOffer().then((o) => pc.setLocalDescription(o)); parent.parent.postMessage({ check: "egress", what: "${label} ran" }, "*"); } catch (e) {}</script>`;
+
 const EGRESS = `<img src="${origin}/img"><link rel="stylesheet" href="${origin}/css">
 <div style="background:url(${origin}/bg);width:10px;height:10px"></div>
 <style>@import url("${origin}/import"); @font-face { font-family: x; src: url(${origin}/font); } body { font-family: x; }</style>
 <iframe src="${origin}/iframe"></iframe><object data="${origin}/object"></object>
+<iframe srcdoc="${rtcChild("parser child").replaceAll('"', "&quot;")}"></iframe>
 <form id="f" action="${origin}/form" method="post"><input name="q" value="secret"></form>
 <script>
   const s = "agent const";
@@ -100,6 +105,18 @@ const EGRESS = `<img src="${origin}/img"><link rel="stylesheet" href="${origin}/
     } catch (e) { report(label + " blocked"); }
   };
   rtc(window.RTCPeerConnection, "rtc");
+  const own = document.createElement("iframe");
+  own.srcdoc = ${JSON.stringify(rtcChild("script child")).replaceAll("</", "<\\/")};
+  document.body.appendChild(own);
+  const nested = ${JSON.stringify(rtcChild("shadow child")).replaceAll("</", "<\\/")};
+  const shadow = document.createElement("div");
+  document.body.appendChild(shadow);
+  const inShadow = document.createElement("iframe");
+  inShadow.srcdoc = nested;
+  shadow.attachShadow({ mode: "closed" }).appendChild(inShadow);
+  const dsd = '<div><template shadowrootmode="closed"><iframe srcdoc="' + nested.replaceAll('"', "&quot;") + '"></iframe></template></div>';
+  try { document.write(dsd); } catch (e) { report("document.write threw"); }
+  try { shadow.setHTMLUnsafe(dsd); } catch (e) { report("setHTMLUnsafe threw"); }
   const child = document.createElement("iframe");
   document.body.appendChild(child);
   try { rtc(child.contentWindow.RTCPeerConnection, "rtc via child frame"); } catch (e) { report("rtc via child frame blocked"); }
@@ -195,6 +212,18 @@ check(
 check("fetch was blocked", egress.includes("fetch blocked"), JSON.stringify(egress));
 
 check("WebRTC can't be constructed", egress.includes("rtc blocked"), JSON.stringify(egress));
+
+check(
+  "document.write and setHTMLUnsafe are refused",
+  egress.includes("document.write threw") && egress.includes("setHTMLUnsafe threw"),
+  JSON.stringify(egress)
+);
+
+check(
+  "nested srcdoc frames never ran (inserted, scripted, in a closed shadow root)",
+  !messages.some((m) => m.data.what?.endsWith("child ran")),
+  JSON.stringify(messages.filter((m) => m.frame === null))
+);
 
 check(
   "no STUN packet left the frame (WebRTC, also via a child frame)",

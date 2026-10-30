@@ -70,9 +70,16 @@ const firstScriptUrl = (html: string): string | undefined => {
   return NETWORK_API.exec(html)?.[0].trim();
 };
 
+/** Nested browsing contexts: each is a fresh realm the frame's own blocks don't reach. */
+const NESTED_FRAME =
+  /<\s*(?:iframe|frame|object|embed)\b|\bsrcdoc\s*=|["'`]srcdoc["'`]|createElement\(\s*["'`](?:iframe|frame|object|embed)["'`]|\bshadowroot(?:mode)?\s*=|\bdocument\s*\.\s*write(?:ln)?\s*\(|\b(?:set|parse)HTMLUnsafe\b/i;
+
 /** The first snippet that would load or link to something outside the frame. */
 export const findExternalUrl = (html: string): string | undefined =>
-  firstAttributeUrl(html) ?? firstCssUrl(html) ?? firstScriptUrl(html);
+  firstAttributeUrl(html) ??
+  firstCssUrl(html) ??
+  firstScriptUrl(html) ??
+  NESTED_FRAME.exec(html)?.[0];
 
 const NAVIGATION = [
   /\blocation\s*\.\s*(?:assign|replace|reload)\s*\(/,
