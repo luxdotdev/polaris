@@ -226,6 +226,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "session.set-model",
   "session.service-tier",
   "session.steer",
+  "session.steer-attachments",
   "session.fork",
   "session.terminal-handoff",
   "session.terminal-command",

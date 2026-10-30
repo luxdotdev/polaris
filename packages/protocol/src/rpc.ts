@@ -235,6 +235,11 @@ export class HarnessModels extends Schema.Class<HarnessModels>("HarnessModels")(
   switchesModel: Schema.Boolean,
   /** The Harness can move a running command into the background (`BackgroundCommand`). */
   backgroundsCommands: Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
+  /** The Harness takes attachments in a steer (`Steer.attachments`); false from older Daemons. */
+  steersAttachments: Schema.Boolean.pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed(false)),
+    Schema.withConstructorDefault(Effect.succeed(false))
+  ),
   /** The Harness takes the user's shell commands (`RunShellCommand`); false from older Daemons. */
   runsShellCommands: Schema.Boolean.pipe(
     Schema.withDecodingDefaultKey(Effect.succeed(false)),

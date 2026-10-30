@@ -95,6 +95,7 @@ export const makeCodexDriver = (
       kind: "codex",
       capabilities: {
         steer: true,
+        steerAttachments: true,
         liveCoAttach: true,
         switchModel: true,
         stopBackground: true,
