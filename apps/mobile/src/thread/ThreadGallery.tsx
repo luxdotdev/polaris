@@ -1,16 +1,18 @@
 /**
  * A development screen: the real thread over a fake Host, with Demo, Worst case, One and Empty
- * data, a 320pt frame and a dropped connection. `EXPO_PUBLIC_POLARIS_GALLERY=thread` (or
- * `thread:moonlit`) in a development build.
+ * data, a 320pt frame, a dropped connection, and Drop, which loses the next send's answer.
+ * `EXPO_PUBLIC_POLARIS_GALLERY=thread` (or `thread:moonlit`) in a development build; launched
+ * with `-polarisDevThreadState reconnecting|queued|failed` it plays that MX-AV state on Demo.
  */
-import { Predicate } from "effect";
+import { Predicate, Schema } from "effect";
 import { useEffect, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Platform, Pressable, Settings, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GalleryHosts } from "../runtime/hosts.tsx";
-import { useTheme } from "../theme/index.ts";
+import { ThemeName, useTheme } from "../theme/index.ts";
 import { type GalleryHost, galleryHost } from "./galleryHost.testing.ts";
 import { ThreadScreen } from "./ThreadScreen.tsx";
+import { threadKey, threads } from "./threads.ts";
 import { DATASETS, type Dataset, sessionId } from "./worstCase.testing.ts";
 
 // Read whole: Expo inlines EXPO_PUBLIC_ variables only where they are named in full.
@@ -21,6 +23,37 @@ const GALLERY = __DEV__ && Predicate.isString(env) ? env : "";
 const [PART, THEME] = GALLERY.split(":");
 
 export const threadGalleryOn = (): boolean => PART === "thread";
+
+const DevThreadState = Schema.Literals(["reconnecting", "queued", "failed"]);
+
+/** A development build's launch argument, parsed with `schema`; null when absent or not one. */
+const launched = <A,>(key: string, schema: Schema.Codec<A, A>): A | null => {
+  const value: unknown = __DEV__ && Platform.OS === "ios" ? Settings.get(key) : undefined;
+
+  return Schema.is(schema)(value) ? value : null;
+};
+
+const SCRIPT = launched("polarisDevThreadState", DevThreadState);
+
+const MOONLIT = THEME === "moonlit" || launched("polarisDevTheme", ThemeName) === "moonlit";
+
+/** Plays the launched state: the Host drops, then a message goes into it, or its answer is lost. */
+const useScript = (host: GalleryHost | null, setOffline: (offline: boolean) => void) =>
+  useEffect(() => {
+    if (host === null || SCRIPT === null) return;
+
+    if (SCRIPT === "failed") host.dropNextAnswer();
+    else setOffline(true);
+
+    const timer = setTimeout(() => {
+      if (SCRIPT === "reconnecting") return;
+      const lease = threads.acquire(threadKey(host.connection.hostId, sessionId), null);
+      lease?.controller.type("Rerun the flaky relay test before you push.");
+      void lease?.controller.submit().finally(() => lease.release());
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [host, setOffline]);
 
 const SEGMENTS: ReadonlyArray<readonly [Dataset, string]> = [
   ["demo", "Demo"],
@@ -92,13 +125,14 @@ const Toggle = ({
 export const ThreadGallery = () => {
   const { colours, name, setTheme } = useTheme();
   const insets = useSafeAreaInsets();
-  const [dataset, setDataset] = useState<Dataset>("worst");
+  const [dataset, setDataset] = useState<Dataset>(SCRIPT === null ? "worst" : "demo");
   const [narrow, setNarrow] = useState(false);
   const [offline, setOffline] = useState(false);
   const host = useGalleryHost(dataset);
+  useScript(host, setOffline);
 
   // Once: setTheme is new each render, and the tap to switch must stick.
-  useEffect(() => setTheme(THEME === "moonlit" ? "moonlit" : "midnight"), []);
+  useEffect(() => setTheme(MOONLIT ? "moonlit" : "midnight"), []);
   useEffect(() => host?.setLive(!offline), [host, offline]);
 
   return (
@@ -121,6 +155,7 @@ export const ThreadGallery = () => {
         ))}
         <Toggle label="320" on={narrow} onPress={() => setNarrow(!narrow)} />
         <Toggle label="Offline" on={offline} onPress={() => setOffline(!offline)} />
+        <Toggle label="Drop" on={false} onPress={() => host?.dropNextAnswer()} />
         <Toggle
           label={name}
           on={false}

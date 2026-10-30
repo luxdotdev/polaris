@@ -17,6 +17,8 @@ interface Copy {
 }
 
 const useStyles = themedStyles((c) => ({
+  // Home's list pads its rows by 10; the raised horizon spans the screen.
+  bleed: { marginHorizontal: -10 },
   empty: {
     marginHorizontal: 10,
     paddingVertical: 20,
@@ -116,15 +118,21 @@ export const EmptyHome = ({
 
   if (empty === "no-hosts")
     return (
-      <StatePanel
-        title="No hosts yet"
-        line="Link this iPhone from Polaris on your Mac. Its hosts and their agent sessions appear here."
-        action={{ label: "Link this iPhone", onPress: onLink, primary: true }}
-      />
+      <View style={styles.bleed}>
+        <StatePanel
+          title="No hosts yet"
+          line="Link this iPhone from Polaris on your Mac. Its hosts and their agent sessions appear here."
+          action={{ label: "Link this iPhone", onPress: onLink, primary: true }}
+        />
+      </View>
     );
 
   if (empty === "unreachable")
-    return <UnreachablePanel unreachable={unreachable} line={UNREACHABLE_LINE} onHosts={onHosts} />;
+    return (
+      <View style={styles.bleed}>
+        <UnreachablePanel unreachable={unreachable} line={UNREACHABLE_LINE} onHosts={onHosts} />
+      </View>
+    );
 
   const copy = Match.value(empty).pipe(
     Match.when("loading", () => null),
