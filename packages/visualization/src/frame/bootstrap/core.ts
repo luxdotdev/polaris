@@ -4,6 +4,13 @@
  */
 export const CORE_JS = String.raw`
 var root = document.documentElement;
+
+// CSP doesn't govern WebRTC: an ICE server is a way out, so the constructors go before agent code runs.
+["RTCPeerConnection", "webkitRTCPeerConnection", "RTCDataChannel", "RTCRtpTransceiver"].forEach(function (name) {
+  try {
+    Object.defineProperty(window, name, { value: undefined, writable: false, configurable: false });
+  } catch (error) {}
+});
 var names = Object.create(null);
 config.names.forEach(function (name) { names[name] = true; });
 var unsafe = new RegExp(config.unsafe);
