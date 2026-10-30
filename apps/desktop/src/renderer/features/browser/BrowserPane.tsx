@@ -150,6 +150,7 @@ interface BarProps {
 const UrlBar = ({ tab, target, workspaceId, adding, onDone }: BarProps) => {
   const [draft, setDraft] = useState<string | null>(null);
   const [error, setError] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
   const opens = tab === null || adding;
 
   const go = async (text: string) => {
@@ -162,6 +163,8 @@ const UrlBar = ({ tab, target, workspaceId, adding, onDone }: BarProps) => {
     if (!result.ok) return;
     setDraft(null);
     onDone();
+    // As in a browser, the page has the focus once it loads.
+    input.current?.blur();
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -188,6 +191,7 @@ const UrlBar = ({ tab, target, workspaceId, adding, onDone }: BarProps) => {
     >
       <Origin tab={opens ? null : tab} />
       <input
+        ref={input}
         key={adding ? "adding" : "tab"}
         // The empty state's one action, and the + button's: typing a URL.
         autoFocus={opens}
