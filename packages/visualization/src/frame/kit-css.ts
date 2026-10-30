@@ -23,7 +23,8 @@ p { margin: 0; max-width: 68ch; }
 b, strong { font-weight: 500; color: var(--pv-text-strong); }
 code, kbd, pre { font-family: var(--pv-font-mono); font-size: 12px; }
 canvas, svg, img { max-width: 100%; }
-a { color: var(--pv-text-strong); text-decoration: underline; text-decoration-thickness: 1px; text-decoration-color: var(--pv-border-strong); text-underline-offset: 3px; }
+a, .pv-link { color: var(--pv-text-strong); text-decoration: underline; text-decoration-thickness: 1px; text-decoration-color: var(--pv-border-strong); text-underline-offset: 3px; }
+.pv-link { display: inline; padding: 0; border: 0; background: none; font: inherit; cursor: pointer; }
 :focus-visible { outline: 2px solid var(--pv-focus); outline-offset: 2px; }
 button, input, select { font: inherit; color: inherit; }
 

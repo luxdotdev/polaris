@@ -34,7 +34,7 @@ CSS classes:
 - <div class="pv-tabs" role="tablist"><button role="tab" aria-selected="true" aria-controls="a">A</button>...</div> then <div role="tabpanel" id="a">: 2 to 5 tabs that switch themselves and are remembered; listen for the pv:tab event to draw a panel's chart when it first shows.
 - <div class="pv-table-wrap"><table class="pv-table">: a table; .pv-num on th and td right-aligns figures in mono; tr.pv-row-on highlights a row.
 - <ol class="pv-steps"><li data-state="done|current"><div class="pv-step-title">...</div><div class="pv-step-detail">...</div></li></ol>: steps or a timeline.
-- .pv-card (a surface block), .pv-button, .pv-button-primary, .pv-button-ghost, .pv-grid, .pv-row, .pv-stack, .pv-kicker, .pv-caption, .pv-subtle, .pv-num.
+- .pv-card (a surface block), .pv-link (a button that looks like a link), .pv-button, .pv-button-primary, .pv-button-ghost, .pv-grid, .pv-row, .pv-stack, .pv-kicker, .pv-caption, .pv-subtle, .pv-num.
 The body is already a column with 14px between blocks: no outer wrapper needed.
 
 Script helpers:
@@ -42,7 +42,7 @@ Script helpers:
 - pv.bind(inputs, update): inputs is a selector, an element or a list. update(values) runs once now and on every input; values is keyed by each input's name or id (numbers for range and number inputs).
 - pv.flow(el, { nodes: [{ id, label, detail?, tone? }], edges: [{ from, to, label? }] }): a flow chart or DAG laid out left to right on desktop and top to bottom on a phone. tone is accent (one node at most) or muted. Returns { update(spec) }.
 - pv.state.get() / pv.state.set(value): a JSON value kept for this Visualization on this device and restored when it is shown again (get() is undefined the first time).
-- pv.openLink(url): offers an https link to the user, who confirms; returns false for anything else.
+- pv.openLink(url): offers an https link to the user, who confirms; returns false for anything else. Never write <a href="https://..."> (it is refused); use <button class="pv-link" onclick="pv.openLink('https://...')">Docs</button>. In-page #id links are fine.
 - pv.token("series-1") reads a token's current value; pv.onTheme(fn) runs fn after the theme changes.
 
 ## Shape

@@ -77,6 +77,11 @@ describe("validateVisualization rejects", () => {
     ],
     ["external-url", "fetch", "<script>fetch('/api').then((r) => r.json());</script>"],
     ["external-url", "a WebSocket", "<script>const ws = new WebSocket('wss://x.io');</script>"],
+    [
+      "external-url",
+      "WebRTC",
+      "<script>const pc = new RTCPeerConnection({ iceServers });</script>",
+    ],
     ["external-url", "sendBeacon", "<script>navigator.sendBeacon('/x', data);</script>"],
     ["navigation", "location.assign", "<script>location.assign('/next');</script>"],
     ["navigation", "location.replace", "<script>window.location.replace(url);</script>"],
@@ -142,7 +147,10 @@ describe("validateVisualization rejects", () => {
     expect(fixes.get("title")).toContain("one-line title");
     expect(fixes.get("full-document")).toContain("Drop the <!doctype>");
     expect(fixes.get("external-url")).toContain("data: URIs");
-    expect(fixes.get("navigation")).toContain("pv.openLink(url)");
+    expect(fixes.get("external-url")).toContain(
+      `<button class="pv-link" onclick="pv.openLink('https://example.com')">`
+    );
+    expect(fixes.get("navigation")).toContain("pv.openLink('https://example.com')");
     expect(fixes.get("viewport-units")).toContain("fixed px heights");
   });
 
@@ -170,6 +178,11 @@ describe("validateVisualization accepts", () => {
     [
       "a data: CSS background",
       '<style>.a{background:url("data:image/svg+xml,%3Csvg%3E%3C/svg%3E")}</style>',
+    ],
+    ["a data: link", '<a href="data:text/csv,a%2Cb" download="data.csv">CSV</a>'],
+    [
+      "the fix's own link-styled button",
+      `<button class="pv-link" onclick="pv.openLink('https://example.com')">Docs</button>`,
     ],
     ["in-page anchors", '<a href="#details">Details</a><h2 id="details">Details</h2>'],
     [
