@@ -52,11 +52,14 @@ import {
   Streams,
   type TurnPageRequest,
 } from "./streams.ts";
+import { SecretRequests } from "./secretRequests.ts";
 import { Supervisor } from "./supervisor.ts";
 import { TerminalHandoff } from "./terminal.ts";
 import { Worktrees } from "./worktrees.ts";
 
 export { EngineConfig, type EngineSettings } from "./runtime.ts";
+
+export { SecretOutcome, type SecretRequestInput } from "../secrets/requests.ts";
 
 export class Engine extends Context.Service<
   Engine,
@@ -76,6 +79,10 @@ export class Engine extends Context.Service<
       { readonly sequence: Sequence | null },
       CommandRejected | NotFound | NotGranted
     >;
+    /** An agent's Secret Request on its Turn in flight, until answered or timed out (ADR 0089). */
+    readonly requestSecret: SecretRequests["Service"]["request"];
+    /** Saves a Secret Request's value and answers it `Provided`. */
+    readonly provideSecret: SecretRequests["Service"]["provide"];
     readonly subscribeHost: (
       afterSequence: Sequence | null,
       options?: HostSubscription
@@ -138,6 +145,7 @@ const EngineParts = Layer.mergeAll(Dispatcher.layer, Streams.layer).pipe(
     )
   ),
   Layer.provideMerge(Supervisor.layer),
+  Layer.provideMerge(SecretRequests.layer),
   Layer.provideMerge(EngineRuntime.layer),
   (parts) =>
     Layer.mergeAll(LimitResume.layer, AutoArchive.layer, IdleCompaction.layer).pipe(
@@ -154,6 +162,7 @@ const make = Effect.gen(function* () {
   const checkouts = yield* ReviewCheckouts;
   const autoArchive = yield* AutoArchive;
   const idleCompaction = yield* IdleCompaction;
+  const secrets = yield* SecretRequests;
   const prepareForUpgrade = prepareSessionsForUpgrade(runtime);
   const prepareForRestart = prepareSessionsForUpgrade(runtime, "restart");
 
@@ -213,6 +222,8 @@ const make = Effect.gen(function* () {
         Effect.asVoid
       ),
     dispatch,
+    requestSecret: secrets.request,
+    provideSecret: secrets.provide,
     subscribeHost: streams.subscribeHost,
     subscribeSession: streams.subscribeSession,
     readTurnPage: streams.readTurnPage,

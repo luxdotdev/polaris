@@ -4,8 +4,9 @@ import {
   RemoteDeliveryPacket,
   WorkerPlacement,
 } from "@polaris/protocol";
-import { Effect, Layer, Stream } from "effect";
+import { Effect, Layer, Option, Stream } from "effect";
 import { registerStartupGraphs } from "../../engine/sessionBoundary.ts";
+import { Engine } from "../../engine/Engine.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { mcpHttp } from "../../mcp/http.ts";
 import { startAttention } from "../attention.ts";
@@ -257,7 +258,13 @@ const delivery = ConstellationDelivery.layer.pipe(
 export const constellationServices = Layer.effectDiscard(
   Effect.gen(function* () {
     const commands = yield* withRemoteWorkerCommands(yield* Constellations);
-    const endpoint = yield* mcpHttp(commands);
+    const engine = yield* Effect.serviceOption(Engine);
+
+    const endpoint = yield* mcpHttp(
+      commands,
+      0,
+      Option.isSome(engine) ? engine.value.requestSecret : undefined
+    );
 
     if (endpoint.notifications !== null)
       yield* startAttention(yield* EventStore, endpoint.notifications);

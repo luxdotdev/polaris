@@ -166,6 +166,8 @@ export const toPermissionResult = (
       behavior: "deny",
       message: deny.reason ?? DEFAULT_DENY_MESSAGE,
     }),
+    // Only Secret Requests take Provided, and no Harness asks one: decline.
+    Provided: (): PermissionResult => ({ behavior: "deny", message: DEFAULT_DENY_MESSAGE }),
     Answer: (answer): PermissionResult =>
       isQuestionTool(request.toolName)
         ? {

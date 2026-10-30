@@ -11,6 +11,7 @@ import {
   ApprovalDecision,
   type PermissionMode,
   RequestId,
+  SECRET_REQUEST_MAX_TIMEOUT_MS,
   TurnId,
   TurnItem,
 } from "@polaris/protocol";
@@ -82,6 +83,9 @@ type PendingRequest = Data.TaggedEnum<{
 }>;
 
 const PendingRequest = Data.taggedEnum<PendingRequest>();
+
+/** Above Codex's 60 s default, so a Secret Request can wait its full hour (ADR 0089). */
+export const POLARIS_TOOL_TIMEOUT_SECONDS = SECRET_REQUEST_MAX_TIMEOUT_MS / 1000 + 60;
 
 const isRpc = PendingRequest.$is("Rpc");
 
@@ -201,7 +205,7 @@ export const openSession = (
       common.config = Object.fromEntries(
         attachments.map((a, index) => [
           `mcp_servers.polaris${index === 0 ? "" : `_${index}`}`,
-          { url: a.url },
+          { url: a.url, tool_timeout_sec: POLARIS_TOOL_TIMEOUT_SECONDS },
         ])
       );
     }

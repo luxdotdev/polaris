@@ -9,6 +9,7 @@
  * does not stay resident. Older Turns are finished and never change; read
  * them with `EventStore.readTurns`.
  */
+import { Predicate } from "effect";
 import {
   AgentSession,
   type ConstellationId,
@@ -249,6 +250,7 @@ export const gatingCapabilities: ReadonlyArray<Capability> = [
   "session.notify",
   "session.pin",
   "session.limited",
+  "approval.secret",
 ];
 
 const needs = (capability: Capability) => (): Capability => capability;
@@ -312,6 +314,9 @@ export const eventCapability = (event: DomainEvent): Capability | null =>
       ReviewCheckoutOpened: needs("review.checkouts"),
       ReviewCheckoutChanged: needs("review.checkouts"),
       ReviewCheckoutRemoved: needs("review.checkouts"),
+      ApprovalRequested: ({ request }) => (request.kind === "secret" ? "approval.secret" : null),
+      ApprovalResolved: ({ decision }) =>
+        Predicate.isTagged(decision, "Provided") ? "approval.secret" : null,
     },
     () => null
   );

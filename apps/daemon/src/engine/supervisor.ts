@@ -13,9 +13,11 @@ import {
   type SessionId,
   Subagent,
   type TurnId,
+  type TurnItem,
   Worktree,
 } from "@polaris/protocol";
 import { Context, Effect, Exit, Layer, Option, Scope, Stream } from "effect";
+import { SecretRequests } from "./secretRequests.ts";
 import { type HarnessError, HarnessEvent } from "../harness/HarnessDriver.ts";
 import { ApprovalPolicy, type ServiceError } from "../services.ts";
 import {
@@ -57,9 +59,12 @@ const make = (
   policy: Option.Option<ApprovalPolicy["Service"]>,
   attachments: ConstellationHarnessService,
   liveness: ConstellationLivenessService,
-  usage: Option.Option<UsageIndex["Service"]>
+  usage: Option.Option<UsageIndex["Service"]>,
+  secrets: SecretRequests["Service"]
 ): Supervisor["Service"] => {
   const { store, live, progress } = rt;
+  // A live secret printed by a command never reaches the log or a Client (ADR 0089).
+  const redact = (sessionId: SessionId, item: TurnItem) => secrets.files.redact(sessionId, item);
 
   /** True when the policy answered the request itself, on the session's live Harness. */
   const answeredByPolicy = (
@@ -266,7 +271,7 @@ const make = (
             DomainEvent.cases.TurnItemCompleted.make({
               sessionId,
               turnId: e.turnId,
-              item: e.item,
+              item: redact(sessionId, e.item),
               subagentId: e.subagentId ?? null,
             }),
           ]);
@@ -360,11 +365,12 @@ const make = (
     Effect.suspend(() => {
       const items = progress.get(sessionId) ?? new Map<string, Progress>();
       const subagentId = event.subagentId ?? null;
-      items.set(event.item.id, { turnId: event.turnId, item: event.item, subagentId });
+      const item = redact(sessionId, event.item);
+      items.set(item.id, { turnId: event.turnId, item, subagentId });
       progress.set(sessionId, items);
 
       return store.publishEphemeral(
-        LiveItem.ItemProgress({ sessionId, turnId: event.turnId, item: event.item, subagentId })
+        LiveItem.ItemProgress({ sessionId, turnId: event.turnId, item, subagentId })
       );
     });
 
@@ -611,7 +617,8 @@ export class Supervisor extends Context.Service<
         yield* Effect.serviceOption(ApprovalPolicy),
         yield* ConstellationHarness,
         yield* ConstellationLiveness,
-        yield* Effect.serviceOption(UsageIndex)
+        yield* Effect.serviceOption(UsageIndex),
+        yield* SecretRequests
       );
     })
   );

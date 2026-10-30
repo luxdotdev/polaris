@@ -14,7 +14,13 @@
  * Client's capabilities with `ClientCapabilities` (only Clients that announced
  * `session.live-items` get `ItemProgress` on session streams).
  */
-import { type Capability, DaemonRpcs, ExtensionDaemonRpcs, NotFound } from "@polaris/protocol";
+import {
+  type Capability,
+  DaemonRpcs,
+  ExtensionDaemonRpcs,
+  NotFound,
+  SecretRejected,
+} from "@polaris/protocol";
 import { Context, Effect, Layer, Stream } from "effect";
 import { actorOf, pairingOf } from "../extensions/connection.ts";
 import { Engine } from "./Engine.ts";
@@ -60,6 +66,32 @@ const DispatchHandler = ExtensionDaemonRpcs.toLayerHandler(
         actor: actorOf(client),
         extensionGrant: pairingOf(client)?.grant ?? null,
       });
+  })
+);
+
+const ProvideSecretHandler = DaemonRpcs.toLayerHandler(
+  "secret.provide",
+  Effect.gen(function* () {
+    const engine = yield* Engine;
+
+    return ({ sessionId, requestId, value }, { client }) =>
+      engine
+        .provideSecret(
+          sessionId,
+          requestId,
+          value,
+          Context.getOrUndefined(client.annotations, DeviceLabel) ?? UNKNOWN_DEVICE
+        )
+        .pipe(
+          Effect.catchTag("ServiceError", () =>
+            Effect.fail(
+              new SecretRejected({
+                reason: "storage",
+                message: "The Host couldn't record the answer. Try again.",
+              })
+            )
+          )
+        );
   })
 );
 
@@ -195,6 +227,7 @@ export const EngineRpcHandlers = Layer.mergeAll(
   IdleCompactionHandler,
   SetIdleCompactionHandler,
   DispatchHandler,
+  ProvideSecretHandler,
   SubscribeHostHandler,
   SubscribeSessionHandler,
   TerminalCommandHandler,

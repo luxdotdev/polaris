@@ -92,6 +92,9 @@ const tracked = (session: AgentSession): Tracked => ({
   ended: null,
 });
 
+const categoryOf = (request: ApprovalRequest) =>
+  request.kind === "question" || request.kind === "secret" ? "question" : "approval";
+
 const needsYou = (
   session: Tracked,
   request: ApprovalRequest,
@@ -103,11 +106,18 @@ const needsYou = (
   hostName: context.hostName,
   sessionId: request.sessionId,
   requestId: request.id,
-  category: request.kind === "question" ? "question" : "approval",
-  title: cut(`${session.harness} needs you`, 120),
+  // A secret is typed in the app: `question` has no actions and opens it.
+  category: categoryOf(request),
+  title: cut(
+    request.kind === "secret"
+      ? `${session.harness} is asking for a secret`
+      : `${session.harness} needs you`,
+    120
+  ),
   subtitle: cut(`${context.hostName} · ${session.title}`, 160),
+  // A Secret Request's reason may describe infrastructure; only its label leaves the Host.
   body: cut(
-    request.detail === null || request.detail === request.title
+    request.kind === "secret" || request.detail === null || request.detail === request.title
       ? request.title
       : `${request.title}\n${request.detail}`,
     600
