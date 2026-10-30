@@ -8,6 +8,7 @@ import { editor } from "./editor.ts";
 import { files } from "./files.ts";
 import { gitScenario } from "./git.ts";
 import { history } from "./history.ts";
+import { hostAddressReload } from "./host-address-reload.ts";
 import { idle } from "./idle.ts";
 import { review } from "./review.ts";
 import { rules } from "./rules.ts";
@@ -25,6 +26,7 @@ export const SCENARIOS: ReadonlyArray<Scenario> = [
   history,
   blobs,
   byteStreams,
+  hostAddressReload,
   files,
   editor,
   gitScenario,
