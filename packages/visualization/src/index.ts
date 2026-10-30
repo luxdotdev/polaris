@@ -1,11 +1,28 @@
 /**
  * Visualizations (ENG-594, ADR 0089): the `visualize` tool's input, the validation the
  * Daemon runs when the agent submits, the frame document, and the frame↔app messages.
- *
- * CONTRACT STUB: the shapes below are fixed for the Daemon, Desktop and Mobile tasks to code
- * against; the bodies are filled in by the frame package task (ENG-596).
  */
 import { Schema } from "effect";
+import { buildFrameDocumentWith, type FrameLibraries } from "./frame/document.ts";
+import { type VisualizationProblem, validateWith } from "./validate/index.ts";
+
+export { FRAME_CSP, type FrameLibraries } from "./frame/document.ts";
+
+export { VISUALIZE_TOOL_DESCRIPTION, visualizeGuidance } from "./guidance.ts";
+
+export {
+  FRAME_TOKEN_DEFAULTS,
+  FRAME_TOKEN_NAMES,
+  FRAME_TOKEN_SOURCES,
+  FRAME_TOKEN_THEMES,
+  type FrameTokenName,
+  resolveFrameTokens,
+  safeTokenValue,
+} from "./tokens.ts";
+
+export type { VisualizationProblem, VisualizationRule } from "./validate/index.ts";
+
+export { CHART_JS_PIN, D3_PIN, LIBRARY_PINS, type LibraryPin } from "./vendor/pins.ts";
 
 /** Hard cap on `html`, in UTF-8 bytes. */
 export const VISUALIZATION_MAX_BYTES = 128 * 1024;
@@ -23,7 +40,10 @@ export const VisualizeInput = Schema.Struct({
 
 export type VisualizeInput = typeof VisualizeInput.Type;
 
-/** The tool result on success. `id` is the Tool Call id; `replaces` refers to it later. */
+/**
+ * The tool result on success. `id` is minted by the Daemon; a Client reads it from the Tool Call's
+ * output (one text block holding this JSON) and matches it against a later call's `replaces`.
+ */
 export const VisualizeResult = Schema.Struct({
   id: Schema.String,
   title: Schema.String,
@@ -32,34 +52,16 @@ export const VisualizeResult = Schema.Struct({
 
 export type VisualizeResult = typeof VisualizeResult.Type;
 
-/** One reason the Daemon refused a submission; `fix` is advice the agent can act on. */
-export interface VisualizationProblem {
-  readonly rule:
-    | "too-large"
-    | "empty"
-    | "title"
-    | "full-document"
-    | "external-url"
-    | "navigation"
-    | "viewport-units";
-  readonly message: string;
-  readonly fix: string;
-}
-
 /** Checks a submission; an empty array means it is accepted. Pure and synchronous. */
-export const validateVisualization = (
-  _input: VisualizeInput
-): ReadonlyArray<VisualizationProblem> => [];
+export const validateVisualization = (input: VisualizeInput): ReadonlyArray<VisualizationProblem> =>
+  validateWith(input, { maxBytes: VISUALIZATION_MAX_BYTES, titleMax: VISUALIZATION_TITLE_MAX });
 
 /** The Visuals setting: how readily the agent reaches for `visualize`; `off` removes the tool. */
 export const VisualsLevel = Schema.Literals(["rich", "simple", "off"]);
 
 export type VisualsLevel = typeof VisualsLevel.Type;
 
-/** The theme token names a Client reads from its own theme and sends into the frame. */
-export const FRAME_TOKEN_NAMES: ReadonlyArray<string> = [];
-
-/** Token name → value; values longer than 128 chars or containing `<>{}` are dropped. */
+/** Token name (`--pv-bg` or `pv-bg`) → value; names outside FRAME_TOKEN_NAMES, and values over 128 chars or containing `<>{};`, are dropped. */
 export type FrameTokens = Readonly<Record<string, string>>;
 
 export interface FrameDocumentOptions {
@@ -71,13 +73,16 @@ export interface FrameDocumentOptions {
   readonly state?: unknown;
   /** `inline` sizes to content and reports height; `expanded` fills its container. */
   readonly mode: "inline" | "expanded";
+  /** `auto` (the default) inlines only the libraries the fragment names; `all` inlines both. */
+  readonly libraries?: FrameLibraries;
 }
 
 /**
  * The complete document for a frame's `srcdoc` (Desktop) or WebView `html` (Mobile): CSP meta
  * first, then tokens, Chart.js, D3, the Polaris kit (`pv`), and the agent's fragment.
  */
-export const buildFrameDocument = (_options: FrameDocumentOptions): string => "";
+export const buildFrameDocument = (options: FrameDocumentOptions): string =>
+  buildFrameDocumentWith(options);
 
 /** Messages the frame posts to the app. Accept only from the frame's own window. */
 export const FrameMessage = Schema.Union([
