@@ -186,16 +186,19 @@ export const proxyChallenge = (realm: string): Uint8Array =>
 
 export type ResponseScreen = Data.TaggedEnum<{
   NeedMore: Record<never, never>;
-  /** A final status other than 407: relay everything as it comes. */
-  Pass: Record<never, never>;
-  /** A 407 in any head, or a head too long to read: the proxy answers 502 instead. */
+  /** Every head through the final one, without proxy auth headers, then the rest as sent. */
+  Pass: { readonly bytes: Uint8Array };
+  /** A 407 or an unreadable status in any head, or heads too long: the proxy answers 502. */
   Refuse: Record<never, never>;
 }>;
 
 export const ResponseScreen = Data.taggedEnum<ResponseScreen>();
 
 /** A status code as Chromium reads a status line: any case, a little junk, any HTTP version. */
-const STATUS = /http(?:\/[\d.]*)?\s*(\d{3})/i;
+const STATUS = /http(?:\/[\d.]*)?[ \t]*(\d+)/i;
+
+/** Headers Chromium reads only from a proxy; from the Host they'd pass for this proxy's own. */
+const PROXY_AUTH_HEADER = /^proxy-authenticat(?:e|ion-info)[ \t]*:/i;
 
 const headEnd = (text: string, from: number) => {
   const crlf = text.indexOf("\n\r\n", from);
@@ -205,25 +208,46 @@ const headEnd = (text: string, from: number) => {
   return ends.length === 0 ? -1 : Math.min(...ends);
 };
 
+/** A head without its proxy auth headers, and without the lines folded into them. */
+const withoutProxyAuth = (head: string) => {
+  let dropping = false;
+
+  return head
+    .split("\n")
+    .filter((line, index) => {
+      dropping = index > 0 && (PROXY_AUTH_HEADER.test(line) || (dropping && /^[ \t]/.test(line)));
+
+      return !dropping;
+    })
+    .join("\n");
+};
+
 /**
- * Screens the start of a forwarded response, head by head, until a final status: Chromium
- * takes any 407 from a proxy connection as the proxy's own challenge, so none may pass.
+ * Screens the start of a forwarded response, head by head through the final one: Chromium takes
+ * a 407 or a proxy auth header on a proxy connection as this proxy's own, so none may pass.
  */
 export const screenResponse = (bytes: Uint8Array): ResponseScreen => {
   const text = Buffer.from(bytes).toString("latin1");
+  const heads: Array<string> = [];
 
   for (let at = 0; ;) {
     const end = headEnd(text, at);
 
     if (end === -1)
       return bytes.length > MAX_HEAD_BYTES ? ResponseScreen.Refuse() : ResponseScreen.NeedMore();
-    const firstLine = text.slice(at, text.indexOf("\n", at));
-    const code = Number(STATUS.exec(firstLine)?.[1] ?? 0);
+    const head = text.slice(at, end);
+    const code = Number(STATUS.exec(head.slice(0, head.indexOf("\n")))?.[1] ?? 0);
 
-    if (code === 407) return ResponseScreen.Refuse();
+    if (code === 407 || code < 100) return ResponseScreen.Refuse();
+    heads.push(withoutProxyAuth(head));
 
-    // Interim heads (100 Continue, 103 Early Hints) come before the final one.
-    if (code < 100 || code >= 200 || code === 101) return ResponseScreen.Pass();
+    // Interim heads (100 Continue, 103 Early Hints) come before the final one; 101 is final.
+    if (code >= 200 || code === 101) {
+      const screened = Buffer.from(heads.join(""), "latin1");
+
+      return ResponseScreen.Pass({ bytes: Buffer.concat([screened, bytes.subarray(end)]) });
+    }
+
     at = end;
   }
 };

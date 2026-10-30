@@ -255,46 +255,38 @@ const openDirect =
       }))
     );
 
+/** A screened piece of the response; `last` ends the relay after it. */
+interface Screened {
+  readonly bytes: Uint8Array;
+  readonly last: boolean;
+}
+
+/** What's still held back of the response's heads; null once they've passed. */
+type Held = Uint8Array | null;
+
+const screened = (held: Held, chunk: Uint8Array): readonly [Held, ReadonlyArray<Screened>] => {
+  if (held === null) return [null, [{ bytes: chunk, last: false }]];
+  const head = concat(held, chunk);
+
+  return ResponseScreen.$match(screenResponse(head), {
+    NeedMore: () => [head, []] as const,
+    Pass: ({ bytes }) => [null, [{ bytes, last: false }]] as const,
+    Refuse: () => [null, [{ bytes: proxyResponse(502), last: true }]] as const,
+  });
+};
+
 /**
- * A forwarded request's response, but a 407 from the Host, in any head before the final one,
+ * A forwarded request's response, but a 407 from the Host, in any head through the final one,
  * becomes this proxy's 502 and ends there: relayed, Chromium would answer it with the secret.
  */
-const refusingChallenges = (transport: HostAddressTransport): HostAddressTransport => {
-  let pending: Uint8Array | null = new Uint8Array();
-  let refused = false;
-
-  const screen = (chunk: Uint8Array): Uint8Array => {
-    if (pending === null) return chunk;
-    const head = concat(pending, chunk);
-
-    return ResponseScreen.$match(screenResponse(head), {
-      NeedMore: () => {
-        pending = head;
-
-        return new Uint8Array();
-      },
-      Pass: () => {
-        pending = null;
-
-        return head;
-      },
-      Refuse: () => {
-        refused = true;
-
-        return proxyResponse(502);
-      },
-    });
-  };
-
-  return {
-    ...transport,
-    incoming: transport.incoming.pipe(
-      Stream.map(screen),
-      Stream.takeUntil(() => refused),
-      Stream.filter((chunk) => chunk.length > 0)
-    ),
-  };
-};
+const refusingChallenges = (transport: HostAddressTransport): HostAddressTransport => ({
+  ...transport,
+  incoming: transport.incoming.pipe(
+    Stream.mapAccum((): Held => new Uint8Array(), screened),
+    Stream.takeUntil((piece) => piece.last),
+    Stream.map((piece) => piece.bytes)
+  ),
+});
 
 const answer = (socket: Socket, status: ProxyStatus) => {
   socket.end(proxyResponse(status));

@@ -21,6 +21,8 @@ interface Step {
 
 export const tabLoads = ({ ready, open, fail }: TabLoadsDeps) => {
   const failed = new Map<BrowserTabId, string>();
+  /** The URL of the tab's latest load or step still waiting for setup. */
+  const waiting = new Map<BrowserTabId, string>();
 
   const failWith = (tabId: BrowserTabId, url: string, cause: unknown) => {
     failed.set(tabId, url);
@@ -28,12 +30,21 @@ export const tabLoads = ({ ready, open, fail }: TabLoadsDeps) => {
   };
 
   const loads = latestLoads<BrowserTabId, Step>(
-    (tabId, step) => (step.go === null ? open(tabId, step.url) : step.go()),
-    (tabId, step, cause) => failWith(tabId, step.url, cause)
+    (tabId, step) => {
+      waiting.delete(tabId);
+
+      if (step.go === null) open(tabId, step.url);
+      else step.go();
+    },
+    (tabId, step, cause) => {
+      waiting.delete(tabId);
+      failWith(tabId, step.url, cause);
+    }
   );
 
   const request = (tabId: BrowserTabId, step: Step) => {
     failed.delete(tabId);
+    waiting.set(tabId, step.url);
     loads.request(tabId, step, ready(tabId));
   };
 
@@ -44,14 +55,21 @@ export const tabLoads = ({ ready, open, fail }: TabLoadsDeps) => {
     step: (tabId: BrowserTabId, url: string, go: () => void) => request(tabId, { url, go }),
     /** The URL whose load the setup failed, which a reload tries again; null otherwise. */
     failedUrl: (tabId: BrowserTabId) => failed.get(tabId) ?? null,
-    /** Routing was taken away: loads still waiting are dropped and the tab shows `cause`. */
-    retire: (tabId: BrowserTabId, url: string, cause: unknown) => {
+    /**
+     * Routing was taken away: loads still waiting are dropped and the tab shows `cause`. A reload
+     * retries the URL that was waiting, else `shown`, the page's own.
+     */
+    retire: (tabId: BrowserTabId, shown: string, cause: unknown) => {
+      const url = waiting.get(tabId) ?? shown;
+
       loads.forget(tabId);
+      waiting.delete(tabId);
       failWith(tabId, url, cause);
     },
     forget: (tabId: BrowserTabId) => {
       loads.forget(tabId);
       failed.delete(tabId);
+      waiting.delete(tabId);
     },
   };
 };

@@ -12,10 +12,12 @@ export const latestLoads = <K, V = string>(
   failed: (key: K, url: V, cause: unknown) => void = () => {}
 ) => {
   const latest = new Map<K, number>();
+  /** Never reset, so a load asked for before `forget` can't pass for one asked for after. */
+  let turns = 0;
 
   return {
     request: (key: K, url: V, ready: Promise<void>) => {
-      const turn = (latest.get(key) ?? 0) + 1;
+      const turn = ++turns;
 
       latest.set(key, turn);
       ready.then(

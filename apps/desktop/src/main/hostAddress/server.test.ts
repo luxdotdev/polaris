@@ -38,13 +38,23 @@ const echoTransport = (written: Array<string>) =>
   });
 
 /** A Host side that answers its first bytes with `response`, then ends. */
-const fixedTransport = (response: string) =>
+/** Answers the first write with `response`'s chunks: offered at once, or one at a time if `apart`. */
+const fixedTransport = (response: string | ReadonlyArray<string>, apart: boolean) =>
   Effect.gen(function* () {
     const queue = yield* Queue.unbounded<Uint8Array, Cause.Done>();
 
+    const chunks = [response].flat().map((chunk) => Buffer.from(chunk));
+
+    const offered: Effect.Effect<unknown> = apart
+      ? Effect.forEach(chunks, (chunk) =>
+          Effect.andThen(Queue.offer(queue, chunk), Effect.sleep(5))
+        )
+      : Queue.offerAll(queue, chunks);
+
     const transport: HostAddressTransport = {
       incoming: Stream.fromQueue(queue),
-      write: () => Effect.andThen(Queue.offer(queue, Buffer.from(response)), Queue.end(queue)),
+      // Forked, so the relay reads each chunk apart before the next is offered.
+      write: () => Effect.asVoid(Effect.forkDetach(Effect.andThen(offered, Queue.end(queue)))),
     };
 
     return transport;
@@ -62,7 +72,9 @@ interface Start {
   readonly written?: Array<string>;
   readonly fail?: ProxyStatus;
   /** The Host's whole response to the first bytes it gets, instead of the echo. */
-  readonly respond?: (realm: string) => string;
+  readonly respond?: (realm: string) => string | ReadonlyArray<string>;
+  /** The response's chunks arrive one at a time, rather than all at once. */
+  readonly apart?: boolean;
   readonly direct?: Array<string>;
   readonly directPort?: number;
   readonly handshakeTimeoutMs?: number;
@@ -83,7 +95,7 @@ const start = async (options: Start = {}) => {
 
       return options.respond === undefined
         ? echoTransport(options.written ?? [])
-        : fixedTransport(options.respond(server?.realm ?? ""));
+        : fixedTransport(options.respond(server?.realm ?? ""), options.apart ?? false);
     },
     connectDirect: (hostname, port) => {
       options.direct?.push(`${hostname}:${port}`);
@@ -333,25 +345,43 @@ describe("the proxy's direct connections", () => {
 
 describe("a 407 from the Host", () => {
   const challenge = (realm: string) => `Proxy-Authenticate: Basic realm="${realm}"`;
+  const get = (secret: string) => `GET http://localhost:3000/ HTTP/1.1\r\n${basic(secret)}\r\n\r\n`;
+  const early = "HTTP/1.1 103 Early Hints\r\nLink: </a.css>\r\n\r\n";
 
   test.each([
     ["as sent", (realm: string) => `HTTP/1.1 407 Proxy Auth\r\n${challenge(realm)}\r\n\r\n`],
     ["with bare LFs", (realm: string) => `HTTP/1.1 407\n${challenge(realm)}\n\n`],
     ["in lowercase after junk", (realm: string) => ` http/1.0 407\r\n${challenge(realm)}\r\n\r\n`],
+    ["with a leading zero", (realm: string) => `HTTP/1.1 0407\r\n${challenge(realm)}\r\n\r\n`],
     [
       "after a 100 Continue",
       (realm: string) =>
         `HTTP/1.1 100 Continue\r\n\r\nHTTP/1.1 407 Proxy Auth\r\n${challenge(realm)}\r\n\r\n`,
     ],
+    [
+      "after a 103 Early Hints",
+      (realm: string) => `${early}HTTP/1.1 407\r\n${challenge(realm)}\r\n\r\n`,
+    ],
   ])(
     "is never relayed, %s, even in this proxy's own realm: the browser gets a 502",
     async (_, respond) => {
       const proxy = await start({ respond });
+      const { received } = await exchange(proxy.port, get(proxy.secret));
 
-      const { received } = await exchange(
-        proxy.port,
-        `GET http://localhost:3000/ HTTP/1.1\r\n${basic(proxy.secret)}\r\n\r\n`
-      );
+      expect(statusOf(received)).toBe("HTTP/1.1 502 Bad Gateway");
+      expect(received).not.toContain("Proxy-Authenticate");
+    }
+  );
+
+  test.each([false, true])(
+    "is never relayed when its status line is split across chunks (apart: %p)",
+    async (apart) => {
+      const proxy = await start({
+        apart,
+        respond: (realm) => [early, "HTTP/1.1 40", `7 Proxy Auth\r\n${challenge(realm)}\r\n\r\n`],
+      });
+
+      const { received } = await exchange(proxy.port, get(proxy.secret));
 
       expect(statusOf(received)).toBe("HTTP/1.1 502 Bad Gateway");
       expect(received).not.toContain("Proxy-Authenticate");
@@ -359,17 +389,44 @@ describe("a 407 from the Host", () => {
   );
 
   test.each([
+    [false, ["HTTP/1.1 103 Early Hints\r\nProxy-Authenticate: Basic\r\n\r\nHTTP/1.1 200 OK\r\n"]],
+    [
+      true,
+      ["HTTP/1.1 103 Early Hints\r\nProxy-Auth", "enticate: Basic\r\n\r\nHTTP/1.1 200 OK\r\n"],
+    ],
+  ])("proxy auth headers are stripped from every head (apart: %p)", async (apart, interim) => {
+    const proxy = await start({
+      apart,
+      respond: (realm) => [
+        ...interim,
+        `${challenge(realm)}\r\n proxy-continued\r\nproxy-authentication-info : x\r\n`,
+        "Content-Length: 2\r\n\r\nok",
+      ],
+    });
+
+    const { received } = await exchange(proxy.port, get(proxy.secret));
+
+    expect(received).toBe(
+      "HTTP/1.1 103 Early Hints\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"
+    );
+  });
+
+  test.each([
     "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok",
-    "HTTP/1.1 103 Early Hints\r\nLink: </a.css>\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok",
+    `${early}HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok`,
     "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n\r\nHTTP/1.1 407 in the frames",
+    "HTTP/1.1 200 OK\r\n\r\nProxy-Authenticate: in the body",
   ])("other responses pass through untouched: %j", async (response) => {
     const proxy = await start({ respond: () => response });
-
-    const { received } = await exchange(
-      proxy.port,
-      `GET http://localhost:3000/ HTTP/1.1\r\n${basic(proxy.secret)}\r\n\r\n`
-    );
+    const { received } = await exchange(proxy.port, get(proxy.secret));
 
     expect(received).toBe(response);
+  });
+
+  test("a response without a readable status gets a 502", async () => {
+    const proxy = await start({ respond: () => "SSH-2.0-OpenSSH_9.6\r\n\r\n" });
+    const { received } = await exchange(proxy.port, get(proxy.secret));
+
+    expect(statusOf(received)).toBe("HTTP/1.1 502 Bad Gateway");
   });
 });
