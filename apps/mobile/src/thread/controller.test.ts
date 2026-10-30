@@ -9,7 +9,13 @@ import {
   TurnItem,
 } from "@polaris/protocol";
 import { Effect, Predicate } from "effect";
-import { droppedSend, type ThreadController, type ThreadState, openThread } from "./controller.ts";
+import {
+  droppedSend,
+  lostAnswer,
+  type ThreadController,
+  type ThreadState,
+  openThread,
+} from "./controller.ts";
 import {
   at,
   checkpoint,
@@ -159,6 +165,19 @@ describe("send, steer, queue", () => {
         yield* Effect.promise(() => thread.submit());
         expect(host.commands.map((c) => c._tag)).toEqual(["Steer"]);
         expect(thread.get().text).toBe("");
+      })
+    ));
+
+  test("a steer whose answer is lost names the host, never the transport's error", () =>
+    withThread((host, thread) =>
+      Effect.gen(function* () {
+        yield* host.push(snapshot([{ turn: working }], { state: "working" }));
+        yield* until(thread, (s) => s.fold !== null);
+        thread.type("use the env var");
+        host.dropNextAnswer();
+        yield* Effect.promise(() => thread.submit());
+        const [lost] = (yield* until(thread, (s) => s.steers[0]?.status === "failed")).steers;
+        expect(lost?.error).toBe(lostAnswer("lucas-rpi"));
       })
     ));
 

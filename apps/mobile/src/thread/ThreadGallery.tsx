@@ -35,6 +35,9 @@ const launched = <A,>(key: string, schema: Schema.Codec<A, A>): A | null => {
 
 const SCRIPT = launched("polarisDevThreadState", DevThreadState);
 
+/** `-polarisDevData worst` plays a launched state over the worst case instead of the demo. */
+const WORST = launched("polarisDevData", Schema.Literal("worst")) !== null;
+
 const MOONLIT = THEME === "moonlit" || launched("polarisDevTheme", ThemeName) === "moonlit";
 
 /** Plays the launched state: the Host drops, then a message goes into it, or its answer is lost. */
@@ -125,7 +128,7 @@ const Toggle = ({
 export const ThreadGallery = () => {
   const { colours, name, setTheme } = useTheme();
   const insets = useSafeAreaInsets();
-  const [dataset, setDataset] = useState<Dataset>(SCRIPT === null ? "worst" : "demo");
+  const [dataset, setDataset] = useState<Dataset>(SCRIPT === null || WORST ? "worst" : "demo");
   const [narrow, setNarrow] = useState(false);
   const [offline, setOffline] = useState(false);
   const host = useGalleryHost(dataset);
