@@ -77,8 +77,6 @@ const Tabs = () => {
             actions={{
               openSession: (hostId, sessionId) =>
                 navigation.push({ screen: "thread", hostId, sessionId }),
-              openReview: (hostId, sessionId) =>
-                navigation.push({ screen: "review", hostId, sessionId, turnId: null }),
               openConstellation: (hostId, constellationId) =>
                 navigation.push({ screen: "constellation", hostId, constellationId }),
               openHosts,
