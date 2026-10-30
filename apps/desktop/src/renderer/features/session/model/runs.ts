@@ -40,8 +40,8 @@ const TOOL_KINDS = new Map<string, RunKind>([
 type ToolItem = Extract<ItemView, { kind: "tool" }>;
 
 const toolRunKind = (item: ToolItem): RunKind | null => {
-  // Polaris's own tools have purpose-built rows.
-  if (item.view !== null || item.polaris) return null;
+  // Polaris's own tools have purpose-built rows; a Visualization is never folded away.
+  if (item.view !== null || item.polaris || item.visualization !== null) return null;
 
   if (item.plumbing) return "plumbing";
 

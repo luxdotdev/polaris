@@ -139,6 +139,7 @@ const context: RequestContext = {
   setSessionDefault: () => undefined,
   setSessions: () => undefined,
   openExternal: () => Promise.resolve(),
+  serveFrame: () => "app://polaris/frame/test",
   revealInFinder: (path) => void revealed.push(path),
   proofWorkspace: () => null,
   sshHosts: () => ["studio", "pi"],

@@ -6,7 +6,12 @@ import type { ToolKind, TurnItem } from "@polaris/protocol";
 import { Match, Predicate } from "effect";
 import type { LiveItem } from "../../../store/sessionModel.ts";
 import { type NativeCall, nativeCall, nativeSummary } from "./nativeTools/index.ts";
-import { type PolarisToolView, polarisToolView } from "./polarisTools/index.ts";
+import {
+  type PolarisToolView,
+  polarisToolView,
+  type VisualizationView,
+  visualizationView,
+} from "./polarisTools/index.ts";
 import { polarisTool } from "./runs.ts";
 import {
   isPlumbing,
@@ -74,6 +79,8 @@ export type ItemView =
       readonly polaris: boolean;
       /** A Polaris tool's own row (`polarisTools`); null for any other tool. */
       readonly view: PolarisToolView | null;
+      /** A `visualize` call that is drawing or drew: it shows the Visualization, never a row. */
+      readonly visualization: VisualizationView | null;
       /** What it does, as its driver classified it; null on older items it can't be told for. */
       readonly toolKind: ToolKind | null;
       /** The MCP server and tool, in words; null for any other tool. */
@@ -239,6 +246,7 @@ const toolView = (i: ToolCallItem, live: boolean): ItemView => {
     file: toolFile(i.input),
     polaris: polarisTool(i.name) !== null,
     view: polarisToolView(i),
+    visualization: visualizationView(i),
     toolKind: kindOf(i.kind, mcp),
     mcp,
     native,

@@ -28,6 +28,7 @@ import {
 import { AttachmentSettings, AttachmentUsage, StagedAmount } from "./attachments.ts";
 import { AutoArchiveRpcs } from "./autoArchive.ts";
 import { IdleCompactionRpcs } from "./idleCompaction.ts";
+import { VisualsRpcs } from "./visuals.ts";
 import { ContinuityRpcs } from "./continuity.ts";
 import { PresenceRpcs } from "./presence.ts";
 import { HostStatsRpcs } from "./hostStats.ts";
@@ -52,6 +53,7 @@ import { RemoteAccessRpcs } from "./remoteAccess.ts";
 import { LinkedDeviceRpcs } from "./linkedDevices.ts";
 import { VoiceRpcs } from "./voice.ts";
 import { SecretRpcs } from "./secrets.ts";
+import { TerminalRpcs } from "./terminal.ts";
 import { RestartRpcs } from "./restart.ts";
 import { HarnessKind } from "./harnesses.ts";
 import { Hello } from "./hello.ts";
@@ -65,7 +67,6 @@ import {
   Sequence,
   SessionId,
   SubagentId,
-  TerminalId,
   TurnId,
   WorkspaceId,
 } from "./ids.ts";
@@ -88,6 +89,8 @@ import { SessionTurnRpcs, TurnDetail } from "./turns.ts";
 import { GitError, GitTracking, GitWatchRpcs, GitWriteRpcs } from "./git.ts";
 
 export { NotFound, Unsupported } from "./errors.ts";
+
+export * from "./terminal.ts";
 
 export { ReadTurns, SessionTurnRpcs, SubagentDetail, TurnDetail, TurnPage } from "./turns.ts";
 
@@ -710,65 +713,6 @@ export const ClearAttachments = Rpc.make("attachments.clear", {
   error: Schema.Union([Unsupported, FileError]),
 });
 
-// ── Terminal (one per Workspace, via Bun.Terminal) ──────────────────────────
-
-export const TerminalOpen = Rpc.make("terminal.open", {
-  payload: {
-    cwd: Schema.String,
-    cols: Schema.Int,
-    rows: Schema.Int,
-    /** Command to run instead of the login shell, e.g. a Harness TUI for "Open in terminal". */
-    argv: Schema.NullOr(Schema.Array(Schema.String)),
-  },
-  success: Schema.Struct({ terminalId: TerminalId }),
-  error: FileError,
-});
-
-/** Output bytes, base64 in JSON. Replays recent scrollback first on attach. */
-export const TerminalAttach = Rpc.make("terminal.attach", {
-  payload: { terminalId: TerminalId },
-  success: Schema.TaggedUnion({
-    Output: { data: Schema.Uint8ArrayFromBase64 },
-    Exit: { code: Schema.NullOr(Schema.Int) },
-  }),
-  error: NotFound,
-  stream: true,
-});
-
-/**
- * `terminal.attach` with the output as raw bytes instead of base64 in JSON
- * (capability `terminal.binary`). The first item names one long-lived blob
- * that carries all the output, scrollback first, as binary side-chunks; take
- * it as a stream (`takeStream`, idle timeout off). It ends when the output
- * does, and `Exit` follows. `Exit` can arrive before the blob's last chunks
- * (JSON frames are never queued behind blob chunks), so wait for the blob to
- * end before acting on it. Ending the stream stops the blob.
- */
-export const TerminalAttachBinary = Rpc.make("terminal.attachBinary", {
-  payload: { terminalId: TerminalId },
-  success: Schema.TaggedUnion({
-    Output: { blobId: BlobId },
-    Exit: { code: Schema.NullOr(Schema.Int) },
-  }),
-  error: NotFound,
-  stream: true,
-});
-
-export const TerminalInput = Rpc.make("terminal.input", {
-  payload: { terminalId: TerminalId, data: Schema.Uint8ArrayFromBase64 },
-  error: NotFound,
-});
-
-export const TerminalResize = Rpc.make("terminal.resize", {
-  payload: { terminalId: TerminalId, cols: Schema.Int, rows: Schema.Int },
-  error: NotFound,
-});
-
-export const TerminalClose = Rpc.make("terminal.close", {
-  payload: { terminalId: TerminalId },
-  error: NotFound,
-});
-
 export class DaemonRpcs extends RpcGroup.make(
   InlinePropose,
   Hello,
@@ -810,20 +754,15 @@ export class DaemonRpcs extends RpcGroup.make(
   GetAttachmentSettings,
   SetAttachmentSettings,
   ClearAttachments,
-  ReadAttachment,
-  TerminalOpen,
-  TerminalAttach,
-  TerminalAttachBinary,
-  TerminalInput,
-  TerminalResize,
-  TerminalClose
+  ReadAttachment
 )
   .merge(ConstellationHostRpcs, ResourceRpcs, EditorFileRpcs)
   .merge(LanguageRpcs, PredictionRpcs, SessionTurnRpcs)
   .merge(AutoArchiveRpcs, IdleCompactionRpcs, ContinuityRpcs, PresenceRpcs, HostStatsRpcs)
+  .merge(VisualsRpcs)
   .merge(GitWriteRpcs, GitWatchRpcs, CommitMessageRpcs)
   .merge(ExtensionRpcs, RemoteAccessRpcs, LinkedDeviceRpcs, VoiceRpcs, RestartRpcs)
-  .merge(SecretRpcs) {}
+  .merge(SecretRpcs, TerminalRpcs) {}
 
 /**
  * `DaemonRpcs` as the Daemon serves it to Extensions: every RPC can fail with

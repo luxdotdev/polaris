@@ -35,6 +35,7 @@ export const WORKER_TOOL_NAMES = [
   "sessions",
   "search_history",
   "read_history",
+  "visualize",
 ];
 
 export const LEAD_TOOL_NAMES = [
@@ -52,6 +53,7 @@ export const LEAD_TOOL_NAMES = [
   "sessions",
   "search_history",
   "read_history",
+  "visualize",
 ];
 
 export const fakeCommands = () => {

@@ -148,6 +148,8 @@ export const Capability = Schema.Literals([
    * `CompactSession` and `Turn.idleCompaction`.
    */
   "sessions.idle-compaction",
+  /** `sessions.visuals` and `sessions.setVisuals`: the Visuals setting (`visuals.ts`). */
+  "sessions.visuals",
   /** `continuity.watch`, `continuity.markRead`, `continuity.saveDraft`: read position and drafts. */
   "session.continuity",
   /** `presence.report`: a Desktop App's presence holds this Host's pushes to Linked Devices. */

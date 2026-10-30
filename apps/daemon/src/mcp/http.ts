@@ -3,9 +3,11 @@ import type { McpBinding } from "./binding.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { type Notifier, notifier, type SessionTools, sessionTools } from "./sessions/index.ts";
 import {
+  type CatalogOptions,
   type ConstellationCommands,
   type LeadStarted,
   attachSessionTools,
+  attachVisualizations,
   constellationTools,
 } from "./tools.ts";
 import { McpTokens } from "./tokens.ts";
@@ -58,7 +60,8 @@ const responseFor = async (
   binding: McpBinding,
   message: typeof Message.Type,
   commands: ConstellationCommands,
-  started: LeadStarted
+  started: LeadStarted,
+  options: CatalogOptions
 ): Promise<Response> => {
   const id = message.id;
 
@@ -89,11 +92,12 @@ const responseFor = async (
       return result({});
     case "tools/list":
       return result({
-        tools: constellationTools(binding, commands, started).map(
-          ({ name, description, inputSchema }) => ({
+        tools: constellationTools(binding, commands, started, options).map(
+          ({ name, description, inputSchema, annotations }) => ({
             name,
             description,
             inputSchema,
+            annotations,
           })
         ),
       });
@@ -102,7 +106,7 @@ const responseFor = async (
 
       if (Option.isNone(params)) return rpcError(id, -32602, "Invalid tool call parameters");
 
-      const tool = constellationTools(binding, commands, started).find(
+      const tool = constellationTools(binding, commands, started, options).find(
         (item) => item.name === params.value.name
       );
 
@@ -134,6 +138,7 @@ export const mcpHttp = (
     // The same commands reach Claude's in-process tools, so they serve the session tools too.
     if (Option.isSome(store) && notifications !== null)
       attachSessionTools(commands, sessionTools(store.value, notifications, requestSecret));
+    attachVisualizations(commands, tokens.visualizations);
 
     const server = yield* Effect.acquireRelease(
       Effect.sync(() =>
@@ -169,7 +174,10 @@ export const mcpHttp = (
 
             if (Option.isNone(message)) return rpcError(null, -32600, "Invalid JSON-RPC message");
 
-            return responseFor(binding, message.value, commands, started);
+            // The Visuals setting as the session opened: `attachConstellation` puts it in the URL.
+            return responseFor(binding, message.value, commands, started, {
+              visualize: url.searchParams.get("visuals") !== "off",
+            });
           },
           error: () => new Response("MCP request failed", { status: 500 }),
         })

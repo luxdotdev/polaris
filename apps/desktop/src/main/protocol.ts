@@ -6,6 +6,7 @@
 import { join, normalize, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { net, protocol, type Session } from "electron";
+import { FRAME_SRC, type FrameDocuments, frameResponse, isFrameUrl } from "./frames.ts";
 
 export const APP_ORIGIN = "app://polaris";
 
@@ -18,6 +19,7 @@ const PROD_CSP = [
   "font-src 'self'",
   "connect-src 'self'",
   "worker-src 'self' blob:",
+  FRAME_SRC,
   "base-uri 'none'",
   "form-action 'none'",
   "frame-ancestors 'none'",
@@ -34,6 +36,7 @@ const devCsp = (devUrl: string) =>
     `font-src 'self' ${devUrl}`,
     `connect-src 'self' ${devUrl} ${devUrl.replace(/^http/, "ws")}`,
     "worker-src 'self' blob:",
+    FRAME_SRC,
     "base-uri 'none'",
     "form-action 'none'",
     "frame-ancestors 'none'",
@@ -48,10 +51,16 @@ export const registerAppScheme = () =>
     },
   ]);
 
-export const serveRenderer = (rendererDir: string) => {
+/** Visualization frames only: the dev server serves the renderer itself. */
+export const serveFrames = (frames: FrameDocuments) =>
+  protocol.handle("app", (request) => frameResponse(frames, request.url));
+
+export const serveRenderer = (rendererDir: string, frames: FrameDocuments) => {
   const root = normalize(rendererDir + sep);
 
   protocol.handle("app", async (request) => {
+    if (isFrameUrl(request.url)) return frameResponse(frames, request.url);
+
     const { host, pathname } = new URL(request.url);
 
     const file = normalize(
@@ -73,12 +82,16 @@ export const applyDevCsp = (session: Session, devUrl: string) => {
   const csp = devCsp(new URL(devUrl).origin);
 
   session.webRequest.onHeadersReceived((details, callback) => {
+    // A frame keeps its own CSP.
+    if (isFrameUrl(details.url)) return callback({});
+
     callback({
       responseHeaders: { ...details.responseHeaders, "Content-Security-Policy": [csp] },
     });
   });
 };
 
+/** A Visualization frame is never trusted, though it is served from the app's origin. */
 export const isTrustedUrl = (url: string, devUrl: string | null) =>
-  url.startsWith(`${APP_ORIGIN}/`) ||
+  (url.startsWith(`${APP_ORIGIN}/`) && !isFrameUrl(url)) ||
   (devUrl !== null && new URL(url).origin === new URL(devUrl).origin);

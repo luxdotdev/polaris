@@ -20,6 +20,7 @@ import type {
   AttachmentSettings,
   AutoArchiveSettings,
   IdleCompactionSettings,
+  VisualsSettings,
   AttachmentUsage,
   StagedAmount,
   Capability,
@@ -445,6 +446,7 @@ export interface RequestOutputs
   "settings.setSessionDefault": null;
   "settings.setSessions": null;
   "shell.openExternal": null;
+  "visualization.serve": { readonly url: string };
   "shell.revealInFinder": null;
   "host.retryNow": null;
   dispatch: { readonly sequence: number | null };
@@ -502,6 +504,8 @@ export interface RequestOutputs
   "sessions.setAutoArchive": null;
   "sessions.idleCompaction": Plain<IdleCompactionSettings>;
   "sessions.setIdleCompaction": null;
+  "sessions.visuals": Plain<VisualsSettings>;
+  "sessions.setVisuals": null;
   "continuity.markRead": Plain<ReadPosition>;
   "continuity.saveDraft": Plain<ComposerDraft>;
   "review.runRiskSummary": Rpc.Success<typeof RunRiskSummary>;

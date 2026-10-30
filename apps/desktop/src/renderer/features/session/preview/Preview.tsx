@@ -55,6 +55,7 @@ import { items as itemsScene } from "./itemsScene.ts";
 import { tools as toolsScene } from "./toolsScene.ts";
 import { polarisTools, PREVIEW_NOTICE } from "./polarisScene.ts";
 import { secret } from "./secretScene.ts";
+import { visualizations, visualizations30 } from "./visualizationScene.ts";
 import { background, waitingSidebar } from "./background.ts";
 import { MODELS, PATCH } from "./fixtureData.ts";
 import { recordBanner } from "../banners.ts";
@@ -159,6 +160,8 @@ const SCENES = {
   background,
   order,
   polaris: polarisTools,
+  visualizations,
+  "visualizations-30": visualizations30,
 } as const;
 
 const SCENE_NAMES = [
@@ -178,6 +181,8 @@ const SCENE_NAMES = [
   "background",
   "order",
   "polaris",
+  "visualizations",
+  "visualizations-30",
   "new",
   "setup",
   "none-ready",
@@ -447,9 +452,12 @@ const drawImage = async (path: string): Promise<Result<unknown>> => {
 const bridgeFor = (scene: Scene): PolarisApi => ({
   // SAFETY: fixture answers match RequestOutputs for the methods the session feature calls.
   request: (method, input) =>
-    (method === "files.read" && "path" in input && input.path.endsWith(".png")
-      ? fixtureImage(input.path)
-      : Promise.resolve(answer(scene, method, input))) as never,
+    // Frames load through the real main process when there is one, under its frame CSP.
+    (method === "visualization.serve" && "polaris" in window
+      ? window.polaris.request(method, input)
+      : method === "files.read" && "path" in input && input.path.endsWith(".png")
+        ? fixtureImage(input.path)
+        : Promise.resolve(answer(scene, method, input))) as never,
   subscribe: (kind, _input, listener) => {
     // SAFETY: each fixture feed's items match SubscriptionItems for its kind.
     const items = feed(scene, kind) as never;

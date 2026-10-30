@@ -21,6 +21,12 @@ const decodeRows = Schema.decodeUnknownSync(
 
 const decodeBinding = Schema.decodeUnknownOption(Schema.fromJsonString(McpBinding));
 
+/** Which Visualization ids each Agent Session's `visualize` calls returned. */
+export interface VisualizationLog {
+  readonly record: (sessionId: SessionId, id: string) => Effect.Effect<void, McpTokenError>;
+  readonly shown: (sessionId: SessionId, id: string) => Effect.Effect<boolean, McpTokenError>;
+}
+
 export class McpTokens extends Context.Service<
   McpTokens,
   {
@@ -37,6 +43,8 @@ export class McpTokens extends Context.Service<
     ) => Effect.Effect<void, McpTokenError>;
     readonly revokeSession: (sessionId: SessionId) => Effect.Effect<void, McpTokenError>;
     readonly revokeAttempt: (attemptId: AttemptId) => Effect.Effect<void, McpTokenError>;
+    /** The Visualizations `visualize` showed, by session, so `replaces` outlives a restart. */
+    readonly visualizations: VisualizationLog;
   }
 >()("polaris/mcp/Tokens") {
   static layer(path: string) {
@@ -59,6 +67,9 @@ export class McpTokens extends Context.Service<
         db.exec(`CREATE TABLE IF NOT EXISTS mcp_bindings (
         hash TEXT PRIMARY KEY, session_id TEXT NOT NULL, constellation_id TEXT NOT NULL, attempt_id TEXT,
         binding TEXT NOT NULL, revoked INTEGER NOT NULL DEFAULT 0
+      )`);
+        db.exec(`CREATE TABLE IF NOT EXISTS mcp_visualizations (
+        session_id TEXT NOT NULL, id TEXT NOT NULL, PRIMARY KEY (session_id, id)
       )`);
 
         const run = <A>(body: () => A) =>
@@ -151,6 +162,21 @@ export class McpTokens extends Context.Service<
             run(() => {
               db.query("UPDATE mcp_bindings SET revoked = 1 WHERE attempt_id = ?").run(id);
             }),
+          visualizations: {
+            record: (sessionId, id) =>
+              run(() => {
+                db.query(
+                  "INSERT OR IGNORE INTO mcp_visualizations (session_id, id) VALUES (?, ?)"
+                ).run(sessionId, id);
+              }),
+            shown: (sessionId, id) =>
+              run(
+                () =>
+                  db
+                    .query("SELECT 1 FROM mcp_visualizations WHERE session_id = ? AND id = ?")
+                    .get(sessionId, id) !== null
+              ),
+          },
         });
       })
     );

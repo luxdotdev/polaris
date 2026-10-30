@@ -4,7 +4,7 @@
  * One IPC listener demultiplexes every subscription's batched items.
  */
 import { contextBridge, ipcRenderer } from "electron";
-import { languageApi } from "./languages.ts";
+import { createLanguageApi } from "./languages.ts";
 import { platformFromArgv } from "../shared/platform.ts";
 import {
   type BatchEntry,
@@ -14,62 +14,70 @@ import {
   type SubscriptionListener,
 } from "../shared/api.ts";
 
-const listeners = new Map<number, SubscriptionListener<unknown>>();
+import { lockFrameWebRTC } from "./lockdown.ts";
 
-let nextId = 1;
+function exposePolarisApi() {
+  const listeners = new Map<number, SubscriptionListener<unknown>>();
 
-/** One listener's failure must not stop the rest of the batch from being delivered. */
-const deliver = (run: () => void) => {
-  try {
-    run();
-  } catch (cause) {
-    console.error("polaris: a subscription listener threw", cause);
-  }
-};
+  let nextId = 1;
 
-ipcRenderer.on(CHANNELS.batch, (_event, entries: ReadonlyArray<BatchEntry>) => {
-  for (const entry of entries) {
-    const listener = listeners.get(entry.id);
-
-    if (listener === undefined) continue;
-
-    if (entry.items.length > 0) deliver(() => listener.items(entry.items));
-
-    if (entry.end !== undefined) {
-      listeners.delete(entry.id);
-      const end = entry.end;
-
-      deliver(() => listener.end?.(end));
+  /** One listener's failure must not stop the rest of the batch from being delivered. */
+  const deliver = (run: () => void) => {
+    try {
+      run();
+    } catch (cause) {
+      console.error("polaris: a subscription listener threw", cause);
     }
-  }
-});
+  };
 
-const api: PolarisApi = {
-  platform: platformFromArgv(process.argv, process.platform),
-  languages: languageApi,
-  notify: (method, input) => ipcRenderer.send(method, input),
-  request: (method, input) => ipcRenderer.invoke(CHANNELS.request, { method, input }),
-  subscribe: (kind, input, listener) => {
-    const id = nextId++;
+  ipcRenderer.on(CHANNELS.batch, (_event, entries: ReadonlyArray<BatchEntry>) => {
+    for (const entry of entries) {
+      const listener = listeners.get(entry.id);
 
-    // SAFETY: the main process only sends items of `kind` under this id (see main/ipc/subscriptions.ts).
-    listeners.set(id, listener as SubscriptionListener<unknown>);
-    ipcRenderer.send(CHANNELS.subscribe, { id, kind, input });
+      if (listener === undefined) continue;
 
-    return () => {
-      if (!listeners.delete(id)) return;
-      ipcRenderer.send(CHANNELS.unsubscribe, { id });
-    };
-  },
-  onAppEvent: (listener) => {
-    const handler = (_event: Electron.IpcRendererEvent, event: AppEvent) => listener(event);
+      if (entry.items.length > 0) deliver(() => listener.items(entry.items));
 
-    ipcRenderer.on(CHANNELS.app, handler);
+      if (entry.end !== undefined) {
+        listeners.delete(entry.id);
+        const end = entry.end;
 
-    return () => {
-      ipcRenderer.off(CHANNELS.app, handler);
-    };
-  },
-};
+        deliver(() => listener.end?.(end));
+      }
+    }
+  });
 
-contextBridge.exposeInMainWorld("polaris", api);
+  const api: PolarisApi = {
+    platform: platformFromArgv(process.argv, process.platform),
+    languages: createLanguageApi(),
+    notify: (method, input) => ipcRenderer.send(method, input),
+    request: (method, input) => ipcRenderer.invoke(CHANNELS.request, { method, input }),
+    subscribe: (kind, input, listener) => {
+      const id = nextId++;
+
+      // SAFETY: the main process only sends items of `kind` under this id (see main/ipc/subscriptions.ts).
+      listeners.set(id, listener as SubscriptionListener<unknown>);
+      ipcRenderer.send(CHANNELS.subscribe, { id, kind, input });
+
+      return () => {
+        if (!listeners.delete(id)) return;
+        ipcRenderer.send(CHANNELS.unsubscribe, { id });
+      };
+    },
+    onAppEvent: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, event: AppEvent) => listener(event);
+
+      ipcRenderer.on(CHANNELS.app, handler);
+
+      return () => {
+        ipcRenderer.off(CHANNELS.app, handler);
+      };
+    },
+  };
+
+  contextBridge.exposeInMainWorld("polaris", api);
+}
+
+lockFrameWebRTC();
+
+if (process.isMainFrame) exposePolarisApi();

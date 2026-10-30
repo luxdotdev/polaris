@@ -6,6 +6,8 @@ export * from "./autoArchive.ts";
 
 export * from "./idleCompaction.ts";
 
+export * from "./visuals.ts";
+
 export * from "./availability.ts";
 
 export * from "./bridge.ts";

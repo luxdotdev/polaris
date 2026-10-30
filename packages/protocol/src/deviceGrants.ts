@@ -99,6 +99,8 @@ export const DEVICE_RPCS = {
   "sessions.setAutoArchive": "local",
   "sessions.idleCompaction": "local",
   "sessions.setIdleCompaction": "local",
+  "sessions.visuals": "local",
+  "sessions.setVisuals": "local",
   "continuity.watch": "device",
   "continuity.markRead": "device",
   "continuity.saveDraft": "device",

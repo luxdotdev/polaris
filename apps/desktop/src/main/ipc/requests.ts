@@ -66,6 +66,8 @@ export interface RequestContext {
   readonly setSessionDefault: (harness: string, value: SessionDefault | null) => void;
   readonly setSessions: (patch: SessionPrefsPatch) => void;
   readonly openExternal: (url: string) => Promise<void>;
+  /** Holds a Visualization's frame document; the URL serves it once (`frames.ts`). */
+  readonly serveFrame: (document: string) => string;
   /** Finder or Explorer, selecting the item at a path on this Client (a `\\wsl.localhost` one included). */
   readonly revealInFinder: (path: string) => void;
   /** A fresh temp directory, or null when the local Daemon doesn't run the bench Harness. */
@@ -291,6 +293,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
       try: () => ctx.openExternal(url),
       catch: (cause): IpcError => ({ code: "OpenFailed", message: String(cause) }),
     }).pipe(done),
+  "visualization.serve": ({ document }) => Effect.sync(() => ({ url: ctx.serveFrame(document) })),
   "shell.revealInFinder": ({ hostKey, path }) =>
     HostDirectory.use((dir) => {
       const shown = revealPath(dir.entry(hostKey), path);
@@ -452,6 +455,9 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     onLive(hostKey, (s) => s.client["sessions.idleCompaction"]({})),
   "sessions.setIdleCompaction": ({ hostKey, settings }) =>
     onLive(hostKey, (s) => s.client["sessions.setIdleCompaction"]({ settings })).pipe(done),
+  "sessions.visuals": ({ hostKey }) => onLive(hostKey, (s) => s.client["sessions.visuals"]({})),
+  "sessions.setVisuals": ({ hostKey, settings }) =>
+    onLive(hostKey, (s) => s.client["sessions.setVisuals"]({ settings })).pipe(done),
   "continuity.markRead": ({ hostKey, ...payload }) =>
     onLive(hostKey, (s) => s.client["continuity.markRead"](payload)),
   "continuity.saveDraft": ({ hostKey, ...payload }) =>
