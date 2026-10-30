@@ -6,7 +6,7 @@
 import type { LinkedHost } from "@polaris/client/relay";
 import { mobileFont, mobileType } from "@polaris/ui/tokens";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import { Dither } from "../dither/index.ts";
@@ -363,8 +363,9 @@ export const ScanSheetView = ({
   const [measured, setMeasured] = useState({ kind: step.kind, height: 0 });
   const titled = copy.title !== undefined || onClose !== undefined;
   const { bottom } = useSafeAreaInsets();
+  const { fontScale } = useWindowDimensions();
   const body = measured.kind === step.kind ? measured.height : 0;
-  const height = fittedSheetHeight(step, titled, body, bottom);
+  const height = fittedSheetHeight(step, titled, body, bottom, fontScale);
 
   useEffect(() => onHeight?.(height), [height, onHeight]);
 

@@ -113,4 +113,11 @@ describe("fittedSheetHeight", () => {
     expect(fittedSheetHeight(failed, false, 400, 34) - tall).toBe(100);
     expect(fittedSheetHeight(failed, true, 300, 34)).toBeGreaterThan(tall);
   });
+
+  test("a titled sheet makes room for its header's title at larger Dynamic Type, up to its cap", () => {
+    const at = (scale: number) => fittedSheetHeight({ kind: "scan" }, true, 600, 34, scale);
+
+    expect(at(2)).toBeGreaterThan(at(1));
+    expect(at(3.1)).toBe(at(2));
+  });
 });
