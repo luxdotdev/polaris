@@ -39,7 +39,7 @@ import { HarnessRpcsLive } from "../harness/HarnessRpcs.ts";
 import { latestRolloutLimits, PlanLimitReporter } from "../harness/limits/index.ts";
 import { HarnessRegistryLive } from "../harness/registry.ts";
 import { BrowserMcp } from "../harness/browser/index.ts";
-import { CdpRelay } from "../browser/index.ts";
+import { BrowserHosting, CdpRelay } from "../browser/index.ts";
 import { AgentBrowser } from "../install/agentBrowser/index.ts";
 import { releaseMemory, releaseWhenQuiet } from "../memory/index.ts";
 import { userPath } from "../service/userPath.ts";
@@ -73,7 +73,6 @@ import { languagesAvailable, lazyLanguageHandlers } from "./lazyLanguages.ts";
 import { lazyReviewer } from "./lazyReviewer.ts";
 import { lazyUsage } from "./lazyUsage.ts";
 import { LiveNotifierLive } from "../push/liveNotifier.ts";
-import { BrowserHosting, CdpRelay } from "../browser/index.ts";
 import { PushNotifierLive } from "../push/notifier.ts";
 
 /** Exit status when another Daemon already holds the lock or answers on the socket. */
@@ -90,9 +89,15 @@ const usageServices = lazyUsage(bench ? {} : { planLimitSeed: latestRolloutLimit
   Layer.provide(UsageSessions.layer)
 );
 
-/** The CDP relay stays a stub until ENG-616 lands; until then sessions open without Browser tools. */
+/** The per-session CDP relay (ENG-616); `BrowserHosting` is the stub until ENG-613's hosting lands. */
+const cdpRelay = Layer.suspend(() =>
+  CdpRelay.layer({ home: paths().root, version: VERSION }).pipe(
+    Layer.provide(BrowserHosting.layerStub)
+  )
+);
+
 const browserMcp = BrowserMcp.layer.pipe(
-  Layer.provide(Layer.mergeAll(CdpRelay.layerStub, AgentBrowser.layer))
+  Layer.provide(Layer.mergeAll(cdpRelay, AgentBrowser.layer))
 );
 
 /** The drivers report Plan Limits through the reporter, in front of the Usage index's sink. */
@@ -117,12 +122,6 @@ const engineServices = Layer.mergeAll(Engine.layer, releaseWhenQuiet()).pipe(
       WorktreeTrackerLive,
       ReviewCheckoutGitLive,
       Layer.suspend(() => workspaceTrustLayer(paths().root)),
-      // The per-session CDP relay (ENG-616); `BrowserHosting` is the stub until ENG-613 lands.
-      Layer.suspend(() =>
-        CdpRelay.layer({ home: paths().root, version: VERSION }).pipe(
-          Layer.provide(BrowserHosting.layerStub)
-        )
-      ),
       AttachmentStoreLive(),
       TerminalsDaemonLive,
       ReviewerPolicyLive,

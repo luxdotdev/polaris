@@ -244,6 +244,15 @@ test("messages relay compact in both directions; the relay's own messages never 
     error: { code: -32000, message: "Message must be a CDP message" },
   });
 
+  // The relay's private vocabulary is refused from the agent's side, not forwarded.
+  agent.socket.send('{"id":7,"method":"Polaris.hello","params":{"tabs":[]}}');
+  await until(() => agent.messages.length >= 4, "the reserved-method error");
+  expect(agent.messages[3]).toEqual({
+    id: 7,
+    error: { code: -32000, message: "Polaris.* is reserved" },
+  });
+  expect(desktop.received).toHaveLength(2);
+
   desktop.close();
   const closed = await agent.closed;
   expect(closed.code).toBe(1000);

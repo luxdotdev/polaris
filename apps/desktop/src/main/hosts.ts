@@ -253,7 +253,10 @@ export interface HostDirectoryInput {
   /** Whether the user is at this computer; told to every Host that asks (ENG-495). */
   readonly presence?: Stream.Stream<UserPresence>;
   /** Serves the Host's Browser streams on each live session (`browserCdp/`, ENG-616). */
-  readonly browserHost?: (sessions: Stream.Stream<LiveSession | null>) => Effect.Effect<void>;
+  readonly browserHost?: (
+    hostKey: string,
+    sessions: Stream.Stream<LiveSession | null>
+  ) => Effect.Effect<void>;
 }
 
 /** The Hosts this app connects to, and their views for the renderers. */
@@ -364,7 +367,7 @@ export class HostDirectory extends Context.Service<
             const browsers =
               browserHost === undefined || connection.sessionChanges === undefined
                 ? Effect.void
-                : browserHost(connection.sessionChanges);
+                : browserHost(entry.key, connection.sessionChanges);
 
             const track = changes.pipe(
               Stream.runForEach(() =>

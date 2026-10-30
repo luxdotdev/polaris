@@ -115,6 +115,12 @@ export class RelaySocket {
       return;
     }
 
+    if (message.method?.startsWith("Polaris.") === true) {
+      this.socket.send(JSON.stringify(errorReply(message.id ?? null, "Polaris.* is reserved")));
+
+      return;
+    }
+
     if (this.pending !== null) this.pending.push(message);
     else if (this.refusedWith !== null) this.refuse([message], this.refusedWith);
     else this.forward(message);

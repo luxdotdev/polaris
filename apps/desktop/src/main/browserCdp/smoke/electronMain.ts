@@ -139,6 +139,7 @@ const tabs: CdpTabs = {
     publish(entry.tab.sessionId, BrowserTabEvent.cases.Closed.make({ tabId }));
   },
   activateTab: async () => undefined,
+  allowsUrl: (url) => /^(https?:|about:blank$)/.test(url),
   setAgentDriving: (tabId, driving) => {
     const entry = held.get(tabId);
 

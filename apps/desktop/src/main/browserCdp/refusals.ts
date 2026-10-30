@@ -33,6 +33,9 @@ export const REFUSED_METHODS: ReadonlySet<string> = new Set([
   "Target.exposeDevToolsProtocol",
   "Target.sendMessageToTarget",
   "Target.autoAttachRelated",
+  "Target.attachToBrowserTarget",
+  // Reads any file on the Desktop App's machine into a page.
+  "DOM.setFileInputFiles",
 ]);
 
 /** Whole domains that describe or control the Desktop App's Chromium, not a page. */
@@ -63,7 +66,7 @@ export const refusalOf = (method: string, params: CdpJson | undefined): string |
 
   if (REFUSED_DOMAINS.includes(domain)) return refusalMessage(method);
 
-  if (method === "Browser.setDownloadBehavior") {
+  if (method === "Browser.setDownloadBehavior" || method === "Page.setDownloadBehavior") {
     const decoded = decodeDownloadBehavior(params);
 
     const allowed =
@@ -73,7 +76,7 @@ export const refusalOf = (method: string, params: CdpJson | undefined): string |
 
     return allowed
       ? null
-      : "Browser.setDownloadBehavior may only deny downloads here: the Desktop App chooses where they go.";
+      : `${method} may only deny downloads here: the Desktop App chooses where they go.`;
   }
 
   return null;

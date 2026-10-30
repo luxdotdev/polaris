@@ -188,6 +188,7 @@ const fakeTabs = () => {
       publish(sessionId, BrowserTabEvent.cases.Closed.make({ tabId }));
     },
     activateTab: async () => undefined,
+    allowsUrl: (url) => !url.startsWith("file:"),
     setAgentDriving: (tabId, value) => void driving.set(tabId, value),
     subscribe: (_host, sessionId, listener) => {
       const set = listeners.get(sessionId) ?? new Set();
@@ -313,6 +314,9 @@ test("browser-wide methods are refused, with and without a session", async () =>
     ["Browser.setDownloadBehavior", { behavior: "allowAndName", downloadPath: "/tmp" }],
     ["Target.getBrowserContexts", {}],
     ["Browser.setContentsSize", { windowId: 1, width: 800, height: 600 }],
+    ["Target.attachToBrowserTarget", {}],
+    ["DOM.setFileInputFiles", { files: ["/etc/passwd"], nodeId: 1 }],
+    ["Page.setDownloadBehavior", { behavior: "allow", downloadPath: "/tmp" }],
   ];
 
   let id = 10;
@@ -321,7 +325,7 @@ test("browser-wide methods are refused, with and without a session", async () =>
     const plain = await call(id++, method, params);
     expect(plain.error).toMatchObject({ code: -32000 });
     expect(plain.error?.message).toContain(
-      method === "Browser.setDownloadBehavior" ? "deny" : method
+      method.endsWith("setDownloadBehavior") ? "deny" : method
     );
     const onSession = await call(id++, method, params, session);
     expect(onSession.error).toMatchObject({ code: -32000 });
@@ -406,6 +410,19 @@ test("page commands and events travel under the facade's session ids, nested ses
   debuggee.emit("Target.detachedFromTarget", { sessionId: "CHILD1" });
   const afterChild = await call(7, "Runtime.evaluate", { expression: "1" }, "CHILD1");
   expect(afterChild.error).toMatchObject({ code: -32001 });
+
+  // Navigation follows the Browser's policy here too, and a browser target under the tab never routes.
+  const blocked = await call(9, "Page.navigate", { url: "file:///etc/passwd" }, session);
+  expect(blocked.error).toEqual({ code: -32000, message: "A tab can't open file:///etc/passwd" });
+  expect(debuggee.commands.filter((c) => c.method === "Page.navigate")).toEqual([
+    { method: "Page.navigate", params: { url: "nope" }, sessionId: undefined },
+  ]);
+  debuggee.emit("Target.attachedToTarget", {
+    sessionId: "BROWSER1",
+    targetInfo: { type: "browser" },
+  });
+  const viaBrowser = await call(10, "Browser.getVersion", {}, "BROWSER1");
+  expect(viaBrowser.error).toMatchObject({ code: -32001 });
 
   const detached = await call(8, "Target.detachFromTarget", { sessionId: session });
   expect(detached.result).toEqual({});

@@ -15,6 +15,10 @@ export { REFUSED_DOMAINS, REFUSED_METHODS, refusalOf } from "./refusals.ts";
 
 export { serveBrowserHost, type BrowserHostDeps } from "./host.ts";
 
+export { cdpTabsOf } from "./adapter.ts";
+
+export { electronCdpVersions } from "./versions.ts";
+
 /**
  * Hosts Browsers on every live session of a Host that supports `browser.host`; a new
  * connection starts over, as the Daemon forgets the old one's streams with it.

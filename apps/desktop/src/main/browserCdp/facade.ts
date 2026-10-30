@@ -70,6 +70,13 @@ const Attach = Schema.Struct({
 
 const WithSessionId = Schema.Struct({ sessionId: Schema.String });
 
+const Navigate = Schema.Struct({ url: Schema.String });
+
+const NestedAttached = Schema.Struct({
+  sessionId: Schema.String,
+  targetInfo: Schema.Struct({ type: Schema.String }),
+});
+
 const Discover = Schema.Struct({ discover: Schema.Boolean });
 
 const AutoAttach = Schema.Struct({ autoAttach: Schema.Boolean });
@@ -83,6 +90,8 @@ const decode = {
   maybeTargetId: Schema.decodeUnknownOption(MaybeTargetId),
   attach: Schema.decodeUnknownOption(Attach),
   sessionId: Schema.decodeUnknownOption(WithSessionId),
+  navigate: Schema.decodeUnknownOption(Navigate),
+  nestedAttached: Schema.decodeUnknownOption(NestedAttached),
   discover: Schema.decodeUnknownOption(Discover),
   autoAttach: Schema.decodeUnknownOption(AutoAttach),
   create: Schema.decodeUnknownOption(Create),
@@ -192,10 +201,13 @@ export const cdpFacade = (input: CdpFacadeInput): CdpFacade => {
     nestedSessionId: string
   ) => {
     const nested = decode.sessionId(message);
+    const attached = decode.nestedAttached(message);
 
-    if (method === "Target.attachedToTarget" && Option.isSome(nested))
-      targets.nestedOpened(session, nested.value.sessionId);
-    else if (method === "Target.detachedFromTarget" && Option.isSome(nested))
+    // Only what Chromium opened under the tab (frames, workers) routes; never a browser target.
+    if (method === "Target.attachedToTarget" && Option.isSome(attached)) {
+      if (attached.value.targetInfo.type !== "browser")
+        targets.nestedOpened(session, attached.value.sessionId);
+    } else if (method === "Target.detachedFromTarget" && Option.isSome(nested))
       targets.nestedClosed(nested.value.sessionId);
     emit({
       method,
@@ -390,6 +402,16 @@ export const cdpFacade = (input: CdpFacadeInput): CdpFacade => {
 
     if (command.sessionId === undefined)
       return reply(command, { error: { code: -32601, message: browserLevelOnly(command.method) } });
+
+    if (command.method === "Page.navigate") {
+      const url = Option.map(decode.navigate(command.params), (p) => p.url);
+
+      if (Option.isNone(url) || !tabs.allowsUrl(url.value))
+        return reply(command, {
+          error: { code: -32000, message: `A tab can't open ${Option.getOrElse(url, () => "")}` },
+        });
+    }
+
     const route = targets.routeOf(command.sessionId);
 
     if (route === null) return reply(command, { error: failure(noSession()) });
