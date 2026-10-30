@@ -67,7 +67,7 @@ extension opens them.**
   there, so it builds the same ContentState and calls `update` with a timestamp. ActivityKit
   keeps whichever of the app's update and the pushed one is newer.
 - **Drawing.** The widget extension opens each slice with the push key from the shared Keychain
-  group, which it now joins. It shows the sum of `working`, a timer from the earliest `since`
+  group, which it now joins (and, on a device, from its App Group copy: ADR 0090). It shows the sum of `working`, a timer from the earliest `since`
   (no update needed for it to tick), the newest `step`, and the oldest `need`. A slice it can't
   open is counted and the activity says "Open Polaris to see every host". The Live Activity
   lives in the existing widgets extension: `@bacons/apple-targets` 5.0.0 keeps only one

@@ -148,7 +148,7 @@ const useRegistrations = (
 ) => {
   const connections = useHosts();
   const [device, setDevice] = useState<LiveDevice | null>(null);
-  // Per Host, the connection epoch and token it was registered with: a change registers again.
+  // Per Host, the connection epoch, token and push key it was registered with: a change registers again.
   const registered = useRef(new Map<string, string>());
 
   useEffect(() => {
@@ -186,7 +186,7 @@ const useRegistrations = (
         const live = host?.live() ?? null;
 
         if (host === undefined || live === null) continue;
-        const key = `${live.epoch}:${device.token}`;
+        const key = `${live.epoch}:${device.token}:${device.pushKey}`;
 
         if (registered.current.get(hostId) === key) continue;
         registered.current.set(hostId, key);
