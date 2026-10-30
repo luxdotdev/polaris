@@ -6,7 +6,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { SessionId, type VisualsLevel, WorkspaceId } from "@polaris/protocol";
-import { VisualizeResult } from "@polaris/visualization";
+import { VisualizeResult, validateVisualization, visualizeGuidance } from "@polaris/visualization";
 import { Effect, Schema } from "effect";
 import { McpBinding } from "../binding.ts";
 import { McpTokens } from "../tokens.ts";
@@ -16,7 +16,6 @@ import { attachConstellation } from "../../harness/constellation/attachment.ts";
 import { claudeConstellationOptions } from "../../harness/claude/constellation.ts";
 import { polarisInstructions } from "../../constellation/skills/preamble.ts";
 import { shortTemp } from "../../platform/testing.ts";
-import { visualizeText } from "../../visuals/guidance.ts";
 
 const plainBinding = McpBinding.cases.Plain.make({
   sessionId: SessionId.make("plain-1"),
@@ -99,7 +98,7 @@ for (const transport of ["http", "claude"] as const)
         session(root, transport, binding, "rich", async (client, instructions) => {
           const listed = (await client.listTools()).tools.find((t) => t.name === "visualize");
           expect(listed?.annotations?.readOnlyHint).toBe(true);
-          expect(instructions).toContain("visualize tool");
+          expect(instructions).toContain(visualizeGuidance("rich"));
 
           const first = await show(client, { title: "Coverage", html: "<p>é</p>" });
           expect(first.isError).not.toBe(true);
@@ -180,6 +179,31 @@ for (const level of ["rich", "simple"] as const)
   test(`a session opened with Visuals ${level} gets that level's guidance`, () =>
     withRoot((root) =>
       session(root, "claude", workerBinding, level, async (_client, instructions) => {
-        expect(instructions).toContain(visualizeText().guidance(level));
+        expect(instructions).toContain(visualizeGuidance(level));
+      })
+    ));
+
+for (const transport of ["http", "claude"] as const)
+  test(`invalid HTML over ${transport} is refused with every problem's message and fix`, () =>
+    withRoot((root) =>
+      session(root, transport, workerBinding, "rich", async (client) => {
+        const input = {
+          title: "Remote",
+          html: '<!doctype html><html><body><script src="https://cdn.example/x.js"></script></body></html>',
+        };
+
+        const problems = validateVisualization(input);
+        const rules = problems.map((p) => p.rule);
+        expect(rules).toContain("full-document");
+        expect(rules).toContain("external-url");
+
+        const result = await show(client, input);
+        expect(result.isError).toBe(true);
+        const text = textOf(result);
+
+        for (const problem of problems) {
+          expect(text).toContain(`E-VISUAL-${problem.rule.toUpperCase()}: ${problem.message}`);
+          expect(text).toContain(`Fix: ${problem.fix}`);
+        }
       })
     ));

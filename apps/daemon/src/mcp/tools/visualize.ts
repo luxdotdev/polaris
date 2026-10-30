@@ -3,12 +3,12 @@ import { ConstellationFinding, type SessionId } from "@polaris/protocol";
 import {
   type VisualizationProblem,
   type VisualizeResult,
+  VISUALIZE_TOOL_DESCRIPTION,
   VisualizeInput,
   validateVisualization,
 } from "@polaris/visualization";
 import { Effect, Schema } from "effect";
 import type { VisualizationLog } from "../tokens.ts";
-import { visualizeText } from "../../visuals/guidance.ts";
 import { jsonSchema, type BoundTool, type McpToolResult } from "./shared.ts";
 
 const finding = (code: string, message: string, fix: string) =>
@@ -88,7 +88,7 @@ export const visualizeTool = (sessionId: SessionId, log: VisualizationLog): Boun
 
   return {
     name: "visualize",
-    description: visualizeText().description,
+    description: VISUALIZE_TOOL_DESCRIPTION,
     inputSchema: jsonSchema(VisualizeInput),
     // It only shows the user a page: nothing in the Workspace or beyond the Host changes.
     annotations: { readOnlyHint: true, openWorldHint: false },

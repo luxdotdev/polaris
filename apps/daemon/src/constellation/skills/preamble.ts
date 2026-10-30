@@ -1,5 +1,5 @@
 import type { OpenOptions } from "../../harness/HarnessDriver.ts";
-import { visualizeText } from "../../visuals/guidance.ts";
+import { visualizeGuidance } from "@polaris/visualization";
 
 export const POLARIS_PREAMBLE_VERSION = 3;
 
@@ -52,7 +52,7 @@ export const polarisPreamble = (options: InstructionOptions): string => {
 
   const visuals = attachments.find((a) => a.tools.some((t) => t.name === "visualize"));
 
-  if (visuals !== undefined) features.push(visualizeText().guidance(visuals.visuals ?? "rich"));
+  if (visuals !== undefined) features.push(visualizeGuidance(visuals.visuals ?? "rich"));
 
   return [...context, ...features].join("\n");
 };
