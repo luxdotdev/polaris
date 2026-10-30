@@ -1,11 +1,13 @@
 /**
  * A command's whole text in a hover card (DESIGN.md, Turns): its line truncates to one row, so
  * hovering or focusing it opens an instrument card with the command wrapped in mono and a copy
- * action. Only a command its line can't show whole offers it.
+ * action, coloured as shell. Only a command its line can't show whole offers it.
  */
 import { CopyButton, HoverCard, HoverCardTrigger, InstrumentHoverCardContent } from "@polaris/ui";
-import { type ReactElement, type RefObject, useState } from "react";
+import { type ReactElement, type RefObject, useMemo, useState } from "react";
 import { plural } from "../model/format.ts";
+import { shellRuns } from "../model/shellSyntax.ts";
+import { SyntaxRuns } from "./LineCode.tsx";
 
 /** Whether the line hides some of the command: it has more than one line, or it overflows. */
 export const hidesCommand = (command: string, line: HTMLElement | null): boolean => {
@@ -41,6 +43,7 @@ export const CommandCard = ({
   const [open, setOpen] = useState(false);
   const text = command.trim();
   const lines = text.split("\n").length;
+  const runs = useMemo(() => shellRuns(text), [text]);
 
   return (
     <HoverCard
@@ -58,7 +61,7 @@ export const CommandCard = ({
             className="text-code-inline text-text-default max-h-[240px] overflow-auto px-3 py-2 font-mono leading-[18px] break-all whitespace-pre-wrap select-text"
             data-testid="command-card-text"
           >
-            {text}
+            <SyntaxRuns runs={runs} />
           </pre>,
         ]}
         footer={{
