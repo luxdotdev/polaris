@@ -1,19 +1,18 @@
 /**
- * The CDP relay end to end (ENG-616): the real relay, a real Electron `WebContentsView` behind
- * the Desktop facade (`apps/desktop/src/main/browserCdp/smoke/electronMain.ts`), and the real
- * agent-browser binary driving a real page. Skipped without Electron or `AGENT_BROWSER_BIN`
- * (or `agent-browser` on PATH). `POLARIS_E2E_CLAUDE=1` adds a real Claude Code session driving
- * the tab through its `polaris_browser` MCP server.
+ * The CDP relay end to end (ENG-616): the real agent-browser binary, the real relay, the real
+ * `BrowserHosting` behind a real Daemon transport, real byte streams over the local socket to
+ * a stand-in Desktop App in Electron (`apps/desktop/src/main/browserCdp/smoke/electronMain.ts`,
+ * the real `serveBrowserHost` and facade over a real `WebContentsView`). Skipped without
+ * Electron or `AGENT_BROWSER_BIN` (or `agent-browser` on PATH). `POLARIS_E2E_CLAUDE=1` adds a
+ * real Claude Code session driving the tab through its `polaris_browser` MCP server.
  */
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
   ApprovalDecision,
-  type ByteTransport,
   ModelId,
   NO_DESKTOP_APP_MESSAGE,
-  NoDesktopApp,
   SessionId,
   TurnId,
   TurnItem,
@@ -24,7 +23,7 @@ import { makeClaudeDriver } from "../harness/claude/ClaudeDriver.ts";
 import { HarnessEvent } from "../harness/HarnessDriver.ts";
 import { AgentBrowser } from "../install/agentBrowser/index.ts";
 import { shortTemp } from "../platform/testing.ts";
-import { type BunSocketStream, socketHandlers } from "../transport/bunSocket.ts";
+import { cleanupHome, daemon, endpoint, freshHome } from "../transport/byteStreamsHarness.ts";
 import { CdpRelay } from "./cdpRelay.ts";
 import { BrowserHosting } from "./hosting.ts";
 
@@ -50,8 +49,6 @@ const page = `<!doctype html><title>Smoke page</title><h1>Hello Polaris</h1>
 
 let root = "";
 
-let socketPath = "";
-
 let electronProcess: Bun.Subprocess<"pipe", "pipe", "pipe"> | null = null;
 
 let server: ReturnType<typeof Bun.serve> | null = null;
@@ -60,40 +57,15 @@ const scope = Effect.runSync(Scope.make());
 
 let relay: CdpRelay["Service"];
 
-let hosted = true;
-
 const electronLog: Array<string> = [];
 
-const unused = () => Effect.die(new Error("not part of this smoke"));
-
-const connectDesktop = (): Promise<ByteTransport> =>
-  new Promise((resolvePromise, reject) => {
-    Bun.connect<BunSocketStream | undefined>({
-      unix: socketPath,
-      socket: socketHandlers((transport) => resolvePromise(transport)),
-    }).catch(reject);
-  });
-
-const fakeHosting = Layer.succeed(BrowserHosting)(
-  BrowserHosting.of({
-    register: unused,
-    claim: unused,
-    release: unused,
-    accept: unused,
-    close: unused,
-    credit: unused,
-    current: (sessionId) =>
-      hosted ? Effect.succeed(1) : Effect.fail(new NoDesktopApp({ sessionId })),
-    open: (sessionId) =>
-      Effect.gen(function* () {
-        if (!hosted) return yield* new NoDesktopApp({ sessionId });
-        const transport = yield* Effect.promise(connectDesktop);
-        yield* Effect.addFinalizer(() => transport.close);
-
-        return transport;
-      }),
-  })
-);
+/** Tells the stand-in to connect to the Daemon and host `mine`'s Browser; idempotent. */
+const hostDesktop = async () => {
+  if (electronLog.includes("HOSTING") || electronProcess === null) return;
+  void electronProcess.stdin.write("HOST\n");
+  void electronProcess.stdin.flush();
+  await until(() => electronLog.includes("HOSTING"), "the smoke Desktop to host");
+};
 
 const readLines = async (stream: ReadableStream<Uint8Array>, onLine: (line: string) => void) => {
   const reader = stream.getReader();
@@ -140,7 +112,9 @@ const run = async (args: ReadonlyArray<string>, session: string) => {
 beforeAll(async () => {
   if (!available) return;
   root = mkdtempSync(shortTemp("polaris-cdp-smoke-"));
-  socketPath = join(root, "desktop.sock");
+  freshHome();
+  // A real Daemon transport with the byte-stream handlers; the relay shares its BrowserHosting.
+  const { hosting } = await Effect.runPromise(daemon().pipe(Scope.provide(scope)));
   const bundle = join(root, "electronMain.mjs");
 
   const built = Bun.spawnSync(
@@ -168,7 +142,7 @@ beforeAll(async () => {
     cwd: root,
     env: {
       ...env,
-      POLARIS_SMOKE_SOCKET: socketPath,
+      POLARIS_SMOKE_DAEMON_SOCKET: endpoint(),
       POLARIS_SMOKE_URL: `http://127.0.0.1:${server.port}/`,
     },
     stdin: "pipe",
@@ -181,7 +155,7 @@ beforeAll(async () => {
   relay = await Effect.runPromise(
     Layer.build(CdpRelay.layer({ home: root, version: "0.0.0-smoke" })).pipe(
       Effect.map((context) => Context.get(context, CdpRelay)),
-      Effect.provide(fakeHosting),
+      Effect.provide(Layer.succeed(BrowserHosting)(hosting)),
       Scope.provide(scope)
     )
   );
@@ -202,6 +176,7 @@ afterAll(async () => {
   }
 
   rmSync(root, { recursive: true, force: true });
+  cleanupHome();
 }, 30_000);
 
 smoke("a tab session's cookie methods reach only the tab's own partition (real Electron)", () => {
@@ -215,13 +190,13 @@ smoke("a tab session's cookie methods reach only the tab's own partition (real E
   });
 });
 
+// Runs before the stand-in hosts: no connection has registered with the Daemon yet.
 smoke(
   "without a Desktop App, agent-browser fails with the product copy",
   async () => {
-    hosted = false;
+    expect(electronLog).not.toContain("HOSTING");
     const { url } = await Effect.runPromise(relay.issue(SessionId.make("unhosted")));
     const result = await run(["--cdp", url, "snapshot"], "polaris-smoke-unhosted");
-    hosted = true;
     expect(result.exitCode).not.toBe(0);
     expect(`${result.stdout}\n${result.stderr}`).toContain(NO_DESKTOP_APP_MESSAGE);
   },
@@ -231,6 +206,7 @@ smoke(
 smoke(
   "agent-browser snapshots, clicks and screenshots the session's tab through the relay",
   async () => {
+    await hostDesktop();
     const { url } = await Effect.runPromise(relay.issue(mine));
     const session = "polaris-smoke-drive";
 
@@ -267,6 +243,8 @@ smoke(
 claudeSmoke(
   "a real Claude Code session drives the tab through its polaris_browser MCP server",
   async () => {
+    await hostDesktop();
+
     const browser = await Effect.runPromise(
       Layer.build(BrowserMcp.layerAt(() => join(root, "browser-sessions"))).pipe(
         Effect.map((context) => Context.get(context, BrowserMcp)),
