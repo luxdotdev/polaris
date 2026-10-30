@@ -6,6 +6,7 @@ import {
   SettingsConfirmRow,
   SettingsHostRow,
   SettingsOverrideRow,
+  SettingsRow,
   SettingsSelect,
   SettingsStepper,
 } from ".";
@@ -90,6 +91,22 @@ describe("SettingsSelect", () => {
 
     expect(trigger.textContent).toBe("Choose account");
     expect(trigger.className).toContain("border-dashed");
+  });
+});
+
+describe("SettingsRow", () => {
+  test.each([
+    [false, "truncate"],
+    [true, "line-clamp-2"],
+  ])("wrap %p: a long title and caption fit by %s", (wrap, fit) => {
+    render(
+      <SettingsRow wrap={wrap} title="When you open an agent session in Review" caption="Rules run">
+        <button>On</button>
+      </SettingsRow>
+    );
+
+    for (const text of ["When you open an agent session in Review", "Rules run"])
+      expect(screen.getByText(text).className.split(" ")).toContain(fit);
   });
 });
 
@@ -196,5 +213,38 @@ describe("SettingsConfirmRow", () => {
 
     expect(screen.getByRole("button", { name: "Revoke" })).toHaveProperty("disabled", true);
     expect(screen.getByText("2 agent sessions remain")).not.toBeNull();
+  });
+
+  test("the action reads as danger unless the row asks for a neutral trigger; confirm stays danger", () => {
+    const { rerender } = render(row(() => {}));
+
+    expect(screen.getByRole("button", { name: "Revoke" }).dataset.variant).toBe("danger");
+
+    rerender(
+      <SettingsConfirmRow
+        title="Even G2"
+        action="Revoke"
+        actionVariant="secondary"
+        consequence="Revoking disconnects it now."
+        confirm="Revoke Even G2"
+        onConfirm={() => {}}
+      />
+    );
+    expect(screen.getByRole("button", { name: "Revoke" }).dataset.variant).toBe("secondary");
+
+    fireEvent.click(screen.getByRole("button", { name: "Revoke" }));
+    expect(screen.getByRole("button", { name: "Revoke Even G2" }).dataset.variant).toBe("danger");
+  });
+
+  test("Cancel draws its Starlight ring on any focus, not only keyboard focus", () => {
+    render(row(() => {}));
+    fireEvent.click(screen.getByRole("button", { name: "Revoke" }));
+
+    const ring = screen
+      .getByRole("button", { name: "Cancel" })
+      .className.split(" ")
+      .filter((c) => c.startsWith("focus:outline"));
+
+    expect(ring).toContain("focus:outline-starlight");
   });
 });

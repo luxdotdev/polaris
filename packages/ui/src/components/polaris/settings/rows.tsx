@@ -22,6 +22,8 @@ export interface SettingsRowProps {
   /** Indented under the row it depends on, at opacity-dimmed while that is off. */
   readonly nested?: boolean | undefined;
   readonly dimmed?: boolean | undefined;
+  /** Title and caption wrap to two lines instead of truncating, for a narrow two-up card (SR-10). */
+  readonly wrap?: boolean | undefined;
   readonly className?: string | undefined;
 }
 
@@ -33,8 +35,11 @@ export function SettingsRow({
   htmlFor,
   nested = false,
   dimmed = false,
+  wrap = false,
   className,
 }: SettingsRowProps) {
+  const fit = wrap ? "line-clamp-2" : "truncate";
+
   return (
     <div
       data-slot="settings-row"
@@ -47,11 +52,11 @@ export function SettingsRow({
       )}
     >
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <label htmlFor={htmlFor} className="text-body text-text-default truncate">
+        <label htmlFor={htmlFor} className={cn("text-body text-text-default", fit)}>
           {title}
         </label>
         {caption === undefined ? null : (
-          <span className="text-caption text-text-subtle truncate">{caption}</span>
+          <span className={cn("text-caption text-text-subtle", fit)}>{caption}</span>
         )}
       </div>
       {children === undefined ? null : (
@@ -95,12 +100,13 @@ export function SettingsStepperRow({
   caption,
   nested,
   dimmed,
+  wrap,
   className,
   label,
   ...stepper
 }: SettingsStepperRowProps) {
   return (
-    <SettingsRow {...{ title, caption, nested, dimmed, className }}>
+    <SettingsRow {...{ title, caption, nested, dimmed, wrap, className }}>
       <SettingsStepper label={label ?? title} {...stepper} />
     </SettingsRow>
   );
@@ -120,6 +126,7 @@ export function SettingsSelectRow<Value extends string>({
   caption,
   nested,
   dimmed,
+  wrap,
   className,
   label,
   ...select
@@ -127,7 +134,7 @@ export function SettingsSelectRow<Value extends string>({
   const id = useId();
 
   return (
-    <SettingsRow htmlFor={id} {...{ title, caption, nested, dimmed, className }}>
+    <SettingsRow htmlFor={id} {...{ title, caption, nested, dimmed, wrap, className }}>
       <SettingsSelect id={id} label={label ?? title} {...select} />
     </SettingsRow>
   );
