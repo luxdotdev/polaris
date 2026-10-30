@@ -12,7 +12,7 @@ import { Option, Schema } from "effect";
 import { useEffect, useRef, useState } from "react";
 import { polaris } from "../../../bridge.ts";
 import { frameRequest } from "./messages.ts";
-import { visualizationStates } from "./state.ts";
+import { stateWriter, visualizationStates, windowTimers } from "./state.ts";
 import { frameTheme, onFrameTheme } from "./theme.ts";
 
 const parseState = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Unknown));
@@ -74,12 +74,16 @@ export const Frame = (props: FrameProps) => {
   const { id, title, mode, onHeight, onOpenLink, onStopped, className } = props;
   const ref = useRef<HTMLIFrameElement>(null);
   const loads = useRef(0);
+  // Until its document loads, a frame paints the browser's white canvas.
+  const [loaded, setLoaded] = useState(false);
   const source = useSource(props);
   const handlers = useRef({ onHeight, onOpenLink, onStopped });
 
   handlers.current = { onHeight, onOpenLink, onStopped };
 
   useEffect(() => {
+    const states = stateWriter(visualizationStates, id, windowTimers);
+
     const onMessage = (event: MessageEvent) => {
       const request = frameRequest(event, ref.current?.contentWindow ?? null);
 
@@ -93,14 +97,17 @@ export const Frame = (props: FrameProps) => {
           handlers.current.onOpenLink(request.url);
           break;
         case "state":
-          visualizationStates.save(id, request.json);
+          states.save(request.json);
           break;
       }
     };
 
     window.addEventListener("message", onMessage);
 
-    return () => window.removeEventListener("message", onMessage);
+    return () => {
+      window.removeEventListener("message", onMessage);
+      states.flush();
+    };
   }, [id]);
 
   // A live theme change reaches the frame without a remount.
@@ -125,9 +132,10 @@ export const Frame = (props: FrameProps) => {
       referrerPolicy="no-referrer"
       data-testid="visualization-frame"
       data-mode={mode}
-      className={cn("block w-full border-0", className)}
+      className={cn("block w-full border-0", !loaded && "invisible", className)}
       onLoad={() => {
         loads.current += 1;
+        setLoaded(true);
 
         if (loads.current > 1) handlers.current.onStopped();
       }}

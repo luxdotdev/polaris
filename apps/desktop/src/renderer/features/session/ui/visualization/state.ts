@@ -60,6 +60,47 @@ export const stateStore = (storage: Storage | null): StateStore => {
   };
 };
 
+/** The fastest a frame's state reaches storage; a slider dragged faster keeps only its last value. */
+export const STATE_SAVE_MS = 500;
+
+export interface StateWriter {
+  /** Keeps the latest state, written at most once per `STATE_SAVE_MS`. */
+  readonly save: (json: string) => void;
+  /** Writes what is pending now (the frame is going away). */
+  readonly flush: () => void;
+}
+
+export interface Timers<H> {
+  readonly setTimeout: (run: () => void, ms: number) => H;
+  readonly clearTimeout: (handle: H) => void;
+}
+
+export const windowTimers: Timers<number> = {
+  setTimeout: (run, ms) => window.setTimeout(run, ms),
+  clearTimeout: (handle) => window.clearTimeout(handle),
+};
+
+export const stateWriter = <H>(store: StateStore, id: string, timers: Timers<H>): StateWriter => {
+  let pending: string | null = null;
+  let timer: H | null = null;
+
+  const flush = () => {
+    if (timer !== null) timers.clearTimeout(timer);
+    timer = null;
+
+    if (pending !== null) store.save(id, pending);
+    pending = null;
+  };
+
+  return {
+    save: (json) => {
+      pending = json;
+      timer ??= timers.setTimeout(flush, STATE_SAVE_MS);
+    },
+    flush,
+  };
+};
+
 const local = (): Storage | null => {
   try {
     return globalThis.localStorage ?? null;

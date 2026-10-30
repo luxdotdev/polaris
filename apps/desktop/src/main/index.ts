@@ -94,7 +94,7 @@ import { createAppUpdates, type AppUpdates } from "./updates/index.ts";
 import { cannotInstallHere, installId } from "./updates/identity.ts";
 import { revealAppPath, updatePlatform, windowsAppId } from "./updates/platform.ts";
 import { handleSquirrelStartup } from "./updates/squirrel.ts";
-import { frameDocuments } from "./frames.ts";
+import { frameDocuments, isFrameUrl } from "./frames.ts";
 
 if (await handleSquirrelStartup(process.platform, process.argv, process.execPath)) app.exit(0);
 
@@ -504,6 +504,11 @@ const start = async () => {
 
   session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) =>
     callback(false)
+  );
+  // A Visualization frame (an opaque origin) holds no permission at all, media included.
+  session.defaultSession.setPermissionCheckHandler(
+    (_wc, _permission, origin, details) =>
+      origin !== "null" && !isFrameUrl(details.requestingUrl ?? "")
   );
 
   if (devUrl === null) serveRenderer(join(appRoot, "out/renderer"), frames);

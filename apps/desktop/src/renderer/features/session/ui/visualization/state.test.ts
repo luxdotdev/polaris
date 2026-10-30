@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { STATE_MAX_BYTES, STATES_MAX_BYTES, stateStore } from "./state.ts";
+import {
+  STATE_MAX_BYTES,
+  STATE_SAVE_MS,
+  STATES_MAX_BYTES,
+  stateStore,
+  stateWriter,
+} from "./state.ts";
 
 const memory = () => {
   const items = new Map<string, string>();
@@ -53,5 +59,61 @@ describe("pv.state on this device", () => {
 
     expect(store.save("viz_a", "1")).toBe(true);
     expect(store.load("viz_a")).toBeUndefined();
+  });
+});
+
+describe("how often pv.state is written", () => {
+  const clock = () => {
+    let now = 0;
+    const due: Array<{ at: number; run: () => void }> = [];
+
+    return {
+      timers: {
+        setTimeout: (run: () => void, ms: number) => due.push({ at: now + ms, run }),
+        clearTimeout: () => void due.splice(0),
+      },
+      advance: (ms: number) => {
+        now += ms;
+
+        for (const timer of due.splice(0))
+          if (timer.at <= now) timer.run();
+          else due.push(timer);
+      },
+    };
+  };
+
+  test("a burst of states is written once, with the last value", () => {
+    const writes: Array<string> = [];
+
+    const store = {
+      load: () => undefined,
+      save: (_: string, json: string) => writes.push(json) > 0,
+    };
+
+    const time = clock();
+
+    const writer = stateWriter(store, "viz_a", time.timers);
+
+    for (let n = 0; n < 100; n++) writer.save(String(n));
+
+    expect(writes).toEqual([]);
+    time.advance(STATE_SAVE_MS);
+    expect(writes).toEqual(["99"]);
+  });
+
+  test("what is pending is written when the frame goes away", () => {
+    const writes: Array<string> = [];
+
+    const store = {
+      load: () => undefined,
+      save: (_: string, json: string) => writes.push(json) > 0,
+    };
+
+    const writer = stateWriter(store, "viz_a", clock().timers);
+
+    writer.save("1");
+    writer.flush();
+
+    expect(writes).toEqual(["1"]);
   });
 });
