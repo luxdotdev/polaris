@@ -3,18 +3,31 @@
  * wins, and a Host's claims and releases, which run one after another in the order asked.
  */
 
-/** Loads that wait for their partition; one asked for since supersedes one still waiting. */
-export const latestLoads = <K>(start: (key: K, url: string) => void) => {
+/**
+ * Loads that wait for their partition; one asked for since supersedes one still waiting. A
+ * partition that fails to set up starts nothing: the latest load hears of it through `failed`.
+ */
+export const latestLoads = <K, V = string>(
+  start: (key: K, url: V) => void,
+  failed: (key: K, url: V, cause: unknown) => void = () => {}
+) => {
   const latest = new Map<K, number>();
+  /** Never reset, so a load asked for before `forget` can't pass for one asked for after. */
+  let turns = 0;
 
   return {
-    request: (key: K, url: string, ready: Promise<void>) => {
-      const turn = (latest.get(key) ?? 0) + 1;
+    request: (key: K, url: V, ready: Promise<void>) => {
+      const turn = ++turns;
 
       latest.set(key, turn);
-      void ready.then(() => {
-        if (latest.get(key) === turn) start(key, url);
-      });
+      ready.then(
+        () => {
+          if (latest.get(key) === turn) start(key, url);
+        },
+        (cause: unknown) => {
+          if (latest.get(key) === turn) failed(key, url, cause);
+        }
+      );
     },
     forget: (key: K) => latest.delete(key),
   };

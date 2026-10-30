@@ -129,6 +129,7 @@ const sessionTabs = (sessionId: SessionId) =>
 
 const tabs: CdpTabs = {
   sessionTabs: (_host, sessionId) => sessionTabs(sessionId),
+  hasTabs: (_host, sessionId) => sessionTabs(sessionId).length > 0,
   debuggeeOf: (tabId) => held.get(tabId)?.view.webContents.debugger ?? null,
   openTab: (input) => open(input.sessionId, input.url, input.openedBy),
   closeTab: async ({ tabId }) => {

@@ -49,6 +49,11 @@ export interface OpenTabInput {
 export interface CdpTabs {
   /** The session's tabs now, in tab order. */
   readonly sessionTabs: (hostKey: string, sessionId: SessionId) => ReadonlyArray<BrowserTab>;
+  /**
+   * Whether the session has any tab at all, targets or not: restored tabs whose partition
+   * isn't routed yet count, so `Polaris.hello` doesn't open them a second time.
+   */
+  readonly hasTabs: (hostKey: string, sessionId: SessionId) => boolean;
   /** The tab's debugger, or null once the tab is gone. */
   readonly debuggeeOf: (tabId: BrowserTabId) => CdpDebuggee | null;
   /** Opens a tab in the session's Browser, in the background when it is not on screen. */

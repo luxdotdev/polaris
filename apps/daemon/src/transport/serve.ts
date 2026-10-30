@@ -39,7 +39,6 @@ import { HarnessRpcsLive } from "../harness/HarnessRpcs.ts";
 import { latestRolloutLimits, PlanLimitReporter } from "../harness/limits/index.ts";
 import { HarnessRegistryLive } from "../harness/registry.ts";
 import { BrowserMcp } from "../harness/browser/index.ts";
-import { BrowserHosting, CdpRelay } from "../browser/index.ts";
 import { AgentBrowser } from "../install/agentBrowser/index.ts";
 import { releaseMemory, releaseWhenQuiet } from "../memory/index.ts";
 import { userPath } from "../service/userPath.ts";
@@ -57,7 +56,7 @@ import { HostStats, HostStatsRpcsLive } from "../hostStats/index.ts";
 import { paths } from "../paths.ts";
 import { startServer } from "./server.ts";
 import { ByteStreamRpcsLive } from "./byteStreams.ts";
-import { BrowserHosting, ByteStreamQuota, HostAddressStreams } from "../browser/index.ts";
+import { BrowserHosting, ByteStreamQuota, CdpRelay, HostAddressStreams } from "../browser/index.ts";
 import { configuredGatewayPort } from "../gateway/index.ts";
 import { workspaceTrustLayer } from "./workspaceTrust.ts";
 import {

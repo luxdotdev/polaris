@@ -24,6 +24,8 @@ certificate: its bytes travel only over Polaris's authenticated link and the Hos
 
 ## Considered Options
 
+- A PAC script sending Host addresses to the proxy: Chromium resolves loopback `DIRECT`
+  before any PAC script runs (checked in Electron 44).
 - An unauthenticated SOCKS5 proxy (the first design): any local process could tunnel into the
   Host's loopback, and Chromium cannot send SOCKS5 credentials.
 - SSH dynamic forwarding (`-O forward -D`) on the private ControlMaster: a free SOCKS5 proxy,
@@ -38,5 +40,6 @@ certificate: its bytes travel only over Polaris's authenticated link and the Hos
 - Page traffic shares the Client's connection to the Daemon with RPC frames; a large HMR
   reload must be benchmarked for head-of-line delay before this ships.
 - The same stream carries over to the Polaris Relay when the Mobile App gets a Browser.
+- Non-Host URLs in a remote Host's partition skip the system proxy, as PAC `DIRECT` would.
 - Names a Host's `/etc/hosts` maps to loopback (Portless `.test`, custom domains) are not Host
   addresses yet.
