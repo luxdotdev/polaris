@@ -6,6 +6,7 @@ import { AnswerAction } from "@polaris/protocol";
 import { Button, cn, ContextMenu, ContextMenuTrigger, EmptyState } from "@polaris/ui";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { type KeyboardEvent, useMemo, useRef } from "react";
+import { useHeight } from "./height.ts";
 import { openSessionReview } from "../../../routes/review.ts";
 import { useApp, useCommands, useShellActions } from "../../../shell/hooks.ts";
 import { constellationCommands } from "../client.ts";
@@ -212,6 +213,9 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
   const facts = useFacts(record);
   const scrollRef = useRef<HTMLDivElement>(null);
   const filterRef = useRef<HTMLInputElement>(null);
+  const [cardRef, cardHeight] = useHeight();
+  const done = c.state === "completed" || c.state === "archived";
+  const above = done ? cardHeight : 0;
 
   const rail = useMemo(
     () => buildRail(record, facts, { folds: ui.folds, filter: ui.filter, query: ui.query }),
@@ -231,6 +235,7 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
     overscan: 8,
     paddingStart: 2,
     paddingEnd: 16,
+    scrollMargin: above,
   });
 
   const jump = (taskId: string) => {
@@ -311,9 +316,6 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
         onStatsOpen={(stats) => patchLeadUi(actions.key, () => ({ stats }))}
         ledBy="led by this session"
       />
-      {c.state === "completed" || c.state === "archived" ? (
-        <CompletionCard hostKey={hostKey} record={record} />
-      ) : null}
       {rail.large ? (
         <Filters
           rail={rail}
@@ -341,6 +343,11 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
           style={laneStyle(laneWidth(rail.ids, LANE_MAX.tab))}
           data-testid="constellation-rail"
         >
+          {done ? (
+            <div ref={cardRef} className="pt-0.5 pb-2">
+              <CompletionCard hostKey={hostKey} record={record} />
+            </div>
+          ) : null}
           <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
             {virtualizer.getVirtualItems().map((item) => {
               const row = rows[item.index];
@@ -375,7 +382,7 @@ export const ConstellationTab = (props: ConstellationTabProps) => {
                   ref={virtualizer.measureElement}
                   data-index={item.index}
                   className="absolute top-0 left-0 w-full"
-                  style={{ transform: `translateY(${item.start}px)` }}
+                  style={{ transform: `translateY(${item.start - above}px)` }}
                 >
                   {row.kind === "task" && row.attempt !== null ? (
                     <ContextMenu>

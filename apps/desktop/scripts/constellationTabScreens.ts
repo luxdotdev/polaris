@@ -103,6 +103,27 @@ const completionCard = async (page: Page, name: string) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.waitForTimeout(300);
   console.log(`screens: ${join(out, `${name}-card.png`)} (and -narrow, -wide)`);
+  await railUnderCard(page, name);
+};
+
+/** The card scrolls with the rail: its first row sits under the card, and the rail scrolls to its end. */
+const railUnderCard = async (page: Page, name: string) => {
+  const rail = `document.querySelector('[data-testid="constellation-rail"]')`;
+
+  const gap = Number(
+    await page.evaluate(`(() => {
+    const card = document.querySelector('[data-testid="completion-card"]').getBoundingClientRect();
+    const row = ${rail}.querySelector('[role="listitem"]').getBoundingClientRect();
+    return row.top - card.bottom;
+  })()`)
+  );
+
+  if (!(gap >= 0)) throw new Error(`the first row overlaps the card (${gap}px)`);
+  await page.evaluate(`${rail}.scrollTo(0, ${rail}.scrollHeight)`);
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: join(out, `${name}-scrolled.png`) });
+  await page.evaluate(`${rail}.scrollTo(0, 0)`);
+  console.log(`screens: ${join(out, `${name}-scrolled.png`)} (first row ${gap}px under the card)`);
 };
 
 /** Frame intervals while the 128-Task rail scrolls end to end and back. */

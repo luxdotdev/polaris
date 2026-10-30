@@ -129,8 +129,8 @@ export const StatsPopover = ({
 };
 
 /**
- * Shown at the top of a completed Constellation's tab: the popover's instrument at rest, cost as
- * its hero, the wells side by side when the tab is wide. Past 60% of the tab only the body scrolls.
+ * Shown at the top of a completed Constellation's rail, scrolling with its tasks: the popover's
+ * instrument at rest, cost as its hero, the wells side by side when the tab is wide.
  */
 export const CompletionCard = ({
   hostKey,
@@ -147,7 +147,7 @@ export const CompletionCard = ({
     <InstrumentCard
       aria-label={`Constellation ${c.state}`}
       data-testid="completion-card"
-      className="mx-4 mb-2 max-h-[60%] w-auto max-w-[784px] shrink-0"
+      className="mx-3 w-auto shrink-0"
       columns
       header={{
         mark: <ConstellationMark size={14} />,
