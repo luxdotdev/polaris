@@ -10,7 +10,7 @@
 import { EventEmitter } from "node:events";
 import { type ByteTransport, readEvents, writeEvents } from "@polaris/protocol";
 import type { Socket, SocketHandler } from "bun";
-import { Effect, type Scope } from "effect";
+import { Effect, Exit, type Scope } from "effect";
 
 type Callback = (error?: Error | null) => void;
 
@@ -224,6 +224,7 @@ export const connectTcp = (
         // `connectError` already settled the callback; the rejection is the same failure.
       });
     }),
-    // The scope ending is a cancel or disconnect: terminate so a stuck peer can't pin the socket.
-    (stream) => Effect.sync(() => stream.terminate())
+    // A graceful end drains (bounded) so queued bytes still reach the peer; a cancel, disconnect
+    // or error terminates, so a stuck peer can't pin the socket.
+    (stream, exit) => Effect.sync(() => (Exit.isSuccess(exit) ? stream.end() : stream.terminate()))
   ).pipe(Effect.map(toTransport));

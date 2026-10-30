@@ -9,6 +9,7 @@ import type { Socket } from "node:net";
 import { openHostAddressStream } from "@polaris/client";
 import { BYTE_STREAM_WINDOW_BYTES } from "@polaris/protocol";
 import { Effect, Exit, Fiber, Scope } from "effect";
+import { connectTcp } from "./bunSocket.ts";
 import {
   bytes,
   cleanupHome,
@@ -99,4 +100,42 @@ describe("Host-address streams: misbehaving peers", () => {
 
     expect(result.closed).toBe(true);
   }, 15_000);
+
+  test("a graceful scope close drains queued bytes to the peer instead of truncating them", async () => {
+    // Far more than the loopback socket buffers hold, so a large tail sits in the stream's pending
+    // queue when the scope closes: a graceful close must flush it, not reset and discard it.
+    const payload = bytes(16 * 1024 * 1024, 2);
+
+    const result = await run(
+      Effect.gen(function* () {
+        let received = 0;
+        let peer: import("node:net").Socket | null = null;
+
+        const server = yield* tcpServer((socket) => {
+          peer = socket;
+          socket.pause();
+          socket.on("data", (chunk: Buffer) => {
+            received += chunk.byteLength;
+          });
+        });
+
+        const scope = yield* Scope.make();
+        const transport = yield* connectTcp("127.0.0.1", server.port).pipe(Scope.provide(scope));
+        const write = yield* Effect.forkChild(transport.write(payload).pipe(Effect.exit));
+        yield* eventually(() => peer !== null);
+        yield* Effect.sleep("150 millis");
+
+        // Close the scope cleanly while bytes are still queued, then let the peer read.
+        yield* Scope.close(scope, Exit.void);
+        peer!.resume();
+        yield* Fiber.join(write);
+        const drained = yield* eventually(() => received === payload.byteLength);
+
+        return { drained, received };
+      })
+    );
+
+    expect(result.drained).toBe(true);
+    expect(result.received).toBe(payload.byteLength);
+  }, 20_000);
 });

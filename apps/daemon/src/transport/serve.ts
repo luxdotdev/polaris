@@ -125,7 +125,7 @@ const daemonServices = lazyReviewer.pipe(Layer.provideMerge(engineServices));
 /** Host-address and Browser streams (ENG-613); `HostPresence` comes from the transport. */
 const byteStreamHandlers = ByteStreamRpcsLive.pipe(
   Layer.provide(
-    Layer.mergeAll(HostAddressStreams.layer, BrowserHosting.layer()).pipe(
+    Layer.mergeAll(HostAddressStreams.layer, BrowserHosting.layerLive()).pipe(
       Layer.provideMerge(ByteStreamQuota.layer())
     )
   )

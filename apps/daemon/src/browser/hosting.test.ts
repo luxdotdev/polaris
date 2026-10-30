@@ -27,6 +27,14 @@ const W = BYTE_STREAM_WINDOW_BYTES;
 const run = <A, E>(effect: Effect.Effect<A, E, Scope.Scope>) =>
   Effect.runPromise(Effect.scoped(effect));
 
+/** Polls `probe` for up to a second. */
+const eventually = (probe: () => boolean) =>
+  Effect.gen(function* () {
+    for (let i = 0; i < 100 && !probe(); i++) yield* Effect.sleep("10 millis");
+
+    return probe();
+  });
+
 /** A presence whose `lastPresentAt` reads from a map the test controls. */
 const fakePresence = (lastPresent: Map<number, number> = new Map()): HostPresence["Service"] => ({
   report: () => 0,
@@ -195,7 +203,62 @@ describe("Browser hosting ownership and cleanup", () => {
     expect(result.reroutedTo).toBe(2);
   });
 
-  test("interrupting one claim that awaits registration does not strand a concurrent claim", async () => {
+  test("a presence change that moves the fallback host revokes the stale recipient's stream", async () => {
+    const result = await run(
+      Effect.gen(function* () {
+        const present = new Map<number, number>();
+        const listeners: Array<(present: boolean) => void> = [];
+
+        const presence: HostPresence["Service"] = {
+          report: () => 0,
+          disconnect: () => {},
+          present: () => present.size > 0,
+          lastPresentAt: (id) => present.get(id) ?? null,
+          watch: (listener) => {
+            listeners.push(listener);
+
+            return () => {};
+          },
+        };
+
+        const hosting = BrowserHosting.make(presence, ByteStreamQuota.make(), {
+          acceptTimeout: "2 seconds",
+        });
+
+        const mac = yield* registerAndWatch(hosting, 1);
+        yield* hosting.register(2, fakeBlobs);
+        present.set(1, 100); // Only the mac is present: it is the fallback host for the unclaimed s1.
+
+        const scope = yield* Scope.make();
+
+        const open = yield* Effect.forkChild(
+          hosting.open(s1, "cdp").pipe(Scope.provide(scope), Effect.exit)
+        );
+
+        const streamId = yield* Deferred.await(mac.opened);
+        yield* hosting.accept(1, streamId, BlobId.make("up"), W);
+        yield* Fiber.join(open);
+
+        // The laptop becomes the more recently present Host: a presence move, not a claim or
+        // release, so only the presence.watch reconcile revokes the mac's now-stale stream.
+        present.set(2, 200);
+
+        for (const listener of listeners) listener(true);
+
+        const close = yield* Deferred.await(mac.closed).pipe(Effect.timeout("1 second"));
+        const reroutedTo = yield* hosting.current(s1);
+        yield* Scope.close(scope, Exit.void);
+
+        return { reason: close.reason, streamId: close.streamId === streamId, reroutedTo };
+      })
+    );
+
+    expect(result.reason).toBe("revoked");
+    expect(result.streamId).toBe(true);
+    expect(result.reroutedTo).toBe(2);
+  });
+
+  test("interrupting a claim that awaits registration drops its waiter but not a sibling's", async () => {
     const result = await run(
       Effect.gen(function* () {
         const hosting = hostingWith({ timeout: "2 seconds" });
@@ -203,19 +266,58 @@ describe("Browser hosting ownership and cleanup", () => {
         // Connection 7 has not registered yet: both claims wait on it.
         const claim1 = yield* Effect.forkChild(hosting.claim(7, s1).pipe(Effect.exit));
         const claim2 = yield* Effect.forkChild(hosting.claim(7, s2).pipe(Effect.exit));
-        yield* Effect.sleep("20 millis");
+        yield* eventually(() => hosting.awaitingClaims(7) === 2);
+        const bothWaiting = hosting.awaitingClaims(7);
 
+        // Cancelling one claim removes only its waiter; the sibling keeps waiting.
         yield* Fiber.interrupt(claim1);
-        yield* hosting.register(7, fakeBlobs);
+        const afterInterrupt = yield* eventually(() => hosting.awaitingClaims(7) === 1);
 
+        // The connection registers: the surviving claim resolves and takes s2.
+        yield* hosting.register(7, fakeBlobs);
         const second = yield* Fiber.join(claim2).pipe(Effect.timeout("1 second"));
         const held = yield* hosting.current(s2);
 
-        return { survived: Exit.isSuccess(second), held };
+        return {
+          bothWaiting,
+          leakCleared: afterInterrupt,
+          survived: Exit.isSuccess(second),
+          held,
+          finalWaiters: hosting.awaitingClaims(7),
+        };
       })
     );
 
+    expect(result.bothWaiting).toBe(2);
+    expect(result.leakCleared).toBe(true);
     expect(result.survived).toBe(true);
     expect(result.held).toBe(7);
+    expect(result.finalWaiters).toBe(0);
+  });
+
+  test("a claim for a session the Daemon does not know is refused", async () => {
+    const result = await run(
+      Effect.gen(function* () {
+        const known = SessionId.make("known");
+
+        // Only `known` is hostable; every other session is unknown or archived.
+        const hosting = BrowserHosting.make(
+          fakePresence(),
+          ByteStreamQuota.make(),
+          {},
+          (sessionId) => Effect.succeed(sessionId === known)
+        );
+
+        yield* hosting.register(1, fakeBlobs);
+
+        yield* hosting.claim(1, known);
+        const unknown = yield* hosting.claim(1, SessionId.make("ghost")).pipe(Effect.flip);
+
+        return { unknown: unknown._tag, heldKnown: yield* hosting.current(known) };
+      })
+    );
+
+    expect(result.unknown).toBe("NotFound");
+    expect(result.heldKnown).toBe(1);
   });
 });

@@ -33,6 +33,7 @@ import {
   Schema,
   Stream,
 } from "effect";
+import { Engine } from "../engine/Engine.ts";
 import { HostPresence } from "../presence/index.ts";
 import { type BlobChannel, ServiceError } from "../services.ts";
 import { ByteStreamQuota } from "./quota.ts";
@@ -119,6 +120,8 @@ export class BrowserHosting extends Context.Service<
     ) => Effect.Effect<void, NotFound | Unsupported>;
     /** `browser.release`. A no-op for a claim the connection doesn't hold. */
     readonly release: (connectionId: number, sessionId: SessionId) => Effect.Effect<void>;
+    /** Claims for `connectionId` still waiting on its `browser.host`; 0 once cleaned up. */
+    readonly awaitingClaims: (connectionId: number) => number;
     /** The connection hosting `sessionId`'s Browser: the last to claim it, else the most recently present one. */
     readonly current: (sessionId: SessionId) => Effect.Effect<number, NoDesktopApp>;
     /** Opens a Browser stream toward the hosting connection; the scope's close ends it. */
@@ -150,7 +153,9 @@ export class BrowserHosting extends Context.Service<
   static make(
     presence: HostPresence["Service"],
     quota: ByteStreamQuota["Service"],
-    options: BrowserHostingOptions = {}
+    options: BrowserHostingOptions = {},
+    /** Whether a session may be hosted; the Daemon backs this with the Engine, tests with a fake. */
+    isHostable: (sessionId: SessionId) => Effect.Effect<boolean> = () => Effect.succeed(true)
   ): BrowserHosting["Service"] {
     const acceptTimeout = options.acceptTimeout ?? BROWSER_STREAM_ACCEPT_TIMEOUT;
     const registrations = new Map<number, Registration>();
@@ -225,6 +230,8 @@ export class BrowserHosting extends Context.Service<
       if (registrations.get(registration.connectionId) === registration)
         registrations.delete(registration.connectionId);
       Queue.endUnsafe(registration.items);
+      // Losing this connection can hand its unclaimed sessions to a new fallback.
+      reconcile();
     };
 
     const hostOf = (sessionId: SessionId): Registration | null => {
@@ -256,6 +263,21 @@ export class BrowserHosting extends Context.Service<
           : Effect.succeed(host.connectionId);
       });
 
+    // Effective hosting is a function of claims, registrations and presence; recompute it for
+    // every session with streams and revoke any whose recipient is no longer its host.
+    const reconcile = () => {
+      const sessions = new Set<SessionId>();
+
+      for (const registration of registrations.values())
+        for (const state of registration.streams.values()) sessions.add(state.sessionId);
+
+      for (const sessionId of sessions)
+        revokeOthers(sessionId, hostOf(sessionId)?.connectionId ?? null);
+    };
+
+    // A presence change can move the fallback host, so re-run the reconcile on every one.
+    presence.watch(() => reconcile());
+
     const register = Effect.fn("BrowserHosting.register")(function* (
       connectionId: number,
       blobs: BlobChannel["Service"]
@@ -283,6 +305,8 @@ export class BrowserHosting extends Context.Service<
         for (const waiter of waiters) Deferred.doneUnsafe(waiter, Effect.succeed(registration));
       }
 
+      // A new registration can become the fallback host, so reroute existing streams.
+      reconcile();
       yield* Effect.addFinalizer(() => Effect.sync(() => unregister(registration)));
 
       return Stream.fromQueue(registration.items);
@@ -421,6 +445,10 @@ export class BrowserHosting extends Context.Service<
     return BrowserHosting.of({
       register,
       claim: Effect.fn("BrowserHosting.claim")(function* (connectionId, sessionId) {
+        // Reject a claim for a session the Daemon does not know, or has archived.
+        if (!(yield* isHostable(sessionId)))
+          return yield* new NotFound({ what: "session", id: sessionId });
+
         yield* registrations.get(connectionId) === undefined
           ? awaitRegistered(connectionId)
           : Effect.void;
@@ -433,15 +461,16 @@ export class BrowserHosting extends Context.Service<
           return yield* new NotFound({ what: "browser claim slot", id: sessionId });
 
         claims.set(sessionId, connectionId);
-        // Whoever hosted it before (an explicit claim or the presence fallback) loses its streams.
-        revokeOthers(sessionId, connectionId);
+        // The claim changes effective hosting: whoever held it before loses its streams.
+        reconcile();
       }),
+      awaitingClaims: (connectionId) => awaitingRegistration.get(connectionId)?.size ?? 0,
       release: (connectionId, sessionId) =>
         Effect.sync(() => {
           if (claims.get(sessionId) !== connectionId) return;
           claims.delete(sessionId);
           // Hosting reroutes to the fallback; the releaser (and anyone not the new host) loses it.
-          revokeOthers(sessionId, hostOf(sessionId)?.connectionId ?? null);
+          reconcile();
         }),
       current,
       open,
@@ -476,11 +505,29 @@ export class BrowserHosting extends Context.Service<
     });
   }
 
+  /** For tests and Daemons with no Engine: every session is hostable. */
   static layer(options?: BrowserHostingOptions) {
     return Layer.effect(
       BrowserHosting,
       Effect.gen(function* () {
         return BrowserHosting.make(yield* HostPresence, yield* ByteStreamQuota, options);
+      })
+    );
+  }
+
+  /** The Daemon's wiring: the Engine says which sessions exist and are not archived. */
+  static layerLive(options?: BrowserHostingOptions) {
+    return Layer.effect(
+      BrowserHosting,
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+
+        return BrowserHosting.make(
+          yield* HostPresence,
+          yield* ByteStreamQuota,
+          options,
+          engine.hostableSession
+        );
       })
     );
   }
@@ -498,6 +545,7 @@ export class BrowserHosting extends Context.Service<
         return yield* new Unsupported({ capability: "browser.host" });
       }),
       release: Effect.fn("BrowserHosting.release")(function* () {}),
+      awaitingClaims: () => 0,
       current: Effect.fn("BrowserHosting.current")(function* (sessionId: SessionId) {
         return yield* new NoDesktopApp({ sessionId });
       }),

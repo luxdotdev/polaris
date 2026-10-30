@@ -405,14 +405,15 @@ export const makeWire = Effect.fnUntraced(function* (
   };
 
   const failBlob = (blobId: string, blob: InBlob, reason: BlobFailure, message: string) => {
-    if (blob.status === "receiving") {
-      release(blob);
-      blob.status = "failed";
-      blob.touched = Date.now();
-      blob.failure = new BlobError({ blobId, reason, message });
-      Deferred.doneUnsafe(blob.deferred, Exit.fail(blob.failure));
-      blob.wake?.();
-    }
+    // Abort a blob still arriving or fully buffered-but-unread; a failure is idempotent. A blob
+    // past its window must be rejected even once complete, so the consumer never reads it.
+    if (blob.status === "failed") return;
+    release(blob);
+    blob.status = "failed";
+    blob.touched = Date.now();
+    blob.failure = new BlobError({ blobId, reason, message });
+    Deferred.doneUnsafe(blob.deferred, Exit.fail(blob.failure));
+    blob.wake?.();
   };
 
   /** Which blob or buffer limit `length` more bytes would breach, as a message, or null. */
@@ -521,29 +522,31 @@ export const makeWire = Effect.fnUntraced(function* (
   const takeBlobStream = (
     blobId: string,
     takeOptions: TakeStreamOptions = {}
-  ): Stream.Stream<Uint8Array, BlobError> =>
-    Stream.suspend(() => {
-      const blob = inBlob(blobId);
+  ): Stream.Stream<Uint8Array, BlobError> => {
+    const blob = inBlob(blobId);
 
-      if (blob === undefined) return Stream.fail(unavailableBlob(blobId));
+    if (blob === undefined) return Stream.fail(unavailableBlob(blobId));
 
-      if (blob.claimed)
-        return Stream.fail(
-          new BlobError({ blobId, reason: "closed", message: "blob already taken" })
-        );
+    if (blob.claimed)
+      return Stream.fail(
+        new BlobError({ blobId, reason: "closed", message: "blob already taken" })
+      );
 
-      if (isClosed && blob.status === "receiving")
-        failBlob(blobId, blob, "closed", "connection closed before the blob arrived");
-      blob.claimed = "stream";
-      blob.longLived = takeOptions.longLived ?? false;
-      blob.idleTimeout = !blob.longLived && (takeOptions.idleTimeout ?? true);
-      blob.maxUnread = takeOptions.maxUnread ?? null;
-      blob.touched = Date.now();
+    if (isClosed && blob.status === "receiving")
+      failBlob(blobId, blob, "closed", "connection closed before the blob arrived");
+    // Claim now, not at first pull: the window is installed from announcement, so frames
+    // arriving before the consumer reads are enforced at ingestion (`onBlobFrame`).
+    blob.claimed = "stream";
+    blob.longLived = takeOptions.longLived ?? false;
+    blob.idleTimeout = !blob.longLived && (takeOptions.idleTimeout ?? true);
+    blob.maxUnread = takeOptions.maxUnread ?? null;
+    blob.touched = Date.now();
 
-      // Frames that arrived before the consumer claimed may already be past the window.
-      if (blob.maxUnread !== null && blob.size > blob.maxUnread)
-        failBlob(blobId, blob, "too-large", "the sender exceeded the stream's receive window");
+    // Anything already buffered past the window is rejected, complete or still receiving.
+    if (blob.maxUnread !== null && blob.size > blob.maxUnread)
+      failBlob(blobId, blob, "too-large", "the sender exceeded the stream's receive window");
 
+    return Stream.suspend(() => {
       const pull = Effect.callback<
         readonly [Uint8Array, ...Array<Uint8Array>],
         BlobError | Cause.Done
@@ -593,6 +596,7 @@ export const makeWire = Effect.fnUntraced(function* (
 
       return Stream.fromPull(Effect.succeed(pull)).pipe(Stream.ensuring(forget(blobId, blob)));
     });
+  };
 
   // Expiry is swept by a timer that only runs while incoming blobs exist, so an
   // idle connection never wakes the process.
