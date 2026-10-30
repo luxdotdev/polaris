@@ -17,7 +17,14 @@ import {
 import { digitModifiersFor, keymapFor } from "../../../../shared/keymap.ts";
 
 /** Chords the editor keeps although the shell binds them too. */
-const EDITOR_OWNS = new Set(["Mod+Slash", "Alt+ArrowRight", "Mod+ArrowRight"]);
+const EDITOR_OWNS = new Set([
+  "Mod+Slash",
+  "Alt+ArrowRight",
+  "Mod+ArrowRight",
+  // Outdent and indent while the editor has focus; Back and Forward elsewhere.
+  "Mod+BracketLeft",
+  "Mod+BracketRight",
+]);
 
 /** ⌘I, ⌘L, ⌘P belong to the inline chat, ⌘L's picker and the finder; ⌘S to saving. */
 const RESERVED_ALWAYS = ["CmdOrCtrl+I", "CmdOrCtrl+L", "CmdOrCtrl+P", "CmdOrCtrl+S"];

@@ -35,6 +35,7 @@ import { constellationHandlers, resourceHandlers } from "./constellation.ts";
 import { remoteAccessHandlers } from "./remoteAccess.ts";
 import { linkedDevicesHandlers } from "./linkedDevices.ts";
 import { voiceHandlers } from "./voice.ts";
+import { secretHandlers } from "./secrets.ts";
 import { Machines } from "../machines/service.ts";
 import type { NeedsYouSummary } from "../../shared/needsYou.ts";
 import { appearanceOf, sessionPrefsOf, type Settings } from "../settings.ts";
@@ -254,6 +255,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   ...remoteAccessHandlers,
   ...linkedDevicesHandlers,
   ...voiceHandlers,
+  ...secretHandlers,
   "updates.get": () => Effect.sync(ctx.updates.get),
   "updates.check": () => Effect.sync(ctx.updates.check),
   "updates.setAutomatic": ({ enabled }) => Effect.sync(() => ctx.updates.setAutomatic(enabled)),

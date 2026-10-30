@@ -14,6 +14,8 @@ const KIND_LABEL = {
   "file-change": "File change",
   tool: "Tool call",
   question: "Question",
+  // The SDK doesn't announce `approval.secret`, so a Daemon never sends one.
+  secret: "Secret",
 } as const;
 
 const markdownOf = ({ approval, session }: ApprovalRow) =>

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
+import { CELESTIAL_LASER } from "@polaris/ui/celestial";
 import { midnight } from "@polaris/ui/tokens";
 import { celestialPalette, harnessColour, mixOklab, TONE_MIX } from "./tones.ts";
 
@@ -52,6 +53,7 @@ describe("celestial tones", () => {
       hue: midnight.harnessClaudeCode,
       shade: "#713b2a",
       glint: "#f9e1d9",
+      laser: CELESTIAL_LASER,
     });
     expect(harnessColour(midnight, "codex")).toBe(midnight.harnessCodex);
     expect(harnessColour(midnight, "opencode")).toBe(midnight.harnessOpencode);

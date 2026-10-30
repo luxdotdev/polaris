@@ -4,7 +4,7 @@
  * Workspace chip or a machine and depend on the data (in Review, ⌃1…⌃9 pick a review).
  */
 import { currentKeyPlatform, type KeyPlatform } from "../../shared/chord.ts";
-import { digitModifiersFor } from "../../shared/keymap.ts";
+import { type CommandId, digitModifiersFor } from "../../shared/keymap.ts";
 import type { CommandRegistry, KeyInput } from "./commands.ts";
 import type { ShellActions } from "./navigation.ts";
 import { reviewDigits } from "./review.ts";
@@ -99,5 +99,34 @@ export const installKeyboard = (context: KeyContext) => {
   return () => {
     window.removeEventListener("keydown", escape, { capture: true });
     window.removeEventListener("keydown", listener);
+  };
+};
+
+/** The mouse's back and forward buttons (`MouseEvent.button` 3 and 4). */
+const MOUSE_COMMANDS: ReadonlyMap<number, CommandId> = new Map([
+  [3, "navigation.back"],
+  [4, "navigation.forward"],
+]);
+
+/** Runs Back and Forward from the mouse's side buttons, and keeps Chromium from acting on them. */
+export const installMouseButtons = (registry: CommandRegistry) => {
+  const swallow = (event: MouseEvent) => {
+    if (MOUSE_COMMANDS.has(event.button)) event.preventDefault();
+  };
+
+  const listener = (event: MouseEvent) => {
+    const id = MOUSE_COMMANDS.get(event.button);
+
+    if (id === undefined) return;
+    event.preventDefault();
+    registry.run(id);
+  };
+
+  window.addEventListener("mousedown", swallow);
+  window.addEventListener("mouseup", listener);
+
+  return () => {
+    window.removeEventListener("mousedown", swallow);
+    window.removeEventListener("mouseup", listener);
   };
 };

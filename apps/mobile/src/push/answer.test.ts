@@ -6,8 +6,11 @@ const approval = {
   polaris: { kind: "needs-you", hostId: "h1", sessionId: "s1", requestId: "r1" },
 };
 
-const respond = (actionIdentifier: string, userInfo: ReadonlyArray<unknown> = [approval]) =>
-  answerOf({ actionIdentifier, userInfo });
+const respond = (
+  actionIdentifier: string,
+  userInfo: ReadonlyArray<unknown> = [approval],
+  category: string | null = "approval"
+) => answerOf({ actionIdentifier, category, userInfo });
 
 describe("the approval category", () => {
   test("offers Approve, Always here and Deny, Deny destructive, each behind authentication", () => {
@@ -56,6 +59,14 @@ describe("answers from a notification", () => {
     expect(respond(PushAction.approve, [{}, { aps: {}, ...approval }])?.hostId).toBe("h1");
   });
 
+  test.each([
+    ["a secret's push (category question)", "question"],
+    ["a push with no category", null],
+  ])("an action on %s never answers it", (_, category) => {
+    for (const action of Object.values(PushAction))
+      expect(respond(action, [approval], category)).toBeNull();
+  });
+
   test("a tap, a finished Turn or an unopened push answers nothing", () => {
     expect(respond("expo.modules.notifications.actions.DEFAULT")).toBeNull();
 
@@ -70,6 +81,7 @@ describe("opening a notification", () => {
   const tap = (polaris: Partial<Record<string, string | null>>, action = DEFAULT_ACTION) =>
     routeOf({
       actionIdentifier: action,
+      category: "question",
       userInfo: [{ polaris: { ...approval.polaris, ...polaris } }],
     });
 
@@ -84,6 +96,7 @@ describe("opening a notification", () => {
   test.each([
     ["an agent's notify", { kind: "notify", requestId: null, constellationId: null }],
     ["a finished Turn", { kind: "turn-ended", requestId: null }],
+    ["a secret request", { kind: "needs-you", requestId: "r1" }],
   ])("%s opens its session", (_, polaris) => {
     expect(tap(polaris)).toEqual({ screen: "thread", hostId: "h1", sessionId: "s1" });
   });

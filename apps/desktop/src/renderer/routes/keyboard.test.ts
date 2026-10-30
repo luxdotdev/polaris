@@ -25,11 +25,16 @@ const setup = (platform: KeyPlatform = "mac") => {
     startNewSession: noop,
     closeNewSession: noop,
     toggleFolded: noop,
+    setSessionSort: noop,
     openSettings: noop,
     closeSettings: noop,
     openFolder: noop,
     closeFolder: noop,
     startNewSessionIn: noop,
+    back: noop,
+    forward: noop,
+    canGoBack: () => false,
+    canGoForward: () => false,
   };
 
   const registry = createCommandRegistry({ platform });

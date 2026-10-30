@@ -10,6 +10,7 @@ import {
   minutesAgo,
   NOW,
   question,
+  secretRequest,
   session,
   type SessionInput,
   snapshot,
@@ -110,6 +111,22 @@ describe("a Host's slice", () => {
       line: "Which branch?",
       kind: "question",
     });
+  });
+
+  test("a secret takes over as a question, which opens the app: never Approve and Deny", () => {
+    const [slice] = slicesOf([
+      host("a", [
+        snapshot({
+          sessions: [
+            summary(session({ id: "s1", state: "needs-you" }), [
+              secretRequest("s1", "key", "Tailscale auth key", "To join the tailnet"),
+            ]),
+          ],
+        }),
+      ]),
+    ]);
+
+    expect(slice?.need).toMatchObject({ line: "Tailscale auth key", kind: "question" });
   });
 
   test("carries the three newest working sessions' celestials in their Harness", () => {

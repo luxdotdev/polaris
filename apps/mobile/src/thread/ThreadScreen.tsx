@@ -42,6 +42,7 @@ import { useHost, useLiveHost } from "../runtime/hosts.tsx";
 import { composerMode } from "./composer.ts";
 import { Composer, Suggestions } from "./Composer.tsx";
 import { openThread, type ThreadController } from "./controller.ts";
+import { latestSecretOutcome } from "./fold.ts";
 import { hostThreadSource } from "./hostSource.ts";
 import { useMenuActions } from "../menus/index.ts";
 import { type MobileColours, themedStyles } from "../theme/index.ts";
@@ -545,6 +546,9 @@ export const ThreadScreen = ({
               errors: state.requestErrors,
               enabled: live,
               onRespond: (requestId, decision) => void controller?.respond(requestId, decision),
+              onProvideSecret: (requestId, typed) =>
+                void controller?.provideSecret(requestId, typed),
+              settled: latestSecretOutcome(fold),
             }}
             subagents={fold.subagents}
             contextUsage={session.contextUsage}

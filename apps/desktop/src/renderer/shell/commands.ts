@@ -14,17 +14,22 @@ import { archiveCommand, interruptCommand } from "../features/session/model/inte
 import type { ContextKey, ContextValue } from "../../shared/keymap.ts";
 import type { CommandHandlers, ContextPart } from "../routes/commands.ts";
 import type { Navigation } from "../routes/navigation.ts";
-import { type Selection, sessionOrder } from "../routes/selection.ts";
+import { type Selection, type SessionSort, sessionOrder } from "../routes/selection.ts";
+import { byTier, tierOf } from "../features/sessions/model/tiers.ts";
 import { activeSessions, shownWorkspaces } from "../routes/topBar.ts";
 import type { SessionEntry } from "../store/hostModel.ts";
 import { setAppearance, setSessionPrefs, settingsStore } from "../features/settings/index.ts";
 import { type AppState, type Connection, sessionKey } from "../store/store.ts";
 import { workspaceList } from "./visibility.ts";
 
+const ordered = (entries: ReadonlyArray<SessionEntry>, sort: SessionSort) =>
+  sort === "active" ? byTier(entries, tierOf) : entries;
+
 /** The sessions the sidebar lists, in its order: ⌘⌥↑/↓ walk them. */
 export const sidebarSessions = (
   selection: Selection,
-  app: AppState
+  app: AppState,
+  sort: SessionSort = "newest"
 ): ReadonlyArray<SessionEntry> => {
   const model = selection.hostKey === null ? undefined : app.hostModels[selection.hostKey];
 
@@ -33,7 +38,7 @@ export const sidebarSessions = (
   if (selection.topBar === "workspaces") {
     return selection.workspaceId === null
       ? []
-      : [...activeSessions(model, selection.workspaceId)].sort(sessionOrder);
+      : ordered([...activeSessions(model, selection.workspaceId)].sort(sessionOrder), sort);
   }
 
   return shownWorkspaces(model).flatMap((w) => [...activeSessions(model, w.id)].sort(sessionOrder));
@@ -103,7 +108,9 @@ export const shellCommands = ({
 
   const step = (by: number) => () => {
     const selection = navigation.current();
-    const next = stepSession(sidebarSessions(selection, app()), selection.sessionId, by);
+    const listed = sidebarSessions(selection, app(), navigation.store.getState().sessionSort);
+
+    const next = stepSession(listed, selection.sessionId, by);
 
     if (next !== undefined && selection.hostKey !== null) {
       actions.selectSession({ hostKey: selection.hostKey, sessionId: next.session.id });
@@ -124,7 +131,8 @@ export const shellCommands = ({
     const s = selected();
     const request = s?.entry.pendingApprovals[0];
 
-    if (s === null || request === undefined) return;
+    // A Secret Request is answered only in its card, never approved or denied from a shortcut.
+    if (s === null || request === undefined || request.kind === "secret") return;
 
     const decision = approve
       ? Decisions.Allow({ remember: false })
@@ -157,7 +165,11 @@ export const shellCommands = ({
       : null;
   };
 
-  const hasApproval = () => (selected()?.entry.pendingApprovals.length ?? 0) > 0;
+  const hasApproval = () => {
+    const first = selected()?.entry.pendingApprovals[0];
+
+    return first !== undefined && first.kind !== "secret";
+  };
 
   return {
     "view.orchestrate": { run: () => actions.setMode("orchestrate") },
@@ -188,6 +200,8 @@ export const shellCommands = ({
     },
     "session.next": { run: step(1) },
     "session.previous": { run: step(-1) },
+    "navigation.back": { run: actions.back, enabled: actions.canGoBack },
+    "navigation.forward": { run: actions.forward, enabled: actions.canGoForward },
     "session.focusComposer": {
       run: () => document.querySelector<HTMLElement>(COMPOSER)?.focus(),
       enabled: () => document.querySelector(COMPOSER) !== null,

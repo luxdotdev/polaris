@@ -96,6 +96,7 @@ export const RPC_GRANTS = {
   "voice.transcribe": "voice",
   "voice.settings": "client",
   "voice.setKey": "client",
+  "secret.provide": "client",
   "sessions.autoArchive": "client",
   "sessions.setAutoArchive": "client",
   "sessions.idleCompaction": "client",

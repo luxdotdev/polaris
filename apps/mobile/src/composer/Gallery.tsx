@@ -41,7 +41,9 @@ import {
   UNKNOWN_HARNESS,
   WORST_QUESTION,
   WORST_REQUESTS,
+  WORST_SECRET,
 } from "./worstCase.ts";
+import type { SecretOutcome } from "../thread/fold.ts";
 
 const GalleryState = Schema.Literals([
   "idle",
@@ -51,6 +53,9 @@ const GalleryState = Schema.Literals([
   "subagent",
   "long",
   "question",
+  "secret",
+  "secret-saved",
+  "worst-secret",
   "sheet",
   "worst",
   "worst-question",
@@ -101,6 +106,16 @@ const helper = (n: number) =>
     endedAt: null,
   });
 
+const SECRET = ask("k", {
+  kind: "secret",
+  title: "Tailscale auth key",
+  detail: "To join this machine to your tailnet for the deploy",
+  placeholder: "tskey-auth-…",
+});
+
+/** `secret-saved`: the strip once the key reached the Host and the agent works on. */
+const SAVED: SecretOutcome = { request: SECRET, outcome: "saved" };
+
 const REQUESTS: Readonly<Record<GalleryState, ReadonlyArray<ApprovalRequest>>> = {
   idle: [],
   typed: [],
@@ -118,6 +133,9 @@ const REQUESTS: Readonly<Record<GalleryState, ReadonlyArray<ApprovalRequest>>> =
   question: [
     ask("q", { kind: "question", title: "Which base?", options: ["main", "phase-1 branch"] }),
   ],
+  secret: [SECRET],
+  "secret-saved": [],
+  "worst-secret": WORST_SECRET,
   sheet: [],
   "sheet-later": [],
   worst: WORST_REQUESTS,
@@ -164,6 +182,7 @@ const sceneOf = (state: GalleryState): Scene =>
     Match.when("subagent", () => ({ ...DEMO, subagents: [helper(0), helper(1), helper(2)] })),
     Match.when("worst", () => WORST),
     Match.when("worst-question", () => ({ ...WORST, text: "", chips: [], error: null })),
+    Match.when("worst-secret", () => ({ ...WORST, text: "", chips: [], error: null })),
     Match.when("worst-sheet", () => ({ ...DEMO, model: LONG_MODEL, context: NO_WINDOW })),
     Match.when("worst-zero", () => ({
       ...DEMO,
@@ -223,7 +242,11 @@ const sheetInput = (
 };
 
 const working = (state: GalleryState) =>
-  state === "working" || state === "subagent" || state === "approval" || state.startsWith("worst");
+  state === "working" ||
+  state === "subagent" ||
+  state === "approval" ||
+  state.startsWith("secret") ||
+  state.startsWith("worst");
 
 const modeOf = (state: GalleryState): ComposerMode =>
   working(state) ? { kind: "steer" } : { kind: "send" };
@@ -279,6 +302,8 @@ export const ComposerGallery = () => {
             errors: new Map(),
             enabled: true,
             onRespond: () => undefined,
+            onProvideSecret: () => undefined,
+            settled: state === "secret-saved" ? SAVED : null,
           }}
           subagents={scene.subagents}
           contextUsage={scene.context}

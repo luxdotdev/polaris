@@ -1,10 +1,10 @@
 /**
  * The Workspace's session list in the sidebar (the shell's `SessionList` slot): Pinned, then
- * the sessions, then Reviews (Paper 12); each Lead with its workers nested under it (Paper C1).
+ * the sessions (Active or Newest, ENG-609), then Reviews (Paper 12); Leads nest their workers (C1).
  */
 import { SectionHeader } from "@polaris/ui";
 import { useMemo } from "react";
-import { useApp } from "../../../shell/hooks.ts";
+import { useApp, useNav } from "../../../shell/hooks.ts";
 import { SessionRow, WorktreeRows } from "../../../shell/sidebar/SessionRow.tsx";
 import type { HostModel, SessionEntry } from "../../../store/hostModel.ts";
 import {
@@ -15,9 +15,11 @@ import {
   type WorkerLookup,
 } from "../model/leadGroups.ts";
 import { sectionsOf } from "../model/sections.ts";
+import { byTier, groupTierOf, tierOf } from "../model/tiers.ts";
 import { useConstellations } from "../source.ts";
 import { LeadGroup } from "./LeadGroup.tsx";
 import { ReviewsGroup, reviewsKey } from "./Reviews.tsx";
+import { SortMenu, TieredItems } from "./SessionSort.tsx";
 
 export interface SessionListProps {
   readonly hostKey: string;
@@ -54,6 +56,12 @@ type Item = ReturnType<typeof sidebarItems>["items"][number];
 
 const entryOf = (item: Item) => (item.kind === "lead" ? item.group.lead : item.entry);
 
+const itemTier = (item: Item) =>
+  item.kind === "lead" ? groupTierOf(item.group) : tierOf(item.entry);
+
+const itemKey = (item: Item) =>
+  item.kind === "lead" ? item.group.key : `${item.entry.session.id}`;
+
 const Items = ({
   hostKey,
   model,
@@ -80,6 +88,7 @@ export const SessionList = ({ hostKey, model, entries, now, scope, empty }: Sess
   const views = useConstellations(hostKey);
   const lookup = useWorkerLookup();
   const setups = useSetupLookup();
+  const sort = useNav((s) => s.sessionSort);
 
   const { pinned, sessions, reviews } = useMemo(
     () => sectionsOf(sidebarItems({ hostKey, entries, views, lookup, setups }).items, entryOf),
@@ -97,10 +106,20 @@ export const SessionList = ({ hostKey, model, entries, now, scope, empty }: Sess
       <SectionHeader
         className={pinned.length === 0 ? undefined : "pt-2"}
         empty={sessions.length === 0 ? empty : undefined}
+        action={<SortMenu />}
       >
         Sessions
       </SectionHeader>
-      <Items hostKey={hostKey} model={model} items={sessions} now={now} />
+      {sort === "newest" ? (
+        <Items hostKey={hostKey} model={model} items={sessions} now={now} />
+      ) : (
+        <TieredItems
+          items={byTier(sessions, itemTier)}
+          keyOf={itemKey}
+          tierOf={itemTier}
+          render={(items) => <Items hostKey={hostKey} model={model} items={items} now={now} />}
+        />
+      )}
       <ReviewsGroup foldKey={reviewsKey(scope)} entries={reviews.map(entryOf)}>
         <Items hostKey={hostKey} model={model} items={reviews} now={now} />
       </ReviewsGroup>

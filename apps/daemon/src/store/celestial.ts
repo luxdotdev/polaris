@@ -2,7 +2,12 @@
  * Picks a new session's Celestial (CONTEXT.md). Pure, so the fold can give the same planet to a
  * session logged before Celestials. See docs/adr/0085-a-session-s-celestial-is-assigned-at-creation.md.
  */
-import { type AgentSession, CELESTIAL_PLANETS, type CelestialBody } from "@polaris/protocol";
+import {
+  type AgentSession,
+  CELESTIAL_PLANETS,
+  CELESTIAL_RARE,
+  type CelestialBody,
+} from "@polaris/protocol";
 
 /** FNV-1a over the session id: where its search through the planets starts. */
 const seed = (id: string): number => {
@@ -33,15 +38,25 @@ const planetsInUse = (
   return uses;
 };
 
+/** One new session in this many gets the Death Star in place of a planet. */
+export const DEATH_STAR_ODDS = 100;
+
+/** The session id's roll for the Death Star, hashed apart from its planet's place. */
+const rollsDeathStar = (id: string) => seed(`death-star:${id}`) % DEATH_STAR_ODDS === 0;
+
 /**
  * A planet no active session in the Workspace shows, searched from a place set by the session's
- * id; when every planet is taken, the least shared one.
+ * id; when every planet is taken, the least shared one. A lucky id gets the Death Star if it's free.
  */
 export const pickCelestial = (
   sessions: Iterable<{ readonly session: AgentSession }>,
   session: Pick<AgentSession, "id" | "workspaceId">
 ): CelestialBody => {
   const uses = planetsInUse(sessions, session);
+  const [deathStar] = CELESTIAL_RARE;
+
+  if (rollsDeathStar(session.id) && !uses.has(deathStar)) return deathStar;
+
   const start = seed(session.id) % CELESTIAL_PLANETS.length;
   let best: CelestialBody = CELESTIAL_PLANETS[start] ?? "ringed";
   let fewest = Number.POSITIVE_INFINITY;

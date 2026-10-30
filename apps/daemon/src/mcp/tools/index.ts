@@ -10,6 +10,7 @@ import { historyTools } from "./history.ts";
 import { memoryVisualizations, visualizeTool } from "./visualize.ts";
 import type { VisualizationLog } from "../tokens.ts";
 import { unavailableSessions, type SessionTools } from "../sessions/index.ts";
+import { requestSecretTool } from "./secret.ts";
 import {
   toolFactory,
   rejection,
@@ -153,6 +154,7 @@ export const constellationTools = (
     ...catalog,
     wait,
     notifyTool(binding.sessionId, sessions, idsFor(commands)),
+    requestSecretTool(binding.sessionId, sessions),
     ...historyTools(binding.sessionId, sessions),
     ...(options.visualize === false
       ? []

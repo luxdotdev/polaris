@@ -174,6 +174,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "prediction.server",
   "prediction.managed",
   "commit.suggest-message",
+  "approval.secret",
   "constellation",
   "constellation.defaults",
   "extensions",

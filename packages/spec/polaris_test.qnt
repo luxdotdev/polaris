@@ -233,6 +233,20 @@ module polaris_test {
         safety,
       })
 
+  run secretRequestTimeoutTest =
+    waitingOnApproval
+      .then(harnessReports("s1", HExpire("r1")))
+      .then(clientSends("phone", "k2", r1))
+      .then(commitBatch)
+      .then(publishBatch)
+      .expect(all {
+        log[4].kind == ApprovalWithdrawn({ req: "r1", by: "daemon" }),
+        // The timeout closed the last request of a Turn in flight: back to work.
+        viewOf(log, "s1").state == "working",
+        answers.get("k2") == [Rejected],
+        safety,
+      })
+
   run answerBeforeTheHarnessWithdrawalTest =
     waitingOnApproval
       .then(clientSends("phone", "k2", r1))

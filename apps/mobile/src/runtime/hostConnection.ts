@@ -15,13 +15,14 @@ import { ConnectFailure, olderSide } from "@polaris/client/failures";
 import { type ClientBlobs, connectRpc, type DaemonClient } from "@polaris/client/rpc";
 import {
   type ByteTransport,
-  Capability,
+  type Capability,
   type ConnectionState,
   type HostInfo,
   PROTOCOL_VERSION,
   type TransportError,
 } from "@polaris/protocol";
 import { Cause, Effect, Exit, Fiber, type Scope } from "effect";
+import { MOBILE_CAPABILITIES } from "./capabilities.ts";
 
 /** How the bytes reach the Host: the development bridge, or the Polaris Relay. */
 export type HostRoute = "dev-bridge" | "relay";
@@ -197,7 +198,7 @@ export const openHostConnection = (options: HostConnectionOptions): HostConnecti
             clientName: CLIENT_NAME,
             clientVersion: CLIENT_VERSION,
             deviceLabel: options.deviceLabel ?? "iPhone",
-            capabilities: Capability.literals,
+            capabilities: MOBILE_CAPABILITIES,
           })
           .pipe(
             Effect.mapError((error) => transient("unreachable", error.message)),

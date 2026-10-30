@@ -8,7 +8,13 @@ import {
   SessionId,
 } from "@polaris/protocol";
 import type { ConstellationRow, SessionRow } from "../home/model/home.ts";
-import { commandApproval, constellation, question, session } from "../home/fixtures.testing.ts";
+import {
+  commandApproval,
+  constellation,
+  question,
+  secretRequest,
+  session,
+} from "../home/fixtures.testing.ts";
 import { DEVICE_COMMANDS } from "@polaris/protocol";
 import {
   commandOf,
@@ -128,6 +134,7 @@ describe("an agent session's menu", () => {
   test.each([
     ["a question", question("s1", "r1", "Which branch?", ["main", "dev"])],
     ["a command too long to show", commandApproval("s1", "r1", "make\n".repeat(8))],
+    ["a secret", secretRequest("s1", "r1", "Tailscale auth key", "To join the tailnet")],
   ])("%s is never answered from the menu", (_, approval) => {
     const offered = sessionMenu(row({ id: "s1", state: "needs-you" }, approval)).flat();
 

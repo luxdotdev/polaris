@@ -54,6 +54,7 @@ import {
 import { items as itemsScene } from "./itemsScene.ts";
 import { tools as toolsScene } from "./toolsScene.ts";
 import { polarisTools, PREVIEW_NOTICE } from "./polarisScene.ts";
+import { secret } from "./secretScene.ts";
 import { visualizations, visualizations30 } from "./visualizationScene.ts";
 import { background, waitingSidebar } from "./background.ts";
 import { MODELS, PATCH } from "./fixtureData.ts";
@@ -148,6 +149,7 @@ const SCENES = {
   tools: toolsScene,
   approval,
   question,
+  secret,
   interrupted,
   failed,
   long,
@@ -168,6 +170,7 @@ const SCENE_NAMES = [
   "tools",
   "approval",
   "question",
+  "secret",
   "interrupted",
   "failed",
   "long",

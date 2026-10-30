@@ -38,6 +38,29 @@ describe("composer mode", () => {
     expect(command?._tag).toBe("RespondToApproval");
   });
 
+  test("typed text never answers an open secret: the composer waits for its card", () => {
+    const secret = new ApprovalRequest({
+      id: RequestId.make("r-2"),
+      sessionId,
+      turnId: turn(0).id,
+      kind: "secret",
+      title: "API key",
+      detail: null,
+      options: [],
+      openedAt: at,
+    });
+
+    const mode = composerMode({
+      state: "needs-you",
+      lastTurn: "working",
+      pendingApprovals: [secret],
+      canSteer: true,
+    });
+
+    expect(mode.kind).toBe("blocked");
+    expect(submitCommand(mode, sessionId, "sk-live-123")).toBeNull();
+  });
+
   test("queue mode never sends straight away", () => {
     expect(submitCommand({ kind: "queue" }, sessionId, "after this")).toBeNull();
   });

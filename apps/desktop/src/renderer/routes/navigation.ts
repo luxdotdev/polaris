@@ -16,9 +16,12 @@ import {
   type Selection,
   type SidebarView,
   resolveSelection,
+  type SessionSort,
   type SettingsSection,
   workspaceKey,
 } from "./selection.ts";
+import { type BackForward, createPages, editPlaces, type Page } from "./history.ts";
+import { reviewRoute } from "./review.ts";
 import { timeSwitch } from "./switchTimer.ts";
 import { barHosts, barWorkspaces, type BarHost, isRegistered, topBarMode } from "./topBar.ts";
 
@@ -38,6 +41,7 @@ const Persisted = Schema.Struct({
   lastSession: Schema.Record(Schema.String, Schema.String),
   folded: Schema.Record(Schema.String, Schema.Boolean),
   recent: Schema.optionalKey(Schema.Array(Schema.String)),
+  sessionSort: Schema.optionalKey(Schema.Literals(["active", "newest"])),
 });
 
 const decodePersisted = Schema.decodeUnknownOption(Schema.fromJsonString(Persisted));
@@ -71,6 +75,7 @@ const persistable = (nav: NavState) => ({
   lastSession: nav.lastSession,
   folded: nav.folded,
   recent: nav.recent,
+  sessionSort: nav.sessionSort,
 });
 
 export interface SessionTarget {
@@ -107,6 +112,7 @@ export interface ShellActions {
   readonly startNewSessionIn: (hostKey: string, workspaceId?: WorkspaceId | null) => void;
   readonly closeNewSession: () => void;
   readonly toggleFolded: (key: string, open: boolean) => void;
+  readonly setSessionSort: (sort: SessionSort) => void;
   /** Settings over the three zones (⌘,); the last section when none is given. */
   readonly openSettings: (
     section?: SettingsSection,
@@ -114,6 +120,11 @@ export interface ShellActions {
   ) => void;
   /** Back to where the user was (esc). */
   readonly closeSettings: () => void;
+  /** The page shown before this one (the mouse's back button, ⌘[); in Edit, the place. */
+  readonly back: () => void;
+  readonly forward: () => void;
+  readonly canGoBack: () => boolean;
+  readonly canGoForward: () => boolean;
 }
 
 export interface Navigation {
@@ -248,6 +259,51 @@ export const createNavigation = ({
     });
   };
 
+  const exists = (hostKey: string, sessionId: SessionId, archived: boolean) => {
+    const entry = app.getState().hostModels[hostKey]?.sessions.get(sessionId);
+
+    return entry !== undefined && (archived || entry.session.state !== "archived");
+  };
+
+  const live = (page: Page) => {
+    if (page.kind === "session") return exists(page.hostKey, page.sessionId, false);
+    const { subject } = page;
+
+    // A session's Turns stay reviewable once it's archived.
+    return subject?.kind !== "session" || exists(subject.hostKey, subject.sessionId, true);
+  };
+
+  const shown = (): Page | undefined => {
+    const { hostKey, sessionId, pane, settings, mode } = current();
+
+    if (settings !== null) return undefined;
+
+    if (mode === "review") return { kind: "review", subject: reviewRoute.getState().subject };
+
+    return mode === "orchestrate" && pane === "session" && hostKey !== null && sessionId !== null
+      ? { kind: "session", hostKey, sessionId }
+      : undefined;
+  };
+
+  const pages = createPages({
+    shown,
+    live,
+    open: (page) => {
+      if (page.kind === "session") {
+        actions.selectSession(page);
+
+        return;
+      }
+
+      reviewRoute.setState({ subject: page.subject });
+      set({ mode: "review", settings: null });
+    },
+  });
+
+  /** In Edit, Back and Forward move through the Editor's places instead. */
+  const backForward = (): BackForward | null =>
+    current().mode === "edit" ? editPlaces.current : pages;
+
   const actions: ShellActions = {
     setMode: (mode) => set({ mode, settings: null }),
     selectSession: ({ hostKey, sessionId }) => {
@@ -308,6 +364,7 @@ export const createNavigation = ({
     startNewSessionIn,
     closeNewSession: () => set({ pane: "session" }),
     toggleFolded: (key, open) => set({ folded: { ...store.getState().folded, [key]: !open } }),
+    setSessionSort: (sessionSort) => set({ sessionSort }),
     openSettings: (section, options) => {
       lastSection = section ?? lastSection;
       set({
@@ -317,6 +374,10 @@ export const createNavigation = ({
       });
     },
     closeSettings: () => set({ settings: null }),
+    back: () => backForward()?.back(),
+    forward: () => backForward()?.forward(),
+    canGoBack: () => backForward()?.canGoBack() ?? false,
+    canGoForward: () => backForward()?.canGoForward() ?? false,
   };
 
   // The bar's mode follows the Workspace count, with hysteresis (topBar.ts).
@@ -334,8 +395,15 @@ export const createNavigation = ({
   };
 
   app.subscribe((state, prev) => {
-    if (state.hosts !== prev.hosts || state.hostModels !== prev.hostModels) updateTopBar(state);
+    if (state.hosts !== prev.hosts || state.hostModels !== prev.hostModels) {
+      updateTopBar(state);
+      // A session chosen before it arrived is shown once it does.
+      pages.record();
+    }
   });
+
+  store.subscribe(pages.record);
+  reviewRoute.subscribe(pages.record);
 
   let timer: ReturnType<typeof setTimeout> | null = null;
 

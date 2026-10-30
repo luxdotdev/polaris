@@ -4,7 +4,7 @@
  * waiting on you" with one action each; answers another device gave, for a minute. Any
  * session item can be dismissed on this Mac until it changes (N1; Paper 10, 10b).
  */
-import type { SessionId } from "@polaris/protocol";
+import type { ApprovalRequest, SessionId } from "@polaris/protocol";
 import {
   CloseIcon,
   cn,
@@ -39,6 +39,7 @@ import type {
 } from "../model/inbox.ts";
 import { approve, continueTurn, deny, retryTurn, takeBack } from "../respond.ts";
 import { clientCopy } from "../../../../shared/clientCopy.ts";
+import { secretLine } from "../../session/model/secret.ts";
 
 /** "Host · Workspace · age"; without `iso`, just where. */
 export const where = (place: Place, iso: string | null, now: number) =>
@@ -95,6 +96,10 @@ const Dismissable = ({
   </div>
 );
 
+/** A question's ask; a secret's label only, its reason staying in the session's card. */
+const inboxAsk = (request: ApprovalRequest) =>
+  request.kind === "secret" ? secretLine(request.title) : request.title;
+
 const Waiting = ({
   item,
   now,
@@ -114,14 +119,16 @@ const Waiting = ({
 
   if (request === undefined) return null;
 
-  const answers: ReadonlyArray<CardAction> =
-    request.kind === "question"
-      ? []
-      : [
-          { label: "Approve", run: () => void approve(target), command: "approval.approve" },
-          { label: "Always allow", run: () => void approve(target, true) },
-          { label: "Deny", run: () => void deny(target), command: "approval.deny" },
-        ];
+  // A question is answered, and a secret typed, only in the session's own card.
+  const inCard = request.kind === "question" || request.kind === "secret";
+
+  const answers: ReadonlyArray<CardAction> = inCard
+    ? []
+    : [
+        { label: "Approve", run: () => void approve(target), command: "approval.approve" },
+        { label: "Always allow", run: () => void approve(target, true) },
+        { label: "Deny", run: () => void deny(target), command: "approval.deny" },
+      ];
 
   return (
     <CardMenu item={item} sessionId={session.id} onOpen={open} answers={answers}>
@@ -133,8 +140,8 @@ const Waiting = ({
         selected={selection.pane === "session" && selection.sessionId === session.id}
         title={<Title onOpen={open}>{session.title}</Title>}
         where={`${where(item, item.since, now)}${more}`}
-        {...(request.kind === "question"
-          ? { question: request.title }
+        {...(inCard
+          ? { question: inboxAsk(request) }
           : {
               approval: {
                 command: request.detail ?? request.title,
@@ -214,6 +221,7 @@ const DECISIONS: Record<AnsweredElsewhere["resolution"]["decision"], string> = {
   Allow: "Approved",
   Deny: "Denied",
   Answer: "Answered",
+  Provided: "Secret saved",
 };
 
 const Answered = ({ item }: { readonly item: AnsweredElsewhere }) => (

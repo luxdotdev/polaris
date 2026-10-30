@@ -23,6 +23,7 @@ import {
   RestartError,
   encodePairingString,
   VoiceError,
+  SecretRejected,
   PROTOCOL_VERSION,
   decideProtocol,
   PushRegistrationError,
@@ -560,6 +561,9 @@ export const defaultHandlers = (options: {
       Effect.fail(new VoiceError({ reason: "provider-failed", message: notYet("Voice") })),
     "voice.setKey": () =>
       Effect.fail(new VoiceError({ reason: "provider-failed", message: notYet("Voice") })),
+
+    "secret.provide": () =>
+      Effect.fail(new SecretRejected({ reason: "storage", message: notYet("Secret Requests") })),
 
     "terminal.open": ({ cwd }) => Effect.fail(fileError(cwd, "terminals")),
     "terminal.attach": ({ terminalId }) =>

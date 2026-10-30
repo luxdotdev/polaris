@@ -75,6 +75,11 @@ export const Capability = Schema.Literals([
   "session.compaction",
   /** `SessionNotified`: an agent's notification for the user (MCP `notify`). */
   "session.notify",
+  /**
+   * Secret Requests (ADR 0089): the `secret` ApprovalKind, the `Provided` decision and
+   * `secret.provide`. A Client without it is sent neither.
+   */
+  "approval.secret",
   /** `PinSession`, `SessionPinned`, and `AgentSession.pinnedAt` and `origin`. */
   "session.pin",
   /**

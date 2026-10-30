@@ -16,8 +16,14 @@ export const CELESTIAL_FRAMES = 8;
 
 export const CELESTIAL_FRAME_MS = 83;
 
-/** Light, the hue itself, shade, and the brief glint a Working ring or star carries. */
-export type Tone = "light" | "hue" | "shade" | "glint";
+/**
+ * Light, the hue itself, shade, the brief glint a Working ring or star carries, and the Death
+ * Star's laser, the one tone that is never the hue's.
+ */
+export type Tone = "light" | "hue" | "shade" | "glint" | "laser";
+
+/** The superlaser's green, the same on every theme and Harness. */
+export const CELESTIAL_LASER = "#5cf59a";
 
 export interface Cell {
   readonly x: number;
@@ -40,6 +46,8 @@ interface Planet {
   readonly rings?: readonly Ring[];
   /** A crescent: the shadow's centre, offset from the body's. */
   readonly shadow?: { readonly dx: number; readonly dy: number };
+  /** A fixed crater with a light focus; Working fires the superlaser from it, up and to the left. */
+  readonly dish?: { readonly x: number; readonly y: number; readonly r: number };
 }
 
 interface Star {
@@ -177,8 +185,21 @@ const FORMS = new Map<CelestialBody, Form>(
         [3, 9],
       ]),
     },
+    "death-star": {
+      kind: "planet",
+      radius: 6.2,
+      dish: { x: 5, y: 5, r: 2.3 },
+      marks: band([8], [3]),
+    },
   } satisfies Record<string, Form>)
 );
+
+/** The flat grey the Death Star wears in place of its Harness's hue. */
+export const DEATH_STAR_GREY = "#8c8f95";
+
+/** A hue a body wears whatever its Harness: only the Death Star has one. */
+export const bodyHue = (body: CelestialBody): string | null =>
+  body === "death-star" ? DEATH_STAR_GREY : null;
 
 /** Whether a body is drawn here; an unknown one (from a newer Daemon) is drawn as the first planet. */
 export const isKnownCelestial = (body: CelestialBody): boolean => FORMS.has(body);
@@ -209,6 +230,57 @@ const onRing = (x: number, y: number, ring: Ring, radius: number) => {
   return e >= 0.62 && e <= 1.05 && (v > 0 || !inDisc(x, y, radius + 0.4));
 };
 
+interface Shot {
+  /** Which of the dish's rim cells light: none, every other one, or all. */
+  readonly rim: "none" | "half" | "all";
+  /** The tributary beams, rim to focus along the dish's diagonals. */
+  readonly converge: boolean;
+  /** How many cells the main beam reaches from the focus, diagonally up and to the left. */
+  readonly beam: number;
+  readonly focus: Tone;
+}
+
+/** The superlaser by frame: the rim lights, converges, fires, and the focus fades. */
+const FIRING: readonly Shot[] = [
+  { rim: "none", converge: false, beam: 0, focus: "light" },
+  { rim: "half", converge: false, beam: 0, focus: "light" },
+  { rim: "all", converge: false, beam: 0, focus: "glint" },
+  { rim: "all", converge: true, beam: 0, focus: "laser" },
+  { rim: "all", converge: true, beam: 3, focus: "laser" },
+  { rim: "none", converge: true, beam: 5, focus: "laser" },
+  { rim: "none", converge: false, beam: 5, focus: "laser" },
+  { rim: "none", converge: false, beam: 0, focus: "glint" },
+];
+
+const shotAt = (frame: number | null): Shot | null =>
+  frame === null ? null : (FIRING[frame] ?? null);
+
+const onBeam = (x: number, y: number, p: Planet, shot: Shot | null) => {
+  if (p.dish === undefined || shot === null) return false;
+  const step = p.dish.x - x;
+
+  return step > 0 && p.dish.y - y === step && step <= shot.beam;
+};
+
+const rimFires = (x: number, y: number, shot: Shot | null) =>
+  shot !== null && (shot.rim === "all" || (shot.rim === "half" && mod(x + y, 2) === 0));
+
+/** Squared distance from the focus at which the dish's outer ring begins. */
+const RIM = 4;
+
+const dishCell = (x: number, y: number, p: Planet, shot: Shot | null): Tone | null => {
+  if (p.dish === undefined) return null;
+  const d2 = (x - p.dish.x) ** 2 + (y - p.dish.y) ** 2;
+
+  if (d2 > p.dish.r ** 2) return null;
+
+  if (d2 === 0) return shot?.focus ?? "light";
+
+  if (d2 >= RIM) return rimFires(x, y, shot) ? "laser" : "shade";
+
+  return shot?.converge === true && d2 === 2 ? "laser" : "shade";
+};
+
 const planetCell = (x: number, y: number, p: Planet, frame: number | null): Tone | null => {
   const ringIndex = p.rings?.findIndex((ring) => onRing(x, y, ring, p.radius)) ?? -1;
 
@@ -218,9 +290,17 @@ const planetCell = (x: number, y: number, p: Planet, frame: number | null): Tone
     return glint ? "glint" : "light";
   }
 
+  const shot = p.dish === undefined ? null : shotAt(frame);
+
+  if (onBeam(x, y, p, shot)) return "laser";
+
   if (!inDisc(x, y, p.radius)) return null;
 
   if (p.shadow !== undefined && inDisc(x - p.shadow.dx, y - p.shadow.dy, p.radius)) return "shade";
+
+  const dish = dishCell(x, y, p, shot);
+
+  if (dish !== null) return dish;
 
   if (p.marks?.(x - (frame ?? 0), y) === true) return "shade";
 

@@ -3,7 +3,12 @@
  * of its Harness hue. Working steps a strip on one shared native-driven clock, never a timer per row.
  */
 import type { CelestialBody, HarnessKind } from "@polaris/protocol";
-import { CELESTIAL_FRAME_MS, CELESTIAL_FRAMES, CELESTIAL_GRID } from "@polaris/ui/celestial";
+import {
+  bodyHue,
+  CELESTIAL_FRAME_MS,
+  CELESTIAL_FRAMES,
+  CELESTIAL_GRID,
+} from "@polaris/ui/celestial";
 import { memo, useEffect, useMemo, useSyncExternalStore } from "react";
 import { Animated, AppState, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
@@ -63,7 +68,7 @@ export interface CelestialProps {
   readonly size: number;
   /** Animates inside the body at 12 fps; Reduce Motion keeps it still. */
   readonly working?: boolean;
-  /** Drawn in its Harness's hue; an unknown or unhued Harness is neutral. */
+  /** Drawn in its Harness's hue (the Death Star in grey); an unknown or unhued Harness is neutral. */
   readonly harness: HarnessKind;
   readonly dormant?: boolean;
 }
@@ -84,7 +89,7 @@ export const Celestial = memo(function Celestial({
   useEffect(() => (moving ? clock.acquire() : undefined), [moving]);
 
   const strip = moving ? value : null;
-  const palette = celestialPalette(harnessColour(colours, harness));
+  const palette = celestialPalette(bodyHue(body) ?? harnessColour(colours, harness));
 
   const transform = useMemo(
     () => (strip === null ? [] : [{ translateX: strip.interpolate(celestialSteps(size)) }]),

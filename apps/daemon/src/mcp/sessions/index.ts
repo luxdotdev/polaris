@@ -16,6 +16,7 @@ import {
 } from "./history.ts";
 import { readTranscript } from "./read.ts";
 import { WaitOutcome, waitForCommand } from "./wait.ts";
+import { SecretOutcome, type SecretRequestInput } from "../../secrets/requests.ts";
 
 export { TRANSCRIPT_LIMIT, transcriptText } from "./transcript.ts";
 
@@ -82,6 +83,11 @@ export interface SessionTools {
     caller: SessionId,
     options: ReadOptions
   ) => Effect.Effect<HistoryOutcome, ServiceError>;
+  /** Opens a Secret Request on the session's Turn in flight and waits for it (ADR 0089). */
+  readonly requestSecret: (
+    sessionId: SessionId,
+    input: SecretRequestInput
+  ) => Effect.Effect<SecretOutcome, ServiceError>;
 }
 
 export const unavailableSessions: SessionTools = {
@@ -91,14 +97,17 @@ export const unavailableSessions: SessionTools = {
   listSessions: () => Effect.succeed(HistoryOutcome.NoCaller()),
   searchHistory: () => Effect.succeed(HistoryOutcome.NoCaller()),
   readHistory: () => Effect.succeed(HistoryOutcome.NoCaller()),
+  requestSecret: () => Effect.succeed(SecretOutcome.NotFound()),
 };
 
 /** The Daemon's session tools, over its EventStore; `notifications` is shared with Polaris's own. */
 export const sessionTools = (
   store: EventStore["Service"],
-  notifications: Notifier = notifier(store)
+  notifications: Notifier = notifier(store),
+  requestSecret: SessionTools["requestSecret"] = unavailableSessions.requestSecret
 ): SessionTools => ({
   ...history(store),
+  requestSecret,
   notify: notifications.notify,
   transcript: (sessionId, options) => readTranscript(store, sessionId, options),
   waitForCommand: (sessionId, options) => waitForCommand(store, sessionId, options),

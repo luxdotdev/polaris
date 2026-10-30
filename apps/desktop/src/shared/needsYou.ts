@@ -3,11 +3,14 @@
  * badge and native notifications, and what those send back. Plain data, types only.
  */
 
-/** One pending approval or question, as a notification shows it. */
+import type { ApprovalKind } from "@polaris/protocol";
+
+/** One pending approval, question or Secret Request, as a notification shows it. */
 export interface NeedsYouRequest {
   readonly requestId: string;
-  readonly kind: "command" | "file-change" | "tool" | "question";
+  readonly kind: ApprovalKind;
   readonly title: string;
+  /** Always null for a Secret Request: its reason stays in the session's card. */
   readonly detail: string | null;
   /** A question's numbered answers. */
   readonly options: ReadonlyArray<string>;

@@ -22,7 +22,7 @@ export interface NotificationContent {
   readonly title: string;
   readonly subtitle: string;
   readonly body: string;
-  /** Approve / Deny buttons: a single pending approval that isn't a question. */
+  /** Approve / Deny buttons: a single pending approval that isn't a question or a secret. */
   readonly actions: boolean;
   /** An inline reply: a single pending question. */
   readonly reply: boolean;
@@ -43,10 +43,14 @@ export interface PlanInput {
 export const notificationKey = (hostKey: string, sessionId: string) =>
   `${hostKey}\u0000${sessionId}`;
 
+/** A Secret Request shows its label alone: never its reason, and no quick action (ADR 0089). */
 const bodyOf = (request: NeedsYouRequest) =>
-  request.detail === null || request.detail === request.title
+  request.kind === "secret" || request.detail === null || request.detail === request.title
     ? request.title
     : `${request.title}\n${request.detail}`;
+
+const titleOf = (harness: string, request: NeedsYouRequest) =>
+  request.kind === "secret" ? `${harness} is asking for a secret` : `${harness} needs you`;
 
 const contentOf = (key: string, session: NeedsYouSession): NotificationContent | null => {
   const request = session.requests.at(-1);
@@ -59,10 +63,10 @@ const contentOf = (key: string, session: NeedsYouSession): NotificationContent |
     key,
     session,
     request,
-    title: `${session.harness} needs you${waiting}`,
+    title: `${titleOf(session.harness, request)}${waiting}`,
     subtitle: `${session.title} · ${session.hostLabel}`,
     body: bodyOf(request),
-    actions: single && request.kind !== "question",
+    actions: single && request.kind !== "question" && request.kind !== "secret",
     reply: single && request.kind === "question",
   };
 };

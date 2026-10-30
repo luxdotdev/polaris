@@ -4,6 +4,7 @@
  */
 import type { ApprovalRequest, CelestialBody, HarnessKind } from "@polaris/protocol";
 import { harnessHue, sessionCelestial } from "@polaris/ui";
+import { Match } from "effect";
 import { age } from "../../../shell/copy.ts";
 import type { ConstellationGroup, ConstellationItem, ItemKind } from "./constellation.ts";
 import type { AlsoKind, AlsoWaiting, WaitingSession } from "./inbox.ts";
@@ -23,31 +24,39 @@ export const KIND_WANTS: Record<ApprovalRequest["kind"], string> = {
   "file-change": "wants to change files",
   tool: "wants to use a tool",
   question: "has a question",
+  secret: "is asking for a secret",
 };
 
 const titleOf = (title: string) => title || "Untitled session";
+
+/** The kicker's word and the sentence for a waiting session's first request. */
+const requestCopy = (title: string, request: ApprovalRequest) =>
+  Match.value(request.kind).pipe(
+    Match.when("question", () => ({ word: "question", text: `${title} asks: ${request.title}` })),
+    // A secret's reason stays in its card; the label alone says what it is.
+    Match.when("secret", () => ({
+      word: "secret",
+      text: `${title} is asking for a secret: ${request.title}`,
+    })),
+    Match.when("command", () => ({ word: "approval", text: `${title} wants to run` })),
+    Match.orElse((kind) => ({ word: "approval", text: `${title} ${KIND_WANTS[kind]}` }))
+  );
 
 export const waitingCopy = (item: WaitingSession, now: number): RowCopy | null => {
   const { session } = item.entry;
   const request = item.requests[0];
 
   if (request === undefined) return null;
-  const question = request.kind === "question";
-  // The whole request, for every kind: an approval is never answered blind.
-  const shown = question ? null : (request.detail ?? request.title);
+  const { word, text } = requestCopy(titleOf(session.title), request);
+  // The whole request, for every approval: an approval is never answered blind.
+  const approval = request.kind !== "question" && request.kind !== "secret";
 
   return {
     harness: session.harness,
     body: sessionCelestial(session.celestial),
-    kicker: [
-      harnessHue(session.harness).name,
-      question ? "question" : "approval",
-      age(item.since, now),
-    ],
-    text: question
-      ? `${titleOf(session.title)} asks: ${request.title}`
-      : `${titleOf(session.title)} ${request.kind === "command" ? "wants to run" : KIND_WANTS[request.kind]}`,
-    code: shown,
+    kicker: [harnessHue(session.harness).name, word, age(item.since, now)],
+    text,
+    code: approval ? (request.detail ?? request.title) : null,
   };
 };
 
@@ -101,6 +110,9 @@ const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 const constellationText = (item: ConstellationItem): string => {
   const it = who(item);
 
+  if (item.request?.kind === "secret" && (item.kind === "worker-approval" || item.kind === "lead"))
+    return sentence(`${it} is asking for a secret: ${item.request.title}`);
+
   const text = {
     "worker-approval": `${it} wants to run`,
     question: `${it} asks: ${item.question?.text ?? item.request?.title ?? ""}`,
@@ -127,6 +139,7 @@ const constellationText = (item: ConstellationItem): string => {
 export const constellationApproval = (item: ConstellationItem) =>
   item.request !== undefined &&
   item.request.kind !== "question" &&
+  item.request.kind !== "secret" &&
   (item.kind === "worker-approval" || item.kind === "lead");
 
 export const leadName = (group: ConstellationGroup) =>
@@ -143,7 +156,11 @@ export const constellationCopy = (
   return {
     harness,
     body: sessionCelestial(session?.celestial, item.entry === null),
-    kicker: [leadName(group), CONSTELLATION_WORD[item.kind], age(item.since, now)],
+    kicker: [
+      leadName(group),
+      item.request?.kind === "secret" ? "secret" : CONSTELLATION_WORD[item.kind],
+      age(item.since, now),
+    ],
     text: constellationText(item),
     code: constellationApproval(item) ? (item.request?.detail ?? item.request?.title ?? "") : null,
   };

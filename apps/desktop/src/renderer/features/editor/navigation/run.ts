@@ -6,6 +6,7 @@ import type { LanguageQueries } from "../lsp/queries.ts";
 import { showSignatureHelp } from "../lsp/signatures.ts";
 import { viewOf } from "../runtime/buffers.ts";
 import type { NavigationAction } from "./commands.ts";
+import { editorPlaces } from "./places.ts";
 import { openRename, openSymbolSearch } from "./store.ts";
 
 /** The rename field opens on the symbol under the cursor, pre-filled with its name. */
@@ -57,10 +58,10 @@ const problem = (key: string, step: (view: EditorView) => boolean) => {
 export const runNavigation = (
   key: string,
   action: NavigationAction,
-  queries: Pick<LanguageQueries, "run" | "back" | "forward"> | null
+  queries: Pick<LanguageQueries, "run"> | null
 ) => {
-  if (action === "back") queries?.back();
-  else if (action === "forward") queries?.forward();
+  if (action === "back") editorPlaces.back();
+  else if (action === "forward") editorPlaces.forward();
   else if (action === "hover") hoverAtCursor(key);
   else if (action === "completion") atCaret(key, startCompletion);
   else if (action === "signature-help") atCaret(key, showSignatureHelp);

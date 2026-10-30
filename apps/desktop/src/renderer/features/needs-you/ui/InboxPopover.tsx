@@ -115,11 +115,12 @@ const WaitingRow = ({ item, now, close }: ItemProps & { readonly item: WaitingSe
     selectSession({ hostKey: item.hostKey, sessionId });
   };
 
-  if (request.kind === "question") {
+  // A question is answered, and a secret typed, only in the session's own card.
+  if (request.kind === "question" || request.kind === "secret") {
     return (
       <Row copy={copy}>
         <Button size="sm" className={PILL} onClick={open}>
-          Reply
+          {request.kind === "secret" ? "Open" : "Reply"}
         </Button>
       </Row>
     );

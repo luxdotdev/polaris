@@ -27,6 +27,9 @@ export const CELESTIAL_STARS = ["star-cross", "star-eight", "star-spark"] as con
 /** A Subagent's moon, chosen by its place among its parent's Subagents. */
 export const CELESTIAL_MOONS = ["moon-full", "moon-crescent", "moon-cratered"] as const;
 
+/** Rare bodies: about one new session in a hundred gets one in place of its planet. */
+export const CELESTIAL_RARE = ["death-star"] as const;
+
 export type CelestialPlanet = (typeof CELESTIAL_PLANETS)[number];
 
 /**

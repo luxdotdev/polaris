@@ -98,6 +98,7 @@ module polaris {
   type HarnessEvent =
     | HRequest(str)
     | HWithdraw(str)
+    | HExpire(str) // the Daemon withdraws a Secret Request that timed out (ADR 0089)
     | HItem
     | HInputRefused // a durable item for a deferred prompt the Session cannot take
     | HTurnStarted
@@ -319,6 +320,10 @@ module polaris {
       | HWithdraw(r) =>
         if (v.pending.contains(r))
           [ApprovalWithdrawn({ req: r, by: "harness" })].concat(backToWork(v, r))
+        else []
+      | HExpire(r) =>
+        if (v.pending.contains(r))
+          [ApprovalWithdrawn({ req: r, by: "daemon" })].concat(backToWork(v, r))
         else []
       | HTurnStarted =>
         if (v.state == "idle" and v.turn != "working" and turn == v.turns + 1)
@@ -548,6 +553,7 @@ module polaris {
         not(queuedRequest(queue, r)),
       }
       | HWithdraw(r) => v.pending.contains(r)
+      | HExpire(r) => v.pending.contains(r)
       | HTurnStarted => v.state == "idle"
       | HUserTurnStarted => acceptsTurn(v)
       | HItem => v.turn == "working"
@@ -756,7 +762,8 @@ module polaris {
     Set(1, 2).map(n => AcceptTurns({ session: SESSION_LIST[0], through: n })).union(Set(RecordVerdict))
 
   pure val HARNESS_EVENTS: Set[HarnessEvent] =
-    REQUESTS.map(r => HRequest(r)).union(REQUESTS.map(r => HWithdraw(r))).union(Set(HItem, HTurnStarted, HUserTurnStarted, HTurnEnded, HTurnFailed))
+    REQUESTS.map(r => HRequest(r)).union(REQUESTS.map(r => HWithdraw(r))).union(REQUESTS.map(r => HExpire(r)))
+      .union(Set(HItem, HTurnStarted, HUserTurnStarted, HTurnEnded, HTurnFailed))
       .union(if (USAGE_LIMITS) Set(HTurnLimited) else Set())
 
   action step = any {
