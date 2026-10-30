@@ -3,7 +3,16 @@
  * ephemeral port. A CONNECT to a Host address becomes a Host-address stream on that Host's
  * connection, its hostname unresolved; any other name loads directly from this machine.
  */
-import { connect, createServer, type Server, type Socket } from "node:net";
+import { lookup, type LookupAddress, type LookupAllOptions } from "node:dns";
+import {
+  BlockList,
+  connect,
+  createServer,
+  isIP,
+  type LookupFunction,
+  type Server,
+  type Socket,
+} from "node:net";
 import { Effect, Fiber, Predicate, type Scope, Stream } from "effect";
 import {
   greetingReply,
@@ -46,15 +55,69 @@ type Route =
   | { readonly kind: "direct"; readonly hostname: string; readonly port: number }
   | { readonly kind: "refuse" };
 
-/** IP literals go to the Host only when they are loopback, and never directly from here. */
+const ipRoute = (address: string, port: number, isHostAddress: (name: string) => boolean): Route =>
+  isHostAddress(address) ? { kind: "host", hostname: address, port } : { kind: "refuse" };
+
+/**
+ * IP literals, however they arrive, go to the Host only when they are loopback, and never
+ * directly from here; any other name loads directly.
+ */
 export const routeOf = (target: SocksTarget, isHostAddress: (name: string) => boolean): Route =>
   SocksTarget.$match(target, {
-    Domain: ({ hostname, port }): Route =>
-      isHostAddress(hostname)
+    Domain: ({ hostname, port }): Route => {
+      if (isIP(hostname.replace(/^\[(.*)\]$/, "$1")) !== 0)
+        return ipRoute(hostname, port, isHostAddress);
+
+      return isHostAddress(hostname)
         ? { kind: "host", hostname, port }
-        : { kind: "direct", hostname, port },
-    Ip: ({ address, port }): Route =>
-      isHostAddress(address) ? { kind: "host", hostname: address, port } : { kind: "refuse" },
+        : { kind: "direct", hostname, port };
+    },
+    Ip: ({ address, port }): Route => ipRoute(address, port, isHostAddress),
+  });
+
+/** Addresses that mean this machine; IPv4-mapped IPv6 as a whole, as names rarely map to it. */
+const thisMachine = () => {
+  const list = new BlockList();
+
+  list.addSubnet("0.0.0.0", 8, "ipv4");
+  list.addSubnet("127.0.0.0", 8, "ipv4");
+  list.addAddress("::", "ipv6");
+  list.addAddress("::1", "ipv6");
+  list.addSubnet("::ffff:0:0", 96, "ipv6");
+
+  return list;
+};
+
+const THIS_MACHINE = thisMachine();
+
+const outside = ({ address, family }: LookupAddress) =>
+  !THIS_MACHINE.check(address, family === 6 ? "ipv6" : "ipv4");
+
+/**
+ * DNS for a direct connection, dropping addresses on this machine: a name that resolves to
+ * loopback would otherwise reach the Client's own servers, never the Host's.
+ */
+export const lookupOutside = (
+  hostname: string,
+  options: LookupAllOptions,
+  callback: (error: NodeJS.ErrnoException | null, addresses: ReadonlyArray<LookupAddress>) => void
+) =>
+  lookup(hostname, { ...options, all: true }, (error, addresses) => {
+    const usable = error === null ? addresses.filter(outside) : [];
+
+    if (error !== null || usable.length > 0) return callback(error, usable);
+
+    callback(Object.assign(new Error(`${hostname} is this machine`), { code: "ELOOPBACK" }), []);
+  });
+
+/** Node's lookup contract: every address when `all` is set, else the first. */
+const directLookup: LookupFunction = (hostname, options, callback) =>
+  lookupOutside(hostname, { ...options, all: true }, (error, addresses) => {
+    const [first] = addresses;
+
+    if (options.all === true) return callback(error, [...addresses]);
+
+    callback(error, first?.address ?? "", first?.family ?? 4);
   });
 
 const concat = (a: Uint8Array, b: Uint8Array) => {
@@ -110,12 +173,15 @@ const reply = (socket: Socket, code: SocksReply) => {
   socket.end(requestReply(code));
 };
 
+const DIRECT_FAILURES = new Map<string | undefined, SocksReply>([
+  ["ECONNREFUSED", SocksReply.connectionRefused],
+  ["ENOTFOUND", SocksReply.hostUnreachable],
+  ["EHOSTUNREACH", SocksReply.hostUnreachable],
+  ["ELOOPBACK", SocksReply.notAllowed],
+]);
+
 const directFailure = (error: NodeJS.ErrnoException): SocksReply =>
-  error.code === "ECONNREFUSED"
-    ? SocksReply.connectionRefused
-    : error.code === "ENOTFOUND" || error.code === "EHOSTUNREACH"
-      ? SocksReply.hostUnreachable
-      : SocksReply.generalFailure;
+  DIRECT_FAILURES.get(error.code) ?? SocksReply.generalFailure;
 
 const pipeDirect = (socket: Socket, remote: Socket, rest: Uint8Array) => {
   remote.once("error", (error) => {
@@ -164,10 +230,9 @@ function start<R>(
   if (route.kind === "refuse") return reply(socket, SocksReply.notAllowed);
 
   if (route.kind === "direct") {
-    const remote = (options.connectDirect ?? ((host, port) => connect(port, host)))(
-      route.hostname,
-      route.port
-    );
+    const remote = (
+      options.connectDirect ?? ((host, port) => connect({ host, port, lookup: directLookup }))
+    )(route.hostname, route.port);
 
     return pipeDirect(socket, remote, rest);
   }

@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { connect, createServer, type Socket } from "node:net";
 import { Effect, Predicate, Queue, Stream } from "effect";
-import { type HostAddressTransport, type SocksServer, startSocksServer } from "./server.ts";
+import {
+  type HostAddressTransport,
+  lookupOutside,
+  type SocksServer,
+  startSocksServer,
+} from "./server.ts";
 import { SocksReply } from "./socks.ts";
 
 const isHostAddress = (name: string) =>
@@ -121,15 +126,30 @@ describe("the SOCKS server", () => {
     expect(opened).toEqual([{ hostname: "::1", port: 3000 }]);
   });
 
-  test("any other IP CONNECT is refused, never opened nor connected from here", async () => {
-    const opened: Array<Opened> = [];
-    const direct: Array<string> = [];
-    const port = await start({ opened, direct });
+  test.each([
+    ["an IPv4 CONNECT", Uint8Array.of(5, 1, 0, 1, 10, 0, 0, 1, 0, 80)],
+    ["an IP literal sent as a name", domain("10.0.0.1", 80)],
+    ["the unspecified address sent as a name", domain("0.0.0.0", 80)],
+  ])(
+    "%s outside loopback is refused, never opened nor connected from here",
+    async (_name, target) => {
+      const opened: Array<Opened> = [];
+      const direct: Array<string> = [];
+      const port = await start({ opened, direct });
 
-    const result = await socks(port, Uint8Array.of(5, 1, 0, 1, 10, 0, 0, 1, 0, 80), "x");
+      const result = await socks(port, target, "x");
 
-    expect(result.reply).toBe(SocksReply.notAllowed);
-    expect([opened, direct]).toEqual([[], []]);
+      expect(result.reply).toBe(SocksReply.notAllowed);
+      expect([opened, direct]).toEqual([[], []]);
+    }
+  );
+
+  test("a direct name that resolves to this machine is refused, not loaded from its loopback", async () => {
+    const error = await new Promise((resolve) =>
+      lookupOutside("localhost", { all: true }, (failure) => resolve(failure?.code))
+    );
+
+    expect(error).toBe("ELOOPBACK");
   });
 
   test("any other name loads directly from this machine, not from the Host", async () => {
