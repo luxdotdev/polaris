@@ -7,6 +7,7 @@ import { cn, SettingsButton, SettingsCard, SettingsStepper, SettingsWell } from 
 import {
   capInForce,
   type HostResourcesSnapshot,
+  isAutomatic,
   validCapacity,
 } from "../../settings/model/resources.ts";
 import { useHostResources } from "../../settings/resources.ts";
@@ -58,7 +59,7 @@ export const CapacityCard = ({ hostKey, resourcesOpen, onResources }: CapacityCa
         <SettingsStepper
           label="Workers at once"
           value={cap}
-          min={1}
+          min={Math.max(1, working)}
           max={64}
           onChange={(next) => {
             if (validCapacity(next))
@@ -77,10 +78,20 @@ export const CapacityCard = ({ hostKey, resourcesOpen, onResources }: CapacityCa
         <div className="flex flex-col gap-3 px-4 py-3.5">
           <span className="flex items-baseline gap-1.5">
             <span className="text-text-strong tabular text-[22px] leading-[26px]">{working}</span>
-            <span className="text-body text-text-subtle">
+            <span className="text-body text-text-subtle min-w-0 flex-1">
               of {cap} {cap === 1 ? "worker" : "workers"} working
               {snapshot.workerCap.waiting > 0 ? ` · ${snapshot.workerCap.waiting} waiting` : ""}
             </span>
+            {isAutomatic(snapshot.workerCap) ? null : (
+              <SettingsButton
+                variant="quiet"
+                onClick={() =>
+                  void run("Couldn't change the worker cap", (c) => c.setCap(hostKey, null))
+                }
+              >
+                Automatic ({snapshot.workerCap.default})
+              </SettingsButton>
+            )}
           </span>
           <Slots working={Math.min(working, cap)} cap={cap} />
           {snapshot.resources.length === 0 ? null : (

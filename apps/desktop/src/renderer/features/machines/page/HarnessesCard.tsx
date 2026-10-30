@@ -27,7 +27,7 @@ interface Tile {
 
 const TileView = ({ tile, onSignIn }: { readonly tile: Tile; readonly onSignIn: () => void }) => (
   <div
-    className="flex w-16 shrink-0 flex-col items-center gap-1.5"
+    className="flex min-w-16 flex-1 basis-16 flex-col items-center gap-2"
     data-testid={`harness-${tile.kind}`}
     title={tile.text}
   >
@@ -40,7 +40,7 @@ const TileView = ({ tile, onSignIn }: { readonly tile: Tile; readonly onSignIn: 
     </span>
     <span
       className={cn(
-        "text-caption w-full truncate text-center",
+        "text-center text-[11px] leading-[14px] whitespace-nowrap",
         tile.ready ? "text-text-default" : "text-text-subtle"
       )}
     >
@@ -104,7 +104,7 @@ export const HarnessesCard = ({ machine }: { readonly machine: MachineView }) =>
       }
     >
       <SettingsWell rows={false}>
-        <div className="flex justify-between gap-2 px-2 py-3">
+        <div className="flex flex-wrap justify-between gap-x-2 gap-y-3 px-4 pt-[18px] pb-3.5">
           {tiles.map((tile) => (
             <TileView key={tile.kind} tile={tile} onSignIn={() => setSigningIn(tile.kind)} />
           ))}
