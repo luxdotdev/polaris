@@ -127,6 +127,35 @@ devDependency, its config plugin only) adds to the Xcode project at prebuild.
   it the app's real snapshot, so the Swift reader, its merge of pushes, its ages and its links
   can't drift from the TypeScript (skipped where there is no `swiftc`).
 
+## The Live Activity and Dynamic Island
+
+Paper MX-AZ and MX-BA, decided in ADR 0088: one aggregate activity for every followed Host. It
+lives in the widgets extension (`targets/widgets/Live*.swift`); the app half is the local Expo
+module `modules/polaris-live-activity` and `src/live/`.
+
+- **Content.** Each Host's slice (`HostSlice` in `@polaris/protocol/relay`) is sealed to this
+  device's push key; the extension opens them with the key from the shared Keychain group and
+  folds them (`LiveSlices.swift`). A slice it can't open shows "Open Polaris to see every host".
+- **In front.** `useLiveActivity` (mounted with `usePush`) builds each Host's slice from its feed
+  (`src/live/content.ts`, cut to fit as the Daemon cuts) and the module seals them. It starts the
+  activity when anything works or waits on the user, updates it at most every 2 s, and ends it
+  once every Host has been idle 10 minutes.
+- **Suspended.** The activity's update token is registered with each linked Host
+  (`devices.registerLiveActivity`, `src/live/registration.ts`); each Daemon pushes its slice
+  through the Relay, which merges them into one liveactivity push. Unlink unregisters it.
+- **Answers.** Approve, Always here and Deny are `LiveAnswerIntent`s (`LiveActivityIntent`, Face ID
+  first). iOS runs the module's copy in the app; it hands the answer to JS (`takeAnswers`), which
+  sends it as a notification action's answer, with the same command id (`src/live/answer.ts`).
+  A question opens its agent session.
+- **Looks.** The lock screen follows the app's theme (`Theme.swift`); the island is system black
+  in Midnight's text colours. The celestials are generated: `bun scripts/liveCelestials.ts`.
+- **Checks.** `scripts/widgets.live.test.ts` folds the app's slices with `LiveSlices.swift` and
+  checks the generated celestials. `bun scripts/liveRender.ts <simulator udid> <out dir>` renders
+  every state in both themes to PNGs, for review without a lock screen.
+- **Probe.** A Debug build launched with `-PolarisLiveActivityProbe` seals two Hosts' slices,
+  starts the activity and takes it over, logging `POLARIS_LIVE …` (`log show --predicate
+  'eventMessage CONTAINS "POLARIS_LIVE"'`); the extension logs each render the same way.
+
 ## Phase 3's shared pieces
 
 - **The scan sheet.** `src/link/ScanSheet.tsx` is pairing's sheet (MX-AH, MX-AJ) and Link another

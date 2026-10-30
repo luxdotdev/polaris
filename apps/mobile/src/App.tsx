@@ -32,6 +32,7 @@ import { InboxProvider } from "./inbox/index.ts";
 import { HostsScreen } from "./hosts/HostsScreen.tsx";
 import { NewSessionGallery, newSessionGalleryOn } from "./newSession/Gallery.tsx";
 import { LinkScreen } from "./link/LinkScreen.tsx";
+import { useLiveActivity } from "./live/useLiveActivity.ts";
 import { usePush, usePushLinks } from "./push/usePush.ts";
 import { RelayProvider, useRelay } from "./relay/RelayProvider.tsx";
 import { runSelfCheck } from "./runtime/selfCheck.ts";
@@ -159,10 +160,11 @@ const Screen = () => {
   );
 };
 
-/** Registers for push with each linked Host and answers approval notifications. */
+/** Registers for push and the Live Activity with each linked Host, and answers from both. */
 const Push = () => {
   const relay = useRelay();
   usePush(relay.keys?.identity ?? null, relay.hosts, relay.loaded);
+  useLiveActivity(relay.keys?.identity ?? null, relay.hosts, relay.loaded);
 
   return null;
 };

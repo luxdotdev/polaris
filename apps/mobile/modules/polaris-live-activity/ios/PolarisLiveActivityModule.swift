@@ -43,17 +43,27 @@ public class PolarisLiveActivityModule: Module {
     /// Lets the intent that asked return: `id` is `<hostId>:<requestId>`.
     Function("answered") { (id: String) in LiveAnswers.shared.done(id) }
 
+    /// The live activity's update token, if it has one yet: a `pushToken` event may have gone
+    /// out before JS listened.
+    Function("pushToken") { () -> String? in
+      guard #available(iOS 17.2, *) else { return nil }
+      return current?.pushToken.map(hex)
+    }
+
     Function("enabled") { () -> Bool in
       guard #available(iOS 17.2, *) else { return false }
       return ActivityAuthorizationInfo().areActivitiesEnabled
     }
 
-    /// Starts the one activity (or adopts the live one) with each Host's slice JSON, sealed
-    /// here; null below iOS 17.2 or before the push key exists.
+    /// Starts the one activity with each Host's slice JSON, sealed here, or shows it on the live
+    /// one; null below iOS 17.2 or before the push key exists.
     AsyncFunction("start") { (slices: [String]) -> String? in
-      guard #available(iOS 17.2, *) else { return nil }
-      if let activity = current { return activity.id }
-      guard let state = try LiveSeal.state(slices) else { return nil }
+      guard #available(iOS 17.2, *), let state = try LiveSeal.state(slices) else { return nil }
+      if let activity = current {
+        self.watch(activity)
+        await activity.update(.init(state: state, staleDate: Date().addingTimeInterval(15 * 60)))
+        return activity.id
+      }
       let activity = try Activity.request(
         attributes: PolarisActivityAttributes(),
         content: .init(state: state, staleDate: Date().addingTimeInterval(15 * 60)),

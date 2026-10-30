@@ -14,7 +14,7 @@ enum LiveCopy {
     return "\(harness) needs you"
   }
 
-  static func more(_ needs: Int) -> String? { needs > 1 ? "+\(needs - 1)" : nil }
+  static func more(_ needs: Int) -> String? { needs > 1 ? "+\(needs - 1) more" : nil }
 
   static let unreadable = "Open Polaris to see every host"
   static let answerInApp = "Answer in Polaris"
@@ -202,13 +202,20 @@ struct LiveTakeover: View {
         LiveStar().fill(palette.needsYou.color).frame(width: 18, height: 18)
         Text(LiveCopy.needsYou(need.harness))
           .font(.system(size: 17, weight: .semibold)).foregroundStyle(palette.needsYouText.color)
-          .lineLimit(1).layoutPriority(1)
+          .lineLimit(1).minimumScaleFactor(0.8)
         Spacer(minLength: 8)
-        Text([host.name, LiveCopy.more(needs)].compactMap { $0 }.joined(separator: " · "))
-          .font(mono(13)).foregroundStyle(palette.textSubtle.color).lineLimit(1)
+        if let more = LiveCopy.more(needs) {
+          Text(more).font(mono(13)).foregroundStyle(palette.textSubtle.color).fixedSize()
+        }
       }
       VStack(alignment: .leading, spacing: 4) {
-        Text(need.session).font(.system(size: 15)).foregroundStyle(palette.textDefault.color).lineLimit(1)
+        HStack(spacing: 8) {
+          Text(need.session).font(.system(size: 15)).foregroundStyle(palette.textDefault.color).lineLimit(1)
+          Spacer(minLength: 0)
+          // The host stays readable; a long session title is cut first.
+          Text(host.name).font(mono(13)).foregroundStyle(palette.textSubtle.color).lineLimit(1)
+            .layoutPriority(1)
+        }
         Text(need.line).font(mono(13)).foregroundStyle(palette.textDefault.color).lineLimit(2)
           .padding(.horizontal, 12).padding(.vertical, 8)
           .frame(maxWidth: .infinity, alignment: .leading)

@@ -4,7 +4,7 @@
  */
 import { type HarnessKind, harnessEntry } from "@polaris/protocol";
 import type { Tone } from "@polaris/ui/celestial";
-import type { MobileColours } from "../theme";
+import type { MobileColours } from "../theme/appearance.ts";
 
 export type CelestialPalette = Readonly<Record<Tone, string>>;
 

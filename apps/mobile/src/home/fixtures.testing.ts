@@ -49,6 +49,7 @@ export interface SessionInput {
   readonly pinnedAt?: string | null;
   readonly celestial?: string | null;
   readonly lastReplyPreview?: string | null;
+  readonly origin?: AgentSession["origin"];
 }
 
 export const session = (input: SessionInput) =>
@@ -73,6 +74,7 @@ export const session = (input: SessionInput) =>
     pinnedAt: input.pinnedAt ?? null,
     celestial: input.celestial ?? null,
     lastReplyPreview: input.lastReplyPreview ?? null,
+    origin: input.origin ?? null,
     createdAt: AT,
     updatedAt: input.updatedAt ?? AT,
   });
