@@ -79,6 +79,8 @@ const line = (row: ThreadRow): string => {
       return `${row.index} ${row.label}${row.tone === "active" ? " (active)" : ""}${row.last ? " |" : ""}`;
     case "run":
       return `run: ${row.summary}${row.open ? " (open)" : ""}${row.last ? " |" : ""}`;
+    case "visualization":
+      return `visualization: ${row.visualization.title}`;
     default:
       return `${row.kind}: ${row.text}`;
   }

@@ -13,6 +13,7 @@ import { elapsed } from "./labels.ts";
 import type { OutgoingSteer } from "./outbox.ts";
 import type { OutgoingSend } from "./sends.ts";
 import { runKind, runSummary, toolLabel } from "./steps.ts";
+import { type Visualization, visualizationOf } from "../visualization/model.ts";
 
 /** What a finished Turn's long-press menu needs (MX-J). */
 export interface TurnFacts {
@@ -101,6 +102,8 @@ export type ThreadRow = RowBase &
         readonly last: boolean;
       }
     | { readonly kind: "error"; readonly text: string }
+    /** A `visualize` call: its own card, never folded into a run (DESIGN.md, Visualizations). */
+    | { readonly kind: "visualization"; readonly visualization: Visualization }
   );
 
 const basename = (path: string) => path.slice(path.lastIndexOf("/") + 1);
@@ -190,6 +193,7 @@ type Piece =
       readonly text: string;
     }
   | Step
+  | { readonly kind: "visualization"; readonly visualization: Visualization }
   | null;
 
 const pieceOf = (item: TurnItem): Piece =>
@@ -202,7 +206,11 @@ const pieceOf = (item: TurnItem): Piece =>
       Reasoning: (): Piece => null,
       CommandExecution: commandStep,
       FileChange: fileStep,
-      ToolCall: toolStep,
+      ToolCall: (call): Piece => {
+        const visualization = visualizationOf(call);
+
+        return visualization === null ? toolStep(call) : { kind: "visualization", visualization };
+      },
       Plan: planStep,
     })
   );
@@ -220,6 +228,9 @@ interface Placed {
 
 /** An ended Turn has nothing in flight: its unfinished plan reads as done, a running call stopped. */
 const settled = (piece: Piece, item: TurnItem): Piece => {
+  // A Visualization still drawing when its Turn ended never arrived: no card.
+  if (piece?.kind === "visualization") return piece.visualization.drawing ? null : piece;
+
   if (piece === null || piece.kind !== "step" || piece.tone !== "active") return piece;
 
   return Predicate.isTagged(item, "Plan")
@@ -301,6 +312,12 @@ const openRows = (
   const streamed = new Map(entry.streaming.map((live) => [live.itemId, live.text]));
 
   const place = ({ id, piece }: Placed, shown: boolean) => {
+    if (piece.kind === "visualization") {
+      rows.push({ ...piece, key: `${turn.id}:${id}`, turnId: turn.id });
+
+      return;
+    }
+
     if (piece.kind === "step") {
       step++;
 

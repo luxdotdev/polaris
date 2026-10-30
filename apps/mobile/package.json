@@ -23,6 +23,7 @@
     "@polaris/sdk": "workspace:*",
     "@polaris/syntax-diff": "workspace:*",
     "@polaris/ui": "workspace:*",
+    "@polaris/visualization": "workspace:*",
     "effect": "4.0.0-rc.118",
     "expo": "58.0.20",
     "expo-audio": "58.0.10",
