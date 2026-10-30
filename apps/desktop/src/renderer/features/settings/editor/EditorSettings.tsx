@@ -132,7 +132,7 @@ export const EditorSettings = ({
       scope={`${clientCopy().localHost} · language tools per host`}
       scopeIcon={<ScreenGlyph />}
     >
-      <SettingsGrid className="items-stretch">
+      <SettingsGrid>
         <Preferences
           record={app.record}
           failed={app.failed}

@@ -66,7 +66,7 @@ export function SettingsCard({
       </header>
       {children}
       {footer ? (
-        <footer className="pl-gap flex min-h-10 items-center justify-between gap-3">
+        <footer className="pl-gap mt-auto flex min-h-10 items-center justify-between gap-3">
           <Kicker className="min-w-0 truncate font-normal tracking-[0.06em]">{status}</Kicker>
           {action}
         </footer>

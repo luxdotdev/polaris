@@ -266,7 +266,7 @@ export const TabCompletion = ({ hosts }: { readonly hosts: ReadonlyArray<HostVie
           !state.enabled && "opacity-(--opacity-dimmed)"
         )}
       >
-        <SettingsGrid className="items-stretch">
+        <SettingsGrid>
           <SettingsWell>
             <EditPredictionRows hosts={hosts} onError={setError} />
           </SettingsWell>

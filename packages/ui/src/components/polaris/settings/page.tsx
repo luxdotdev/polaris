@@ -74,13 +74,11 @@ export function SettingsPage({
   );
 }
 
-/** Two cards side by side once their column has ~760px; one column below that. */
+/** Two cards side by side once their column has ~760px, as tall as each other; one column below that. */
 export function SettingsGrid({ className, children, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div data-slot="settings-grid" className="@container" {...props}>
-      <div className={cn("gap-gap grid items-start @[47.5rem]:grid-cols-2", className)}>
-        {children}
-      </div>
+      <div className={cn("gap-gap grid @[47.5rem]:grid-cols-2", className)}>{children}</div>
     </div>
   );
 }
