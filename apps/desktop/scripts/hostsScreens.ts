@@ -8,7 +8,6 @@
  *   node scripts/hostsScreens.ts --out <dir> [--build]
  */
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { _electron as electron, type Page } from "playwright-core";
@@ -27,7 +26,8 @@ if (out === null) throw new Error("--out <dir> is required");
 if (args.includes("--build"))
   spawnSync("bun", [join(APP_DIR, "scripts/build.ts"), "--no-app"], { stdio: "inherit" });
 
-const home = mkdtempSync(join(tmpdir(), "polaris-hosts-"));
+// A short path: the Daemon's Unix socket lives under it.
+const home = mkdtempSync("/tmp/pgh-");
 
 const daemon = await startDaemon({ home, benchHarness: true });
 
@@ -43,12 +43,18 @@ const app = await electron.launch({
   },
 });
 
-const appearance = async (page: Page, theme: string, density: string) => {
+/** A look: `dark` is Moonlit, `midnight` Midnight's dark, `light` light. */
+const appearance = async (page: Page, look: string, density: string) => {
+  const theme = look === "light" ? "light" : "dark";
+  const darkTheme = look === "midnight" ? "midnight" : "moonlit";
+
   await page.evaluate(
-    `Promise.all([window.polaris.request("settings.setTheme", { theme: "${theme}" }), window.polaris.request("settings.setDensity", { density: "${density}" })])`
+    `window.polaris.request("settings.setAppearance", { patch: ${JSON.stringify({ theme, darkTheme, density })} })`
   );
   await page
-    .locator(`html[data-theme="${theme}"][data-density="${density}"]`)
+    .locator(
+      `html[data-theme="${theme}"][data-density="${density}"]${theme === "dark" ? `[data-theme-dark="${darkTheme}"]` : ""}`
+    )
     .waitFor({ state: "attached" });
   await page.waitForTimeout(400);
 };
@@ -91,7 +97,7 @@ const expectText = async (page: Page, text: string) => {
   console.log(`hosts: saw "${text}"`);
 };
 
-const THEMES = ["dark", "light"];
+const THEMES = ["dark", "midnight", "light"];
 
 const DENSITIES = ["calm", "balanced", "compact"];
 
@@ -208,6 +214,33 @@ try {
   await page
     .locator('[data-testid="keep-daemons-up-to-date"] [role="switch"][data-state="unchecked"]')
     .waitFor();
+
+  // The list's sparklines advance with each sample, and freeze on their last frame under Reduce Motion.
+  await open(page, "states");
+  await appearance(page, "dark", "calm");
+
+  const sparklines = async () =>
+    Promise.all((await page.getByTestId("sparkline").all()).map((line) => line.screenshot()));
+
+  for (const motion of ["full", "reduce"]) {
+    await page.evaluate(
+      `window.polaris.request("settings.setAppearance", { patch: { motion: "${motion}" } })`
+    );
+    await page.waitForTimeout(500);
+    const before = await sparklines();
+
+    await page.waitForTimeout(3_000);
+    const after = await sparklines();
+    const moved = before.some((frame, i) => !frame.equals(after[i] ?? Buffer.alloc(0)));
+
+    if (moved !== (motion === "full"))
+      throw new Error(`the sparklines ${moved ? "moved" : "stood still"} with motion ${motion}`);
+    console.log(`hosts: sparklines ${moved ? "advance" : "are still"} with motion ${motion}`);
+  }
+
+  await page.evaluate(
+    `window.polaris.request("settings.setAppearance", { patch: { motion: "system" } })`
+  );
   console.log("hosts: ok");
 } finally {
   await app.close();
