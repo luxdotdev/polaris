@@ -5,13 +5,15 @@
  * granted back once the consumer has taken it. Neither side's buffer can grow past its window.
  */
 import { Cause, Deferred, Effect, Exit, Queue, Stream } from "effect";
-import { BLOB_CHUNK_BYTES } from "./frame.ts";
 import { type ByteTransport, TransportError } from "./wire.ts";
 
-/** The peer's allowance: `reserve` waits while sending would exceed it; `grant` returns what it consumed. */
+/** The peer's allowance: `reserve` takes what credit is free; `grant` returns what the peer consumed. */
 export interface CreditWindow {
-  /** Takes `bytes` (at most the window) from the allowance, waiting for credit when it is short. */
-  readonly reserve: (bytes: number) => Effect.Effect<void, TransportError>;
+  /**
+   * Reserves up to `bytes` of the allowance and answers how many it took (1..min(bytes, window)).
+   * Waits only when none is free, so a write larger than the window never deadlocks on it.
+   */
+  readonly reserve: (bytes: number) => Effect.Effect<number, TransportError>;
   /** The peer consumed `bytes`. False when that is more than was outstanding, or not a count. */
   readonly grant: (bytes: number) => boolean;
   /** Fails every waiting and future `reserve`. */
@@ -21,8 +23,8 @@ export interface CreditWindow {
 }
 
 interface Waiter {
-  readonly bytes: number;
-  readonly resume: (effect: Effect.Effect<void, TransportError>) => void;
+  readonly want: number;
+  readonly resume: (effect: Effect.Effect<number, TransportError>) => void;
 }
 
 export const makeCreditWindow = (window: number): CreditWindow => {
@@ -40,40 +42,38 @@ export const makeCreditWindow = (window: number): CreditWindow => {
         continue;
       }
 
-      if (head.bytes > available) return;
-      available -= head.bytes;
+      if (available <= 0) return;
+      const take = Math.min(head.want, available);
+      available -= take;
       waiters.shift();
-      head.resume(Effect.void);
+      head.resume(Effect.succeed(take));
     }
   };
 
   return {
     reserve: (bytes) =>
-      Effect.callback<void, TransportError>((resume) => {
+      Effect.callback<number, TransportError>((resume) => {
         if (failure !== null) {
           resume(Effect.fail(failure));
 
           return;
         }
 
-        if (bytes > window) {
-          resume(
-            Effect.fail(
-              new TransportError({ message: `${bytes} bytes exceed the ${window}-byte window` })
-            )
-          );
+        if (bytes < 1) {
+          resume(Effect.succeed(0));
 
           return;
         }
 
-        if (waiters.length === 0 && bytes <= available) {
-          available -= bytes;
-          resume(Effect.void);
+        if (waiters.length === 0 && available > 0) {
+          const take = Math.min(bytes, available);
+          available -= take;
+          resume(Effect.succeed(take));
 
           return;
         }
 
-        const waiter: Waiter = { bytes, resume };
+        const waiter: Waiter = { want: bytes, resume };
         waiters.push(waiter);
 
         return Effect.sync(() => {
@@ -132,7 +132,6 @@ export const makeByteStreamEndpoint = Effect.fnUntraced(function* <
   /** Only ever fails, and only on `fail`: a clean close lets `incoming` drain to its blob's end. */
   const failed = yield* Deferred.make<never, TransportError>();
   const peerCredit = makeCreditWindow(options.peerWindow);
-  const pieceBytes = Math.min(options.peerWindow, BLOB_CHUNK_BYTES);
   const grantThreshold = Math.max(1, Math.floor(options.window / 4));
   let ungranted = 0;
   let isClosed = false;
@@ -167,11 +166,14 @@ export const makeByteStreamEndpoint = Effect.fnUntraced(function* <
 
   const write = (bytes: Uint8Array): Effect.Effect<void, TransportError> =>
     Effect.gen(function* () {
-      for (let offset = 0; offset < bytes.byteLength; offset += pieceBytes) {
+      let offset = 0;
+
+      while (offset < bytes.byteLength) {
         if (isClosed) return yield* new TransportError({ message: "byte stream closed" });
-        const piece = bytes.subarray(offset, offset + pieceBytes);
-        yield* peerCredit.reserve(piece.byteLength);
-        yield* Queue.offer(queue, piece);
+        // Send what credit is free now (the Wire re-splits into frames); wait only when none is.
+        const took = yield* peerCredit.reserve(bytes.byteLength - offset);
+        yield* Queue.offer(queue, bytes.subarray(offset, offset + took));
+        offset += took;
       }
     });
 
@@ -196,8 +198,9 @@ export const makeByteStreamEndpoint = Effect.fnUntraced(function* <
 });
 
 /**
- * Copies bytes both ways between two transports until either side's incoming ends or fails,
- * then closes both. Answers the error that ended it, if any.
+ * Copies bytes both ways between two transports until either side's incoming ends or fails, and
+ * answers the error that ended it, if any. It closes nothing: the caller decides, so a failure
+ * can abort (not cleanly end) the streams and never reads as a truncated-but-clean EOF.
  */
 export const pipeTransports = (
   a: ByteTransport,
@@ -207,7 +210,6 @@ export const pipeTransports = (
     from.incoming.pipe(Stream.runForEach(to.write));
 
   return Effect.raceFirst(copy(a, b), copy(b, a)).pipe(
-    Effect.match({ onFailure: (error) => error, onSuccess: () => null }),
-    Effect.tap(() => Effect.andThen(a.close, b.close))
+    Effect.match({ onFailure: (error) => error, onSuccess: () => null })
   );
 };

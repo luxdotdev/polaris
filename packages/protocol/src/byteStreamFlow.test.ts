@@ -37,6 +37,37 @@ describe("makeCreditWindow", () => {
     });
   });
 
+  test("a reserve takes only what is free rather than waiting for the whole amount", async () => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const window = makeCreditWindow(100);
+        const first = yield* window.reserve(30);
+        // Only 70 is free: a reserve of 100 takes the 70 instead of blocking for the full 100.
+        const second = yield* window.reserve(100);
+
+        let resumed = false;
+
+        const atZero = yield* Effect.forkChild(
+          window.reserve(10).pipe(Effect.tap(() => Effect.sync(() => (resumed = true))))
+        );
+
+        yield* Effect.sleep("20 millis");
+        const waitedAtZero = !resumed;
+
+        expect(window.grant(10)).toBe(true);
+        const third = yield* Fiber.join(atZero);
+
+        return { first, second, waitedAtZero, third, outstanding: window.outstanding() };
+      })
+    ).then((result) => {
+      expect(result.first).toBe(30);
+      expect(result.second).toBe(70);
+      expect(result.waitedAtZero).toBe(true);
+      expect(result.third).toBe(10);
+      expect(result.outstanding).toBe(100);
+    });
+  });
+
   test("grant is refused beyond what is outstanding, or when not a positive integer", () => {
     const window = makeCreditWindow(100);
     Effect.runSync(window.reserve(60));

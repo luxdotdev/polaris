@@ -62,7 +62,10 @@ const openHostAddress = (
       const items = yield* Queue.unbounded<HostAddressStreamItem, Cause.Done>();
 
       const endpoint = yield* makeByteStreamEndpoint({
-        incoming: blobs.takeStream(payload.upstream, { longLived: true }),
+        incoming: blobs.takeStream(payload.upstream, {
+          longLived: true,
+          maxUnread: BYTE_STREAM_WINDOW_BYTES,
+        }),
         window: BYTE_STREAM_WINDOW_BYTES,
         peerWindow: payload.window,
         grant: (bytes) =>
@@ -92,8 +95,13 @@ const openHostAddress = (
         })
       );
 
-      // Either side ending closes both; then the item stream ends, which closes the socket.
+      // A clean EOF ends the downstream blob; a socket error aborts it, so the Client's read
+      // fails rather than reading as a short clean body. Then the items end and the socket closes.
       yield* pipeTransports(socket, endpoint.transport).pipe(
+        Effect.flatMap((error) =>
+          Effect.sync(() => (error === null ? endpoint.end() : endpoint.fail(error.message)))
+        ),
+        Effect.andThen(socket.close),
         Effect.andThen(Queue.end(items)),
         Effect.forkScoped
       );

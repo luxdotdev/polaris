@@ -342,4 +342,45 @@ describe("wire", () => {
 
     expect(err._tag).toBe("TransportError");
   });
+
+  test("a long-lived take with a window aborts a sender that leaves more than it unread", async () => {
+    const result = await run(
+      Effect.gen(function* () {
+        const { a, b } = yield* makePair();
+        const wa = yield* makeWire(a, () => Effect.void);
+        const wb = yield* makeWire(b, () => Effect.void);
+
+        // A sender that ignores credit: 300 KiB pushed against a 100 KiB window, stream still open.
+        const over = yield* wa.offerBlob(
+          Stream.fromIterable([bytes(300 * 1024)]).pipe(Stream.concat(Stream.never))
+        );
+
+        // Let every frame arrive and sit unread before the consumer claims the stream.
+        yield* Effect.sleep("150 millis");
+
+        const aborted = yield* wb
+          .takeBlobStream(over, { longLived: true, maxUnread: 100 * 1024 })
+          .pipe(Stream.runCollect, Effect.flip);
+
+        // A compliant sender inside the window still transfers whole.
+        const under = yield* wa.offerBlob(bytes(80 * 1024, 7));
+        yield* Effect.sleep("50 millis");
+
+        const total = yield* wb
+          .takeBlobStream(under, { longLived: true, maxUnread: 100 * 1024 })
+          .pipe(
+            Stream.runFold(
+              () => 0,
+              (n, chunk) => n + chunk.byteLength
+            )
+          );
+
+        return { reason: aborted.reason, message: aborted.message, total };
+      })
+    );
+
+    expect(result.reason).toBe("too-large");
+    expect(result.message).toContain("receive window");
+    expect(result.total).toBe(80 * 1024);
+  });
 });

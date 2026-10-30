@@ -127,6 +127,12 @@ export interface TakeStreamOptions {
    * `maxBufferedBlobBytes` still applies.
    */
   readonly longLived?: boolean;
+  /**
+   * The receive window (ADR 0093): the sender may never leave more than this many bytes unread.
+   * When set, a sender that ignores its credit and pushes past it aborts the blob before the
+   * extra is buffered, so one stream cannot fill the shared blob buffer. Unset means unbounded.
+   */
+  readonly maxUnread?: number;
 }
 
 /** Frames buffered per outgoing stream-sourced blob before its source is paused. */
@@ -150,6 +156,8 @@ interface InBlob {
   claimed: false | "whole" | "stream";
   idleTimeout: boolean;
   longLived: boolean;
+  /** The consumer's receive window; the unread bytes (`size`) may not exceed it. Null is unbounded. */
+  maxUnread: number | null;
   touched: number;
   failure: BlobError | null;
   /** A streaming consumer waiting for the next chunk. */
@@ -377,6 +385,7 @@ export const makeWire = Effect.fnUntraced(function* (
         claimed: false,
         idleTimeout: true,
         longLived: false,
+        maxUnread: null,
         touched: Date.now(),
         failure: null,
         wake: null,
@@ -406,6 +415,19 @@ export const makeWire = Effect.fnUntraced(function* (
     }
   };
 
+  /** Which blob or buffer limit `length` more bytes would breach, as a message, or null. */
+  const sizeBreach = (blob: InBlob, length: number): string | null => {
+    if (!blob.longLived && blob.received + length > maxBlobBytes)
+      return `blob exceeds ${maxBlobBytes} bytes`;
+
+    if (bufferedBytes + length > maxBuffered) return "connection blob buffer is full";
+
+    if (blob.maxUnread !== null && blob.size + length > blob.maxUnread)
+      return "the sender exceeded the stream's receive window";
+
+    return null;
+  };
+
   const onBlobFrame = (frame: Extract<Frame, { kind: "blob" }>) => {
     const blob = inBlob(frame.blobId);
 
@@ -420,11 +442,9 @@ export const makeWire = Effect.fnUntraced(function* (
     const length = frame.bytes.byteLength;
 
     if (length > 0) {
-      if (!blob.longLived && blob.received + length > maxBlobBytes)
-        return failBlob(frame.blobId, blob, "too-large", `blob exceeds ${maxBlobBytes} bytes`);
+      const breach = sizeBreach(blob, length);
 
-      if (bufferedBytes + length > maxBuffered)
-        return failBlob(frame.blobId, blob, "too-large", "connection blob buffer is full");
+      if (breach !== null) return failBlob(frame.blobId, blob, "too-large", breach);
       // A view into a much larger read buffer would keep all of it alive; copy those.
       const bytes = frame.bytes.buffer.byteLength > 2 * length ? frame.bytes.slice() : frame.bytes;
       blob.parts.push(bytes);
@@ -517,7 +537,12 @@ export const makeWire = Effect.fnUntraced(function* (
       blob.claimed = "stream";
       blob.longLived = takeOptions.longLived ?? false;
       blob.idleTimeout = !blob.longLived && (takeOptions.idleTimeout ?? true);
+      blob.maxUnread = takeOptions.maxUnread ?? null;
       blob.touched = Date.now();
+
+      // Frames that arrived before the consumer claimed may already be past the window.
+      if (blob.maxUnread !== null && blob.size > blob.maxUnread)
+        failBlob(blobId, blob, "too-large", "the sender exceeded the stream's receive window");
 
       const pull = Effect.callback<
         readonly [Uint8Array, ...Array<Uint8Array>],

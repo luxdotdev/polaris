@@ -26,6 +26,7 @@ import {
   Deferred,
   type Duration,
   Effect,
+  Exit,
   Layer,
   Queue,
   type Scope,
@@ -52,6 +53,9 @@ export class BrowserStreamRefused extends Schema.TaggedError<BrowserStreamRefuse
 
 /** How long the hosting Desktop App has to answer an `Open` before it counts as refused. */
 export const BROWSER_STREAM_ACCEPT_TIMEOUT: Duration.Input = "30 seconds";
+
+/** Most Browsers one connection may claim at once: a bound so a bad Client can't grow `claims`. */
+export const MAX_CLAIMS_PER_CONNECTION = 256;
 
 /** What the Client answers an `Open` with. */
 interface Accepted {
@@ -150,8 +154,8 @@ export class BrowserHosting extends Context.Service<
   ): BrowserHosting["Service"] {
     const acceptTimeout = options.acceptTimeout ?? BROWSER_STREAM_ACCEPT_TIMEOUT;
     const registrations = new Map<number, Registration>();
-    /** A `claim` that raced ahead of its `browser.host`: resolved when the connection registers. */
-    const awaitingRegistration = new Map<number, Deferred.Deferred<Registration>>();
+    /** `claim`s that raced ahead of their `browser.host`: each resolves when the connection registers. */
+    const awaitingRegistration = new Map<number, Set<Deferred.Deferred<Registration>>>();
     /** The connection that last claimed each session's Browser. */
     const claims = new Map<SessionId, number>();
     let registrationCounter = 0;
@@ -191,6 +195,20 @@ export class BrowserHosting extends Context.Service<
     const revokeSession = (registration: Registration, sessionId: SessionId) => {
       for (const [streamId, state] of registration.streams)
         if (state.sessionId === sessionId) endStream(registration, streamId, "revoked", true);
+    };
+
+    /** Every connection but `keep` loses `sessionId`: a hosting move revokes the old recipient's streams. */
+    const revokeOthers = (sessionId: SessionId, keep: number | null) => {
+      for (const registration of registrations.values())
+        if (registration.connectionId !== keep) revokeSession(registration, sessionId);
+    };
+
+    const claimCount = (connectionId: number) => {
+      let count = 0;
+
+      for (const holder of claims.values()) if (holder === connectionId) count++;
+
+      return count;
     };
 
     const unregister = (registration: Registration) => {
@@ -257,11 +275,12 @@ export class BrowserHosting extends Context.Service<
       };
 
       registrations.set(connectionId, registration);
-      const waiter = awaitingRegistration.get(connectionId);
+      const waiters = awaitingRegistration.get(connectionId);
 
-      if (waiter !== undefined) {
+      if (waiters !== undefined) {
         awaitingRegistration.delete(connectionId);
-        Deferred.doneUnsafe(waiter, Effect.succeed(registration));
+
+        for (const waiter of waiters) Deferred.doneUnsafe(waiter, Effect.succeed(registration));
       }
 
       yield* Effect.addFinalizer(() => Effect.sync(() => unregister(registration)));
@@ -307,43 +326,56 @@ export class BrowserHosting extends Context.Service<
         })
       );
 
-      const answer = yield* Deferred.await(accepted).pipe(
-        Effect.timeoutOrElse({
-          duration: acceptTimeout,
-          orElse: () =>
-            Effect.fail(
-              new BrowserStreamRefused({
-                sessionId,
-                reason: "the hosting Desktop App did not answer in time",
-              })
+      // A failed or interrupted open frees its quota, entry and downstream blob at once, rather
+      // than holding them until the caller's scope closes.
+      return yield* Effect.gen(function* () {
+        const answer = yield* Deferred.await(accepted).pipe(
+          Effect.timeoutOrElse({
+            duration: acceptTimeout,
+            orElse: () =>
+              Effect.fail(
+                new BrowserStreamRefused({
+                  sessionId,
+                  reason: "the hosting Desktop App did not answer in time",
+                })
+              ),
+          })
+        );
+
+        const endpoint = yield* makeByteStreamEndpoint({
+          incoming: host.blobs.takeStream(answer.upstream, {
+            longLived: true,
+            maxUnread: BYTE_STREAM_WINDOW_BYTES,
+          }),
+          window: BYTE_STREAM_WINDOW_BYTES,
+          peerWindow: answer.window,
+          grant: (bytes) =>
+            Effect.asVoid(
+              Queue.offer(host.items, BrowserHostItem.cases.Credit.make({ streamId, bytes }))
             ),
-        })
+        });
+
+        // Refused or revoked while the open was waiting: the entry is gone already.
+        if (host.streams.get(streamId)?.kind !== "pending") {
+          endpoint.fail("browser stream revoked");
+
+          return yield* new BrowserStreamRefused({ sessionId, reason: "revoked" });
+        }
+
+        host.streams.set(streamId, { kind: "open", sessionId, endpoint });
+        yield* Deferred.succeed(outgoing, endpoint.outgoing);
+
+        return {
+          ...endpoint.transport,
+          close: Effect.sync(() => endStream(host, streamId, "closed", true)),
+        } satisfies ByteTransport;
+      }).pipe(
+        Effect.onExit((exit) =>
+          Exit.isSuccess(exit)
+            ? Effect.void
+            : Effect.sync(() => endStream(host, streamId, "refused", true))
+        )
       );
-
-      const endpoint = yield* makeByteStreamEndpoint({
-        incoming: host.blobs.takeStream(answer.upstream, { longLived: true }),
-        window: BYTE_STREAM_WINDOW_BYTES,
-        peerWindow: answer.window,
-        grant: (bytes) =>
-          Effect.asVoid(
-            Queue.offer(host.items, BrowserHostItem.cases.Credit.make({ streamId, bytes }))
-          ),
-      });
-
-      // Refused or revoked while the open was waiting: the entry is gone already.
-      if (host.streams.get(streamId)?.kind !== "pending") {
-        endpoint.fail("browser stream revoked");
-
-        return yield* new BrowserStreamRefused({ sessionId, reason: "revoked" });
-      }
-
-      host.streams.set(streamId, { kind: "open", sessionId, endpoint });
-      yield* Deferred.succeed(outgoing, endpoint.outgoing);
-
-      return {
-        ...endpoint.transport,
-        close: Effect.sync(() => endStream(host, streamId, "closed", true)),
-      } satisfies ByteTransport;
     });
 
     /** The stream `connectionId` was offered, or `NotFound`: another connection's is invisible. */
@@ -361,39 +393,55 @@ export class BrowserHosting extends Context.Service<
     const awaitRegistered = Effect.fn("BrowserHosting.awaitRegistered")(function* (
       connectionId: number
     ) {
-      let waiter = awaitingRegistration.get(connectionId);
+      const waiter = yield* Deferred.make<Registration>();
+      const waiters = awaitingRegistration.get(connectionId) ?? new Set();
+      waiters.add(waiter);
+      awaitingRegistration.set(connectionId, waiters);
 
-      if (waiter === undefined) {
-        waiter = yield* Deferred.make<Registration>();
-        awaitingRegistration.set(connectionId, waiter);
-      }
+      // Drop only this claim's waiter, so interrupting one claim cannot strand another.
+      const forget = Effect.sync(() => {
+        const set = awaitingRegistration.get(connectionId);
+
+        if (set === undefined) return;
+        set.delete(waiter);
+
+        if (set.size === 0) awaitingRegistration.delete(connectionId);
+      });
 
       return yield* Deferred.await(waiter).pipe(
         Effect.timeoutOrElse({
           duration: acceptTimeout,
-          orElse: () =>
-            Effect.sync(() => awaitingRegistration.delete(connectionId)).pipe(
-              Effect.andThen(new Unsupported({ capability: "browser.host" }))
-            ),
-        })
+          orElse: () => Effect.andThen(forget, new Unsupported({ capability: "browser.host" })),
+        }),
+        // A Client that claimed without registering, then cancelled or dropped, must not leak its waiter.
+        Effect.onInterrupt(() => forget)
       );
     });
 
     return BrowserHosting.of({
       register,
       claim: Effect.fn("BrowserHosting.claim")(function* (connectionId, sessionId) {
-        const registration =
-          registrations.get(connectionId) ?? (yield* awaitRegistered(connectionId));
+        yield* registrations.get(connectionId) === undefined
+          ? awaitRegistered(connectionId)
+          : Effect.void;
 
-        const previous = claims.get(sessionId);
+        // Bound a connection's claims so a Client cannot grow `claims` without limit.
+        if (
+          claims.get(sessionId) !== connectionId &&
+          claimCount(connectionId) >= MAX_CLAIMS_PER_CONNECTION
+        )
+          return yield* new NotFound({ what: "browser claim slot", id: sessionId });
+
         claims.set(sessionId, connectionId);
-        const moved = previous === undefined ? undefined : registrations.get(previous);
-
-        if (moved !== undefined && moved !== registration) revokeSession(moved, sessionId);
+        // Whoever hosted it before (an explicit claim or the presence fallback) loses its streams.
+        revokeOthers(sessionId, connectionId);
       }),
       release: (connectionId, sessionId) =>
         Effect.sync(() => {
-          if (claims.get(sessionId) === connectionId) claims.delete(sessionId);
+          if (claims.get(sessionId) !== connectionId) return;
+          claims.delete(sessionId);
+          // Hosting reroutes to the fallback; the releaser (and anyone not the new host) loses it.
+          revokeOthers(sessionId, hostOf(sessionId)?.connectionId ?? null);
         }),
       current,
       open,
@@ -401,9 +449,12 @@ export class BrowserHosting extends Context.Service<
         function* (connectionId, streamId, upstream, window) {
           const { state } = yield* owned(connectionId, streamId);
 
-          // Accepting twice, or after the stream opened, is not an accept.
+          // Accepting twice, or after the stream opened, is not an accept. The `succeed` result
+          // is the atomic guard: a second accept that races the first loses and is refused.
           if (state.kind !== "pending") return yield* notFound(streamId);
-          yield* Deferred.succeed(state.accepted, { upstream, window });
+          const won = yield* Deferred.succeed(state.accepted, { upstream, window });
+
+          if (!won) return yield* notFound(streamId);
         }
       ),
       close: Effect.fn("BrowserHosting.close")(function* (connectionId, streamId, reason) {

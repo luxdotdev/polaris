@@ -91,7 +91,10 @@ export const openHostAddressStream = Effect.fnUntraced(function* (
     Effect.gen(function* () {
       if (Predicate.isTagged(item, "Opened")) {
         endpoint = yield* makeByteStreamEndpoint({
-          incoming: session.blobs.takeStream(item.downstream, { longLived: true }),
+          incoming: session.blobs.takeStream(item.downstream, {
+            longLived: true,
+            maxUnread: BYTE_STREAM_WINDOW_BYTES,
+          }),
           window: BYTE_STREAM_WINDOW_BYTES,
           peerWindow: item.window,
           grant: creditFor(session, item.streamId),
@@ -198,7 +201,10 @@ export const hostBrowsers = Effect.fnUntraced(function* (
       const upstream = yield* session.blobs.offer(Stream.unwrap(Deferred.await(outgoing)));
 
       const endpoint = yield* makeByteStreamEndpoint({
-        incoming: session.blobs.takeStream(item.downstream, { longLived: true }),
+        incoming: session.blobs.takeStream(item.downstream, {
+          longLived: true,
+          maxUnread: BYTE_STREAM_WINDOW_BYTES,
+        }),
         window: BYTE_STREAM_WINDOW_BYTES,
         peerWindow: item.window,
         grant: creditFor(session, item.streamId),

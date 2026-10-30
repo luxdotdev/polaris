@@ -14,11 +14,15 @@ import { Effect, type Scope } from "effect";
 
 type Callback = (error?: Error | null) => void;
 
+/** How long a graceful `end` waits for a stuck peer to drain before it force-terminates. */
+const DRAIN_LIMIT_MS = 10_000;
+
 export class BunSocketStream extends EventEmitter {
   destroyed = false;
   writable = true;
   private pending: Array<{ bytes: Uint8Array; callback: Callback }> = [];
   private endAfterFlush = false;
+  private drainDeadline: ReturnType<typeof setTimeout> | undefined;
 
   constructor(private readonly socket: Socket<BunSocketStream | undefined>) {
     super();
@@ -68,6 +72,8 @@ export class BunSocketStream extends EventEmitter {
       head.callback();
     }
 
+    this.clearDrainDeadline();
+
     if (this.endAfterFlush) this.socket.end();
     this.emit("drain");
   }
@@ -80,17 +86,47 @@ export class BunSocketStream extends EventEmitter {
     this.socket.resume();
   }
 
+  private clearDrainDeadline(): void {
+    if (this.drainDeadline === undefined) return;
+    clearTimeout(this.drainDeadline);
+    this.drainDeadline = undefined;
+  }
+
   end(): void {
     this.writable = false;
 
-    if (this.pending.length === 0) this.socket.end();
-    else this.endAfterFlush = true;
+    if (this.pending.length === 0) {
+      this.socket.end();
+
+      return;
+    }
+
+    // Wait for a stuck peer to drain, but not forever: force-terminate if it never does.
+    this.endAfterFlush = true;
+    this.drainDeadline ??= setTimeout(() => this.terminate(), DRAIN_LIMIT_MS);
+    this.drainDeadline.unref?.();
+  }
+
+  /** Abrupt close (a disconnect or a cancelled scope): drop what is queued and reset the socket. */
+  terminate(): void {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    this.writable = false;
+    this.clearDrainDeadline();
+    const pending = this.pending;
+    this.pending = [];
+
+    for (const { callback } of pending) callback(new Error("socket terminated"));
+    this.socket.terminate();
+    this.emit("end");
+    this.emit("close");
   }
 
   closed(error?: Error): void {
     if (this.destroyed) return;
     this.destroyed = true;
     this.writable = false;
+    this.clearDrainDeadline();
     const pending = this.pending;
     this.pending = [];
 
@@ -188,5 +224,6 @@ export const connectTcp = (
         // `connectError` already settled the callback; the rejection is the same failure.
       });
     }),
-    (stream) => Effect.sync(() => stream.end())
+    // The scope ending is a cancel or disconnect: terminate so a stuck peer can't pin the socket.
+    (stream) => Effect.sync(() => stream.terminate())
   ).pipe(Effect.map(toTransport));
