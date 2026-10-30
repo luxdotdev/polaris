@@ -7,6 +7,7 @@ import type { WorkspaceId } from "@polaris/protocol";
 import { type BrowserWindow, session, type WebContents, WebContentsView } from "electron";
 import type { BrowserTab, BrowserTabId } from "../../shared/browserContract.ts";
 import { allowedUrl, isHostAddress } from "./navigation.ts";
+import { distrustInSession } from "../tls/distrust.ts";
 import type { TabChange, ViewHost } from "./registry.ts";
 
 /** The Workspace's partition: its logins and cookies, shared by its sessions' Browsers. */
@@ -69,6 +70,11 @@ export const electronViews = (deps: ViewsDeps) => {
     let ready = configured.get(name);
 
     if (ready === undefined) {
+      // Pages get no permissions (camera, notifications, devices…) and the app's TLS distrust list.
+      partition.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+      partition.setPermissionCheckHandler(() => false);
+      partition.setDevicePermissionHandler(() => false);
+      distrustInSession(partition);
       ready = deps.configureSession(hostKey, workspaceId, partition).catch((cause: unknown) => {
         console.warn("[browser] partition setup failed", name, cause);
       });

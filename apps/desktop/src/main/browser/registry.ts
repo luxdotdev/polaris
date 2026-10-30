@@ -18,6 +18,7 @@ import {
   activated,
   changed,
   emptyTabs,
+  MAX_TABS,
   findTab,
   kept,
   type KeptSession,
@@ -170,6 +171,9 @@ export const createRegistry = (deps: RegistryDeps) => {
       throw new BrowserRefused("This session's Browser is in another workspace");
 
     const before = stateOf(hostKey, sessionId) ?? emptyTabs(hostKey, sessionId, workspace);
+
+    if (before.tabs.length >= MAX_TABS) throw new BrowserRefused("This session has too many tabs");
+
     const tab = newTab(deps.nextId(), sessionId, target, openedBy);
     const state = withTab(before, tab);
 

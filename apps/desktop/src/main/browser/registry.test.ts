@@ -7,7 +7,7 @@ import {
   BrowserTabOpener,
 } from "../../shared/browserContract.ts";
 import { BrowserRefused, createRegistry, type ViewHost } from "./registry.ts";
-import type { KeptSession } from "./tabs.ts";
+import { type KeptSession, MAX_TABS } from "./tabs.ts";
 
 // SAFETY: test ids; the brands only mark where they came from.
 const sid = (id: string) => id as SessionId;
@@ -119,6 +119,15 @@ describe("tab lists", () => {
 
     expect(await refused(open(registry, "file:///etc/passwd"))).toBe(true);
     expect(await refused(open(registry, "javascript:alert(1)"))).toBe(true);
+  });
+
+  test("a session stops opening tabs at the cap, so popups can't open views without end", async () => {
+    const { registry, fake } = setup();
+
+    for (let n = 0; n < MAX_TABS; n++) await open(registry, `localhost:${3000 + n}`);
+
+    expect(await refused(open(registry, "localhost:9999"))).toBe(true);
+    expect(fake.live.size).toBe(MAX_TABS);
   });
 
   test("a session's Browser stays in its first workspace", async () => {

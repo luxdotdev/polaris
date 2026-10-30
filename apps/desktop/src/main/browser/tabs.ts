@@ -31,6 +31,9 @@ export const emptyTabs = (
   workspaceId: WorkspaceId
 ): SessionTabs => ({ hostKey, sessionId, workspaceId, tabs: [], active: null });
 
+/** A session's tabs at most, so a page opening popups can't open views without end. */
+export const MAX_TABS = 24;
+
 /** A tab just opened at `url`, before its first load. */
 export const newTab = (
   tabId: BrowserTabId,
