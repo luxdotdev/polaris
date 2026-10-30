@@ -541,6 +541,8 @@ export const defaultHandlers = (options: {
       Effect.fail(new Unsupported({ capability: "sessions.idle-compaction" })),
     "sessions.setIdleCompaction": () =>
       Effect.fail(new Unsupported({ capability: "sessions.idle-compaction" })),
+    "sessions.visuals": () => Effect.fail(new Unsupported({ capability: "sessions.visuals" })),
+    "sessions.setVisuals": () => Effect.fail(new Unsupported({ capability: "sessions.visuals" })),
     "continuity.watch": () => Stream.fail(new Unsupported({ capability: "session.continuity" })),
     "continuity.markRead": () => Effect.fail(new Unsupported({ capability: "session.continuity" })),
     "continuity.saveDraft": () =>

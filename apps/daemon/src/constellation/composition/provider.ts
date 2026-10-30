@@ -10,6 +10,7 @@ import type { SessionId } from "@polaris/protocol";
 import { ConstellationOwner } from "../runtime.ts";
 import { TransferStorage } from "../transfers/storage.ts";
 import { workerEnvironment } from "../host.ts";
+import { VisualsSettingsStore } from "../../visuals/index.ts";
 
 import { ConstellationHarness, type ConstellationHarnessDelegate } from "./attachments.ts";
 
@@ -47,6 +48,7 @@ export const attachmentProvider = Layer.effectDiscard(
     const storage = yield* TransferStorage;
     const owner = yield* ConstellationOwner;
     const tokens = yield* McpTokens;
+    const visuals = yield* VisualsSettingsStore;
     let endpoint: { origin: string; commands: ConstellationCommands } | undefined;
 
     const delegate: ConstellationHarnessDelegate = {
@@ -112,12 +114,13 @@ export const attachmentProvider = Layer.effectDiscard(
         if (bindings.length === 0) bindings.push(...plainBinding(model, sessionId));
 
         const installed = endpoint;
+        const { level } = yield* visuals.settings;
 
         const constellations =
           installed === undefined
             ? []
             : yield* Effect.forEach(bindings, (binding) =>
-                attachConstellation(binding, installed.origin, installed.commands).pipe(
+                attachConstellation(binding, installed.origin, installed.commands, level).pipe(
                   Effect.provideService(McpTokens, tokens),
                   Effect.orDie
                 )

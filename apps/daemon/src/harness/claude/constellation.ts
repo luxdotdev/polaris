@@ -12,7 +12,15 @@ export const claudeConstellationOptions = (
     preset: "claude_code",
     append: polarisInstructions({ constellations: attachments }),
   },
-  allowedTools: attachments.map((_, index) => `mcp__polaris${index === 0 ? "" : `_${index}`}__*`),
+  // Plan mode ignores the wildcard rule; only a tool's exact name lets it run unasked there.
+  allowedTools: attachments.flatMap((attachment, index) => {
+    const server = `mcp__polaris${index === 0 ? "" : `_${index}`}`;
+
+    return [
+      `${server}__*`,
+      ...attachment.tools.filter((t) => t.name === "visualize").map((t) => `${server}__${t.name}`),
+    ];
+  }),
   mcpServers: Object.fromEntries(
     attachments.map((attachment, index) => {
       const name = `polaris${index === 0 ? "" : `_${index}`}`;
@@ -28,9 +36,15 @@ export const claudeConstellationOptions = (
             if (!(schema instanceof z.ZodObject))
               throw new Error("Polaris tool input must be an object");
 
-            return tool(bound.name, bound.description, schema.shape, async (input) => ({
-              ...(await bound.call(Schema.decodeUnknownSync(Schema.Json)(input))),
-            }));
+            return tool(
+              bound.name,
+              bound.description,
+              schema.shape,
+              async (input) => ({
+                ...(await bound.call(Schema.decodeUnknownSync(Schema.Json)(input))),
+              }),
+              bound.annotations === undefined ? undefined : { annotations: bound.annotations }
+            );
           }),
         }),
       ];
