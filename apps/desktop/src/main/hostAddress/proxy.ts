@@ -188,7 +188,7 @@ export type ResponseScreen = Data.TaggedEnum<{
   NeedMore: Record<never, never>;
   /** Every head through the final one, without proxy auth headers, then the rest as sent. */
   Pass: { readonly bytes: Uint8Array };
-  /** A 407 or an unreadable status in any head, or heads too long: the proxy answers 502. */
+  /** A 407, an unreadable status or a misreadable head, or heads too long: the proxy answers 502. */
   Refuse: Record<never, never>;
 }>;
 
@@ -199,6 +199,10 @@ const STATUS = /http(?:\/[\d.]*)?[ \t]*(\d+)/i;
 
 /** Headers Chromium reads only from a proxy; from the Host they'd pass for this proxy's own. */
 const PROXY_AUTH_HEADER = /^proxy-authenticat(?:e|ion-info)[ \t]*:/i;
+
+const PROXY_AUTH_NAME = /proxy-authenticat/i;
+
+const BARE_CR = /\r(?!\n)/;
 
 const headEnd = (text: string, from: number) => {
   const crlf = text.indexOf("\n\r\n", from);
@@ -238,8 +242,12 @@ export const screenResponse = (bytes: Uint8Array): ResponseScreen => {
     const head = text.slice(at, end);
     const code = Number(STATUS.exec(head.slice(0, head.indexOf("\n")))?.[1] ?? 0);
 
-    if (code === 407 || code < 100) return ResponseScreen.Refuse();
-    heads.push(withoutProxyAuth(head));
+    const stripped = withoutProxyAuth(head);
+
+    // Chromium also ends lines at a bare CR; any proxy auth header left is one we misread.
+    if (code === 407 || code < 100 || BARE_CR.test(head) || PROXY_AUTH_NAME.test(stripped))
+      return ResponseScreen.Refuse();
+    heads.push(stripped);
 
     // Interim heads (100 Continue, 103 Early Hints) come before the final one; 101 is final.
     if (code >= 200 || code === 101) {

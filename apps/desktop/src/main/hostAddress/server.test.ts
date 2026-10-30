@@ -423,10 +423,22 @@ describe("a 407 from the Host", () => {
     expect(received).toBe(response);
   });
 
-  test("a response without a readable status gets a 502", async () => {
-    const proxy = await start({ respond: () => "SSH-2.0-OpenSSH_9.6\r\n\r\n" });
+  test.each([
+    ["without a readable status", () => "SSH-2.0-OpenSSH_9.6\r\n\r\n"],
+    [
+      "with a header after a bare CR",
+      (realm: string) => `HTTP/1.1 200 OK\r\nX-A: b\r${challenge(realm)}\r\n\r\nok`,
+    ],
+    ["with a bare CR anywhere in a head", () => "HTTP/1.1 200 OK\r\nX-A: b\rc\r\n\r\nok"],
+    [
+      "with a proxy auth header it can't strip",
+      (realm: string) => `HTTP/1.1 200 OK\r\n\v${challenge(realm)}\r\n\r\nok`,
+    ],
+  ])("a response %s gets a 502", async (_, respond) => {
+    const proxy = await start({ respond });
     const { received } = await exchange(proxy.port, get(proxy.secret));
 
     expect(statusOf(received)).toBe("HTTP/1.1 502 Bad Gateway");
+    expect(received).not.toContain("Proxy-Authenticate");
   });
 });
