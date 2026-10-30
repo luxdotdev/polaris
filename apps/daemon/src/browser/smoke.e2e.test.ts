@@ -2,18 +2,27 @@
  * The CDP relay end to end (ENG-616): the real relay, a real Electron `WebContentsView` behind
  * the Desktop facade (`apps/desktop/src/main/browserCdp/smoke/electronMain.ts`), and the real
  * agent-browser binary driving a real page. Skipped without Electron or `AGENT_BROWSER_BIN`
- * (or `agent-browser` on PATH).
+ * (or `agent-browser` on PATH). `POLARIS_E2E_CLAUDE=1` adds a real Claude Code session driving
+ * the tab through its `polaris_browser` MCP server.
  */
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
+  ApprovalDecision,
   type ByteTransport,
+  ModelId,
   NO_DESKTOP_APP_MESSAGE,
   NoDesktopApp,
   SessionId,
+  TurnId,
+  TurnItem,
 } from "@polaris/protocol";
-import { Context, Effect, Exit, Layer, Scope } from "effect";
+import { Context, Effect, Exit, Layer, Scope, Stream } from "effect";
+import { BrowserMcp } from "../harness/browser/index.ts";
+import { makeClaudeDriver } from "../harness/claude/ClaudeDriver.ts";
+import { HarnessEvent } from "../harness/HarnessDriver.ts";
+import { AgentBrowser } from "../install/agentBrowser/index.ts";
 import { shortTemp } from "../platform/testing.ts";
 import { type BunSocketStream, socketHandlers } from "../transport/bunSocket.ts";
 import { CdpRelay } from "./cdpRelay.ts";
@@ -28,6 +37,10 @@ const agentBrowser = process.env.AGENT_BROWSER_BIN ?? Bun.which("agent-browser")
 const available = existsSync(electron) && agentBrowser !== null && process.env.CI === undefined;
 
 const smoke = available ? test : test.skip;
+
+const claudeSmoke = available && process.env.POLARIS_E2E_CLAUDE === "1" ? test : test.skip;
+
+const claudeSession = SessionId.make("claude-e2e");
 
 const mine = SessionId.make("mine");
 
@@ -177,6 +190,7 @@ beforeAll(async () => {
 afterAll(async () => {
   if (!available) return;
   await run(["close"], "polaris-smoke-drive").catch(() => undefined);
+  await run(["close"], `polaris-${claudeSession}`).catch(() => undefined);
   await Effect.runPromise(Scope.close(scope, Exit.void));
   await server?.stop(true);
 
@@ -237,4 +251,87 @@ smoke(
     expect(electronLog.some((line) => line.startsWith("DRIVING smoke-1 "))).toBe(false);
   },
   120_000
+);
+
+claudeSmoke(
+  "a real Claude Code session drives the tab through its polaris_browser MCP server",
+  async () => {
+    const browser = await Effect.runPromise(
+      Layer.build(BrowserMcp.layerAt(() => join(root, "browser-sessions"))).pipe(
+        Effect.map((context) => Context.get(context, BrowserMcp)),
+        Effect.provide(
+          Layer.mergeAll(
+            Layer.succeed(CdpRelay)(relay),
+            AgentBrowser.layerAt({ binary: agentBrowser ?? "agent-browser" })
+          )
+        ),
+        Scope.provide(scope)
+      )
+    );
+
+    const driver = makeClaudeDriver({ browser });
+    const sessionScope = Effect.runSync(Scope.make());
+
+    const session = await Effect.runPromise(
+      driver
+        .open({
+          sessionId: claudeSession,
+          cwd: mkdtempSync(join(root, "cwd-")),
+          permissionMode: "supervised",
+          model: ModelId.make("sonnet"),
+          effort: null,
+          resumeCursor: null,
+        })
+        .pipe(Scope.provide(sessionScope))
+    );
+
+    const events: Array<HarnessEvent> = [];
+    const approved: Array<string> = [];
+
+    const pump = Effect.runPromise(
+      Stream.runForEach(session.events, (event) =>
+        Effect.gen(function* () {
+          events.push(event);
+
+          if (!HarnessEvent.$is("ApprovalRequested")(event)) return;
+          approved.push(event.title);
+          yield* session
+            .respond(event.requestId, ApprovalDecision.cases.Allow.make({ remember: false }))
+            .pipe(Effect.ignore);
+        })
+      )
+    );
+
+    const page = `http://127.0.0.1:${server?.port ?? 0}/`;
+    await Effect.runPromise(
+      session.sendTurn({
+        turnId: TurnId.make("t1"),
+        prompt: `Use only the polaris_browser MCP tools and no other tools. Navigate to ${page} , take a snapshot, click the "Go" button using its ref from the snapshot, take another snapshot, and reply with exactly the text of the paragraph below the button and nothing else.`,
+        attachments: [],
+        model: null,
+        effort: null,
+      })
+    );
+    await until(() => events.some(HarnessEvent.$is("TurnEnded")), "the Turn", 200_000);
+    expect(events.find(HarnessEvent.$is("TurnEnded"))).toMatchObject({ status: "completed" });
+
+    const text = events
+      .filter(HarnessEvent.$is("ItemCompleted"))
+      .flatMap(({ item }) => (TurnItem.guards.AssistantMessage(item) ? [item.text] : []))
+      .join("");
+
+    expect(text).toContain("clicked");
+    expect(approved.join("\n")).toContain("polaris_browser");
+
+    // The page itself, read through the same relay URL by another agent-browser session.
+    const { url } = await Effect.runPromise(relay.issue(claudeSession));
+    const check = await run(["--cdp", url, "get", "text", "#out"], "polaris-smoke-check");
+    expect(check.stdout.trim()).toBe("clicked");
+    await run(["close"], "polaris-smoke-check");
+
+    await Effect.runPromise(Scope.close(sessionScope, Exit.void));
+    await pump;
+    console.log("claude e2e approvals:", approved.join(" | "), "| reply:", text);
+  },
+  300_000
 );
