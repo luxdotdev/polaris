@@ -162,7 +162,24 @@ const waitForText = async (app: ElectronApplication, pattern: RegExp, what: stri
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
 
-  throw new Error(`${what}: the page shows ${JSON.stringify(last)}`);
+  const views = await app.evaluate(({ BrowserWindow, WebContentsView }) =>
+    (BrowserWindow.getAllWindows()[0]?.contentView.children ?? []).flatMap((child) =>
+      child instanceof WebContentsView
+        ? [{ url: child.webContents.getURL(), visible: child.getVisible(), ...child.getBounds() }]
+        : []
+    )
+  );
+
+  // What placement.ts treats as covering the page, if anything.
+  const overlays: unknown = await app
+    .windows()[0]
+    ?.evaluate(
+      `[...document.querySelectorAll('[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]')].map((node) => node.outerHTML.slice(0, 200))`
+    );
+
+  throw new Error(
+    `${what}: the page shows ${JSON.stringify(last)}; views ${JSON.stringify(views)}; overlays ${JSON.stringify(overlays)}`
+  );
 };
 
 /** Native mouse input to the visible page at the centre of `selector`. */
@@ -265,8 +282,21 @@ const agentDrives = async (app: ElectronApplication, page: Page) => {
   assert.match(await waitForText(app, /Hello, Polaris/, "the agent's fill and click"), /Polaris/);
 };
 
-/** A session whose Turn needn't succeed: the Browser belongs to the session either way. */
+/**
+ * A session whose Turn needn't succeed: the Browser belongs to the session either way. The
+ * Workspace's first session if it has one, since a Host whose Harness needs sign-in starts none.
+ */
 const anySession = async (page: Page, text: string) => {
+  await page.waitForTimeout(1500);
+  const existing = page.locator("aside [data-session-row]");
+
+  if ((await existing.count()) > 0) {
+    await existing.first().click();
+    await showBrowser(page);
+
+    return;
+  }
+
   await page.keyboard.press("Meta+N");
   await page.getByTestId("new-session").waitFor({ timeout: 10_000 });
   await page.getByTestId(`harness-${harness}`).click();
@@ -393,11 +423,7 @@ try {
   step(`after a restart the app still sends ${cookie}`);
   await shoot(app, page, "09-cookie-after-restart");
   await openWorkspace(page, viteDir);
-  await page.keyboard.press("Meta+N");
-  await page.getByTestId("new-session").waitFor({ timeout: 10_000 });
-  await page.getByTestId(`harness-${harness}`).click();
-  await send(page, "Reply with the single word ready.");
-  await showBrowser(page);
+  await anySession(page, "Reply with the single word ready.");
   await openTab(page, appUrl);
   const other = await waitForText(app, /cookie: /, "the app in the other Workspace");
 
