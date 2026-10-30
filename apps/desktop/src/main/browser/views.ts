@@ -8,6 +8,7 @@ import { type BrowserWindow, session, type WebContents, WebContentsView } from "
 import type { BrowserTab, BrowserTabId } from "../../shared/browserContract.ts";
 import { allowedUrl, isHostAddress } from "./navigation.ts";
 import { distrustInSession } from "../tls/distrust.ts";
+import { cancelPickIn, pickIn } from "./pick/index.ts";
 import type { TabChange, ViewHost } from "./registry.ts";
 
 /** The Workspace's partition: its logins and cookies, shared by its sessions' Browsers. */
@@ -62,6 +63,8 @@ const follow = (tabId: BrowserTabId, contents: WebContents, deps: ViewsDeps) => 
 
 export const electronViews = (deps: ViewsDeps) => {
   const views = new Map<BrowserTabId, WebContentsView>();
+  /** Tabs in pick mode, and how to end it. */
+  const picking = new Map<BrowserTabId, () => void>();
   const configured = new Map<string, Promise<void>>();
 
   const configure = (hostKey: string, workspaceId: WorkspaceId) => {
@@ -100,6 +103,27 @@ export const electronViews = (deps: ViewsDeps) => {
     withView(tabId, (view) => {
       if (allowedUrl(url)) void view.webContents.loadURL(url).catch(() => {});
     });
+
+  const endPick = (tabId: BrowserTabId) => picking.get(tabId)?.();
+
+  const pick = async (tabId: BrowserTabId) => {
+    const contents = views.get(tabId)?.webContents;
+
+    if (contents === undefined || contents.isDestroyed()) return null;
+    endPick(tabId);
+
+    let end = () => {};
+
+    const aborted = new Promise<void>((resolve) => (end = resolve));
+
+    picking.set(tabId, end);
+
+    try {
+      return await pickIn(contents, aborted);
+    } finally {
+      if (picking.get(tabId) === end) picking.delete(tabId);
+    }
+  };
 
   const host: ViewHost = {
     create: (tab: BrowserTab, place) => {
@@ -141,8 +165,19 @@ export const electronViews = (deps: ViewsDeps) => {
       withView(tabId, (view) =>
         open ? view.webContents.openDevTools({ mode: "detach" }) : view.webContents.closeDevTools()
       ),
+    pick,
+    cancelPick: (tabId) => {
+      endPick(tabId);
+      withView(tabId, (view) => cancelPickIn(view.webContents));
+    },
     show: (tabId, bounds) => {
-      for (const [id, view] of views) if (id !== tabId) view.setVisible(false);
+      for (const [id, view] of views) {
+        if (id === tabId) continue;
+
+        view.setVisible(false);
+        endPick(id);
+      }
+
       withView(tabId, (view) => {
         // Re-adding raises it above anything added since.
         onWindow(view);
@@ -152,8 +187,12 @@ export const electronViews = (deps: ViewsDeps) => {
     },
     hideAll: () => {
       for (const view of views.values()) view.setVisible(false);
+
+      for (const end of picking.values()) end();
     },
     destroy: (tabId) => {
+      endPick(tabId);
+
       withView(tabId, (view) => {
         view.setVisible(false);
         deps.window()?.contentView.removeChildView(view);
