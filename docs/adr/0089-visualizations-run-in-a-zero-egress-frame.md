@@ -53,3 +53,24 @@ Other products draw this line in different places:
 - "Send to agent" (ENG-600) and state synced through the Daemon (ENG-601) each need their own
   design before the bridge widens.
 - Adding a library means vendoring it, pinning its hash and checking its licence.
+
+## Desktop enforcement after the security review
+
+R1 (ENG-594) demonstrated that Electron's `disable_non_proxied_udp` policy still allows
+TURN over TCP. A closed declarative shadow root can contain a child the in-page
+MutationObserver cannot see. Validation rejects this markup, but the host must also
+contain unvalidated documents. CSP and media permission handlers are insufficient.
+
+The sandboxed, isolated Desktop preload therefore runs in every frame and uses
+`contextBridge.executeInMainWorld` to remove the WebRTC constructors before page scripts
+execute. `nodeIntegrationInSubFrames` is enabled for that preload; `nodeIntegration`
+remains disabled, and only the main frame installs the Polaris API and IPC listeners.
+The frame response also enforces `sandbox allow-scripts`, independently of its iframe
+attribute. No app script policy is relaxed.
+
+The real-engine regression bundles the production window, response and preload code.
+It verifies that a hidden child actually runs, has no Node or Polaris globals, and sends
+neither TCP nor UDP. Removing only the lockdown makes the TCP test fail. Electron
+upgrades must rerun it because `executeInMainWorld` is experimental. The shared in-page
+guard remains best effort; Mobile engine coverage and resource limits remain tracked.
+See [the review and its vector matrix](../research/2026-10-30-visualization-security.md).

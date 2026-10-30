@@ -13,6 +13,7 @@ describe("frame documents", () => {
 
     expect(await first.text()).toBe("<p>chart</p>");
     expect(first.headers.get("Content-Security-Policy")).toContain("default-src 'none'");
+    expect(first.headers.get("Content-Security-Policy")).toContain("sandbox allow-scripts");
     // A reload is a second page: nothing is there.
     expect(frameResponse(frames, url).status).toBe(404);
   });

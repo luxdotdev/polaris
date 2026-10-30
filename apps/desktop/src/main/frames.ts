@@ -19,7 +19,17 @@ export const FRAME_CSP = [
   "form-action 'none'",
   "base-uri 'none'",
   "frame-src 'none'",
+  "sandbox allow-scripts",
 ].join("; ");
+
+/** Subframe preloads run in a sandboxed isolated world; only the main frame exposes Polaris. */
+export const FRAME_WEB_PREFERENCES = {
+  nodeIntegrationInSubFrames: true,
+  nodeIntegration: false,
+  contextIsolation: true,
+  sandbox: true,
+  webSecurity: true,
+} as const;
 
 /** Documents waiting for their frame to load; a renderer never needs more at once. */
 const MAX_WAITING = 16;

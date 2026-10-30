@@ -1,6 +1,7 @@
 /** The frame's bootstrap script: the Polaris kit (`pv`), wrapped in one IIFE (see `bootstrapScript`). */
 import { FRAME_TOKEN_NAMES, FRAME_TOKEN_VALUE_MAX, UNSAFE_TOKEN_VALUE } from "../../tokens.ts";
 import { CHART_JS } from "./chart.ts";
+import { GUARD_JS } from "./guard.ts";
 import { CORE_JS } from "./core.ts";
 import { FLOW_JS } from "./flow.ts";
 
@@ -37,6 +38,7 @@ export const bootstrapScript = (options: BootstrapConfig): string => {
 "use strict";
 var config = ${scriptJson(config)};
 var pv = { scheme: ${scriptJson(options.scheme)} };
+${GUARD_JS}
 ${CORE_JS}
 ${CHART_JS}
 ${FLOW_JS}
