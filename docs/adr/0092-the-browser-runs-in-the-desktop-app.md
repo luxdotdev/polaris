@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted (owner, 2026-10-30; built in ENG-612)
 ---
 
 # The Browser runs in the Desktop App, not on the Host

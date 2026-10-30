@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted (owner, 2026-10-30; built in ENG-612)
 ---
 
 # Host addresses travel in the Polaris protocol, not over SSH forwarding
