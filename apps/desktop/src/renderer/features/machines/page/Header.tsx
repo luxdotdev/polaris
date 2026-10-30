@@ -80,7 +80,7 @@ const Menu = ({
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" className="min-w-[220px]">
       {pill.retry ? <DropdownMenuItem onSelect={onRetry}>Retry now</DropdownMenuItem> : null}
-      <DropdownMenuItem onSelect={() => onRestart?.()} disabled={onRestart === null}>
+      <DropdownMenuItem needsInput onSelect={() => onRestart?.()} disabled={onRestart === null}>
         Restart daemon…
       </DropdownMenuItem>
       <DropdownMenuItem onSelect={() => onUpgrade?.()} disabled={onUpgrade === null}>
@@ -93,9 +93,11 @@ const Menu = ({
       <DropdownMenuLabel className="font-mono text-[10px] tracking-[0.06em]">
         HOST
       </DropdownMenuLabel>
-      <DropdownMenuItem onSelect={onRename}>Rename…</DropdownMenuItem>
+      <DropdownMenuItem needsInput onSelect={onRename}>
+        Rename…
+      </DropdownMenuItem>
       {onRemove === null ? null : (
-        <DropdownMenuItem onSelect={onRemove} className="text-failed-text">
+        <DropdownMenuItem needsInput onSelect={onRemove} className="text-failed-text">
           Remove host…
         </DropdownMenuItem>
       )}
