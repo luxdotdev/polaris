@@ -51,6 +51,7 @@ import { ResourceRequestInputs } from "./resourcesContract.ts";
 import { RemoteAccessRequestInputs } from "./remoteAccessContract.ts";
 import { LinkedDevicesRequestInputs } from "./linkedDevicesContract.ts";
 import { VoiceRequestInputs } from "./voiceContract.ts";
+import { BrowserRequestInputs, BrowserSubscriptionInputs } from "./browserContract.ts";
 import { GitHubRequestInputs, GitHubSubscriptionInputs } from "./githubContract.ts";
 import { GitRequestInputs, GitSubscriptionInputs } from "./gitContract.ts";
 import { BRANCH_PREFIX } from "./sessionPrefs.ts";
@@ -569,6 +570,7 @@ export const RequestInputs = {
   ...RemoteAccessRequestInputs,
   ...LinkedDevicesRequestInputs,
   ...VoiceRequestInputs,
+  ...BrowserRequestInputs,
 } as const;
 
 export type RequestMethod = keyof typeof RequestInputs;
@@ -623,6 +625,7 @@ export const SubscriptionInputs = {
   "inline.propose": onHost(InlineRequest.fields),
   ...GitHubSubscriptionInputs,
   ...GitSubscriptionInputs,
+  ...BrowserSubscriptionInputs,
   /** One Constellation's stream (`constellation.subscribe`): Snapshot, Synchronized, then events. */
   constellation: Schema.Struct({
     hostKey: HostKey,

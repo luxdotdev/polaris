@@ -12,6 +12,7 @@ import { UpgradeStatusPublisher } from "../features/machines/updates/UpgradeStat
 import { LinkedPullsPublisher } from "../features/accept/index.ts";
 // The feeds module, not the feature index: the index pulls in the slots that this file renders.
 import { ConstellationFeeds } from "../features/constellation/feeds.tsx";
+import { BrowserForget } from "../features/browser/index.ts";
 import { NeedsYouPublisher } from "../features/needs-you/index.ts";
 import {
   ConstellationDefaultsPublisher,
@@ -45,6 +46,7 @@ export const App = ({ value, onboarding = settled }: AppProps) => (
             <CheckoutPublisher />
             <LinkedPullsPublisher />
             <ConstellationFeeds />
+            <BrowserForget />
             <UpgradeStatusPublisher />
             <Toaster />
           </TooltipProvider>
