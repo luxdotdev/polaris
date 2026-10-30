@@ -1,4 +1,4 @@
-/** The Languages heading's host picker (Paper L4): a dot, the Host and a chevron; only connected Hosts can be picked. */
+/** The Languages card's host picker (SR-02): the Host's colour, its name and a chevron; only connected Hosts can be picked. */
 import {
   ChevronDownIcon,
   cn,
@@ -14,13 +14,19 @@ import { stateWords } from "../../../shell/hostCopy.ts";
 export const pickable = (host: HostView) =>
   host.status.state === "connected" && host.status.host !== null;
 
-const Dot = ({ on }: { readonly on: boolean }) => (
+/** The Host's own colour (identity); a hollow square when it has none or can't be picked. */
+const Swatch = ({ host }: { readonly host: HostView | undefined }) => (
   <span
     aria-hidden
     className={cn(
-      "size-1.5 shrink-0 rounded-full",
-      on ? "bg-text-subtle" : "border-text-subtle border"
+      "size-2 shrink-0 rounded-[2px]",
+      (host === undefined || !pickable(host) || host.colour === null) && "border-text-subtle border"
     )}
+    style={
+      host !== undefined && pickable(host) && host.colour !== null
+        ? { backgroundColor: host.colour }
+        : undefined
+    }
   />
 );
 
@@ -39,9 +45,9 @@ export const HostPicker = ({
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={`Host: ${current?.label ?? "none"}`}
-        className="bg-fill-selected rounded-control text-body text-text-default hover:bg-fill-selected/70 flex h-7 shrink-0 cursor-default items-center gap-1.5 px-2.5 font-medium"
+        className="bg-raised-control text-caption text-text-default hover:bg-fill-hover flex h-[26px] shrink-0 cursor-default items-center gap-1.5 rounded-[8px] border border-[light-dark(#00000014,#ffffff14)] px-2.5"
       >
-        <Dot on={current !== undefined && pickable(current)} />
+        <Swatch host={current} />
         {current?.label ?? "No host"}
         <ChevronDownIcon size={10} className="text-text-subtle" />
       </DropdownMenuTrigger>
