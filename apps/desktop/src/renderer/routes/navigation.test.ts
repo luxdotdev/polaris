@@ -65,11 +65,16 @@ describe("navigation", () => {
 
     nav.actions.selectShortcut(2);
     nav.actions.showSidebar("needs-you");
+    nav.actions.setSessionSort("newest");
     await Bun.sleep(350);
 
     const reloaded = loadNav(storage);
 
-    expect([String(reloaded.workspaceId), reloaded.sidebar]).toEqual(["local2", "needs-you"]);
+    expect([String(reloaded.workspaceId), reloaded.sidebar, reloaded.sessionSort]).toEqual([
+      "local2",
+      "needs-you",
+      "newest",
+    ]);
     expect(loadNav(null).workspaceId).toBeNull();
   });
 

@@ -18,6 +18,9 @@ import {
 
 export type SidebarView = "sessions" | "needs-you";
 
+/** The Sessions section's order: by Session State tier (Active) or newest first. */
+export type SessionSort = "active" | "newest";
+
 export type Pane = "session" | "new-session";
 
 /** The Settings pages (DESIGN.md, Settings); features/machines fills "hosts". */
@@ -88,6 +91,7 @@ export interface NavState {
   readonly lastSession: Readonly<Record<string, SessionId>>;
   /** Machine-mode Workspace groups the user folded or unfolded (`workspaceKey`). */
   readonly folded: Readonly<Record<string, boolean>>;
+  readonly sessionSort: SessionSort;
   /** Counts New session requests, so a page already open focuses its prompt again. */
   readonly newSessionAsks: number;
 }
@@ -108,6 +112,7 @@ export const initialNav: NavState = {
   recent: [],
   lastSession: {},
   folded: {},
+  sessionSort: "active",
   newSessionAsks: 0,
 };
 

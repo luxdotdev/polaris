@@ -16,6 +16,7 @@ import {
   type Selection,
   type SidebarView,
   resolveSelection,
+  type SessionSort,
   type SettingsSection,
   workspaceKey,
 } from "./selection.ts";
@@ -38,6 +39,7 @@ const Persisted = Schema.Struct({
   lastSession: Schema.Record(Schema.String, Schema.String),
   folded: Schema.Record(Schema.String, Schema.Boolean),
   recent: Schema.optionalKey(Schema.Array(Schema.String)),
+  sessionSort: Schema.optionalKey(Schema.Literals(["active", "newest"])),
 });
 
 const decodePersisted = Schema.decodeUnknownOption(Schema.fromJsonString(Persisted));
@@ -71,6 +73,7 @@ const persistable = (nav: NavState) => ({
   lastSession: nav.lastSession,
   folded: nav.folded,
   recent: nav.recent,
+  sessionSort: nav.sessionSort,
 });
 
 export interface SessionTarget {
@@ -107,6 +110,7 @@ export interface ShellActions {
   readonly startNewSessionIn: (hostKey: string, workspaceId?: WorkspaceId | null) => void;
   readonly closeNewSession: () => void;
   readonly toggleFolded: (key: string, open: boolean) => void;
+  readonly setSessionSort: (sort: SessionSort) => void;
   /** Settings over the three zones (⌘,); the last section when none is given. */
   readonly openSettings: (
     section?: SettingsSection,
@@ -308,6 +312,7 @@ export const createNavigation = ({
     startNewSessionIn,
     closeNewSession: () => set({ pane: "session" }),
     toggleFolded: (key, open) => set({ folded: { ...store.getState().folded, [key]: !open } }),
+    setSessionSort: (sessionSort) => set({ sessionSort }),
     openSettings: (section, options) => {
       lastSection = section ?? lastSection;
       set({
