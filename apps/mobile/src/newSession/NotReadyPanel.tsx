@@ -6,7 +6,7 @@ import { mobileFont, mobileType } from "@polaris/ui/tokens";
 import { Linking, Pressable, Text, View } from "react-native";
 import { Celestial, sessionCelestial } from "../celestial";
 import { themedStyles } from "../theme/index.ts";
-import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
+import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 import type { NotReadyHarness } from "./harness.ts";
 
 const HarnessWell = ({ harness }: { readonly harness: NotReadyHarness }) => {
@@ -51,7 +51,7 @@ export const NotReadyPanel = ({
 
   return (
     <View style={styles.panel}>
-      <Text style={styles.kicker} numberOfLines={1}>
+      <Text style={styles.kicker} numberOfLines={2} maxFontSizeMultiplier={CHROME_TEXT_SCALE}>
         {`No harness ready on ${hostName}`.toUpperCase()}
       </Text>
       <Text style={styles.lead} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>

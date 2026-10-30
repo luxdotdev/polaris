@@ -5,14 +5,14 @@
 import type { LinkedHost } from "@polaris/client/relay";
 import { mobileType } from "@polaris/ui/tokens";
 import { useState } from "react";
-import { Text, useWindowDimensions, View } from "react-native";
+import { ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HORIZON_HEIGHT } from "../horizon/index.tsx";
 import { RIDGE_TOP } from "../horizon/scene.ts";
 import { useRelay } from "../relay/RelayProvider.tsx";
 import { CHROME_TEXT_SCALE } from "../theme/textScale.ts";
 import { themedStyles } from "../theme/index.ts";
-import { scanSheetHeight, starLight } from "./model.ts";
+import { HEADING_TOP_MIN, headingTop, scanSheetHeight, starLight } from "./model.ts";
 import { type LinkingState, PAIRING_COPY, ScanSheetView, useLinking } from "./ScanSheet.tsx";
 import { Sky } from "./Sky.tsx";
 import { STAR_SIZE } from "./Star.tsx";
@@ -44,10 +44,14 @@ export const Pairing = ({ linking, onCancel }: PairingProps) => {
   const styles = useStyles();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
-  const [headingBottom, setHeadingBottom] = useState(0);
+  const [heading, setHeading] = useState(0);
   const titled = onCancel !== undefined;
   const { step } = linking;
   const [lift, setLift] = useState(() => scanSheetHeight(step, titled));
+  // At large Dynamic Type the gap above the heading gives way, then the heading scrolls.
+  const room = height - lift - insets.top;
+  const top = headingTop(room, heading);
+  const headingBottom = insets.top + top + heading;
 
   return (
     <View style={styles.screen}>
@@ -57,23 +61,29 @@ export const Pairing = ({ linking, onCancel }: PairingProps) => {
         lift={lift}
         hosts={step.kind === "linked" ? step.hosts : undefined}
       />
-      <View
-        style={[styles.heading, { paddingTop: insets.top + 60 }]}
-        onLayout={({ nativeEvent }) =>
-          setHeadingBottom(nativeEvent.layout.y + nativeEvent.layout.height)
-        }
+      <ScrollView
+        style={{ maxHeight: height - lift }}
+        contentContainerStyle={{ paddingTop: insets.top + top, paddingBottom: HEADING_TOP_MIN }}
+        scrollEnabled={headingBottom + HEADING_TOP_MIN > height - lift}
+        bounces={false}
+        contentInsetAdjustmentBehavior="never"
       >
-        <Text
-          maxFontSizeMultiplier={CHROME_TEXT_SCALE}
-          style={styles.title}
-          accessibilityRole="header"
+        <View
+          style={styles.heading}
+          onLayout={({ nativeEvent }) => setHeading(nativeEvent.layout.height)}
         >
-          Link this iPhone
-        </Text>
-        <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.lead}>
-          Your agent sessions run on your Mac. Link it to follow them and answer from here.
-        </Text>
-      </View>
+          <Text
+            maxFontSizeMultiplier={CHROME_TEXT_SCALE}
+            style={styles.title}
+            accessibilityRole="header"
+          >
+            Link this iPhone
+          </Text>
+          <Text maxFontSizeMultiplier={CHROME_TEXT_SCALE} style={styles.lead}>
+            Your agent sessions run on your Mac. Link it to follow them and answer from here.
+          </Text>
+        </View>
+      </ScrollView>
       <ScanSheetView
         open
         {...PAIRING_COPY}

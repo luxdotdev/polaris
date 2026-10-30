@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
   fittedSheetHeight,
+  HEADING_TOP,
+  HEADING_TOP_MIN,
+  headingTop,
   scanSheetHeight,
   advance,
   type LinkEvent,
@@ -119,5 +122,13 @@ describe("fittedSheetHeight", () => {
 
     expect(at(2)).toBeGreaterThan(at(1));
     expect(at(3.1)).toBe(at(2));
+  });
+});
+
+describe("headingTop", () => {
+  test("keeps MX-AH's gap while the heading fits, and gives way to keep the lead in view", () => {
+    expect(headingTop(560, 120)).toBe(HEADING_TOP);
+    expect(headingTop(300, 250)).toBe(38);
+    expect(headingTop(300, 420)).toBe(HEADING_TOP_MIN);
   });
 });

@@ -14,6 +14,7 @@ import { Pairing } from "../link/LinkScreen.tsx";
 import { LINK_ANOTHER_COPY, ScanSheet, useLinking } from "../link/ScanSheet.tsx";
 import type { LinkOutcome } from "../link/linking.ts";
 import { ThemeName, themedStyles, useTheme } from "../theme/index.ts";
+import { CHROME_TEXT_SCALE } from "../theme/textScale.ts";
 import { StatePanel } from "./StatePanel.tsx";
 import { BubbleFootnote, ReconnectingLine, useBubbleTreatment } from "./thread.tsx";
 
@@ -55,7 +56,11 @@ const PairingRefused = () => <Pairing linking={useLinking({ onLink: refuse })} /
 const Title = ({ text }: { readonly text: string }) => {
   const styles = useStyles();
 
-  return <Text style={styles.title}>{text}</Text>;
+  return (
+    <Text style={styles.title} maxFontSizeMultiplier={CHROME_TEXT_SCALE}>
+      {text}
+    </Text>
+  );
 };
 
 const Bubble = ({ text, failed }: { readonly text: string; readonly failed: boolean }) => {
@@ -177,7 +182,8 @@ export const StatesGallery = () => {
   }, []);
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
+    // Pairing is full screen in the app and keeps its own safe area.
+    <View style={[styles.screen, { paddingTop: data === "pair" ? 0 : insets.top }]}>
       <Body key={data} data={data} />
       <DevSegments choices={CHOICES} value={data} onChoose={setData} bottom={insets.bottom + 4} />
     </View>

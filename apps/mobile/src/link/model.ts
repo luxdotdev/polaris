@@ -125,3 +125,15 @@ export const fittedSheetHeight = (
     Math.ceil(FRAME_TOP + (titled ? header : 0) + body + Math.max(bottomInset, 16))
   );
 };
+
+/** MX-AH's gap above "Link this iPhone", and the least it gives way to at large Dynamic Type. */
+export const HEADING_TOP = 60;
+
+export const HEADING_TOP_MIN = 12;
+
+/**
+ * The gap above the heading: MX-AH's 60pt while the heading fits above the sheet (`room` is the
+ * height between the safe area and the sheet), down to 12pt so the lead stays in view.
+ */
+export const headingTop = (room: number, heading: number): number =>
+  Math.min(HEADING_TOP, Math.max(HEADING_TOP_MIN, room - heading - HEADING_TOP_MIN));
