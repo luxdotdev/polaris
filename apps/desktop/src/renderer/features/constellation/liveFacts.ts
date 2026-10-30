@@ -103,6 +103,7 @@ export const workerFactsFrom = (
     firstTurn: open?.turns.some((t) => t.turn.id === `${attempt.id}:start`) === true ? true : null,
     contextPercent: usage === null ? null : percent(usage.usedTokens, usage.windowTokens),
     approvalSince: entry?.pendingApprovals[0]?.openedAt ?? null,
+    approvalSecret: entry?.pendingApprovals[0]?.kind === "secret",
     stoppedWithoutClaiming: stoppedWithoutClaiming(attempt, session),
     subagents: (entry?.subagents ?? []).map((s) => ({
       id: s.id,

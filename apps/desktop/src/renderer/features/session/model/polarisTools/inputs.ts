@@ -96,6 +96,9 @@ export const WaitInput = Schema.Struct({ task: opt(Str), timeoutSeconds: opt(Sch
 
 export const NotifyInput = Schema.Struct({ title: opt(Str), body: opt(Str) });
 
+/** `request_secret`: the card's label; its reason stays in the raw call. */
+export const RequestSecretInput = Schema.Struct({ label: opt(Str) });
+
 export const BlockInput = Schema.Struct({ on: List(Str), reason: opt(Str) });
 
 export const ProgressInput = Schema.Struct({

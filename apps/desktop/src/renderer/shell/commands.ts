@@ -124,7 +124,8 @@ export const shellCommands = ({
     const s = selected();
     const request = s?.entry.pendingApprovals[0];
 
-    if (s === null || request === undefined) return;
+    // A Secret Request is answered only in its card, never approved or denied from a shortcut.
+    if (s === null || request === undefined || request.kind === "secret") return;
 
     const decision = approve
       ? Decisions.Allow({ remember: false })
@@ -157,7 +158,11 @@ export const shellCommands = ({
       : null;
   };
 
-  const hasApproval = () => (selected()?.entry.pendingApprovals.length ?? 0) > 0;
+  const hasApproval = () => {
+    const first = selected()?.entry.pendingApprovals[0];
+
+    return first !== undefined && first.kind !== "secret";
+  };
 
   return {
     "view.orchestrate": { run: () => actions.setMode("orchestrate") },

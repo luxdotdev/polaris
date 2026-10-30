@@ -8,7 +8,7 @@ import * as inputs from "./inputs.ts";
 import { decodeInput } from "./inputs.ts";
 import * as lead from "./lead.ts";
 import { outputText, parseResult, type ToolResult } from "./result.ts";
-import { notify, waitForCommand } from "./session.ts";
+import { notify, requestSecret, waitForCommand } from "./session.ts";
 import type { Built, PolarisToolView, Refusal, ToolCallItem } from "./types.ts";
 import * as worker from "./worker.ts";
 import { lowerFirst } from "./words.ts";
@@ -44,6 +44,7 @@ const BUILDERS = new Map<string, Builder>([
   ["propose", tool(inputs.ProposeInput, worker.propose)],
   ["wait_for_command", tool(inputs.WaitInput, waitForCommand)],
   ["notify", tool(inputs.NotifyInput, notify)],
+  ["request_secret", tool(inputs.RequestSecretInput, requestSecret)],
 ]);
 
 const unknownTool = (name: string): Built => {

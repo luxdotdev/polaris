@@ -169,6 +169,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
     setup: session.worktreeSetup,
     turns: model.turns,
     approvals: model.pendingApprovals,
+    settledSecrets: model.settledSecrets ?? [],
     folds: ui.folds,
     outbox: ui.outbox,
     waiting: waitingFor(

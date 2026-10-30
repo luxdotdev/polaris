@@ -172,7 +172,8 @@ export const toSummary = ({
       requestId: r.id,
       kind: r.kind,
       title: r.title,
-      detail: r.detail,
+      // A secret's reason may say where the value comes from; only its label leaves the renderer.
+      detail: r.kind === "secret" ? null : r.detail,
       options: r.options,
     })),
   }));
