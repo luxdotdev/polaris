@@ -91,6 +91,7 @@ export const DEVICE_RPCS = {
   "devices.unregisterPush": "device",
   "devices.registerLiveActivity": "device",
   "devices.unregisterLiveActivity": "device",
+  "devices.watch": "local",
   "voice.transcribe": "device",
   "voice.settings": "local",
   "voice.setKey": "local",

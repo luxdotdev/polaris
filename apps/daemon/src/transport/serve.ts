@@ -178,6 +178,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "remote-access",
   "host.restart",
   "linked-devices",
+  "linked-devices.presence",
   "presence",
   "voice",
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),

@@ -8,6 +8,9 @@ import { timeAgo } from "../settings/model/github.ts";
 
 export const CAPABILITY = "linked-devices";
 
+/** `devices.watch` and each device's `connectedSince` (ENG-629). */
+export const PRESENCE_CAPABILITY = "linked-devices.presence";
+
 /** One Host as the page sees it, in the Host list's order. */
 export type HostRelay = {
   readonly key: string;
@@ -34,11 +37,13 @@ export interface DeviceSummary {
   readonly linkedAt: string;
   /** The latest session it opened with any Host; null when it hasn't yet. */
   readonly lastSeenAt: string | null;
-  /** Each Host it is linked on, with that Host's id for it and its last session there. */
+  /** Each Host it is linked on, with that Host's id for it, its last session and its presence. */
   readonly on: ReadonlyArray<{
     readonly hostKey: string;
     readonly id: LinkedDeviceView["id"];
     readonly lastUsedAt: string | null;
+    /** When its open session there began, null without one; absent from older Daemons. */
+    readonly connectedSince?: string | null | undefined;
   }>;
   /** Hosts with the relay on that don't have it: "Retry" shares it there. */
   readonly notShared: ReadonlyArray<{ readonly key: string; readonly label: string }>;
@@ -71,7 +76,12 @@ export const devicesOf = (hosts: ReadonlyArray<HostRelay>): ReadonlyArray<Device
         lastSeenAt: later(seen?.lastSeenAt ?? null, device.lastUsedAt),
         on: [
           ...(seen?.on ?? []),
-          { hostKey: host.key, id: device.id, lastUsedAt: device.lastUsedAt },
+          {
+            hostKey: host.key,
+            id: device.id,
+            lastUsedAt: device.lastUsedAt,
+            connectedSince: device.connectedSince,
+          },
         ],
         notShared: [],
       });
@@ -124,12 +134,15 @@ export const deviceCaption = (device: DeviceSummary, now: number): string =>
     ? sharedLine(device)
     : `Linked ${day(device.linkedAt)} · ${lastSeenLine(device, now)}`;
 
-/** How recently a device must have opened a session with a Host to count as connected there. */
+/** For Daemons without presence: how recently a device must have opened a session to count. */
 export const LIVE_WINDOW_MS = 5 * 60_000;
 
+const recentlyUsed = (lastUsedAt: string | null, now: number) =>
+  lastUsedAt !== null && now - Date.parse(lastUsedAt) <= LIVE_WINDOW_MS;
+
 /**
- * Whether the device is connected to `host` now: its relay is connected and the device opened a
- * session there within LIVE_WINDOW_MS. A stopgap until the Daemon reports presence (ENG-629).
+ * Whether the device is connected to `host` now: its relay is connected and the device has a
+ * session open there (ENG-629); an older Daemon's device, one opened within LIVE_WINDOW_MS.
  */
 export const liveOn = (
   host: HostRelay,
@@ -139,8 +152,7 @@ export const liveOn = (
   takesDevices(host) &&
   host.route.connected &&
   on !== undefined &&
-  on.lastUsedAt !== null &&
-  now - Date.parse(on.lastUsedAt) <= LIVE_WINDOW_MS;
+  (on.connectedSince === undefined ? recentlyUsed(on.lastUsedAt, now) : on.connectedSince !== null);
 
 /** The relay lane of "Hosts your devices reach". `action` is "Turn on" when the user can. */
 export const relayLine = (

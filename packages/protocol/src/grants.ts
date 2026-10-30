@@ -93,6 +93,7 @@ export const RPC_GRANTS = {
   "devices.unregisterPush": "client",
   "devices.registerLiveActivity": "client",
   "devices.unregisterLiveActivity": "client",
+  "devices.watch": "client",
   "voice.transcribe": "voice",
   "voice.settings": "client",
   "voice.setKey": "client",
