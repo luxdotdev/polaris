@@ -47,6 +47,7 @@
     "@polaris/protocol": "workspace:*",
     "@polaris/syntax-diff": "workspace:*",
     "@polaris/ui": "workspace:*",
+    "@polaris/visualization": "workspace:*",
     "@replit/codemirror-vim": "^6.4.0",
     "@streamdown/code": "2.0.0",
     "@streamdown/math": "1.0.3",

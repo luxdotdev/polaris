@@ -444,6 +444,7 @@ export interface RequestOutputs
   "settings.setSessionDefault": null;
   "settings.setSessions": null;
   "shell.openExternal": null;
+  "visualization.serve": { readonly url: string };
   "shell.revealInFinder": null;
   "host.retryNow": null;
   dispatch: { readonly sequence: number | null };

@@ -44,6 +44,7 @@ import {
   Worktree,
 } from "@polaris/protocol";
 import { Schema } from "effect";
+
 import {
   ConstellationDefaultsInputs,
   ConstellationRequestInputs,
@@ -62,6 +63,9 @@ import {
   EditPredictionInput,
   ManagedSideInput,
 } from "./predictionContract.ts";
+
+/** The agent's 128 KiB plus the inlined libraries, with room to spare. */
+const FRAME_DOCUMENT_MAX = 4 * 1024 * 1024;
 
 /** A Host's stable key in the HostRegistry: "local", or an SSH alias. */
 export const HostKey = Schema.String.check(Schema.isMinLength(1));
@@ -295,6 +299,10 @@ export const RequestInputs = {
   /** Opens a URL in the user's browser; https only (a catalogue `docsUrl`). */
   "shell.openExternal": Schema.Struct({
     url: Schema.String.check(Schema.isPattern(/^https:\/\//)),
+  }),
+  /** A Visualization's frame document (`@polaris/visualization`), to load in its sandboxed frame. */
+  "visualization.serve": Schema.Struct({
+    document: Schema.String.check(Schema.isMaxLength(FRAME_DOCUMENT_MAX)),
   }),
   /** Shows a file or folder in Finder or Explorer: the local Host's, or a WSL distro's (`main/reveal.ts`). */
   "shell.revealInFinder": onHost({ path: Schema.String.check(Schema.isPattern(/^\//)) }),
