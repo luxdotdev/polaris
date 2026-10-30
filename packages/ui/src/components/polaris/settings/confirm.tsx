@@ -86,17 +86,13 @@ export function SettingsConfirmRow({
         event.stopPropagation();
         stop();
       }}
-      className={cn(
-        "bg-failed-text/4 flex flex-col gap-[calc(var(--spacing-gap)+2px)]",
-        ROW_PAD,
-        "pb-[calc(var(--spacing-gap)+6px)]"
-      )}
+      className={cn("bg-failed-text/4 flex items-center gap-3", ROW_PAD)}
     >
-      <div className="flex flex-col gap-0.5">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-body text-text-default">{title}</span>
         <span className="text-caption text-text-default">{consequence}</span>
       </div>
-      <div className="flex justify-end gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <SettingsButton ref={cancel} variant="ghost" onClick={stop}>
           Cancel
         </SettingsButton>
