@@ -20,6 +20,7 @@ import { useState } from "react";
 import type { SessionDefault } from "../../../../shared/api.ts";
 import { slots } from "../../../app/slots.tsx";
 import { useApp } from "../../../shell/hooks.ts";
+import { ColourSquare } from "../../machines/page/parts.tsx";
 import { choose, type ModelData, shortlist, useHarnessModels } from "../../harness/index.ts";
 import {
   type HarnessGroup,
@@ -92,14 +93,6 @@ const Mark = ({ kind, size = 20 }: { readonly kind: string; readonly size?: 18 |
   </Tile>
 );
 
-const Swatch = ({ colour }: { readonly colour: string | null }) => (
-  <span
-    aria-hidden
-    className={cn("size-2 shrink-0 rounded-[2px]", colour === null && "border-text-subtle border")}
-    style={colour === null ? undefined : { backgroundColor: colour }}
-  />
-);
-
 /** One cell: the version when ready, else the state in words; an unreported host stays quiet. */
 const Cell = ({ row, away }: { readonly row: HostRow; readonly away: boolean }) => {
   if (away) return <span className="text-caption text-text-subtle truncate">{row.text}</span>;
@@ -159,7 +152,7 @@ const Matrix = ({
               away.has(host.hostKey) && "opacity-(--opacity-dimmed)"
             )}
           >
-            <Swatch colour={colours[host.hostKey] ?? null} />
+            <ColourSquare colour={colours[host.hostKey] ?? null} size={8} />
             <Kicker className="text-text-subtle truncate">{host.label}</Kicker>
           </span>
         ))}

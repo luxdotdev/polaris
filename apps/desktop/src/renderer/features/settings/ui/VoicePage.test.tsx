@@ -148,13 +148,23 @@ test("a refused key shows the host's message inline and keeps the field to fix",
   expect(caption()).toBe("No key yet; extensions can't use voice on Mac Studio");
 });
 
-test("Remove key sends null and the row goes back to the paste field", async () => {
+test("Remove key asks first; only confirming sends null and brings back the paste field", async () => {
   fake.answerOk("voice.settings", settings(true, "file"));
   fake.answerOk("voice.setKey", settings(false, "file"));
   await mount();
 
   expect(caption()).toBe("Key set, kept in ~/.polaris/secrets on Mac Studio");
   await act(async () => fireEvent.click(row().getByRole("button", { name: "Remove key" })));
+
+  expect(fake.sent("voice.setKey")).toEqual([]);
+  expect(
+    row().getByText(
+      "Removing it stops voice on Mac Studio: extensions can't transcribe there until you paste a key again."
+    )
+  ).not.toBeNull();
+  await act(async () =>
+    fireEvent.click(row().getByRole("button", { name: "Remove the key on Mac Studio" }))
+  );
 
   expect(fake.sent("voice.setKey")).toEqual([
     { hostKey: "studio", provider: "deepgram", key: null },

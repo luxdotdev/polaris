@@ -10,6 +10,8 @@ const HELD_FOCUS =
 
 export interface SettingsConfirmRowProps {
   readonly title: ReactNode;
+  /** Leads the row in both states, e.g. a host's colour square. */
+  readonly leading?: ReactNode;
   /** The caption while nothing is asked. */
   readonly caption?: ReactNode;
   /** The row's button that asks ("Revoke"). */
@@ -36,6 +38,7 @@ export interface SettingsConfirmRowProps {
  */
 export function SettingsConfirmRow({
   title,
+  leading,
   caption,
   action,
   actionVariant = "danger",
@@ -63,6 +66,7 @@ export function SettingsConfirmRow({
   if (!asking)
     return (
       <div data-slot="settings-confirm-row" className={cn("flex items-center gap-3", ROW_PAD)}>
+        {leading}
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="text-body text-text-default truncate">{title}</span>
           {(disabledReason ?? caption) === undefined ? null : (
@@ -98,6 +102,7 @@ export function SettingsConfirmRow({
       }}
       className={cn("bg-failed-text/4 flex items-center gap-3", ROW_PAD)}
     >
+      {leading}
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-body text-text-default">{title}</span>
         <span className="text-caption text-text-default">{consequence}</span>

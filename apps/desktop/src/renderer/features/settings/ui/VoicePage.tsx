@@ -9,6 +9,7 @@ import {
   Input,
   SettingsButton,
   SettingsCard,
+  SettingsConfirmRow,
   SettingsEmpty,
   SettingsPage,
   SettingsWell,
@@ -39,6 +40,14 @@ const ScreenGlyph = () => (
   </svg>
 );
 
+const HostSquare = ({ host }: { readonly host: HostView }) => (
+  <span
+    aria-hidden
+    className="size-2.5 shrink-0 rounded-[3px]"
+    style={{ backgroundColor: hostColour(host) }}
+  />
+);
+
 /** A host's row: its colour square, name and one caption line, its actions trailing. */
 const HostRow = ({
   host,
@@ -62,11 +71,7 @@ const HostRow = ({
     )}
   >
     <div className="flex items-center gap-3">
-      <span
-        aria-hidden
-        className="size-2.5 shrink-0 rounded-[3px]"
-        style={{ backgroundColor: hostColour(host) }}
-      />
+      <HostSquare host={host} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-body text-text-default truncate">{host.label}</span>
         <span className="text-caption text-text-subtle truncate" data-testid="voice-key-state">
@@ -201,36 +206,37 @@ const KeyRow = ({
     setBusy(true);
     await setKey(null);
     setBusy(false);
-    setReplacing(false);
   };
 
-  const field = (
-    <KeyField
-      host={host}
-      replacing={settings.keySet}
-      setKey={setKey}
-      onDone={() => setReplacing(false)}
-    />
-  );
+  if (settings.keySet && !replacing)
+    return (
+      <div data-testid="voice-host" data-host={host.key}>
+        <SettingsConfirmRow
+          leading={<HostSquare host={host} />}
+          title={host.label}
+          caption={<span data-testid="voice-key-state">{keyCaption(settings, host.label)}</span>}
+          action="Remove key"
+          actionVariant="secondary"
+          consequence={`Removing it stops voice on ${host.label}: extensions can't transcribe there until you paste a key again.`}
+          confirm={`Remove the key on ${host.label}`}
+          onConfirm={() => void remove()}
+          {...(busy ? { disabledReason: "Removing…" } : {})}
+        >
+          <SettingsButton variant="ghost" onClick={() => setReplacing(true)}>
+            Replace
+          </SettingsButton>
+        </SettingsConfirmRow>
+      </div>
+    );
 
   return (
-    <HostRow
-      host={host}
-      caption={keyCaption(settings, host.label)}
-      actions={
-        settings.keySet && !replacing ? (
-          <>
-            <SettingsButton variant="ghost" onClick={() => setReplacing(true)}>
-              Replace
-            </SettingsButton>
-            <SettingsButton variant="danger" disabled={busy} onClick={() => void remove()}>
-              Remove key
-            </SettingsButton>
-          </>
-        ) : undefined
-      }
-    >
-      {!settings.keySet || replacing ? field : undefined}
+    <HostRow host={host} caption={keyCaption(settings, host.label)}>
+      <KeyField
+        host={host}
+        replacing={settings.keySet}
+        setKey={setKey}
+        onDone={() => setReplacing(false)}
+      />
     </HostRow>
   );
 };
