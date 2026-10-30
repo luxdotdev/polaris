@@ -24,7 +24,7 @@ import {
   ServerIcon,
 } from "@polaris/ui";
 import { Predicate } from "effect";
-import { type KeyboardEvent, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import type { BrowserTab, BrowserTabId } from "../../../shared/browserContract.ts";
 import { polaris } from "../bridge.ts";
 import { browserKey } from "./feed.ts";
@@ -266,7 +266,8 @@ const Toolbar = (props: BarProps) => {
           label={props.pick.on ? "Stop picking" : "Pick an element"}
           icon={<PickElementIcon size={14} />}
           aria-pressed={props.pick.on}
-          disabled={tab === null}
+          // An agent's CDP clicks would land on the overlay and pick for the user.
+          disabled={tab === null || tab.agentDriving}
           onClick={props.pick.toggle}
           className={props.pick.on ? "bg-fill-selected text-text-strong" : undefined}
           data-testid="browser-pick"
@@ -351,6 +352,13 @@ const usePick = (props: BrowserPaneProps, tab: BrowserTab | null) => {
   };
 
   const on = picking !== null && picking === tab?.tabId;
+  const driving = tab?.agentDriving === true;
+
+  // An agent took the tab mid-pick: its clicks must reach the page, not the overlay.
+  useEffect(() => {
+    if (on && driving)
+      void polaris().request("browser.cancelPick", { hostKey, sessionId, tabId: picking });
+  }, [on, driving, hostKey, sessionId, picking]);
 
   return {
     on,
