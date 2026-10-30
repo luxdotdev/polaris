@@ -5,15 +5,9 @@ import { agentBrowserServer, type BrowserMcp } from "../browser/index.ts";
 import { makeCodexDriver } from "./CodexDriver.ts";
 import { cleanup, scripted, sessionWith } from "./testing/session.ts";
 
-const TOKEN = "s3cret-token";
-
-const relayUrl = (sessionId: string) => `ws://127.0.0.1:4100/browser/${sessionId}/${TOKEN}`;
-
 const browser: BrowserMcp["Service"] = {
   forSession: (sessionId) =>
-    Effect.succeed(
-      agentBrowserServer({ binary: "/opt/ab", config: "/cfg.json" }, sessionId, relayUrl(sessionId))
-    ),
+    Effect.succeed(agentBrowserServer("/opt/ab", sessionId, `/cfg/${sessionId}.json`)),
 };
 
 const withSession = sessionWith((options) => makeCodexDriver({ ...options, browser }));
@@ -23,7 +17,7 @@ afterEach(() => {
 });
 
 describe("the Browser's MCP server in Codex", () => {
-  test("thread start and resume get agent-browser with the relay URL in its env", async () => {
+  test("thread start and resume get agent-browser as a stdio server", async () => {
     for (const resumeCursor of [undefined, "existing-thread"]) {
       const { server } = await withSession(
         scripted(() => {}),
@@ -40,7 +34,7 @@ describe("the Browser's MCP server in Codex", () => {
           "mcp_servers.polaris_browser": {
             command: "/opt/ab",
             args: ["mcp", "--tools", "core"],
-            env: { AGENT_BROWSER_CDP: relayUrl("s1") },
+            env: { AGENT_BROWSER_CONFIG: "/cfg/s1.json" },
           },
         },
       });
@@ -79,6 +73,8 @@ describe("the Browser's MCP server in Codex", () => {
       { readOnly: true }
     );
 
-    expect(JSON.stringify(server.requests("thread/start")[0]?.params)).not.toContain(TOKEN);
+    expect(JSON.stringify(server.requests("thread/start")[0]?.params)).not.toContain(
+      "polaris_browser"
+    );
   });
 });

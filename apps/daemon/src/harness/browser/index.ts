@@ -3,26 +3,24 @@
  * attached to the session's CDP relay. Claude Code and Codex sessions get it; read-only ones don't.
  */
 import type { SessionId } from "@polaris/protocol";
-import { Cause, Context, Effect, Layer } from "effect";
+import { join } from "node:path";
+import { Cause, Context, Effect, Layer, type Scope } from "effect";
 import { CdpRelay } from "../../browser/cdpRelay.ts";
-import { AgentBrowser, type InstalledAgentBrowser } from "../../install/agentBrowser/index.ts";
+import { AgentBrowser } from "../../install/agentBrowser/index.ts";
+import { paths } from "../../paths.ts";
+import { sessionConfigs } from "./sessionConfig.ts";
 
 /** Not `browser`: a user's own server of that name would shadow or be shadowed by it. */
 export const BROWSER_MCP_NAME = "polaris_browser";
 
-/** Claude Code's env var holding the relay URL; its MCP config names it, never the URL. */
-export const BROWSER_CDP_ENV = "POLARIS_BROWSER_CDP";
-
 /** Shut a session's agent-browser daemon down after 10 idle minutes; attached ones never would. */
 const IDLE_TIMEOUT_MS = "600000";
 
+/** Nothing here is secret: the relay URL is in the file `AGENT_BROWSER_CONFIG` names. */
 export interface BrowserMcpServer {
   readonly command: string;
   readonly args: ReadonlyArray<string>;
-  /** Everything the server needs but the relay URL; nothing here is secret. */
   readonly env: Readonly<Record<string, string>>;
-  /** The relay URL, read by agent-browser as `AGENT_BROWSER_CDP`. Secret: never argv or logs. */
-  readonly cdpUrl: string;
 }
 
 /**
@@ -30,18 +28,17 @@ export interface BrowserMcpServer {
  * snapshots, clicks and typing, waits, reads, screenshots, eval and tabs (29 tools in 0.41.0).
  */
 export const agentBrowserServer = (
-  installed: InstalledAgentBrowser,
+  binary: string,
   sessionId: SessionId,
-  cdpUrl: string
+  config: string
 ): BrowserMcpServer => ({
-  command: installed.binary,
+  command: binary,
   args: ["mcp", "--tools", "core"],
   env: {
-    AGENT_BROWSER_CONFIG: installed.config,
+    AGENT_BROWSER_CONFIG: config,
     AGENT_BROWSER_SESSION: `polaris-${sessionId}`,
     AGENT_BROWSER_IDLE_TIMEOUT_MS: IDLE_TIMEOUT_MS,
   },
-  cdpUrl,
 });
 
 /** Hides a relay token that a cause's message may carry. */
@@ -51,37 +48,50 @@ export const redactRelayUrls = (text: string): string =>
 export class BrowserMcp extends Context.Service<
   BrowserMcp,
   {
-    /** The session's server, or null when the relay or the binary isn't there: never a failure. */
-    readonly forSession: (sessionId: SessionId) => Effect.Effect<BrowserMcpServer | null>;
+    /**
+     * The session's server while the scope lasts, or null when the relay or the binary isn't
+     * there: never a failure, so the session opens without Browser tools.
+     */
+    readonly forSession: (
+      sessionId: SessionId
+    ) => Effect.Effect<BrowserMcpServer | null, never, Scope.Scope>;
   }
 >()("polaris/daemon/harness/BrowserMcp") {
-  static readonly layer = Layer.effect(
-    BrowserMcp,
-    Effect.gen(function* () {
-      const relay = yield* CdpRelay;
-      const agentBrowser = yield* AgentBrowser;
+  /** Session configs go in `dir()`, read on the first session. */
+  static readonly layerAt = (dir: () => string) =>
+    Layer.effect(
+      BrowserMcp,
+      Effect.gen(function* () {
+        const relay = yield* CdpRelay;
+        const agentBrowser = yield* AgentBrowser;
+        let configs: ReturnType<typeof sessionConfigs> | null = null;
 
-      return BrowserMcp.of({
-        forSession: (sessionId) =>
-          Effect.gen(function* () {
-            const { url } = yield* relay.issue(sessionId);
-            const installed = yield* agentBrowser.ensure;
+        return BrowserMcp.of({
+          forSession: (sessionId) =>
+            Effect.gen(function* () {
+              const { url } = yield* relay.issue(sessionId);
+              const { binary } = yield* agentBrowser.ensure;
+              configs ??= sessionConfigs(dir());
+              const config = yield* configs(sessionId, url);
 
-            return agentBrowserServer(installed, sessionId, url);
-          }).pipe(
-            Effect.catchCause((cause) =>
-              Effect.as(
-                Effect.logWarning(
-                  `session ${sessionId}: no Browser tools: ${redactRelayUrls(String(Cause.squash(cause)))}`
-                ),
-                null
-              )
+              return agentBrowserServer(binary, sessionId, config);
+            }).pipe(
+              Effect.catchCause((cause) =>
+                Effect.as(
+                  Effect.logWarning(
+                    `session ${sessionId}: no Browser tools: ${redactRelayUrls(String(Cause.squash(cause)))}`
+                  ),
+                  null
+                )
+              ),
+              Effect.withSpan("BrowserMcp.forSession")
             ),
-            Effect.withSpan("BrowserMcp.forSession")
-          ),
-      });
-    })
-  );
+        });
+      })
+    );
+
+  /** Session configs live in `~/.polaris/browser-sessions/`. */
+  static readonly layer = BrowserMcp.layerAt(() => join(paths().root, "browser-sessions"));
 
   static readonly none = Layer.succeed(BrowserMcp)(
     BrowserMcp.of({ forSession: () => Effect.succeed(null) })

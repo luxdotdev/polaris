@@ -1,78 +1,117 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { SessionId } from "@polaris/protocol";
-import { Effect, Layer, Logger } from "effect";
+import { existsSync, mkdtempSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Effect, Exit, Layer, Logger, ManagedRuntime, Scope } from "effect";
 import { CdpRelay } from "../../browser/cdpRelay.ts";
 import { AgentBrowser, type InstalledAgentBrowser } from "../../install/agentBrowser/index.ts";
-import { BrowserMcp } from "./index.ts";
+import { BrowserMcp, type BrowserMcpServer } from "./index.ts";
 
 const SESSION = SessionId.make("s1");
 
 const URL = "ws://127.0.0.1:4100/browser/s1/s3cret-token";
 
-const INSTALLED = { binary: "/opt/ab", config: "/cfg.json" };
+const dirs: string[] = [];
+
+const runtimes: Array<ManagedRuntime.ManagedRuntime<BrowserMcp, never>> = [];
+
+afterEach(async () => {
+  for (const runtime of runtimes.splice(0)) await runtime.dispose();
+
+  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
 
 const relay = (issue: CdpRelay["Service"]["issue"]) =>
   Layer.succeed(CdpRelay)(CdpRelay.of({ issue, revoke: () => Effect.void }));
 
-const forSession = async (
+const relaying = relay(() => Effect.succeed({ url: URL }));
+
+const harness = (
   relayLayer: Layer.Layer<CdpRelay>,
-  installed: InstalledAgentBrowser | null = INSTALLED
+  installed: InstalledAgentBrowser | null = { binary: "/opt/ab" }
 ) => {
+  const dir = mkdtempSync(join(tmpdir(), "browser-mcp-"));
+  dirs.push(dir);
   const logs: string[] = [];
   const logger = Logger.make((entry) => logs.push(Logger.formatSimple.log(entry)));
 
-  const server = await Effect.runPromise(
-    Effect.gen(function* () {
-      return yield* (yield* BrowserMcp).forSession(SESSION);
-    }).pipe(
-      Effect.provide(
-        BrowserMcp.layer.pipe(
-          Layer.provide(Layer.mergeAll(relayLayer, AgentBrowser.layerAt(installed)))
-        )
-      ),
-      Effect.provide(Logger.layer([logger]))
+  const runtime = ManagedRuntime.make(
+    BrowserMcp.layerAt(() => join(dir, "sessions")).pipe(
+      Layer.provide(Layer.mergeAll(relayLayer, AgentBrowser.layerAt(installed))),
+      Layer.provideMerge(Logger.layer([logger]))
     )
   );
 
-  return { server, logs };
+  runtimes.push(runtime);
+
+  /** Opens the session's server in a scope the caller closes. */
+  const open = async () => {
+    const scope = Effect.runSync(Scope.make());
+
+    const server = await runtime.runPromise(
+      Effect.gen(function* () {
+        return yield* (yield* BrowserMcp).forSession(SESSION);
+      }).pipe(Scope.provide(scope))
+    );
+
+    return { server, close: () => Effect.runPromise(Scope.close(scope, Exit.void)) };
+  };
+
+  return { open, logs, dir };
 };
 
-describe("BrowserMcp", () => {
-  test("the session's relay URL reaches agent-browser's env, never its argv", async () => {
-    const { server } = await forSession(relay(() => Effect.succeed({ url: URL })));
+const configOf = (server: BrowserMcpServer | null) => server?.env["AGENT_BROWSER_CONFIG"] ?? "";
 
-    expect(server).toEqual({
-      command: "/opt/ab",
-      args: ["mcp", "--tools", "core"],
-      env: {
-        AGENT_BROWSER_CONFIG: "/cfg.json",
-        AGENT_BROWSER_SESSION: "polaris-s1",
-        AGENT_BROWSER_IDLE_TIMEOUT_MS: "600000",
-      },
-      cdpUrl: URL,
+describe("BrowserMcp", () => {
+  test("the relay URL reaches agent-browser through a private config file, never argv or env", async () => {
+    const h = harness(relaying);
+    const { server, close } = await h.open();
+
+    expect(server?.command).toBe("/opt/ab");
+    expect(server?.args).toEqual(["mcp", "--tools", "core"]);
+    expect(server?.env).toMatchObject({
+      AGENT_BROWSER_SESSION: "polaris-s1",
+      AGENT_BROWSER_IDLE_TIMEOUT_MS: "600000",
     });
+    expect(JSON.stringify(server)).not.toContain("s3cret-token");
+    expect(await Bun.file(configOf(server)).json()).toEqual({ cdp: URL });
+    expect(statSync(configOf(server)).mode & 0o777).toBe(0o600);
+    await close();
+    expect(existsSync(configOf(server))).toBe(false);
+  });
+
+  test("the config stays while another open of the session still holds it", async () => {
+    const h = harness(relaying);
+    const first = await h.open();
+    const second = await h.open();
+
+    await first.close();
+    expect(existsSync(configOf(second.server))).toBe(true);
+    await second.close();
+    expect(existsSync(configOf(second.server))).toBe(false);
   });
 
   test("the relay stub's defect leaves the session without Browser tools instead of failing it", async () => {
-    const { server, logs } = await forSession(CdpRelay.layerStub);
+    const h = harness(CdpRelay.layerStub);
+    const { server } = await h.open();
 
     expect(server).toBeNull();
-    expect(logs.join("\n")).toContain("session s1: no Browser tools");
+    expect(h.logs.join("\n")).toContain("session s1: no Browser tools");
+    expect(existsSync(join(h.dir, "sessions"))).toBe(false);
   });
 
   test("a missing agent-browser leaves the session without Browser tools", async () => {
-    const { server } = await forSession(
-      relay(() => Effect.succeed({ url: URL })),
-      null
-    );
+    const { server } = await harness(relaying, null).open();
 
     expect(server).toBeNull();
   });
 
   test("a relay error naming its URL is logged without the token", async () => {
-    const { logs } = await forSession(relay(() => Effect.die(new Error(`refused ${URL}`))));
+    const h = harness(relay(() => Effect.die(new Error(`refused ${URL}`))));
+    await h.open();
 
-    expect(logs.join("\n")).toContain("/browser/s1/<redacted>");
-    expect(logs.join("\n")).not.toContain("s3cret-token");
+    expect(h.logs.join("\n")).toContain("/browser/s1/<redacted>");
+    expect(h.logs.join("\n")).not.toContain("s3cret-token");
   });
 });

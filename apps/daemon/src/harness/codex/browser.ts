@@ -1,6 +1,6 @@
 /**
- * The Browser's MCP server in a Codex thread: a `mcp_servers` entry in `thread/start`'s config,
- * which reaches the shared app-server over its socket, so the relay URL never sits on argv.
+ * The Browser's MCP server in a Codex thread: a `mcp_servers` entry in `thread/start`'s config.
+ * Its env names the session's config file, which holds the relay URL.
  */
 import { Effect } from "effect";
 import { BROWSER_MCP_NAME, type BrowserMcp } from "../browser/index.ts";
@@ -20,7 +20,7 @@ export const codexBrowserConfig = Effect.fnUntraced(function* (
     [`mcp_servers.${BROWSER_MCP_NAME}`]: {
       command: server.command,
       args: [...server.args],
-      env: { ...server.env, AGENT_BROWSER_CDP: server.cdpUrl },
+      env: { ...server.env },
     },
   };
 });

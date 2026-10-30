@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { PinnedFile } from "../../prediction/managed/catalog.ts";
@@ -65,14 +65,6 @@ describe("installAgentBrowser", () => {
       expect(installAgentBrowser(t.options)).rejects.toThrow("didn't match its published checksum")
     );
     expect(existsSync(join(t.root, "9.9.9", "agent-browser-test"))).toBe(false);
-  });
-
-  test("the config it writes keeps the user's own agent-browser config out", async () => {
-    const t = setup(SCRIPT);
-    const { config } = await installAgentBrowser(t.options);
-
-    expect(await Bun.file(config).json()).toEqual({});
-    expect(statSync(config).mode & 0o777).toBe(0o600);
   });
 
   test("a platform without a build is refused before any download", async () => {
