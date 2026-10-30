@@ -198,6 +198,8 @@ export interface SettingsOverrideRowProps<Value extends string> {
   readonly parent?: string;
   /** The × lane: clears the override; its lane is kept when there is none. */
   readonly clearLabel?: string;
+  /** Replaces "Follows/Overrides the host" with the row's own line ("12.4 MB in 8 files"). */
+  readonly caption?: ReactNode;
 }
 
 const isOverride = <Value extends string>(
@@ -214,6 +216,7 @@ export function SettingsOverrideRow<Value extends string>({
   onChange,
   parent = "the host",
   clearLabel = `Follow ${parent} for ${name}`,
+  caption,
 }: SettingsOverrideRowProps<Value>) {
   const choices: ReadonlyArray<SettingsOption<Value | typeof FOLLOWS_DEFAULT>> = [
     { value: FOLLOWS_DEFAULT, label: `Default · ${defaultLabel}` },
@@ -225,7 +228,7 @@ export function SettingsOverrideRow<Value extends string>({
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="text-body text-text-default truncate">{name}</span>
         <span className="text-caption text-text-subtle truncate">
-          {value === null ? `Follows ${parent}` : `Overrides ${parent}`}
+          {caption ?? (value === null ? `Follows ${parent}` : `Overrides ${parent}`)}
         </span>
       </div>
       <SettingsSelect

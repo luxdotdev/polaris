@@ -72,7 +72,7 @@ Every row takes `title` and `caption` (one line each), plus `nested` (indents it
 </SettingsHostRow>
 ```
 
-**`SettingsOverrideRow`** takes `name`, `value` (`null` means the row follows its default), `options`, `defaultLabel`, `onChange` and `parent` (default "the host"). Its first choice reads "Default · {defaultLabel}". The caption says "Follows the host" or "Overrides the host". A × button clears the override, and the space for it is kept even when there is no override, so rows stay aligned.
+**`SettingsOverrideRow`** takes `name`, `value` (`null` means the row follows its default), `options`, `defaultLabel`, `onChange` and `parent` (default "the host"). Its first choice reads "Default · {defaultLabel}". The caption says "Follows the host" or "Overrides the host". Pass `caption` to show the row's own line instead ("12.4 MB in 8 files"). A × button clears the override, and the space for it is kept even when there is no override, so rows stay aligned.
 
 ```tsx
 <SettingsOverrideRow name="dotfiles" value={override} options={ARCHIVE}
