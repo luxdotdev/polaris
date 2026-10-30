@@ -1,5 +1,5 @@
-/** The tools over the session itself: `wait_for_command` and `notify`. */
-import type { NotifyInput, WaitInput } from "./inputs.ts";
+/** The tools over the session itself: `wait_for_command`, `notify` and `request_secret`. */
+import type { NotifyInput, RequestSecretInput, WaitInput } from "./inputs.ts";
 import type { ToolResult } from "./result.ts";
 import type { Built, Head, PolarisToolView, Segment } from "./types.ts";
 import { count } from "./words.ts";
@@ -163,5 +163,32 @@ export const withBanner = (view: PolarisToolView, banner: BannerRecord | null): 
     ...view,
     caption: view.caption ?? BANNER_CAPTION.get(banner) ?? null,
     reply: `Sent · ${BANNER_REPLY.get(banner) ?? ""}`,
+  };
+};
+
+/** How a Secret Request ended, from Polaris's reply to the agent (`mcp/tools/secret.ts`). */
+const SECRET_CAPTIONS: ReadonlyArray<readonly [prefix: string, caption: string]> = [
+  ["Saved.", "saved securely"],
+  ["The user declined", "declined"],
+  ["No answer in", "timed out"],
+  ["The request ended unanswered", "ended"],
+];
+
+/** `request_secret`: the label it asked for and how it ended; never a value, which it never sees. */
+export const requestSecret = (
+  { label = "" }: typeof RequestSecretInput.Type,
+  result: ToolResult | null
+): Built => {
+  const summary = result?.summary ?? "";
+
+  return {
+    head: {
+      verbs: ["Asking you for a secret", "Asked you for a secret", "ask you for a secret"],
+      subject: label === "" ? null : { text: label },
+      detail: [],
+      caption: SECRET_CAPTIONS.find(([prefix]) => summary.startsWith(prefix))?.[1] ?? null,
+    },
+    well: null,
+    links: [],
   };
 };

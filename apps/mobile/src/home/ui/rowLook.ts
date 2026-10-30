@@ -3,6 +3,7 @@
  * name, and how its celestial looks in each Session State.
  */
 import type { SessionState } from "@polaris/protocol";
+import { Match } from "effect";
 import type { MobileColours } from "../../theme/index.ts";
 import type { SessionRow } from "../model/home.ts";
 import { approvalDetail, askLine, hasUnreviewedTurns, quickQuestion } from "../model/lines.ts";
@@ -40,10 +41,12 @@ const needsYouLine = (row: SessionRow, host: string | null): MetaLine => {
   if (approval === null)
     return { lead: { text: "Needs you", tone: "needs-you" }, rest: join(turnWord(row), host) };
 
-  const what =
-    approval.kind === "question"
-      ? (quickQuestion(approval)?.text ?? approval.title)
-      : firstLine(approvalDetail(approval)?.text);
+  const what = Match.value(approval.kind).pipe(
+    Match.when("question", () => quickQuestion(approval)?.text ?? approval.title),
+    // A Secret Request's title is the agent's label; its detail is the reason.
+    Match.when("secret", () => approval.title),
+    Match.orElse(() => firstLine(approvalDetail(approval)?.text))
+  );
 
   return {
     lead: { text: askLine(approval), tone: "needs-you" },

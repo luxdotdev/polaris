@@ -1,7 +1,14 @@
 import type { ApprovalRequest } from "@polaris/protocol";
 import { midnight } from "@polaris/ui/tokens";
 import { describe, expect, test } from "bun:test";
-import { commandApproval, NOW, question, type SessionInput, session } from "../fixtures.testing.ts";
+import {
+  commandApproval,
+  NOW,
+  question,
+  secretRequest,
+  type SessionInput,
+  session,
+} from "../fixtures.testing.ts";
 import type { SessionRow } from "../model/home.ts";
 import { badgeCount, celestialLook, harnessHue, type MetaLine, metaLine } from "./rowLook.ts";
 
@@ -46,6 +53,14 @@ describe("metaLine (MX-I)", () => {
         { approval: question("s", "r", "Monthly or annual?", ["Annual"]) }
       ),
       { lead: { text: "Asks", tone: "needs-you" }, rest: "Monthly or annual?" },
+    ],
+    [
+      "a secret leads with what it asks for, then the agent's label, never its reason",
+      row(
+        { id: "s", state: "needs-you" },
+        { approval: secretRequest("s", "r", "Tailscale auth key", "To join the tailnet") }
+      ),
+      { lead: { text: "Asks for a secret", tone: "needs-you" }, rest: "Tailscale auth key" },
     ],
     [
       "done with unreviewed turns is ready to review, in text-default",

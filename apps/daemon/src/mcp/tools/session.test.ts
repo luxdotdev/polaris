@@ -39,6 +39,7 @@ const world = (sessions: Partial<SessionTools>) => {
   };
 
   attachSessionTools(commands, {
+    requestSecret: unavailableSessions.requestSecret,
     transcript: (sessionId, options) =>
       Effect.sync(() => {
         reads.push({ sessionId, ...options });

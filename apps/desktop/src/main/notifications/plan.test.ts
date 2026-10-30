@@ -39,6 +39,22 @@ const plan = (s: NeedsYouSummary, state = emptyNotificationState, windowFocused 
   planNotifications({ state, summary: s, windowFocused });
 
 describe("notification plan", () => {
+  test("a Secret Request names its label only, with no buttons or reply", () => {
+    const secret: NeedsYouRequest = {
+      requestId: "r1",
+      kind: "secret",
+      title: "Tailscale auth key",
+      detail: "Make one under Settings → Keys in the admin console",
+      options: [],
+    };
+
+    const shown = plan(summary([session("a", [secret])])).show;
+
+    expect(shown.map((n) => [n.title, n.body, n.actions, n.reply])).toEqual([
+      ["Codex is asking for a secret", "Tailscale auth key", false, false],
+    ]);
+  });
+
   test("one notification per new request, never repeated", () => {
     const first = plan(summary([session("a", [req("r1")])]));
 

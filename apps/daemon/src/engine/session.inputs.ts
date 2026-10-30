@@ -92,7 +92,14 @@ export const eventSchemas = {
     })
   ),
   "harness.approvalRequested": standard(Schema.Struct({ request: ApprovalRequest })),
-  "harness.approvalWithdrawn": standard(Schema.Struct({ requestId: RequestId })),
+  "harness.approvalWithdrawn": standard(
+    Schema.Struct({
+      requestId: RequestId,
+      /** Default `harness`; `daemon` for a Secret Request that timed out (ADR 0089). */
+      withdrawnBy: Schema.optionalKey(Schema.Literals(["harness", "daemon"])),
+      reason: Schema.optionalKey(Schema.String),
+    })
+  ),
   "harness.backgroundTasksChanged": standard(
     Schema.Struct({ tasks: Schema.Array(BackgroundTask) })
   ),
@@ -173,6 +180,13 @@ export const normalizedInput = (input: SessionInput, at: string) => {
 
   if (input.type === "daemon.recover")
     return { ...input, stoppedFor: input.stoppedFor ?? input.cause };
+
+  if (input.type === "harness.approvalWithdrawn")
+    return {
+      ...input,
+      withdrawnBy: input.withdrawnBy ?? "harness",
+      reason: input.reason ?? "The Harness withdrew the request",
+    };
 
   return input.type === "harness.turnEnded" ? { ...input, limit: input.limit ?? null } : input;
 };

@@ -6,6 +6,7 @@
  */
 import type {
   AgentSession,
+  ApprovalDecision,
   ApprovalRequest,
   DomainEvent,
   SessionStreamItem,
@@ -25,6 +26,12 @@ export interface TurnEntry {
   readonly streaming: ReadonlyArray<{ readonly itemId: string; readonly text: string }>;
 }
 
+/** How a Secret Request this feed saw open ended; the value itself never reaches a Client. */
+export interface SecretOutcome {
+  readonly request: ApprovalRequest;
+  readonly outcome: "saved" | "declined" | "ended";
+}
+
 /** The session as plain fields, so a change can copy it. */
 export type Session = { readonly [K in keyof AgentSession]: AgentSession[K] };
 
@@ -39,6 +46,8 @@ export interface SessionFold {
   readonly checkpoints: ReadonlyMap<string, string>;
   /** The Subagents of the Turns this feed holds, in the order they started. */
   readonly subagents: ReadonlyArray<Subagent>;
+  /** Secret Requests that ended while this feed followed the session, oldest first. */
+  readonly secretOutcomes: ReadonlyArray<SecretOutcome>;
 }
 
 type Fold = (state: SessionFold) => SessionFold;
@@ -63,6 +72,36 @@ const withoutRequest =
     ...state,
     pendingApprovals: state.pendingApprovals.filter((request) => request.id !== requestId),
   });
+
+const secretOutcomeOf = (decision: ApprovalDecision | null): SecretOutcome["outcome"] =>
+  decision === null
+    ? "ended"
+    : Match.value(decision).pipe(
+        Match.tag("Provided", () => "saved" as const),
+        Match.tag("Deny", () => "declined" as const),
+        Match.orElse(() => "ended" as const)
+      );
+
+/** The request leaves; a secret's outcome is kept to show how it ended. */
+const settle =
+  (requestId: string, decision: ApprovalDecision | null): Fold =>
+  (state) => {
+    const secret = state.pendingApprovals.find(
+      (request) => request.id === requestId && request.kind === "secret"
+    );
+
+    const next = withoutRequest(requestId)(state);
+
+    return secret === undefined
+      ? next
+      : {
+          ...next,
+          secretOutcomes: [
+            ...state.secretOutcomes,
+            { request: secret, outcome: secretOutcomeOf(decision) },
+          ],
+        };
+  };
 
 /** A Subagent's latest state, kept in the place it started. */
 const withSubagent =
@@ -126,8 +165,8 @@ const foldEvent = (event: DomainEvent): Fold =>
         (state) => ({ ...state, checkpoints: new Map(state.checkpoints).set(ref, commit) }),
       SubagentStarted: ({ subagent }) => withSubagent(subagent),
       SubagentEnded: ({ subagent }) => withSubagent(subagent),
-      ApprovalResolved: ({ requestId }) => withoutRequest(requestId),
-      ApprovalWithdrawn: ({ requestId }) => withoutRequest(requestId),
+      ApprovalResolved: ({ requestId, decision }) => settle(requestId, decision),
+      ApprovalWithdrawn: ({ requestId }) => settle(requestId, null),
     }),
     Match.orElse(() => unchanged)
   );
@@ -171,6 +210,7 @@ export const applySessionItem = (
         subagents: snapshot.turns.flatMap((detail) =>
           detail.subagents.map((held) => held.subagent)
         ),
+        secretOutcomes: state?.secretOutcomes ?? [],
       }),
       Event: ({ envelope }) => {
         if (state === null || envelope.sequence <= state.sequence) return state;
@@ -212,4 +252,12 @@ export const summaryHead = (state: SessionFold): string | null => {
   const ref = ended?.turn.checkpointAfter ?? null;
 
   return ref === null ? null : (state.checkpoints.get(ref) ?? null);
+};
+
+/** The last Secret Request that ended in the session's latest Turn: the strip says how. */
+export const latestSecretOutcome = (state: SessionFold): SecretOutcome | null => {
+  const last = state.turns.at(-1)?.turn.id;
+  const outcome = state.secretOutcomes.at(-1);
+
+  return outcome !== undefined && outcome.request.turnId === last ? outcome : null;
 };

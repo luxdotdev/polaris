@@ -6,6 +6,8 @@ export * from "./autoArchive.ts";
 
 export * from "./idleCompaction.ts";
 
+export * from "./visuals.ts";
+
 export * from "./availability.ts";
 
 export * from "./bridge.ts";
@@ -71,6 +73,8 @@ export * from "./streams.ts";
 export * from "./usage.ts";
 
 export * from "./voice.ts";
+
+export * from "./secrets.ts";
 
 export * from "./wire.ts";
 

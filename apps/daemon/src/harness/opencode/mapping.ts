@@ -343,6 +343,8 @@ export const permissionReply = (decision: ApprovalDecision): P.PermissionReplyBo
     Deny: ({ reason }): P.PermissionReplyBody =>
       reason === null ? { reply: "reject" } : { reply: "reject", message: reason },
     Answer: ({ text }): P.PermissionReplyBody => ({ reply: "reject", message: text }),
+    // Only Secret Requests take Provided, and no Harness asks one: decline.
+    Provided: (): P.PermissionReplyBody => ({ reply: "reject" }),
   });
 
 /** How a `question.asked` request is shown: its first question, with the others in the detail. */
@@ -381,6 +383,8 @@ export const questionReply = (
       answers: request.questions.map((q) => (q.options[0] ? [q.options[0].label] : [])),
     }),
     Deny: () => null,
+    // Only Secret Requests take Provided, and no Harness asks one: decline.
+    Provided: () => null,
     Answer: ({ text, answers }) => ({
       answers: request.questions.map((_, i) => {
         const own = answers?.[i];

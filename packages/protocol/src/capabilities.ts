@@ -77,6 +77,11 @@ export const Capability = Schema.Literals([
   "session.compaction",
   /** `SessionNotified`: an agent's notification for the user (MCP `notify`). */
   "session.notify",
+  /**
+   * Secret Requests (ADR 0089): the `secret` ApprovalKind, the `Provided` decision and
+   * `secret.provide`. A Client without it is sent neither.
+   */
+  "approval.secret",
   /** `PinSession`, `SessionPinned`, and `AgentSession.pinnedAt` and `origin`. */
   "session.pin",
   /**
@@ -147,6 +152,8 @@ export const Capability = Schema.Literals([
    * `CompactSession` and `Turn.idleCompaction`.
    */
   "sessions.idle-compaction",
+  /** `sessions.visuals` and `sessions.setVisuals`: the Visuals setting (`visuals.ts`). */
+  "sessions.visuals",
   /** `continuity.watch`, `continuity.markRead`, `continuity.saveDraft`: read position and drafts. */
   "session.continuity",
   /** `presence.report`: a Desktop App's presence holds this Host's pushes to Linked Devices. */

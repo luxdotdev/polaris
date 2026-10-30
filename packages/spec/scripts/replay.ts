@@ -126,8 +126,19 @@ const norm = (state: string) => (state === "starting" ? "working" : state);
 
 const byOf = (e: TEvent) => e.what.split(":")[2]!;
 
+/** The Daemon withdrawing a Secret Request that timed out (`engine/secretRequests.ts`). */
+const isExpiry = (e: TEvent) =>
+  e.tag === "ApprovalWithdrawn" && byOf(e) === "daemon" && e.reason === "The request timed out";
+
+const withdrawalOf = (e: TEvent): "HExpire" | "HWithdraw" | null => {
+  if (isExpiry(e)) return "HExpire";
+
+  return e.tag === "ApprovalWithdrawn" && byOf(e) === "harness" ? "HWithdraw" : null;
+};
+
 const isRecovery = (e: TEvent) =>
   e.commandId === null &&
+  !isExpiry(e) &&
   ((e.tag === "TurnEnded" && e.status === "interrupted") ||
     (e.tag === "ApprovalWithdrawn" && byOf(e) === "daemon") ||
     (e.tag === "SessionStateChanged" &&
@@ -402,21 +413,23 @@ class Replayer {
       this.harness(s, e.inputRefused === true ? "HInputRefused" : "HItem", [e]);
     } else if (this.endsTurn(e, s)) {
       this.turnEnded(e, s);
-    } else if (e.tag === "ApprovalWithdrawn" && byOf(e) === "harness") {
-      this.i++;
-
-      const followed = this.take(
-        s,
-        (x) => x.tag === "SessionStateChanged" && x.state === "working"
-      );
-
-      this.harness(s, `HWithdraw(${q(e.requestId!)})`, followed ? [e, followed] : [e]);
+    } else if (withdrawalOf(e) !== null) {
+      this.withdrawal(e, s);
     } else if (e.tag === "SessionStateChanged" && norm(e.state!) === this.stateOf(s)) {
       // The reactor moving Starting → Working: no change in the spec's terms.
       this.i++;
     } else {
       throw new Error(`seq ${e.seq}: cannot map ${e.what} (${s}) to a spec decision`);
     }
+  }
+
+  /** A single request withdrawn mid-Turn: by its Harness, or by the Daemon when it timed out. */
+  private withdrawal(e: TEvent, s: string) {
+    this.i++;
+
+    const followed = this.take(s, (x) => x.tag === "SessionStateChanged" && x.state === "working");
+
+    this.harness(s, `${withdrawalOf(e)}(${q(e.requestId!)})`, followed ? [e, followed] : [e]);
   }
 
   private endsTurn(e: TEvent, s: string): boolean {

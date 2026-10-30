@@ -46,6 +46,34 @@ private enum PushKeychain {
   }
 }
 
+/// The key's copy in the App Group, for the widget extension, which can't read the Keychain item
+/// on device (docs/adr/0090). Readable after the first unlock, like the Keychain item.
+private enum PushKeyFile {
+  static func url() -> URL? {
+    FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.dev.lux.polaris")?
+      .appendingPathComponent("push-key-1")
+  }
+
+  /// A failed write removes the old copy, so a rotated-out key never stays on disk.
+  static func store(_ key: P256.KeyAgreement.PrivateKey) {
+    guard var url = url() else { return }
+    do {
+      try key.rawRepresentation.write(
+        to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+      var values = URLResourceValues()
+      values.isExcludedFromBackup = true
+      try url.setResourceValues(values)
+    } catch {
+      try? FileManager.default.removeItem(at: url)
+    }
+  }
+
+  static func mirror(_ key: P256.KeyAgreement.PrivateKey) {
+    guard let url = url(), (try? Data(contentsOf: url)) != key.rawRepresentation else { return }
+    store(key)
+  }
+}
+
 private func base64Url(_ data: Data) -> String {
   data.base64EncodedString()
     .replacingOccurrences(of: "+", with: "-")
@@ -87,6 +115,7 @@ public class PolarisPushModule: Module {
         try PushKeychain.store(made)
         return made
       }()
+      PushKeyFile.mirror(key)
       return base64Url(key.publicKey.x963Representation)
     }
 
@@ -94,6 +123,7 @@ public class PolarisPushModule: Module {
     AsyncFunction("rotatePushKey") { () -> String in
       let made = P256.KeyAgreement.PrivateKey()
       try PushKeychain.store(made)
+      PushKeyFile.store(made)
       return base64Url(made.publicKey.x963Representation)
     }
 

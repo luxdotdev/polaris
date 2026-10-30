@@ -1,9 +1,11 @@
 /**
  * An approval answered in place (Paper MX-C, MX-H): Approve / Always here / Deny under the command,
- * file change or tool; choice chips and Reply… for a question. Approve is filled white.
+ * file change or tool; choice chips and Reply… for a question; a secret opens its agent session.
+ * Approve is filled white.
  */
 import type { ApprovalRequest } from "@polaris/protocol";
 import { mobileFont } from "@polaris/ui/tokens";
+import { Match } from "effect";
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { themedStyles, useTheme } from "../../theme/index.ts";
@@ -225,8 +227,31 @@ export const OpenToAnswer = ({ onOpen }: { readonly onOpen: () => void }) => {
   );
 };
 
+/** A Secret Request is typed only into its card in the agent session: never Approve or Deny. */
+const Secret = ({ approval, onOpen }: ApprovalActionsProps) => {
+  const styles = useStyles();
+
+  return (
+    <View style={styles.block}>
+      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.question}>
+        <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.ask}>
+          {askLine(approval)} ·{" "}
+        </Text>
+        {approval.title}
+      </Text>
+      <View style={styles.buttons}>
+        <Button label="Open to answer" kind="outlined" disabled={false} onPress={onOpen} />
+      </View>
+    </View>
+  );
+};
+
 export const ApprovalActions = (props: ApprovalActionsProps) =>
-  props.approval.kind === "question" ? <Question {...props} /> : <Permission {...props} />;
+  Match.value(props.approval.kind).pipe(
+    Match.when("question", () => <Question {...props} />),
+    Match.when("secret", () => <Secret {...props} />),
+    Match.orElse(() => <Permission {...props} />)
+  );
 
 /** Paper MX-C's approval block: 14pt medium controls, 34pt pills, the command in a ground well. */
 const useStyles = themedStyles((colours) => ({

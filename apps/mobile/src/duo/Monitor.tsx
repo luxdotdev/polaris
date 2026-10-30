@@ -5,6 +5,7 @@
  */
 import type { ApprovalRequest } from "@polaris/protocol";
 import { mobileFont, mobileType, mobileWeight } from "@polaris/ui/tokens";
+import { Match } from "effect";
 import { useMemo, useState } from "react";
 import { Platform, Pressable, ScrollView, Settings, Text, View } from "react-native";
 import { devHomeDataOn, useHomeHosts } from "../home/feed/useHomeHosts.ts";
@@ -112,7 +113,9 @@ const Permission = ({
     <>
       <View style={styles.command}>
         <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.wants}>
-          {approval.kind === "question" ? "Asks" : wantsLine(approval.kind)}
+          {approval.kind === "question" || approval.kind === "secret"
+            ? "Asks"
+            : wantsLine(approval.kind)}
         </Text>
         {/* Never clipped: what Approve allows is shown whole; a longer one goes to Reply…. */}
         <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.commandText}>
@@ -222,6 +225,33 @@ const Question = ({
   );
 };
 
+/** A Secret Request is typed only into its card in the agent session: no Approve, no Deny. */
+const Secret = ({
+  approval,
+  onReply,
+}: {
+  readonly approval: ApprovalRequest;
+  readonly onReply: () => void;
+}) => {
+  const styles = useStyles();
+
+  return (
+    <>
+      <Text maxFontSizeMultiplier={CONTENT_TEXT_SCALE} style={styles.ask}>
+        <Text style={styles.wants}>Asks for a secret </Text>
+        {approval.title}
+      </Text>
+      <View style={styles.chips}>
+        <Pressable accessibilityRole="button" onPress={onReply} style={styles.chip}>
+          <Text maxFontSizeMultiplier={CONTROL_TEXT_SCALE} style={styles.chipLabel}>
+            Open to answer
+          </Text>
+        </Pressable>
+      </View>
+    </>
+  );
+};
+
 const Target = ({
   row,
   hero,
@@ -245,7 +275,12 @@ const Target = ({
 
   if (approval === null) return null;
   const live = !row.stale && !busy;
-  const Body = approval.kind === "question" ? Question : Permission;
+
+  const Body = Match.value(approval.kind).pipe(
+    Match.when("question", () => Question),
+    Match.when("secret", () => Secret),
+    Match.orElse(() => Permission)
+  );
 
   return (
     <View style={hero ? styles.hero : styles.well}>

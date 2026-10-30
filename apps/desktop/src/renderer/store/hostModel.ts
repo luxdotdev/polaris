@@ -9,6 +9,7 @@ import type {
   ResourceEvent,
   ResourceLease,
   Sequence,
+  ApprovalDecision,
   ApprovalRequest,
   Subagent,
   DomainEvent,
@@ -30,7 +31,7 @@ export interface ResolvedApproval {
   readonly request: ApprovalRequest;
   /** The device label of the Client that answered first (`ApprovalResolved.resolvedBy`). */
   readonly resolvedBy: string;
-  readonly decision: "Allow" | "Deny" | "Answer";
+  readonly decision: ApprovalDecision["_tag"];
   readonly at: string;
 }
 

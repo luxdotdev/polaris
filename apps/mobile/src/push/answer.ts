@@ -79,6 +79,8 @@ const decodeTarget = Schema.decodeUnknownOption(PushTarget);
 
 export interface PushResponse {
   readonly actionIdentifier: string;
+  /** The category the extension set; only `approval` answers, so a secret's push never does. */
+  readonly category: string | null;
   /** The notification's userInfo, as expo-notifications reports it (data, or the push payload). */
   readonly userInfo: ReadonlyArray<unknown>;
 }
@@ -111,7 +113,7 @@ export const routeOf = (response: PushResponse): Route | null => {
 export const answerOf = (response: PushResponse): Answer | null => {
   const decision = decisionOf(response.actionIdentifier);
 
-  if (decision === null) return null;
+  if (decision === null || response.category !== "approval") return null;
 
   const target = targetOf(response);
 

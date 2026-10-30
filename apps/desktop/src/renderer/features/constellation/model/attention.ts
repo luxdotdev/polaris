@@ -20,7 +20,14 @@ const itemFor = (row: TaskRow, facts: Facts): AttentionItem | null => {
   if (attention !== null) {
     switch (attention.kind) {
       case "approval":
-        return { taskId: id, text: `${id} waiting on your approval`, rank: 1 };
+        return {
+          taskId: id,
+          text:
+            attention.secret === true
+              ? `${id} is asking for a secret`
+              : `${id} waiting on your approval`,
+          rank: 1,
+        };
       case "question":
         return { taskId: id, text: `${id} asks you`, rank: 2 };
       case "handed":

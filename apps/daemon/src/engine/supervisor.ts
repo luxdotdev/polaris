@@ -16,6 +16,7 @@ import {
   Worktree,
 } from "@polaris/protocol";
 import { Context, Effect, Exit, Layer, Option, Scope, Stream } from "effect";
+import { SecretRequests } from "./secretRequests.ts";
 import { type HarnessError, HarnessEvent } from "../harness/HarnessDriver.ts";
 import { ApprovalPolicy, type ServiceError } from "../services.ts";
 import {
@@ -57,9 +58,14 @@ const make = (
   policy: Option.Option<ApprovalPolicy["Service"]>,
   attachments: ConstellationHarnessService,
   liveness: ConstellationLivenessService,
-  usage: Option.Option<UsageIndex["Service"]>
+  usage: Option.Option<UsageIndex["Service"]>,
+  secrets: SecretRequests["Service"]
 ): Supervisor["Service"] => {
   const { store, live, progress } = rt;
+  // A live secret printed by a command never reaches the log or a Client (ADR 0089).
+  const redact = secrets.files.redact;
+  const redactText = secrets.files.redactText;
+  const redactNullable = (text: string | null) => (text === null ? null : redactText(text));
 
   /** True when the policy answered the request itself, on the session's live Harness. */
   const answeredByPolicy = (
@@ -183,7 +189,8 @@ const make = (
                   turnId: event.turnId,
                   itemId: event.itemId,
                   field: event.field,
-                  text: event.text,
+                  // Only a secret whole within one delta; the completed item is redacted in full.
+                  text: redactText(event.text),
                   subagentId: event.subagentId ?? null,
                 })
               )
@@ -266,7 +273,7 @@ const make = (
             DomainEvent.cases.TurnItemCompleted.make({
               sessionId,
               turnId: e.turnId,
-              item: e.item,
+              item: redact(e.item),
               subagentId: e.subagentId ?? null,
             }),
           ]);
@@ -283,8 +290,8 @@ const make = (
                     sessionId,
                     turnId: e.turnId,
                     kind: e.kind,
-                    title: e.title,
-                    detail: e.detail,
+                    title: redactText(e.title),
+                    detail: redactNullable(e.detail),
                     options: [...e.options],
                     questions: [...(e.questions ?? [])],
                     openedAt: at,
@@ -360,11 +367,12 @@ const make = (
     Effect.suspend(() => {
       const items = progress.get(sessionId) ?? new Map<string, Progress>();
       const subagentId = event.subagentId ?? null;
-      items.set(event.item.id, { turnId: event.turnId, item: event.item, subagentId });
+      const item = redact(event.item);
+      items.set(item.id, { turnId: event.turnId, item, subagentId });
       progress.set(sessionId, items);
 
       return store.publishEphemeral(
-        LiveItem.ItemProgress({ sessionId, turnId: event.turnId, item: event.item, subagentId })
+        LiveItem.ItemProgress({ sessionId, turnId: event.turnId, item, subagentId })
       );
     });
 
@@ -394,7 +402,7 @@ const make = (
         type: "harness.turnEnded",
         turnId: event.turnId,
         status: event.status,
-        error: event.error,
+        error: redactNullable(event.error),
         checkpoint: after,
         limit: yield* limitOf(sessionId, event, at),
         at,
@@ -611,7 +619,8 @@ export class Supervisor extends Context.Service<
         yield* Effect.serviceOption(ApprovalPolicy),
         yield* ConstellationHarness,
         yield* ConstellationLiveness,
-        yield* Effect.serviceOption(UsageIndex)
+        yield* Effect.serviceOption(UsageIndex),
+        yield* SecretRequests
       );
     })
   );

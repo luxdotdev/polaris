@@ -42,6 +42,7 @@ import { useHost, useLiveHost } from "../runtime/hosts.tsx";
 import { composerMode } from "./composer.ts";
 import { Composer, Suggestions } from "./Composer.tsx";
 import { openThread, type ThreadController } from "./controller.ts";
+import { latestSecretOutcome } from "./fold.ts";
 import { hostThreadSource } from "./hostSource.ts";
 import { useMenuActions } from "../menus/index.ts";
 import { type MobileColours, themedStyles } from "../theme/index.ts";
@@ -54,6 +55,7 @@ import { useAfter } from "../runtime/useAfter.ts";
 import { InboxBadge } from "../inbox/index.ts";
 import { ReconnectingLine } from "../states/thread.tsx";
 import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
+import { liveVisualizations, revisedIds } from "../visualization/index.ts";
 
 export interface ThreadScreenProps {
   readonly hostId: string;
@@ -315,6 +317,10 @@ export const ThreadScreen = ({
     [fold?.turns, expanded, steers, queued, sends]
   );
 
+  const revised = useMemo(() => revisedIds(fold?.turns ?? []), [fold?.turns]);
+  const [onScreen, setOnScreen] = useState<ReadonlyArray<number>>([]);
+  const liveFrames = useMemo(() => liveVisualizations(rows, onScreen), [rows, onScreen]);
+
   const editSteer = useCallback((id: string) => controller?.editSteer(id), [controller]);
   const sendAgain = useCallback((id: string) => controller?.sendAgain(id), [controller]);
 
@@ -365,6 +371,7 @@ export const ThreadScreen = ({
     }: {
       readonly viewableItems: ReadonlyArray<{ readonly index?: number | null | undefined }>;
     }) => {
+      setOnScreen(viewableItems.flatMap(({ index }) => (index == null ? [] : [index])));
       visible.current = viewableItems.flatMap((token) => {
         const row: ThreadRow | undefined =
           token.index === null || token.index === undefined
@@ -477,6 +484,8 @@ export const ThreadScreen = ({
                 hostName={connection.name}
                 session={rowSession}
                 onMenuAction={onMenuAction}
+                revised={revised}
+                liveFrames={liveFrames}
               />
             )}
             ListHeaderComponent={
@@ -537,6 +546,9 @@ export const ThreadScreen = ({
               errors: state.requestErrors,
               enabled: live,
               onRespond: (requestId, decision) => void controller?.respond(requestId, decision),
+              onProvideSecret: (requestId, typed) =>
+                void controller?.provideSecret(requestId, typed),
+              settled: latestSecretOutcome(fold),
             }}
             subagents={fold.subagents}
             contextUsage={session.contextUsage}

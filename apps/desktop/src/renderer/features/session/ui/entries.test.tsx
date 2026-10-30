@@ -22,7 +22,7 @@ const command = (id: string, line: string) => ({
 });
 
 test("a tool run starts folded, lists its commands folded, and each opens on its own", () => {
-  const { getByRole, queryByText } = render(
+  const { getByRole, queryByRole, queryByText } = render(
     <EntryView
       entry={{
         kind: "run",
@@ -36,11 +36,11 @@ test("a tool run starts folded, lists its commands folded, and each opens on its
 
   const run = getByRole("button", { name: /Ran 2 commands/ });
   expect(run.getAttribute("aria-expanded")).toBe("false");
-  expect(queryByText("$ git status")).toBeNull();
+  expect(queryByRole("button", { name: /\$ git status/ })).toBeNull();
 
   fireEvent.click(run);
   expect(run.getAttribute("aria-expanded")).toBe("true");
-  expect(queryByText("$ git status")).not.toBeNull();
+  expect(queryByRole("button", { name: /\$ git status/ })).not.toBeNull();
   expect(queryByText("git status output")).toBeNull();
 
   fireEvent.click(getByRole("button", { name: /\$ git status/ }));

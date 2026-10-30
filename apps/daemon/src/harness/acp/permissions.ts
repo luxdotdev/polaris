@@ -96,6 +96,8 @@ export const permissionResponse = (
           : byKind(options, "allow_once", "allow_always")
       ),
     Deny: () => selected(byKind(options, "reject_once", "reject_always")),
+    // Only Secret Requests take Provided, and no Harness asks one: decline.
+    Provided: () => selected(byKind(options, "reject_once", "reject_always")),
     Answer: ({ text }) => {
       const wanted = text.trim().toLowerCase();
 

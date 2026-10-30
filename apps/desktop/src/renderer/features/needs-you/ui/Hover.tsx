@@ -1,7 +1,8 @@
 /**
  * The Needs You hover card (Paper 1-0): hover a waiting session's row, or a Workspace chip
  * with one waiting, and answer without opening it. Approvals show the command in a well with
- * Approve / Always here / Deny; questions show the question and its numbered answers.
+ * Approve / Always here / Deny; questions show the question and its numbered answers; a Secret
+ * Request shows its label and opens the session, where its card takes the value.
  */
 import type { SessionId, WorkspaceId } from "@polaris/protocol";
 import {
@@ -11,6 +12,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
   harnessHue,
+  PixelKeyIcon,
   QuestionCard,
 } from "@polaris/ui";
 import { type ReactElement, useRef, useState, useSyncExternalStore } from "react";
@@ -22,6 +24,7 @@ import { modalOpen } from "../modal.ts";
 import type { WaitingSession } from "../model/inbox.ts";
 import { KIND_WANTS } from "../model/popover.ts";
 import { answerDecision, questionSteps, questionViews } from "../../session/model/question.ts";
+import { askingForSecret } from "../../session/model/secret.ts";
 import { approve, deny, respond } from "../respond.ts";
 import { where } from "./Inbox.tsx";
 
@@ -44,6 +47,25 @@ const Card = ({ item }: { readonly item: WaitingSession }) => {
   const target = { hostKey: item.hostKey, sessionId: session.id, requestId: request.id };
   const name = harnessHue(session.harness).name;
   const open = () => selectSession({ hostKey: item.hostKey, sessionId: session.id });
+
+  if (request.kind === "secret") {
+    return (
+      <div className="flex flex-col gap-2.5 p-3.5" data-testid="needs-you-hover-secret">
+        <div className="flex items-center gap-2.5">
+          <PixelKeyIcon size={14} className="text-needs-you shrink-0" />
+          <p className="text-caption text-text-subtle min-w-0 flex-1 truncate">
+            {askingForSecret(name)} · {age(request.openedAt, now)}
+          </p>
+        </div>
+        <p className="text-label text-text-strong [overflow-wrap:anywhere]">{request.title}</p>
+        <div className="flex justify-end">
+          <Button variant="primary" onClick={open}>
+            Answer in the conversation
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (request.kind === "question") {
     const views = questionViews(request);

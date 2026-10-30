@@ -1,6 +1,6 @@
 /**
  * Settings → Sessions (DESIGN.md, Settings redesign SR-01): new sessions beside accepting work,
- * what happens while sessions run, idle compaction beside archive, hidden workspaces, then
+ * what happens while sessions run, Visuals, idle compaction beside archive, hidden workspaces, then
  * worker worktree setup beside the Working strip's verbs, on the Settings kit.
  * Each Harness's Model, effort and permissions stay in Settings → Harnesses.
  */
@@ -26,6 +26,7 @@ import { ArchiveCard } from "./AutoArchive.tsx";
 import { HiddenWorkspaces } from "./HiddenWorkspaces.tsx";
 import { IdleCompactionCard } from "./IdleCompaction.tsx";
 import { TurnNotifications } from "./TurnNotifications.tsx";
+import { Visuals } from "./Visuals.tsx";
 import { WorkingVerbs } from "./WorkingVerbs.tsx";
 import { WorktreeSetupSettings } from "./WorktreeSetup.tsx";
 
@@ -165,6 +166,7 @@ export const SessionsPage = () => {
         <AcceptingWorkCard />
       </SettingsGrid>
       <WhileSessionsRunCard />
+      <Visuals />
       <SettingsGrid>
         <IdleCompactionCard />
         <ArchiveCard />

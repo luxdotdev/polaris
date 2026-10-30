@@ -5,6 +5,7 @@
 import { BrowserWindow, nativeTheme, type Rectangle, screen, shell } from "electron";
 import type { Option } from "effect";
 import { clientPlatform, PLATFORM_ARG } from "../shared/platform.ts";
+import { FRAME_WEB_PREFERENCES, subframeMayLoad } from "./frames.ts";
 import { chromeOptions, menuKeys, titleBarOverlay, WM_ENTERMENULOOP } from "./chrome.ts";
 import { popupAppMenu } from "./menu.ts";
 import { placeWindow, type Placement, type WindowState } from "./windowPlacement.ts";
@@ -106,10 +107,7 @@ export const createMainWindow = (input: MainWindowInput) => {
     ...chromeOptions(platform, nativeTheme.shouldUseDarkColors),
     webPreferences: {
       preload,
-      contextIsolation: true,
-      sandbox: true,
-      nodeIntegration: false,
-      webSecurity: true,
+      ...FRAME_WEB_PREFERENCES,
       spellcheck: false,
       v8CacheOptions: "bypassHeatCheck",
       additionalArguments: [`${PLATFORM_ARG}${platform}`],
@@ -132,6 +130,7 @@ export const createMainWindow = (input: MainWindowInput) => {
     win.hookWindowMessage(WM_ENTERMENULOOP, keys.reset);
   }
 
+  // A Visualization frame's sandbox has no `allow-popups`, so it never reaches this.
   win.webContents.setWindowOpenHandler(({ url: target }) => {
     if (target.startsWith("https://")) void shell.openExternal(target);
 
@@ -139,6 +138,12 @@ export const createMainWindow = (input: MainWindowInput) => {
   });
   win.webContents.on("will-navigate", (event, target) => {
     if (!trusted(target)) event.preventDefault();
+  });
+  // The preload disables WebRTC in every realm; this policy additionally blocks direct UDP.
+  win.webContents.setWebRTCIPHandlingPolicy("disable_non_proxied_udp");
+  // `will-navigate` sees the main frame only; a Visualization frame never leaves its document.
+  win.webContents.on("will-frame-navigate", (event) => {
+    if (!event.isMainFrame && !subframeMayLoad(event.url)) event.preventDefault();
   });
   // Appearance changes set themeSource, which lands here: the overlay follows the bar.
   nativeTheme.on("updated", () => {

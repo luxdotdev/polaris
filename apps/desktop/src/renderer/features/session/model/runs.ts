@@ -40,8 +40,8 @@ const TOOL_KINDS = new Map<string, RunKind>([
 type ToolItem = Extract<ItemView, { kind: "tool" }>;
 
 const toolRunKind = (item: ToolItem): RunKind | null => {
-  // Polaris's own tools have purpose-built rows.
-  if (item.view !== null || item.polaris) return null;
+  // Polaris's own tools have purpose-built rows; a Visualization is never folded away.
+  if (item.view !== null || item.polaris || item.visualization !== null) return null;
 
   if (item.plumbing) return "plumbing";
 
@@ -298,6 +298,7 @@ const POLARIS_VERBS = new Map<string, readonly [running: string, done: string]>(
   ["ask", ["Asking the lead", "Asked the lead"]],
   ["claim", ["Claiming", "Claimed"]],
   ["propose", ["Proposing a task", "Proposed a task"]],
+  ["request_secret", ["Asking you for a secret", "Asked you for a secret"]],
 ]);
 
 const sentenceCase = (name: string) => {

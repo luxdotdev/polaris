@@ -14,6 +14,7 @@ import { PolarisTool } from "./polarisTool/index.tsx";
 import { Reasoning } from "./reasoning.tsx";
 import { softWrap } from "./softWrap.tsx";
 import { Tool } from "./tool.tsx";
+import { Visualization } from "./visualization/index.tsx";
 
 export { type Hue, LiveMark, WELL } from "./marks.tsx";
 
@@ -115,6 +116,8 @@ export const Item = ({ item, hue, onOpenDiff }: ItemProps) => {
     case "files":
       return <Files item={item} onOpenDiff={onOpenDiff} />;
     case "tool":
+      if (item.visualization !== null) return <Visualization view={item.visualization} hue={hue} />;
+
       return item.view === null ? (
         <Tool item={item} hue={hue} />
       ) : (

@@ -250,6 +250,9 @@ const startupLine = (phase: WorkerPhase): Line | null => {
   };
 };
 
+const approvalNote = (secret: boolean | undefined) =>
+  secret === true ? "asking for a secret" : "waiting on your approval";
+
 const lineFor = (input: LineInput): Line | null => {
   const { row, worker, record, facts } = input;
   const { attention } = row.look;
@@ -257,7 +260,7 @@ const lineFor = (input: LineInput): Line | null => {
   if (attention?.kind === "approval")
     return {
       kind: "note",
-      text: `waiting on your approval · ${span(attention.since, facts.now)}`,
+      text: `${approvalNote(attention.secret)} · ${span(attention.since, facts.now)}`,
       tone: "neutral",
       detail: null,
     };

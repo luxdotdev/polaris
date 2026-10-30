@@ -25,6 +25,7 @@ import { CONTINUE_PROMPT } from "./decider.ts";
 import { CheckpointPruning } from "./pruning.ts";
 import { ReviewCheckouts } from "./reviewCheckouts.ts";
 import { EngineRuntime } from "./runtime.ts";
+import { SecretRequests } from "./secretRequests.ts";
 import { Supervisor } from "./supervisor.ts";
 import { TerminalHandoff } from "./terminal.ts";
 import { Worktrees } from "./worktrees.ts";
@@ -56,6 +57,7 @@ const make = Effect.gen(function* () {
   const worktrees = yield* Worktrees;
   const pruning = yield* CheckpointPruning;
   const checkouts = yield* ReviewCheckouts;
+  const secrets = yield* SecretRequests;
   const { live } = rt;
 
   const runStartedTurn = (sessionId: SessionId, envelopes: ReadonlyArray<EventEnvelope>) => {
@@ -180,6 +182,8 @@ const make = Effect.gen(function* () {
     decision: ApprovalDecision
   ) =>
     Effect.gen(function* () {
+      // Polaris opened it, not the Harness: its waiting `request_secret` reads the answer.
+      if (secrets.owns(requestId)) return;
       const entry = live.get(sessionId);
 
       if (entry === undefined) {
@@ -198,6 +202,7 @@ const make = Effect.gen(function* () {
       yield* rt.stopHarness(sessionId);
       yield* terminal.stopFollower(sessionId, false);
       rt.terminalLaunch.delete(sessionId);
+      yield* secrets.files.forget(sessionId);
       const model = yield* rt.store.model;
       yield* worktrees.removeArchived(sessionId, model, command.deleteMergedBranch);
       const record = model.sessions.get(sessionId);

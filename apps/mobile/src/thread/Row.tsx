@@ -15,6 +15,7 @@ import { LongPressMenu, type MenuAction, turnMenu } from "../menus/index.ts";
 import { type MobileColours, themedStyles } from "../theme/index.ts";
 import { type ThreadRow, type TurnFacts, turnHeading } from "./rows.ts";
 import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
+import { VisualizationCard } from "../visualization/index.ts";
 
 // The arrow defers `makeStyles`, which is defined at the foot of the module.
 const useStyles = themedStyles((colours) => makeStyles(colours));
@@ -187,7 +188,13 @@ export interface RowProps {
   readonly session?: RowSession | undefined;
   /** Runs what a finished Turn's long-press menu chose. */
   readonly onMenuAction?: ((action: MenuAction) => void) | undefined;
+  /** Visualization ids a later one replaces. */
+  readonly revised?: ReadonlySet<string>;
+  /** Row keys of the Visualizations that may hold a live WebView. */
+  readonly liveFrames?: ReadonlySet<string>;
 }
+
+const NONE: ReadonlySet<string> = new Set();
 
 const Bubble = ({
   text,
@@ -350,6 +357,8 @@ const RowView = ({
   hostName = "the host",
   session,
   onMenuAction,
+  revised = NONE,
+  liveFrames = NONE,
 }: RowProps) => {
   const styles = useStyles();
 
@@ -401,6 +410,15 @@ const RowView = ({
       return <Text style={[styles.message, styles.error]}>{row.text}</Text>;
     case "run":
       return <Run row={row} onToggle={onToggle} />;
+    case "visualization":
+      return (
+        <VisualizationCard
+          visualization={row.visualization}
+          revised={revised.has(row.visualization.id)}
+          live={liveFrames.has(row.key)}
+          session={session}
+        />
+      );
     case "step":
       return (
         <Step

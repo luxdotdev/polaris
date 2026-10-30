@@ -20,6 +20,7 @@ import type {
   AttachmentSettings,
   AutoArchiveSettings,
   IdleCompactionSettings,
+  VisualsSettings,
   AttachmentUsage,
   StagedAmount,
   Capability,
@@ -78,6 +79,7 @@ import type { ResourceMethod } from "./resourcesContract.ts";
 import type { RemoteAccessMethod } from "./remoteAccessContract.ts";
 import type { RestartDaemonResult, RestartPreviewView } from "./restart.ts";
 import type { VoiceRequestOutputs } from "./voiceContract.ts";
+import type { SecretRequestOutputs } from "./secretContract.ts";
 import type { LinkedDeviceView, LinkedDevicesRequestOutputs } from "./linkedDevicesContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
 import type { GitRequestOutputs, GitSubscriptionItems } from "./gitContract.ts";
@@ -426,6 +428,7 @@ export interface RequestOutputs
     RemoteAccessRequestOutputs,
     LinkedDevicesRequestOutputs,
     VoiceRequestOutputs,
+    SecretRequestOutputs,
     PredictionPlacementOutputs,
     PredictionOutcomeOutputs {
   "constellation.stats": ConstellationStatsView;
@@ -443,6 +446,7 @@ export interface RequestOutputs
   "settings.setSessionDefault": null;
   "settings.setSessions": null;
   "shell.openExternal": null;
+  "visualization.serve": { readonly url: string };
   "shell.revealInFinder": null;
   "host.retryNow": null;
   dispatch: { readonly sequence: number | null };
@@ -500,6 +504,8 @@ export interface RequestOutputs
   "sessions.setAutoArchive": null;
   "sessions.idleCompaction": Plain<IdleCompactionSettings>;
   "sessions.setIdleCompaction": null;
+  "sessions.visuals": Plain<VisualsSettings>;
+  "sessions.setVisuals": null;
   "continuity.markRead": Plain<ReadPosition>;
   "continuity.saveDraft": Plain<ComposerDraft>;
   "review.runRiskSummary": Rpc.Success<typeof RunRiskSummary>;

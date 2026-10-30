@@ -3,18 +3,21 @@
  * Turns on, the Turn rail. Both bring a row into view through `reveal`.
  */
 import type { SessionId } from "@polaris/protocol";
-import { type RefObject, useEffect, useRef, useState } from "react";
-import { useCommands } from "../../../shell/hooks.ts";
+import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { useApp, useCommands } from "../../../shell/hooks.ts";
 import type { TurnView } from "../../../store/sessionModel.ts";
 import { olderRow, type Row, turnStartRow } from "../model/conversation.ts";
 import { useOlderTurns } from "../older.ts";
+import { revisedIds, visualizationTurns } from "../model/polarisTools/index.ts";
 import { RAIL_MIN_TURNS } from "../model/rail.ts";
+import { groupTurns } from "../model/turnGroups.ts";
 import { setTurnOpen } from "../state.ts";
 import { Conversation, type Reveal } from "./Conversation.tsx";
 import { createJumpControl, type JumpControl } from "./follow.ts";
 import type { RowContext } from "./rows.tsx";
 import { TranscriptSearch } from "./TranscriptSearch.tsx";
 import { createRowRange, TurnRail } from "./TurnRail.tsx";
+import { type VisualizationScope, VisualizationScopeContext } from "./visualization/index.tsx";
 
 /** ⌘F while this conversation is on screen (null while the find bar is closed); ⌘↓ jumps to the end. */
 const useFind = (host: RefObject<HTMLDivElement | null>, jump: JumpControl) => {
@@ -37,6 +40,30 @@ const useFind = (host: RefObject<HTMLDivElement | null>, jump: JumpControl) => {
   );
 
   return { finding, close: () => setFinding(null) };
+};
+
+/** What each Visualization reads from the whole conversation: which were revised, and where it is. */
+const useVisualizationScope = (props: TranscriptProps): VisualizationScope => {
+  const { turns, hostKey, sessionId } = props;
+
+  const title = useApp(
+    (s) => s.hostModels[hostKey]?.sessions.get(sessionId)?.session.title ?? null
+  );
+
+  return useMemo(() => {
+    const numbers = visualizationTurns(groupTurns(turns));
+
+    return {
+      revised: revisedIds(turns),
+      where: (id) => {
+        const number = numbers.get(id);
+
+        return number === undefined
+          ? title
+          : [title, `turn ${number}`].filter((p) => p !== null).join(" · ");
+      },
+    };
+  }, [turns, title]);
 };
 
 export interface TranscriptProps {
@@ -62,6 +89,7 @@ export const Transcript = (props: TranscriptProps) => {
   const older = useOlderTurns({ ...props, enabled: props.canPage });
   const rows = older.state === null ? props.rows : [olderRow(older.state), ...props.rows];
   const ctx: RowContext = { ...props.ctx, onLoadOlder: older.load };
+  const visualizations = useVisualizationScope(props);
 
   // Reaching the top loads the Turns before the first one shown.
   useEffect(
@@ -76,42 +104,44 @@ export const Transcript = (props: TranscriptProps) => {
     setReveal((r) => ({ key, nonce: (r?.nonce ?? 0) + 1, align }));
 
   return (
-    <div ref={host} className="relative flex min-h-0 flex-1 flex-col">
-      <Conversation
-        key={uiKey}
-        jump={jump}
-        scrollKey={uiKey}
-        rows={rows}
-        ctx={ctx}
-        reveal={reveal}
-        onRange={range.emit}
-        gutter={rail}
-        firstTurnId={turns[0]?.turn.id ?? null}
-      />
-      {rail ? (
-        <TurnRail
-          turns={turns}
+    <VisualizationScopeContext value={visualizations}>
+      <div ref={host} className="relative flex min-h-0 flex-1 flex-col">
+        <Conversation
+          key={uiKey}
+          jump={jump}
+          scrollKey={uiKey}
           rows={rows}
-          range={range}
-          onJump={(turnId) => {
-            const row = rows[turnStartRow(rows, turnId)];
+          ctx={ctx}
+          reveal={reveal}
+          onRange={range.emit}
+          gutter={rail}
+          firstTurnId={turns[0]?.turn.id ?? null}
+        />
+        {rail ? (
+          <TurnRail
+            turns={turns}
+            rows={rows}
+            range={range}
+            onJump={(turnId) => {
+              const row = rows[turnStartRow(rows, turnId)];
 
-            if (row !== undefined) revealRow(row.key, "start");
-          }}
-        />
-      ) : null}
-      {find.finding === null ? null : (
-        <TranscriptSearch
-          turns={turns}
-          host={host.current}
-          focusNonce={find.finding}
-          onReveal={(hit) => {
-            setTurnOpen(uiKey, hit.turnId, true);
-            revealRow(hit.rowKey, "center");
-          }}
-          onClose={find.close}
-        />
-      )}
-    </div>
+              if (row !== undefined) revealRow(row.key, "start");
+            }}
+          />
+        ) : null}
+        {find.finding === null ? null : (
+          <TranscriptSearch
+            turns={turns}
+            host={host.current}
+            focusNonce={find.finding}
+            onReveal={(hit) => {
+              setTurnOpen(uiKey, hit.turnId, true);
+              revealRow(hit.rowKey, "center");
+            }}
+            onClose={find.close}
+          />
+        )}
+      </div>
+    </VisualizationScopeContext>
   );
 };

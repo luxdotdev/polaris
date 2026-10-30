@@ -12,7 +12,7 @@ import {
 import { deferredDelivery, refusedInput } from "./session.deferred.ts";
 import { harnessTurn, takesTurn, turnRefusal } from "./session.turns.ts";
 import { modelChanged } from "./session.model.ts";
-import { DomainEvent, type RequestId, type SessionState, type Turn } from "@polaris/protocol";
+import { DomainEvent, type SessionState, type Turn } from "@polaris/protocol";
 import { Predicate, Result } from "effect";
 import { createMachine, isUnhandled, transition, types } from "xstate";
 import { lastTurn, patchTurn, type SessionRecord, workingTurn } from "../store/model.ts";
@@ -27,6 +27,7 @@ import {
 import { interruptedSetup, setupChanged } from "./session.setup.ts";
 import { acceptTurns, lastIsAccepted } from "./session.accept.ts";
 import { endBackgroundWork, subagentEnded, subagentStarted } from "./session.subagents.ts";
+import { backToWork, decisionRefusal, withdrawn } from "./session.approvals.ts";
 import {
   endTurn,
   foldEach,
@@ -335,12 +336,6 @@ const approvalRequested = (
   );
 };
 
-/** Back to Working once nothing is pending, but only with a Turn to work on. */
-const backToWork = (record: SessionRecord, closing: RequestId) =>
-  record.pending.size === 1 && record.pending.has(closing) && workingTurn(record) !== undefined
-    ? ({ state: "working" } as const)
-    : undefined;
-
 export const sessionMachine = createMachine({
   id: "session",
   schemas: {
@@ -414,6 +409,10 @@ export const sessionMachine = createMachine({
         return reject(enq, `request ${event.requestId} is already resolved`);
       }
 
+      const refusal = decisionRefusal(record, event.requestId, event.decision);
+
+      if (refusal !== null) return reject(enq, refusal);
+
       return settle(enq, record, [
         DomainEvent.cases.ApprovalResolved.make({
           sessionId: record.session.id,
@@ -479,14 +478,7 @@ export const sessionMachine = createMachine({
 
       if (!record.pending.has(event.requestId)) return undefined;
 
-      return settle(enq, record, [
-        DomainEvent.cases.ApprovalWithdrawn.make({
-          sessionId: record.session.id,
-          requestId: event.requestId,
-          withdrawnBy: "harness",
-          reason: "The Harness withdrew the request",
-        }),
-      ]);
+      return settle(enq, record, [withdrawn(record, event)]);
     },
     "harness.turnEnded": ({ context, event }, enq) => turnEnded(need(context), event, enq, true),
     "harness.subagentStarted": ({ context, event }, enq) =>
@@ -644,6 +636,9 @@ export const sessionMachine = createMachine({
               const record = need(context);
 
               if (!record.pending.has(event.requestId)) return undefined;
+              const refusal = decisionRefusal(record, event.requestId, event.decision);
+
+              if (refusal !== null) return reject(enq, refusal);
 
               const resolved = DomainEvent.cases.ApprovalResolved.make({
                 sessionId: record.session.id,
@@ -661,19 +656,7 @@ export const sessionMachine = createMachine({
               // The default handles it unless it removes the last request of a Turn in flight.
               if (backToWork(record, event.requestId) === undefined) return undefined;
 
-              return settle(
-                enq,
-                record,
-                [
-                  DomainEvent.cases.ApprovalWithdrawn.make({
-                    sessionId: record.session.id,
-                    requestId: event.requestId,
-                    withdrawnBy: "harness",
-                    reason: "The Harness withdrew the request",
-                  }),
-                ],
-                { state: "working" }
-              );
+              return settle(enq, record, [withdrawn(record, event)], { state: "working" });
             },
           },
         },

@@ -38,9 +38,13 @@ test("every mutating tool takes requestId; status doesn't", () => {
           "status",
           "read_worker",
           "wait_for_command",
+          // A retried call asks again; the user sees one card per call.
+          "request_secret",
           "sessions",
           "search_history",
           "read_history",
+          // Its input is exactly VisualizeInput; a retry only shows the page again.
+          "visualize",
         ].includes(tool.name),
       ]);
     }

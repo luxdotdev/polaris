@@ -122,6 +122,29 @@ export const WORST_QUESTION: ReadonlyArray<ApprovalRequest> = [
   }),
 ];
 
+/** A Secret Request at its limits: a long label, a reason of several lines, an unbroken hint. */
+export const WORST_SECRET: ReadonlyArray<ApprovalRequest> = [
+  request({
+    id: RequestId.make("k-1"),
+    kind: "secret",
+    title: "Northwind Industries production Stripe restricted key (read-only, payouts and balance)",
+    detail: [
+      "I need it to reconcile last month's payouts against the ledger export in /Users/aleksandra.wisniewska-kowalczyk/code/northwind-industries-holdings/platform. ",
+      "Everything that doesn't need Stripe is done; the reconciliation script waits on this key. ",
+      "Klucz tylko do odczytu wystarczy. 🔑",
+    ].join(""),
+    placeholder: "northwind-restricted-key-read-only-payouts-and-balance-0000000000000000",
+    openedAt: ago(40),
+  }),
+  request({
+    id: RequestId.make("k-2"),
+    kind: "secret",
+    title: "密钥",
+    detail: null,
+    openedAt: ago(10),
+  }),
+];
+
 export const ONE_SHORT_REQUEST: ReadonlyArray<ApprovalRequest> = [
   request({ id: RequestId.make("o-1"), detail: "ls", openedAt: ago(5) }),
 ];

@@ -37,6 +37,7 @@ const waitWord = (row: SessionRow): string =>
         Match.when("command", () => "command"),
         Match.when("file-change", () => "files"),
         Match.when("tool", () => "tool"),
+        Match.when("secret", () => "secret"),
         Match.exhaustive
       );
 

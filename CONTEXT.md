@@ -124,6 +124,10 @@ _Avoid_: Step, exchange
 One use of a tool by an Agent Session within a Turn: a built-in tool, an MCP server's tool, or a Skill being loaded.
 _Avoid_: Activity, step, action
 
+**Secret Request**:
+A request an Agent Session makes for a value the user types, such as an API key, kept out of the conversation and the event log; the agent receives a file path, never the value.
+_Avoid_: Credential prompt, password question
+
 **Tool Run**:
 Consecutive finished Tool Calls in a Turn, shown as one summary line that expands to each call.
 _Avoid_: Run (alone, which reads as an Agent Session), group, batch

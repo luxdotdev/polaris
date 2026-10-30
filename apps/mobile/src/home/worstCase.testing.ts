@@ -9,6 +9,7 @@ import {
   constellation,
   minutesAgo,
   question,
+  secretRequest,
   type SessionInput,
   session,
   snapshot,
@@ -85,6 +86,15 @@ const studioSessions = [
   ]),
   summary(at({ id: "s-x", title: "x", state: "needs-you", harness: "aider", minutes: 20 }), [
     commandApproval("s-x", "r3", FIVE_LINES, minutesAgo(61)),
+  ]),
+  summary(at({ id: "s-key", title: "Deploy to the tailnet", state: "needs-you", minutes: 4 }), [
+    secretRequest(
+      "s-key",
+      "r6",
+      "Northwind Industries production Stripe restricted key (read-only, payouts and balance)",
+      "To reconcile last month's payouts against the ledger export; everything else is done.",
+      minutesAgo(4)
+    ),
   ]),
   summary(
     at({ id: "s-rtl", title: "إصلاح خطأ المزامنة في تطبيق الجوال", state: "needs-you", minutes: 1 }),
