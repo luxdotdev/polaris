@@ -153,12 +153,23 @@ describe("frame messages", () => {
   });
 
   test("only https links are offered, named by their domain", () => {
-    expect(openableLink("https://user@Docs.Example.com:8443/a?b#c")).toEqual({
-      href: "https://user@Docs.Example.com:8443/a?b#c",
+    expect(openableLink("https://Docs.Example.com:8443/a?b#c")).toEqual({
+      href: "https://Docs.Example.com:8443/a?b#c",
       host: "docs.example.com",
     });
 
-    for (const url of ["http://example.com", "javascript:alert(1)", "data:text/html,x", "https://"])
+    // The domain the sheet names must be the one that opens: no credentials or parser tricks.
+    for (const url of [
+      "http://example.com",
+      "javascript:alert(1)",
+      "data:text/html,x",
+      "https://",
+      "https://bank.example@evil.example/",
+      "https://evil.example\\@bank.example/",
+      "https://bank.example\tevil/",
+      "https://b%61nk.example/",
+      " https://bank.example/",
+    ])
       expect(openableLink(url)).toBeNull();
   });
 });

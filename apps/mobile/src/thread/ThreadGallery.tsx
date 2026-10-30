@@ -36,7 +36,9 @@ const launched = <A,>(key: string, schema: Schema.Codec<A, A>): A | null => {
 const SCRIPT = launched("polarisDevThreadState", DevThreadState);
 
 /** `-polarisDevData worst` plays a launched state over the worst case instead of the demo. */
-const WORST = launched("polarisDevData", Schema.Literal("worst")) !== null;
+const DATA = launched("polarisDevData", Schema.Literals(["worst", "visuals"]));
+
+const WORST = DATA === "worst";
 
 const MOONLIT = THEME === "moonlit" || launched("polarisDevTheme", ThemeName) === "moonlit";
 
@@ -63,6 +65,7 @@ const SEGMENTS: ReadonlyArray<readonly [Dataset, string]> = [
   ["worst", "Worst case"],
   ["one", "One"],
   ["empty", "Empty"],
+  ["visuals", "Visuals"],
 ];
 
 const HOST_NAMES: Readonly<Record<Dataset, string>> = {
@@ -71,6 +74,7 @@ const HOST_NAMES: Readonly<Record<Dataset, string>> = {
   one: "pi",
   empty: "mac-studio",
   started: "mac-studio",
+  visuals: "mac-studio",
 };
 
 const useGalleryHost = (dataset: Dataset) => {
@@ -125,10 +129,17 @@ const Toggle = ({
   </Pressable>
 );
 
+/** `-polarisDevData visuals` opens the Visualizations; a launched state plays on Demo. */
+const initialDataset = (): Dataset => {
+  if (DATA === "visuals") return "visuals";
+
+  return SCRIPT === null || WORST ? "worst" : "demo";
+};
+
 export const ThreadGallery = () => {
   const { colours, name, setTheme } = useTheme();
   const insets = useSafeAreaInsets();
-  const [dataset, setDataset] = useState<Dataset>(SCRIPT === null || WORST ? "worst" : "demo");
+  const [dataset, setDataset] = useState<Dataset>(initialDataset);
   const [narrow, setNarrow] = useState(false);
   const [offline, setOffline] = useState(false);
   const host = useGalleryHost(dataset);

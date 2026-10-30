@@ -2,30 +2,14 @@
  * The WebView side of the zero-egress frame (ADR 0089): the tokens the app sends in, the theme
  * message it injects, and the navigation policy that lets only the document's own load through.
  */
-import type { HostMessage } from "@polaris/visualization";
-import type { MobileColours } from "../theme/index.ts";
+import { FRAME_TOKEN_THEMES, type HostMessage } from "@polaris/visualization";
+import type { ThemeName } from "../theme/index.ts";
 
 /** Both phone themes are dark. */
 export const FRAME_SCHEME = "dark";
 
-/** The kit's tokens from the app's theme (DESIGN.md, Visualizations → the kit, V9). */
-export const frameTokens = (colours: MobileColours) => ({
-  "--pv-bg": colours.panel,
-  "--pv-surface": colours.well,
-  "--pv-raised": colours.raised,
-  "--pv-border": colours.hairline,
-  "--pv-text-strong": colours.textStrong,
-  "--pv-text": colours.textDefault,
-  "--pv-text-subtle": colours.textSubtle,
-  "--pv-text-faint": colours.textFaint,
-  "--pv-accent": colours.contextTools,
-  "--pv-focus": colours.starlight,
-  "--pv-series-1": colours.contextTools,
-  "--pv-series-2": colours.contextSystem,
-  "--pv-series-3": colours.contextMcp,
-  "--pv-series-4": colours.contextSkills,
-  "--pv-series-5": colours.contextMemory,
-});
+/** The kit's tokens for the app's theme, from V9's table (DESIGN.md, Visualizations → the kit). */
+export const frameTokens = (theme: ThemeName) => FRAME_TOKEN_THEMES[theme];
 
 /** Script that hands a message to the frame's kit as a `message` event with no source. */
 export const hostMessageScript = (message: HostMessage): string =>
@@ -59,3 +43,22 @@ export const navigationPolicy = () => {
     },
   };
 };
+
+/** WebRTC and capture APIs CSP doesn't govern, removed in every frame before any page script. */
+const WEBRTC = [
+  "RTCPeerConnection",
+  "webkitRTCPeerConnection",
+  "RTCDataChannel",
+  "RTCSessionDescription",
+  "RTCIceCandidate",
+  "RTCRtpSender",
+  "RTCRtpReceiver",
+  "RTCRtpTransceiver",
+];
+
+export const LOCKDOWN_SCRIPT = `(function () {
+  ${JSON.stringify(WEBRTC)}.forEach(function (name) {
+    try { Object.defineProperty(window, name, { value: undefined, writable: false, configurable: false }); } catch (error) {}
+  });
+  try { Object.defineProperty(navigator, "mediaDevices", { value: undefined, configurable: false }); } catch (error) {}
+})();true;`;

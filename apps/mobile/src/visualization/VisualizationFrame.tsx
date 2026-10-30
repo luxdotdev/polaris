@@ -8,7 +8,13 @@ import { useEffect, useMemo, useRef } from "react";
 import { type StyleProp, type ViewStyle } from "react-native";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import { useTheme } from "../theme/index.ts";
-import { FRAME_SCHEME, frameTokens, hostMessageScript, navigationPolicy } from "./frame.ts";
+import {
+  FRAME_SCHEME,
+  frameTokens,
+  hostMessageScript,
+  LOCKDOWN_SCRIPT,
+  navigationPolicy,
+} from "./frame.ts";
 import { clampHeight, parseFrameMessage, type Visualization } from "./model.ts";
 import { fileStateStore, type VisualizationStateStore } from "./stateStore.ts";
 
@@ -37,9 +43,10 @@ export const VisualizationFrame = ({
   store = fileStateStore,
   style,
 }: VisualizationFrameProps) => {
-  const { colours } = useTheme();
+  const { colours, name: theme } = useTheme();
   const view = useRef<WebView<object>>(null);
-  const coloursAtMount = useRef(colours);
+  const themeAtMount = useRef(theme);
+  const sentTheme = useRef(theme);
   const { id, html, title } = visualization;
 
   // The document is built once per frame; theme changes go in as `pv:theme` below.
@@ -49,7 +56,7 @@ export const VisualizationFrame = ({
         html,
         title,
         mode,
-        tokens: frameTokens(coloursAtMount.current),
+        tokens: frameTokens(themeAtMount.current),
         scheme: FRAME_SCHEME,
         state: store.read(id),
       }),
@@ -60,16 +67,17 @@ export const VisualizationFrame = ({
   const policy = useMemo(() => navigationPolicy(), [document]);
 
   useEffect(() => {
-    if (coloursAtMount.current === colours) return;
+    if (sentTheme.current === theme) return;
+    sentTheme.current = theme;
 
     const message = HostMessage.make({
       type: "pv:theme",
-      tokens: frameTokens(colours),
+      tokens: frameTokens(theme),
       scheme: FRAME_SCHEME,
     });
 
     view.current?.injectJavaScript(hostMessageScript(message));
-  }, [colours]);
+  }, [theme]);
 
   const onMessage = ({ nativeEvent }: WebViewMessageEvent) => {
     const message = parseFrameMessage(nativeEvent.data);
@@ -109,6 +117,12 @@ export const VisualizationFrame = ({
       onMessage={onMessage}
       onContentProcessDidTerminate={() => view.current?.reload()}
       javaScriptEnabled
+      // Defence in depth beside the bootstrap's own removal (ENG-596): every frame, before any script.
+      injectedJavaScriptBeforeContentLoaded={LOCKDOWN_SCRIPT}
+      injectedJavaScriptBeforeContentLoadedForMainFrameOnly={false}
+      mediaCapturePermissionGrantType="deny"
+      allowsAirPlayForMediaPlayback={false}
+      fraudulentWebsiteWarningEnabled={false}
       javaScriptCanOpenWindowsAutomatically={false}
       allowFileAccess={false}
       allowFileAccessFromFileURLs={false}

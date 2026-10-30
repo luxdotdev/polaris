@@ -128,12 +128,14 @@ export interface OpenableLink {
   readonly host: string;
 }
 
-// Hermes' URL can't read `protocol` or `host`, so the link is parsed by hand.
-const HTTPS = /^https:\/\/(?:[^@/?#\s]*@)?([^:/?#\s]+)(?::\d+)?(?:[/?#]\S*)?$/i;
+// Hermes' URL can't read `protocol` or `host`, so the link is parsed by hand, strictly: an ASCII
+// host, no credentials, and nothing but printable ASCII without a backslash.
+const HTTPS = /^https:\/\/([a-z0-9](?:[a-z0-9.-]*[a-z0-9])?)(?::\d{1,5})?(?:[/?#][\x21-\x7e]*)?$/i;
 
-/** An https link the frame asked to open; null for any other scheme or a malformed one. */
+const UNSAFE = /[^\x21-\x7e]|\\/;
+
 export const openableLink = (url: string): OpenableLink | null => {
-  const host = HTTPS.exec(url.trim())?.[1];
+  const host = UNSAFE.test(url) ? undefined : HTTPS.exec(url)?.[1];
 
-  return host === undefined ? null : { href: url.trim(), host: host.toLowerCase() };
+  return host === undefined ? null : { href: url, host: host.toLowerCase() };
 };
