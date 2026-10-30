@@ -26,9 +26,7 @@ export interface DitherFieldProps extends HTMLAttributes<HTMLCanvasElement> {
   readonly bloom?: string | undefined;
   /** While a Turn runs the threshold drifts and the edge breathes at 12 fps (LiveClock). */
   readonly active?: boolean | undefined;
-  /** Adds the small wandering scatter of lighter dots (the composer's Working strip). */
-  readonly scatter?: boolean | undefined;
-  /** Seeds the drift and the wander; unset picks one per mount. */
+  /** Seeds the drift; unset picks one per mount. */
   readonly seed?: number | undefined;
 }
 
@@ -50,7 +48,7 @@ function toRgb(css: string): Rgb {
 
 /**
  * The hue is the canvas's `color`; the sparse dots take its `outline-color` (text-strong); the
- * scatter is the hue mixed a third of the way to text-strong, lighter on dark, deeper on light.
+ * trail is the hue mixed a third of the way to text-strong, lighter on dark, deeper on light.
  */
 function resolveColors(canvas: HTMLCanvasElement): FieldColors {
   const style = getComputedStyle(canvas);
@@ -60,7 +58,7 @@ function resolveColors(canvas: HTMLCanvasElement): FieldColors {
   // Light ground: the hue needs a little more alpha to read at the same weight.
   return {
     hue: toRgb(style.color),
-    scatter: toRgb(`color-mix(in oklab, ${style.color} 65%, ${style.outlineColor})`),
+    trail: toRgb(`color-mix(in oklab, ${style.color} 65%, ${style.outlineColor})`),
     sparse,
     hueAlpha: light ? HUE_ALPHA * 1.25 : HUE_ALPHA,
   };
@@ -115,8 +113,7 @@ interface Controller {
 
 /**
  * The live dither field (DESIGN.md, Working strip): fine hue dots at the top-left over a CSS
- * tint, and with `scatter` a small sparse scatter that wanders; while `active` seeded noise
- * drifts the threshold and breathes the edge at 12 fps. Over a `[data-dither-hover]` ancestor,
+ * tint; while `active` seeded noise drifts the threshold and breathes the edge at 12 fps. Over a `[data-dither-hover]` ancestor,
  * sparse bright dots follow the pointer with a flat trail; each status blooms the corner. It
  * paints only while something moves; hidden, out of view or under Reduce Motion it is still.
  */
@@ -124,7 +121,6 @@ export function DitherField({
   hue,
   bloom,
   active = false,
-  scatter = false,
   seed: seedProp,
   className,
   style,
@@ -166,7 +162,6 @@ export function DitherField({
       bloom: motion.bloomAge >= BLOOM_MS ? RESTING : bloomAt(motion.bloomAge),
       ...live,
       seed,
-      scatter,
       trail: motion.trail,
       pointer: motion.pointer,
       presence: motion.presence,
@@ -291,13 +286,13 @@ export function DitherField({
       host?.removeEventListener("pointermove", onMove);
       host?.removeEventListener("pointerleave", onLeave);
     };
-  }, [hue, scatter, seed]);
+  }, [hue, seed]);
 
   useEffect(() => {
     if (bloom !== undefined) controller.current?.bloom();
-  }, [hue, scatter, seed, bloom]);
+  }, [hue, seed, bloom]);
 
-  useEffect(() => controller.current?.clock.set({ active }), [hue, scatter, seed, active]);
+  useEffect(() => controller.current?.clock.set({ active }), [hue, seed, active]);
 
   const vars: CssVars = {
     "--dither-hue": hueVar(hue),

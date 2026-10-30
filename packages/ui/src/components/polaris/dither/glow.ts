@@ -1,8 +1,8 @@
 /**
  * The Working strip's dither field, measured from Paper (02 · WORKING): 1px hue dots on a 2px
- * grid thinned by a Bayer threshold within ~140×40px of the top-left; a small, sparse, flat
- * scatter of lighter dots that wanders the strip; and near the pointer, a staggered lattice of
- * `text-strong` dots with the scatter's dots trailing behind it. The tint under it is CSS.
+ * grid thinned by a Bayer threshold within ~140×40px of the top-left; and near the pointer, a
+ * staggered lattice of `text-strong` dots with lighter hue dots trailing behind it. The tint
+ * under it is CSS.
  */
 import { noise1, noise3 } from "./noise";
 
@@ -14,26 +14,16 @@ export const DOT_PITCH = 2;
 /** A corner dot's alpha (dark theme); every dot is the same weight, as in Paper. */
 export const HUE_ALPHA = 0.29;
 
-/** A scatter or trail dot's alpha, in the lighter hue. */
-export const SCATTER_ALPHA = 0.55;
+/** A trail dot's alpha, in the lighter hue. */
+export const TRAIL_ALPHA = 0.55;
 
 /** The corner's reach in px, and how much of the Bayer matrix its densest dot clears. */
 export const CORNER = { rx: 140, ry: 40, gain: 0.95 } as const;
 
-/** The scatter's half-extent in px at rest, its peak density, and where it may wander. */
-export const SCATTER = {
-  rx: 36,
-  ry: 8,
-  density: 0.5,
-  minX: 0.52,
-  maxX: 0.7,
-  wobbleY: 3,
-} as const;
-
 const SPARSE = { pitchX: 8, pitchY: 4, radius: 22, alpha: 0.6 } as const;
 
-/** The trail is stretched like the scatter: wide and flat. */
-const TRAIL = { sx: 16, sy: 4, decayMs: 420, strength: SCATTER.density } as const;
+/** The trail is wide and flat, at most half its cells lit. */
+const TRAIL = { sx: 16, sy: 4, decayMs: 420, strength: 0.5 } as const;
 
 const BLOOM = { riseMs: 400, settleMs: 900, peak: 1.2 } as const;
 
@@ -154,23 +144,14 @@ export function sparseAlpha(x: number, y: number, frame: FieldFrame): number {
   return d >= 1 ? 0 : frame.presence * SPARSE.alpha * (1 - 0.45 * d * d);
 }
 
-/** Where the scatter sits and how wide it reaches, in CSS px. */
-export interface Scatter {
-  readonly x: number;
-  readonly y: number;
-  readonly rx: number;
-}
-
 export interface FieldFrame {
   readonly bloom: Bloom;
-  /** The live clock's step; 0 is the still frame (no drift, no wander). */
+  /** The live clock's step; 0 is the still frame (no drift). */
   readonly step: number;
-  /** Seeds the drift and the wander, so two fields never move in step. */
+  /** Seeds the drift, so two fields never move in step. */
   readonly seed: number;
   /** The corner's reach as it breathes, 1 at rest. */
   readonly breath: number;
-  /** Whether the field carries the wandering scatter (the composer's Working strip). */
-  readonly scatter: boolean;
   readonly trail: Trail | null;
   /** Where the sparse patch sits, in CSS px from the field's top-left. */
   readonly pointer: { readonly x: number; readonly y: number };
@@ -183,7 +164,6 @@ export const STILL: FieldFrame = {
   step: 0,
   seed: 0,
   breath: 1,
-  scatter: false,
   trail: null,
   pointer: { x: 0, y: 0 },
   presence: 0,
@@ -197,30 +177,6 @@ export function liveAt(step: number, seed: number): Pick<FieldFrame, "step" | "b
   if (step === 0) return { step, breath: 1 };
 
   return { step, breath: 1 + BREATH.depth * noise1(seed ^ 0x5bd1e995, step / BREATH.steps) };
-}
-
-/** A horizontal span in CSS px. */
-export interface Span {
-  readonly from: number;
-  readonly to: number;
-}
-
-/** The widest span the scatter can reach in a field `width` wide. */
-export function scatterReach(width: number): Span {
-  const reach = SCATTER.rx * 1.15;
-
-  return { from: width * SCATTER.minX - reach, to: width * SCATTER.maxX + reach };
-}
-
-/** The scatter in a `width`×`height` field: wandering between its bounds, still at step 0. */
-export function scatterAt(width: number, height: number, frame: FieldFrame): Scatter {
-  const t = frame.step;
-  const along = 0.5 + 0.5 * noise1(frame.seed, t / 48);
-  const x = width * mix(SCATTER.minX, SCATTER.maxX, along);
-  const y = height / 2 - 1 + SCATTER.wobbleY * noise1(frame.seed ^ 0x9e3779b9, t / 32);
-  const rx = SCATTER.rx * (1 + 0.15 * noise1(frame.seed ^ 0x7f4a7c15, t / 24));
-
-  return { x, y, rx };
 }
 
 const bayerAt = (i: number, j: number) => ((BAYER4[(j % 4) * 4 + (i % 4)] ?? 0) + 0.5) / 16;
@@ -260,18 +216,9 @@ export function hueAlpha(i: number, j: number, frame: FieldFrame, alpha = HUE_AL
   return clears(i, j, v, frame) ? alpha : 0;
 }
 
-/** The scatter and trail's value (0–1, at most their density) at dot (i, j). */
-export function scatterValue(i: number, j: number, frame: FieldFrame, at: Scatter | null): number {
-  const trail = frame.trail?.values[j * frame.trail.columns + i] ?? 0;
-
-  if (at === null) return trail;
-  const dx = (i * DOT_PITCH - at.x) / at.rx;
-  const dy = (j * DOT_PITCH - at.y) / SCATTER.ry;
-
-  if (dx * dx >= 1 || dy * dy >= 1) return trail;
-  const r = Math.sqrt(dx * dx + dy * dy);
-
-  return Math.max(trail, r >= 1 ? 0 : SCATTER.density * (1 - r));
+/** The trail's value (0–1, at most its strength) at dot (i, j). */
+export function trailValue(i: number, j: number, frame: FieldFrame): number {
+  return frame.trail?.values[j * frame.trail.columns + i] ?? 0;
 }
 
 export type Rgb = readonly [number, number, number];
@@ -283,8 +230,8 @@ export function packPixel(rgb: Rgb, alpha: number): number {
 
 export interface FieldColors {
   readonly hue: Rgb;
-  /** The scatter and trail's lighter hue. */
-  readonly scatter: Rgb;
+  /** The trail's lighter hue. */
+  readonly trail: Rgb;
   readonly sparse: Rgb;
   readonly hueAlpha: number;
 }
@@ -297,18 +244,17 @@ export interface FieldPixels {
 
 interface Inks {
   readonly hue: number;
-  readonly scatter: number;
+  readonly trail: number;
   readonly sparse: Rgb;
 }
 
-/** The pixel dot (i, j) paints, or 0: the pointer's lattice over the scatter over the corner. */
-function dotAt(i: number, j: number, frame: FieldFrame, scatter: Scatter | null, inks: Inks) {
+/** The pixel dot (i, j) paints, or 0: the pointer's lattice over the trail over the corner. */
+function dotAt(i: number, j: number, frame: FieldFrame, inks: Inks) {
   const sparse = sparseAlpha(i * DOT_PITCH, j * DOT_PITCH, frame);
 
   if (sparse > 0) return packPixel(inks.sparse, sparse);
-  const s = scatterValue(i, j, frame, scatter);
 
-  if (clears(i, j, s, frame)) return inks.scatter;
+  if (clears(i, j, trailValue(i, j, frame), frame)) return inks.trail;
 
   return hueAlpha(i, j, frame) > 0 ? inks.hue : 0;
 }
@@ -316,11 +262,10 @@ function dotAt(i: number, j: number, frame: FieldFrame, scatter: Scatter | null,
 /** Paints a frame into `target`, one canvas pixel per CSS px: a 1px dot per 2px cell. */
 export function paintFrame(target: FieldPixels, colors: FieldColors, frame: FieldFrame): void {
   const { pixels, width, height } = target;
-  const scatter = frame.scatter ? scatterAt(width, height, frame) : null;
 
   const inks = {
     hue: packPixel(colors.hue, colors.hueAlpha),
-    scatter: packPixel(colors.scatter, SCATTER_ALPHA),
+    trail: packPixel(colors.trail, TRAIL_ALPHA),
     sparse: colors.sparse,
   };
 
@@ -328,7 +273,7 @@ export function paintFrame(target: FieldPixels, colors: FieldColors, frame: Fiel
 
   for (let y = 0; y < height; y += DOT_PITCH) {
     for (let x = 0; x < width; x += DOT_PITCH) {
-      const dot = dotAt(x / DOT_PITCH, y / DOT_PITCH, frame, scatter, inks);
+      const dot = dotAt(x / DOT_PITCH, y / DOT_PITCH, frame, inks);
 
       if (dot !== 0) pixels[y * width + x] = dot;
     }
