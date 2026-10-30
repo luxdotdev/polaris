@@ -317,6 +317,9 @@ test("browser-wide methods are refused, with and without a session", async () =>
     ["Target.attachToBrowserTarget", {}],
     ["DOM.setFileInputFiles", { files: ["/etc/passwd"], nodeId: 1 }],
     ["Page.setDownloadBehavior", { behavior: "allow", downloadPath: "/tmp" }],
+    ["Page.setInterceptFileChooserDialog", { enabled: true }],
+    ["Network.loadNetworkResource", { url: "file:///etc/hosts", options: {} }],
+    ["Input.dispatchDragEvent", { type: "drop", x: 1, y: 1, data: { files: ["/etc/hosts"] } }],
   ];
 
   let id = 10;
@@ -337,6 +340,15 @@ test("browser-wide methods are refused, with and without a session", async () =>
 
   const deny = await call(id++, "Browser.setDownloadBehavior", { behavior: "deny" });
   expect(deny.result).toEqual({});
+
+  const drag = await call(
+    id++,
+    "Input.dispatchDragEvent",
+    { type: "dragEnter", x: 1, y: 1, data: { items: [], dragOperationsMask: 1 } },
+    session
+  );
+
+  expect(drag.result).toEqual({});
   // Browser-level page methods: nowhere to go without a session.
   const stray = await call(id++, "Network.getCookies", {});
   expect(stray.error).toMatchObject({ code: -32601 });

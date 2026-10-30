@@ -34,8 +34,10 @@ export const REFUSED_METHODS: ReadonlySet<string> = new Set([
   "Target.sendMessageToTarget",
   "Target.autoAttachRelated",
   "Target.attachToBrowserTarget",
-  // Reads any file on the Desktop App's machine into a page.
+  // Read files on the Desktop App's machine into a page, or fetch on its behalf.
   "DOM.setFileInputFiles",
+  "Page.setInterceptFileChooserDialog",
+  "Network.loadNetworkResource",
 ]);
 
 /** Whole domains that describe or control the Desktop App's Chromium, not a page. */
@@ -56,6 +58,12 @@ const DownloadBehavior = Schema.Struct({
 
 const decodeDownloadBehavior = Schema.decodeUnknownOption(DownloadBehavior);
 
+const DragData = Schema.Struct({
+  data: Schema.Struct({ files: Schema.optionalKey(Schema.Array(Schema.String)) }),
+});
+
+const decodeDragData = Schema.decodeUnknownOption(DragData);
+
 export const refusalMessage = (method: string) =>
   `${method} is not available through this Browser: it reaches beyond this session's tabs.`;
 
@@ -65,6 +73,14 @@ export const refusalOf = (method: string, params: CdpJson | undefined): string |
   const domain = method.split(".")[0] ?? method;
 
   if (REFUSED_DOMAINS.includes(domain)) return refusalMessage(method);
+
+  if (method === "Input.dispatchDragEvent") {
+    const files = Option.flatMap(decodeDragData(params), (p) => Option.fromNullishOr(p.data.files));
+
+    return Option.isSome(files) && files.value.length > 0
+      ? "Input.dispatchDragEvent may not drop files here: they would come from the Desktop App's machine."
+      : null;
+  }
 
   if (method === "Browser.setDownloadBehavior" || method === "Page.setDownloadBehavior") {
     const decoded = decodeDownloadBehavior(params);
