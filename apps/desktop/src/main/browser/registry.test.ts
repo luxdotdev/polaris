@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { Predicate } from "effect";
 import type { SessionId, WorkspaceId } from "@polaris/protocol";
 import {
   type BrowserBounds,
@@ -236,6 +237,42 @@ describe("showing and claiming", () => {
     registry.hide("mac", sid("s2"));
     expect(claims).toEqual(["claim mac/s1", "release mac/s1", "claim mac/s2", "release mac/s2"]);
     expect(fake.onScreen()).toBeNull();
+  });
+});
+
+describe("an agent driving a tab", () => {
+  const drivingOf = (r: ReturnType<typeof setup>["registry"], tabId: BrowserTabId) =>
+    r.sessionTabs("mac", sid("s1")).tabs.find((t) => t.tabId === tabId)?.agentDriving;
+
+  test("a commanded tab is driven only while its session's Turn runs; the Turn's end frees it", async () => {
+    const { registry } = setup();
+    const tab = await open(registry, "localhost:3000", "s1");
+    const other = await open(registry, "localhost:4000", "s2");
+    const events: Array<BrowserTabEvent> = [];
+
+    registry.subscribe("mac", sid("s1"), (e) => events.push(e));
+
+    // Between Turns an agent-browser still attached sends nothing that drives the tab.
+    registry.setAgentDriving(tab.tabId, true);
+    expect(drivingOf(registry, tab.tabId)).toBe(false);
+
+    registry.setWorking([
+      { hostKey: "mac", sessionId: sid("s1") },
+      { hostKey: "mac", sessionId: sid("s2") },
+    ]);
+    registry.setAgentDriving(tab.tabId, true);
+    registry.setAgentDriving(other.tabId, true);
+    expect(drivingOf(registry, tab.tabId)).toBe(true);
+
+    // s1's Turn ends; s2's goes on.
+    registry.setWorking([{ hostKey: "mac", sessionId: sid("s2") }]);
+    expect(drivingOf(registry, tab.tabId)).toBe(false);
+    expect(
+      registry.sessionTabs("mac", sid("s2")).tabs.find((t) => t.tabId === other.tabId)?.agentDriving
+    ).toBe(true);
+    expect(
+      events.flatMap((e) => (Predicate.isTagged(e, "Changed") ? [e.agentDriving] : []))
+    ).toEqual([true, false]);
   });
 });
 

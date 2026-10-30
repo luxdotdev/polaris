@@ -450,7 +450,20 @@ export const makeWire = Effect.fnUntraced(function* (
     if (blob === undefined)
       return Effect.fail(new TransportError({ message: "incoming blob count limit exceeded" }));
 
-    if (blob.status !== "receiving") return;
+    if (blob.status !== "receiving") {
+      // A tombstone the consumer left (see `forget`): the sender's last frame means nothing more
+      // can arrive for this id, so it stops counting against the limit now, not at the sweep.
+      if (
+        frame.final &&
+        blob.status === "failed" &&
+        !blob.claimed &&
+        inBlobs.get(frame.blobId) === blob
+      )
+        inBlobs.delete(frame.blobId);
+
+      return;
+    }
+
     blob.touched = Date.now();
 
     if (frame.aborted)

@@ -25,7 +25,7 @@ Bounds: at most 256 commands await a tab's answer per facade, and at most 1024 m
 
 ## Driving a tab
 
-One `DebuggerHub` per `webContents` (`hub.ts`): facades share an attachment; the last one detaches. On every attach the hub sends `Emulation.setFocusEmulationEnabled`, because Chromium drops synthetic input on a tab that isn't focused, and the session's Browser is often not on screen. Opening DevTools detaches `webContents.debugger`; the hub reattaches while a facade still holds the tab, and ends the sessions with `Target.detachedFromTarget` if it can't. Attached tabs show the agent-driving indicator (`setAgentDriving`).
+One `DebuggerHub` per `webContents` (`hub.ts`): facades share an attachment; the last one detaches. On every attach the hub sends `Emulation.setFocusEmulationEnabled`, because Chromium drops synthetic input on a tab that isn't focused, and the session's Browser is often not on screen. Opening DevTools detaches `webContents.debugger`; the hub reattaches while a facade still holds the tab, and ends the sessions with `Target.detachedFromTarget` if it can't. A tab shows the agent-driving indicator (`setAgentDriving`) once the agent sends it a command that acts on it, not for attaching or the setup every attached tab gets (`driving.ts`); agent-browser auto-attaches to the person's new tabs too. Main shows it only while the session is mid-Turn and clears it when the Turn ends (`browser.working`), so Pick unlocks then.
 
 The relay opens each stream with `Polaris.hello { tabs }`, the tabs it remembers; a facade over a session with no tabs reopens their URLs (`openedBy User`), so a Desktop App taking the Browser over shows the same pages. The facade reports `Polaris.tabs` after every change. Neither reaches the agent.
 

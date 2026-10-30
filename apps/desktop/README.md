@@ -298,6 +298,32 @@ Checked on `lucas-rpi` (ENG-614), against a Portless-style HTTPS server with a s
 - Port 443 itself wasn't checked: the Pi has no passwordless sudo to bind it. The stream doesn't
   care about the port.
 
+The HMR step waits for the reloaded page's own "[vite] connected." (after `did-navigate`): the
+page it replaces can log its late one first, and through a Host the new socket opens slower than
+over `ssh -L`, so the edit used to land before the new page was listening (ENG-612).
+
+### The Browser end to end on a remote Host
+
+`node apps/desktop/scripts/browserRemoteCheck.ts <alias> <out dir> --remote-command "<line>" --app-dir <dir> --app-url <url> --vite-dir <dir> --vite-url <url> [--harness claude] [--person-only]`
+drives the built app (`bun run build`) against a Host that already runs an app behind Portless
+and a Vite dev server, with a fresh user data directory that only knows that Host. A Claude Code
+session drives a tab through agent-browser (open, snapshot, fill, click, screenshot) while the
+Browser shows "… is using this tab"; a person opens both URLs as Host addresses (the badge),
+Vite's HMR applies an edit made on the Host, the app's cookie survives a reload and a restart in
+its Workspace and is absent from another Workspace's Browser; an element picked in the Browser
+goes out with the next message; and the app quits mid-Turn while the agent waits to use the
+Browser, then shows "No Desktop App is connected to show this Browser." in the Turn once it is
+back. `--person-only` skips the two agent parts. `--agent-only` runs only the agent parts (driving,
+the pick, the quit), and with `--local-socket <path>` and the alias `local` the Host is a Daemon on
+this Mac instead: no SSH, no Portless or Vite. Screenshots go to `<out dir>`.
+
+Checked on `lucas-rpi` (ENG-612) with the real Portless 0.15.12 (`portless proxy start -p 1355`,
+its state under a throwaway `HOME`) at `https://app.localhost:1355` and Vite 7 at
+`http://localhost:5173`, against a dev Daemon in `/tmp/pe`: every step passed with Claude Code.
+Codex ran the agent parts against this Mac's Host (`--local-socket`, a branch Daemon in `/tmp/pc`)
+and passed. A fresh Daemon's first session can start without Browser tools while agent-browser
+installs ("later sessions get the Browser"); start the check after it has installed.
+
 ## Known gaps
 
 - Install progress is per step (checking, copying and checking the SHA-256), not per byte; the client reports no byte progress.

@@ -320,6 +320,32 @@ export const createRegistry = (deps: RegistryDeps) => {
     return null;
   };
 
+  /** Sessions mid-Turn, by `sessionKey`: only their tabs can be an agent's (`setWorking`). */
+  let working = new Set<string>();
+
+  /** An agent drives a tab only during its session's Turn; a Turn's end clears it. */
+  const setAgentDriving = (tabId: BrowserTabId, agentDriving: boolean) => {
+    const state = sessionOfTab(tabId);
+    const tab = state === null ? null : findTab(state, tabId);
+
+    if (state === null || tab === null || tab.agentDriving === agentDriving) return;
+
+    if (agentDriving && !working.has(keyOf(state))) return;
+    tabChanged(tabId, { agentDriving });
+  };
+
+  /** The sessions mid-Turn now; tabs of a session whose Turn ended stop being driven. */
+  const setWorking = (now: ReadonlyArray<{ hostKey: string; sessionId: SessionId }>) => {
+    const next = new Set(now.map(({ hostKey, sessionId }) => sessionKey(hostKey, sessionId)));
+    const ended = [...working].filter((key) => !next.has(key));
+
+    working = next;
+
+    for (const key of ended)
+      for (const tab of sessions.get(key)?.tabs ?? [])
+        if (tab.agentDriving) tabChanged(tab.tabId, { agentDriving: false });
+  };
+
   /** The tab's id once its view exists, when it is in the named session. */
   const viewOf = (hostKey: string, sessionId: SessionId, tabId: BrowserTabId) => {
     const { state, tab } = owned(hostKey, sessionId, tabId);
@@ -364,8 +390,8 @@ export const createRegistry = (deps: RegistryDeps) => {
 
       return { tabs: state?.tabs ?? [], activeTabId: state?.active ?? null };
     },
-    setAgentDriving: (tabId: BrowserTabId, agentDriving: boolean) =>
-      tabChanged(tabId, { agentDriving }),
+    setAgentDriving,
+    setWorking,
     workspaceOf: (hostKey: string, sessionId: SessionId) =>
       stateOf(hostKey, sessionId)?.workspaceId ?? null,
   };

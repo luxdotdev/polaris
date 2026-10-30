@@ -56,15 +56,25 @@ const load = async (win: BrowserWindow, url: string) => {
   }
 };
 
-/** Resolves once the page's Vite client says its HMR WebSocket is connected. */
+/**
+ * Resolves once the next page's Vite client says its HMR WebSocket is connected. Counting only
+ * after `did-navigate`: the page being replaced can still log its own late "connected.".
+ */
 const viteConnected = (win: BrowserWindow) =>
   new Promise<void>((resolve) => {
+    let committed = false;
+
+    const navigated = () => {
+      committed = true;
+    };
+
     const listen = (event: Electron.Event<Electron.WebContentsConsoleMessageEventParams>) => {
-      if (!event.message.includes("[vite] connected.")) return;
+      if (!committed || !event.message.includes("[vite] connected.")) return;
       win.webContents.off("console-message", listen);
       resolve();
     };
 
+    win.webContents.once("did-navigate", navigated);
     win.webContents.on("console-message", listen);
   });
 

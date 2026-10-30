@@ -391,7 +391,6 @@ test("page commands and events travel under the facade's session ids, nested ses
 
   expect(session).toMatch(/^[0-9A-F]{32}$/);
   expect(debuggee.attached).toBe(true);
-  expect(world.driving.get(a.tabId)).toBe(true);
   expect(events("Target.attachedToTarget")).toMatchObject([
     {
       params: {
@@ -467,6 +466,43 @@ test("page commands and events travel under the facade's session ids, nested ses
   expect(world.driving.get(a.tabId)).toBe(false);
 });
 
+test("a tab the agent only attached to and set up isn't driven; a command that acts on it is", async () => {
+  const world = fakeTabs();
+  const { call } = facadeOn(world);
+
+  await call(1, "Target.setAutoAttach", { autoAttach: true, flatten: true });
+
+  // The person's own new tab: agent-browser auto-attaches and sets it up like any other.
+  const userTab = world.add(mine, "http://localhost:3000/user");
+
+  world.publish(mine, BrowserTabEvent.cases.Opened.make({ tab: userTab, byAgent: false }));
+
+  const session = sessionOf(
+    await call(2, "Target.attachToTarget", { targetId: userTab.tabId, flatten: true })
+  );
+
+  const setup = [
+    "Page.enable",
+    "Runtime.enable",
+    "Network.enable",
+    "Page.getFrameTree",
+    "Page.setLifecycleEventsEnabled",
+    "Page.addScriptToEvaluateOnNewDocument",
+    "Runtime.addBinding",
+    "Emulation.setFocusEmulationEnabled",
+    "Runtime.runIfWaitingForDebugger",
+    "Target.setAutoAttach",
+  ];
+
+  let id = 3;
+
+  for (const method of setup) await call(id++, method, {}, session);
+  expect(world.driving.get(userTab.tabId)).toBeUndefined();
+
+  await call(id++, "Input.dispatchMouseEvent", { type: "mousePressed", x: 1, y: 1 }, session);
+  expect(world.driving.get(userTab.tabId)).toBe(true);
+});
+
 test("Target.createTarget opens a tab in this session's Browser as the agent, driven at once under auto-attach", async () => {
   const world = fakeTabs();
   const { call, events } = facadeOn(world);
@@ -526,9 +562,15 @@ test("closing the facade detaches every tab and clears the indicator; a hub shar
   const debuggee = world.debuggee(a.tabId);
   const first = facadeOn(world);
   const second = facadeOn(world);
+
   await first.call(1, "Target.attachToTarget", { targetId: a.tabId, flatten: true });
-  await second.call(1, "Target.attachToTarget", { targetId: a.tabId, flatten: true });
+
+  const shared = sessionOf(
+    await second.call(1, "Target.attachToTarget", { targetId: a.tabId, flatten: true })
+  );
+
   expect(debuggee.attaches).toBe(1);
+  await second.call(2, "Runtime.evaluate", { expression: "1" }, shared);
 
   first.facade.close();
   expect(debuggee.attached).toBe(true);

@@ -114,3 +114,52 @@ test("expiry frees unclaimed metadata capacity", async () => {
     )
   );
 });
+
+// A Host-address stream whose socket closes stops reading its upstream blob mid-way (ENG-612).
+test.each([false, true])(
+  "a blob its consumer stopped reading frees capacity when the sender ends it (aborted %p)",
+  async (aborted) => {
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const incoming = yield* Queue.unbounded<Uint8Array>();
+          const received = yield* Queue.unbounded<void>();
+
+          const wire = yield* makeWire(
+            {
+              incoming: Stream.fromQueue(incoming),
+              write: () => Effect.void,
+              close: Effect.void,
+            },
+            () => Queue.offer(received, undefined).pipe(Effect.asVoid),
+            { maxIncomingBlobs: 1 }
+          );
+
+          const barrier = Effect.gen(function* () {
+            yield* Queue.offer(incoming, encodeJsonFrame("barrier"));
+            yield* Queue.take(received);
+          });
+
+          yield* Queue.offer(incoming, encodeBlobFrame("upstream", new Uint8Array([1]), false));
+          yield* barrier;
+
+          const first = yield* Stream.runCollect(
+            wire.takeBlobStream("upstream", { longLived: true }).pipe(Stream.take(1))
+          );
+
+          expect(first).toEqual([new Uint8Array([1])]);
+          yield* Queue.offer(
+            incoming,
+            encodeBlobFrame("upstream", new Uint8Array(), true, aborted)
+          );
+          yield* barrier;
+          expect(wire.stats().incomingBlobs).toBe(0);
+
+          yield* Queue.offer(incoming, encodeBlobFrame("next", new Uint8Array([2]), true));
+          yield* barrier;
+          expect(yield* wire.takeBlob("next")).toEqual(new Uint8Array([2]));
+        })
+      )
+    );
+  }
+);
