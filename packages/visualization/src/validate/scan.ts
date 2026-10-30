@@ -14,7 +14,7 @@ const CSS_IMPORT = /@import\b[^;]*/gi;
 
 /** Network APIs CSP blocks: they fail silently in the frame. */
 const NETWORK_API =
-  /\b(?:fetch\s*\(|new\s+(?:WebSocket|EventSource|Worker|SharedWorker)\s*\(|XMLHttpRequest\b|navigator\.sendBeacon\s*\(|importScripts\s*\(|\bimport\s*\(\s*["'`])/;
+  /\b(?:fetch\s*\(|new\s+(?:WebSocket|EventSource|Worker|SharedWorker)\s*\(|XMLHttpRequest\b|(?:webkit)?RTCPeerConnection\b|RTCDataChannel\b|navigator\.sendBeacon\s*\(|importScripts\s*\(|\bimport\s*\(\s*["'`])/;
 
 /** `data:`, `blob:` and `javascript:` stay in the frame; any other scheme, or `//`, leaves it. */
 export const isExternalUrl = (raw: string): boolean => {

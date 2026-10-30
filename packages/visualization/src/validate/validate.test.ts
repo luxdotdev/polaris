@@ -77,6 +77,11 @@ describe("validateVisualization rejects", () => {
     ],
     ["external-url", "fetch", "<script>fetch('/api').then((r) => r.json());</script>"],
     ["external-url", "a WebSocket", "<script>const ws = new WebSocket('wss://x.io');</script>"],
+    [
+      "external-url",
+      "WebRTC",
+      "<script>const pc = new RTCPeerConnection({ iceServers });</script>",
+    ],
     ["external-url", "sendBeacon", "<script>navigator.sendBeacon('/x', data);</script>"],
     ["navigation", "location.assign", "<script>location.assign('/next');</script>"],
     ["navigation", "location.replace", "<script>window.location.replace(url);</script>"],
