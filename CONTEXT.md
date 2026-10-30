@@ -301,6 +301,14 @@ _Avoid_: Next edit suggestion, NES, ghost edit, autocomplete
 The searchable list of every command in the Desktop App, opened with ⌘⇧P; a surface of its own, separate from the jump menu.
 _Avoid_: Command menu, action bar
 
+**Browser**:
+An Agent Session's web browser in its Output, holding that session's own tabs, which the user and the session's agents (Subagents included) both use; its logins and cookies are shared across the Workspace.
+_Avoid_: Preview (that is the Markdown or diff preview), webview, web tab
+
+**Host address**:
+A loopback URL opened in a Browser (`localhost`, any `*.localhost` name such as a Portless app, or a loopback IP), which always means the Agent Session's Host, never the machine the Client runs on; any other URL loads from the Client's own network.
+_Avoid_: Forwarded port, tunnel, local URL
+
 ### Language tooling
 
 **Language Integration**:
