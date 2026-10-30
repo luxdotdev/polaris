@@ -6,7 +6,8 @@
 import type { WorkspaceId } from "@polaris/protocol";
 import { type BrowserWindow, session, type WebContents, WebContentsView } from "electron";
 import type { BrowserTab, BrowserTabId } from "../../shared/browserContract.ts";
-import { allowedUrl, isHostAddress } from "./navigation.ts";
+import { allowedFrameUrl, allowedUrl, isHostAddress } from "./navigation.ts";
+import { latestLoads } from "./order.ts";
 import { distrustInSession } from "../tls/distrust.ts";
 import type { TabChange, ViewHost } from "./registry.ts";
 
@@ -53,6 +54,10 @@ const follow = (tabId: BrowserTabId, contents: WebContents, deps: ViewsDeps) => 
   contents.on("will-redirect", (event) => {
     if (!allowedUrl(event.url)) event.preventDefault();
   });
+  // Iframes too, so a data: or blob: frame can't slip past the policy.
+  contents.on("will-frame-navigate", (event) => {
+    if (!allowedFrameUrl(event.url, event.isMainFrame)) event.preventDefault();
+  });
   contents.setWindowOpenHandler(({ url }) => {
     if (allowedUrl(url)) deps.onPopup(tabId, url);
 
@@ -96,14 +101,21 @@ export const electronViews = (deps: ViewsDeps) => {
     if (view !== undefined && !view.webContents.isDestroyed()) use(view);
   };
 
-  const load = (tabId: BrowserTabId, url: string) =>
+  const ready = new Map<BrowserTabId, Promise<void>>();
+
+  const loads = latestLoads<BrowserTabId>((tabId, url) =>
     withView(tabId, (view) => {
       if (allowedUrl(url)) void view.webContents.loadURL(url).catch(() => {});
-    });
+    })
+  );
+
+  /** Loads once the partition is set up; a later load asked for in the meantime wins. */
+  const load = (tabId: BrowserTabId, url: string) =>
+    loads.request(tabId, url, ready.get(tabId) ?? Promise.resolve());
 
   const host: ViewHost = {
     create: (tab: BrowserTab, place) => {
-      const { partition, ready } = configure(place.hostKey, place.workspaceId);
+      const { partition, ready: configured } = configure(place.hostKey, place.workspaceId);
 
       const view = new WebContentsView({
         webPreferences: {
@@ -120,7 +132,8 @@ export const electronViews = (deps: ViewsDeps) => {
       views.set(tab.tabId, view);
       follow(tab.tabId, view.webContents, deps);
       onWindow(view);
-      void ready.then(() => load(tab.tabId, tab.url));
+      ready.set(tab.tabId, configured);
+      load(tab.tabId, tab.url);
     },
     load,
     back: (tabId) =>
@@ -160,6 +173,8 @@ export const electronViews = (deps: ViewsDeps) => {
         view.webContents.close();
       });
       views.delete(tabId);
+      ready.delete(tabId);
+      loads.forget(tabId);
     },
   };
 

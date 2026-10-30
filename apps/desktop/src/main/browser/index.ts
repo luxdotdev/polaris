@@ -9,6 +9,7 @@ import type { BrowserWindow } from "electron";
 import type { BrowserTabId } from "../../shared/browserContract.ts";
 import { type ClientRuntime, HostDirectory } from "../hosts.ts";
 import { openKeptTabs } from "./keptFile.ts";
+import { queueByKey } from "./order.ts";
 import { createRegistry, type Hosting } from "./registry.ts";
 import { electronViews } from "./views.ts";
 
@@ -35,26 +36,25 @@ export interface BrowsersInput {
 const live = (hostKey: string) =>
   HostDirectory.use((dir) => dir.connection(hostKey)).pipe(Effect.flatMap((c) => c.session));
 
-/** Claims follow the Browser on screen; a Daemon without `browser.host` refuses, which is fine. */
+/**
+ * Claims follow the Browser on screen, one Host's in the order asked, so the last shown wins;
+ * a Daemon without `browser.host` refuses, which is fine.
+ */
 const hostingOn = (runtime: ClientRuntime): Hosting => {
-  const run = (label: string, effect: Effect.Effect<unknown, unknown, HostDirectory>) =>
-    runtime.runFork(
-      effect.pipe(
-        Effect.catchCause((cause) => Effect.logDebug(`[browser] ${label} refused`, cause))
-      )
+  const queue = queueByKey<string>((cause) => console.debug("[browser] claim refused", cause));
+
+  const call = (
+    hostKey: string,
+    method: "browser.claim" | "browser.release",
+    sessionId: SessionId
+  ) =>
+    void queue(hostKey, () =>
+      runtime.runPromise(live(hostKey).pipe(Effect.flatMap((s) => s.client[method]({ sessionId }))))
     );
 
   return {
-    claim: (hostKey, sessionId) =>
-      run(
-        "claim",
-        live(hostKey).pipe(Effect.flatMap((s) => s.client["browser.claim"]({ sessionId })))
-      ),
-    release: (hostKey, sessionId) =>
-      run(
-        "release",
-        live(hostKey).pipe(Effect.flatMap((s) => s.client["browser.release"]({ sessionId })))
-      ),
+    claim: (hostKey, sessionId) => call(hostKey, "browser.claim", sessionId),
+    release: (hostKey, sessionId) => call(hostKey, "browser.release", sessionId),
   };
 };
 
