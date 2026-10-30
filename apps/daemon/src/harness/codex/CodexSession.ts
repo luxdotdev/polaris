@@ -63,6 +63,8 @@ import { threadSandboxing } from "./confinement.ts";
 import { polarisInstructions } from "../../constellation/skills/preamble.ts";
 import { type HarnessCall, harnessCallOf } from "./slash.ts";
 import { logStart } from "../startLog.ts";
+import type { BrowserMcp } from "../browser/index.ts";
+import { codexBrowserConfig } from "./browser.ts";
 
 export interface SessionConfig {
   readonly appServer: AppServer;
@@ -70,6 +72,8 @@ export interface SessionConfig {
   readonly clientVersion: string;
   /** Where the account's Plan Limits go; null, they aren't read. */
   readonly planLimits: CodexPlanLimits | null;
+  /** The Browser's MCP server for each thread that isn't read-only. */
+  readonly browser?: BrowserMcp["Service"] | undefined;
 }
 
 type PendingRequest = Data.TaggedEnum<{
@@ -206,6 +210,8 @@ export const openSession = (
       );
     }
 
+    const browser = yield* codexBrowserConfig(config.browser, options);
+
     common.developerInstructions = polarisInstructions(options);
 
     if (
@@ -215,7 +221,9 @@ export const openSession = (
     )
       common.config = { ...common.config, "shell_environment_policy.set": options.environment };
 
-    if (sandboxing.config !== null) common.config = { ...common.config, ...sandboxing.config };
+    const extra = { ...browser, ...sandboxing.config };
+
+    if (Object.keys(extra).length > 0) common.config = { ...common.config, ...extra };
 
     if (options.model !== null) common.model = options.model;
 

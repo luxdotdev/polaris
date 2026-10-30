@@ -38,6 +38,9 @@ import { Availability, AvailabilityRpcsLive } from "../harness/availability/inde
 import { HarnessRpcsLive } from "../harness/HarnessRpcs.ts";
 import { latestRolloutLimits, PlanLimitReporter } from "../harness/limits/index.ts";
 import { HarnessRegistryLive } from "../harness/registry.ts";
+import { BrowserMcp } from "../harness/browser/index.ts";
+import { CdpRelay } from "../browser/index.ts";
+import { AgentBrowser } from "../install/agentBrowser/index.ts";
 import { releaseMemory, releaseWhenQuiet } from "../memory/index.ts";
 import { userPath } from "../service/userPath.ts";
 import { takeHandoff } from "../service/upgrade.ts";
@@ -86,8 +89,15 @@ const usageServices = lazyUsage(bench ? {} : { planLimitSeed: latestRolloutLimit
   Layer.provide(UsageSessions.layer)
 );
 
+/** The CDP relay stays a stub until ENG-616 lands; until then sessions open without Browser tools. */
+const browserMcp = BrowserMcp.layer.pipe(
+  Layer.provide(Layer.mergeAll(CdpRelay.layerStub, AgentBrowser.layer))
+);
+
 /** The drivers report Plan Limits through the reporter, in front of the Usage index's sink. */
-const harnesses = HarnessRegistryLive.pipe(Layer.provide(PlanLimitReporter.layer));
+const harnesses = HarnessRegistryLive.pipe(
+  Layer.provide(Layer.mergeAll(PlanLimitReporter.layer, browserMcp))
+);
 
 /**
  * The services behind the handlers: the event store and engine, git,
