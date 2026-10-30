@@ -133,6 +133,12 @@ export interface TakeStreamOptions {
    * extra is buffered, so one stream cannot fill the shared blob buffer. Unset means unbounded.
    */
   readonly maxUnread?: number;
+  /**
+   * Called with the byte count each time the consumer consumes a delivered batch (the window
+   * reopens by that much). Credit back to the sender from here, never ahead of this, so a granted
+   * byte is always one the receiver has already freed.
+   */
+  readonly onConsumed?: (bytes: number) => void;
 }
 
 /** Frames buffered per outgoing stream-sourced blob before its source is paused. */
@@ -562,9 +568,14 @@ export const makeWire = Effect.fnUntraced(function* (
         readonly [Uint8Array, ...Array<Uint8Array>],
         BlobError | Cause.Done
       >((resume) => {
-        // A fresh pull means the previous batch is consumed: credit it so the window reopens.
-        blob.credited += blob.inflight;
-        blob.inflight = 0;
+        // A fresh pull means the previous batch is consumed: credit it so the window reopens, and
+        // tell the consumer exactly here, so credit back to the sender never outruns the window.
+        if (blob.inflight > 0) {
+          blob.credited += blob.inflight;
+          const consumed = blob.inflight;
+          blob.inflight = 0;
+          takeOptions.onConsumed?.(consumed);
+        }
 
         const settle = (): boolean => {
           const parts = blob.parts;

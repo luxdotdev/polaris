@@ -62,10 +62,12 @@ const openHostAddress = (
       const items = yield* Queue.unbounded<HostAddressStreamItem, Cause.Done>();
 
       const endpoint = yield* makeByteStreamEndpoint({
-        incoming: blobs.takeStream(payload.upstream, {
-          longLived: true,
-          maxUnread: BYTE_STREAM_WINDOW_BYTES,
-        }),
+        incoming: (onConsumed) =>
+          blobs.takeStream(payload.upstream, {
+            longLived: true,
+            maxUnread: BYTE_STREAM_WINDOW_BYTES,
+            onConsumed,
+          }),
         window: BYTE_STREAM_WINDOW_BYTES,
         peerWindow: payload.window,
         grant: (bytes) =>

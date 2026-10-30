@@ -1,108 +1,132 @@
 /**
- * The credit window (`byteStreamFlow.ts`): a peer may only send what we have granted, and a
- * grant beyond what is outstanding, or that is not a positive integer, is refused so a bad peer
- * cannot inflate the window (ENG-613, ADR 0093, the Codex review of the contracts).
+ * The credit loop between two real endpoints (ENG-613): credit back to the sender must never run
+ * ahead of the receiver's own window credit, or a well-behaved sender feeding a slow consumer is
+ * wrongly told it exceeded the receive window. A sender that ignores credit is still rejected
+ * (that case lives in wire.test.ts).
  */
 import { describe, expect, test } from "bun:test";
-import { Effect, Exit, Fiber } from "effect";
-import { makeCreditWindow } from "./byteStreamFlow.ts";
-import { TransportError } from "./wire.ts";
+import { type Cause, Effect, Exit, Queue, Stream } from "effect";
+import { makeByteStreamEndpoint } from "./byteStreamFlow.ts";
+import { BlobError, type ByteTransport, makeWire, TransportError } from "./wire.ts";
 
-describe("makeCreditWindow", () => {
-  test("a reserve past the window waits until the peer grants what it consumed", async () => {
-    await Effect.runPromise(
+type Pipe = Queue.Queue<Uint8Array, TransportError | Cause.Done>;
+
+/** Two in-memory transports wired back to back. */
+const makePair = () =>
+  Effect.gen(function* () {
+    const aToB: Pipe = yield* Queue.unbounded<Uint8Array, TransportError | Cause.Done>();
+    const bToA: Pipe = yield* Queue.unbounded<Uint8Array, TransportError | Cause.Done>();
+
+    const side = (inbox: Pipe, outbox: Pipe): ByteTransport => ({
+      incoming: Stream.fromQueue(inbox),
+      write: (chunk) => Effect.sync(() => Queue.offerUnsafe(outbox, chunk)),
+      close: Effect.sync(() => Queue.endUnsafe(outbox)),
+    });
+
+    return { a: side(bToA, aToB), b: side(aToB, bToA) };
+  });
+
+const bytes = (n: number) => Uint8Array.from({ length: n }, (_, i) => (i * 31 + 7) % 251);
+
+const run = <A, E>(effect: Effect.Effect<A, E, import("effect").Scope.Scope>) =>
+  Effect.runPromise(Effect.scoped(effect));
+
+describe("byte-stream credit loop", () => {
+  test("credit back to the sender never runs ahead of the receiver's own window credit", async () => {
+    const window = 4 * 256;
+    const chunk = 256;
+    const payload = bytes(16 * 1024);
+
+    const result = await run(
       Effect.gen(function* () {
-        const window = makeCreditWindow(100);
-        yield* window.reserve(100);
-        expect(window.outstanding()).toBe(100);
+        const { a, b } = yield* makePair();
+        const wireS = yield* makeWire(a, () => Effect.void);
+        const wireR = yield* makeWire(b, () => Effect.void);
 
-        let resumed = false;
+        // The receiver's own window credit: what the Wire has reported consumed back to us.
+        let consumed = 0;
+        // What we have granted the sender. It must never lead `consumed`, or a well-behaved sender
+        // honouring its window overshoots the receiver's and is wrongly failed at ingestion.
+        let granted = 0;
+        let grantAheadOfCredit = false;
 
-        const waiting = yield* Effect.forkChild(
-          window.reserve(40).pipe(Effect.ensuring(Effect.sync(() => (resumed = true))))
+        const sender = yield* makeByteStreamEndpoint<TransportError>({
+          incoming: () => Stream.never,
+          window,
+          peerWindow: window,
+          grant: () => Effect.void,
+        });
+
+        const blobId = yield* wireS.offerBlob(sender.outgoing);
+
+        const receiver = yield* makeByteStreamEndpoint<BlobError>({
+          incoming: (onConsumed) =>
+            wireR.takeBlobStream(blobId, {
+              longLived: true,
+              maxUnread: window,
+              onConsumed: (count) => {
+                consumed += count;
+                onConsumed(count);
+              },
+            }),
+          window,
+          peerWindow: window,
+          grant: (count) =>
+            Effect.sync(() => {
+              granted += count;
+
+              if (granted > consumed) grantAheadOfCredit = true;
+              sender.credited(count);
+            }),
+        });
+
+        // Small writes, so a slow consumer accumulates several frames into one delivered batch.
+        const slices = [];
+
+        for (let offset = 0; offset < payload.byteLength; offset += chunk)
+          slices.push(payload.subarray(offset, offset + chunk));
+
+        yield* Effect.forkChild(
+          Effect.forEach(slices, (slice) => sender.transport.write(slice), { discard: true }).pipe(
+            Effect.andThen(sender.transport.close),
+            Effect.ignore
+          )
         );
 
-        yield* Effect.sleep("20 millis");
-        const blockedWhileFull = resumed;
+        // A slow consumer: it sleeps per chunk, so frames pile into multi-chunk delivered batches
+        // whose credit lands only on the following pull.
+        const parts: Array<Uint8Array> = [];
 
-        expect(window.grant(40)).toBe(true);
-        yield* Fiber.join(waiting);
-
-        return { blockedWhileFull, resumed, outstanding: window.outstanding() };
-      })
-    ).then((result) => {
-      expect(result.blockedWhileFull).toBe(false);
-      expect(result.resumed).toBe(true);
-      expect(result.outstanding).toBe(100);
-    });
-  });
-
-  test("a reserve takes only what is free rather than waiting for the whole amount", async () => {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const window = makeCreditWindow(100);
-        const first = yield* window.reserve(30);
-        // Only 70 is free: a reserve of 100 takes the 70 instead of blocking for the full 100.
-        const second = yield* window.reserve(100);
-
-        let resumed = false;
-
-        const atZero = yield* Effect.forkChild(
-          window.reserve(10).pipe(Effect.tap(() => Effect.sync(() => (resumed = true))))
+        const exit = yield* receiver.transport.incoming.pipe(
+          Stream.runForEach((part) =>
+            Effect.sync(() => void parts.push(part)).pipe(Effect.andThen(Effect.sleep("1 milli")))
+          ),
+          Effect.timeout("10 seconds"),
+          Effect.exit
         );
 
-        yield* Effect.sleep("20 millis");
-        const waitedAtZero = !resumed;
+        const received = new Uint8Array(parts.reduce((n, p) => n + p.byteLength, 0));
+        let offset = 0;
 
-        expect(window.grant(10)).toBe(true);
-        const third = yield* Fiber.join(atZero);
-
-        return { first, second, waitedAtZero, third, outstanding: window.outstanding() };
-      })
-    ).then((result) => {
-      expect(result.first).toBe(30);
-      expect(result.second).toBe(70);
-      expect(result.waitedAtZero).toBe(true);
-      expect(result.third).toBe(10);
-      expect(result.outstanding).toBe(100);
-    });
-  });
-
-  test("grant is refused beyond what is outstanding, or when not a positive integer", () => {
-    const window = makeCreditWindow(100);
-    Effect.runSync(window.reserve(60));
-
-    // 60 sent, 60 outstanding: 61 would credit a byte never sent.
-    expect(window.grant(61)).toBe(false);
-    expect(window.grant(0)).toBe(false);
-    expect(window.grant(-5)).toBe(false);
-    expect(window.grant(1.5)).toBe(false);
-    expect(window.grant(Number.NaN)).toBe(false);
-    // The refusals left the window untouched.
-    expect(window.outstanding()).toBe(60);
-
-    expect(window.grant(60)).toBe(true);
-    expect(window.outstanding()).toBe(0);
-  });
-
-  test("a failure fails every waiting and future reserve", async () => {
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const window = makeCreditWindow(10);
-        yield* window.reserve(10);
-        const waiting = yield* Effect.forkChild(window.reserve(5).pipe(Effect.exit));
-        yield* Effect.sleep("10 millis");
-
-        window.fail(new TransportError({ message: "connection lost" }));
+        for (const part of parts) {
+          received.set(part, offset);
+          offset += part.byteLength;
+        }
 
         return {
-          waiting: yield* Fiber.join(waiting),
-          future: yield* window.reserve(1).pipe(Effect.exit),
+          streamFailed: Exit.isFailure(exit),
+          grantAheadOfCredit,
+          length: received.byteLength,
+          inOrder: received.every((byte, i) => byte === payload[i]),
         };
       })
-    ).then((result) => {
-      expect(Exit.isFailure(result.waiting)).toBe(true);
-      expect(Exit.isFailure(result.future)).toBe(true);
-    });
-  });
+    );
+
+    // The invariant the fix guarantees: a grant to the peer never precedes the credit behind it.
+    expect(result.grantAheadOfCredit).toBe(false);
+    // The well-behaved sender's bytes all arrive, in order, and the stream never fails.
+    expect(result.streamFailed).toBe(false);
+    expect(result.length).toBe(payload.byteLength);
+    expect(result.inOrder).toBe(true);
+  }, 15_000);
 });

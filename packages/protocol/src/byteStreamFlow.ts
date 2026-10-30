@@ -4,7 +4,7 @@
  * to fit the peer's credit; the peer's blob arrives as `transport.incoming`, and each chunk is
  * granted back once the consumer has taken it. Neither side's buffer can grow past its window.
  */
-import { Cause, Deferred, Effect, Exit, Queue, Stream } from "effect";
+import { Cause, Deferred, Effect, Exit, Queue, type Scope, Stream } from "effect";
 import { type ByteTransport, TransportError } from "./wire.ts";
 
 /** The peer's allowance: `reserve` takes what credit is free; `grant` returns what the peer consumed. */
@@ -96,8 +96,12 @@ export const makeCreditWindow = (window: number): CreditWindow => {
 };
 
 export interface ByteStreamEndpointOptions<E extends { readonly message: string }> {
-  /** The peer's blob toward us, taken long-lived from the Wire; its failure carries a message. */
-  readonly incoming: Stream.Stream<Uint8Array, E>;
+  /**
+   * The peer's blob toward us, taken long-lived from the Wire; its failure carries a message.
+   * A factory given an `onConsumed` hook: wire it into the take so the Wire reports each consumed
+   * batch here, which is where we credit the peer — never from chunk emission, which runs ahead.
+   */
+  readonly incoming: (onConsumed: (bytes: number) => void) => Stream.Stream<Uint8Array, E>;
   /** The window we announced: what we buffer of `incoming` unread. Credits go back by the quarter. */
   readonly window: number;
   /** The peer's window: what we may send of `outgoing` before it grants credit. */
@@ -126,30 +130,33 @@ export interface ByteStreamEndpoint {
 /** Builds the endpoint; `transport.close` ends `outgoing` (the peer sees its blob end). */
 export const makeByteStreamEndpoint = Effect.fnUntraced(function* <
   E extends { readonly message: string },
->(options: ByteStreamEndpointOptions<E>): Effect.fn.Return<ByteStreamEndpoint, never> {
+>(options: ByteStreamEndpointOptions<E>): Effect.fn.Return<ByteStreamEndpoint, never, Scope.Scope> {
   const queue = yield* Queue.unbounded<Uint8Array, TransportError | Cause.Done>();
   const closed = yield* Deferred.make<void>();
   /** Only ever fails, and only on `fail`: a clean close lets `incoming` drain to its blob's end. */
   const failed = yield* Deferred.make<never, TransportError>();
   const peerCredit = makeCreditWindow(options.peerWindow);
   const grantThreshold = Math.max(1, Math.floor(options.window / 4));
+  const toGrant = yield* Queue.unbounded<number, Cause.Done>();
   let ungranted = 0;
   let isClosed = false;
 
-  const grant = (bytes: number) =>
-    Effect.suspend(() => {
-      ungranted += bytes;
+  // The Wire calls this exactly when it credits a consumed batch; batch by the quarter-window and
+  // send from a fiber, so a grant to the peer never precedes the receive-window credit behind it.
+  const onConsumed = (bytes: number) => {
+    ungranted += bytes;
 
-      if (ungranted < grantThreshold || isClosed) return Effect.void;
-      const granted = ungranted;
-      ungranted = 0;
+    if (ungranted < grantThreshold || isClosed) return;
+    Queue.offerUnsafe(toGrant, ungranted);
+    ungranted = 0;
+  };
 
-      return options.grant(granted);
-    });
+  yield* Stream.fromQueue(toGrant).pipe(Stream.runForEach(options.grant), Effect.forkScoped);
 
   const finish = (error: TransportError | null) => {
     if (isClosed) return;
     isClosed = true;
+    Queue.endUnsafe(toGrant);
 
     // A failure aborts `outgoing` (failing the peer's blob) and interrupts `incoming`; a clean
     // close ends `outgoing` and lets `incoming` drain, its interrupt never firing.
@@ -181,10 +188,9 @@ export const makeByteStreamEndpoint = Effect.fnUntraced(function* <
 
   return {
     transport: {
-      incoming: options.incoming.pipe(
+      incoming: options.incoming(onConsumed).pipe(
         Stream.mapError((error) => new TransportError({ message: error.message })),
-        Stream.interruptWhen(Deferred.await(failed)),
-        Stream.tap((chunk) => grant(chunk.byteLength))
+        Stream.interruptWhen(Deferred.await(failed))
       ),
       write,
       close: Effect.sync(end),

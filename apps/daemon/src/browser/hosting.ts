@@ -364,10 +364,12 @@ export class BrowserHosting extends Context.Service<
         );
 
         const endpoint = yield* makeByteStreamEndpoint({
-          incoming: host.blobs.takeStream(answer.upstream, {
-            longLived: true,
-            maxUnread: BYTE_STREAM_WINDOW_BYTES,
-          }),
+          incoming: (onConsumed) =>
+            host.blobs.takeStream(answer.upstream, {
+              longLived: true,
+              maxUnread: BYTE_STREAM_WINDOW_BYTES,
+              onConsumed,
+            }),
           window: BYTE_STREAM_WINDOW_BYTES,
           peerWindow: answer.window,
           grant: (bytes) =>
