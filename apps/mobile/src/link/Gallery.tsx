@@ -31,7 +31,7 @@ const STEPS: Readonly<Record<DevLink, LinkStep>> = {
   paste: { kind: "paste" },
   linking: { kind: "linking", ...FOUND },
   linked: { kind: "linked", ...FOUND },
-  failed: { kind: "failed", message: "This link expired. Make a new one in the Desktop App." },
+  failed: { kind: "failed", message: "This link expired. Make a new one in the desktop app." },
 };
 
 const noop = () => undefined;

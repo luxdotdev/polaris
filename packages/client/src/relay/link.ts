@@ -86,7 +86,7 @@ export const linkDevice = Effect.fn("linkDevice")(function* (
   if (Date.parse(link.expiresAt) <= Date.now())
     return yield* new LinkFailed({
       reason: "expired",
-      message: "This link expired. Make a new one in the Desktop App.",
+      message: "This link expired. Make a new one in the desktop app.",
     });
 
   const secret = Option.getOrNull(fromBase64Url(link.secret));
@@ -119,7 +119,7 @@ export const linkDevice = Effect.fn("linkDevice")(function* (
     catch: () =>
       new LinkFailed({
         reason: "no-answer",
-        message: `${link.hostName} didn't answer. The link may be used or expired, or the Host is offline.`,
+        message: `${link.hostName} didn't answer. The link may be used or expired, or the host is offline.`,
       }),
   }).pipe(Effect.ensuring(Effect.sync(() => socket.stop())));
 
