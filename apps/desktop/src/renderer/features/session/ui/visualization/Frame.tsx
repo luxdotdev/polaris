@@ -91,6 +91,7 @@ export const Frame = (props: FrameProps) => {
 
       switch (request.kind) {
         case "height":
+          setLoaded(true);
           handlers.current.onHeight?.(request.height);
           break;
         case "open-link":
@@ -103,9 +104,12 @@ export const Frame = (props: FrameProps) => {
     };
 
     window.addEventListener("message", onMessage);
+    // A reload or quit never unmounts the frame: write its pending state on the way out.
+    window.addEventListener("pagehide", states.flush);
 
     return () => {
       window.removeEventListener("message", onMessage);
+      window.removeEventListener("pagehide", states.flush);
       states.flush();
     };
   }, [id]);
@@ -132,7 +136,7 @@ export const Frame = (props: FrameProps) => {
       referrerPolicy="no-referrer"
       data-testid="visualization-frame"
       data-mode={mode}
-      className={cn("block w-full border-0", !loaded && "invisible", className)}
+      className={cn("block w-full border-0", !loaded && "opacity-0", className)}
       onLoad={() => {
         loads.current += 1;
         setLoaded(true);

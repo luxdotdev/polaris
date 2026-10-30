@@ -98,7 +98,8 @@ const frameOf = async (page: Page, id: string): Promise<Frame> => {
   const element = card(page, id).locator("iframe");
 
   await card(page, id).scrollIntoViewIfNeeded();
-  await element.waitFor();
+  await element.waitFor({ state: "attached" });
+  await card(page, id).locator("iframe:not(.opacity-0)").waitFor();
   const handle = await element.elementHandle();
   const frame = await handle?.contentFrame();
 
@@ -136,7 +137,7 @@ try {
 
   const height = await card(page, "v3")
     .locator("iframe")
-    .evaluate<number, undefined>("(el) => el.clientHeight");
+    .evaluate((el: { readonly clientHeight: number }) => el.clientHeight);
 
   check("frame sized to its content", height !== 320 && height >= 80, { height });
 
@@ -278,7 +279,7 @@ try {
 
   const reserved = await page
     .locator('[data-phase="drawing"]')
-    .evaluate<number, undefined>("(el) => el.clientHeight");
+    .evaluate((el: { readonly clientHeight: number }) => el.clientHeight);
 
   check("drawing reserves its space", reserved >= 320, { reserved });
 
