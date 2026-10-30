@@ -204,6 +204,17 @@ afterAll(async () => {
   rmSync(root, { recursive: true, force: true });
 }, 30_000);
 
+smoke("a tab session's cookie methods reach only the tab's own partition (real Electron)", () => {
+  const line = electronLog.find((entry) => entry.startsWith("COOKIES "));
+  expect(line).toBeDefined();
+  expect(JSON.parse(line?.slice("COOKIES ".length) ?? "{}")).toEqual({
+    theirs: ["polaris"],
+    mine: [],
+    default: [],
+    theirsAfterMineCleared: ["polaris"],
+  });
+});
+
 smoke(
   "without a Desktop App, agent-browser fails with the product copy",
   async () => {
