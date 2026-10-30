@@ -52,6 +52,7 @@ import { secureStorageLayer } from "./secure/electron.ts";
 import { SecureStorage } from "./secure/index.ts";
 import { iconPng, nameApp, showIcon } from "./identity.ts";
 import { registerIpc } from "./ipc/index.ts";
+import { type Browsers, createBrowsers } from "./browser/index.ts";
 import { registerLanguageIpc } from "./ipc/languages.ts";
 import { optionalLanguageCredential } from "./languages/optionalCredential.ts";
 import { LanguageIdentityEpochs } from "./languages/identityEpochs.ts";
@@ -183,6 +184,8 @@ let ipc: { readonly dispose: () => void } | null = null;
 let predictionOutcomes: PredictionOutcomes | null = null;
 
 let needsYou: NeedsYouCenter | null = null;
+
+let browsers: Browsers | null = null;
 
 let presenceWatch: PresenceWatch | null = null;
 
@@ -444,10 +447,18 @@ const start = async () => {
     commit: (value) => updateSettings(() => value),
   });
 
+  browsers = createBrowsers({
+    runtime,
+    userData,
+    // The one main window, created below.
+    window: () => BrowserWindow.getAllWindows().find((w) => !w.isDestroyed()) ?? null,
+  });
+
   ipc = registerIpc({
     runtime,
     trusted,
     context: {
+      browser: browsers,
       updates: currentUpdates,
       restartToUpdate,
       showAppInFinder: () =>
@@ -572,6 +583,7 @@ const finishQuit = () => {
   quitting = true;
   exiting = true;
   ipc?.dispose();
+  browsers?.flush();
   languageIpc?.dispose();
   languageRuntime?.dispose();
   languageIdentities.dispose();

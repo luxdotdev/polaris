@@ -1,8 +1,7 @@
 /**
  * The Browser over IPC (ENG-615, ENG-618, ADR 0092): main owns each Agent Session's tabs as
  * WebContentsViews in the Workspace's partition; the renderer drives them and lays out the
- * visible one. Not yet spread into `RequestInputs` and `SubscriptionInputs`: ENG-615 does
- * that with its handlers.
+ * visible one. A tab is always named with its session, and main refuses a tab of another one.
  */
 import { SessionId, SubagentId, WorkspaceId } from "@polaris/protocol";
 import { Schema } from "effect";
@@ -86,7 +85,7 @@ export class BrowserPickResult extends Schema.Class<BrowserPickResult>("BrowserP
   screenshot: Schema.Uint8Array,
 }) {}
 
-const OnTab = Schema.Struct({ tabId: BrowserTabId });
+const OnTab = Schema.Struct({ hostKey: HostKey, sessionId: SessionId, tabId: BrowserTabId });
 
 export const BrowserRequestInputs = {
   /** Opens a tab in the session's Browser and makes it active; `url` may be a Host address. */
@@ -98,23 +97,27 @@ export const BrowserRequestInputs = {
   }),
   "browser.closeTab": OnTab,
   "browser.activateTab": OnTab,
-  "browser.navigate": Schema.Struct({ tabId: BrowserTabId, url: Schema.String }),
+  /** `url` as typed in the URL bar: main adds the scheme and refuses what isn't http(s). */
+  "browser.navigate": Schema.Struct({ ...OnTab.fields, url: Schema.String }),
   "browser.back": OnTab,
   "browser.forward": OnTab,
   /** `ignoreCache` is a hard reload. */
-  "browser.reload": Schema.Struct({ tabId: BrowserTabId, ignoreCache: Schema.Boolean }),
+  "browser.reload": Schema.Struct({ ...OnTab.fields, ignoreCache: Schema.Boolean }),
   /** The session's tabs now, in tab order. */
   "browser.listTabs": Schema.Struct({ hostKey: HostKey, sessionId: SessionId }),
   /**
    * Shows the session's active tab at `bounds`, and claims its Browser on the Host
-   * (`browser.claim`); called again as the Output resizes.
+   * (`browser.claim`); called again as the Output resizes. Empty bounds cover it (a menu
+   * over the Browser) and keep the claim.
    */
   "browser.show": Schema.Struct({ hostKey: HostKey, sessionId: SessionId, bounds: BrowserBounds }),
   /** Hides the session's Browser and releases it (`browser.release`); its tabs stay open. */
   "browser.hide": Schema.Struct({ hostKey: HostKey, sessionId: SessionId }),
-  "browser.devtools": Schema.Struct({ tabId: BrowserTabId, open: Schema.Boolean }),
+  "browser.devtools": Schema.Struct({ ...OnTab.fields, open: Schema.Boolean }),
   /** Starts pick mode in the tab; answers the pick, or null when the user cancels it. */
   "browser.pick": OnTab,
+  /** Closes these sessions' tabs and forgets them: the renderer names sessions once archived. */
+  "browser.forget": Schema.Struct({ hostKey: HostKey, sessionIds: Schema.Array(SessionId) }),
 } as const;
 
 export type BrowserMethod = keyof typeof BrowserRequestInputs;
@@ -132,6 +135,7 @@ export interface BrowserRequestOutputs {
   readonly "browser.hide": null;
   readonly "browser.devtools": null;
   readonly "browser.pick": BrowserPickResult | null;
+  readonly "browser.forget": null;
 }
 
 export const BrowserSubscriptionInputs = {
