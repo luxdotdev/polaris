@@ -29,7 +29,7 @@ default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-s
 - **Libraries.** With `libraries: "auto"` (the default) a document inlines Chart.js only when the fragment names `Chart` or `pv.chart`, and D3 only for `d3` or `pv.flow`: the same fragment always gets the same document. `"all"` inlines both.
 - **Messages.** The frame posts to `window.parent` with target `*` (its origin is opaque), or, in a React Native WebView, `window.ReactNativeWebView.postMessage(JSON)`. It accepts `pv:theme` only from `window.parent` (or, in a WebView, a message with no source), as an object or a JSON string, on `window` or `document`.
 - **State.** `pv.state` is posted as an envelope `{ pv: 1, value, tabs }`: the agent's value beside the kit's remembered tabs. Clients store it as an opaque value and pass it back as `options.state`.
-- **Nested frames.** The bootstrap removes any `<iframe>`, `<frame>`, `<object>` or `<embed>` as it is added: a nested `srcdoc` frame is a fresh realm where WebRTC, which CSP does not cover, would work again.
+- **Nested frames.** A nested frame is a fresh realm where WebRTC, which CSP doesn't cover, works again. The bootstrap removes any `<iframe>`, `<frame>`, `<object>` or `<embed>` as it is added, in the document and in every shadow root (`attachShadow` is wrapped), and refuses `document.write`, `setHTMLUnsafe` and `Document.parseHTMLUnsafe`. A closed declarative shadow root written in the fragment itself is out of the page's reach; only validation (`shadowrootmode`) stops it, so Clients should also turn WebRTC off for the frame.
 - **Links.** A click on any `<a href>` other than `#…` never navigates; an https one posts `pv:open-link`.
 
 ## The kit
