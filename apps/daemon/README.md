@@ -43,3 +43,5 @@ preloads, `BUN_OPTIONS`, `NODE_OPTIONS` and shell startup files remain caller au
 Compiled Daemons retain `autoloadDotenv: false` and `autoloadBunfig: false` in the build.
 They do not need the source launcher. For real startup verification under `lease bench`,
 see the [Traces smoke](src/traces/README.md).
+
+<!-- CI scope demo (ENG-736): a Daemon-only change. -->
