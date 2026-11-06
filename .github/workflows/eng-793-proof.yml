@@ -1,0 +1,35 @@
+name: ENG-793 proof (temporary)
+on:
+  push:
+    branches: [polaris/eng-793-proof]
+jobs:
+  mac:
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "$GITHUB_RUN_ATTEMPT" -gt 1
+  other:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo passes
+  result:
+    needs: mac
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    outputs:
+      result: ${{ steps.r.outputs.result }}
+    steps:
+      - id: r
+        run: if [ "$GITHUB_RUN_ATTEMPT" = 1 ]; then echo result=no-result; else echo result=passed; fi >> "$GITHUB_OUTPUT"
+  agg:
+    name: CI (macOS)
+    needs: [mac, result]
+    if: ${{ always() && needs.result.outputs.result != 'no-result' }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo aggregated attempt $GITHUB_RUN_ATTEMPT
+  red:
+    needs: [other, agg]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ci-red attempt $GITHUB_RUN_ATTEMPT
