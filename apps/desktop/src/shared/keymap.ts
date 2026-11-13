@@ -56,6 +56,7 @@ export type CommandId =
   | "palette.open"
   | "editor.format"
   | "editor.toggleInlineDiagnostics"
+  | "editor.toggleInlineBlame"
   | "editor.prediction.accept"
   | "editor.prediction.acceptWord"
   | "editor.prediction.dismiss"
@@ -499,6 +500,12 @@ export const KEYMAP: ReadonlyArray<KeyBinding> = [
     title: "Toggle inline diagnostics",
     keys: [],
     palette: SETTINGS(["error lens", "errors", "warnings", "problems", "diagnostics"]),
+  },
+  {
+    id: "editor.toggleInlineBlame",
+    title: "Toggle inline blame",
+    keys: [],
+    palette: SETTINGS(["git", "blame", "author", "origins", "sessions", "who wrote", "lens"]),
   },
   ...SETTINGS_BINDINGS,
   {

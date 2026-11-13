@@ -56,7 +56,8 @@ export const changeTarget = (
  * sides as they are, so the tab says they match.
  */
 export const liveTarget = (target: DiffTarget, git: GitFacts | "none" | null): DiffTarget => {
-  if (git === null || git === "none" || target.side === "head") return target;
+  if (git === null || git === "none" || target.side === "head" || target.side === "commit")
+    return target;
   const place = { hostKey: target.hostKey, workspaceId: target.workspaceId };
   const now = changeTarget(place, git, target.path, target.side);
 

@@ -4,6 +4,12 @@
  */
 import {
   CommitMessageRequest,
+  type GitBlame,
+  MAX_ORIGIN_LINES,
+  OriginLineQuery,
+  type OriginsMatch,
+  WorkspaceId,
+  WorktreeId,
   type CommitMessageStreamItem,
   type GitCommitItem,
   type GitInit,
@@ -41,6 +47,22 @@ export const GitRequestInputs = {
     cwd: Schema.String,
     limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: MAX_GIT_LOG })),
   }),
+  /** Capability `origins`: lines of a Workspace's file with their commits and line hashes. */
+  "git.blame": Schema.Struct({
+    hostKey: HostKey,
+    workspaceId: WorkspaceId,
+    worktreeId: Schema.NullOr(WorktreeId),
+    /** Absolute on the Host, inside the checkout. */
+    path: Schema.String,
+    startLine: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
+    endLine: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
+  }),
+  /** Capability `origins`: the Agent Sessions on this Host that wrote the lines `git.blame` gave. */
+  "origins.match": Schema.Struct({
+    hostKey: HostKey,
+    repoKey: Schema.String,
+    lines: Schema.Array(OriginLineQuery).check(Schema.isMaxLength(MAX_ORIGIN_LINES)),
+  }),
 };
 
 export interface GitRequestOutputs {
@@ -50,6 +72,8 @@ export interface GitRequestOutputs {
   "git.unstage": null;
   "git.discard": null;
   "git.log": Rpc.Success<typeof GitLog>;
+  "git.blame": Rpc.Success<typeof GitBlame>;
+  "origins.match": Rpc.Success<typeof OriginsMatch>;
 }
 
 export const GitSubscriptionInputs = {

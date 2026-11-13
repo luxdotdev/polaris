@@ -7,7 +7,8 @@ import type { GitStatus } from "@polaris/ui";
 import type { StatusEntry } from "../../explorer/model/git.ts";
 import { basename, join } from "../../explorer/model/paths.ts";
 
-export type DiffSide = "staged" | "unstaged" | "head";
+/** `commit`: what one commit changed in the file (the editor's Origins card opens it). */
+export type DiffSide = "staged" | "unstaged" | "head" | "commit";
 
 export interface DiffTarget {
   readonly hostKey: string;
@@ -21,6 +22,8 @@ export interface DiffTarget {
   readonly origRepoPath: string | null;
   readonly side: DiffSide;
   readonly git: GitStatus;
+  /** The commit a `commit` side shows. */
+  readonly sha?: string;
 }
 
 /** Where one side of the diff is read from; `none` is an empty file (added or deleted). */
@@ -47,8 +50,21 @@ export interface DiffSources {
   readonly new: DiffSource;
 }
 
+const shortSha = (sha: string | undefined) => (sha ?? "").slice(0, 7);
+
 /** The old and new sides of `target`. */
 export const sourcesOf = (target: DiffTarget): DiffSources => {
+  // A root commit has no parent: `git.show` finds nothing there, so the old side reads as empty.
+  if (target.side === "commit")
+    return {
+      old: {
+        kind: "git",
+        revision: `${target.sha}^`,
+        path: target.origRepoPath ?? target.repoPath,
+      },
+      new: { kind: "git", revision: target.sha ?? "HEAD", path: target.repoPath },
+    };
+
   if (target.side === "staged")
     return {
       old: head(target),
@@ -66,8 +82,10 @@ export const sourcesOf = (target: DiffTarget): DiffSources => {
 };
 
 /** One tab per file and side: "unstaged:/abs/main.ts". */
-export const diffTabId = (target: Pick<DiffTarget, "side" | "path">) =>
-  `diff:${target.side}:${target.path}`;
+export const diffTabId = (target: Pick<DiffTarget, "side" | "path" | "sha">) =>
+  target.side === "commit"
+    ? `diff:commit:${target.sha}:${target.path}`
+    : `diff:${target.side}:${target.path}`;
 
 export const isDiffTab = (id: string) => id.startsWith("diff:");
 
@@ -80,11 +98,16 @@ export const selectedPath = (side: DiffSide, shownDiff: string | null, open: str
 };
 
 /** VS Code's titles: "main.ts (Working Tree)", "main.ts (Index)". */
-export const diffTitle = (target: Pick<DiffTarget, "side" | "path">) =>
-  `${basename(target.path)} (${target.side === "staged" ? "Index" : "Working Tree"})`;
+export const diffTitle = (target: Pick<DiffTarget, "side" | "path" | "sha">) => {
+  if (target.side === "commit") return `${basename(target.path)} (${shortSha(target.sha)})`;
+
+  return `${basename(target.path)} (${target.side === "staged" ? "Index" : "Working Tree"})`;
+};
 
 /** What the toolbar says each side is. */
-export const sideLabels = (target: Pick<DiffTarget, "side">) => {
+export const sideLabels = (target: Pick<DiffTarget, "side" | "sha">) => {
+  if (target.side === "commit") return `${shortSha(target.sha)}^ ↔ ${shortSha(target.sha)}`;
+
   const old = target.side === "unstaged" ? "Index" : "HEAD";
   const fresh = target.side === "staged" ? "Index" : "Working Tree";
 

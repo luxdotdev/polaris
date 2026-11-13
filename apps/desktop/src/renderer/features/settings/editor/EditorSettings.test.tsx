@@ -177,6 +177,8 @@ const renderPage = (
         onVim: () => {},
         onAutosave: () => {},
         onInlineDiagnostics: () => {},
+        inlineBlame: true,
+        onInlineBlame: () => {},
       }}
       refreshEditors={(hostKey) => refreshed.push(hostKey)}
       refreshPreviews={() => {}}
@@ -351,6 +353,8 @@ describe("commit messages", () => {
     onVim: () => {},
     onAutosave: () => {},
     onInlineDiagnostics: () => {},
+    inlineBlame: true,
+    onInlineBlame: () => {},
     commitMessages: "chips",
   };
 
