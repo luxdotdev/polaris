@@ -28,7 +28,8 @@ const requested = (...rows: ReadonlyArray<QueueRow>): ReadonlyArray<QueueGroup> 
   { id: "requested", label: "Review requested", rows, compact: false },
 ];
 
-const SUBMITTED = { commitOid: "head1", at: "2026-10-13T10:00:00Z" };
+// A fresh time: the store prunes reviews older than 30 days.
+const SUBMITTED = { commitOid: "head1", at: new Date().toISOString() };
 
 afterEach(() => {
   cleanup();

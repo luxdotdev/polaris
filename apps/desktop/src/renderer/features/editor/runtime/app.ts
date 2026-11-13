@@ -19,6 +19,8 @@ import type { SpillStore } from "../model/draftStore.ts";
 import { indexedDbSpill } from "./idbSpill.ts";
 import { setVimHandlers } from "../cm/vim.ts";
 import { setInlineDiagnostics } from "../cm/inlineDiagnostics.ts";
+import { bindOriginsApp } from "../origins/data.ts";
+import { setInlineBlame } from "../origins/extension.tsx";
 import { setWordWrap } from "../cm/wordWrap.ts";
 import { closeTab, saveFile, startEditor } from "./actions.ts";
 import {
@@ -144,6 +146,8 @@ export const ensureEditor = ({
   editorLanguages.setCommands((key, action) => runNavigation(key, action, editorLanguageQueries));
   subscribeApp?.(() => editorLanguages?.refreshHosts());
 
+  bindOriginsApp(app);
+
   const has = (hostKey: string, capability: string) =>
     app()
       .hosts.find((h) => h.key === hostKey)
@@ -196,11 +200,13 @@ export const ensureEditor = ({
 
   if (prefs().vim) void setVim(true);
   setInlineDiagnostics(settingsStore.getState().sessions.editorInlineDiagnostics);
+  setInlineBlame(settingsStore.getState().sessions.editorInlineBlame);
   setWordWrap(settingsStore.getState().appearance.wordWrap);
   settingsStore.subscribe((state, previous) => {
     if (state.sessions.editorVim !== previous.sessions.editorVim)
       void setVim(state.sessions.editorVim);
     setInlineDiagnostics(state.sessions.editorInlineDiagnostics);
+    setInlineBlame(state.sessions.editorInlineBlame);
     setWordWrap(state.appearance.wordWrap);
   });
 };

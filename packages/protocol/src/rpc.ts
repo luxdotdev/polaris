@@ -103,6 +103,7 @@ import { UsageReport, UsageStreamItem } from "./usage.ts";
 import { NotFound, Unsupported } from "./errors.ts";
 import { SessionTurnRpcs, TurnDetail } from "./turns.ts";
 import { GitError, GitLogRpcs, GitTracking, GitWatchRpcs, GitWriteRpcs } from "./git.ts";
+import { OriginRpcs } from "./origins.ts";
 
 export { NotFound, Unsupported } from "./errors.ts";
 
@@ -782,7 +783,7 @@ export const DaemonRpcDefinitions = RpcGroup.make(
   .merge(LanguageRpcs, PredictionRpcs, SessionTurnRpcs)
   .merge(AutoArchiveRpcs, IdleCompactionRpcs, ContinuityRpcs, PresenceRpcs, HostStatsRpcs)
   .merge(VisualsRpcs, SuggestedReplyRpcs)
-  .merge(GitWriteRpcs, GitWatchRpcs, GitLogRpcs, CommitMessageRpcs)
+  .merge(GitWriteRpcs, GitWatchRpcs, GitLogRpcs, CommitMessageRpcs, OriginRpcs)
   .merge(ExtensionRpcs, RemoteAccessRpcs, LinkedDeviceRpcs, VoiceRpcs, RestartRpcs)
   .merge(
     SecretRpcs,

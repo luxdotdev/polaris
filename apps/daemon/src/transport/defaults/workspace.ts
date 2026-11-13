@@ -1,5 +1,6 @@
 import {
   AutoArchiveRpcs,
+  OriginRpcs,
   CommitMessageError,
   CommitMessageRpcs,
   ContinuityRpcs,
@@ -96,6 +97,11 @@ export const workspaceDefaults = Layer.mergeAll(
   gitWriteDefaults,
   GitWatchRpcs.toLayer({ "git.watch": ({ cwd }) => Stream.fail(gitUnavailable(cwd)) }),
   GitLogRpcs.toLayer({ "git.log": ({ cwd }) => Effect.fail(gitUnavailable(cwd)) }),
+  OriginRpcs.toLayer({
+    "git.blame": ({ workspaceId }) => Effect.fail(gitUnavailable(workspaceId)),
+    "origins.match": () => Effect.succeed({ lines: [], sessions: [] }),
+    "origins.forCommit": ({ workspaceId }) => Effect.fail(gitUnavailable(workspaceId)),
+  }),
   commitMessageDefaults,
   terminalDefaults,
   sessionSettingsDefaults

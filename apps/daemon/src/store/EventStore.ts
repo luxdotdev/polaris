@@ -55,6 +55,7 @@ import { type EphemeralItem, LiveHub, LiveItem } from "./hub.ts";
 import { MigrationsLayer } from "./migrations.ts";
 import { hostOmittedEventTypes, project, type ReadModel, sessionOf, workingTurn } from "./model.ts";
 import { type ContinuityStore, continuityStore } from "./continuity.ts";
+import { type OriginStore, originStore } from "./origins.ts";
 import { type ReviewReads, reviewReads } from "./review.ts";
 import {
   decodeEventRow,
@@ -210,6 +211,8 @@ export class EventStore extends Context.Service<
     readonly review: ReviewReads;
     /** Read positions and drafts (`continuity.ts`), outside the log. */
     readonly continuity: ContinuityStore;
+    /** Line fingerprints of what each Turn wrote (`origins.ts`, ADR 0111), outside the log. */
+    readonly origins: OriginStore;
   }
 >()("polaris/daemon/store/EventStore") {
   static readonly layer = Layer.effect(
@@ -413,6 +416,7 @@ export class EventStore extends Context.Service<
         readSubagents,
         review: reviewReads(sql),
         continuity: continuityStore(sql),
+        origins: originStore(sql),
       });
     })
   );

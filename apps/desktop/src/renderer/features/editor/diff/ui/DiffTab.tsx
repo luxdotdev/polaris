@@ -66,6 +66,7 @@ const SAME_TEXT = {
   staged: "The index matches HEAD.",
   head: "The working tree matches HEAD.",
   unstaged: "The working tree matches the index.",
+  commit: "This commit didn't change this file.",
 } as const satisfies Record<DiffTarget["side"], string>;
 
 const sameText = (target: DiffTarget) => SAME_TEXT[target.side];

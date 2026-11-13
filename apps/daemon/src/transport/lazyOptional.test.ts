@@ -28,7 +28,7 @@ const isolated = async (mode: string) => {
 };
 
 test(
-  "empty Daemon startup keeps Data, Traces, profiles, push encryption, decoders, the Reviewer, the Usage index, the accept handlers and computer use out of the implementation graph",
+  "empty Daemon startup keeps Data, Traces, profiles, push encryption, decoders, the Reviewer, the Usage index, the accept handlers, computer use and Origins out of the implementation graph",
   () => isolated("empty"),
   30000
 );
@@ -62,6 +62,12 @@ test(
   () => isolated("computer-use"),
   30000
 );
+
+test.each([
+  ["a git.blame request", "origins-rpc"],
+  ["an after-checkpoint", "origins-checkpoint"],
+  ["the MCP origins tool", "origins-mcp"],
+])("Origins loads with %s after start and answers", (_, mode) => isolated(mode), 30000);
 
 test(
   "a terminal outside registered Workspaces does not initialize the trace runtime or store",

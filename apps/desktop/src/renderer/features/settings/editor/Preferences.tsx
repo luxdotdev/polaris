@@ -1,4 +1,4 @@
-/** SR-02's Editing card: Vim, autosave, format on save and inline diagnostics behind one switch each. */
+/** SR-02's Editing card: Vim, autosave, format on save, inline diagnostics and blame, a switch each. */
 import { clientCopy } from "../../../../shared/clientCopy.ts";
 import * as P from "@polaris/protocol";
 import { SettingsCard, SettingsToggleRow, SettingsWell } from "@polaris/ui";
@@ -22,6 +22,8 @@ export interface EditorKeys {
   readonly onAutosave: (on: boolean) => void;
   readonly inlineDiagnostics: boolean;
   readonly onInlineDiagnostics: (on: boolean) => void;
+  readonly inlineBlame: boolean;
+  readonly onInlineBlame: (on: boolean) => void;
   /** The commit messages' Harness and Model chips; absent in tests. */
   readonly commitMessages?: ReactNode;
 }
@@ -39,12 +41,19 @@ export const Preferences = ({
   readonly keys: EditorKeys;
 }) => {
   const formatOnSave = record?.settings.formatOnSave ?? true;
-  const on = [keys.vim, keys.autosave, formatOnSave, keys.inlineDiagnostics].filter(Boolean).length;
+
+  const on = [
+    keys.vim,
+    keys.autosave,
+    formatOnSave,
+    keys.inlineDiagnostics,
+    keys.inlineBlame,
+  ].filter(Boolean).length;
 
   return (
     <SettingsCard
       title="Editing"
-      aside={`${on} of 4 on`}
+      aside={`${on} of 5 on`}
       status={
         failed
           ? "Couldn't read or save these preferences · try again"
@@ -76,6 +85,12 @@ export const Preferences = ({
           caption="Each line's worst problem at its end"
           checked={keys.inlineDiagnostics}
           onCheckedChange={keys.onInlineDiagnostics}
+        />
+        <SettingsToggleRow
+          title="Inline blame"
+          caption="The cursor line's author, time and the sessions that wrote it"
+          checked={keys.inlineBlame}
+          onCheckedChange={keys.onInlineBlame}
         />
       </SettingsWell>
     </SettingsCard>

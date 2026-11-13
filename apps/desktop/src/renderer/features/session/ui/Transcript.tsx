@@ -4,13 +4,15 @@
  */
 import type { SessionId } from "@polaris/protocol";
 import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { useStore } from "zustand";
 import { useApp, useCommands } from "../../../shell/hooks.ts";
 import type { TurnView } from "../../../store/sessionModel.ts";
 import { olderRow, type Row, turnStartRow } from "../model/conversation.ts";
 import { useOlderTurns } from "../older.ts";
 import { revisedIds, visualizationTurns } from "../model/polarisTools/index.ts";
 import { RAIL_MIN_TURNS } from "../model/rail.ts";
-import { groupTurns } from "../model/turnGroups.ts";
+import { groupOf, groupTurns } from "../model/turnGroups.ts";
+import { takeTurn, turnRequests } from "../revealTurn.ts";
 import { setTurnOpen } from "../state.ts";
 import { Conversation, type Reveal } from "./Conversation.tsx";
 import { createJumpControl, type JumpControl } from "./follow.ts";
@@ -64,6 +66,32 @@ const useVisualizationScope = (props: TranscriptProps): VisualizationScope => {
   }, [turns, title]);
 };
 
+/**
+ * A Turn asked for from elsewhere (the editor's Origins card): revealed once its row is in,
+ * paging older Turns until it is; dropped when the history runs out.
+ */
+const useRequestedTurn = (
+  props: TranscriptProps,
+  rows: ReadonlyArray<Row>,
+  older: ReturnType<typeof useOlderTurns>,
+  reveal: (key: string) => void
+) => {
+  const pending = useStore(turnRequests, (s) => s.pending);
+  const { hostKey, sessionId, turns } = props;
+
+  useEffect(() => {
+    if (pending?.hostKey !== hostKey || pending.sessionId !== sessionId) return;
+    const group = groupOf(groupTurns(turns), pending.turnId);
+    const row = group === undefined ? undefined : rows[turnStartRow(rows, group.id)];
+
+    if (row !== undefined) {
+      reveal(row.key);
+      takeTurn(pending);
+    } else if (older.state === "idle") older.load();
+    else if (older.state !== "loading") takeTurn(pending);
+  }, [pending, hostKey, sessionId, turns, rows, older, reveal]);
+};
+
 export interface TranscriptProps {
   readonly uiKey: string;
   readonly hostKey: string;
@@ -98,6 +126,8 @@ export const Transcript = (props: TranscriptProps) => {
 
   const revealRow = (key: string, align: "center" | "start") =>
     setReveal((r) => ({ key, nonce: (r?.nonce ?? 0) + 1, align }));
+
+  useRequestedTurn(props, rows, older, (key) => revealRow(key, "start"));
 
   return (
     <VisualizationScopeContext value={visualizations}>

@@ -1,10 +1,11 @@
-/** Every binding's history tools: `sessions`, `search_history` and `read_history`. */
+/** Every binding's history tools: `sessions`, `search_history`, `read_history` and `origins`. */
 import type { SessionId } from "@polaris/protocol";
 import { Effect, Schema } from "effect";
 import { HistoryOutcome, sessionLine } from "../sessions/history.ts";
 import type { SessionTools } from "../sessions/index.ts";
 import { rejection, type BoundTool } from "./shared.ts";
 import { sessionTool, text } from "./session.ts";
+import { originsTool } from "./origins.ts";
 
 const Scope = Schema.Literals(["session", "workspace", "host"]);
 
@@ -91,18 +92,20 @@ export const searchHistoryTool = (caller: SessionId, sessions: SessionTools): Bo
 export const readHistoryTool = (caller: SessionId, sessions: SessionTools): BoundTool =>
   sessionTool(
     "read_history",
-    "Read a session's Turns as compact text: prompts, replies, commands with output tails, file changes. session is an id, id prefix or exact title (default: your own). turns is how many (default 2, at most 10); since starts from that Turn number, so search_history's Turn numbers open here.",
+    "Read a session's Turns as compact text: prompts, replies, commands with output tails, file changes. session is an id, id prefix or exact title (default: your own). turns is how many (default 2, at most 10); since starts from that Turn number, so search_history's Turn numbers open here. turn is a Turn id, as origins gives it: it opens that Turn in whichever session holds it (default turns 1; more reads the Turns after it), so origins then read_history shows the full request behind a line.",
     Schema.Struct({
       session: Schema.optionalKey(Schema.NonEmptyString),
       turns: Schema.optionalKey(Limit(10)),
       since: Schema.optionalKey(Schema.Int.check(Schema.isGreaterThanOrEqualTo(1))),
+      turn: Schema.optionalKey(Schema.NonEmptyString),
     }),
     (input) =>
       sessions
         .readHistory(caller, {
           session: input.session ?? null,
-          turns: input.turns ?? 2,
+          turns: input.turns ?? (input.turn === undefined ? 2 : 1),
           since: input.since ?? null,
+          turn: input.turn ?? null,
         })
         .pipe(
           Effect.mapError(() => readFailed),
@@ -114,4 +117,5 @@ export const historyTools = (caller: SessionId, sessions: SessionTools) => [
   sessionsTool(caller, sessions),
   searchHistoryTool(caller, sessions),
   readHistoryTool(caller, sessions),
+  originsTool(caller, sessions),
 ];

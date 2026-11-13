@@ -9,6 +9,7 @@ import {
   DomainEvent,
   HostStreamItem,
   LayerRun,
+  NotFound,
   RequestsError,
   ReviewerSettings,
   ReviewSubject,
@@ -77,7 +78,7 @@ const startDaemon = async (home = tempDir("polaris-lazy-home-")) => {
   return { daemon, socket };
 };
 
-test("the first Usage, Reviewer, accept and voice requests after start load and answer", async () => {
+test("the first Usage, Reviewer, accept, voice and Origins requests after start load and answer", async () => {
   const { daemon, socket } = await startDaemon();
 
   try {
@@ -91,7 +92,13 @@ test("the first Usage, Reviewer, accept and voice requests after start load and 
             clientVersion: "0",
             deviceLabel: "test",
             ...TEST_USER_KEY,
-            capabilities: ["usage", "review.reviewer-settings", "session.accept", "voice"],
+            capabilities: [
+              "usage",
+              "review.reviewer-settings",
+              "session.accept",
+              "voice",
+              "origins",
+            ],
           });
 
           // The lazy Requests handlers answer, not the Unsupported fallbacks.
@@ -125,7 +132,23 @@ test("the first Usage, Reviewer, accept and voice requests after start load and 
             key: Redacted.make("not a key"),
           }).pipe(Effect.flip);
 
-          return { usage, reviewer, accept, voice, requests, capabilities: hello.capabilities };
+          // Origins answers for itself: the placeholder can't tell a missing Workspace.
+          const blame = yield* client["git.blame"]({
+            workspaceId: WorkspaceId.make("no-such-workspace"),
+            path: "README.md",
+            startLine: 1,
+            endLine: 1,
+          }).pipe(Effect.flip);
+
+          return {
+            usage,
+            reviewer,
+            accept,
+            voice,
+            requests,
+            blame,
+            capabilities: hello.capabilities,
+          };
         })
       )
     );
@@ -138,6 +161,8 @@ test("the first Usage, Reviewer, accept and voice requests after start load and 
     expect(result.capabilities).toContain("requests");
     expect(result.requests).toBeInstanceOf(RequestsError);
     expect(result.requests).toMatchObject({ code: "E-INPUT" });
+    expect(result.blame).toBeInstanceOf(NotFound);
+    expect(result.blame).toMatchObject({ what: "workspace" });
   } finally {
     daemon.kill();
     await daemon.exited;

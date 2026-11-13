@@ -3,6 +3,7 @@
  * budgets: `#editor/<scene>` renders the pane, a stand-in explorer column and
  * the status row on in-memory files (`?terminal` opens a stand-in terminal). Scenes: e1, e3, close, conflict, compare, reload,
  * vim, find, tabs20, readonly, binary, empty, big (`?persist` keeps drafts in localStorage). Its own chunk.
+ * Origins (ENG-932): `origins`, `origins-long`, `origins-human|loading|offline|typed|live`.
  * Worst cases (ENG-499): tabs40, worst (40 tabs, vim, a selection); `?git=worst` a 121-character
  * branch, `?host=remote|reconnecting|offline` a far Host.
  */
@@ -41,6 +42,7 @@ import { StatusBar } from "../explorer/ui/StatusBar.tsx";
 import type { GitFacts } from "../explorer/data/store.ts";
 import { FILES, HOST, path, ROOT, WORKSPACE } from "./fixtures.ts";
 import { statusHost, WORST_GIT, WORST_TABS, worstFiles } from "./worst.ts";
+import { originsAppState, originsBridge, originsScene } from "../origins/preview.ts";
 
 const bridge: PolarisApi = {
   request: () => Promise.resolve({ ok: false, error: { code: "Unsupported", message: "preview" } }),
@@ -301,7 +303,12 @@ const Frame = ({ terminal, hash }: { readonly terminal: boolean; readonly hash: 
 
 export const mountEditorPreview = (root: HTMLElement, hash: string) => {
   const scene = hash.replace(/^#editor\//, "").split("?")[0] ?? "e1";
-  const store = createStore<AppState>(() => ({ ...initialState }));
+
+  const origins = originsScene(scene);
+
+  const store = createStore<AppState>(() =>
+    origins === null ? { ...initialState } : originsAppState(origins)
+  );
 
   const connection: Connection = {
     store,
@@ -314,7 +321,9 @@ export const mountEditorPreview = (root: HTMLElement, hash: string) => {
   const commands = createCommandRegistry({ platform: "mac" });
   const files = createFakeFiles(seed(), { readOnlyHosts: ["pi"] });
 
-  standInBridge(bridge);
+  standInBridge(
+    origins === null ? bridge : { ...bridge, request: originsBridge(origins, bridge.request) }
+  );
   installKeyboard({ actions: navigation.actions, registry: commands });
 
   if (scene === "vim" || scene === "worst") {
@@ -339,6 +348,8 @@ export const mountEditorPreview = (root: HTMLElement, hash: string) => {
     </AppProvider>
   );
 
+  if (origins !== null)
+    openFile({ hostKey: HOST, workspaceId: WORKSPACE, path: origins.file, line: origins.line });
   void SCENES.get(scene)?.(files);
   Object.assign(window, {
     __polarisEditor: {

@@ -35,6 +35,26 @@ describe("targets", () => {
     expect(target === null ? null : sideLabels(target)).toBe("HEAD ↔ Index");
   });
 
+  test("a commit's diff compares its parent with it, in its own tab", () => {
+    const target = {
+      ...where,
+      path: "/repo/src/total.ts",
+      repoPath: "src/sum.ts",
+      origRepoPath: null,
+      side: "commit" as const,
+      git: "modified" as const,
+      sha: "8e41d07c2aa",
+    };
+
+    expect(sourcesOf(target)).toEqual({
+      old: { kind: "git", revision: "8e41d07c2aa^", path: "src/sum.ts" },
+      new: { kind: "git", revision: "8e41d07c2aa", path: "src/sum.ts" },
+    });
+    expect(diffTitle(target)).toBe("total.ts (8e41d07)");
+    expect(sideLabels(target)).toBe("8e41d07^ ↔ 8e41d07");
+    expect(diffTabId(target)).not.toBe(diffTabId({ ...target, sha: "4d1b0aa" }));
+  });
+
   test("added, untracked and deleted files have an empty side", () => {
     const sources = (
       side: "staged" | "unstaged" | "head",

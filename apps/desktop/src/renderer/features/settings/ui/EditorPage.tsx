@@ -83,6 +83,8 @@ export const EditorPage = () => {
         onAutosave: (on) => setSessionPrefs({ editorAutosave: on }),
         inlineDiagnostics: prefs.editorInlineDiagnostics,
         onInlineDiagnostics: (on) => setSessionPrefs({ editorInlineDiagnostics: on }),
+        inlineBlame: prefs.editorInlineBlame,
+        onInlineBlame: (on) => setSessionPrefs({ editorInlineBlame: on }),
         commitMessages: <CommitMessagesChoice />,
       }}
       refreshEditors={refreshEditors}

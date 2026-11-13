@@ -242,7 +242,7 @@ describe("thread and review requests", () => {
 
 describe("submitting a review", () => {
   test("once GitHub took it, the pull request is recorded as reviewed", async () => {
-    bridge.answerOk("github.review.submit", { commitOid: "head1", at: "2026-10-13" });
+    bridge.answerOk("github.review.submit", { commitOid: "head1", at: new Date().toISOString() });
 
     expect(await submitReview(PULL, "approve", "  LGTM ")).toEqual({ ok: true });
     expect(bridge.sent("github.review.submit")).toEqual([

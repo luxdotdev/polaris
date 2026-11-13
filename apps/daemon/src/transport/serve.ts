@@ -47,6 +47,7 @@ import { CommitMessageRpcsLive } from "../commitMessage/index.ts";
 import { FilesRpcsLive } from "../files/FilesRpcs.ts";
 import { CheckpointsLive } from "../git/Checkpoints.ts";
 import { GitRpcsLive } from "../git/GitRpcs.ts";
+import { OriginRpcsLive, Origins } from "../origins/service.ts";
 import { ReviewCheckoutGitLive } from "../git/ReviewCheckoutGit.ts";
 import { ReviewReadRpcsLive } from "../review/ReviewRpcs.ts";
 import { ReviewerPolicyLive } from "../reviewer/policy.ts";
@@ -211,7 +212,10 @@ export const engineServices = Layer.mergeAll(
   Layer.provideMerge(EventStore.layerLive)
 );
 
-const daemonServices = lazyReviewer.pipe(Layer.provideMerge(engineServices));
+/** Origins follows checkpoints and loads on first use; its RPCs and the MCP `origins` tool share it. */
+const daemonServices = Layer.mergeAll(lazyReviewer, Origins.layer).pipe(
+  Layer.provideMerge(engineServices)
+);
 
 /** Host-address and Browser streams (ENG-613); `HostPresence` comes from the transport. */
 const byteStreamHandlers = Layer.merge(ByteStreamRpcsLive, hostingSlot.bind).pipe(
@@ -251,6 +255,7 @@ export const daemonHandlers = Layer.mergeAll(
   lazyConstellationHandlers,
   FilesRpcsLive.pipe(Layer.provide(fileSearch)),
   GitRpcsLive,
+  OriginRpcsLive,
   AttachmentRpcsLive,
   HarnessRpcsLive,
   AvailabilityRpcsLive,
@@ -361,6 +366,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "git.watch",
   "git.sync",
   "git.log",
+  "origins",
   "session.feedback",
   "session.accept",
   "review.checkouts",
