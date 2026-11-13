@@ -124,6 +124,8 @@ const SESSION_TABLES = [
   "subagents",
   "session_reads",
   "session_drafts",
+  "origin_fingerprints",
+  "origin_turns",
 ] as const;
 
 /** `WorkspaceRemoved`: every projection row of the Workspace and its sessions (`removal.ts`). */

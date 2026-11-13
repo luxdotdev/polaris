@@ -194,6 +194,38 @@ const eventTypeIndexes = Effect.gen(function* () {
   `;
 });
 
+/**
+ * Origins (ADR 0111): what each Turn wrote, by line hash. `origin_turns` marks the Turns already
+ * fingerprinted, so the backfill (`origins/backfill.ts`) never repeats one; `origin_state` its end.
+ */
+const origins = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient;
+  // IF NOT EXISTS: the tests that rewind the migrator run this on a database that has these.
+  yield* sql`
+    CREATE TABLE IF NOT EXISTS origin_fingerprints (
+      repo_key TEXT NOT NULL,
+      line_hash TEXT NOT NULL,
+      session_id TEXT NOT NULL,
+      turn_id TEXT NOT NULL,
+      path TEXT NOT NULL,
+      workspace_id TEXT NOT NULL,
+      at INTEGER NOT NULL,
+      PRIMARY KEY (repo_key, line_hash, path, session_id, turn_id)
+    ) WITHOUT ROWID
+  `;
+  yield* sql`CREATE INDEX IF NOT EXISTS origin_fingerprints_session ON origin_fingerprints (session_id)`;
+  yield* sql`
+    CREATE TABLE IF NOT EXISTS origin_turns (
+      session_id TEXT NOT NULL,
+      turn_id TEXT NOT NULL,
+      workspace_id TEXT NOT NULL,
+      fingerprints INTEGER NOT NULL,
+      PRIMARY KEY (session_id, turn_id)
+    ) WITHOUT ROWID
+  `;
+  yield* sql`CREATE TABLE IF NOT EXISTS origin_state (key TEXT PRIMARY KEY, value TEXT NOT NULL)`;
+});
+
 export const migrations = SqliteMigrator.fromRecord({
   "0001_event_store": init,
   "0002_subagents": subagents,
@@ -205,6 +237,7 @@ export const migrations = SqliteMigrator.fromRecord({
   /** `Turn.checkpointAfterCommit` and `AgentSession.acceptedThroughUserTurn` for logged sessions. */
   "0007_turn_fields": backfillTurnFields,
   "0008_event_type_indexes": eventTypeIndexes,
+  "0009_origins": origins,
 });
 
 export const MigrationsLayer = SqliteMigrator.layer({ loader: migrations });

@@ -134,4 +134,6 @@ export * from "./traces.ts";
 
 export * from "./requests.ts";
 
+export * from "./origins.ts";
+
 export * from "./schemaDiff.ts";
