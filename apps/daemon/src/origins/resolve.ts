@@ -4,16 +4,9 @@
  * the nearest identified lines around it in the same run of the same commit.
  */
 import type { LineOrigin, OriginLine, OriginLineQuery, SessionId, TurnId } from "@polaris/protocol";
+import { type FingerprintMatch, matchKey } from "../store/origins.ts";
 
-/** A fingerprint a line hash matched: the Turn that wrote it, and when (epoch ms). */
-export interface FingerprintMatch {
-  readonly sessionId: SessionId;
-  readonly turnId: TurnId;
-  readonly at: number;
-}
-
-/** The key `resolveOrigins` looks a line's matches up by: its hash in its file. */
-export const matchKey = (hash: string, path: string) => `${hash}\0${path}`;
+export { type FingerprintMatch, matchKey } from "../store/origins.ts";
 
 /** git's commit times are whole seconds: a Turn in the commit's own second still came before it. */
 export const COMMIT_TIME_GRACE_MS = 1_000;

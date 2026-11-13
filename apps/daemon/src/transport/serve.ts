@@ -47,8 +47,7 @@ import { CommitMessageRpcsLive } from "../commitMessage/index.ts";
 import { FilesRpcsLive } from "../files/FilesRpcs.ts";
 import { CheckpointsLive } from "../git/Checkpoints.ts";
 import { GitRpcsLive } from "../git/GitRpcs.ts";
-import { Origins } from "../origins/index.ts";
-import { OriginRpcsLive } from "../origins/rpc.ts";
+import { OriginRpcsLive, Origins } from "../origins/service.ts";
 import { ReviewCheckoutGitLive } from "../git/ReviewCheckoutGit.ts";
 import { ReviewReadRpcsLive } from "../review/ReviewRpcs.ts";
 import { ReviewerPolicyLive } from "../reviewer/policy.ts";
@@ -213,7 +212,7 @@ export const engineServices = Layer.mergeAll(
   Layer.provideMerge(EventStore.layerLive)
 );
 
-/** Origins follows checkpoints from the store; its RPCs and the MCP `origins` tool share it. */
+/** Origins follows checkpoints and loads on first use; its RPCs and the MCP `origins` tool share it. */
 const daemonServices = Layer.mergeAll(lazyReviewer, Origins.layer).pipe(
   Layer.provideMerge(engineServices)
 );

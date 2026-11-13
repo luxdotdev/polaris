@@ -7,6 +7,8 @@ import {
   AllowedApp,
   AppId,
   DataRpcs,
+  GitBlame,
+  OriginRpcs,
   DesktopApp,
   DomainEvent,
   Workspace,
@@ -72,52 +74,67 @@ const computerUseModules = () =>
       )
     );
 
-const seed = Effect.gen(function* () {
-  const { initialSnapshot, stepModel } = yield* Effect.promise(
-    () => import("../engine/session.testing.ts")
-  );
+/** Origins' lookups, git and indexer wait for their first use. */
+const originsModules = () =>
+  Object.keys(require.cache)
+    .map((path) => path.replaceAll("\\", "/"))
+    .filter((path) =>
+      /\/apps\/daemon\/src\/(?:origins\/(?:index|indexer|git|lineHash|addedLines|resolve)|git\/blame)\.ts$/.test(
+        path
+      )
+    );
 
-  const record = stepModel(
-    initialSnapshot(),
-    { type: "start" },
-    { harness: "codex", liveCoAttach: true, switchModel: true }
-  ).next.machine.context.record!;
+/** A Workspace at `path` (the home by default) with one Agent Session and its first Turn. */
+const seedAt = (path?: string) =>
+  Effect.gen(function* () {
+    const { initialSnapshot, stepModel } = yield* Effect.promise(
+      () => import("../engine/session.testing.ts")
+    );
 
-  const cwd = yield* Effect.promise(() => realpath(root));
-  const store = yield* EventStore;
-  yield* store.commit({
-    commandId: null,
-    decide: () =>
-      Effect.succeed([
-        DomainEvent.cases.WorkspaceRegistered.make({
-          workspace: new Workspace({
-            id: record.session.workspaceId,
-            path: cwd,
-            name: "fixture",
-            isGitRepo: false,
-            worktreeRoot: join(cwd, "worktrees"),
-            hidden: false,
-            registeredAt: record.session.createdAt,
+    const record = stepModel(
+      initialSnapshot(),
+      { type: "start" },
+      { harness: "codex", liveCoAttach: true, switchModel: true }
+    ).next.machine.context.record!;
+
+    const cwd = yield* Effect.promise(() => realpath(path ?? root));
+    const store = yield* EventStore;
+    yield* store.commit({
+      commandId: null,
+      decide: () =>
+        Effect.succeed([
+          DomainEvent.cases.WorkspaceRegistered.make({
+            workspace: new Workspace({
+              id: record.session.workspaceId,
+              path: cwd,
+              name: "fixture",
+              isGitRepo: path !== undefined,
+              worktreeRoot: join(cwd, "worktrees"),
+              hidden: false,
+              registeredAt: record.session.createdAt,
+            }),
           }),
-        }),
-        DomainEvent.cases.SessionCreated.make({
-          session: new AgentSession({
-            ...Schema.decodeUnknownSync(Schema.Struct(AgentSession.fields))(record.session),
-            cwd,
+          DomainEvent.cases.SessionCreated.make({
+            session: new AgentSession({
+              ...Schema.decodeUnknownSync(Schema.Struct(AgentSession.fields))(record.session),
+              cwd,
+            }),
           }),
-        }),
-        DomainEvent.cases.TurnStarted.make({ turn: record.turns[0]! }),
-      ]),
+          DomainEvent.cases.TurnStarted.make({ turn: record.turns[0]! }),
+        ]),
+    });
+
+    return record;
   });
 
-  return record.session.id;
-});
+const seed = Effect.map(seedAt(), (record) => record.session.id);
 
 const empty = async () => {
   const { engineServices, daemonCapabilities } = await import("./serve.ts");
   assert.deepEqual(implementationModules(), []);
   assert.deepEqual(featureModules(), []);
   assert.deepEqual(computerUseModules(), []);
+  assert.deepEqual(originsModules(), []);
   await Effect.runPromise(
     Effect.scoped(
       Effect.gen(function* () {
@@ -205,6 +222,113 @@ const computerUse = async () => {
         const listed = list({}, options);
         assert.deepEqual(Effect.isEffect(listed) ? yield* listed : listed, allowed);
         assert.notDeepEqual(computerUseModules(), []);
+      })
+    )
+  );
+};
+
+/** A repository whose second commit a Turn wrote, with that Turn's checkpoint refs. */
+const originsRepo = async () => {
+  const { gitText } = await import("../git/git.ts");
+  const repo = join(root, "repo");
+  const git = (...args: ReadonlyArray<string>) => gitText(repo, [...args]);
+  const head = async () => (await git("rev-parse", "HEAD")).trim();
+  await mkdir(join(repo, "src"), { recursive: true });
+  await git("init", "-q", "-b", "main");
+  await git("config", "user.name", "Test");
+  await git("config", "user.email", "test@example.com");
+  await git("config", "commit.gpgsign", "false");
+  await writeFile(join(repo, "README.md"), "hello\n");
+  await git("add", "-A");
+  await git("commit", "-q", "-m", "Initial");
+  const before = await head();
+  await writeFile(
+    join(repo, "src/total.ts"),
+    "export const computeTotal = (items: Array<number>) =>\n"
+  );
+  await git("add", "-A");
+  await git("commit", "-q", "-m", "Add computeTotal");
+
+  return { repo, before, after: await head(), gitText };
+};
+
+/**
+ * Origins on the store alone, as the Daemon composes it: nothing loads until `first` (an RPC, an
+ * after-checkpoint or the MCP tool), which must load it and work.
+ */
+const origins = async (first: "rpc" | "checkpoint" | "mcp") => {
+  const { repo, before, after, gitText } = await originsRepo();
+  const { Origins, OriginRpcsLive } = await import("../origins/service.ts");
+  const { checkpointRef } = await import("../git/checkpointRefs.ts");
+  const { sessionOriginTools } = await import("../mcp/sessions/origins.ts");
+
+  const layer = OriginRpcsLive.pipe(
+    Layer.provideMerge(Origins.layer),
+    Layer.provideMerge(EventStore.layerSqlite(":memory:"))
+  );
+
+  await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(layer);
+        const record = yield* seedAt(repo).pipe(Effect.provide(context));
+        const sessionId = record.session.id;
+        const workspaceId = record.session.workspaceId;
+        const turnId = record.turns[0]!.id;
+        assert.deepEqual(originsModules(), []);
+
+        if (first === "rpc") {
+          const blame = yield* OriginRpcs.accessHandler("git.blame").pipe(Effect.provide(context));
+          const request = { workspaceId, path: "src/total.ts", startLine: 1, endLine: 1 };
+          const blamed = blame(request, options);
+          const result = Effect.isEffect(blamed) ? yield* blamed : blamed;
+          const answer = Schema.decodeUnknownSync(GitBlame.successSchema)(result);
+          assert.equal(answer.lines[0]?.commit?.sha, after);
+        }
+
+        if (first === "mcp") {
+          const store = Context.get(context, EventStore);
+          const tools = sessionOriginTools(store, Context.get(context, Origins));
+          const outcome = yield* tools.lookup(sessionId, { commit: after });
+          assert.equal(outcome._tag, "Text");
+        }
+
+        if (first === "checkpoint") {
+          for (const [label, sha] of [
+            ["before", before],
+            ["after", after],
+          ] as const)
+            yield* Effect.promise(() =>
+              gitText(repo, ["update-ref", checkpointRef(sessionId, turnId, label), sha])
+            );
+          const store = Context.get(context, EventStore);
+          yield* store.commit({
+            commandId: null,
+            decide: () =>
+              Effect.succeed([
+                DomainEvent.cases.CheckpointRecorded.make({
+                  sessionId,
+                  turnId,
+                  ref: checkpointRef(sessionId, turnId, "after"),
+                  commit: after,
+                }),
+              ]),
+          });
+          // The follower fingerprints the Turn's lines: the commit now traces back to it.
+          const traced = Context.get(context, Origins).forCommit(workspaceId, after);
+
+          const sessions = yield* traced.pipe(
+            Effect.filterOrFail((found) => found.length > 0),
+            Effect.retry({ times: 200, schedule: Schedule.spaced(10) })
+          );
+
+          assert.deepEqual(
+            sessions.map((session) => session.sessionId),
+            [sessionId]
+          );
+        }
+
+        assert.notDeepEqual(originsModules(), []);
       })
     )
   );
@@ -409,6 +533,15 @@ switch (process.argv[2]) {
     break;
   case "computer-use":
     await computerUse();
+    break;
+  case "origins-rpc":
+    await origins("rpc");
+    break;
+  case "origins-checkpoint":
+    await origins("checkpoint");
+    break;
+  case "origins-mcp":
+    await origins("mcp");
     break;
   case "migrations":
     await migrations();

@@ -6,8 +6,17 @@
 import { SessionId, TurnId, type WorkspaceId } from "@polaris/protocol";
 import { Effect } from "effect";
 import type { SqlClient } from "effect/sql";
-import { type FingerprintMatch, matchKey } from "../origins/resolve.ts";
 import { storeError } from "./errors.ts";
+
+/** A fingerprint a line hash matched: the Turn that wrote it, and when (epoch ms). */
+export interface FingerprintMatch {
+  readonly sessionId: SessionId;
+  readonly turnId: TurnId;
+  readonly at: number;
+}
+
+/** The key Origins looks a line's matches up by: its hash in its file. */
+export const matchKey = (hash: string, path: string) => `${hash}\0${path}`;
 
 /** Rows per INSERT and per transaction, so a large Turn never holds the write lock for long. */
 const CHUNK = 500;

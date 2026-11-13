@@ -20,7 +20,7 @@ import { sessionTraceTools } from "./sessions/traces.ts";
 import { sessionDataTools } from "./sessions/data.ts";
 import { sessionRequestTools } from "./sessions/requests.ts";
 import { sessionOriginTools } from "./sessions/origins.ts";
-import { Origins } from "../origins/index.ts";
+import { Origins } from "../origins/service.ts";
 import { RequestSends } from "../requests/sendsService.ts";
 import { OriginApprovals, registerOriginGate } from "../requests/approvals/index.ts";
 import { McpTokens } from "./tokens.ts";

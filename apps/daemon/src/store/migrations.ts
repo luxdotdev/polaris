@@ -196,7 +196,7 @@ const eventTypeIndexes = Effect.gen(function* () {
 
 /**
  * Origins (ADR 0111): what each Turn wrote, by line hash. `origin_turns` marks the Turns already
- * fingerprinted, so the backfill (`origins/backfill.ts`) never repeats one; `origin_state` its end.
+ * fingerprinted, so the backfill (`origins/service.ts`) never repeats one; `origin_state` its end.
  */
 const origins = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
