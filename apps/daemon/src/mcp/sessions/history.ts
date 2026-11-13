@@ -2,7 +2,13 @@
  * Session history for every agent: list the Host's sessions, search their Turns for words,
  * and read one's Turns (`sessions`, `search_history`, `read_history`).
  */
-import type { AgentSession, SessionId, Turn, TurnItem } from "@polaris/protocol";
+import {
+  type AgentSession,
+  type SessionId,
+  type Turn,
+  TurnId,
+  type TurnItem,
+} from "@polaris/protocol";
 import { Data, Effect, Match } from "effect";
 import type { EventStore } from "../../store/EventStore.ts";
 import type { ReadModel } from "../../store/model.ts";
@@ -43,6 +49,8 @@ export interface ReadOptions {
   readonly session: string | null;
   readonly turns: number;
   readonly since: number | null;
+  /** A Turn id: read from that Turn on, in `session` or (when null) whichever session holds it. */
+  readonly turn?: string | null;
 }
 
 /** A search reads at most this many Turns, newest first, then says it stopped. */
@@ -314,17 +322,81 @@ const list = Effect.fnUntraced(function* (
   });
 });
 
+/** The sessions holding Turn `turnId`: the caller's first, then any on this Host. */
+const sessionsWithTurn = Effect.fnUntraced(function* (
+  store: EventStore["Service"],
+  caller: AgentSession,
+  turnId: TurnId
+) {
+  if ((yield* store.readTurn({ sessionId: caller.id, turnId })) !== null) return [caller];
+
+  const model = yield* store.model;
+  const ids = yield* store.readTurnIds([...model.sessions.keys()]);
+
+  return [...ids].flatMap(([sessionId, turnIds]) => {
+    const session = model.sessions.get(sessionId)?.session;
+
+    return session !== undefined && turnIds.includes(turnId) ? [session] : [];
+  });
+});
+
+/** The session and one-based Turn number of Turn `reference`, or why it didn't resolve. */
+const locateTurn = Effect.fnUntraced(function* (
+  store: EventStore["Service"],
+  caller: AgentSession,
+  session: string | null,
+  reference: string
+) {
+  const turnId = TurnId.make(reference);
+
+  const holders =
+    session === null
+      ? yield* sessionsWithTurn(store, caller, turnId)
+      : [yield* resolveSession(yield* store.model, caller, session)];
+
+  const [only] = holders;
+
+  if (holders.length > 1)
+    return yield* new Unresolved({
+      outcome: HistoryOutcome.Ambiguous({ reference, candidates: holders.sort(byRecent) }),
+    });
+
+  const turn = only === undefined ? null : yield* store.readTurn({ sessionId: only.id, turnId });
+
+  if (only === undefined || turn === null)
+    return yield* new Unresolved({ outcome: HistoryOutcome.NotFound({ reference }) });
+
+  return { session: only, number: turn.index + 1 };
+});
+
 const read = Effect.fnUntraced(function* (
   store: EventStore["Service"],
   caller: AgentSession,
   options: ReadOptions
 ) {
-  const session = yield* resolveSession(yield* store.model, caller, options.session);
-  const transcript = yield* readTranscript(store, session.id, options);
+  const turn =
+    options.turn == null ? null : yield* locateTurn(store, caller, options.session, options.turn);
 
-  return transcript === null
-    ? HistoryOutcome.NotFound({ reference: session.id })
-    : HistoryOutcome.Text({ text: `Session ${session.id}\n${transcript}` });
+  const session =
+    turn?.session ?? (yield* resolveSession(yield* store.model, caller, options.session));
+
+  const transcript = yield* readTranscript(store, session.id, {
+    turns: options.turns,
+    since: turn?.number ?? options.since,
+  });
+
+  if (transcript === null) return HistoryOutcome.NotFound({ reference: session.id });
+
+  const paging =
+    turn === null
+      ? []
+      : [
+          `Turn ${options.turn} is Turn ${turn.number} of ${session.turnCount}; page around it with session ${session.id} and since.`,
+        ];
+
+  return HistoryOutcome.Text({
+    text: [`Session ${session.id}`, ...paging, transcript].join("\n"),
+  });
 });
 
 const asCaller =

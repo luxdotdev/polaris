@@ -402,6 +402,7 @@ const sessionToolNames = new Set([
   "sessions",
   "search_history",
   "read_history",
+  "origins",
 ]);
 
 export const toolCounter = () => {

@@ -268,3 +268,36 @@ test("search_history no longer finds a removed Workspace's sessions", async () =
   expect(text).not.toContain(ELSEWHERE);
   expect(text).not.toContain("deductible");
 });
+
+test("read_history opens a Turn by id in whichever session holds it, and pages on from it", async () => {
+  const [other, own, onward, missing] = await run(
+    Effect.gen(function* () {
+      const tools = yield* world;
+      const model = yield* (yield* EventStore).model;
+      const [first] = model.sessions.get(SELF)!.turns;
+      const [theirs] = model.sessions.get(NEIGHBOUR)!.turns;
+
+      const read = (turn: string, turns = 1) =>
+        tools
+          .readHistory(SELF, { session: null, turns, since: null, turn })
+          .pipe(Effect.map(textOf));
+
+      return [
+        yield* read(theirs!.id),
+        yield* read(first!.id),
+        yield* read(first!.id, 2),
+        yield* read("no-such-turn"),
+      ];
+    })
+  );
+
+  expect(other).toContain(`Session ${NEIGHBOUR}`);
+  expect(other).toContain("is Turn 1 of 1");
+  expect(other).toContain("Assistant: Ordered through Uber Eats too.");
+  expect(own).toContain("Prompt: Order lunch");
+  expect(own).not.toContain("Prompt: Pick a drink");
+  expect(onward).toContain("Prompt: Order lunch");
+  expect(onward).toContain("Prompt: Pick a drink");
+  expect(onward).not.toContain("Prompt: Where were we?");
+  expect(missing).toBe("NotFound no-such-turn");
+});

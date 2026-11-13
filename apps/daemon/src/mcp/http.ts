@@ -19,6 +19,8 @@ import { TraceSessions } from "../traces/sessionsService.ts";
 import { sessionTraceTools } from "./sessions/traces.ts";
 import { sessionDataTools } from "./sessions/data.ts";
 import { sessionRequestTools } from "./sessions/requests.ts";
+import { sessionOriginTools } from "./sessions/origins.ts";
+import { Origins } from "../origins/index.ts";
 import { RequestSends } from "../requests/sendsService.ts";
 import { OriginApprovals, registerOriginGate } from "../requests/approvals/index.ts";
 import { McpTokens } from "./tokens.ts";
@@ -151,6 +153,15 @@ const requestToolsFromContext = (store: EventStore["Service"]) =>
     return sessionRequestTools(store, sends.value, approvals.value);
   });
 
+/** `origins`, when the Daemon runs `Origins` (ADR 0111). */
+const originToolsFromContext = (store: EventStore["Service"]) =>
+  Effect.map(Effect.serviceOption(Origins), (origins) =>
+    Option.match(origins, {
+      onNone: () => ({}),
+      onSome: (service) => ({ origins: sessionOriginTools(store, service) }),
+    })
+  );
+
 /** One listener per Host; JSON responses only, with no SSE connection or per-session process. */
 export const mcpHttp = (
   commands: ConstellationCommands,
@@ -193,6 +204,8 @@ export const mcpHttp = (
       const requests = yield* requestToolsFromContext(store.value);
 
       if (requests !== undefined) Object.assign(sessions, { requests });
+
+      Object.assign(sessions, yield* originToolsFromContext(store.value));
 
       attachSessionTools(
         commands,
