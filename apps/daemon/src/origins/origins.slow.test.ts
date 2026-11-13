@@ -3,7 +3,7 @@
  * Checkpoints snapshot the repository, and `Origins` blames and matches them through real git.
  */
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
   Command,
@@ -146,6 +146,7 @@ const waitIndexed = (sessionId: SessionId, turnId: TurnId) =>
 const query = (blamed: Blamed): ReadonlyArray<OriginLineQuery> =>
   blamed.lines.map((l) => ({
     line: l.line,
+    path: l.path,
     hash: l.hash,
     commitSha: l.commit?.sha ?? null,
     commitTime: l.commit?.time ?? null,
@@ -287,6 +288,31 @@ describe("Origins", () => {
     );
   }, 30_000);
 
+  test("the same line written by a human in another file is not the agent's; a rename keeps it", async () => {
+    const repo = await makeRepo();
+
+    await run(
+      setup(repo),
+      Effect.gen(function* () {
+        const workspace = yield* registerWorkspace(repo);
+        const turnId = yield* agentTurn(workspace, sid, "total");
+        const origin = `${sid}:${turnId}`;
+
+        // A human writes the agent's second line, word for word, in a file no agent touched.
+        writeFileSync(join(repo, "src/human.ts"), TOTAL.split("\n")[1] + "\n");
+        yield* commitAll(repo, "Add the agent's code and a human's line");
+        expect((yield* originsOf(workspace, "src/human.ts")).lines).toEqual([[]]);
+
+        yield* git(repo, "mv", "src/total.ts", "src/sum.ts");
+        yield* commitAll(repo, "Rename total to sum");
+        const renamed = yield* originsOf(workspace, "src/sum.ts");
+
+        expect(renamed.blamed.lines[0]?.path).toBe("src/total.ts");
+        expect(renamed.lines[1]).toEqual([origin]);
+      })
+    );
+  }, 30_000);
+
   test("pruned checkpoints and archiving keep Origins; removing the Workspace deletes them", async () => {
     const repo = await makeRepo();
 
@@ -316,7 +342,11 @@ describe("Origins", () => {
 
         expect(after.lines.every((l) => l.origins.length === 0)).toBe(true);
         const store = yield* EventStore;
-        expect((yield* store.origins.match(blamed.repoKey, [blamed.lines[0]!.hash!])).size).toBe(0);
+        expect(
+          (yield* store.origins.match(blamed.repoKey, [
+            { lineHash: blamed.lines[0]!.hash!, path: blamed.lines[0]!.path },
+          ])).size
+        ).toBe(0);
       })
     );
   }, 30_000);
@@ -353,13 +383,15 @@ describe("Origins", () => {
         const origins = yield* Origins;
         const request = { workspaceId: workspace.id, startLine: 1, endLine: 10 };
 
-        for (const [path, refusal] of [
+        const refusals: ReadonlyArray<readonly [string, "GitError" | "NotFound"]> = [
           ["link.txt", "GitError"],
           ["src/../../secret.txt", "NotFound"],
-        ]) {
-          const blamed = yield* Effect.flip(origins.blame({ ...request, path: path! }));
+        ];
 
-          expect(blamed._tag).toBe(refusal!);
+        for (const [path, refusal] of refusals) {
+          const blamed = yield* Effect.flip(origins.blame({ ...request, path }));
+
+          expect(blamed._tag).toBe(refusal);
         }
 
         const refused = yield* Effect.flip(origins.forCommit(workspace.id, `--output=${written}`));
@@ -400,6 +432,57 @@ describe("Origins", () => {
         expect((yield* originsOf(workspace, "src/total.ts")).lines[0]).toEqual([
           `${sid}:${turnId}`,
         ]);
+      })
+    );
+  }, 30_000);
+
+  test("a Turn the backfill fails on leaves it undone, and the next start finishes it", async () => {
+    const repo = await makeRepo();
+    const filename = join(tempDir(), "state.sqlite");
+    let turnId: TurnId | undefined;
+
+    await run(
+      setup(repo, filename, false),
+      Effect.gen(function* () {
+        const workspace = yield* registerWorkspace(repo);
+        turnId = yield* agentTurn(workspace, sid, "total", false);
+      })
+    );
+
+    // The after-checkpoint's tree goes missing, so diffing the Turn fails.
+    const tree = await gitText(repo, [
+      "rev-parse",
+      `refs/polaris/checkpoints/${sid}/${turnId}/after^{tree}`,
+    ]);
+
+    const object = join(repo, ".git", "objects", tree.slice(0, 2), tree.slice(2));
+    const bytes = readFileSync(object);
+    rmSync(object);
+
+    const backfilled = Effect.gen(function* () {
+      const store = yield* EventStore;
+      const failed = yield* (yield* Origins).backfillFinished;
+
+      return {
+        failed,
+        done: yield* store.origins.backfillDone,
+        indexed: (yield* store.origins.indexedTurns([sid])).has(turnKey(sid, turnId!)),
+      };
+    });
+
+    await run(
+      setup(repo, filename),
+      Effect.gen(function* () {
+        expect(yield* backfilled).toEqual({ failed: 1, done: false, indexed: false });
+      })
+    );
+
+    writeFileSync(object, bytes);
+
+    await run(
+      setup(repo, filename),
+      Effect.gen(function* () {
+        expect(yield* backfilled).toEqual({ failed: 0, done: true, indexed: true });
       })
     );
   }, 30_000);

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { type OriginLineQuery, SessionId, TurnId } from "@polaris/protocol";
-import { type FingerprintMatch, resolveOrigins } from "./resolve.ts";
+import { type FingerprintMatch, matchKey, resolveOrigins } from "./resolve.ts";
 
 const s1 = SessionId.make("s1");
 
@@ -19,14 +19,17 @@ const line = (
   hash: string | null,
   commitSha: string | null = "c1",
   commitTime: number | null = 10_000
-): OriginLineQuery => ({ line: n, hash, commitSha, commitTime });
+): OriginLineQuery => ({ line: n, path: "a.ts", hash, commitSha, commitTime });
 
 const originsOf = (
   lines: ReadonlyArray<OriginLineQuery>,
   matches: Record<string, ReadonlyArray<FingerprintMatch>>
 ) =>
   Object.fromEntries(
-    resolveOrigins(lines, new Map(Object.entries(matches))).map((l) => [l.line, l.origins])
+    resolveOrigins(
+      lines,
+      new Map(Object.entries(matches).map(([hash, list]) => [matchKey(hash, "a.ts"), list]))
+    ).map((l) => [l.line, l.origins])
   );
 
 test("only Turns from before the line's commit count, within the commit's second", () => {
@@ -92,4 +95,10 @@ test("lines come back in the order they were asked", () => {
   const lines = resolveOrigins([line(3, null), line(1, "a")], new Map());
 
   expect(lines.map((l) => l.line)).toEqual([3, 1]);
+});
+
+test("a fingerprint of the same line in another file is not this line's", () => {
+  const matches = new Map([[matchKey("h", "b.ts"), [at(s1, "t1", 1_000)]]]);
+
+  expect(resolveOrigins([line(1, "h")], matches)[0]?.origins).toEqual([]);
 });

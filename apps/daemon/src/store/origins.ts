@@ -6,7 +6,7 @@
 import { SessionId, TurnId, type WorkspaceId } from "@polaris/protocol";
 import { Effect } from "effect";
 import type { SqlClient } from "effect/sql";
-import type { FingerprintMatch } from "../origins/resolve.ts";
+import { type FingerprintMatch, matchKey } from "../origins/resolve.ts";
 import { storeError } from "./errors.ts";
 
 /** Rows per INSERT and per transaction, so a large Turn never holds the write lock for long. */
@@ -37,10 +37,10 @@ export interface OriginStore {
   ) => Effect.Effect<ReadonlySet<string>>;
   /** Writes a Turn's fingerprints, then marks it indexed; writing it again changes nothing. */
   readonly record: (turn: IndexedTurn) => Effect.Effect<void>;
-  /** Every fingerprint of `repoKey` with one of these hashes. */
+  /** Every fingerprint of `repoKey` with one of these hashes in that path, keyed by `matchKey`. */
   readonly match: (
     repoKey: string,
-    hashes: ReadonlyArray<string>
+    lines: ReadonlyArray<Fingerprint>
   ) => Effect.Effect<ReadonlyMap<string, ReadonlyArray<FingerprintMatch>>>;
   /** Deletes a session's fingerprints (an Agent Session deleted). */
   readonly dropSession: (sessionId: SessionId) => Effect.Effect<void>;
@@ -50,6 +50,7 @@ export interface OriginStore {
 
 interface MatchRow {
   readonly line_hash: string;
+  readonly path: string;
   readonly session_id: string;
   readonly turn_id: string;
   readonly at: number;
@@ -101,25 +102,34 @@ export const originStore = (sql: SqlClient.SqlClient): OriginStore => {
           yield* sql.withTransaction(insertChunk(turn, rows));
         yield* markIndexed(turn);
       }).pipe(Effect.mapError(storeError("record fingerprints")), Effect.orDie),
-    match: (repoKey, hashes) =>
+    match: (repoKey, lines) =>
       Effect.gen(function* () {
         const found = new Map<string, Array<FingerprintMatch>>();
+        const wanted = new Set(lines.map((l) => matchKey(l.lineHash, l.path)));
+        const hashes = [...new Set(lines.map((l) => l.lineHash))];
+        const paths = [...new Set(lines.map((l) => l.path))];
 
-        for (const some of chunks([...new Set(hashes)])) {
-          const rows = yield* sql<MatchRow>`
-            SELECT DISTINCT line_hash, session_id, turn_id, at FROM origin_fingerprints
-            WHERE repo_key = ${repoKey} AND line_hash IN ${sql.in(some)}`;
+        // Hash and path both in the index; a pair outside `wanted` is dropped below.
+        for (const some of chunks(hashes))
+          for (const inPaths of chunks(paths)) {
+            const rows = yield* sql<MatchRow>`
+            SELECT DISTINCT line_hash, path, session_id, turn_id, at FROM origin_fingerprints
+            WHERE repo_key = ${repoKey} AND line_hash IN ${sql.in(some)}
+              AND path IN ${sql.in(inPaths)}`;
 
-          for (const row of rows) {
-            const list = found.get(row.line_hash) ?? [];
-            list.push({
-              sessionId: SessionId.make(row.session_id),
-              turnId: TurnId.make(row.turn_id),
-              at: row.at,
-            });
-            found.set(row.line_hash, list);
+            for (const row of rows) {
+              const key = matchKey(row.line_hash, row.path);
+
+              if (!wanted.has(key)) continue;
+              const list = found.get(key) ?? [];
+              list.push({
+                sessionId: SessionId.make(row.session_id),
+                turnId: TurnId.make(row.turn_id),
+                at: row.at,
+              });
+              found.set(key, list);
+            }
           }
-        }
 
         return found;
       }).pipe(Effect.mapError(storeError("match fingerprints")), Effect.orDie),

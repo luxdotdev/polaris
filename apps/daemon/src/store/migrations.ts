@@ -210,7 +210,7 @@ const origins = Effect.gen(function* () {
       path TEXT NOT NULL,
       workspace_id TEXT NOT NULL,
       at INTEGER NOT NULL,
-      PRIMARY KEY (repo_key, line_hash, session_id, turn_id, path)
+      PRIMARY KEY (repo_key, line_hash, path, session_id, turn_id)
     ) WITHOUT ROWID
   `;
   yield* sql`CREATE INDEX IF NOT EXISTS origin_fingerprints_session ON origin_fingerprints (session_id)`;

@@ -3,7 +3,7 @@
  * recorded, and once on upgrade, every Turn whose checkpoints survive, throttled in the background.
  */
 import type { SessionId, TurnId, Workspace } from "@polaris/protocol";
-import { Context, Duration, Effect, Predicate, Stream } from "effect";
+import { Context, Deferred, Duration, Effect, Predicate, Stream } from "effect";
 import type { LiveItem } from "../store/hub.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { type Fingerprint, turnKey } from "../store/origins.ts";
@@ -51,17 +51,20 @@ export const indexing = <E>(repoKeyOf: (workspace: Workspace) => Effect.Effect<s
   Effect.gen(function* () {
     const store = yield* EventStore;
 
-    /** Fingerprints one Turn; a Turn whose checkpoints are gone is marked with none. */
+    /**
+     * Fingerprints one Turn; a Turn whose checkpoints are gone is marked with none. False when
+     * git or the store failed, so the backfill tries it again on the next start.
+     */
     const indexTurn = (sessionId: SessionId, turnId: TurnId, at: number) =>
       Effect.gen(function* () {
         const model = yield* store.model;
         const workspaceId = model.sessions.get(sessionId)?.session.workspaceId;
         const workspace = workspaceId === undefined ? undefined : model.workspaces.get(workspaceId);
 
-        if (workspace?.isGitRepo !== true) return;
+        if (workspace?.isGitRepo !== true) return true;
         const repoKey = yield* repoKeyOf(workspace);
 
-        if (repoKey === null) return;
+        if (repoKey === null) return true;
 
         const added = yield* Effect.tryPromise(() =>
           turnAddedLines(workspace.path, sessionId, turnId)
@@ -79,7 +82,13 @@ export const indexing = <E>(repoKeyOf: (workspace: Workspace) => Effect.Effect<s
         // Removed while git ran: its rows went with the Workspace, so these go too.
         if (!(yield* store.model).sessions.has(sessionId))
           yield* store.origins.dropSession(sessionId);
-      }).pipe(Effect.catchCause((cause) => Effect.logWarning(`fingerprinting ${turnId}`, cause)));
+
+        return true;
+      }).pipe(
+        Effect.catchCause((cause) =>
+          Effect.as(Effect.logWarning(`fingerprinting ${turnId}`, cause), false)
+        )
+      );
 
     /** Re-subscribes if the store drops this subscriber for falling behind. */
     const follow = Effect.scoped(
@@ -90,14 +99,16 @@ export const indexing = <E>(repoKeyOf: (workspace: Workspace) => Effect.Effect<s
           const { event, occurredAt } = item.envelope;
 
           return Predicate.isTagged(event, "CheckpointRecorded")
-            ? indexTurn(event.sessionId, event.turnId, Date.parse(occurredAt))
+            ? Effect.asVoid(indexTurn(event.sessionId, event.turnId, Date.parse(occurredAt)))
             : Effect.void;
         });
       })
     ).pipe(Effect.forever);
 
+    /** How many Turns failed; the backfill is done only when none did. */
     const backfillSessions = (sessionIds: ReadonlyArray<SessionId>) =>
       Effect.gen(function* () {
+        let failed = 0;
         const { backfillPause } = yield* OriginsConfig;
         const turnIds = yield* store.readTurnIds(sessionIds);
         const indexed = yield* store.origins.indexedTurns(sessionIds);
@@ -108,15 +119,22 @@ export const indexing = <E>(repoKeyOf: (workspace: Workspace) => Effect.Effect<s
             const turn = yield* store.readTurn({ sessionId, turnId });
 
             if (turn === null || turn.status === "working") continue;
-            yield* indexTurn(sessionId, turnId, Date.parse(turn.endedAt ?? turn.startedAt));
+            const at = Date.parse(turn.endedAt ?? turn.startedAt);
+
+            if (!(yield* indexTurn(sessionId, turnId, at))) failed++;
             yield* Effect.sleep(backfillPause);
           }
         }
+
+        return failed;
       });
 
-    /** Once per database: every logged Turn of a git Workspace, one at a time. */
-    const backfill = Effect.gen(function* () {
-      if (yield* store.origins.backfillDone) return;
+    /**
+     * Once per database: every logged Turn of a git Workspace, one at a time. A Turn that failed
+     * leaves it undone, so the next start tries the Turns still unmarked.
+     */
+    const run = Effect.gen(function* () {
+      if (yield* store.origins.backfillDone) return 0;
       const model = yield* store.model;
 
       const sessionIds = [...model.sessions.values()].flatMap(({ session }) =>
@@ -125,11 +143,27 @@ export const indexing = <E>(repoKeyOf: (workspace: Workspace) => Effect.Effect<s
 
       if (sessionIds.length > 0) {
         yield* Effect.sleep((yield* OriginsConfig).backfillDelay);
-        yield* backfillSessions(sessionIds);
+        const failed = yield* backfillSessions(sessionIds);
+
+        if (failed > 0) {
+          yield* Effect.logWarning(`Origins backfill: ${failed} Turns failed, retried next start`);
+
+          return failed;
+        }
       }
 
       yield* store.origins.markBackfillDone;
-    }).pipe(Effect.catchCause((cause) => Effect.logWarning("Origins backfill stopped", cause)));
 
-    return { indexTurn, follow, backfill };
+      return 0;
+    }).pipe(
+      Effect.catchCause((cause) =>
+        Effect.as(Effect.logWarning("Origins backfill stopped", cause), Number.POSITIVE_INFINITY)
+      )
+    );
+
+    /** How many Turns this start's backfill failed on, once it has ended. */
+    const finished = yield* Deferred.make<number>();
+    const backfill = Effect.flatMap(run, (failed) => Deferred.succeed(finished, failed));
+
+    return { indexTurn, follow, backfill, backfillFinished: Deferred.await(finished) };
   });

@@ -31,6 +31,8 @@ export type BlameCommit = typeof BlameCommit.Type;
 /** One line of a file: `hash` is null when the line is too short or common to identify; `commit` is null when uncommitted. */
 export const BlameLine = Schema.Struct({
   line: LineNumber,
+  /** The file's path in the commit that last changed the line (before any rename); the current path when uncommitted. */
+  path: Schema.String,
   hash: Schema.NullOr(Schema.String),
   commit: Schema.NullOr(BlameCommit),
 });
@@ -60,6 +62,8 @@ export const GitBlame = Rpc.make("git.blame", {
 /** A line to look up: its hash and commit as `git.blame` gave them. */
 export const OriginLineQuery = Schema.Struct({
   line: LineNumber,
+  /** `git.blame`'s `path` for the line: a fingerprint matches only in the file it was written to. */
+  path: Schema.String,
   hash: Schema.NullOr(Schema.String),
   commitSha: Schema.NullOr(Schema.String),
   commitTime: Schema.NullOr(Schema.Number),

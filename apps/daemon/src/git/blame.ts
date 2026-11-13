@@ -6,6 +6,7 @@
 import { readFile, realpath, stat } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { runGit, runGitRaw } from "./git.ts";
+import { unquotePath } from "./quotePath.ts";
 
 const BLAME_TIMEOUT_MS = 30_000;
 
@@ -26,6 +27,8 @@ export interface BlamedCommit {
 
 export interface BlamedLine {
   readonly line: number;
+  /** The file's path in the commit that last changed the line; the current path when uncommitted. */
+  readonly path: string;
   readonly text: string;
   readonly commit: BlamedCommit | null;
 }
@@ -35,6 +38,7 @@ interface Header {
   "author-mail"?: string;
   "committer-time"?: string;
   summary?: string;
+  filename?: string;
 }
 
 const HEADER = /^([0-9a-f]{40,64}) \d+ (\d+)/;
@@ -50,8 +54,11 @@ const toCommit = (sha: string, header: Header): BlamedCommit | null =>
         time: Number(header["committer-time"] ?? 0) * 1000,
       };
 
-/** Lines of `git blame --porcelain`; each commit's fields come only with its first line. */
-export const parsePorcelainBlame = (output: string): ReadonlyArray<BlamedLine> => {
+/**
+ * Lines of `git blame --porcelain`; each commit's fields come only with its first line, and its
+ * `filename` with each group, so the last one seen names the file the line had there.
+ */
+export const parsePorcelainBlame = (output: string, path: string): ReadonlyArray<BlamedLine> => {
   const headers = new Map<string, Header>();
   const lines: Array<BlamedLine> = [];
   let current: { sha: string; line: number } | null = null;
@@ -66,6 +73,7 @@ export const parsePorcelainBlame = (output: string): ReadonlyArray<BlamedLine> =
     } else if (current !== null && row.startsWith("\t")) {
       lines.push({
         line: current.line,
+        path: unquotePath(headers.get(current.sha)!.filename ?? path),
         text: row.slice(1),
         commit: toCommit(current.sha, headers.get(current.sha)!),
       });
@@ -100,10 +108,20 @@ const splitLines = (text: string): ReadonlyArray<string> => {
 };
 
 /** Lines `start`..`end` of the file at `checkout`/`path`, clamped to its length, all uncommitted. */
-const uncommitted = (text: string, start: number, end: number): ReadonlyArray<BlamedLine> =>
+const uncommitted = (
+  text: string,
+  path: string,
+  start: number,
+  end: number
+): ReadonlyArray<BlamedLine> =>
   splitLines(text)
     .slice(start - 1, end)
-    .map((line, at) => ({ line: start + at, text: line.replace(/\r$/, ""), commit: null }));
+    .map((line, at) => ({
+      line: start + at,
+      path,
+      text: line.replace(/\r$/, ""),
+      commit: null,
+    }));
 
 /**
  * The real path of `path` in `checkout`: a regular file, under `MAX_BLAME_BYTES`, reached without
@@ -151,7 +169,7 @@ export const blameLines = async (
 
   if (start > last) return [];
 
-  if (!(await isTracked(checkout, path))) return uncommitted(text, start, last);
+  if (!(await isTracked(checkout, path))) return uncommitted(text, path, start, last);
 
   const { stdout } = await runGit(
     checkout,
@@ -159,7 +177,7 @@ export const blameLines = async (
     { timeoutMs: BLAME_TIMEOUT_MS, env: { GIT_LITERAL_PATHSPECS: "1" } }
   );
 
-  return parsePorcelainBlame(new TextDecoder().decode(stdout)).map((line) => ({
+  return parsePorcelainBlame(new TextDecoder().decode(stdout), path).map((line) => ({
     ...line,
     text: line.text.replace(/\r$/, ""),
   }));

@@ -41,6 +41,7 @@ export interface Blamed {
   readonly repoKey: string;
   readonly lines: ReadonlyArray<{
     readonly line: number;
+    readonly path: string;
     readonly hash: string | null;
     readonly commit: {
       readonly sha: string;
@@ -70,10 +71,16 @@ export class Origins extends Context.Service<
       workspaceId: WorkspaceId,
       sha: string
     ) => Effect.Effect<ReadonlyArray<OriginSession>, NotFound | GitError>;
-    /** Fingerprints one Turn now (the live follower and the backfill do this on their own). */
-    readonly indexTurn: (sessionId: SessionId, turnId: TurnId, at: number) => Effect.Effect<void>;
+    /** Fingerprints one Turn now (the follower and backfill do this on their own); false if git failed. */
+    readonly indexTurn: (
+      sessionId: SessionId,
+      turnId: TurnId,
+      at: number
+    ) => Effect.Effect<boolean>;
     /** Deletes a session's fingerprints, as deleting the Agent Session must. */
     readonly forgetSession: (sessionId: SessionId) => Effect.Effect<void>;
+    /** Once this start's backfill has ended: how many Turns it failed on (0 when it is done). */
+    readonly backfillFinished: Effect.Effect<number>;
   }
 >()("polaris/daemon/origins/Origins") {
   /** Also follows new checkpoints and runs the upgrade's backfill for as long as it lives. */
@@ -160,7 +167,12 @@ const make = Effect.gen(function* () {
 
       return {
         repoKey,
-        lines: lines.map(({ line, text, commit }) => ({ line, hash: lineHash(text), commit })),
+        lines: lines.map(({ line, path, text, commit }) => ({
+          line,
+          path,
+          hash: lineHash(text),
+          commit,
+        })),
       };
     });
 
@@ -226,8 +238,11 @@ const make = Effect.gen(function* () {
 
   const match = (repoKey: string, lines: ReadonlyArray<OriginLineQuery>) =>
     Effect.gen(function* () {
-      const hashes = lines.flatMap((line) => (line.hash === null ? [] : [line.hash]));
-      const matches = yield* store.origins.match(repoKey, hashes);
+      const keys = lines.flatMap(({ hash, path }) =>
+        hash === null ? [] : [{ lineHash: hash, path }]
+      );
+
+      const matches = yield* store.origins.match(repoKey, keys);
       const resolved = resolveOrigins(lines, matches);
 
       const sessions = yield* describe(
@@ -256,12 +271,12 @@ const make = Effect.gen(function* () {
         catch: gitError(workspace.path),
       });
 
-      const lines = commit.added.flatMap(({ text }, at) => {
+      const lines = commit.added.flatMap(({ path, text }, at) => {
         const hash = lineHash(text);
 
         return hash === null
           ? []
-          : [{ line: at + 1, hash, commitSha: sha, commitTime: commit.time }];
+          : [{ line: at + 1, path, hash, commitSha: sha, commitTime: commit.time }];
       });
 
       return (yield* match(repoKey, lines)).sessions;
@@ -277,6 +292,7 @@ const make = Effect.gen(function* () {
     match,
     forCommit,
     indexTurn: indexer.indexTurn,
+    backfillFinished: indexer.backfillFinished,
     forgetSession: store.origins.dropSession,
   };
 });

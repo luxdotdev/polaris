@@ -1,5 +1,5 @@
 /**
- * Which Turns wrote each line (ADR 0111), from the fingerprints its hash matched: only Turns
+ * Which Turns wrote each line (ADR 0111), from the fingerprints its hash matched in its file: only Turns
  * from before the line's commit count, and a line too common to identify takes the Origins of
  * the nearest identified lines around it in the same run of the same commit.
  */
@@ -11,6 +11,9 @@ export interface FingerprintMatch {
   readonly turnId: TurnId;
   readonly at: number;
 }
+
+/** The key `resolveOrigins` looks a line's matches up by: its hash in its file. */
+export const matchKey = (hash: string, path: string) => `${hash}\0${path}`;
 
 /** git's commit times are whole seconds: a Turn in the commit's own second still came before it. */
 export const COMMIT_TIME_GRACE_MS = 1_000;
@@ -69,7 +72,9 @@ export const resolveOrigins = (
   const own: ReadonlyArray<Own> = sorted.map((line) =>
     line.hash === null
       ? null
-      : (matches.get(line.hash) ?? []).filter((match) => before(match, line.commitTime))
+      : (matches.get(matchKey(line.hash, line.path)) ?? []).filter((match) =>
+          before(match, line.commitTime)
+        )
   );
 
   const resolved = new Map<number, ReadonlyArray<LineOrigin>>();

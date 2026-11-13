@@ -16,7 +16,7 @@ const porcelain = [
   "committer-time 1700000500",
   "committer-tz +0000",
   "summary Add the total",
-  "filename src/a.ts",
+  "filename src/old.ts",
   "\texport const total = 1;",
   `${SHA} 2 2`,
   "\t}",
@@ -35,7 +35,7 @@ const porcelain = [
   "",
 ].join("\n");
 
-test("each line gets its commit's fields from the commit's first line, by committer time", () => {
+test("each line gets its commit's fields and the file it had there, by committer time", () => {
   const commit = {
     sha: SHA,
     subject: "Add the total",
@@ -44,10 +44,11 @@ test("each line gets its commit's fields from the commit's first line, by commit
     time: 1_700_000_500_000,
   };
 
-  expect(parsePorcelainBlame(porcelain)).toEqual([
-    { line: 1, text: "export const total = 1;", commit },
-    { line: 2, text: "}", commit },
-    { line: 3, text: "const draft = 2;", commit: null },
+  // Renamed since the commit: committed lines keep the old path, uncommitted ones the current.
+  expect(parsePorcelainBlame(porcelain, "src/a.ts")).toEqual([
+    { line: 1, path: "src/old.ts", text: "export const total = 1;", commit },
+    { line: 2, path: "src/old.ts", text: "}", commit },
+    { line: 3, path: "src/a.ts", text: "const draft = 2;", commit: null },
   ]);
 });
 
