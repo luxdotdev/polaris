@@ -144,6 +144,10 @@ _Avoid_: Artifact, widget, render, canvas
 A standing objective one Agent Session's Harness pursues across Turns until it is met, paused or cleared, as with Codex's and Claude Code's `/goal`.
 _Avoid_: Task (a Constellation's unit of work), objective, mission
 
+**Origin**:
+An Agent Session that wrote code, with the Turns in it that wrote it: what a line or commit traces back to, whoever made the commit. A line can have several Origins. UI copy says "session" ("1 session").
+_Avoid_: Thread, provenance, authoring session, trace (that is a Trace's)
+
 **Fork**:
 A new Agent Session started from a checkpoint of another, linked to its parent; the way to switch Harness or retry differently.
 
