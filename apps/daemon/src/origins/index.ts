@@ -10,6 +10,7 @@ import {
   type OriginLineQuery,
   type OriginSession,
   type SessionId,
+  type Turn,
   type TurnId,
   type Workspace,
   type WorkspaceId,
@@ -92,6 +93,10 @@ export class Origins extends Context.Service<
 
 const gitError = (cwd: string) => (cause: unknown) =>
   new GitError({ cwd, message: cause instanceof Error ? cause.message : String(cause) });
+
+/** The conversation's number for a Turn (its user Turn's); a Daemon before user Turns counts each. */
+const turnNumber = (turn: Turn | null) =>
+  turn === null ? 0 : (turn.userTurnNumber ?? turn.index + 1);
 
 const cutPrompt = (prompt: string) => {
   const chars = Array.from(prompt);
@@ -203,10 +208,16 @@ const make = Effect.gen(function* () {
           store.readTurn({ sessionId, turnId }).pipe(
             Effect.map((turn) => ({
               turnId,
+              number: turnNumber(turn),
               time: times.get(turnId) ?? 0,
               prompt: cutPrompt(turn?.prompt ?? ""),
             })),
-            Effect.orElseSucceed(() => ({ turnId, time: times.get(turnId) ?? 0, prompt: "" }))
+            Effect.orElseSucceed(() => ({
+              turnId,
+              number: 0,
+              time: times.get(turnId) ?? 0,
+              prompt: "",
+            }))
           )
         );
 
