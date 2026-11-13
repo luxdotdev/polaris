@@ -4,7 +4,7 @@
  */
 import type { BlameCommit } from "@polaris/protocol";
 import { Celestial, harnessTextVar, Kbd, Kicker, sessionCelestial } from "@polaris/ui";
-import { type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { type ReactNode, useEffect, useRef, useSyncExternalStore } from "react";
 import { harnessName } from "../../session/model/polarisTools/words.ts";
 import type { Lookup } from "./data.ts";
 import {
@@ -27,8 +27,6 @@ export interface CardProps {
   /** Null for a line you edited and haven't saved: no Host is asked. */
   readonly lookup: Lookup | null;
   readonly now: number;
-  /** Opened from the keyboard (⌥B): the first row takes focus. */
-  readonly focusFirst: boolean;
   readonly onOpenSession: (line: LineSession) => void;
   readonly onOpenCommit: (commit: BlameCommit) => void;
   readonly onClose: () => void;
@@ -202,12 +200,6 @@ export const OriginsCard = (props: CardProps) => {
   const merged = mergeLine(line, hosts);
   const groups = cardGroups(commit, merged, now);
   const root = useRef<HTMLDivElement>(null);
-  const [focused] = useState(props.focusFirst);
-
-  useEffect(() => {
-    if (focused) root.current?.querySelector<HTMLButtonElement>("[data-origin-row]")?.focus();
-  }, [focused]);
-
   useEffect(() => {
     const card = root.current;
 

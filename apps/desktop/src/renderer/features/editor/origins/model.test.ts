@@ -209,7 +209,7 @@ describe("the hover card", () => {
         g.rows.map((r) => (r.kind === "commit" ? r.commit.subject : r.line.session.title)),
       ])
     ).toEqual([
-      ["This week", ["Polaris planning", "Session rows show their Celestial", "Spike GPUI review"]],
+      ["This week", ["Session rows show their Celestial", "Polaris planning", "Spike GPUI review"]],
       ["Earlier", ["Orchestrator layout study"]],
     ]);
     expect(sessionDetail(merged.sessions.find((s) => s.session.archived)!)).toBe(

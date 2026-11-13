@@ -30,8 +30,8 @@ export const openCard = StateEffect.define<CardSpec>();
 
 export const closeCard = StateEffect.define<null>();
 
-/** The annotation starts 24px after the code; the card's text 16px into it. */
-const OFFSET_X = 8;
+/** The tooltip's anchor lands after the annotation's 24px margin; the card's text sits 16px in. */
+const OFFSET_X = -16;
 
 const mount = (view: EditorView, spec: CardSpec) => {
   const dom = document.createElement("div");
@@ -56,7 +56,6 @@ const mount = (view: EditorView, spec: CardSpec) => {
         commit={spec.commit}
         lookup={spec.lookup}
         now={Date.now()}
-        focusFirst={spec.focus}
         onClose={close}
         onOpenSession={(line) => {
           close();
@@ -73,6 +72,10 @@ const mount = (view: EditorView, spec: CardSpec) => {
   return {
     dom,
     offset: { x: OFFSET_X, y: 4 },
+    // Opened from the keys (⌥B): the first row takes focus once the card is in the document.
+    mount: () => {
+      if (spec.focus) dom.querySelector<HTMLButtonElement>("[data-origin-row]")?.focus();
+    },
     destroy: () => queueMicrotask(() => root.unmount()),
   };
 };

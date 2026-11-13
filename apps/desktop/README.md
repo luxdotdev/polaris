@@ -28,6 +28,7 @@ node scripts/emptyScreens.ts --out <dir> [--build]      # the empty states and t
 node scripts/tabCompletionScreens.ts --out <dir> [--build]   # Settings → Editor → Tab completion on fixtures (#tab-completion/hosts, /empty), every theme and density
 node scripts/computerUseScreens.ts --out <dir> [--build]   # computer use's cards on fixtures (#computer-use/states, /onboarding) against Paper CU1–CU3: every kind of Host, both themes, every density; the first-run card walked from blank to ready
 node scripts/completionCardScreens.ts --out <dir> [--build]   # the status bar's tab completion card (#completion-card/states, /bar), every theme and density, focus and Reduce Motion
+node scripts/originsScreens.ts --out <dir> [--build] [--all-densities]   # inline blame and the Origins card on fixtures (#editor/origins…) against Paper O1–O3, both themes
 node scripts/diagnosticsScreens.ts --out <dir>             # editor diagnostics on TypeScript and Prisma (build first): the hover's width, the Problems panel, inline messages (off, held under completion), both themes
 node scripts/deepLinkSmoke.ts       # polaris:// links (build first): at launch, from a second instance, and an unknown one ignored
 node scripts/reviewCrashSmoke.ts [--build] [--open-only] [--screenshots <dir>]   # every #review/<scene>, asking the reviewer and back: fails on a page error, console error, blank window or a pane's error state; checks the crash log

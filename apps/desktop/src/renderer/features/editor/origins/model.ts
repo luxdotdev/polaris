@@ -202,7 +202,10 @@ export interface CardGroup {
   readonly rows: ReadonlyArray<CardRow>;
 }
 
-/** The card's rows under their kickers, newest first; a working-copy line's all sit under one. */
+/**
+ * The card's rows under their kickers: the commit first in its group, then the sessions newest
+ * first; a working-copy line's all sit under one.
+ */
 export const cardGroups = (
   commit: BlameCommit | null,
   merged: MergedLine,
@@ -211,7 +214,7 @@ export const cardGroups = (
   const rows: Array<CardRow> = [
     ...(commit === null ? [] : [{ kind: "commit" as const, commit, time: commit.time }]),
     ...merged.sessions.map((line) => ({ kind: "session" as const, line, time: line.time })),
-  ].toSorted((a, b) => b.time - a.time);
+  ];
 
   if (commit === null) return [{ kicker: "Not committed", rows }];
   const recent = rows.filter((r) => thisWeek(r.time, now));
