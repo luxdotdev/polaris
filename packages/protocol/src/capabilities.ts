@@ -188,6 +188,8 @@ export const Capability = Schema.Literals([
   "git.sync",
   /** `git.log`: recent commits' subjects and bodies (the Commit messages preview in Settings). */
   "git.log",
+  /** `git.blame`, `origins.match`, `origins.forCommit`: the Agent Sessions that wrote a line or commit (ADR 0111). */
+  "origins",
   "attachments.stage",
   /** `attachments.read`: a staged attachment's bytes by id, for a message's images on a phone. */
   "attachments.read",
