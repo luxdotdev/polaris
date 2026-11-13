@@ -62,11 +62,22 @@ import type { ProfileSessionTools } from "../tools/profile.ts";
 
 import type { RequestSessionTools } from "./requests.ts";
 
+import type { OriginSessionTools } from "./origins.ts";
+
+export {
+  type OriginSessionTools,
+  type OriginsQuery,
+  OriginsOutcome,
+  sessionOriginTools,
+} from "./origins.ts";
+
 export interface SessionTools {
   readonly profiles?: ProfileSessionTools;
   readonly traces?: TraceSessionTools;
   readonly data?: DataSessionTools;
   readonly requests?: RequestSessionTools;
+  /** The `origins` tool, where the Daemon runs `Origins` (ADR 0111). */
+  readonly origins?: OriginSessionTools;
   /** The session's Turns as text; null when this Daemon doesn't hold the session. */
   readonly transcript: (
     sessionId: SessionId,
