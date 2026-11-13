@@ -86,9 +86,13 @@ export const OriginLine = Schema.Struct({
 
 export type OriginLine = typeof OriginLine.Type;
 
-/** A Turn that wrote matched lines: `prompt` is the user's message, cut to 280 characters. */
+/**
+ * A Turn that wrote matched lines: `prompt` is the user's message, cut to 280 characters.
+ * `number` is its `Turn.userTurnNumber`, the number the conversation shows; 0 when unknown.
+ */
 export const OriginTurn = Schema.Struct({
   turnId: TurnId,
+  number: Schema.Int,
   time: Schema.Number,
   prompt: Schema.String,
 });

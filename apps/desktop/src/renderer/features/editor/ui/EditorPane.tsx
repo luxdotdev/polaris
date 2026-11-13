@@ -68,6 +68,7 @@ import {
 } from "../diff/index.ts";
 import { commandShortcut } from "../../../../shared/keymap.ts";
 import { PANE_CLASS } from "./paneLayout.ts";
+import { bindOriginNavigation } from "../origins/navigate.ts";
 
 export interface EditorPaneProps {
   readonly hostKey: string;
@@ -204,7 +205,11 @@ export const EditorPane = ({ hostKey, workspaceId, root }: EditorPaneProps) => {
     active
   );
 
-  const { openSettings } = useShellActions();
+  const { openSettings, selectSession } = useShellActions();
+
+  useEffect(() => {
+    return bindOriginNavigation(selectSession);
+  }, [selectSession]);
   const [comparing, setComparing] = useState(false);
   const theirs = theirsOf(buffer);
 

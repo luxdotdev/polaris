@@ -31,6 +31,9 @@ export const gitHandlers: GitHandlers = {
   "git.discard": ({ hostKey, ...payload }) =>
     onLive(hostKey, (s) => s.client["git.discard"](payload)).pipe(done),
   "git.log": ({ hostKey, ...payload }) => onLive(hostKey, (s) => s.client["git.log"](payload)),
+  "git.blame": ({ hostKey, ...payload }) => onLive(hostKey, (s) => s.client["git.blame"](payload)),
+  "origins.match": ({ hostKey, ...payload }) =>
+    onLive(hostKey, (s) => s.client["origins.match"](payload)),
 };
 
 type GitOpeners = {

@@ -127,6 +127,18 @@ export const setInlineDiagnostics = (on: boolean) => {
   for (const view of views) view.dispatch({ effects: refresh.of(null) });
 };
 
+/** Whether line `lineFrom` shows an inline message: the Origins annotation gives way to it. */
+export const showsDiagnosticAt = (state: EditorState, lineFrom: number) => {
+  let hit = false;
+
+  if (shown)
+    state.field(lineDiagnostics, false)?.between(lineFrom, lineFrom, (start, _end, line) => {
+      if (start === lineFrom && line.severity !== "hint") hit = true;
+    });
+
+  return hit;
+};
+
 /** The cursor line while the completion popup is up: its message would sit under the popup. */
 const heldLine = (state: EditorState): number | null =>
   completionStatus(state) === null ? null : state.doc.lineAt(state.selection.main.head).from;
