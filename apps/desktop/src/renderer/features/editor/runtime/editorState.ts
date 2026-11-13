@@ -28,6 +28,7 @@ import { agentMarks } from "../cm/agent.ts";
 import { currentKeyPlatform } from "../../../../shared/chord.ts";
 import { editorLook } from "../cm/theme.ts";
 import { inlineDiagnostics } from "../cm/inlineDiagnostics.ts";
+import { inlineBlame } from "../origins/extension.tsx";
 import { wordWrap } from "../cm/wordWrap.ts";
 import { detectIndent, type Indent, lineSeparatorOf } from "../model/indent.ts";
 
@@ -114,6 +115,7 @@ export const createFileState = ({ file, text, readOnly, vim, onUpdate }: StateIn
       lineNumbers(),
       highlightActiveLineGutter(),
       inlineDiagnostics,
+      inlineBlame,
       highlightActiveLine(),
       history(),
       drawSelection(),

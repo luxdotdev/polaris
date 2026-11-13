@@ -280,6 +280,12 @@ export const shellCommands = ({
           editorInlineDiagnostics: !settingsStore.getState().sessions.editorInlineDiagnostics,
         }),
     },
+    "editor.toggleInlineBlame": {
+      run: () =>
+        setSessionPrefs({
+          editorInlineBlame: !settingsStore.getState().sessions.editorInlineBlame,
+        }),
+    },
     "theme.toggle": {
       run: () =>
         void window.polaris.request("settings.setTheme", { theme: dark() ? "light" : "dark" }),

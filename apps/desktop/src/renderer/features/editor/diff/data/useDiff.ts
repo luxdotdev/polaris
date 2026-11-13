@@ -87,7 +87,7 @@ export const useDiff = (target: DiffTarget, syntax: boolean): DiffState => {
   });
 
   // Switching syntax-aware on or off keeps the diff shown until the new one is ready.
-  const file = JSON.stringify([target.hostKey, target.path, target.side, target.git]);
+  const file = JSON.stringify([target.hostKey, target.path, target.side, target.git, target.sha]);
 
   useEffect(() => {
     // `now` changes with each new status: the files may have moved.

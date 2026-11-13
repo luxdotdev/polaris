@@ -10,11 +10,13 @@ import {
   type OriginLineQuery,
   SessionId,
   SessionPlacement,
-  type TurnId,
+  TurnId,
+  TurnTrigger,
   type Workspace,
 } from "@polaris/protocol";
 import { Effect, Layer } from "effect";
 import { CheckpointsLive } from "../git/Checkpoints.ts";
+import { HarnessEvent } from "../harness/HarnessDriver.ts";
 import { gitText } from "../git/git.ts";
 import { dropSessionCheckpoints, listCheckpointRefs } from "../git/prune.ts";
 import { makeRepo } from "../git/testing.ts";
@@ -50,8 +52,8 @@ const WRITES = new Map([
 
 type Env = Engine | EventStore | Origins;
 
-const setup = (repo: string, filename = join(tempDir(), "state.sqlite"), withOrigins = true) => {
-  const claude = makeFakeDriver("claude", {
+const fakeClaude = (repo: string) =>
+  makeFakeDriver("claude", {
     onTurn: (input) => {
       for (const [path, content] of Object.entries(WRITES.get(input.prompt) ?? {})) {
         mkdirSync(dirname(join(repo, path)), { recursive: true });
@@ -62,6 +64,12 @@ const setup = (repo: string, filename = join(tempDir(), "state.sqlite"), withOri
     },
   });
 
+const setup = (
+  repo: string,
+  filename = join(tempDir(), "state.sqlite"),
+  withOrigins = true,
+  claude = fakeClaude(repo)
+) => {
   const engine = engineLayer({
     filename,
     fakes: makeFakes(),
@@ -483,6 +491,53 @@ describe("Origins", () => {
       setup(repo, filename),
       Effect.gen(function* () {
         expect(yield* backfilled).toEqual({ failed: 0, done: true, indexed: true });
+      })
+    );
+  }, 30_000);
+  test("an Origin's Turn carries the number the conversation shows for it", async () => {
+    const repo = await makeRepo();
+    const claude = fakeClaude(repo);
+
+    await run(
+      setup(repo, undefined, true, claude),
+      Effect.gen(function* () {
+        const workspace = yield* registerWorkspace(repo);
+
+        yield* agentTurn(workspace, sid, "nothing to write");
+        // A Turn the Harness starts itself folds into the user's Turn before it: still turn 1.
+        const harness = claude.latest(sid)!;
+        const auto = TurnId.make("auto");
+        const trigger = TurnTrigger.cases.BackgroundTasksReported.make({ tasks: [] });
+
+        harness.emit(HarnessEvent.TurnStarted({ turnId: auto, prompt: null, trigger }));
+        harness.emit(HarnessEvent.TurnEnded({ turnId: auto, status: "completed", error: null }));
+        yield* waitFor(
+          (m) =>
+            m.sessions.get(sid)?.turns.some((t) => t.id === auto && t.status === "completed") ===
+            true
+        );
+        yield* dispatch(
+          Command.cases.SendTurn.make({ sessionId: sid, prompt: "label", attachments: [] })
+        );
+
+        const model = yield* waitFor(
+          (m) =>
+            m.sessions.get(sid)?.turns.length === 3 &&
+            m.sessions.get(sid)?.session.state === "idle",
+          5000,
+          "the second user Turn ends"
+        );
+
+        const second = model.sessions.get(sid)!.turns[2]!;
+
+        yield* waitIndexed(sid, second.id);
+        const { matched } = yield* originsOf(workspace, "src/label.ts");
+        const stored = yield* (yield* EventStore).readTurn({ sessionId: sid, turnId: second.id });
+
+        expect(matched.sessions.flatMap((s) => s.turns.map((t) => [t.turnId, t.number]))).toEqual([
+          [second.id, 2],
+        ]);
+        expect(stored?.userTurnNumber).toBe(2);
       })
     );
   }, 30_000);
