@@ -23,10 +23,14 @@ Alternatives considered:
 ## Decision
 
 When a Turn's checkpoint is recorded, the Daemon hashes each line the Turn added
-(whitespace-normalised) and stores `(Workspace, line hash) → (Agent Session, Turn, time)`. To
-find a line's Origins, the Client blames the line, hashes its content and looks it up, keeping
-Turns from before the commit's time; a commit's Origins are the union over its added lines.
-Lines too short or common to identify are skipped and resolved by the hunk around them.
+(whitespace-normalised) and stores `(repoKey, line hash, path) → (Agent Session, Turn, time)`.
+The repoKey is the SHA of the repository's oldest root commit, so every Host names the same
+repository alike, whatever its Workspace ids. To find a line's Origins, the Daemon blames the
+line, hashes its content and looks it up in the file the line had when committed (blame's
+filename, so a rename keeps it; uncommitted lines use the current path), keeping Turns from
+before the commit's time; a commit's Origins are the union over its added lines. Matching by
+path stops a common line, such as an import, from matching an agent's identical line in another
+file. Lines too short or common to identify are skipped and resolved by the hunk around them.
 
 The index is keyed by what was written, not by SHA, so it needs no watcher, survives checkpoint
 pruning, rebase, squash, cherry-pick and commits made by hand, and resolves uncommitted lines the
@@ -37,6 +41,7 @@ merges the answers. On upgrade, surviving checkpoints are fingerprinted once in 
 
 - A line a human later edits gets the human's commit and no Origin, which is correct; a pure
   reformat loses its Origin too.
+- Lines a human moves to another file in a commit lose their Origin; a file rename keeps it.
 - Identical lines written by different Turns match all of them; the hunk and the commit time
   narrow it.
 - Turns whose checkpoints were pruned before this shipped have no Origin.
