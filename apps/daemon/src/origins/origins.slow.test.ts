@@ -3,7 +3,7 @@
  * Checkpoints snapshot the repository, and `Origins` blames and matches them through real git.
  */
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
   Command,
@@ -334,6 +334,38 @@ describe("Origins", () => {
 
         yield* (yield* Origins).forgetSession(sid);
         expect((yield* originsOf(workspace, "src/total.ts")).matched.sessions).toEqual([]);
+      })
+    );
+  }, 30_000);
+
+  test("blame refuses a symlink out of the checkout; forCommit refuses an option for a sha", async () => {
+    const repo = await makeRepo();
+    const outside = join(tempDir(), "secret.txt");
+    const written = join(tempDir(), "written.txt");
+
+    writeFileSync(outside, "a secret line outside the checkout\n");
+    symlinkSync(outside, join(repo, "link.txt"));
+
+    await run(
+      setup(repo),
+      Effect.gen(function* () {
+        const workspace = yield* registerWorkspace(repo);
+        const origins = yield* Origins;
+        const request = { workspaceId: workspace.id, startLine: 1, endLine: 10 };
+
+        for (const [path, refusal] of [
+          ["link.txt", "GitError"],
+          ["src/../../secret.txt", "NotFound"],
+        ]) {
+          const blamed = yield* Effect.flip(origins.blame({ ...request, path: path! }));
+
+          expect(blamed._tag).toBe(refusal!);
+        }
+
+        const refused = yield* Effect.flip(origins.forCommit(workspace.id, `--output=${written}`));
+
+        expect(refused._tag).toBe("GitError");
+        expect(existsSync(written)).toBe(false);
       })
     );
   }, 30_000);

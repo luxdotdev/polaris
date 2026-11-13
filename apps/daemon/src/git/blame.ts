@@ -3,11 +3,14 @@
  * so uncommitted lines come back with no commit. An untracked file is all uncommitted.
  * Read-only under the safe config; the repository's own ignore-revs list is not applied.
  */
-import { readFile } from "node:fs/promises";
-import { isAbsolute, join, relative, sep } from "node:path";
+import { readFile, realpath, stat } from "node:fs/promises";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { runGit, runGitRaw } from "./git.ts";
 
 const BLAME_TIMEOUT_MS = 30_000;
+
+/** Past this a file is generated or binary; blame refuses it. */
+export const MAX_BLAME_BYTES = 16 * 1024 * 1024;
 
 /** The all-zero id git gives lines that are not committed yet. */
 const UNCOMMITTED = /^0+$/;
@@ -80,7 +83,7 @@ export const parsePorcelainBlame = (output: string): ReadonlyArray<BlamedLine> =
 
 /** `path` relative to `root`, or null when it points outside it. */
 export const pathInside = (root: string, path: string): string | null => {
-  const inside = isAbsolute(path) ? relative(root, path) : path;
+  const inside = relative(root, resolve(root, path));
 
   if (inside === "" || inside.startsWith(`..${sep}`) || inside === ".." || isAbsolute(inside))
     return null;
@@ -102,6 +105,28 @@ const uncommitted = (text: string, start: number, end: number): ReadonlyArray<Bl
     .slice(start - 1, end)
     .map((line, at) => ({ line: start + at, text: line.replace(/\r$/, ""), commit: null }));
 
+/**
+ * The real path of `path` in `checkout`: a regular file, under `MAX_BLAME_BYTES`, reached without
+ * following a symlink, so a link can't read a file outside the checkout.
+ */
+const regularFileIn = async (checkout: string, path: string): Promise<string> => {
+  const real = await realpath(join(checkout, path));
+
+  if (
+    relative(await realpath(checkout), real)
+      .split(sep)
+      .join("/") !== path
+  )
+    throw new Error(`${path} is a symlink or leaves the checkout`);
+  const info = await stat(real);
+
+  if (!info.isFile()) throw new Error(`${path} is not a file`);
+
+  if (info.size > MAX_BLAME_BYTES) throw new Error(`${path} is too large to blame`);
+
+  return real;
+};
+
 const isTracked = async (checkout: string, path: string): Promise<boolean> => {
   const listed = await runGitRaw(checkout, ["ls-files", "--error-unmatch", "--", path], {
     env: { GIT_LITERAL_PATHSPECS: "1" },
@@ -111,7 +136,8 @@ const isTracked = async (checkout: string, path: string): Promise<boolean> => {
 };
 
 /**
- * Blames lines `start` through `end` of `path` (relative to `checkout`), clamped to the file.
+ * Blames lines `start` through `end` of `path` (relative to `checkout`, as `pathInside` gives it),
+ * clamped to the file.
  * Throws `GitCommandError` when git refuses (an unborn branch), and the file's read error when it is missing.
  */
 export const blameLines = async (
@@ -120,7 +146,7 @@ export const blameLines = async (
   start: number,
   end: number
 ): Promise<ReadonlyArray<BlamedLine>> => {
-  const text = await readFile(join(checkout, path), "utf8");
+  const text = await readFile(await regularFileIn(checkout, path), "utf8");
   const last = Math.min(end, splitLines(text).length);
 
   if (start > last) return [];

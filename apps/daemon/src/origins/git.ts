@@ -23,6 +23,9 @@ const DIFF_FLAGS = [
 
 const decoder = new TextDecoder();
 
+/** A full or abbreviated commit id; anything else could reach git as an option. */
+export const OBJECT_ID = /^[0-9a-f]{4,64}$/i;
+
 /**
  * The repository across Hosts: its oldest root commit reachable from HEAD (by committer time,
  * then SHA, so every clone agrees). Null on an unborn branch.
@@ -84,17 +87,27 @@ export interface CommitLines {
 
 /** What commit `sha` added against its first parent (everything, for a root commit). */
 export const commitAddedLines = async (cwd: string, sha: string): Promise<CommitLines> => {
+  if (!OBJECT_ID.test(sha)) throw new Error(`${sha} is not a commit id`);
+
   const out = await diffText(cwd, [
     "show",
     "--format=%ct",
     "--diff-merges=first-parent",
     ...DIFF_FLAGS,
+    "--end-of-options",
     `${sha}^{commit}`,
     "--",
   ]);
 
   if (out === null) {
-    const time = await gitText(cwd, ["show", "-s", "--format=%ct", `${sha}^{commit}`, "--"]);
+    const time = await gitText(cwd, [
+      "show",
+      "-s",
+      "--format=%ct",
+      "--end-of-options",
+      `${sha}^{commit}`,
+      "--",
+    ]);
 
     return { time: Number(time) * 1000, added: [] };
   }

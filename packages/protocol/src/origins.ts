@@ -119,7 +119,11 @@ export const OriginsMatch = Rpc.make("origins.match", {
 
 /** The Origins of every line commit `sha` added, in the Workspace's repository. */
 export const OriginsForCommit = Rpc.make("origins.forCommit", {
-  payload: { workspaceId: WorkspaceId, sha: Schema.String },
+  payload: {
+    workspaceId: WorkspaceId,
+    /** A full or abbreviated commit id: hex only. */
+    sha: Schema.String.check(Schema.isPattern(/^[0-9a-f]{4,64}$/i)),
+  },
   success: Schema.Struct({ sessions: Schema.Array(OriginSession) }),
   error: Schema.Union([NotFound, GitError]),
 });

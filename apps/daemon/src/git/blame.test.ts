@@ -55,6 +55,8 @@ test.each([
   ["/repo", "src/a.ts", "src/a.ts"],
   ["/repo", "/repo/src/a.ts", "src/a.ts"],
   ["/repo", "../etc/passwd", null],
+  ["/repo", "src/../../etc/passwd", null],
+  ["/repo", "src/./a.ts", "src/a.ts"],
   ["/repo", "/elsewhere/a.ts", null],
 ])("pathInside(%s, %s) is %s", (root, path, expected) => {
   expect(pathInside(root, path)).toBe(expected);
