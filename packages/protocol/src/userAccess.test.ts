@@ -18,11 +18,10 @@ test("a Daemon's own CLIs keep their RPCs without a key", () => {
  * Reviewed: each reads or watches and changes nothing on the Host beyond its caller's own
  * connection. `host.resources.acquire` and `release` are the exception (`polaris lease` sends
  * no key; a lease ends with the process it names, and without user access a connection releases
- * only a lease it asked for). The git reads are a known exception too: git runs under the
- * repository's own config. A new `any` fails here until it is added on purpose.
+ * only a lease it asked for). `git.status` and `git.watch` still run git under the
+ * repository's own config (ENG-953). A new `any` fails here until it is added on purpose.
  */
 const READ_ONLY = [
-  "attachments.read",
   "attachments.settings",
   "byteStream.credit",
   "computerUse.allowedApps",
@@ -50,10 +49,6 @@ const READ_ONLY = [
   "files.stat",
   "files.watch",
   "files.watchFile",
-  "git.blame",
-  "git.diff",
-  "git.log",
-  "git.show",
   "git.status",
   "git.watch",
   "harness.availability",
@@ -170,6 +165,12 @@ test.each([
   "prediction.capability",
   "prediction.complete",
   "prediction.edit",
+  // Contents again: a commit's files, its diff, its history and lines, and a message's images.
+  "git.show",
+  "git.diff",
+  "git.log",
+  "git.blame",
+  "attachments.read",
 ])("%s is refused without user access and allowed with it", (rpc) => {
   expect(decideUserAccess(rpc, null, false)?.what).toBe(rpc);
   expect(decideUserAccess(rpc, null, true)).toBeNull();

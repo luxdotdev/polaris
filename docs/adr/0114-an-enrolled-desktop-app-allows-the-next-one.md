@@ -57,7 +57,8 @@ agent's shell included, could approve its own Pending Approvals, send Turns and 
   there on purpose. Reads of Host state stay open, as does a connection's own flow control.
   A third review found `any` entries that were not that, and closed them. Reads that reach
   beyond Host state are `user`: file contents by any path (`files.read`, `files.readVersioned`,
-  `files.grep`), the Host's loopback (`hostAddress.open`), a data source's stored credentials
+  `files.grep`) or through git (`git.show`, `git.diff`, `git.log`, `git.blame`), a message's
+  staged attachment (`attachments.read`), the Host's loopback (`hostAddress.open`), a data source's stored credentials
   (`data.describe`) and the Host's provider key (`voice.transcribe`); so are
   `prediction.capability`, `prediction.complete` and `prediction.edit`, which connect to an
   endpoint their caller names and start the managed model server, and `presence.report`,
@@ -67,8 +68,8 @@ agent's shell included, could approve its own Pending Approvals, send Turns and 
   program. `host.resources.acquire` and `release` stay
   open because `polaris lease` sends no key: a lease ends with the process it names, and
   without user access a connection releases only a lease it asked for itself. What is still
-  open and not purely a read is listed in ENG-953: a lease may name any live process, the git
-  reads run git under the repository's own config, and some watches create their store on
+  open and not purely a read is listed in ENG-953: a lease may name any live process,
+  `git.status` and `git.watch` run git under the repository's own config, and some watches create their store on
   first use. Extensions and Linked Devices were already refused the gated requests by their
   own tables, or reach them through their Grants (a Linked Device still transcribes and lists
   Models); nothing moved for them.

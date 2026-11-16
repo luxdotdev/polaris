@@ -6,7 +6,13 @@
 import { expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BlobId, CommandId, EditPredictionRequest, PredictionRequest } from "@polaris/protocol";
+import {
+  AttachmentId,
+  BlobId,
+  CommandId,
+  EditPredictionRequest,
+  PredictionRequest,
+} from "@polaris/protocol";
 import { Effect, Layer, type Scope, Stream } from "effect";
 import { makeBenchDriver } from "../harness/bench/BenchDriver.ts";
 import type { HarnessDriver } from "../harness/HarnessDriver.ts";
@@ -92,7 +98,7 @@ const edit = EditPredictionRequest.make({
   maxTokens: 32,
 });
 
-test("a socket-only process can't read files, reach the Host's loopback, use stored credentials or the provider key, have the Host fetch an endpoint, or report presence", async () => {
+test("a socket-only process can't read files, reach the Host's loopback, use stored credentials or the provider key, have the Host fetch an endpoint, read a commit's file or a message's attachment, or report presence", async () => {
   const reached: Array<string> = [];
 
   /** Records that the request got past the gate, then fails as a defect. */
@@ -113,7 +119,9 @@ test("a socket-only process can't read files, reach the Host's loopback, use sto
     ServerRpcs.toLayerHandler("presence.report", () => reach("presence")),
     ServerRpcs.toLayerHandler("prediction.capability", () => reach("capability")),
     ServerRpcs.toLayerHandler("prediction.complete", () => Stream.fromEffect(reach("complete"))),
-    ServerRpcs.toLayerHandler("prediction.edit", () => Stream.fromEffect(reach("edit")))
+    ServerRpcs.toLayerHandler("prediction.edit", () => Stream.fromEffect(reach("edit"))),
+    ServerRpcs.toLayerHandler("git.show", () => reach("show")),
+    ServerRpcs.toLayerHandler("attachments.read", () => reach("attachment"))
   );
 
   const requests = (client: Client, root: string) => {
@@ -148,6 +156,8 @@ test("a socket-only process can't read files, reach the Host's loopback, use sto
       capability: outcome(client["prediction.capability"]({ endpoints: [endpoint.url] })),
       complete: outcome(Stream.runDrain(client["prediction.complete"](completion))),
       edit: outcome(Stream.runDrain(client["prediction.edit"](edit))),
+      show: outcome(client["git.show"]({ cwd: root, revision: "HEAD", path: "secrets.env" })),
+      attachment: outcome(client["attachments.read"]({ attachmentId: AttachmentId.make("a1") })),
     });
   };
 
@@ -174,12 +184,16 @@ test("a socket-only process can't read files, reach the Host's loopback, use sto
     capability: "UserAccessRequired:prediction.capability",
     complete: "UserAccessRequired:prediction.complete",
     edit: "UserAccessRequired:prediction.edit",
+    show: "UserAccessRequired:git.show",
+    attachment: "UserAccessRequired:attachments.read",
   });
   expect(result.before).toEqual([]);
   // The enrolled Desktop App reaches every handler.
   expect(new Set(Object.values(result.admitted))).toEqual(new Set(["defect"]));
   expect(result.after).toEqual(
     [
+      "attachment",
+      "show",
       "capability",
       "complete",
       "describe",
