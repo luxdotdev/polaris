@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { unpackArchive } from "@polaris/client/install";
 import { REPO_ROOT } from "../lib/build.ts";
 import { daemonChecksumsName, RELEASE_DIR, stageDaemon, writeDaemonArchives } from "./archives.ts";
@@ -60,6 +60,9 @@ const HELPER_EXECUTABLES = [
 ] as const;
 
 const DAEMON_LIBRARIES = ["libfff_c.dylib", "sodium-native.node"] as const;
+
+/** The relay client's sodium-native, which packaging unpacks from the asar (ENG-943). */
+const APP_NATIVE = "Contents/Resources/app.asar.unpacked/out/main/sodium-native-1abc.node";
 
 const daemonFile = (name: keyof typeof DARWIN_PATHS) => `darwin-arm64/${DARWIN_PATHS[name]}`;
 
@@ -138,6 +141,8 @@ const releaseApp = (dist: string) => {
   symlinkSync("Versions/Current/Resources", join(framework, "Resources"));
   mkdirSync(join(app, "Contents/Resources"));
   writeFileSync(join(app, "Contents/Resources/app.asar"), "asar");
+  mkdirSync(join(app, dirname(APP_NATIVE)), { recursive: true });
+  copyFileSync(MACHO, join(app, APP_NATIVE));
   stageDaemon(dist, join(app, "Contents/Resources/daemon"), ["darwin-arm64"]);
 
   return app;
@@ -330,6 +335,7 @@ describe.skipIf(process.platform !== "darwin")("the release signer", () => {
     for (const nested of [
       "Contents/Frameworks/Polaris Helper.app",
       "Contents/Frameworks/Fake.framework/Versions/A/Libraries/libfake.dylib",
+      APP_NATIVE,
     ])
       expect(signature(join(app, nested))).toContain("(adhoc,runtime)");
 

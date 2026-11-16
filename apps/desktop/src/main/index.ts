@@ -440,14 +440,17 @@ const start = async () => {
     )
   );
 
-  relayDevice = desktopRelayDevice(
+  const device = desktopRelayDevice(
     await Effect.runPromise(
       Effect.provide(
         SecureStorage.useSync((storage) => storage),
         secureStorage
       )
-    )
+    ),
+    { file: { fileDirectory: join(userData, "relay-device-private"), platform: process.platform } }
   );
+
+  relayDevice = device;
 
   const userKey = await Effect.runPromise(
     Effect.provide(
@@ -487,7 +490,7 @@ const start = async () => {
   runtime = startClientRuntime(
     {
       rpc: { traceContext: selfTraces.enabled },
-      relay: relayDevice.connector,
+      relay: device.connector,
       presence: SubscriptionRef.changes(presence),
       developerModeLease: dev,
       entries: hostEntries({
@@ -604,6 +607,7 @@ const start = async () => {
       browser: browsers,
       updates: currentUpdates,
       restartToUpdate,
+      relayDevice: device,
       showAppInFinder: () =>
         shell.showItemInFolder(revealAppPath(process.platform, app.getPath("exe"))),
       predictionSettings,

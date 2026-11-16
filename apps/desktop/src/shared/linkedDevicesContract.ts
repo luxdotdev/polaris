@@ -34,6 +34,8 @@ export const LinkedDevicesRequestInputs = {
     noiseKey: LinkedDevice.fields.noiseKey,
   }),
   "devices.unlink": Schema.Struct({ hostKey: HostKey, id: LinkedDevice.fields.id }),
+  /** This app's own relay identity, made on first use: what a Host is told to let it in. */
+  "devices.thisDevice": Schema.Struct({}),
 } as const;
 
 export type LinkedDevicesMethod = keyof typeof LinkedDevicesRequestInputs;
@@ -53,6 +55,13 @@ export interface LinkOfferView {
   readonly shareTo: ReadonlyArray<string>;
 }
 
+/** This app as a relay device: public keys only. */
+export interface ThisDeviceView {
+  readonly relayAddress: string;
+  /** The Noise static public key, base64url. */
+  readonly noiseKey: string;
+}
+
 export interface LinkResultView {
   readonly device: LinkedDeviceView;
   /** Each `shareTo` Host, and whether `devices.add` reached it. */
@@ -69,4 +78,5 @@ export type LinkedDevicesRequestOutputs = {
   readonly "devices.cancelLink": void;
   readonly "devices.share": LinkedDeviceView;
   readonly "devices.unlink": LinkedDeviceView;
+  readonly "devices.thisDevice": ThisDeviceView;
 };
