@@ -254,7 +254,7 @@ The service an Account lives on, which vouches for its people's devices; Polaris
 _Avoid_: Backend, directory, auth server
 
 **Polaris Cloud**:
-The Account Server and Polaris Relay that Polaris runs; never the name of a plan.
+The Account Server (`auth.polaris.lux.dev`) and Polaris Relay (`relay.polaris.lux.dev`) that Polaris runs, and every Client's default; a self-hosted one replaces either. Never the name of a plan.
 
 **Share**:
 One person's time-limited access to one Agent Session or one Constellation (shared through its Lead, never a single Worker) on someone else's Host, with its Grants; the owner can revoke it at any time.
