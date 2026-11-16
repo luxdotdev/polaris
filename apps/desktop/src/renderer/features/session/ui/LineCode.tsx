@@ -1,7 +1,7 @@
 /**
  * A Changes line's code: plain until its file's colours are ready, then the same text in
  * spans coloured by the syntax tokens (DESIGN.md, rule/syntax-is-moonlit), so nothing moves.
- * Cut off at the card's edge, or wrapped onto more rows under View → Word wrap.
+ * Unwrapped, the list scrolls sideways to its end; View → Word wrap wraps it onto more rows.
  */
 import { cn } from "@polaris/ui";
 import type { LineRuns, SyntaxGroup } from "../diffSyntax.ts";
@@ -36,8 +36,8 @@ interface LineCodeProps {
 export const LineCode = ({ text, runs, wrap }: LineCodeProps) => (
   <span
     className={cn(
-      "text-text-default min-w-0 flex-1",
-      wrap ? "wrap-break-word whitespace-pre-wrap" : "truncate whitespace-pre"
+      "text-text-default flex-1",
+      wrap ? "wrap-break-word min-w-0 whitespace-pre-wrap" : "whitespace-pre"
     )}
   >
     {runs === undefined ? text : <SyntaxRuns runs={runs} />}
