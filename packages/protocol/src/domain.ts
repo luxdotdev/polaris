@@ -10,6 +10,7 @@ import { ComputerUseCall, ComputerUseRequest, DesktopApp } from "./computerUse.t
 import { HarnessKind } from "./harnesses.ts";
 import {
   AttachmentId,
+  CommentId,
   HostId,
   RequestId,
   SessionId,
@@ -421,6 +422,8 @@ export class Turn extends Schema.Class<Turn>("Turn")({
   status: TurnStatus,
   /** Set when the Turn was sent from Review feedback (`SendFeedback`); `prompt` is its rendering. */
   feedback: optionalNullable(FeedbackBatch),
+  /** The Comments the Turn carried (`SendFeedback.commentIds`, capability `session.comments`). */
+  commentIds: Schema.optionalKey(Schema.Array(CommentId)),
   /**
    * Set when the Turn is the user's shell command (`RunShellCommand`, capability
    * `session.shell-command`); `prompt` reads `! <command>`.

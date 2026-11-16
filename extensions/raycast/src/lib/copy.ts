@@ -58,6 +58,7 @@ export const GRANT_COPY: Readonly<
   Record<GrantKind, { readonly label: string; readonly can: string }>
 > = {
   read: { label: "Read", can: "see agent sessions" },
+  comment: { label: "Comment", can: "add comments" },
   approve: { label: "Approve", can: "answer approvals" },
   turn: { label: "Send turns", can: "send turns" },
   start: { label: "Start agent sessions", can: "start agent sessions" },

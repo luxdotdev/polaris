@@ -540,6 +540,17 @@ const fence = (code: string): string => {
   return "`".repeat(longest + 1);
 };
 
+/** `path:lines`, as a feedback prompt names the lines a comment is about. */
+export const diffLinesLabel = (path: string, lines: LineRange): string =>
+  `${path}:${lineLabel(lines)}${lines.side === "old" ? " (removed lines)" : ""}`;
+
+/** One comment of a feedback prompt: what it is about, the quoted text, then the note. */
+export const quotedNote = (label: string, quoted: string, note: string): string => {
+  const marker = fence(quoted);
+
+  return [label, marker, quoted, marker, note.trim()].join("\n");
+};
+
 /**
  * The prompt a feedback batch sends: the message, then each comment as
  * `path:lines`, the quoted code and the note. Clients use it to preview the Turn.
@@ -550,18 +561,7 @@ export const feedbackPrompt = (batch: FeedbackBatch): string => {
   if (batch.message !== null && batch.message.trim() !== "") parts.push(batch.message.trim());
 
   for (const comment of batch.comments) {
-    const marker = fence(comment.code);
-    const side = comment.lines.side === "old" ? " (removed lines)" : "";
-
-    parts.push(
-      [
-        `${comment.path}:${lineLabel(comment.lines)}${side}`,
-        marker,
-        comment.code,
-        marker,
-        comment.note.trim(),
-      ].join("\n")
-    );
+    parts.push(quotedNote(diffLinesLabel(comment.path, comment.lines), comment.code, comment.note));
   }
 
   return parts.join("\n\n");

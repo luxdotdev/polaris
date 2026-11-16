@@ -171,6 +171,10 @@ export const sessionOf: (event: DomainEvent) => SessionId | null =
     RiskFindingResolved: hostEvent,
     RiskSummaryEnded: hostEvent,
     VerdictRecorded: hostEvent,
+    CommentAdded: (event) => event.comment.sessionId,
+    CommentEdited: bySessionId,
+    CommentResolved: bySessionId,
+    CommentReopened: bySessionId,
   });
 
 /**
@@ -663,6 +667,11 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
   RiskFindingResolved: () => keep,
   RiskSummaryEnded: () => keep,
   VerdictRecorded: () => keep,
+  // Comments (ADR 0113) fold into the session once the Daemon serves `session.comments`.
+  CommentAdded: () => keep,
+  CommentEdited: () => keep,
+  CommentResolved: () => keep,
+  CommentReopened: () => keep,
 });
 
 export const project = (model: ReadModel, envelope: EventEnvelope): ReadModel => {

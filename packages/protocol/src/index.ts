@@ -54,6 +54,12 @@ export * from "./events.ts";
 
 export * from "./extensions.ts";
 
+export * from "./comments.ts";
+
+export * from "./shares.ts";
+
+export * from "./shareGrants.ts";
+
 export * from "./remoteAccess.ts";
 
 export * from "./restart.ts";
