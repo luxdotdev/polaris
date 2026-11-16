@@ -477,3 +477,28 @@ test("a device one Share stops listing loses that Share and its open session, an
     })
   );
 });
+
+test("a Share lives at most 30 days, when it is created and each time it is renewed", async () => {
+  const server = await issuer();
+  const days = (count: number) => new Date(Date.now() + count * 24 * 3_600_000).toISOString();
+
+  await onHost(
+    tempDir("pl-shares-"),
+    server,
+    Effect.gen(function* () {
+      const shares = yield* Shares;
+
+      expect(yield* refusalOf(shares.create(invite(server, { expiresAt: days(31) }), OWNER))).toBe(
+        "expiry"
+      );
+
+      const share = yield* shares.create(invite(server, { expiresAt: days(2) }), OWNER);
+
+      expect(yield* refusalOf(shares.renew(share.id, days(31), OWNER))).toBe("expiry");
+      const renewed = yield* shares.renew(share.id, days(29), OWNER);
+
+      expect(Date.parse(renewed.expiresAt)).toBeGreaterThan(Date.parse(share.expiresAt));
+      expect((yield* shares.list(null))[0]?.share.expiresAt).toBe(renewed.expiresAt);
+    })
+  );
+});

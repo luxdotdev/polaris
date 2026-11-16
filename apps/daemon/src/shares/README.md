@@ -11,6 +11,8 @@ The contract with the Account Server is `apps/accounts/README.md`; the wire cont
 | `store.ts` | `shares.sqlite`: each Share, its Invite, the share log, the devices admitted. |
 | `statement.ts` | Verifies a statement (an EdDSA JWT) against the pinned issuer's JWKS. |
 | `issuer.ts` | The devices long-poll and the capability's revocation. |
+| `body.ts` | An issuer's answer, read up to a byte limit and only from its own origin. |
+| `identities.ts` | Co-author trailers' names and commit emails, from the Shares (`../coAuthors/`). |
 | `devices.ts` | One poll per live Share; the devices with a statement the Host verified. |
 | `service.ts` | `Shares`: create, renew, revoke, list; the Relay route's guests; the one timer. |
 | `gate.ts` | The Share gate in front of every RPC on a Teammate's connection. |
@@ -38,6 +40,9 @@ The contract with the Account Server is `apps/accounts/README.md`; the wire cont
 5. The connection ends, and the device is refused, when the Share is revoked (before
    `shares.revoke` answers), when it expires, when the device's statement lapses with no
    newer one from the poll or the device, or when the issuer no longer lists the device.
+6. A device acts only through the live Shares that list it, not every Share of its person.
+   When one of several stops listing it, its connection ends, so every request and feed it had
+   open through that Share closes; it may connect again through the Shares that still list it.
 
 The Relay route must be on for a Teammate to connect; a Share does not turn it on.
 
@@ -50,7 +55,11 @@ Everything off the allowlist is the owner's: Share management, archiving, termin
 reads and writes, every Host-wide call.
 
 - `git.diff` is allowed only for a covered session's Turns, and only in the directory that
-  session runs in.
+  session runs in. The gate resolves the Turns it names from Host state: each must be that
+  session's, and a run in order, or the request is `NotShared`. A Turn without its `after`
+  checkpoint is read up to the working tree only while the last Turn is still working
+  (`../git/diffScope.ts`); otherwise the diff is not found.
+- A request that passes also carries the Share's role, which decides who may resolve a Comment.
 - A request that passes carries the Share it acts through (`RequestShare`): `dispatch` records
   `Actor.Teammate` and decides Turns on that Share's Grant.
 - **Turns and approvals are refused to Teammates** while the user gate is off
@@ -63,7 +72,11 @@ reads and writes, every Host-wide call.
   https (http only for an Account Server on this machine), cached, and refetched for an unknown
   `kid` at most every 30 seconds.
 - A statement never holds a connection for longer than `STATEMENT_LIFETIME_S`, whatever its
-  `exp` says.
+  `exp` says. It is refused before its `nbf`, with an `iat` ahead of the Host, or past its
+  `exp`, each with 30 seconds of clock skew (`CLOCK_SKEW_MS`). Only `EdDSA` is accepted.
+- An issuer's answers are bounded: the devices list is read up to 64 KiB and 16 devices, the
+  JWKS up to 16 KiB and 16 keys, with field lengths capped; a longer body is abandoned unread.
+  A redirect is refused, and so is an answer that names another origin.
 - A device the issuer lists for another person, or with a statement the Host can't verify, is
   left out and a warning is logged; the rest of the list stands.
 - If the issuer can't be reached, devices stay until their statements lapse (15 minutes at
@@ -80,5 +93,6 @@ is driven by the feeds' own lifetimes.
 ## Tests
 
 `issuer.testing.ts` is a fake Account Server: in process as a `fetch`, or over HTTP.
-`statement.test.ts`, `service.test.ts` and `gate.test.ts` are fast; `teammate.slow.test.ts`
-runs a Teammate's device through a real relay process.
+`statement.test.ts`, `issuer.test.ts`, `service.test.ts`, `gate.test.ts` and
+`coAuthors.test.ts` (a Teammate's Turn through a real Share gets its trailer) are fast;
+`teammate.slow.test.ts` runs a Teammate's device through a real relay process.

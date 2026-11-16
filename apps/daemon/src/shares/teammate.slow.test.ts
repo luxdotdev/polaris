@@ -266,7 +266,9 @@ const sendTurn = Command.cases.SendTurn.make({ sessionId: S1, prompt: "hi", atta
 
 /** What the fake `dispatch` answers with: the Share the gate put on the request. */
 const decodeRan = Schema.decodeUnknownSync(
-  Schema.fromJsonString(Schema.Struct({ actor: Actor, grant: Schema.Array(Schema.String) }))
+  Schema.fromJsonString(
+    Schema.Struct({ actor: Actor, grant: Schema.Array(Schema.String), role: Schema.String })
+  )
 );
 
 /** How a command ends: the Share it ran through (as the handler saw it), or the refusal's tag. */
@@ -321,7 +323,11 @@ test("a Teammate reaches its Share's target as that person, and nothing of the o
       });
 
       // Within the target: the command runs as the Teammate, on the Share's Grant.
-      expect(yield* outcome(client, resolve(S1))).toEqual({ actor, grant: [...share.grant] });
+      expect(yield* outcome(client, resolve(S1))).toEqual({
+        actor,
+        grant: [...share.grant],
+        role: "contributor",
+      });
       // Turns wait for the user gate (ENG-927), even for a Contributor.
       expect(yield* outcome(client, sendTurn)).toBe("NotGranted");
       // Another session, and everything that is the owner's.

@@ -3,7 +3,7 @@
  * it before any request runs, the Share gate scopes every request to the person's live Shares,
  * and `dispatch` records the Teammate as the actor.
  */
-import type { Actor, Grant, PersonId } from "@polaris/protocol";
+import type { Actor, Grant, PersonId, ShareRole } from "@polaris/protocol";
 import type { RelayAddress } from "@polaris/protocol/relay";
 import { Context, type Effect } from "effect";
 import type { Rpc } from "effect/rpc";
@@ -33,9 +33,9 @@ export class TeammateConnections extends Context.Service<
 
 /**
  * Set by the Share gate on a Teammate's request it let through: the Share that covers it, as
- * the Actor to record and the Grant its Turns are decided on.
+ * the Actor to record, the Grant its Turns are decided on and the role its Comments are.
  */
 export class RequestShare extends Context.Service<
   RequestShare,
-  { readonly actor: Actor; readonly grant: Grant }
+  { readonly actor: Actor; readonly grant: Grant; readonly role: ShareRole }
 >()("polaris/daemon/shares/RequestShare") {}

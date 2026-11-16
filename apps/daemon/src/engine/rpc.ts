@@ -77,6 +77,7 @@ const DispatchHandler = ExtensionDaemonRpcs.toLayerHandler(
           deviceLabel: Context.getOrUndefined(client.annotations, DeviceLabel) ?? UNKNOWN_DEVICE,
           actor: share?.actor ?? actorOf(client),
           extensionGrant: share?.grant ?? pairingOf(client)?.grant ?? null,
+          shareRole: share?.role ?? null,
         });
       });
   })

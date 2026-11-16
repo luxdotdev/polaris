@@ -127,6 +127,8 @@ export class Shares extends Context.Service<
     readonly revoke: (id: ShareId, by: Actor) => Effect.Effect<Share, NotFound>;
     /** Every Share with its log, newest first: all of them, or one target's. */
     readonly list: (target: ShareTarget | null) => Effect.Effect<ReadonlyArray<ShareListing>>;
+    /** Every Share the Host has, ended ones included, as they stand now. */
+    readonly every: Effect.Effect<ReadonlyArray<Share>>;
     /** The live Shares of the device's person at its issuer. */
     readonly sharesOf: (device: TeammateDevice) => ReadonlyArray<Share>;
     /** What the device's connection stands on now, without a new statement. */
@@ -596,6 +598,7 @@ const makeShares = Effect.fn("makeShares")(function* (options: SharesOptions) {
 
         return yield* standing(device);
       }),
+    every: Effect.sync(() => [...shares.values()].map(({ share }) => share)),
     guests: {
       peers: table.peers,
       admit: (source, noiseKey) => (admissible(source, noiseKey) === null ? null : noiseKey),

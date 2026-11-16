@@ -102,6 +102,7 @@ import { lazyUsage } from "./lazyUsage.ts";
 import { lazyVoiceHandlers } from "./lazyVoice.ts";
 import { LiveNotifierLive } from "../push/liveNotifier.ts";
 import { PushNotifierLive } from "../push/notifier.ts";
+import { CommitIdentitiesLive } from "../shares/identities.ts";
 import { ShareTargetsLive } from "../shares/targets.ts";
 
 /** Exit status when another Daemon already holds the lock or answers on the socket. */
@@ -210,6 +211,8 @@ export const engineServices = Layer.mergeAll(
   Layer.provideMerge(DeveloperModeLive),
   // The Simulator's hub and MCP server (ENG-829), loaded on first use; one instance with the Harnesses'.
   Layer.provideMerge(lazySimulator),
+  // Co-author trailers read Teammates' commit emails from the Shares (ENG-941).
+  Layer.provideMerge(CommitIdentitiesLive),
   Layer.provideMerge(EventStore.layerLive)
 );
 

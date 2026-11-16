@@ -284,6 +284,7 @@ export const shareGateFor = (options: {
       const scoped = Effect.provideService(effect, RequestShare, {
         actor,
         grant: share.grant,
+        role: share.role,
       }).pipe(Effect.provideService(WorkingTreeFallback, !diff || diffTurns === "working"));
 
       if (!FEEDS.has(rpc._tag)) return yield* scoped;

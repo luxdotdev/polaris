@@ -7,6 +7,7 @@ import type { SessionId, Turn, TurnId } from "@polaris/protocol";
 import { Effect, Layer } from "effect";
 import type { ReadModel } from "../store/model.ts";
 import { EventStore } from "../store/EventStore.ts";
+import { ShareBook } from "./identities.ts";
 import { Shares, type ShareTargets } from "./service.ts";
 
 const constellationOf = (model: ReadModel, sessionId: SessionId) => {
@@ -51,11 +52,14 @@ export const targetsOf = (model: Effect.Effect<ReadModel>, readTurn: ReadTurn): 
     ),
 });
 
-/** Binds the Shares to the Engine's sessions and Constellations once the event store is up. */
+/** Binds the Shares and the Engine to each other once the event store is up. */
 export const ShareTargetsLive = Layer.effectDiscard(
   Effect.gen(function* () {
     const shares = yield* Shares;
     const store = yield* EventStore;
+    const book = yield* ShareBook;
+
+    book.bind(shares.every);
 
     shares.bindTargets(
       targetsOf(store.model, (sessionId, turnId) =>
