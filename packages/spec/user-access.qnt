@@ -16,6 +16,8 @@ module user_access {
 
   /** The enrolled keys' digests on disk (`~/.polaris/user-access.json`). */
   var stored: Set[int]
+  /** The file exists: this Host enrolled its first key, even if none is left in it. */
+  var initialised: bool
   /** The enrolled keys the gate decides with: `stored` as of the last `hello`, allow or revoke. */
   var enrolled: Set[int]
   /** The key each connection's first keyed `hello` presented, while it is enrolled or waiting. */
@@ -24,6 +26,8 @@ module user_access {
   var requests: Set[int]
   /** Ghost: keys enrolled on first use or by a connection that held user access. */
   var vouched: Set[int]
+  /** Connections with an admitted user-only request or stream still open. */
+  var streams: Set[int]
   var last: Outcome
 
   def holds(c: int): bool = bound.get(c) != NO_KEY and enrolled.contains(bound.get(c))
@@ -32,25 +36,35 @@ module user_access {
   def unbound(k: int): int -> int =
     bound.keys().mapBy(c => if (bound.get(c) == k) NO_KEY else bound.get(c))
 
+  /** `streams` once the gate decides with `e` and `b`: one whose connection no longer holds ends. */
+  def cut(e: Set[int], b: int -> int): Set[int] =
+    streams.filter(c => b.get(c) != NO_KEY and e.contains(b.get(c)))
+
   action init = all {
     stored' = Set(), enrolled' = Set(), requests' = Set(), vouched' = Set(),
+    initialised' = false, streams' = Set(),
     bound' = CONNECTIONS.mapBy(_ => NO_KEY), last' = Nothing,
   }
 
-  // ── hello: the first key a Host sees is enrolled; a later unknown one waits ──
+  // ── hello: the first key a fresh Host sees is enrolled; a later unknown one waits ──
+  // An emptied registry (`initialised`, nothing stored) enrols nobody and opens no request.
   action hello(c: int, k: int): bool = {
     val keeps = bound.get(c) != NO_KEY or k == NO_KEY
-    val first = stored == Set()
+    val first = not(initialised)
     val known = stored.contains(k)
-    val asks = not(first) and not(known)
+    val asks = not(first) and not(known) and stored != Set()
       and (requests.contains(k) or requests.size() < MAX_REQUESTS)
+    val nextEnrolled = if (first) Set(k) else stored
+    val nextBound = if (first or known or asks) bound.set(c, k) else bound
     if (keeps) all {
       stored' = stored, enrolled' = enrolled, bound' = bound, requests' = requests,
-      vouched' = vouched, last' = HelloOk(holds(c)),
+      vouched' = vouched, initialised' = initialised, streams' = streams,
+      last' = HelloOk(holds(c)),
     } else all {
       stored' = if (first) Set(k) else stored,
-      enrolled' = if (first) Set(k) else stored,
-      bound' = if (first or known or asks) bound.set(c, k) else bound,
+      enrolled' = nextEnrolled,
+      bound' = nextBound,
+      initialised' = true, streams' = cut(nextEnrolled, nextBound),
       requests' = if (first or known) requests.exclude(Set(k))
         else if (asks) requests.union(Set(k)) else requests,
       vouched' = if (first) vouched.union(Set(k)) else vouched,
@@ -61,8 +75,16 @@ module user_access {
   // ── a request through the user gate: `user` needs held access, `any` never does ──
   action call(c: int, user: bool): bool = all {
     stored' = stored, enrolled' = enrolled, bound' = bound, requests' = requests,
-    vouched' = vouched,
+    vouched' = vouched, initialised' = initialised, streams' = streams,
     last' = if (user and not(holds(c))) Refused else Allowed((c, user)),
+  }
+
+  // ── an admitted user-only request or stream stays open (`computerUse.preview.watch`) ──
+  action watch(c: int): bool = all {
+    holds(c),
+    streams' = streams.union(Set(c)),
+    stored' = stored, enrolled' = enrolled, bound' = bound, requests' = requests,
+    vouched' = vouched, initialised' = initialised, last' = Allowed((c, true)),
   }
 
   // ── `userAccess.allow`, user-only: the waiting key is enrolled, and its connections hold at once ──
@@ -70,6 +92,7 @@ module user_access {
     holds(c), requests.contains(k),
     stored' = stored.union(Set(k)), enrolled' = stored.union(Set(k)),
     requests' = requests.exclude(Set(k)), vouched' = vouched.union(Set(k)),
+    initialised' = true, streams' = cut(stored.union(Set(k)), bound),
     bound' = bound, last' = Nothing,
   }
 
@@ -77,14 +100,18 @@ module user_access {
   action deny(c: int, k: int): bool = all {
     holds(c), requests.contains(k),
     requests' = requests.exclude(Set(k)), bound' = unbound(k),
-    stored' = stored, enrolled' = enrolled, vouched' = vouched, last' = Nothing,
+    stored' = stored, enrolled' = enrolled, vouched' = vouched,
+    initialised' = initialised, streams' = streams, last' = Nothing,
   }
 
-  // ── `userAccess.revoke`, user-only: the key's connections lose user access at once ──
+  // ── `userAccess.revoke`, user-only: the key's connections lose user access at once, and
+  // their open user-only requests and streams end. Never the last key: nothing could allow the next ──
   action revoke(c: int, k: int): bool = all {
-    holds(c), stored.contains(k),
+    holds(c), stored.contains(k), stored.size() > 1,
     stored' = stored.exclude(Set(k)), enrolled' = stored.exclude(Set(k)),
-    bound' = unbound(k), requests' = requests, vouched' = vouched, last' = Nothing,
+    bound' = unbound(k), requests' = requests, vouched' = vouched,
+    initialised' = initialised, streams' = cut(stored.exclude(Set(k)), unbound(k)),
+    last' = Nothing,
   }
 
   // ── the connection closes: its request goes with the last connection that presented the key ──
@@ -94,27 +121,38 @@ module user_access {
     all {
       bound' = bound.set(c, NO_KEY),
       requests' = if (others) requests else requests.exclude(Set(k)),
+      streams' = streams.exclude(Set(c)), initialised' = initialised,
       stored' = stored, enrolled' = enrolled, vouched' = vouched, last' = Nothing,
     }
   }
 
-  /** Recovery: the enrolment file deleted. The Daemon reads it again on the next `hello`. */
+  /** Recovery, by the person at the Host: the enrolment file deleted. Read again on the next `hello`. */
   action forget = all {
-    stored' = Set(), enrolled' = enrolled, bound' = bound, requests' = requests,
-    vouched' = vouched, last' = Nothing,
+    stored' = Set(), initialised' = false, enrolled' = enrolled, bound' = bound,
+    requests' = requests, vouched' = vouched, streams' = streams, last' = Nothing,
   }
 
-  /** The Daemon reads the file again: on a keyed `hello`, an allow, or a revoke that finds nothing. */
+  /** The file edited to hold no keys: not a fresh Host, so first use does not come back. */
+  action emptied = all {
+    stored' = Set(), initialised' = true, enrolled' = enrolled, bound' = bound,
+    requests' = requests, vouched' = vouched, streams' = streams, last' = Nothing,
+  }
+
+  /** The Daemon reads the file again: on a keyed `hello`, an allow, or a revoke it refuses. */
   action reread = all {
     enrolled' = stored, stored' = stored, bound' = bound, requests' = requests,
-    vouched' = vouched, last' = Nothing,
+    vouched' = vouched, initialised' = initialised, streams' = cut(stored, bound),
+    last' = Nothing,
   }
 
   action step = {
     nondet c = CONNECTIONS.oneOf()
     nondet k = KEYS.union(Set(NO_KEY)).oneOf()
     nondet user = Set(true, false).oneOf()
-    any { hello(c, k), call(c, user), allow(c, k), deny(c, k), revoke(c, k), close(c), forget, reread }
+    any {
+      hello(c, k), call(c, user), watch(c), allow(c, k), deny(c, k), revoke(c, k), close(c),
+      forget, emptied, reread,
+    }
   }
 
   // ── Safety ───────────────────────────────────────────────────────────────
@@ -130,8 +168,12 @@ module user_access {
   /** Every request has an open connection behind it, and they are bounded. */
   val requestsAreLive = requests.size() <= MAX_REQUESTS
     and requests.forall(k => CONNECTIONS.exists(c => bound.get(c) == k))
+  /** An open user-only request or stream belongs to a connection that still holds user access. */
+  val streamsNeedAccess = streams.forall(c => holds(c))
+  /** Only a fresh Host enrols on first use: with the file there, an empty registry stays empty. */
+  val enrolledNeedsTheFile = (stored != Set()) implies initialised
   val safety = userOnlyNeedsAccess and enrolledWereVouched and waitingIsNotEnrolled
-    and requestsAreLive
+    and requestsAreLive and streamsNeedAccess and enrolledNeedsTheFile
 
   val witnessRefused = last == Refused
   val witnessSeveralEnrolled = enrolled.size() < 2
@@ -167,7 +209,9 @@ module user_access_test {
     .then(hello(0, 1))
     .then(hello(1, 2))
     .then(allow(0, 2))
-    .then(revoke(0, 2))
+    .then(watch(1)).expect(streams == Set(1))
+    .then(watch(0))
+    .then(revoke(0, 2)).expect(streams == Set(0))
     .then(call(1, true)).expect(last == Refused and safety)
     .then(hello(1, 2)).expect(last == HelloOk(false) and requests == Set(2))
 
@@ -197,10 +241,21 @@ module user_access_test {
     .then(call(0, true)).expect(last == Refused)
     .then(hello(2, 1)).expect(last == HelloOk(false) and safety)
 
+  run theLastKeyIsNotRevokedTest = init
+    .then(hello(0, 1))
+    .then(revoke(0, 1)).fail()
+
+  run emptiedRegistryFailsClosedTest = init
+    .then(hello(0, 1))
+    .then(emptied)
+    .then(hello(1, 2)).expect(last == HelloOk(false) and stored == Set() and requests == Set())
+    .then(call(1, true)).expect(last == Refused and safety)
+
   run deletedFileIsNoticedOnRereadTest = init
     .then(hello(0, 1))
     .then(forget)
     .then(call(0, true)).expect(last == Allowed((0, true)))
-    .then(reread)
+    .then(watch(0))
+    .then(reread).expect(streams == Set())
     .then(call(0, true)).expect(last == Refused and safety)
 }

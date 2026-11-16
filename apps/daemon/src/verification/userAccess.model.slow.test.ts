@@ -1,10 +1,10 @@
 /**
  * The real user access registry against `packages/spec/user-access.qnt` (ENG-927): random hellos,
- * allows, denies, revokes, closes and deletions of the enrolment file, compared step by step with
- * a reference that transcribes the spec's actions. Keys are the spec's small integers.
+ * open user-only streams, allows, denies, revokes, closes, and deletions and emptyings of the
+ * enrolment file, compared step by step with a reference that transcribes the spec's actions.
  */
 import { expect, test } from "bun:test";
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { HostId, UserAccessId } from "@polaris/protocol";
 import { Redacted } from "effect";
@@ -31,17 +31,29 @@ const digest = (k: number) => digestOf(hostId, keyOf(k));
 const idOf = (k: number) => UserAccessId.make(digest(k).slice(0, 16));
 
 const step = fc.record({
-  action: fc.constantFrom("hello", "hello", "allow", "deny", "revoke", "close", "forget"),
+  action: fc.constantFrom(
+    "hello",
+    "hello",
+    "watch",
+    "allow",
+    "deny",
+    "revoke",
+    "close",
+    "forget",
+    "emptied"
+  ),
   c: fc.constantFrom(...CONNECTIONS),
   k: fc.integer({ min: 0, max: 3 }),
 });
 
 type Step = typeof step extends fc.Arbitrary<infer A> ? A : never;
 
-/** The spec's state: `stored`, `enrolled`, `bound` and `requests`. */
+/** The spec's state: `stored`, `initialised`, `enrolled`, `bound`, `requests` and `streams`. */
 interface Model {
   stored: Set<number>;
+  initialised: boolean;
   enrolled: Set<number>;
+  readonly streams: Set<number>;
   readonly bound: Map<number, number>;
   readonly requests: Set<number>;
 }
@@ -52,6 +64,11 @@ const holds = (m: Model, c: number) => {
   return k !== NO_KEY && m.enrolled.has(k);
 };
 
+/** The spec's `cut`: a stream ends when its connection no longer holds. */
+const cut = (m: Model) => {
+  for (const c of m.streams) if (!holds(m, c)) m.streams.delete(c);
+};
+
 const unbind = (m: Model, k: number) => {
   for (const [c, held] of m.bound) if (held === k) m.bound.set(c, NO_KEY);
 };
@@ -59,17 +76,21 @@ const unbind = (m: Model, k: number) => {
 /** `hello` in the spec; the answer is whether the connection holds user access. */
 const hello = (m: Model, c: number, k: number): boolean => {
   if ((m.bound.get(c) ?? NO_KEY) !== NO_KEY || k === NO_KEY) return holds(m, c);
-  const first = m.stored.size === 0;
+  const first = !m.initialised;
   const known = m.stored.has(k);
-  const asks = !first && !known && (m.requests.has(k) || m.requests.size < MAX_REQUESTS);
+
+  const asks =
+    !first && !known && m.stored.size > 0 && (m.requests.has(k) || m.requests.size < MAX_REQUESTS);
 
   if (first) m.stored = new Set([k]);
+  m.initialised = true;
   m.enrolled = new Set(m.stored);
 
   if (first || known || asks) m.bound.set(c, k);
 
   if (first || known) m.requests.delete(k);
   else if (asks) m.requests.add(k);
+  cut(m);
 
   return first || known;
 };
@@ -77,8 +98,10 @@ const hello = (m: Model, c: number, k: number): boolean => {
 const allow = (m: Model, c: number, k: number) => {
   if (!holds(m, c) || !m.requests.has(k)) return;
   m.stored = new Set([...m.stored, k]);
+  m.initialised = true;
   m.enrolled = new Set(m.stored);
   m.requests.delete(k);
+  cut(m);
 };
 
 const deny = (m: Model, c: number, k: number) => {
@@ -91,17 +114,21 @@ const revoke = (m: Model, c: number, k: number) => {
   if (!holds(m, c)) return;
   // The spec's `reread`: a revoke reads the file before it looks the key up.
   m.enrolled = new Set(m.stored);
+  cut(m);
 
-  if (!m.stored.has(k)) return;
+  // The spec's `revoke` is not enabled for an unknown key or the last one.
+  if (!m.stored.has(k) || m.stored.size === 1) return;
   m.stored = new Set([...m.stored].filter((key) => key !== k));
   m.enrolled = new Set(m.stored);
   unbind(m, k);
+  cut(m);
 };
 
 const close = (m: Model, c: number) => {
   const k = m.bound.get(c) ?? NO_KEY;
 
   m.bound.set(c, NO_KEY);
+  m.streams.delete(c);
 
   if (![...m.bound.values()].includes(k)) m.requests.delete(k);
 };
@@ -132,9 +159,21 @@ const exercise = (steps: ReadonlyArray<Step>) => {
 
   const model: Model = {
     stored: new Set(),
+    initialised: false,
     enrolled: new Set(),
+    streams: new Set(),
     bound: new Map(CONNECTIONS.map((c) => [c, NO_KEY])),
     requests: new Set(),
+  };
+
+  // The connections whose user-only stream the registry has not ended.
+  const open = new Set<number>();
+
+  /** The gate admits a user-only stream and ends it when the registry says access is lost. */
+  const watch = (c: number) => {
+    if (!registry.holds(client(c)) || open.has(c)) return;
+    open.add(c);
+    registry.onLost(client(c), () => open.delete(c));
   };
 
   /** A user-only RPC: the gate lets it reach the registry only from a connection that holds. */
@@ -147,6 +186,10 @@ const exercise = (steps: ReadonlyArray<Step>) => {
       const key = k === NO_KEY ? undefined : Redacted.make(keyOf(k));
 
       expect(registry.present(client(c), { key, label: `key ${k}` })).toBe(hello(model, c, k));
+    } else if (action === "watch") {
+      watch(c);
+
+      if (holds(model, c)) model.streams.add(c);
     } else if (action === "allow") {
       asUser(c, () => {
         registry.allow(idOf(k));
@@ -164,10 +207,16 @@ const exercise = (steps: ReadonlyArray<Step>) => {
       revoke(model, c, k);
     } else if (action === "close") {
       registry.release(client(c));
+      open.delete(c);
       close(model, c);
-    } else {
+    } else if (action === "forget") {
       rmSync(file, { force: true });
       model.stored = new Set();
+      model.initialised = false;
+    } else {
+      writeFileSync(file, JSON.stringify({ version: 2, keys: [] }));
+      model.stored = new Set();
+      model.initialised = true;
     }
   };
 
@@ -182,19 +231,21 @@ const exercise = (steps: ReadonlyArray<Step>) => {
       holds: CONNECTIONS.map((c) => registry.holds(client(c))),
       standing: real.map((state) => state.standing),
       stored: storedDigests(file),
+      streams: [...open].toSorted((a, b) => a - b),
       requests: holder?.requests.map((request) => request.id).toSorted() ?? null,
     }).toEqual({
       at: index,
       holds: CONNECTIONS.map((c) => holds(model, c)),
       standing: CONNECTIONS.map((c) => standing(model, c)),
       stored: [...model.stored].map(digest).toSorted(),
+      streams: [...model.streams].toSorted((a, b) => a - b),
       requests: holder === undefined ? null : [...model.requests].map(idOf).toSorted(),
     });
   }
 };
 
 test(
-  "the registry's hellos, allows, denies, revokes and closes agree with the user access spec",
+  "the registry's hellos, streams, allows, denies, revokes and closes agree with the user access spec",
   () => {
     fc.assert(
       fc.property(fc.array(step, { minLength: 10, maxLength: 40 }), (steps) => exercise(steps)),

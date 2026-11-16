@@ -44,6 +44,7 @@ import {
   Layer,
   Option,
   PubSub,
+  Redacted,
   Scope,
   Stream,
   SubscriptionRef,
@@ -221,6 +222,8 @@ const identity = {
   deviceLabel: "Test MacBook",
   // A windows-x64 Host answers a Client without host.any-platform with a newer protocol (ADR 0059).
   capabilities: ["blobs" as const, "files.read" as const, "host.any-platform" as const],
+  // As the Desktop App: each fresh Host enrols it, so opening a terminal is allowed (ADR 0114).
+  userKey: Redacted.make("a".repeat(64)),
 };
 
 const fastPolicy = {

@@ -11,7 +11,7 @@ import {
   UserAccessState,
   UserKey,
 } from "@polaris/protocol";
-import { Option, Redacted, Schema } from "effect";
+import { Option, Redacted, Result, Schema } from "effect";
 import {
   digestOf,
   type Enrolment,
@@ -72,10 +72,15 @@ export interface UserAccessRegistry {
   readonly stateFor: (client: Connection) => UserAccessState;
   readonly allow: (id: UserAccessId) => Option.Option<EnrolledApp>;
   readonly deny: (id: UserAccessId) => boolean;
-  readonly revoke: (id: UserAccessId) => Option.Option<EnrolledApp>;
+  /** Refused for the last enrolled key: with none left, nothing could allow the next. */
+  readonly revoke: (id: UserAccessId) => Result.Result<EnrolledApp, RevokeRefusal>;
+  /** Calls `listener` once, when the connection stops holding user access; returns how to stop. */
+  readonly onLost: (client: Connection, listener: () => void) => () => void;
   /** Calls `listener` after every change; returns how to stop. */
   readonly watch: (listener: () => void) => () => void;
 }
+
+export type RevokeRefusal = "unknown" | "last";
 
 interface Waiting {
   readonly label: string;
@@ -90,9 +95,9 @@ export const userAccessRegistry = (options: UserAccessOptions): UserAccessRegist
   const listeners = new Set<() => void>();
   const maxRequests = options.maxRequests ?? MAX_REQUESTS;
   let enrolments: ReadonlyArray<Enrolment> = [];
+  const admitted = new Map<Connection, Set<() => void>>();
   let readable = false;
-
-  const changed = () => listeners.forEach((listener) => listener());
+  let initialised = false;
 
   /** The file is read on `hello` and before each write, never on a request's path. */
   const reload = () => {
@@ -100,12 +105,15 @@ export const userAccessRegistry = (options: UserAccessOptions): UserAccessRegist
 
     readable = Option.isSome(read);
 
-    if (Option.isSome(read)) enrolments = read.value;
+    if (Option.isNone(read)) return;
+    enrolments = read.value.keys;
+    initialised = read.value.initialised;
   };
 
   const save = (keys: ReadonlyArray<Enrolment>) => {
     if (!readable || !writeEnrolments(file, keys)) return false;
     enrolments = keys;
+    initialised = true;
 
     return true;
   };
@@ -130,9 +138,11 @@ export const userAccessRegistry = (options: UserAccessOptions): UserAccessRegist
   const enrol = (digest: string, label: string) =>
     save([...enrolments, { digest, label, enrolledAt: now() }]);
 
-  /** An unknown key waits, unless the file can't be trusted or the requests are full. */
+  /** An unknown key waits, unless the file can't be trusted, nobody could allow it or the requests are full. */
   const ask = (client: Connection, digest: string, label: string) => {
-    if (!readable || (!requests.has(digest) && requests.size >= maxRequests)) return;
+    if (!readable || enrolments.length === 0) return;
+
+    if (!requests.has(digest) && requests.size >= maxRequests) return;
     bound.set(client, digest);
 
     if (!requests.has(digest)) requests.set(digest, { label, requestedAt: now() });
@@ -141,8 +151,8 @@ export const userAccessRegistry = (options: UserAccessOptions): UserAccessRegist
   const bind = (client: Connection, digest: string, label: string) => {
     reload();
 
-    // Trust on first use: only while nothing is enrolled.
-    const first = readable && enrolments.length === 0 && enrol(digest, label);
+    // Trust on first use: only on a Host that never enrolled, never on an emptied registry.
+    const first = readable && !initialised && enrol(digest, label);
 
     if (!first && !enrolled(digest)) return ask(client, digest, label);
     bound.set(client, digest);
@@ -154,6 +164,28 @@ export const userAccessRegistry = (options: UserAccessOptions): UserAccessRegist
     const digest = bound.get(client);
 
     return digest !== undefined && enrolled(digest);
+  };
+
+  /** What an open user-only request or stream is told when its connection no longer holds. */
+  const cut = () => {
+    for (const [client, lost] of admitted) {
+      if (holds(client)) continue;
+      admitted.delete(client);
+      lost.forEach((listener) => listener());
+    }
+  };
+
+  const changed = () => {
+    cut();
+    listeners.forEach((listener) => listener());
+  };
+
+  const onLost: UserAccessRegistry["onLost"] = (client, listener) => {
+    const lost = admitted.get(client) ?? new Set();
+
+    admitted.set(client, lost.add(listener));
+
+    return () => lost.delete(listener);
   };
 
   const present: UserAccessRegistry["present"] = (client, presented) => {
@@ -173,6 +205,8 @@ export const userAccessRegistry = (options: UserAccessOptions): UserAccessRegist
   const release: UserAccessRegistry["release"] = (client) => {
     const digest = bound.get(client);
 
+    admitted.delete(client);
+
     if (digest === undefined) return;
     bound.delete(client);
 
@@ -191,7 +225,12 @@ export const userAccessRegistry = (options: UserAccessOptions): UserAccessRegist
 
     reload();
 
-    if (!enrolled(digest) && !enrol(digest, label)) return Option.none();
+    if (!enrolled(digest) && !enrol(digest, label)) {
+      cut();
+
+      return Option.none();
+    }
+
     requests.delete(digest);
     changed();
 
@@ -212,18 +251,28 @@ export const userAccessRegistry = (options: UserAccessOptions): UserAccessRegist
     return true;
   };
 
+  /** A refused revoke read the file again, which may have taken access from open requests. */
+  const refused = (refusal: RevokeRefusal) => {
+    cut();
+
+    return Result.fail(refusal);
+  };
+
   const revoke: UserAccessRegistry["revoke"] = (id) => {
     reload();
     const entry = enrolments.find((candidate) => idOf(candidate.digest) === id);
 
-    if (entry === undefined) return Option.none();
+    if (entry === undefined) return refused("unknown");
+
+    if (enrolments.length === 1) return refused("last");
+
     const app = appOf(entry, undefined);
 
-    if (!save(enrolments.filter((candidate) => candidate !== entry))) return Option.none();
+    if (!save(enrolments.filter((candidate) => candidate !== entry))) return Result.fail("unknown");
     unbind(entry.digest);
     changed();
 
-    return Option.some(app);
+    return Result.succeed(app);
   };
 
   const stateFor: UserAccessRegistry["stateFor"] = (client) => {
@@ -258,6 +307,7 @@ export const userAccessRegistry = (options: UserAccessOptions): UserAccessRegist
     allow,
     deny,
     revoke,
+    onLost,
     watch: (listener) => {
       listeners.add(listener);
 

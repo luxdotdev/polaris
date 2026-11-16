@@ -1,5 +1,5 @@
 /** `userAccess.*` (ADR 0114): the registry of enrolled Desktop Apps, as each connection sees it. */
-import { NotFound, UserAccessRpcs } from "@polaris/protocol";
+import { LastEnrolledApp, NotFound, UserAccessRpcs } from "@polaris/protocol";
 import { Effect, Option, Queue, Stream } from "effect";
 import type { DefaultOptions } from "./shared.ts";
 
@@ -36,11 +36,11 @@ export const userAccessDefaults = ({ userAccess }: DefaultOptions) =>
       ),
     "userAccess.revoke": ({ id }) =>
       Effect.sync(() => userAccess.revoke(id)).pipe(
-        Effect.flatMap(
-          Option.match({
-            onNone: () => missing("enrolled desktop app", id),
-            onSome: Effect.succeed,
-          })
+        Effect.flatMap(Effect.fromResult),
+        Effect.mapError((refusal) =>
+          refusal === "last"
+            ? new LastEnrolledApp({ id })
+            : new NotFound({ what: "enrolled desktop app", id })
         )
       ),
   });

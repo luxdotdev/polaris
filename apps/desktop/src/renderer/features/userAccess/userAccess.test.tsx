@@ -217,6 +217,21 @@ test("revoking asks in place with what stops, then revokes that desktop app", as
   await waitFor(() => expect(sent).toEqual([{ hostKey: "pi", id: laptop.id }]));
 });
 
+test("the only allowed desktop app has no Revoke and says what to do first", () => {
+  setUserAccess("pi", {
+    standing: "held",
+    code: null,
+    enrolled: [{ ...studio, self: true, connected: true }],
+    requests: [],
+  });
+  const { container } = render(<DesktopAppsCard machine={machine} now={NOW} />);
+
+  expect(screen.queryByRole("button", { name: "Revoke" })).toBeNull();
+  expect(container.textContent).toContain(
+    "This desktop app · allowed 3d ago. Allow another before revoking it."
+  );
+});
+
 test("a waiting desktop app shows its code and no list; one that holds access shows no notice", () => {
   setUserAccess("pi", waiting);
 

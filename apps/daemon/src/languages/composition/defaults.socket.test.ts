@@ -22,8 +22,22 @@ const hello = (languageProof?: Redacted.Redacted<unknown>) => {
     capabilities: [],
   };
 
-  return languageProof === undefined ? input : { ...input, languageProof };
+  // The proof's owner is the Desktop App, which holds user access: installing is user-only.
+  return languageProof === undefined
+    ? input
+    : { ...input, languageProof, userKey: Redacted.make("a".repeat(64)) };
 };
+
+/** The install's own refusal: the user gate must have let it through. */
+const refused = <A, E extends { readonly _tag: string }, R>(effect: Effect.Effect<A, E, R>) =>
+  effect.pipe(
+    Effect.catchIf(
+      (error): error is Extract<E, { readonly _tag: "UserAccessRequired" }> =>
+        Predicate.isTagged(error, "UserAccessRequired"),
+      (error) => Effect.die(error)
+    ),
+    Effect.flip
+  );
 
 languageHostTest(
   "mounted Host core uses transport Host identity and refuses unapproved managed ShellCheck",
@@ -168,7 +182,7 @@ languageHostTest(
             "Prerequisite observation is unavailable without current request authority"
           );
 
-          const installDenied = yield* Effect.flip(
+          const installDenied = yield* refused(
             owned.client["languages.install"]({
               toolId: "shellcheck",
               version: "0.11.0",
@@ -185,7 +199,7 @@ languageHostTest(
 
           expect(foreignCancel.reason).toBe("not-owner");
 
-          const rollbackDenied = yield* Effect.flip(
+          const rollbackDenied = yield* refused(
             owned.client["languages.install"]({
               toolId: "shellcheck",
               version: "0.11.0",

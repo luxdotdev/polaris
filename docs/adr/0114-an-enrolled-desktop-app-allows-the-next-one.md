@@ -25,7 +25,8 @@ agent's shell included, could approve its own Pending Approvals, send Turns and 
   was enrolled. The Host never holds a key. The registry is local: it never depends on a Polaris
   Account, and a Teammate of a Shared Session is a relay peer scoped to a Share (ADR 0112), never an
   entry here.
-- **Trust on first use, once.** A Host with nothing enrolled enrols the first key it sees.
+- **Trust on first use, once.** A Host with no enrolment file enrols the first key it sees. A
+  file that is there with no key in it is not a fresh Host: it enrols nobody and opens no request.
 - **Then an enrolled Desktop App allows the next.** An unknown key opens a request. Every Desktop
   App that holds user access on the Host is asked "Allow ‹device› on ‹host›?", and
   `userAccess.allow` enrols the key. Its open connections hold user access from that request on,
@@ -39,8 +40,23 @@ agent's shell included, could approve its own Pending Approvals, send Turns and 
 - **Listing and revoking.** `userAccess.watch` gives a connection its standing (`held`, `waiting`,
   `none`), and, only while it holds user access, the enrolled Desktop Apps and open requests.
   `userAccess.revoke` removes a key: its open connections lose user access with that request,
-  since the gate checks the enrolled set on every request. A Desktop App may revoke itself. The
-  Desktop App shows all this under Settings → Hosts, on the host's page.
+  since the gate checks the enrolled set on every request, and the user-only requests and
+  streams they already have open end, refused, at the same moment (a preview of a window an
+  agent drives stops). A Desktop App may revoke itself, but never the last one: the Host refuses
+  with `LastEnrolledApp`, because an empty registry could allow nobody and must not go back to
+  first use. The Desktop App shows all this under Settings → Hosts, on the host's page.
+- **What runs a program or writes the Host's files is user-only.** Without it a socket-only
+  process deleted the enrolment file through `files.delete` and won first use, or ran a command
+  through `terminal.open`. So `user` also covers: `files.write`, `create`, `delete` and
+  `rename`; `terminal.open`; `git.stage`, `unstage`, `discard`, `commit`, `init` and `sync`
+  (hooks and credential helpers run); installing language tools, choosing the Python
+  interpreter, formatting, and applying or recovering language edits; the managed prediction
+  server; trace settings (what spawns are instrumented with, where traces are forwarded); the
+  Reviewer's Harness; a Constellation's dispatch, worker start and prepare, and git transfers;
+  and the Commands `SetWorktreeSetup`, `ForkSession`, `SetModel` and the review checkouts.
+  Extensions and Linked Devices were already refused all of these by their own tables. Reads,
+  `host.resources.*` (`polaris lease`), `constellation.stats` and `extensions.list` stay open
+  to the Daemon's own CLIs.
 - **`allow`, `deny` and `revoke` are user-only**, so a waiting key can't allow itself.
 - **The CLI.** `polaris extension pair` and `revoke` are for the Desktop App again, as in ADR 0100.
 - **0.9.0's file is not kept.** A version 1 `user-access.json` held the one key 0.9.0 or 0.9.1
@@ -51,15 +67,16 @@ agent's shell included, could approve its own Pending Approvals, send Turns and 
 
 ## Recovery
 
-When no enrolled Desktop App is left to allow a new one, delete `~/.polaris/user-access.json` on
-the Host: the next Desktop App to connect is enrolled. The Daemon reads the file on the next
-`hello`, allow or revoke.
+When no enrolled Desktop App is left to allow a new one (the last one is lost, since it can't be
+revoked), the person at the Host deletes `~/.polaris/user-access.json` there: the next Desktop
+App to connect is enrolled. The Daemon reads the file on the next `hello`, allow or revoke.
 
 ## Consequences
 
-ENG-700's protection is back, with the limits ADR 0100 lists: a determined process running as the
-user can still delete the file and enrol itself, which the user sees as their Desktop App losing
-user access. Trust on first use leaves the same window as before on a Host no Desktop App has
+ENG-700's protection is back, with the limits ADR 0100 lists: a process running as the user with
+a shell of its own can still delete the file and enrol itself, which the user sees as their
+Desktop App losing user access. The Daemon no longer does that for a process that has only its
+socket. Scripts that drive a Daemon without a user key lose the requests listed above. Trust on first use leaves the same window as before on a Host no Desktop App has
 connected to, and once more on each Host at the upgrade from 0.9.x.
 
 A prompt can be spoofed in its label, not in its code; a user who allows without comparing the

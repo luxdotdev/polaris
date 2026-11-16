@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { connectRpc, socketTransport } from "@polaris/client";
 import { localEndpoint } from "@polaris/protocol/endpoint";
-import { Effect, Option, Predicate, Result, Schema, Stream } from "effect";
+import { Effect, Option, Predicate, Redacted, Result, Schema, Stream } from "effect";
 import {
   acquireAppServer,
   type AppServer,
@@ -73,6 +73,8 @@ const throughDaemon = (argv: Array<string>) =>
       clientVersion: "0.2.0",
       deviceLabel: "smoke",
       capabilities: ["host.any-platform"],
+      // As the Desktop App: the fresh home enrols it, so terminal.open is allowed (ADR 0114).
+      userKey: Redacted.make("a".repeat(64)),
     });
 
     const models = yield* client["harness.models"]({ harness: "codex", refresh: true });

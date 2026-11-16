@@ -10,7 +10,8 @@ import {
   RequestId,
   SessionId,
 } from "@polaris/protocol";
-import { Cause, Effect, Exit, Layer, Option, Redacted, type Scope } from "effect";
+import { Cause, Effect, Exit, Layer, Option, Redacted, type Scope, Stream } from "effect";
+import { deletePath } from "../files/write.ts";
 import { scopedTempDir } from "../platform/tempDir.testing.ts";
 import { ServerRpcs } from "./rpcs.ts";
 import { startServer } from "./server.ts";
@@ -23,7 +24,13 @@ const handlers = Layer.mergeAll(
   ServerRpcs.toLayerHandler("dispatch", ({ commandId }) =>
     Effect.fail(new CommandRejected({ commandId, reason: REACHED }))
   ),
-  ServerRpcs.toLayerHandler("secret.provide", () => Effect.void)
+  ServerRpcs.toLayerHandler("secret.provide", () => Effect.void),
+  // The real deletion, so a refusal is what keeps the file.
+  ServerRpcs.toLayerHandler("files.delete", ({ path, permanent }) =>
+    Effect.orDie(Effect.promise(() => deletePath(path, permanent)))
+  ),
+  // A user-only stream that stays open until something ends it.
+  ServerRpcs.toLayerHandler("computerUse.preview.watch", () => Stream.never)
 );
 
 export const DESKTOP_KEY = "a".repeat(64);

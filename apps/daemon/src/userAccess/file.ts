@@ -37,8 +37,16 @@ export const digestOf = (hostId: HostId, key: string) =>
     .update(JSON.stringify(["polaris-user-access-v1", hostId, key]))
     .digest("hex");
 
+export interface Registry {
+  /** A version 2 file exists: the Host enrolled its first Desktop App, even if none is left. */
+  readonly initialised: boolean;
+  readonly keys: ReadonlyArray<Enrolment>;
+}
+
+const FRESH: Registry = { initialised: false, keys: [] };
+
 /** None when the file is unreadable or corrupt: then nothing is enrolled over it. */
-export const readEnrolments = (file: string): Option.Option<ReadonlyArray<Enrolment>> => {
+export const readEnrolments = (file: string): Option.Option<Registry> => {
   let text: string;
 
   try {
@@ -46,12 +54,12 @@ export const readEnrolments = (file: string): Option.Option<ReadonlyArray<Enrolm
   } catch (error) {
     const missing = error instanceof Error && "code" in error && error.code === "ENOENT";
 
-    return missing ? Option.some([]) : Option.none();
+    return missing ? Option.some(FRESH) : Option.none();
   }
 
-  if (Option.isSome(decodeOlder(text))) return Option.some([]);
+  if (Option.isSome(decodeOlder(text))) return Option.some(FRESH);
 
-  return Option.map(decodeFile(text), (decoded) => decoded.keys);
+  return Option.map(decodeFile(text), (decoded) => ({ initialised: true, keys: decoded.keys }));
 };
 
 /** Whether the write landed; a partial file never replaces the last good one. */

@@ -71,11 +71,26 @@ export const DenyUserAccess = Rpc.make("userAccess.deny", {
   error: NotFound,
 });
 
-/** Removes an enrolled key: its open connections lose user access at once. */
+/**
+ * Revoking the only enrolled Desktop App: with none left nothing could allow the next, and
+ * an empty registry must not enrol on first use again (ADR 0114).
+ */
+export class LastEnrolledApp extends Schema.TaggedError<LastEnrolledApp>()("LastEnrolledApp", {
+  id: UserAccessId,
+}) {
+  override get message(): string {
+    return "It is the only desktop app allowed here: allow another before revoking it";
+  }
+}
+
+/**
+ * Removes an enrolled key: its open connections lose user access at once, and their user-only
+ * requests and streams end. Refused for the last one.
+ */
 export const RevokeUserAccess = Rpc.make("userAccess.revoke", {
   payload: { id: UserAccessId },
   success: EnrolledApp,
-  error: NotFound,
+  error: Schema.Union([NotFound, LastEnrolledApp]),
 });
 
 export class UserAccessRpcs extends RpcGroup.make(

@@ -23,7 +23,7 @@ import {
   ReviewCheckoutId,
   ReviewSubject,
 } from "@polaris/protocol";
-import { Data, Effect, Option, Result, Stream } from "effect";
+import { Data, Effect, Option, Redacted, Result, Stream } from "effect";
 import { gitText, resolveCommit } from "../src/git/git.ts";
 import {
   BASE_REPO,
@@ -91,6 +91,8 @@ const program = Effect.gen(function* () {
       version: "0.0.0",
       deviceLabel: "Smoke test",
       capabilities: ["review.checkouts"],
+      // As the Desktop App: the fresh home enrols it, so review checkouts are allowed (ADR 0114).
+      userKey: Redacted.make("a".repeat(64)),
     },
     connector: spawnTransport(["bun", MAIN, "bridge"], { env }),
   });

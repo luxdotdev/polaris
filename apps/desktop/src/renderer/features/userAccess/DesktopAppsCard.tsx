@@ -13,7 +13,13 @@ import {
 import type { MachineView } from "../../../shared/api.ts";
 import type { UserAccessRequestView } from "../../../shared/userAccessContract.ts";
 import { allowRequest, denyRequest, revokeApp } from "./actions.ts";
-import { cardAside, enrolledCaption, noticeOf, revokeConsequence } from "./model.ts";
+import {
+  cardAside,
+  enrolledCaption,
+  noticeOf,
+  onlyAppCaption,
+  revokeConsequence,
+} from "./model.ts";
 import { useUserAccess } from "./store.ts";
 
 const RequestRow = ({
@@ -61,18 +67,23 @@ export const DesktopAppsCard = ({
         {state.requests.map((request) => (
           <RequestRow key={request.id} machine={machine} request={request} />
         ))}
-        {state.enrolled.map((app) => (
-          <SettingsConfirmRow
-            key={app.id}
-            title={app.label}
-            caption={enrolledCaption(app, now)}
-            action="Revoke"
-            actionVariant="secondary"
-            consequence={revokeConsequence(app, machine.label)}
-            confirm={`Revoke ${app.label}`}
-            onConfirm={() => void revokeApp(machine.key, app)}
-          />
-        ))}
+        {state.enrolled.map((app) =>
+          // The host refuses to revoke its last one, so the only row offers no Revoke.
+          state.enrolled.length === 1 ? (
+            <SettingsRow key={app.id} title={app.label} caption={onlyAppCaption(app, now)} />
+          ) : (
+            <SettingsConfirmRow
+              key={app.id}
+              title={app.label}
+              caption={enrolledCaption(app, now)}
+              action="Revoke"
+              actionVariant="secondary"
+              consequence={revokeConsequence(app, machine.label)}
+              confirm={`Revoke ${app.label}`}
+              onConfirm={() => void revokeApp(machine.key, app)}
+            />
+          )
+        )}
       </SettingsWell>
     </SettingsCard>
   );

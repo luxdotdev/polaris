@@ -3,7 +3,12 @@
  * (`@polaris/protocol` `userAccess.ts`) only while its `hello`'s user key is enrolled
  * (`../userAccess/`). Extensions and Linked Devices keep their own gates.
  */
-import { decideUserAccess, type LinkedDevice, UserAccessGate } from "@polaris/protocol";
+import {
+  decideUserAccess,
+  type LinkedDevice,
+  UserAccessGate,
+  type UserAccessRequired,
+} from "@polaris/protocol";
 import { Effect, Option, Predicate, Schema } from "effect";
 import type { Rpc } from "effect/rpc";
 import { admissionOf } from "../extensions/admission.ts";
@@ -35,6 +40,18 @@ const tokenlessClient = (client: Rpc.ServerClient, transport: TransportFacts) =>
   );
 };
 
+/** Fails once the connection no longer holds user access; never succeeds. */
+const lost = (
+  registry: UserAccessRegistry,
+  client: Rpc.ServerClient,
+  refusal: UserAccessRequired
+) =>
+  Effect.callback<never, UserAccessRequired>((resume) => {
+    const stop = registry.onLost(client, () => resume(Effect.fail(refusal)));
+
+    return Effect.sync(stop);
+  });
+
 /**
  * The user gate: Extensions and Linked Devices pass to their own gates; a token-less
  * Client without user access is refused what `USER_RPCS` and `USER_COMMANDS` mark `user`.
@@ -49,5 +66,9 @@ export const userAccessGateFor = (transport: TransportFacts, registry: UserAcces
 
     const refusal = decideUserAccess(rpc._tag, command, registry.holds(client));
 
-    return refusal === null ? effect : Effect.fail(refusal);
+    if (refusal !== null) return Effect.fail(refusal);
+    const needed = decideUserAccess(rpc._tag, command, false);
+
+    // Admitted and user-only: it ends, refused, the moment the connection's key is revoked.
+    return needed === null ? effect : Effect.raceFirst(effect, lost(registry, client, needed));
   });

@@ -4,6 +4,7 @@ export {
   type Connection,
   MAX_REQUESTS,
   type PresentedKey,
+  type RevokeRefusal,
   type UserAccessOptions,
   type UserAccessRegistry,
   userAccessRegistry,

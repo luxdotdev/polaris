@@ -54,6 +54,10 @@ export const enrolledCaption = (app: EnrolledAppView, now: number) => {
   return app.connected ? `Connected · ${allowed}` : allowed;
 };
 
+/** Why the only allowed desktop app has no Revoke: the host would have nothing to allow the next. */
+export const onlyAppCaption = (app: EnrolledAppView, now: number) =>
+  `${enrolledCaption(app, now)}. Allow another before revoking it.`;
+
 /** What revoking does, said before it happens. */
 export const revokeConsequence = (app: EnrolledAppView, host: string) =>
   app.self

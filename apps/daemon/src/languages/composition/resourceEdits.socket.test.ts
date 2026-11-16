@@ -238,6 +238,8 @@ treeEditTest(
               "languages.resources.tree-v2",
             ],
             languageProof: Redacted.make(value),
+            // Both are the user's Desktop App to the user gate: this test is about the proof.
+            userKey: Redacted.make("a".repeat(64)),
           });
 
           yield* owned.client.hello(hello(proof));
