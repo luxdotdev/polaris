@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { POLARIS_CLOUD_ACCOUNTS_URL } from "@polaris/protocol";
-import { Effect, Exit, Option, Stream, SubscriptionRef } from "effect";
+import { Effect, Exit, Option, Schema, Stream, SubscriptionRef } from "effect";
 import { fakeAccountServer, fakeServers } from "./accounts.testing.ts";
+import { AcceptedInvite, CreatedInvite } from "./contract.ts";
 import { accountServerOrigin } from "./server.ts";
 import { Accounts, workspaceAccountKey } from "./service.ts";
 import { type AccountStore, memoryAccountStore } from "./store.ts";
@@ -202,5 +203,22 @@ describe("a Workspace's sharing Account", () => {
     );
 
     expect(failure.reason).toBe("unknown-account");
+  });
+});
+
+describe("the Invite contract", () => {
+  test("an Account Server that sends no relayUrl reads as Polaris Cloud", () => {
+    const host = { name: "Desk", relayAddress: "relay-desk", noiseKey: "k" };
+
+    const accepted = Schema.decodeUnknownSync(AcceptedInvite)({
+      host,
+      share: { id: "s", title: "t", kind: "session" },
+      role: "contributor",
+      owner: { personId: "p", login: "lisa", name: null, avatarUrl: null },
+    });
+
+    const created = Schema.decodeUnknownSync(CreatedInvite)({ inviteId: "i", hostCapability: "c" });
+
+    expect([accepted.host.relayUrl, created.relayUrl]).toEqual([null, null]);
   });
 });

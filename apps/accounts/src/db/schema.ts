@@ -140,6 +140,7 @@ export const invite = pgTable(
     hostName: text("host_name").notNull(),
     hostRelayAddress: text("host_relay_address").notNull(),
     hostNoiseKey: text("host_noise_key").notNull(),
+    hostRelayUrl: text("host_relay_url"),
     role: text("role").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     status: text("status").notNull(),
