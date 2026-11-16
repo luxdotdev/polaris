@@ -264,11 +264,21 @@ export const WatchSharePresence = Rpc.make("shares.watchPresence", {
   stream: true,
 });
 
+/**
+ * Mutes or unmutes pushes about a shared target for whoever calls: a Teammate's devices, or the
+ * owner's Linked Devices. Each person's choice is their own; Needs You still shows in the apps.
+ */
+export const MuteShare = Rpc.make("shares.mute", {
+  payload: { target: ShareTarget, muted: Schema.Boolean },
+  error: Schema.Union([NotFound, Unsupported]),
+});
+
 export class ShareRpcs extends RpcGroup.make(
   CreateShare,
   RenewShare,
   RevokeShare,
   ListShares,
   WatchSharePresence,
+  MuteShare,
   RefreshStatement
 ) {}

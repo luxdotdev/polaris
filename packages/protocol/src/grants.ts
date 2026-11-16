@@ -336,6 +336,7 @@ export const RPC_GRANTS = {
   "shares.revoke": "client",
   "shares.list": "client",
   "shares.watchPresence": "read",
+  "shares.mute": "client",
   "account.refreshStatement": "open",
 } as const satisfies Record<DaemonRpcTag, RpcAccess>;
 

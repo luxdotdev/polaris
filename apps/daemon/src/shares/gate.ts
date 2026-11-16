@@ -104,7 +104,7 @@ export const subjectOf = (
       turnIds: turnsOf(subject.spec),
     };
 
-  if (rpc === "shares.watchPresence")
+  if (rpc === "shares.watchPresence" || rpc === "shares.mute")
     return subject.target === undefined ? NOTHING : { ...NOTHING, ...ofTarget(subject.target) };
 
   return {
@@ -136,7 +136,7 @@ export interface TeammateRequest {
   readonly sessionCwd: string | null;
   /** What Host state says of the Turns a `git.diff` names; null for any other request. */
   readonly diffTurns: DiffTurns | null;
-  /** Whether Teammates may send Turns and answer approvals yet (`teammatesMayAct`). */
+  /** Whether Teammates may send Turns yet (`teammatesMayAct`); approvals are always theirs to answer. */
   readonly mayAct: boolean;
 }
 
@@ -162,7 +162,7 @@ export const decideTeammate = (request: TeammateRequest): NotShared | NotGranted
     return new NotShared({ what: rpc });
   const access = commandAccess(subject.command);
 
-  if (rpc === "dispatch" && !request.mayAct && (access === "turn" || access === "approve"))
+  if (rpc === "dispatch" && !request.mayAct && access === "turn")
     return new NotGranted({ what: `dispatch:${subject.command ?? ""}`, needed: access });
 
   return null;

@@ -18,6 +18,7 @@ The contract with the Account Server is `apps/accounts/README.md`; the wire cont
 | `gate.ts` | The Share gate in front of every RPC on a Teammate's connection. |
 | `targets.ts` | What a session touches, from the event store's model. |
 | `presence.ts` | Who has a shared target open. |
+| `notifications.ts` | `ShareNotifications`: Teammates' push registrations, everyone's mutes, who a Needs You reaches. |
 | `rpc.ts` | `shares.*` and `account.refreshStatement`. |
 
 ## Lifecycle
@@ -65,6 +66,27 @@ reads and writes, every Host-wide call.
 - **Turns and approvals are refused to Teammates** while the user gate is off
   (`teammatesMayAct` in `../transport/userAccess.ts`, ENG-927), whatever the Share's Grant says.
 - A Teammate's connection has the Extension gateway's Wire and RPC limits.
+
+## Approvals, Needs You and Lead actions
+
+- A Contributor answers approvals (`RespondToApproval`, the `approve` Grant). The first answer
+  wins; a later one, the owner's included, is rejected as already resolved. `ApprovalResolved`
+  records the Teammate Actor, and its name as `resolvedBy` for a Client that can't decode it.
+  A Teammate's `Allow` holds for that request only: `remember` or a `dataScope` is the owner's
+  (`../engine/session.approvals.ts`).
+- Needs You reaches the owner's Linked Devices as before (`../push/`) and, at once, the devices
+  of every Contributor whose live Share lists them and covers the session with `approve`. The
+  owner's presence at a Desktop App holds only the owner's pushes. A device registers over its
+  own Teammate connection with `devices.registerPush`; its ticket must sign this Host's relay
+  address, as a Linked Device's does. A token APNs no longer knows is forgotten.
+- `shares.mute` mutes a target for the caller alone: a Teammate for their devices, the owner for
+  their Linked Devices (all of the session's pushes). Mutes and registrations are in
+  `shares.sqlite` and outlive a restart; a muted session still shows its Needs You in the apps.
+- In a shared Constellation a Contributor does what the owner does through the Lead:
+  `constellation.dispatch` and `worker.start` (start Workers), `review` (accept, send back,
+  stop), `answer`, `message` and `status`. They reach the Constellation as the user would.
+  Planning, pausing, completing, archiving and handing over (`constellation.plan`, `set_state`),
+  Share management, terminals and file writes stay the owner's.
 
 ## Trust
 

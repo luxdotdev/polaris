@@ -348,6 +348,7 @@ export const USER_RPCS = {
   "shares.revoke": "user",
   "shares.list": "any",
   "shares.watchPresence": "any",
+  "shares.mute": "user",
   "account.refreshStatement": "user",
   "simulator.watch": "any",
   "simulator.boot": "user",

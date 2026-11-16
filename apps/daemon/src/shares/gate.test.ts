@@ -95,12 +95,65 @@ test.each(["SendTurn", "Steer", "Interrupt", "Continue", "Retry", "SendFeedback"
   }
 );
 
-test("a Contributor's approval answer is refused while Teammates may not act", () => {
-  const refusal = request("dispatch", dispatch("RespondToApproval"));
+test("a Contributor answers approvals even while Turns are held back; a Commenter can't", () => {
+  expect(request("dispatch", dispatch("RespondToApproval"))).toBeNull();
+  const commenter = share({ role: "commenter", grant: ["read", "comment"] });
+  const refusal = request("dispatch", dispatch("RespondToApproval"), { shares: [commenter] });
 
   expect(refusal).toBeInstanceOf(NotGranted);
   expect(refusal).toMatchObject({ needed: "approve" });
-  expect(request("dispatch", dispatch("RespondToApproval"), { mayAct: true })).toBeNull();
+});
+
+const constellationShare = (role: "contributor" | "commenter") =>
+  share({
+    target: ShareTarget.cases.Constellation.make({ constellationId: C1 }),
+    role,
+    grant: role === "contributor" ? GRANT_KINDS : ["read", "comment"],
+  });
+
+const lead = (rpc: string, shared: Share) =>
+  request(rpc, named({ sessionId: null, constellationId: C1 }), {
+    shares: [shared],
+    touch: { sessionId: null, constellationId: C1 },
+  });
+
+test.each([
+  "constellation.dispatch",
+  "constellation.worker.start",
+  "constellation.review",
+  "constellation.answer",
+  "constellation.message",
+])("a Contributor of the Constellation may call %s; a Commenter may not", (rpc) => {
+  expect(lead(rpc, constellationShare("contributor"))).toBeNull();
+  expect(lead(rpc, constellationShare("commenter"))).toBeInstanceOf(NotShared);
+});
+
+test.each(["constellation.plan", "constellation.set_state", "constellation.defaults.set"])(
+  "%s stays the owner's, even for a Contributor",
+  (rpc) => {
+    expect(lead(rpc, constellationShare("contributor"))).toBeInstanceOf(NotShared);
+  }
+);
+
+test("a Contributor's Lead action needs a Share of that Constellation", () => {
+  const elsewhere = request(
+    "constellation.review",
+    named({ sessionId: null, constellationId: ConstellationId.make("c2") }),
+    {
+      shares: [constellationShare("contributor")],
+      touch: { sessionId: null, constellationId: ConstellationId.make("c2") },
+    }
+  );
+
+  expect(elsewhere).toBeInstanceOf(NotShared);
+});
+
+test("muting names its target, so only a Share of that target lets a Teammate mute it", () => {
+  const target = ShareTarget.cases.Session.make({ sessionId: S1 });
+
+  expect(subjectOf("shares.mute", decodeSubject({ target, muted: true }))).toMatchObject({
+    sessionId: S1,
+  });
 });
 
 test("Comments and the Contributor's own commands pass while Turns are held back", () => {

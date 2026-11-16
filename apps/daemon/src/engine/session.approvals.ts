@@ -24,6 +24,10 @@ const answerRefusal = (request: ApprovalRequest | undefined) => {
   return request?.kind === "secret" ? "a Secret Request takes a secret or a decline" : null;
 };
 
+/** An Allow that outlives its request: on the Host, a Data Source or the Harness's settings. */
+const remembers = (decision: ApprovalDecision) =>
+  Predicate.isTagged(decision, "Allow") && (decision.remember || decision.dataScope !== undefined);
+
 /** Why `decision` can't answer the pending request, or null when it can. */
 export const decisionRefusal = (
   record: SessionRecord,
@@ -41,6 +45,9 @@ export const decisionRefusal = (
   const app = request === undefined ? null : appDecisionRefusal(request.kind, decision, actor);
 
   if (app !== null) return app;
+
+  if (actor !== null && Predicate.isTagged(actor, "Teammate") && remembers(decision))
+    return "a Teammate allows this request only; the owner can always allow it";
   const secret = request?.kind === "secret";
   const attach = request?.profileAttach !== undefined;
 

@@ -30,6 +30,8 @@ import { deviceOf } from "../../linkedDevices/connection.ts";
 import { RelayRoute } from "../../linkedDevices/route.ts";
 import { HostPresence } from "../../presence/index.ts";
 import { RemoteAccessControl } from "../../remoteAccess/service.ts";
+import { teammateOf } from "../../shares/connection.ts";
+import { ShareNotifications } from "../../shares/notifications.ts";
 import { ShareRpcsLive } from "../../shares/rpc.ts";
 import { type DefaultOptions, notYet, unsupportedFeed } from "./shared.ts";
 
@@ -180,6 +182,13 @@ const linkedDeviceDefaults = LinkedDeviceRpcs.toLayer({
   // A Linked Device's own connection only: the device registers itself (ADR 0083).
   "devices.registerPush": (registration, { client }) => {
     const device = deviceOf(client);
+    const teammate = teammateOf(client);
+
+    // A Teammate's device registers for the Needs You its Shares cover (ENG-941).
+    if (teammate !== null)
+      return Effect.flatMap(ShareNotifications, (shared) =>
+        shared.register(teammate, registration)
+      );
 
     return device === null
       ? Effect.fail(notADevice())
@@ -187,6 +196,10 @@ const linkedDeviceDefaults = LinkedDeviceRpcs.toLayer({
   },
   "devices.unregisterPush": (_, { client }) => {
     const device = deviceOf(client);
+    const teammate = teammateOf(client);
+
+    if (teammate !== null)
+      return Effect.flatMap(ShareNotifications, (shared) => shared.unregister(teammate));
 
     return device === null
       ? Effect.fail(notADevice())

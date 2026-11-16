@@ -280,6 +280,7 @@ export const RPC_CAPABILITIES = {
   "shares.revoke": shares,
   "shares.list": shares,
   "shares.watchPresence": shares,
+  "shares.mute": "shares.contributor",
   "account.refreshStatement": shares,
 } as const satisfies Record<Exclude<DaemonRpcTag, LanguageRpcTag>, RpcRequirement>;
 

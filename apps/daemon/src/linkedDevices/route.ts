@@ -153,6 +153,17 @@ export class RelayRoute extends Context.Service<
     readonly sendLive: (target: LiveTarget, slice: LiveSlice) => boolean;
     /** Seals `message` to the device and wakes it; an `unregistered` token is dropped. */
     readonly wake: (target: PushTarget, message: PushMessage) => Effect.Effect<WakeOutcome>;
+    /** Checks a relay peer's push registration as `registerPush` does: a Teammate's device. */
+    readonly checkPush: (
+      peer: RelayAddress,
+      registration: PushRegistration
+    ) => Effect.Effect<void, PushRegistrationError>;
+    /** Seals `message` to a relay peer's registration and wakes it; nothing is dropped. */
+    readonly wakePeer: (
+      peer: RelayAddress,
+      registration: PushRegistration,
+      message: PushMessage
+    ) => Effect.Effect<WakeOutcome>;
   }
 >()("polaris/daemon/linkedDevices/RelayRoute") {
   static layer(options: {
@@ -280,6 +291,42 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
         )
       : Effect.succeed(cachedKeys)
   );
+
+  const checkPush = Effect.fn("RelayRoute.checkPush")(function* (
+    peer: RelayAddress,
+    registration: PushRegistration
+  ) {
+    const loaded = yield* Effect.mapError(keys, (error) => refusePush(error.message));
+    const { ticket, environment, token } = registration;
+
+    const signed = yield* Effect.promise(() =>
+      verifyPushTicket(ticket, peer, loaded.address, environment, token)
+    );
+
+    if (!signed) return yield* refusePush("The push ticket doesn't sign this Host's address");
+    yield* validPushKey(registration.pushKey);
+  });
+
+  const wakePeer = (peer: RelayAddress, registration: PushRegistration, message: PushMessage) =>
+    Effect.gen(function* () {
+      const current = link;
+
+      if (current === null) return "unavailable" as const;
+
+      const payload = yield* Effect.promise(async () => {
+        const { sealPush } = await import("../push/seal.ts");
+
+        return sealPush(registration.pushKey, message);
+      });
+
+      // The relay closes the Host's socket on an oversized wake, ending every session (RV3).
+      if (payload.length > MAX_WAKE_PAYLOAD_CHARS) return "refused" as const;
+      const { token, environment, ticket } = registration;
+
+      return yield* Effect.promise(() =>
+        current.wake({ peer, token, environment, ticket, payload })
+      );
+    });
 
   const peers = (): ReadonlyArray<RelayAddress> => [
     ...new Set([
@@ -585,16 +632,9 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
 
       return device;
     }, Effect.uninterruptible),
+    checkPush,
     registerPush: Effect.fn("RelayRoute.registerPush")(function* (device, registration) {
-      const loaded = yield* Effect.mapError(keys, (error) => refusePush(error.message));
-      const { ticket, environment, token } = registration;
-
-      const signed = yield* Effect.promise(() =>
-        verifyPushTicket(ticket, device.relayAddress, loaded.address, environment, token)
-      );
-
-      if (!signed) return yield* refusePush("The push ticket doesn't sign this Host's address");
-      yield* validPushKey(registration.pushKey);
+      yield* checkPush(device.relayAddress, registration);
       yield* Effect.mapError(store.setPush(device.id, registration), (error) =>
         refusePush(error.message)
       );
@@ -650,25 +690,10 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
 
       return () => pushListeners.delete(listener);
     },
+    wakePeer,
     wake: ({ device, registration }, message) =>
       Effect.gen(function* () {
-        const current = link;
-
-        if (current === null) return "unavailable" as const;
-
-        const payload = yield* Effect.promise(async () => {
-          const { sealPush } = await import("../push/seal.ts");
-
-          return sealPush(registration.pushKey, message);
-        });
-
-        // The relay closes the Host's socket on an oversized wake, ending every session (RV3).
-        if (payload.length > MAX_WAKE_PAYLOAD_CHARS) return "refused" as const;
-        const { token, environment, ticket } = registration;
-
-        const outcome = yield* Effect.promise(() =>
-          current.wake({ peer: device.relayAddress, token, environment, ticket, payload })
-        );
+        const outcome = yield* wakePeer(device.relayAddress, registration, message);
 
         // APNs no longer knows the token; a registration made since then stays (RV4).
         if (outcome === "unregistered")

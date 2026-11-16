@@ -5,14 +5,17 @@
  * While the user is at a Desktop App (`HostPresence`) Needs You is held and the rest dropped (`hold.ts`).
  * Failures (a Turn, a Constellation's Attempt) push too; a device's switch per Host stops all.
  * After a restart, the sessions waiting on Continue are held again from the first Snapshot (ENG-500).
+ * A Needs You also goes at once to Contributors' devices (`../shares/notifications.ts`); a person
+ * who muted the session, the owner included, gets none of its pushes.
  */
-import type { Capability, HostStreamItem, TurnId } from "@polaris/protocol";
-import { Context, Effect, Fiber, Layer, Predicate, Stream } from "effect";
+import { type Capability, type HostStreamItem, SessionId, type TurnId } from "@polaris/protocol";
+import { Context, Effect, Fiber, Layer, Option, Predicate, Stream } from "effect";
 import { Engine } from "../engine/Engine.ts";
 import { EventStore } from "../store/EventStore.ts";
 import type { ReadModel } from "../store/model.ts";
 import { RelayRoute } from "../linkedDevices/route.ts";
 import { HostPresence } from "../presence/index.ts";
+import { OWNER, ShareNotifications } from "../shares/notifications.ts";
 import { type Held, hold, settleItem } from "./hold.ts";
 import {
   type AttemptFailure,
@@ -109,6 +112,7 @@ export const PushNotifier = Layer.effectDiscard(
     const events = yield* PushHostEvents;
     const route = yield* RelayRoute;
     const presence = yield* HostPresence;
+    const shared = Option.getOrNull(yield* Effect.serviceOption(ShareNotifications));
     const context = yield* Effect.context<never>();
     const runFork = Effect.runForkWith(context);
     let plan: PlanState = emptyPlan;
@@ -120,8 +124,16 @@ export const PushNotifier = Layer.effectDiscard(
 
     const contextNow = () => ({ ...route.host, now: Date.now() });
 
-    const wake = (pushes: ReadonlyArray<Push>) => {
-      for (const { message, automatic } of pushes)
+    const touchOf = (push: Push) =>
+      shared === null ? null : shared.touchOf(SessionId.make(push.need.sessionId));
+
+    const wakeOwner = (push: Push) =>
+      Effect.gen(function* () {
+        const { message, automatic } = push;
+        const touch = touchOf(push);
+
+        if (shared !== null && touch !== null && shared.muted(OWNER, yield* touch)) return;
+
         for (const target of route.pushTargets())
           // The device's switch for this Host (ENG-561), then for automatic ones (ENG-462).
           if (
@@ -135,10 +147,37 @@ export const PushNotifier = Layer.effectDiscard(
                   Effect.flatMap((outcome) => Effect.logInfo(`push: ${message.kind} ${outcome}`))
                 )
             );
+      });
+
+    const wake = (pushes: ReadonlyArray<Push>) => {
+      for (const push of pushes) runFork(wakeOwner(push));
+    };
+
+    // A Contributor's devices hear of a Needs You at once: the owner's presence isn't theirs.
+    const fanOut = (pushes: ReadonlyArray<Push>) => {
+      for (const push of pushes) {
+        const touch = touchOf(push);
+
+        if (shared === null || touch === null || push.message.kind !== "needs-you") continue;
+        runFork(
+          Effect.flatMap(touch, (touched) =>
+            Effect.forEach(
+              shared.teammatesFor(touched),
+              (target) =>
+                Effect.flatMap(shared.wake(target, push.message), (outcome) =>
+                  Effect.logInfo(`push: teammate ${push.message.kind} ${outcome}`)
+                ),
+              { discard: true, concurrency: "unbounded" }
+            )
+          )
+        );
+      }
     };
 
     // While the user is at a Desktop App the push waits for them to leave (ENG-495).
     const send = (pushes: ReadonlyArray<Push>) => {
+      fanOut(pushes);
+
       if (presence.present()) held = hold(held, pushes);
       else wake(pushes);
     };
@@ -203,7 +242,7 @@ export const PushNotifier = Layer.effectDiscard(
     };
 
     const reconcile = () => {
-      const wanted = route.pushTargets().length > 0;
+      const wanted = route.pushTargets().length > 0 || (shared?.registered() ?? 0) > 0;
 
       if (wanted && following === null)
         following = runFork(Stream.runForEach(events.subscribe(), onItem));
@@ -211,11 +250,13 @@ export const PushNotifier = Layer.effectDiscard(
     };
 
     const unwatch = route.watchPush(reconcile);
+    const unwatchShared = shared?.watch(reconcile) ?? (() => {});
     const unwatchPresence = presence.watch(release);
     reconcile();
     yield* Effect.addFinalizer(() =>
       Effect.sync(() => {
         unwatch();
+        unwatchShared();
         unwatchPresence();
         stop();
       })

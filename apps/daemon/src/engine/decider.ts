@@ -51,7 +51,7 @@ export { stateChanged } from "./session.ts";
 export interface DecideContext {
   readonly commandId: CommandId;
   readonly now: string;
-  /** Label of the Client device that sent the command (for `ApprovalResolved.resolvedBy`). */
+  /** Label of the Client device that sent it (`ApprovalResolved.resolvedBy`; a Teammate's name instead). */
   readonly deviceLabel: string;
   /** Who sent it: stamped on the session starts, Turns and approvals it records. */
   readonly actor: Actor;
@@ -594,7 +594,10 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
             type: "approval.respond",
             requestId: c.requestId,
             decision: c.decision,
-            resolvedBy: ctx.deviceLabel,
+            // A Client that can't decode the Teammate Actor still shows who answered.
+            resolvedBy: Predicate.isTagged(ctx.actor, "Teammate")
+              ? ctx.actor.name
+              : ctx.deviceLabel,
             actor: ctx.actor,
           }),
     RenameSession: (c) => renameSession(d, c),

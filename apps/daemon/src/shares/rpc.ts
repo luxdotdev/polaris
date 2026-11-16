@@ -6,6 +6,7 @@ import { ShareRpcs, StatementRejected } from "@polaris/protocol";
 import { Effect, Stream } from "effect";
 import { actorOf } from "../extensions/connection.ts";
 import { teammateOf } from "./connection.ts";
+import { OWNER, personOf, ShareNotifications } from "./notifications.ts";
 import { Shares } from "./service.ts";
 
 export const ShareRpcsLive = ShareRpcs.toLayer({
@@ -18,6 +19,14 @@ export const ShareRpcsLive = ShareRpcs.toLayer({
   "shares.list": ({ target }) => Effect.flatMap(Shares, (shares) => shares.list(target)),
   "shares.watchPresence": ({ target }) =>
     Stream.unwrap(Effect.map(Shares, (shares) => shares.watchPresence(target))),
+  // Each person mutes for themselves: a Teammate their devices, anyone else the owner's.
+  "shares.mute": ({ target, muted }, { client }) => {
+    const teammate = teammateOf(client);
+
+    return Effect.flatMap(ShareNotifications, (notifications) =>
+      notifications.setMuted(teammate === null ? OWNER : personOf(teammate), target, muted)
+    );
+  },
   // Only a Teammate's connection has a statement to renew.
   "account.refreshStatement": ({ statement }, { client }) => {
     const teammate = teammateOf(client);
