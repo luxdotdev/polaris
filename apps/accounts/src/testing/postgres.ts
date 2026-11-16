@@ -7,6 +7,8 @@ const IMAGE = "postgres:17-alpine";
 const PASSWORD = "polaris";
 
 const docker = async (...args: Array<string>) => {
+  if (Bun.which("docker") === null) return { out: "", err: "docker isn't on PATH", code: 127 };
+
   const proc = Bun.spawn(["docker", ...args], { stdout: "pipe", stderr: "pipe" });
 
   const [out, err, code] = await Promise.all([
@@ -48,7 +50,9 @@ const ensureContainer = async () => {
 
       // Another test file may have created it first.
       if (run.code !== 0 && !run.err.includes("already in use")) {
-        throw new Error(`Postgres for the Account Server tests needs Docker: ${run.err}`);
+        throw new Error(
+          `The Account Server's slow tests need Docker, or ACCOUNTS_TEST_DATABASE_URL: ${run.err}`
+        );
       }
     }
 

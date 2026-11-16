@@ -31,7 +31,8 @@ trusts only the issuer pinned on each Share.
 
 The issuer `{iss}` is the server's origin, exactly `BETTER_AUTH_URL` (no path, no trailing slash).
 Bodies are JSON. Errors are JSON with a `_tag` (`Unauthorized` 401, `PersonNotFound` 404,
-`InviteNotFound` 404, `InviteClosed` 409, `InvalidInvite` 400, `CommitEmailNotAllowed` 400; a body
+`InviteNotFound` 404, `InviteClosed` 409, `InvalidInvite` 400, `CommitEmailNotAllowed` 400,
+`InvalidGrant` 400; a body
 that doesn't match the schema is 400).
 
 ### Statements
@@ -62,11 +63,22 @@ JWKS for 7 more, so cache the JWKS but refetch on an unknown `kid`. `avatarUrl` 
 A device ends up with a **session token**, sent as `Authorization: Bearer <token>`. Sessions last 7
 days and renew while used.
 
-- **With a browser (Desktop App).** Open `{iss}/sign-in?redirect_uri=<uri>&state=<opaque>` in the
-  user's browser. After GitHub, the browser is sent to `<uri>?token=<session token>&state=<state>`.
-  `<uri>` must be `http://127.0.0.1:<port>/…`, `http://localhost:<port>/…`, `http://[::1]:<port>/…`
-  or `polaris://…`; anything else is refused. Check `state`. Only the browser that opened
-  `/sign-in` can finish it (a cookie set there), so a link can't mint a token in a signed-in browser.
+- **With a browser (Desktop App, Mobile App): authorization code with PKCE (RFC 8252).**
+  1. Make a `code_verifier` (43–128 characters of `A–Z a–z 0–9 - . _ ~`) and its
+     `code_challenge = base64url(SHA-256(code_verifier))`, and a random `state`.
+  2. Open `{iss}/sign-in?redirect_uri=<uri>&state=<state>&code_challenge=<challenge>&code_challenge_method=S256`
+     in the user's browser. `<uri>` is `http://127.0.0.1:<port>/…`, `http://localhost:<port>/…` or
+     `http://[::1]:<port>/…` (prefer a loopback listener on the Desktop App), or `polaris://…`
+     (the Mobile App). Anything else, or a missing `state` or S256 challenge, is refused.
+  3. The server records a pending sign-in bound to that browser (a cookie), always sends the browser
+     through GitHub for it, and then redirects to `<uri>?code=<code>&state=<state>`. It never puts a
+     token in a redirect. Check `state`.
+  4. `POST {iss}/v1/sign-in/token {code, code_verifier}` gives `{token}`, the session token. A code
+     works once, for 60 seconds, and only with its own verifier; a wrong verifier spends it. Anything
+     else is 400 `InvalidGrant`.
+
+  `/sign-in/done`, where GitHub returns the browser, issues a code only for a pending sign-in this
+  browser started, and only after a GitHub sign-in newer than it.
 - **Without one (fallback).** Better Auth's device authorization flow:
   `POST {iss}/api/auth/device/code {client_id}` gives `user_code` and `verification_uri_complete`
   (`{iss}/device?user_code=…`) for the user to open on any signed-in browser; poll
@@ -74,12 +86,15 @@ days and renew while used.
   device_code, client_id}` no faster than every 5 s until it returns `{access_token}`, the session
   token. Codes expire after 15 minutes.
 
-Sign out with `POST {iss}/api/auth/sign-out` and the Bearer token.
+Sign out with `POST {iss}/api/auth/sign-out` and the Bearer token. Signing out, revoking the
+session (`POST {iss}/api/auth/revoke-session`), its expiry, or deleting the person takes every device
+that accepted an Invite with that session off its Share (see Devices long-poll).
 
 ### Endpoints
 
 | | Auth | Request | Response |
 |---|---|---|---|
+| `POST /v1/sign-in/token` | none | `{code, code_verifier}` | `{token}` |
 | `POST /v1/statements` | Bearer | `{noiseKey}` | `{jwt}` |
 | `GET /v1/people?login=` | Bearer | | `{personId, login, name, avatarUrl}`: whoever holds `login` on GitHub now, if they have an Account here |
 | `GET /v1/me` | Bearer | | `{personId, login, name, avatarUrl, commitEmail, commitEmails}` |
@@ -97,20 +112,24 @@ where `share` is `{id, title, kind: "session" | "constellation"}`, `host` is
 
 - **Identity.** A person is one GitHub account (its numeric ID), never an address: two GitHub
   accounts are never merged, and a login is resolved through GitHub (with the asker's token) so a
-  login someone renamed away from never reaches them.
+  login someone renamed away from never reaches them. Login, name and avatar are refreshed from
+  GitHub at every sign-in.
 - **Commit email.** `commitEmails` lists the person's verified GitHub addresses (primary first,
   read with the `user:email` scope) and GitHub's noreply address, `ID+login@users.noreply.<host>`.
   `commitEmail` defaults to the primary verified address, else the noreply one; `PUT` takes only an
   address from `commitEmails`. It is in every statement.
 - **Invites.** `expiresAt` must fall within the next 30 days; a pending Invite lapses then
-  (`InviteClosed` with `status: "lapsed"`). Only the invitee sees or answers an Invite; anyone else
-  gets 404. Accepting registers the accepting device; each further device of the Teammate accepts
-  the same Invite again to join the list. Declining an accepted Invite leaves the Share and empties
+  (`InviteClosed` with `status: "lapsed"`). `inviteeLogin` is resolved through GitHub at invite
+  time and the Invite records that person's GitHub ID: only they see or answer it, whatever their
+  login becomes; anyone else gets 404. Accepting registers the accepting device under the session it
+  accepted with; each further device of the Teammate accepts the same Invite again to join the list. Declining an accepted Invite leaves the Share and empties
   the list. The Account Server keeps no Share expiry of its own: the Host enforces and renews it.
 - **The host capability** is returned once, at creation; the server keeps only its SHA-256. Send it
   as `Authorization: Capability <hostCapability>`. It reads only its own Share and works until
   `DELETE` revokes it, after which it is 401 and the Invite can't be accepted.
 - **Devices long-poll.** The list is empty until the Invite is accepted, and again once declined.
+  A device leaves it when the session it accepted with ends (sign-out, revocation, expiry), so no
+  statement is issued for it again and the last one lapses within 15 minutes.
   Each response carries an `ETag`. Send it back as `If-None-Match`: the server answers as soon as the
   list changes, or `304` after `wait` seconds (default and at most 60; `0` answers at once). The
   `ETag` also rolls over every 5 minutes so a waiting Host always holds statements with at least 10
@@ -176,10 +195,16 @@ BETTER_AUTH_URL=http://localhost:3000 DATABASE_URL=postgres://… BETTER_AUTH_SE
 ## Development
 
 - `src/api/definition.ts` is the `/v1` API as an Effect `HttpApi`; `src/api/handlers.ts` implements
-  it. `src/auth/` configures Better Auth; `src/server/pages.ts` holds the browser pages.
+  it. `src/auth/` configures Better Auth; `src/server/pages.ts` holds the browser pages and
+  `src/signIn/` the pending sign-ins and code exchange behind them.
 - Schema changes: edit `src/db/schema.ts`, then `bunx drizzle-kit generate --name <what>` in this
   directory, and commit the new file under `drizzle/`.
 - Tests: `bun run --cwd apps/accounts test`. The slow tier runs the whole server against a fake
   GitHub (`src/testing/fakeGitHub.ts`) and a real Postgres: a `postgres:17-alpine` container it
   starts and leaves running (`polaris-accounts-test-pg`), or `ACCOUNTS_TEST_DATABASE_URL` (an admin
   URL; each test file creates and drops its own database).
+- **CI and Docker.** Only the slow tier (`*.slow.test.ts`) needs Postgres; the fast tier needs
+  nothing. CI's `ubuntu-latest` runners have Docker, so the "other packages" test job starts the
+  container itself. Where there is no Docker, run Postgres as a service (a GitHub Actions
+  `services: postgres`) and set `ACCOUNTS_TEST_DATABASE_URL`; without either, the slow tier fails
+  at setup with a message saying so.
