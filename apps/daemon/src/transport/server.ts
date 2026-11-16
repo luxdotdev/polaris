@@ -109,6 +109,8 @@ export interface ServeOptions<ROut, E, RIn> {
   readonly secrets?: Layer.Layer<HostSecrets>;
   /** For tests: link lifetime and a hold on link completion (`RelayRoute`). */
   readonly relayLinks?: LinkTiming | undefined;
+  /** The relay a Host without one stored dials; Polaris Cloud's. Tests give a local relay. */
+  readonly relayDefaultUrl?: string | undefined;
   /** For tests: a shorter presence lease (`HostPresence`). */
   readonly presence?: PresenceOptions;
 }
@@ -255,7 +257,12 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       | ((session: DeviceSession, device: LinkedDevice) => Effect.Effect<void>)
       | null = null;
 
-    const deviceServices = RelayRoute.layer({ root, hostInfo, links: options.relayLinks }).pipe(
+    const deviceServices = RelayRoute.layer({
+      root,
+      hostInfo,
+      links: options.relayLinks,
+      defaultUrl: options.relayDefaultUrl,
+    }).pipe(
       Layer.provideMerge(
         Layer.mergeAll(
           LinkedDevices.layer(join(root, "linked-devices.sqlite")).pipe(

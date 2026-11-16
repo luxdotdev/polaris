@@ -52,6 +52,8 @@ export const Capability = Schema.Literals([
   "linked-devices",
   /** `devices.watch`, and `connectedSince` on each Linked Device: which have a session now (ENG-629). */
   "linked-devices.presence",
+  /** `relayRoute.setUrl`: store the relay, or go back to Polaris Cloud's, without turning it on (ENG-948). */
+  "linked-devices.relay-url",
   /** A Client announces it when it decodes the `LinkedDevice` Actor; others read it as `Client`. */
   "actor.linked-device",
   /** `voice.transcribe`, `voice.settings` and `voice.setKey` (ADR 0077). */

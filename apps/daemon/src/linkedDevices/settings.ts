@@ -1,6 +1,6 @@
 /**
- * The Relay route's setting for this Host: `root/relay-route.json` (0600), on or off
- * and the relay's URL. No file means off (CONTEXT.md: Remote Access).
+ * The Relay route's setting for this Host: `root/relay-route.json` (0600), on or off and the
+ * relay's URL, null for the default (Polaris Cloud's). No file means off (CONTEXT.md: Remote Access).
  */
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

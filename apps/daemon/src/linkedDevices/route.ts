@@ -13,6 +13,7 @@ import {
   LinkedDevice,
   type LinkedDeviceId,
   NotFound,
+  POLARIS_CLOUD_RELAY_URL,
   PushRegistrationError,
   RelayRouteError,
   RelayRouteStatus,
@@ -86,7 +87,10 @@ export class RelayRoute extends Context.Service<
   RelayRoute,
   {
     readonly status: Effect.Effect<RelayRouteStatus, RelayRouteError>;
-    readonly enable: (url: string) => Effect.Effect<RelayRouteStatus, RelayRouteError>;
+    /** Without `url`, the stored relay, or the default (Polaris Cloud's) when none is stored. */
+    readonly enable: (url?: string) => Effect.Effect<RelayRouteStatus, RelayRouteError>;
+    /** Stores `url`, or null for the default, without turning the route on. */
+    readonly setUrl: (url: string | null) => Effect.Effect<RelayRouteStatus, RelayRouteError>;
     readonly disable: Effect.Effect<RelayRouteStatus, RelayRouteError>;
     readonly startLink: Effect.Effect<LinkOffer, RelayRouteError>;
     /** Ends with NotFound when the link expires or is cancelled; interrupting it cancels it. */
@@ -137,6 +141,8 @@ export class RelayRoute extends Context.Service<
     readonly root: string;
     readonly hostInfo: HostInfo;
     readonly links?: LinkTiming | undefined;
+    /** The relay with none stored; Polaris Cloud's. Tests give a local one. */
+    readonly defaultUrl?: string | undefined;
   }) {
     return Layer.effect(RelayRoute, makeRelayRoute(options));
   }
@@ -144,10 +150,20 @@ export class RelayRoute extends Context.Service<
 
 const failed = (message: string) => new RelayRouteError({ reason: "failed", message });
 
+const invalidUrl = () =>
+  new RelayRouteError({
+    reason: "invalid-url",
+    message: "The relay URL must be wss:// (ws:// only for a relay on this machine)",
+  });
+
+/** Polaris Cloud's relay is stored as null, so a Host follows the default if it moves. */
+const stored = (url: string | null) => (url === POLARIS_CLOUD_RELAY_URL ? null : url);
+
 const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
   readonly root: string;
   readonly hostInfo: HostInfo;
   readonly links?: LinkTiming | undefined;
+  readonly defaultUrl?: string | undefined;
 }) {
   const store = yield* LinkedDevices;
   const secrets = yield* HostSecrets;
@@ -160,6 +176,8 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
   const ttlMs = options.links?.ttlMs ?? LINK_TTL_MS;
   const completeWith = options.links?.completeWith ?? ((completion) => completion);
   let setting = readSetting(options.root);
+  const defaultUrl = options.defaultUrl ?? POLARIS_CLOUD_RELAY_URL;
+  const relayUrl = () => setting.url ?? defaultUrl;
   let link: RelayLink | null = null;
   let cachedKeys: HostRelayKeys | null = null;
   const pushListeners = new Set<() => void>();
@@ -339,12 +357,12 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
     link?.stop();
     link = null;
 
-    if (!setting.enabled || setting.url === null) return;
+    if (!setting.enabled) return;
     const loaded = yield* keys;
     const { RelayLink } = yield* Effect.promise(() => import("./link.ts"));
 
     link = new RelayLink({
-      url: setting.url,
+      url: relayUrl(),
       identity: loaded.identity,
       noise: loaded.noise,
       peers,
@@ -367,7 +385,7 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
 
     return new RelayRouteStatus({
       state: setting.enabled ? "on" : "off",
-      url: setting.url,
+      url: relayUrl(),
       connected: link?.connected ?? false,
       hostAddress: loaded.address,
       hostNoiseKey: toBase64Url(loaded.noise.publicKey),
@@ -405,20 +423,25 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
   return RelayRoute.of({
     status,
     enable: (url) =>
-      isRelayUrl(url)
-        ? save({ enabled: true, url }).pipe(Effect.andThen(start), Effect.andThen(status))
-        : Effect.fail(
-            new RelayRouteError({
-              reason: "invalid-url",
-              message: "The relay URL must be wss:// (ws:// only for a relay on this machine)",
-            })
-          ),
+      url === undefined || isRelayUrl(url)
+        ? save({ enabled: true, url: url === undefined ? setting.url : stored(url) }).pipe(
+            Effect.andThen(start),
+            Effect.andThen(status)
+          )
+        : Effect.fail(invalidUrl()),
+    setUrl: (url) =>
+      url === null || isRelayUrl(url)
+        ? save({ enabled: setting.enabled, url: stored(url) }).pipe(
+            Effect.andThen(start),
+            Effect.andThen(status)
+          )
+        : Effect.fail(invalidUrl()),
     disable: save({ enabled: false, url: setting.url }).pipe(
       Effect.andThen(start),
       Effect.andThen(status)
     ),
     startLink: Effect.gen(function* () {
-      if (!setting.enabled || setting.url === null)
+      if (!setting.enabled)
         return yield* new RelayRouteError({
           reason: "route-off",
           message: "Turn on the Relay route to link a device",
@@ -458,7 +481,7 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
         linkString: encodeLinkString({
           hostId: options.hostInfo.hostId,
           hostName: options.hostInfo.hostname,
-          relayUrl: setting.url,
+          relayUrl: relayUrl(),
           hostAddress: loaded.address,
           hostNoiseKey: toBase64Url(loaded.noise.publicKey),
           secret: toBase64Url(secret),

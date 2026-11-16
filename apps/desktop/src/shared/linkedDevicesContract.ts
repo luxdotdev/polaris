@@ -14,6 +14,8 @@ const OnHost = Schema.Struct({ hostKey: HostKey });
 export const LinkedDevicesRequestInputs = {
   "relayRoute.status": OnHost,
   "relayRoute.enable": Schema.Struct({ hostKey: HostKey, url: Schema.String }),
+  /** Stores the relay without turning it on; null is Polaris Cloud's (`linked-devices.relay-url`). */
+  "relayRoute.setUrl": Schema.Struct({ hostKey: HostKey, url: Schema.NullOr(Schema.String) }),
   "relayRoute.disable": OnHost,
   "devices.list": OnHost,
   /** Opens a link on the first Host with the route on; the result holds a one-time secret. */
@@ -62,6 +64,7 @@ export interface LinkResultView {
 export type LinkedDevicesRequestOutputs = {
   readonly "relayRoute.status": RelayRouteView;
   readonly "relayRoute.enable": RelayRouteView;
+  readonly "relayRoute.setUrl": RelayRouteView;
   readonly "relayRoute.disable": RelayRouteView;
   readonly "devices.list": ReadonlyArray<LinkedDeviceView>;
   readonly "devices.startLink": LinkOfferView;

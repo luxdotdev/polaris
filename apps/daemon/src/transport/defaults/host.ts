@@ -158,6 +158,7 @@ const restartDefaults = RestartRpcs.toLayer({
 const linkedDeviceDefaults = LinkedDeviceRpcs.toLayer({
   "relayRoute.status": () => Effect.flatMap(RelayRoute, (route) => route.status),
   "relayRoute.enable": ({ url }) => Effect.flatMap(RelayRoute, (route) => route.enable(url)),
+  "relayRoute.setUrl": ({ url }) => Effect.flatMap(RelayRoute, (route) => route.setUrl(url)),
   "relayRoute.disable": () => Effect.flatMap(RelayRoute, (route) => route.disable),
   "devices.link": () => Effect.flatMap(RelayRoute, (route) => route.startLink),
   "devices.awaitLink": ({ linkId }) =>
