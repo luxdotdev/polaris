@@ -19,9 +19,11 @@ import {
   type ConnectionState,
   type HostInfo,
   PROTOCOL_VERSION,
+  type Share,
+  type ShareRole,
   type TransportError,
 } from "@polaris/protocol";
-import { Cause, Effect, Exit, Fiber, type Scope } from "effect";
+import { Cause, Duration, Effect, Exit, Fiber, Redacted, type Scope } from "effect";
 import { selfTracer } from "../selfTraces/index.ts";
 import { MOBILE_CAPABILITIES } from "./capabilities.ts";
 
@@ -60,6 +62,16 @@ export interface LiveHost {
   readonly blobs: ClientBlobs;
   readonly host: HostInfo;
   readonly capabilities: ReadonlyArray<Capability>;
+  /** On a Teammate's connection, the person's live Shares on this Host; empty otherwise. */
+  readonly shares: ReadonlyArray<Share>;
+}
+
+/** A connection to someone else's Host as a Teammate (ADR 0112): who they are there. */
+export interface TeammateLink {
+  readonly personId: string;
+  readonly role: ShareRole;
+  /** The owner's name, as their Invite named them. */
+  readonly ownerName: string;
 }
 
 export class NotConnected extends Error {
@@ -74,6 +86,8 @@ export interface HostConnection {
   readonly hostId: string;
   readonly name: string;
   readonly route: HostRoute;
+  /** Set when this is a Teammate's connection to a Host shared with them. */
+  readonly teammate: TeammateLink | null;
   readonly status: () => HostStatus;
   readonly live: () => LiveHost | null;
   /** Called after every status or live change; returns the unsubscribe. */
@@ -100,12 +114,21 @@ export interface HostConnectionOptions {
   readonly pingIntervalMs?: number;
   /** How long `checkAlive` waits for the pong. */
   readonly aliveTimeoutMs?: number;
+  /**
+   * A Teammate's statement from their Account Server, fetched fresh for each hello and before
+   * the last one lapses (`account.refreshStatement`). Absent for the owner's own Hosts.
+   */
+  readonly accountStatement?: () => Promise<string>;
+  readonly teammate?: TeammateLink;
 }
 
 /** A phone's link can die without closing (a network change, a suspended app): ping it. */
 export const PING_INTERVAL_MS = 15_000;
 
 export const ALIVE_TIMEOUT_MS = 5_000;
+
+/** A statement lives 15 minutes (`STATEMENT_LIFETIME_S`): a new one goes well before. */
+export const STATEMENT_REFRESH_MS = 10 * 60_000;
 
 const CLIENT_NAME = "Polaris Mobile";
 
@@ -155,6 +178,12 @@ export const openHostConnection = (options: HostConnectionOptions): HostConnecti
   /** The live connection's pong, timed out into dropping it: `checkAlive`. */
   let alive: Effect.Effect<void> | null = null;
 
+  const statement = Effect.tryPromise({
+    try: () => options.accountStatement?.() ?? Promise.resolve(null),
+    catch: (error) =>
+      transient("unreachable", error instanceof Error ? error.message : String(error)),
+  });
+
   const statusNow = (): HostStatus => ({
     state: connectionStateOf(snapshot),
     failure: snapshot.context.failure,
@@ -194,13 +223,17 @@ export const openHostConnection = (options: HostConnectionOptions): HostConnecti
       );
       // A connection that drops before hello is sent never fails the request: race it.
 
+      const proof = yield* statement;
+
+      const payload: Parameters<DaemonClient["hello"]>[0] = {
+        clientName: CLIENT_NAME,
+        clientVersion: CLIENT_VERSION,
+        deviceLabel: options.deviceLabel ?? "iPhone",
+        capabilities: MOBILE_CAPABILITIES,
+      };
+
       const hello = yield* connection.client
-        .hello({
-          clientName: CLIENT_NAME,
-          clientVersion: CLIENT_VERSION,
-          deviceLabel: options.deviceLabel ?? "iPhone",
-          capabilities: MOBILE_CAPABILITIES,
-        })
+        .hello(proof === null ? payload : { ...payload, accountStatement: Redacted.make(proof) })
         .pipe(
           Effect.mapError((error) => transient("unreachable", error.message)),
           Effect.raceFirst(lost),
@@ -227,6 +260,26 @@ export const openHostConnection = (options: HostConnectionOptions): HostConnecti
       )
     );
 
+  /** Presents a new statement before the last lapses; one the Host refuses ends the connection. */
+  const refreshing = (client: DaemonClient, epoch: number) =>
+    Effect.forever(
+      Effect.gen(function* () {
+        yield* Effect.sleep(Duration.millis(STATEMENT_REFRESH_MS));
+        const proof = yield* statement;
+
+        if (proof === null) return;
+
+        const renewed = yield* client["account.refreshStatement"]({
+          statement: Redacted.make(proof),
+        });
+
+        if (live?.epoch === epoch) {
+          live = { ...live, shares: renewed.shares };
+          changed();
+        }
+      })
+    ).pipe(Effect.ignore);
+
   const attempt = (epoch: number) =>
     Effect.scoped(
       Effect.gen(function* () {
@@ -249,8 +302,12 @@ export const openHostConnection = (options: HostConnectionOptions): HostConnecti
           blobs: connection.blobs,
           host: hello.host,
           capabilities,
+          shares: hello.shares ?? [],
         };
         changed();
+
+        if (options.accountStatement !== undefined)
+          yield* Effect.forkScoped(refreshing(connection.client, epoch));
 
         latencyMs = Math.round(yield* connection.roundTrip.pipe(Effect.raceFirst(lost)));
         changed();
@@ -300,6 +357,7 @@ export const openHostConnection = (options: HostConnectionOptions): HostConnecti
     hostId: options.hostId,
     name: options.name,
     route: options.transport.route,
+    teammate: options.teammate ?? null,
     status: () => status,
     live: () => live,
     subscribe: (listener) => {

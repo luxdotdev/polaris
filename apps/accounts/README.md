@@ -99,7 +99,7 @@ that accepted an Invite with that session off its Share (see Devices long-poll).
 | `GET /v1/people?login=` | Bearer | | `{personId, login, name, avatarUrl}`: whoever holds `login` on GitHub now, if they have an Account here |
 | `GET /v1/me` | Bearer | | `{personId, login, name, avatarUrl, commitEmail, commitEmails}` |
 | `PUT /v1/me` | Bearer | `{commitEmail}` | as `GET /v1/me` |
-| `POST /v1/invites` | Bearer (owner) | `{inviteeLogin, share, host, role, expiresAt}` | `{inviteId, hostCapability}` |
+| `POST /v1/invites` | Bearer (owner) | `{inviteeLogin, share, host, role, expiresAt}` | `{inviteId, hostCapability, relayUrl}` |
 | `GET /v1/invites` | Bearer (teammate) | | `[{inviteId, owner, share, host: {name}, role, expiresAt}]` |
 | `POST /v1/invites/{id}/accept` | Bearer (teammate) | `{relayAddress, noiseKey}` | `{host, share, role, owner}` |
 | `POST /v1/invites/{id}/decline` | Bearer (teammate) | | 204 |
@@ -107,7 +107,7 @@ that accepted an Invite with that session off its Share (see Devices long-poll).
 | `DELETE /v1/shares/{inviteId}/devices` | Capability | | 204 |
 
 where `share` is `{id, title, kind: "session" | "constellation"}`, `host` is
-`{name, relayAddress, noiseKey}`, `role` is `"contributor" | "commenter"`, `owner` is a person as
+`{name, relayAddress, noiseKey, relayUrl}`, `role` is `"contributor" | "commenter"`, `owner` is a person as
 `GET /v1/people` returns it, and times are ISO 8601.
 
 - **Identity.** A person is one GitHub account (its numeric ID), never an address: two GitHub
@@ -124,6 +124,11 @@ where `share` is `{id, title, kind: "session" | "constellation"}`, `host` is
   login becomes; anyone else gets 404. Accepting registers the accepting device under the session it
   accepted with; each further device of the Teammate accepts the same Invite again to join the list. Declining an accepted Invite leaves the Share and empties
   the list. The Account Server keeps no Share expiry of its own: the Host enforces and renews it.
+- **Relay URL.** `host.relayUrl` is the relay the owner's Host is reachable on. It is optional on
+  `POST /v1/invites`; absent or null means Polaris Cloud. It must be `wss://`, or `ws://` on a
+  loopback host (`localhost`, `127.0.0.0/8`, `[::1]`), with no username or password; anything else
+  is 400 `InvalidInvite` naming the problem. It is stored as sent and returned, `null` when absent,
+  by `POST /v1/invites` and in the accept answer's `host`.
 - **The host capability** is returned once, at creation; the server keeps only its SHA-256. Send it
   as `Authorization: Capability <hostCapability>`. It reads only its own Share and works until
   `DELETE` revokes it, after which it is 401 and the Invite can't be accepted.

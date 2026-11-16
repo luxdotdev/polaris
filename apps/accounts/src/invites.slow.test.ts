@@ -49,13 +49,21 @@ afterAll(() => accounts.stop());
 
 const Created = Schema.Struct({ inviteId: Schema.String, hostCapability: Schema.String });
 
-const invite = (overrides: Partial<Record<"inviteeLogin" | "expiresAt" | "role", string>> = {}) =>
+const invite = (
+  overrides: Partial<Record<"inviteeLogin" | "expiresAt" | "role", string>> = {},
+  host: { relayUrl?: string | null } = {}
+) =>
   accounts.call("POST", "/v1/invites", {
     token: ownerToken,
     body: {
       inviteeLogin: "Alex",
       share: { id: "session-1", title: "Fix the flaky test", kind: "session" },
-      host: { name: "Mac Studio", relayAddress: "relay-host-1", noiseKey: randomNoiseKey() },
+      host: {
+        name: "Mac Studio",
+        relayAddress: "relay-host-1",
+        noiseKey: randomNoiseKey(),
+        ...host,
+      },
       role: "contributor",
       expiresAt: inDays(7),
       ...overrides,
@@ -232,6 +240,55 @@ describe("invites", () => {
     expect((await invite({ expiresAt: inDays(-1) })).status).toBe(400);
     expect((await invite({ expiresAt: "soon" })).status).toBe(400);
     expect((await invite({ role: "owner" })).status).toBe(400);
+  });
+
+  const RelayUrl = Schema.NullOr(Schema.String);
+
+  const acceptedHost = async (host: { relayUrl?: string | null }) => {
+    const { inviteId, relayUrl } = await readJson(
+      await invite({}, host),
+      Schema.Struct({ inviteId: Schema.String, relayUrl: RelayUrl })
+    );
+
+    const accepted = await accounts.call("POST", `/v1/invites/${inviteId}/accept`, {
+      token: teammateToken,
+      body: { relayAddress: "relay-alex-desk", noiseKey: randomNoiseKey() },
+    });
+
+    const answer = await readJson(
+      accepted,
+      Schema.Struct({ host: Schema.Struct({ relayUrl: RelayUrl }) })
+    );
+
+    return { created: relayUrl, accepted: answer.host.relayUrl };
+  };
+
+  test("an Invite carries the owner Host's relay URL to the Teammate who accepts it", async () => {
+    expect(await acceptedHost({ relayUrl: "wss://relay.example.com/v1" })).toEqual({
+      created: "wss://relay.example.com/v1",
+      accepted: "wss://relay.example.com/v1",
+    });
+    expect(await acceptedHost({ relayUrl: "ws://127.0.0.1:4433" })).toEqual({
+      created: "ws://127.0.0.1:4433",
+      accepted: "ws://127.0.0.1:4433",
+    });
+    // An older Client sends no relayUrl: the Invite is on Polaris Cloud.
+    expect(await acceptedHost({})).toEqual({ created: null, accepted: null });
+    expect(await acceptedHost({ relayUrl: null })).toEqual({ created: null, accepted: null });
+  });
+
+  test.each([
+    ["ws://relay.example.com", "wss://, or ws:// on a loopback host"],
+    ["https://relay.example.com", "wss://, or ws:// on a loopback host"],
+    ["wss://user:secret@relay.example.com", "username or password"],
+    ["relay.example.com", "isn't a URL"],
+  ])("an Invite with relayUrl %p is refused", async (relayUrl, message) => {
+    const response = await invite({}, { relayUrl });
+    expect(response.status).toBe(400);
+    const refusal = Schema.Struct({ _tag: Schema.String, message: Schema.String });
+    const body = Schema.decodeUnknownSync(refusal)(await response.json());
+    expect(body._tag).toBe("InvalidInvite");
+    expect(body.message).toContain(message);
   });
 });
 

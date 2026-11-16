@@ -121,3 +121,59 @@ test("a session the server ended reads as signed out, keeping the Account to sig
   expect(outcome.list.map((a) => [a.login, a.signedOutAt !== null])).toEqual([["mona", true]]);
   expect(Option.isNone(await Effect.runPromise(store.token(signedIn.id)))).toBe(true);
 }, 60_000);
+
+test("an Invite's relay URL reaches the Teammate who accepts it; none is Polaris Cloud", async () => {
+  const layer = Accounts.layer({
+    store: memoryAccountStore(),
+    fetch: (url, init) => fetch(url, init),
+    clientId: "test",
+  });
+
+  const run = <A, E>(effect: Effect.Effect<A, E, Accounts>) =>
+    Effect.runPromise(Effect.scoped(Effect.provide(effect, layer)));
+
+  const hosts = await run(
+    Effect.gen(function* () {
+      const accounts = yield* Accounts;
+      const owner = yield* accounts.signIn(team.origin, browserFor(team, "lisa", 2001));
+      const teammate = yield* accounts.signIn(team.origin, browserFor(team, "bart", 2002));
+
+      const share = (relayUrl: string | null) =>
+        Effect.gen(function* () {
+          const created = yield* accounts.createInvite(owner.id, {
+            inviteeLogin: "bart",
+            share: { id: crypto.randomUUID(), title: "Relay", kind: "session" },
+            host: {
+              name: "Desk",
+              relayAddress: "relay-desk",
+              noiseKey: randomNoiseKey(),
+              relayUrl,
+            },
+            role: "commenter",
+            expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+          });
+
+          const accepted = yield* accounts.accept(teammate.id, created.inviteId, {
+            relayAddress: "relay-bart",
+            noiseKey: randomNoiseKey(),
+          });
+
+          return [created.relayUrl, accepted.host.relayUrl];
+        });
+
+      const refused = yield* Effect.flip(share("ws://relay.example.com"));
+
+      return {
+        selfHosted: yield* share("wss://relay.example.com"),
+        cloud: yield* share(null),
+        refused: [refused.reason, refused.serverTag],
+      };
+    })
+  );
+
+  expect(hosts).toEqual({
+    selfHosted: ["wss://relay.example.com", "wss://relay.example.com"],
+    cloud: [null, null],
+    refused: ["refused", "InvalidInvite"],
+  });
+}, 60_000);

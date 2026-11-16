@@ -11,7 +11,17 @@ import { Thumbnails } from "../attachments/index.ts";
 import { Celestial } from "../celestial";
 import { Markdown } from "../markdown/index.ts";
 import { type BubbleState, BubbleFootnote, useBubbleTreatment } from "../states/thread.tsx";
-import { LongPressMenu, type MenuAction, turnMenu } from "../menus/index.ts";
+import { commentMenu, LongPressMenu, type MenuAction, turnMenu } from "../menus/index.ts";
+import { promptMessage } from "../shared/commands.ts";
+import {
+  CarriedCards,
+  carriedComments,
+  MessageCommentsLine,
+  PromptByline,
+  StepCommentCount,
+} from "../shared/RowParts.tsx";
+import type { RowSharing } from "../shared/useSharedThread.ts";
+import { messageAnchor } from "../shared/commands.ts";
 import { type MobileColours, themedStyles } from "../theme/index.ts";
 import { type ThreadRow, type TurnFacts, turnHeading } from "./rows.ts";
 import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
@@ -117,12 +127,14 @@ const Step = ({
   focused,
   onFocus,
   session,
+  sharing,
 }: {
   readonly row: Extract<ThreadRow, { kind: "step" }>;
   readonly critical: boolean;
   readonly focused: boolean;
   readonly onFocus: ((focus: ThreadFocus) => void) | undefined;
   readonly session: RowSession | undefined;
+  readonly sharing: RowSharing | undefined;
 }) => {
   const styles = useStyles();
 
@@ -154,6 +166,12 @@ const Step = ({
           {row.label}
         </Text>
         {critical ? <Diamond /> : null}
+        <StepCommentCount
+          turnId={row.turnId}
+          paths={row.paths}
+          label={row.label}
+          sharing={sharing}
+        />
         {row.detail === "" ? null : (
           <Text
             style={row.tone === "failed" ? styles.stepFailed : styles.stepDetail}
@@ -192,6 +210,8 @@ export interface RowProps {
   readonly revised?: ReadonlySet<string>;
   /** Row keys of the Visualizations that may hold a live WebView. */
   readonly liveFrames?: ReadonlySet<string>;
+  /** A shared session's bylines and Comments; undefined in one never shared. */
+  readonly sharing?: RowSharing | undefined;
 }
 
 const NONE: ReadonlySet<string> = new Set();
@@ -226,6 +246,35 @@ const Bubble = ({
       {note === null ? null : (
         <Text style={[styles.note, failed ? styles.noteFailed : null]}>{note}</Text>
       )}
+    </View>
+  );
+};
+
+/** A shared session's prompt (SS6): its byline, then the Comments it carried and its own words. */
+const SharedPrompt = ({
+  row,
+  hostId,
+  sharing,
+}: {
+  readonly row: Extract<ThreadRow, { kind: "prompt" }>;
+  readonly hostId: string;
+  readonly sharing: RowSharing;
+}) => {
+  const styles = useStyles();
+  const text = promptMessage(row.text, carriedComments(row.commentIds, sharing.comments));
+
+  return (
+    <View style={styles.promptLine}>
+      <PromptByline actor={row.actor} turnId={row.turnId} sharing={sharing} />
+      <Thumbnails hostId={hostId} attachments={row.attachments} />
+      <View style={[styles.prompt, styles.sharedPrompt]}>
+        <CarriedCards ids={row.commentIds} sharing={sharing} />
+        {text.trim() === "" ? null : (
+          <Text style={styles.promptText} selectable>
+            {text}
+          </Text>
+        )}
+      </View>
     </View>
   );
 };
@@ -282,27 +331,38 @@ const TurnMenu = ({
   session,
   onMenuAction,
   receiptHeight,
+  onComment,
   children,
 }: {
   readonly turn: TurnFacts | null;
   readonly session: RowSession | undefined;
   readonly onMenuAction: ((action: MenuAction) => void) | undefined;
   readonly receiptHeight: number;
+  /** In a shared session, the message's Comment item. */
+  readonly onComment?: (() => void) | undefined;
   readonly children: ReactNode;
-}) =>
-  turn === null || session === undefined || onMenuAction === undefined ? (
-    children
-  ) : (
+}) => {
+  const turned = turn !== null && session !== undefined && onMenuAction !== undefined;
+  const menu = [...(turned ? turnMenu(session, turn) : []), ...(onComment ? commentMenu : [])];
+
+  if (menu.length === 0) return children;
+
+  return (
     <LongPressMenu
-      menu={turnMenu(session, turn)}
-      title={[turnHeading(turn), turn.receipt].filter((line) => line !== "").join("\n")}
+      menu={menu}
+      title={
+        turn === null
+          ? ""
+          : [turnHeading(turn), turn.receipt].filter((line) => line !== "").join("\n")
+      }
       previewInsetBottom={receiptHeight}
       card
-      onAction={onMenuAction}
+      onAction={(action) => (action.kind === "comment" ? onComment?.() : onMenuAction?.(action))}
     >
       {children}
     </LongPressMenu>
   );
+};
 
 const RECEIPT_GAP = 8;
 
@@ -310,10 +370,12 @@ const Reply = ({
   row,
   session,
   onMenuAction,
+  sharing,
 }: {
   readonly row: Extract<ThreadRow, { kind: "reply" }>;
   readonly session: RowSession | undefined;
   readonly onMenuAction: ((action: MenuAction) => void) | undefined;
+  readonly sharing: RowSharing | undefined;
 }) => {
   const styles = useStyles();
   const [receiptHeight, setReceiptHeight] = useState(0);
@@ -328,9 +390,26 @@ const Reply = ({
       session={session}
       onMenuAction={onMenuAction}
       receiptHeight={row.receipt === null ? 0 : receiptHeight}
+      onComment={
+        sharing === undefined
+          ? undefined
+          : () =>
+              sharing.onComment({
+                anchor: messageAnchor(row.turnId, row.itemId, row.text),
+                quote: row.text,
+              })
+      }
     >
       <View style={[styles.reply, row.receipt === null ? null : styles.turnEnd]}>
         <Markdown text={row.text} />
+        {sharing === undefined ? null : (
+          <MessageCommentsLine
+            turnId={row.turnId}
+            itemId={row.itemId}
+            text={row.text}
+            sharing={sharing}
+          />
+        )}
         {row.receipt === null ? null : (
           <Text
             style={styles.receipt}
@@ -359,12 +438,17 @@ const RowView = ({
   onMenuAction,
   revised = NONE,
   liveFrames = NONE,
+  sharing,
 }: RowProps) => {
   const styles = useStyles();
 
   switch (row.kind) {
     case "prompt":
-      return <Bubble text={row.text} note={null} hostId={hostId} attachments={row.attachments} />;
+      return sharing === undefined ? (
+        <Bubble text={row.text} note={null} hostId={hostId} attachments={row.attachments} />
+      ) : (
+        <SharedPrompt row={row} hostId={hostId} sharing={sharing} />
+      );
     case "quiet":
       return (
         <Text style={[styles.quiet, styles.turnEnd]} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
@@ -408,7 +492,7 @@ const RowView = ({
     case "send":
       return <SendBubble row={row} hostId={hostId} hostName={hostName} onSendAgain={onSendAgain} />;
     case "reply":
-      return <Reply row={row} session={session} onMenuAction={onMenuAction} />;
+      return <Reply row={row} session={session} onMenuAction={onMenuAction} sharing={sharing} />;
     case "receipt":
       return (
         <TurnMenu turn={row.turn} session={session} onMenuAction={onMenuAction} receiptHeight={0}>
@@ -441,6 +525,7 @@ const RowView = ({
           focused={focused}
           onFocus={onFocus}
           session={session}
+          sharing={sharing}
         />
       );
   }
@@ -476,6 +561,7 @@ const makeStyles = (colours: MobileColours) =>
       paddingHorizontal: 14,
     },
     promptText: { ...mobileType.callout, lineHeight: 20, color: colours.textStrong },
+    sharedPrompt: { gap: 8 },
     message: { ...mobileType.callout, color: colours.textDefault },
     reply: { paddingHorizontal: 6, marginBottom: ITEM_GAP, gap: RECEIPT_GAP },
     turnEnd: { marginBottom: TURN_GAP },

@@ -3,6 +3,7 @@ import { Effect, Schema } from "effect";
 import {
   type HostRef,
   InvalidInvite,
+  type InviteHost,
   InviteClosed,
   InviteNotFound,
   type Role,
@@ -11,6 +12,7 @@ import {
 import { invite, session, shareDevice, user } from "../db/schema.ts";
 import { findByLogin, findPerson, toPerson } from "../people/index.ts";
 import { Accounts, ShareChanges, store } from "../server/services.ts";
+import { checkRelayUrl } from "./relayUrl.ts";
 
 /** The longest an Invite may run before it lapses (DESIGN.md, Shared Sessions). */
 export const MAX_INVITE_DAYS = 30;
@@ -34,10 +36,11 @@ export const shareOf = (row: InviteRow): typeof ShareRef.Type => ({
   kind: decodeShareKind(row.shareKind),
 });
 
-const hostOf = (row: InviteRow): typeof HostRef.Type => ({
+const hostOf = (row: InviteRow): typeof InviteHost.Type => ({
   name: row.hostName,
   relayAddress: row.hostRelayAddress,
   noiseKey: row.hostNoiseKey,
+  relayUrl: row.hostRelayUrl,
 });
 
 export const createInvite = Effect.fn("createInvite")(function* (
@@ -69,6 +72,10 @@ export const createInvite = Effect.fn("createInvite")(function* (
     });
   }
 
+  const relayUrl = checkRelayUrl(input.host.relayUrl);
+
+  if (relayUrl instanceof InvalidInvite) return yield* relayUrl;
+
   const inviteId = crypto.randomUUID();
   const hostCapability = toBase64Url(crypto.getRandomValues(new Uint8Array(32)));
   yield* store(() =>
@@ -83,6 +90,7 @@ export const createInvite = Effect.fn("createInvite")(function* (
       hostName: input.host.name,
       hostRelayAddress: input.host.relayAddress,
       hostNoiseKey: input.host.noiseKey,
+      hostRelayUrl: relayUrl,
       role: input.role,
       expiresAt,
       status: "pending",
@@ -90,7 +98,7 @@ export const createInvite = Effect.fn("createInvite")(function* (
     })
   );
 
-  return { inviteId, hostCapability };
+  return { inviteId, hostCapability, relayUrl };
 });
 
 export const pendingInvites = Effect.fn("pendingInvites")(function* (personId: string) {

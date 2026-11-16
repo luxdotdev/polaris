@@ -68,6 +68,8 @@ import {
 import { threadKey, threads } from "./threads.ts";
 import { useAfter } from "../runtime/useAfter.ts";
 import { InboxBadge } from "../inbox/index.ts";
+import * as Shared from "../shared/ThreadParts.tsx";
+import { useSharedThread } from "../shared/useSharedThread.ts";
 import { ReconnectingLine } from "../states/thread.tsx";
 import { CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 import { liveVisualizations, revisedIds } from "../visualization/index.ts";
@@ -189,6 +191,7 @@ const Header = ({
   rising = false,
   away = false,
   onSlot,
+  sharing,
 }: {
   readonly title: string;
   readonly line: HeaderLine;
@@ -203,6 +206,8 @@ const Header = ({
   readonly away?: boolean;
   /** The slot's place in the header, for the rise to land in. */
   readonly onSlot?: (slot: LayoutRectangle) => void;
+  /** Who is watching, and the role chip or Share (SS6). */
+  readonly sharing?: ReactNode;
 }) => {
   const styles = useStyles();
 
@@ -260,6 +265,7 @@ const Header = ({
           </Text>
         </Pressable>
       )}
+      {sharing}
       <InboxBadge />
     </View>
   );
@@ -337,6 +343,8 @@ export const ThreadScreen = ({
   const fold = state?.fold ?? null;
   const workspaceId = fold?.session.workspaceId ?? null;
   const workspace = useWorkspace(controller, workspaceId);
+  const shared = useSharedThread(connection, sessionId, fold);
+  const [sharingOpen, setSharingOpen] = useState(false);
 
   const stageTarget = useMemo(
     () =>
@@ -516,7 +524,12 @@ export const ThreadScreen = ({
             }}
             criticals={criticals.length}
             onBack={onBack}
-            onReview={canReview(fold.turns.map(({ turn }) => turn.status)) ? openReview : undefined}
+            onReview={
+              shared.viewer.kind === "owner" && canReview(fold.turns.map(({ turn }) => turn.status))
+                ? openReview
+                : undefined
+            }
+            sharing={<Shared.HeaderSharing shared={shared} onShare={() => setSharingOpen(true)} />}
             away={away}
             rising={rise.rising}
             onSlot={rise.onSlot}
@@ -549,6 +562,7 @@ export const ThreadScreen = ({
                 onMenuAction={onMenuAction}
                 revised={revised}
                 liveFrames={liveFrames}
+                sharing={shared.rows}
               />
             )}
             ListHeaderComponent={
@@ -586,51 +600,64 @@ export const ThreadScreen = ({
           {away ? <ReconnectingLine host={connection.name} onRetry={connection.retryNow} /> : null}
           {aboveComposer}
           <Suggestions items={chips} onPick={pick} />
-          <Composer
-            mode={mode}
-            text={state.text}
-            harness={session.harness}
-            model={session.model}
-            celestial={session.celestial}
-            requests={{
-              requests: fold.pendingApprovals,
-              answering: state.answering,
-              errors: state.requestErrors,
-              enabled: live,
-              onRespond: (requestId, decision) => void controller?.respond(requestId, decision),
-              onProvideSecret: (requestId, typed) =>
-                void controller?.provideSecret(requestId, typed),
-              settled: latestSecretOutcome(fold),
-              host: { hostId: connection.hostId, name: connection.name },
-            }}
-            subagents={fold.subagents}
-            contextUsage={session.contextUsage}
-            sheet={sheetContextOf(connection, live, fold)}
-            workingSince={last?.status === "working" ? last.startedAt : null}
-            asOf={asOf}
-            draftStatus={state.draftStatus}
-            error={state.error}
-            onChange={(text) => controller?.type(text)}
-            attach={attachments.input}
-            attaching={attachments.staging}
-            voice={voice}
-            onSend={() => {
-              voice?.release();
-              const sent = attachments.submission();
-              const steers = steersAttachmentsFor(hostId, session.harness);
-              void controller?.submit(sent.attachments, steers).then((taken) => {
-                if (taken) sent.done();
-              });
-            }}
-            onQueue={() => {
-              voice?.release();
-              const held = attachments.submission();
+          <Shared.SendCommentsBar count={shared.sendable.length} onSend={shared.send} />
+          {Shared.commenting(shared) ? (
+            <Shared.SharedCommentComposer shared={shared} />
+          ) : (
+            <Composer
+              mode={mode}
+              text={state.text}
+              harness={session.harness}
+              model={session.model}
+              celestial={session.celestial}
+              requests={{
+                requests: fold.pendingApprovals,
+                answering: state.answering,
+                errors: state.requestErrors,
+                enabled: live,
+                onRespond: (requestId, decision) => void controller?.respond(requestId, decision),
+                onProvideSecret: (requestId, typed) =>
+                  void controller?.provideSecret(requestId, typed),
+                settled: latestSecretOutcome(fold),
+                host: { hostId: connection.hostId, name: connection.name },
+              }}
+              subagents={fold.subagents}
+              contextUsage={session.contextUsage}
+              sheet={sheetContextOf(connection, live, fold)}
+              workingSince={last?.status === "working" ? last.startedAt : null}
+              asOf={asOf}
+              draftStatus={state.draftStatus}
+              error={state.error}
+              onChange={(text) => controller?.type(text)}
+              attach={attachments.input}
+              attaching={attachments.staging}
+              voice={voice}
+              onSend={() => {
+                voice?.release();
+                const sent = attachments.submission();
+                const steers = steersAttachmentsFor(hostId, session.harness);
+                void controller?.submit(sent.attachments, steers).then((taken) => {
+                  if (taken) sent.done();
+                });
+              }}
+              onQueue={() => {
+                voice?.release();
+                const held = attachments.submission();
 
-              if (controller?.queue(held.attachments) === true) held.done();
-            }}
-            onStop={() => void controller?.interrupt()}
-          />
+                if (controller?.queue(held.attachments) === true) held.done();
+              }}
+              onStop={() => void controller?.interrupt()}
+            />
+          )}
         </View>
+        <Shared.SharedSheets
+          shared={shared}
+          connection={connection}
+          sessionId={sessionId}
+          title={session.title}
+          sharing={sharingOpen}
+          onCloseShare={() => setSharingOpen(false)}
+        />
         <RiseLayer
           rise={rise}
           body={sessionCelestial(session.celestial)}
