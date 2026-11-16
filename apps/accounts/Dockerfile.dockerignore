@@ -1,0 +1,12 @@
+# Manifests, the lockfile and patches for the install; then only the Account Server's sources.
+*
+!package.json
+!bun.lock
+!patches
+!apps/*/package.json
+!packages/*/package.json
+!extensions/*/package.json
+!tooling/package.json
+!apps/accounts
+apps/accounts/node_modules
+apps/accounts/.turbo
