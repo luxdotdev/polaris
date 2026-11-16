@@ -37,6 +37,7 @@ import { LinkScreen } from "./link/LinkScreen.tsx";
 import { useLiveActivity } from "./live/useLiveActivity.ts";
 import { usePush, usePushLinks } from "./push/usePush.ts";
 import { RelayProvider, useRelay } from "./relay/RelayProvider.tsx";
+import { AccountsProvider } from "./accounts/index.ts";
 import { runSelfCheck } from "./runtime/selfCheck.ts";
 import { AcceptDemo } from "./review/accept/index.ts";
 import { ReviewGallery, reviewGalleryOn } from "./review/gallery/Gallery.tsx";
@@ -285,15 +286,17 @@ export const App = () => {
           <StatusBar style="light" />
           <HostsProvider>
             <RelayProvider>
-              <FollowedHostsProvider>
-                <WidgetSync />
-                <SelfTraceSync />
-                <CheckAlive />
-                <Push />
-                <NavigationProvider>
-                  <Shell />
-                </NavigationProvider>
-              </FollowedHostsProvider>
+              <AccountsProvider>
+                <FollowedHostsProvider>
+                  <WidgetSync />
+                  <SelfTraceSync />
+                  <CheckAlive />
+                  <Push />
+                  <NavigationProvider>
+                    <Shell />
+                  </NavigationProvider>
+                </FollowedHostsProvider>
+              </AccountsProvider>
             </RelayProvider>
           </HostsProvider>
         </SafeAreaProvider>
