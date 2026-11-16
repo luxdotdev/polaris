@@ -33,13 +33,13 @@ export const noticeOf = (state: UserAccessView | undefined, host: string): Notic
   if (state.standing === "waiting")
     return {
       title: `This desktop app is waiting to be allowed on ${host}`,
-      body: `Until then it can't approve, send turns or start agent sessions there. Allow it from a desktop app that already uses ${host}; it shows the same code.`,
+      body: `Until then it only reads there: it can't approve, send turns, start agent sessions or change anything. Allow it from a desktop app that already uses ${host}; it shows the same code.`,
       code: state.code,
     };
 
   return {
     title: `This desktop app isn't allowed on ${host}`,
-    body: `It can't approve, send turns or start agent sessions there. Reconnect to ${host} to ask again.`,
+    body: `It only reads there: it can't approve, send turns, start agent sessions or change anything. Reconnect to ${host} to ask again.`,
     code: null,
   };
 };

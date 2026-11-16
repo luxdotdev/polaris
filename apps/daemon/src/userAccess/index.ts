@@ -1,3 +1,5 @@
+export { ConnectionUserAccess, holdsUserAccess } from "./connection.ts";
+
 export { userAccessFile } from "./file.ts";
 
 export {

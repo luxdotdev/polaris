@@ -10,8 +10,9 @@ import { EventStore } from "../store/EventStore.ts";
 import { ConstellationRuntime } from "./runtime.ts";
 import { startWorker } from "./startWorker.ts";
 import { RemoteWorkers } from "./transfers/assignments.ts";
+import { holdsUserAccess } from "../userAccess/index.ts";
 
-/** Only the authenticated transport sets this annotation. Unbound Desktop connections are the user. */
+/** Only the authenticated transport sets this annotation. Unbound connections read as the user. */
 export class ConstellationCaller extends Context.Service<
   ConstellationCaller,
   ConstellationBinding
@@ -19,6 +20,16 @@ export class ConstellationCaller extends Context.Service<
 
 const caller = (annotations: Context.Context<never>): ConstellationBinding =>
   Context.getOrUndefined(annotations, ConstellationCaller) ?? { kind: "user" };
+
+/**
+ * The user, for what changes the Host: a binding that says so, or a connection the user gate
+ * admitted. An unbound connection the gate never saw is refused.
+ */
+export const isUserCaller = (annotations: Context.Context<never>): boolean => {
+  const binding = Context.getOrUndefined(annotations, ConstellationCaller);
+
+  return binding === undefined ? holdsUserAccess(annotations) : binding.kind === "user";
+};
 
 export const ConstellationRpcHandlers = ConstellationRpcs.toLayer(
   Effect.gen(function* () {
@@ -57,7 +68,7 @@ export const ConstellationRpcHandlers = ConstellationRpcs.toLayer(
       "constellation.defaults.get": () =>
         getDefaults.pipe(Effect.map((settings) => ({ settings }))),
       "constellation.defaults.set": ({ settings }, { client }) =>
-        caller(client.annotations).kind === "user"
+        isUserCaller(client.annotations)
           ? setDefaults(settings)
           : Effect.fail(
               refusal(undefined, [

@@ -113,6 +113,8 @@ const responseOf = (response: Response, body: BodyRead): WireResponse => ({
 export interface TransmitOptions {
   readonly timeoutMs?: number;
   readonly cap?: number;
+  /** Ends the Send when its request is interrupted: the gate cut it, or the Client went away. */
+  readonly signal?: AbortSignal;
 }
 
 /** Never throws: every failure becomes an outcome. 3xx is returned as is, not followed. */
@@ -134,7 +136,10 @@ export const transmit = async (
       headers: request.headers.map(({ name, value }): [string, string] => [name, value]),
       ...(request.body === undefined ? undefined : { body: request.body }),
       redirect: "manual",
-      signal: AbortSignal.timeout(timeoutMs),
+      signal:
+        options.signal === undefined
+          ? AbortSignal.timeout(timeoutMs)
+          : AbortSignal.any([AbortSignal.timeout(timeoutMs), options.signal]),
     });
   } catch (error) {
     return failed(

@@ -23,6 +23,8 @@ export const ingestOn = (
       NotConnected: outcome("unreachable"),
       RpcClientError: outcome("unreachable"),
       Unsupported: outcome("dropped"),
+      // This Desktop App isn't enrolled on the Host: its traces aren't the user's to add there.
+      UserAccessRequired: outcome("dropped"),
       SelfTraceRejected: (error) =>
         Effect.succeed<SelfTraceSendOutcome>(error.reason === "busy" ? "unreachable" : "dropped"),
     }),

@@ -3,9 +3,15 @@
  * ADR 0114): reset enrolment, run a program, outlive a revoke, or empty the registry.
  */
 import { expect, test } from "bun:test";
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { Command, type UserAccessState, WorkspaceId } from "@polaris/protocol";
+import {
+  Command,
+  ConstellationId,
+  TurnId,
+  type UserAccessState,
+  WorkspaceId,
+} from "@polaris/protocol";
 import { Effect, Fiber, Option, Stream } from "effect";
 import {
   AGENT_KEY,
@@ -194,18 +200,27 @@ test("the last enrolled Desktop App can't be revoked, so first use never comes b
   expect(result).toEqual({ revoke: "LastEnrolledApp", agent: false, still: "reached" });
 });
 
-test("an emptied registry enrols nobody and asks nobody; a missing file is a fresh Host", async () => {
+test("an emptied registry enrols nobody and asks nobody; only a missing file is a fresh Host", async () => {
   const result = await Effect.runPromise(
     withServer((connect, root) =>
       Effect.gen(function* () {
-        writeFileSync(join(root, "user-access.json"), JSON.stringify({ version: 2, keys: [] }));
+        const file = join(root, "user-access.json");
+
+        writeFileSync(file, JSON.stringify({ version: 2, keys: [] }));
         const agent = yield* app(connect, AGENT_KEY, "agent");
         const state = yield* stateWhen(agent.client, () => true);
+        const approves = yield* outcome(agent.client.dispatch(approve));
+
+        // The person at the Host deletes the file: the next Desktop App is the first again.
+        rmSync(file);
+        const studio = yield* app(connect, DESKTOP_KEY, "Mac Studio");
 
         return {
           access: agent.access,
           standing: state?.standing,
-          approves: yield* outcome(agent.client.dispatch(approve)),
+          approves,
+          afterDeletion: studio.access,
+          firstApproves: yield* outcome(studio.client.dispatch(approve)),
         };
       })
     )
@@ -215,5 +230,47 @@ test("an emptied registry enrols nobody and asks nobody; a missing file is a fre
     access: false,
     standing: "none",
     approves: "UserAccessRequired:dispatch:RespondToApproval",
+    afterDeletion: true,
+    firstApproves: "reached",
+  });
+});
+
+test("an unenrolled process can't accept and revert Turns, push a Constellation's base, boot a Simulator or clear attachments", async () => {
+  const result = await Effect.runPromise(
+    withServer((connect) =>
+      Effect.gen(function* () {
+        yield* app(connect, DESKTOP_KEY, "Mac Studio");
+        const { client } = yield* app(connect, AGENT_KEY, "agent");
+
+        return {
+          accept: yield* outcome(
+            client.dispatch(
+              command(
+                Command.cases.AcceptTurns.make({
+                  sessionId,
+                  throughTurnId: TurnId.make("t1"),
+                  revertLaterTurns: true,
+                })
+              )
+            )
+          ),
+          push: yield* outcome(
+            client["constellation.base.export"]({
+              constellationId: ConstellationId.make("c1"),
+              head: "0".repeat(40),
+            })
+          ),
+          boot: yield* outcome(client["simulator.boot"]({ id: "booted" })),
+          clear: yield* outcome(client["attachments.clear"]({ workspaceId: null })),
+        };
+      })
+    )
+  );
+
+  expect(result).toEqual({
+    accept: "UserAccessRequired:dispatch:AcceptTurns",
+    push: "UserAccessRequired:constellation.base.export",
+    boot: "UserAccessRequired:simulator.boot",
+    clear: "UserAccessRequired:attachments.clear",
   });
 });

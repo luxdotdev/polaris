@@ -64,7 +64,7 @@ test("a process with only socket access can't approve or answer a secret once th
     keylessApproves: "UserAccessRequired:dispatch:RespondToApproval",
     keylessSecret: "UserAccessRequired:secret.provide",
     keylessPairs: "UserAccessRequired:extensions.pair",
-    keylessRenames: "reached",
+    keylessRenames: "UserAccessRequired:dispatch:RenameSession",
     ownKeyAccess: false,
     ownKeyApproves: "UserAccessRequired:dispatch:RespondToApproval",
   });

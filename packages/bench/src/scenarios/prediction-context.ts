@@ -44,6 +44,8 @@ export const predictionContext: Scenario = {
         deviceLabel: "bench",
         capabilities: ["prediction.context"],
         languageProof: Redacted.make("c".repeat(64)),
+        // As the Desktop App: the fresh home enrols it, so it may register a Workspace (ADR 0114).
+        userKey: Redacted.make("b".repeat(64)),
       });
 
       const client = { connection, label: "prediction-context", capabilities: hello.capabilities };

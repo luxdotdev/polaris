@@ -21,6 +21,7 @@ import {
   type SessionId,
   TransportError,
   Unsupported,
+  type UserAccessRequired,
 } from "@polaris/protocol";
 import {
   type Cause as CauseType,
@@ -164,7 +165,7 @@ export interface BrowserStreamOffer {
    */
   readonly accept: Effect.Effect<
     ByteTransport,
-    NotFound | Unsupported | RpcClientError,
+    NotFound | Unsupported | RpcClientError | UserAccessRequired,
     Scope.Scope
   >;
   readonly refuse: Effect.Effect<void>;
@@ -176,10 +177,15 @@ export interface BrowserHost {
   /** This connection shows `sessionId`'s Browser: its streams come here. */
   readonly claim: (
     sessionId: SessionId
-  ) => Effect.Effect<void, NotFound | Unsupported | RpcClientError>;
-  readonly release: (sessionId: SessionId) => Effect.Effect<void, RpcClientError>;
-  /** Settles when the Daemon ended the hosting (the connection dropped); fails with why. */
-  readonly ended: Effect.Effect<void, RpcClientError | Unsupported>;
+  ) => Effect.Effect<void, NotFound | Unsupported | RpcClientError | UserAccessRequired>;
+  readonly release: (
+    sessionId: SessionId
+  ) => Effect.Effect<void, RpcClientError | UserAccessRequired>;
+  /**
+   * Settles when the Daemon ended the hosting (the connection dropped); fails with why,
+   * `UserAccessRequired` when this Desktop App isn't enrolled on the Host or was revoked.
+   */
+  readonly ended: Effect.Effect<void, RpcClientError | Unsupported | UserAccessRequired>;
 }
 
 interface CarriedEntry {
@@ -198,7 +204,7 @@ export const hostBrowsers = Effect.fnUntraced(function* (
   if (!session.capabilities.includes("browser.host"))
     return yield* new Unsupported({ capability: "browser.host" });
   const offers = yield* Queue.unbounded<BrowserStreamOffer, CauseType.Done>();
-  const ended = yield* Deferred.make<void, RpcClientError | Unsupported>();
+  const ended = yield* Deferred.make<void, RpcClientError | Unsupported | UserAccessRequired>();
   /** Streams offered and not yet closed; `accept` fills the endpoint in. */
   const carried = new Map<ByteStreamId, CarriedEntry>();
 

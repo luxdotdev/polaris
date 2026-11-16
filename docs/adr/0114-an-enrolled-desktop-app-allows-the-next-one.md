@@ -45,18 +45,24 @@ agent's shell included, could approve its own Pending Approvals, send Turns and 
   agent drives stops). A Desktop App may revoke itself, but never the last one: the Host refuses
   with `LastEnrolledApp`, because an empty registry could allow nobody and must not go back to
   first use. The Desktop App shows all this under Settings → Hosts, on the host's page.
-- **What runs a program or writes the Host's files is user-only.** Without it a socket-only
-  process deleted the enrolment file through `files.delete` and won first use, or ran a command
-  through `terminal.open`. So `user` also covers: `files.write`, `create`, `delete` and
-  `rename`; `terminal.open`; `git.stage`, `unstage`, `discard`, `commit`, `init` and `sync`
-  (hooks and credential helpers run); installing language tools, choosing the Python
-  interpreter, formatting, and applying or recovering language edits; the managed prediction
-  server; trace settings (what spawns are instrumented with, where traces are forwarded); the
-  Reviewer's Harness; a Constellation's dispatch, worker start and prepare, and git transfers;
-  and the Commands `SetWorktreeSetup`, `ForkSession`, `SetModel` and the review checkouts.
-  Extensions and Linked Devices were already refused all of these by their own tables. Reads,
-  `host.resources.*` (`polaris lease`), `constellation.stats` and `extensions.list` stay open
-  to the Daemon's own CLIs.
+- **Open by exception.** `any` is only for a request that reads or watches and changes nothing
+  on the Host beyond its caller's own connection. Everything that writes or deletes files, runs,
+  installs or configures a process, changes git state or changes a setting is `user`, and so is
+  every `dispatch` Command. Two reviews found the earlier, opposite default open: a socket-only
+  process deleted the enrolment file through `files.delete` and won first use, ran a command
+  through `terminal.open` or a language server's executable override, reverted files through
+  `AcceptTurns`, pushed with the Host's git credentials through a Constellation export, and
+  deleted staged attachments and stored data source credentials. The protocol's
+  `userAccess.test.ts` lists every `any` entry against a reviewed set, so a new one is added
+  there on purpose. Reads stay open, as do a connection's own flow control and presence,
+  `voice.transcribe` and the predictions (they return a result and keep nothing), and
+  `host.resources.acquire` and `release`: `polaris lease` sends no key, and a lease is its
+  caller's own and ends with it. Extensions and Linked Devices were already refused the gated
+  requests by their own tables, or reach them through their Grants; nothing moved for them.
+- **Checks behind the gate fail closed.** The transport annotates every connection with its
+  user access, read live. A Constellation's transfers and defaults take an unbound connection
+  for the user only through that annotation, so a request the gate never admitted is refused
+  there too. A Send interrupted by a revoke aborts its HTTP request.
 - **`allow`, `deny` and `revoke` are user-only**, so a waiting key can't allow itself.
 - **The CLI.** `polaris extension pair` and `revoke` are for the Desktop App again, as in ADR 0100.
 - **0.9.0's file is not kept.** A version 1 `user-access.json` held the one key 0.9.0 or 0.9.1
@@ -76,7 +82,9 @@ App to connect is enrolled. The Daemon reads the file on the next `hello`, allow
 ENG-700's protection is back, with the limits ADR 0100 lists: a process running as the user with
 a shell of its own can still delete the file and enrol itself, which the user sees as their
 Desktop App losing user access. The Daemon no longer does that for a process that has only its
-socket. Scripts that drive a Daemon without a user key lose the requests listed above. Trust on first use leaves the same window as before on a Host no Desktop App has
+socket. A script, test or benchmark that drives a Daemon without a user key can only read; it
+sends a key, as the Desktop App does, to do more. A Desktop App that is waiting or was revoked
+likewise only reads. Trust on first use leaves the same window as before on a Host no Desktop App has
 connected to, and once more on each Host at the upgrade from 0.9.x.
 
 A prompt can be spoofed in its label, not in its code; a user who allows without comparing the

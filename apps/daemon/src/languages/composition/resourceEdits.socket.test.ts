@@ -1,3 +1,4 @@
+import { ownError } from "../../transport/userAccess.testing.ts";
 import { expect } from "bun:test";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
@@ -317,7 +318,7 @@ treeEditTest(
                   },
                 });
 
-                const foreign = yield* Effect.flip(
+                const foreign = yield* ownError(
                   attacker.client["languages.server.respond"](response)
                 );
 

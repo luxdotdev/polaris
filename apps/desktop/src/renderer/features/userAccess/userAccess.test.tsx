@@ -243,7 +243,7 @@ test("a waiting desktop app shows its code and no list; one that holds access sh
   );
 
   expect(page.container.textContent).toBe(
-    "This desktop app is waiting to be allowed on lucas-rpi. Until then it can't approve, send turns or start agent sessions there. Allow it from a desktop app that already uses lucas-rpi; it shows the same code.4F2-91C"
+    "This desktop app is waiting to be allowed on lucas-rpi. Until then it only reads there: it can't approve, send turns, start agent sessions or change anything. Allow it from a desktop app that already uses lucas-rpi; it shows the same code.4F2-91C"
   );
 
   act(() => setUserAccess("pi", held()));

@@ -4,6 +4,7 @@
  * close on disconnect, credit-based backpressure, and Browser hosting between two Desktop
  * App connections, with the ownership checks on accept, close and credit.
  */
+import { TEST_USER_KEY } from "./userAccess.testing.ts";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { Socket } from "node:net";
 import {
@@ -206,6 +207,7 @@ describe("Host-address streams", () => {
           clientVersion: "0",
           deviceLabel: "stall",
           capabilities: CLIENT_CAPABILITIES,
+          ...TEST_USER_KEY,
         });
 
         const session = {

@@ -65,7 +65,7 @@ import { loadHostInfo } from "./hostInfo.ts";
 import { acquireLock, type DaemonAlreadyRunning, LockError } from "./lock.ts";
 import { ConnectionBlobs, ServerRpcs } from "./rpcs.ts";
 import { userAccessGateFor } from "./userAccess.ts";
-import { userAccessFile, userAccessRegistry } from "../userAccess/index.ts";
+import { ConnectionUserAccess, userAccessFile, userAccessRegistry } from "../userAccess/index.ts";
 import { listen, prepareSocketPath } from "./socket.ts";
 import { languageIdentityFor, revokeLanguageIdentity } from "./languageIdentity.ts";
 import {
@@ -357,6 +357,10 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       }
 
       connection.clients.add(client);
+
+      // Handlers with a check of their own read the user gate's answer, live (ADR 0114).
+      if (Context.getOrUndefined(client.annotations, ConnectionUserAccess) === undefined)
+        client.annotate(ConnectionUserAccess, { holds: () => userAccess.holds(client) });
 
       if (connection.device !== null && deviceOf(client) === null)
         client.annotate(ConnectionDevice, connection.device);
