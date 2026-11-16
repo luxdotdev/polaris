@@ -85,6 +85,7 @@ export const RPC_GRANTS = {
   "host.prepareRestart": "client",
   "relayRoute.status": "client",
   "relayRoute.enable": "client",
+  "relayRoute.setUrl": "client",
   "relayRoute.disable": "client",
   "devices.link": "client",
   "devices.awaitLink": "client",

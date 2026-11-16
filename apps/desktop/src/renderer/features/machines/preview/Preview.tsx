@@ -6,7 +6,7 @@
  * a sign-in task another Polaris home holds, and `#hosts/states`, the redesigned list and host
  * page with live stats and Restart daemon. Nothing is installed.
  */
-import { HostInfo } from "@polaris/protocol";
+import { HostInfo, POLARIS_CLOUD_RELAY_URL } from "@polaris/protocol";
 import { Option, Schema } from "effect";
 import { createRoot } from "react-dom/client";
 import { createStore } from "zustand/vanilla";
@@ -97,21 +97,24 @@ const simulateUpdate = (feed: Feed, hostKey: string) => {
 const Input = Schema.Struct({
   hostKey: Schema.optional(Schema.String),
   enabled: Schema.optional(Schema.NullOr(Schema.Boolean)),
-  url: Schema.optional(Schema.String),
+  url: Schema.optional(Schema.NullOr(Schema.String)),
 });
 
-/** Each host's Polaris Relay: on and reaching one phone on Mac Studio, off elsewhere. */
-const relays = new Map<string, string>([["studio", "wss://relay.lux.dev/v1"]]);
+/** Each host's Polaris Relay: Polaris Cloud's on Mac Studio, reaching one phone; off elsewhere. */
+const relays = new Map<string, string>([["studio", POLARIS_CLOUD_RELAY_URL]]);
+
+/** As the Daemon does, turning it off keeps the URL. */
+const relaysOn = new Set<string>(["studio"]);
 
 const relayOf = (hostKey: string): Result<unknown> => {
-  const url = relays.get(hostKey) ?? null;
+  const on = relaysOn.has(hostKey);
 
   return {
     ok: true,
     value: {
-      state: url === null ? "off" : "on",
-      url,
-      connected: url !== null,
+      state: on ? "on" : "off",
+      url: relays.get(hostKey) ?? null,
+      connected: on,
       hostAddress: `${hostKey}.relay`,
       hostNoiseKey: "preview",
     },
@@ -144,11 +147,16 @@ const tailscaleAnswer = (method: string, hostKey: string) => {
   return remoteAccessOf(hostKey);
 };
 
-/** Turning the relay on keeps the URL it was given; off forgets it. */
-const relayAnswer = (method: string, hostKey: string, url: string | undefined) => {
-  if (method === "relayRoute.enable" && url !== undefined) relays.set(hostKey, url);
+/** Turning the relay on stores the URL it was given (Polaris Cloud's without one). */
+const relayAnswer = (method: string, hostKey: string, url: string | null | undefined) => {
+  if (method === "relayRoute.enable") {
+    relays.set(hostKey, url ?? POLARIS_CLOUD_RELAY_URL);
+    relaysOn.add(hostKey);
+  }
 
-  if (method === "relayRoute.disable") relays.delete(hostKey);
+  if (method === "relayRoute.setUrl") relays.set(hostKey, url ?? POLARIS_CLOUD_RELAY_URL);
+
+  if (method === "relayRoute.disable") relaysOn.delete(hostKey);
 
   return relayOf(hostKey);
 };
@@ -198,6 +206,7 @@ const answer = (
     case "remoteAccess.status":
       return hostKey === undefined ? null : tailscaleAnswer(method, hostKey);
     case "relayRoute.enable":
+    case "relayRoute.setUrl":
     case "relayRoute.disable":
     case "relayRoute.status":
       return hostKey === undefined ? null : relayAnswer(method, hostKey, url);

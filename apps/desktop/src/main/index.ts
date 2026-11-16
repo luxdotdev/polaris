@@ -54,6 +54,7 @@ import { followFocus, followReviewRequests, githubLayer } from "./github/electro
 import { legacyTokens } from "./github/store.ts";
 import { secureStorageLayer } from "./secure/electron.ts";
 import { SecureStorage } from "./secure/index.ts";
+import { type DesktopRelayDevice, desktopRelayDevice } from "./relayDevice.ts";
 import { iconPng, nameApp, showIcon } from "./identity.ts";
 import { registerIpc } from "./ipc/index.ts";
 import { createDesktopSelfTraces } from "./selfTraces/index.ts";
@@ -218,6 +219,9 @@ let needsYou: NeedsYouCenter | null = null;
 let browsers: Browsers | null = null;
 
 let presenceWatch: PresenceWatch | null = null;
+
+/** This app's relay identity and its sessions to Hosts reached through a relay (ENG-943). */
+let relayDevice: DesktopRelayDevice | null = null;
 
 /** Each Workspace's Browser partition, its Host addresses sent to its Host (ADR 0093). */
 let hostAddresses: HostAddresses | null = null;
@@ -436,6 +440,15 @@ const start = async () => {
     )
   );
 
+  relayDevice = desktopRelayDevice(
+    await Effect.runPromise(
+      Effect.provide(
+        SecureStorage.useSync((storage) => storage),
+        secureStorage
+      )
+    )
+  );
+
   const userKey = await Effect.runPromise(
     Effect.provide(
       optionalUserKey(
@@ -474,6 +487,7 @@ const start = async () => {
   runtime = startClientRuntime(
     {
       rpc: { traceContext: selfTraces.enabled },
+      relay: relayDevice.connector,
       presence: SubscriptionRef.changes(presence),
       developerModeLease: dev,
       entries: hostEntries({
@@ -762,6 +776,7 @@ const cleanUpAndQuit = () => {
   const stopLocal = localHost === null ? undefined : Effect.runPromise(localHost.stop);
 
   presenceWatch?.dispose();
+  relayDevice?.close();
   void Promise.allSettled([
     runtime?.dispose(),
     stopLocal,

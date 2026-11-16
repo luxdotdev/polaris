@@ -1,9 +1,9 @@
 /**
  * A Changes line's code: plain until its file's colours are ready, then the same text in
  * spans coloured by the syntax tokens (DESIGN.md, rule/syntax-is-moonlit), so nothing moves.
- * Cut off at the card's edge, or wrapped onto more rows under View → Word wrap.
+ * Unwrapped, it is clipped at the card's edge and moved by its file's sideways scroll
+ * (fileScroll.ts); View → Word wrap wraps it onto more rows instead.
  */
-import { cn } from "@polaris/ui";
 import type { LineRuns, SyntaxGroup } from "../diffSyntax.ts";
 
 const COLOUR: Record<SyntaxGroup, string> = {
@@ -31,15 +31,25 @@ interface LineCodeProps {
   readonly text: string;
   readonly runs: LineRuns | undefined;
   readonly wrap: boolean;
+  /** Unwrapped, the code span the file's sideways scroll moves; returns its cleanup. */
+  readonly onCode: (span: HTMLElement) => () => void;
 }
 
-export const LineCode = ({ text, runs, wrap }: LineCodeProps) => (
-  <span
-    className={cn(
-      "text-text-default min-w-0 flex-1",
-      wrap ? "wrap-break-word whitespace-pre-wrap" : "truncate whitespace-pre"
-    )}
-  >
-    {runs === undefined ? text : <SyntaxRuns runs={runs} />}
-  </span>
-);
+export const LineCode = ({ text, runs, wrap, onCode }: LineCodeProps) => {
+  const code = runs === undefined ? text : <SyntaxRuns runs={runs} />;
+
+  if (wrap)
+    return (
+      <span className="text-text-default min-w-0 flex-1 wrap-break-word whitespace-pre-wrap">
+        {code}
+      </span>
+    );
+
+  return (
+    <span className="min-w-0 flex-1 overflow-clip">
+      <span ref={onCode} className="text-text-default inline-block whitespace-pre">
+        {code}
+      </span>
+    </span>
+  );
+};
