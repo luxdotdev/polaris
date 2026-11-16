@@ -37,10 +37,18 @@ export const ShareRef = Schema.Struct({
 
 export const Role = Schema.Literals(["contributor", "commenter"]);
 
+/** The owner's Host as an Invite is created with; `relayUrl` absent or null means Polaris Cloud. */
 export const HostRef = Schema.Struct({
   name: NonEmpty,
   relayAddress: NonEmpty,
   noiseKey: NoiseKey,
+  relayUrl: Schema.optionalKey(Schema.NullOr(Schema.String)),
+});
+
+/** The owner's Host as an accepted Invite answers it: null `relayUrl` is Polaris Cloud. */
+export const InviteHost = Schema.Struct({
+  ...HostRef.fields,
+  relayUrl: Schema.NullOr(Schema.String),
 });
 
 export const PendingInvite = Schema.Struct({
@@ -177,14 +185,18 @@ export class InvitesGroup extends HttpApiGroup.make("invites")
         role: Role,
         expiresAt: Schema.String,
       }),
-      success: Schema.Struct({ inviteId: Schema.String, hostCapability: Schema.String }),
+      success: Schema.Struct({
+        inviteId: Schema.String,
+        hostCapability: Schema.String,
+        relayUrl: Schema.NullOr(Schema.String),
+      }),
       error: [PersonNotFound, InvalidInvite],
     }),
     HttpApiEndpoint.get("pending", "/invites", { success: Schema.Array(PendingInvite) }),
     HttpApiEndpoint.post("accept", "/invites/:inviteId/accept", {
       params: { inviteId: Schema.String },
       payload: Schema.Struct({ relayAddress: NonEmpty, noiseKey: NoiseKey }),
-      success: Schema.Struct({ host: HostRef, share: ShareRef, role: Role, owner: Person }),
+      success: Schema.Struct({ host: InviteHost, share: ShareRef, role: Role, owner: Person }),
       error: [InviteNotFound, InviteClosed],
     }),
     HttpApiEndpoint.post("decline", "/invites/:inviteId/decline", {

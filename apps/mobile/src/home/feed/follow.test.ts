@@ -53,7 +53,7 @@ const fakeLink = () => {
     // SAFETY: the host feed calls only subscribeHost; nothing else on the client is touched.
     const client = feedOnly as DaemonClient;
 
-    live = { epoch, client, blobs, host: hostInfo, capabilities: [] };
+    live = { epoch, client, blobs, host: hostInfo, capabilities: [], shares: [] };
     status = { ...status, state: "connected", epoch };
 
     for (const listener of listeners) listener();

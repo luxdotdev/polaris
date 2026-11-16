@@ -60,6 +60,7 @@ export const galleryHost = async (
     blobs: NO_BLOBS,
     host,
     capabilities: ["session.steer", "session.continuity", "session.live-items"],
+    shares: [],
   };
 
   const listeners = new Set<() => void>();
@@ -81,6 +82,7 @@ export const galleryHost = async (
     hostId,
     name,
     route: "dev-bridge",
+    teammate: null,
     status,
     live: () => (on ? live : null),
     subscribe: (listener) => {
