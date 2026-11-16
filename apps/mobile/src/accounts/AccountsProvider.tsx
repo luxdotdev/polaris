@@ -10,6 +10,11 @@ import { authSession } from "./authorizer.ts";
 import { secureStoreKeychain } from "./keychain.ts";
 import { keychainAccountStore } from "./store.ts";
 
+/** A call's value, or the failure's copy. */
+export type AccountsOutcome<A> =
+  | { readonly ok: true; readonly value: A }
+  | { readonly ok: false; readonly message: string };
+
 export interface PolarisAccounts {
   /** Null until the Keychain was read. */
   readonly state: AccountsState | null;
@@ -21,6 +26,10 @@ export interface PolarisAccounts {
   readonly cancelCode: () => Promise<string | null>;
   readonly signOut: (id: string) => Promise<string | null>;
   readonly setCommitEmail: (id: string, email: string) => Promise<string | null>;
+  /** Any Accounts call, for sharing: Invites, statements, people. */
+  readonly call: <A>(
+    use: (accounts: Accounts["Service"]) => Effect.Effect<A, AccountsError>
+  ) => Promise<AccountsOutcome<A>>;
 }
 
 const AccountsContext = createContext<PolarisAccounts | null>(null);
@@ -79,6 +88,15 @@ export const AccountsProvider = ({ children }: { readonly children: ReactNode })
       cancelCode: () => act((a) => a.cancelDeviceSignIn),
       signOut: (id) => act((a) => a.signOut(id)),
       setCommitEmail: (id, email) => act((a) => a.setCommitEmail(id, email)),
+      call: <A,>(use: (accounts: Accounts["Service"]) => Effect.Effect<A, AccountsError>) =>
+        runtime.runPromise(
+          Effect.flatMap(Accounts, use).pipe(
+            Effect.map((value): AccountsOutcome<A> => ({ ok: true, value })),
+            Effect.catch((error) =>
+              Effect.succeed<AccountsOutcome<A>>({ ok: false, message: error.message })
+            )
+          )
+        ),
     };
   }, [runtime, state]);
 

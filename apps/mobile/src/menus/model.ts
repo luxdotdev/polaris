@@ -56,6 +56,8 @@ export type MenuAction =
   | { readonly kind: "retry-host"; readonly hostId: string }
   /** The New agent session sheet, opened on this Host. */
   | { readonly kind: "new-session"; readonly hostId: string }
+  /** Comment on a message, in a shared session: the thread starts the Comment itself. */
+  | { readonly kind: "comment" }
   /** Fork the session from a Turn: the Desktop App's; a Linked Device can't send ForkSession yet. */
   | {
       readonly kind: "fork";
@@ -310,6 +312,11 @@ export const replyCommand = (action: Extract<MenuAction, { readonly kind: "reply
 /** The alert's title when a reply the menu sent is refused. */
 export const failureTitle = (reply: Reply): string =>
   reply.kind === "deny" ? "Couldn't deny" : "Couldn't approve";
+
+/** A message in a shared session: Comment, in its own group. */
+export const commentMenu: Menu = [
+  [{ ...item("comment", "Comment", { kind: "comment" }), symbol: "text.bubble" }],
+];
 
 /** A finished Turn in the thread (MX-J): its receipt heads the menu, then Copy and Fork. */
 export const turnMenu = (

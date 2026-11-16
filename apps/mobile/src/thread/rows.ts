@@ -4,7 +4,14 @@
  * (`steps.ts`), and a finished Turn ends on its receipt. A Turn's rows are cached on its
  * entry, so text streaming into the latest Turn rebuilds only that Turn's rows.
  */
-import type { Attachment, SessionState, TurnId, TurnItem } from "@polaris/protocol";
+import type {
+  Actor,
+  Attachment,
+  CommentId,
+  SessionState,
+  TurnId,
+  TurnItem,
+} from "@polaris/protocol";
 import type { FollowUp } from "./composer.ts";
 import { Match, Predicate } from "effect";
 import type { Session, TurnEntry } from "./fold.ts";
@@ -46,6 +53,10 @@ export type ThreadRow = RowBase &
         readonly kind: "prompt";
         readonly text: string;
         readonly attachments: ReadonlyArray<Attachment>;
+        /** Who sent the Turn, for a shared session's byline; null on older Hosts. */
+        readonly actor: Actor | null;
+        /** The Comments the Turn carried, shown as quoted cards. */
+        readonly commentIds: ReadonlyArray<CommentId>;
       }
     /** A Turn the user didn't send, as one quiet line after the Turn before it: idle compaction. */
     | { readonly kind: "quiet"; readonly text: string }
@@ -75,6 +86,8 @@ export type ThreadRow = RowBase &
       }
     | {
         readonly kind: "reply";
+        /** The message's `TurnItem.id`, which a Comment on its text is anchored to. */
+        readonly itemId: string;
         readonly text: string;
         /** Its finished Turn, for the long-press menu; null while the Turn works. */
         readonly turn: TurnFacts | null;
@@ -316,6 +329,8 @@ const openRows = (
       turnId: turn.id,
       text: turn.prompt,
       attachments: turn.attachments,
+      actor: turn.actor ?? null,
+      commentIds: turn.commentIds ?? [],
     });
 
   const streamed = new Map(entry.streaming.map((live) => [live.itemId, live.text]));
@@ -357,7 +372,7 @@ const openRows = (
 
     rows.push(
       piece.row === "reply"
-        ? { kind: "reply", key, turnId: turn.id, text, turn: null, receipt: null }
+        ? { kind: "reply", key, turnId: turn.id, itemId: id, text, turn: null, receipt: null }
         : { kind: piece.row, key, turnId: turn.id, text }
     );
   };

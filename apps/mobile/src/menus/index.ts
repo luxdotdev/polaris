@@ -1,6 +1,7 @@
 export { LongPressMenu } from "./LongPressMenu.tsx";
 
 export {
+  commentMenu,
   constellationMenu,
   hostMenu,
   type Menu,
