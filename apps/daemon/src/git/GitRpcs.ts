@@ -2,6 +2,7 @@
  * Handlers for `git.*`: status, diff, show, log, and the Changes tab's writes. The
  * transport mounts this layer next to the other partial handler layers.
  */
+import { WorkingTreeFallback } from "./diffScope.ts";
 import {
   DiffFile,
   GitCommit,
@@ -127,8 +128,10 @@ export const handleGitDiff = Effect.fn("git.diff")(function* ({
   cwd,
   spec,
 }: typeof GitDiff.payloadSchema.Type) {
+  const workingTree = yield* WorkingTreeFallback;
+
   const diff = yield* interruptibleGit({
-    try: () => computeDiff(cwd, spec),
+    try: () => computeDiff(cwd, spec, { workingTree }),
     catch: notFoundOr(cwd),
   });
 
