@@ -8,6 +8,7 @@ import { useEffect, useMemo } from "react";
 import { useStore } from "zustand";
 import type { PullSubject, SessionSubject } from "../../../routes/review.ts";
 import {
+  ANNOTATION_INSET,
   emptySurface,
   type ReviewAnnotation,
   type ReviewSlotProps,
@@ -19,6 +20,9 @@ import {
 import { useSession } from "../../session/hooks.ts";
 import { type Draft, nextTurnNumber, sentComments, type SentComment } from "../model/feedback.ts";
 import { placeThreads } from "../model/threads.ts";
+import { type LineThread, lineThreads, type SessionComment, wasShared } from "../model/session.ts";
+import { LineThreadCard } from "./session/lines.tsx";
+import { cn } from "@polaris/ui";
 import {
   type ComposerAnchor,
   openComposer,
@@ -66,14 +70,19 @@ const SessionSync = ({
   const { hostKey, sessionId } = subject;
   const model = useSession(hostKey, sessionId);
 
+  const comments = model.comments ?? NO_COMMENTS;
+
   useEffect(() => {
     setSessionComments(subjectKey, {
       hostKey,
       sessionId,
       nextTurn: nextTurnNumber(model.turns),
       sent: sentComments(model.turns),
+      threads: lineThreads(comments),
+      shared: wasShared(model.turns, comments),
+      latestTurnId: model.turns.at(-1)?.turn.id ?? null,
     });
-  }, [subjectKey, hostKey, sessionId, model.turns]);
+  }, [subjectKey, hostKey, sessionId, model.turns, comments]);
 
   return null;
 };
@@ -89,11 +98,17 @@ const useSelectionComposer = (key: string) => {
 
 const NO_SENT: ReadonlyArray<SentComment> = [];
 
+const NO_COMMENTS: ReadonlyArray<SessionComment> = [];
+
+const NO_THREADS: ReadonlyArray<LineThread> = [];
+
 const NO_DRAFTS: ReadonlyArray<Draft> = [];
 
 const useAnnotations = (key: string): ReadonlyArray<ReviewAnnotation> => {
   const detail = useComments((s) => s.pulls[key]?.detail ?? null);
   const sent = useComments((s) => s.sessions[key]?.sent ?? NO_SENT);
+  const session = useComments((s) => s.sessions[key]);
+  const commentThreads = session?.threads ?? NO_THREADS;
   const drafts = useComments((s) => s.batches[key]?.comments ?? NO_DRAFTS);
   // The anchor, not the composer: typing changes the text, not the rows.
   const anchor: ComposerAnchor | undefined = useComments((s) => s.composers[key]?.anchor);
@@ -139,8 +154,26 @@ const useAnnotations = (key: string): ReadonlyArray<ReviewAnnotation> => {
             },
           ];
 
-    return [...threads, ...sentRows, ...draftRows, ...composer];
-  }, [key, detail, sent, drafts, anchor]);
+    const commentRows =
+      session === undefined
+        ? []
+        : commentThreads.map((t) => ({
+            id: `comment:${t.key}`,
+            path: t.path,
+            side: t.side,
+            line: t.line,
+            render: () => (
+              <LineThreadCard
+                hostKey={session.hostKey}
+                sessionId={session.sessionId}
+                thread={t}
+                className={cn("font-sans", ANNOTATION_INSET)}
+              />
+            ),
+          }));
+
+    return [...threads, ...commentRows, ...sentRows, ...draftRows, ...composer];
+  }, [key, detail, sent, drafts, anchor, session, commentThreads]);
 };
 
 export const CommentsSync = (props: ReviewSlotProps) => {

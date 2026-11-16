@@ -30,6 +30,13 @@ import {
 } from "@polaris/ui";
 import { age } from "../../../shell/copy.ts";
 import { SentAttachments } from "../../attachments/index.ts";
+import {
+  MESSAGE_ATTR,
+  MessageComments,
+  QuotedComments,
+  TURN_ATTR,
+  TurnAuthor,
+} from "../../comments/index.ts";
 import { ComputerUseApproval } from "../../computer-use/index.ts";
 import { useNow } from "../../../shell/useNow.ts";
 import { Decisions } from "../../../commands.ts";
@@ -272,7 +279,11 @@ const sentWhere = (ctx: RowContext) => ({
 const Prompt = ({ row, ctx }: { row: Extract<Row, { kind: "prompt" }>; ctx: RowContext }) => (
   <PromptMenu text={row.text} onFold={() => ctx.onSetTurnOpen(row.turnId, false)}>
     <div className="group/turn flex flex-col items-end gap-1.5" data-testid="prompt">
+      <TurnAuthor {...ctx.diff} actor={row.actor ?? null} />
       <SentAttachments hostKey={ctx.diff.hostKey} attachments={row.attachments} />
+      <div className="flex w-full max-w-[400px] flex-col items-end empty:hidden">
+        <QuotedComments {...ctx.diff} ids={row.commentIds ?? []} />
+      </div>
       {row.shell != null ? (
         <div className="w-full max-w-[560px]" data-testid="shell-prompt">
           <Command item={row.shell} hue={ctx.harness} own />
@@ -329,6 +340,12 @@ const ReplyTime = ({ row }: { row: Extract<Row, { kind: "item" }> }) =>
     </span>
   );
 
+/** A finished reply's ids, for selecting its text to comment on. */
+const messageAttrs = (row: Extract<Row, { kind: "item" }>): Record<string, string> =>
+  row.entry.kind === "item" && finishedMessage(row) !== null
+    ? { [MESSAGE_ATTR]: row.entry.item.id, [TURN_ATTR]: row.partId }
+    : {};
+
 /** The row's reply text, once it has finished streaming; null for every other item. */
 const finishedMessage = (row: Extract<Row, { kind: "item" }>) =>
   row.entry.kind === "item" && row.entry.item.kind === "message" && !row.entry.item.live
@@ -360,7 +377,7 @@ const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowCont
           />
         ) : null}
       </div>
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col" {...messageAttrs(row)}>
         <SessionTargetContext.Provider value={ctx.diff}>
           <EntryView
             entry={row.entry}
@@ -372,6 +389,9 @@ const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowCont
           />
         </SessionTargetContext.Provider>
         <ReplyStatsLine entry={row.entry} />
+        {finishedMessage(row) === null ? null : (
+          <MessageComments {...ctx.diff} messageId={messageAttrs(row)[MESSAGE_ATTR] ?? ""} />
+        )}
       </div>
       {row.sources === undefined ? null : (
         <div className="shrink-0">

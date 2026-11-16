@@ -11,9 +11,13 @@ import {
   EventEnvelope,
   HostStreamItem,
   SessionStreamItem,
+  type Turn,
+  TurnDetail,
+  TurnPage,
 } from "@polaris/protocol";
 import { Predicate } from "effect";
 import { patchComment } from "../store/comments.ts";
+import { patchTurn } from "../store/patch.ts";
 
 type Rewrite = (actor: Actor) => Actor;
 
@@ -24,6 +28,20 @@ const commentFor = (comment: Comment, rewrite: Rewrite): Comment => {
   return author === comment.author && resolvedBy === comment.resolvedBy
     ? comment
     : patchComment(comment, { author, resolvedBy });
+};
+
+const turnFor = (turn: Turn, rewrite: Rewrite): Turn => {
+  const actor = turn.actor == null ? turn.actor : rewrite(turn.actor);
+
+  return actor === turn.actor ? turn : patchTurn(turn, { actor });
+};
+
+const detailFor = (detail: TurnDetail, rewrite: Rewrite): TurnDetail => {
+  const turn = turnFor(detail.turn, rewrite);
+
+  return turn === detail.turn
+    ? detail
+    : new TurnDetail({ turn, items: detail.items, subagents: detail.subagents });
 };
 
 /** `event` with its Actors rewritten; the same value when none changes. */
@@ -37,10 +55,21 @@ const eventFor = (event: DomainEvent, rewrite: Rewrite): DomainEvent => {
         same(e.actor) || e.actor == null
           ? e
           : DomainEvent.cases.SessionCreated.make({ ...e, actor: rewrite(e.actor) }),
-      TurnStarted: (e) =>
-        same(e.actor) || e.actor == null
+      TurnStarted: (e) => {
+        const turn = turnFor(e.turn, rewrite);
+
+        return (same(e.actor) || e.actor == null) && turn === e.turn
           ? e
-          : DomainEvent.cases.TurnStarted.make({ ...e, actor: rewrite(e.actor) }),
+          : DomainEvent.cases.TurnStarted.make({
+              turn,
+              actor: e.actor == null ? e.actor : rewrite(e.actor),
+            });
+      },
+      TurnEnded: (e) => {
+        const turn = turnFor(e.turn, rewrite);
+
+        return turn === e.turn ? e : DomainEvent.cases.TurnEnded.make({ ...e, turn });
+      },
       ApprovalResolved: (e) =>
         same(e.actor) || e.actor == null
           ? e
@@ -100,7 +129,20 @@ export const actorHostItemsFor = (capabilities: ReadonlyArray<Capability>) => {
       : item;
 };
 
-/** Identity (null) for Clients that decode every Actor; a snapshot's Comments too. */
+/** Identity (null) for Clients that decode every Actor: a `session.turns` page's Turn authors. */
+export const actorTurnPageFor = (capabilities: ReadonlyArray<Capability>) => {
+  if (decodesEveryActor(capabilities)) return null;
+  const rewrite = rewriteFor(capabilities);
+
+  return (page: TurnPage): TurnPage =>
+    new TurnPage({
+      turns: page.turns.map((detail) => detailFor(detail, rewrite)),
+      sequence: page.sequence,
+      hasMore: page.hasMore,
+    });
+};
+
+/** Identity (null) for Clients that decode every Actor; a snapshot's Turns and Comments too. */
 export const actorSessionItemsFor = (capabilities: ReadonlyArray<Capability>) => {
   if (decodesEveryActor(capabilities)) return null;
   const rewrite = rewriteFor(capabilities);
@@ -112,12 +154,11 @@ export const actorSessionItemsFor = (capabilities: ReadonlyArray<Capability>) =>
         Event: (e) =>
           SessionStreamItem.cases.Event.make({ envelope: envelopeFor(e.envelope, rewrite) }),
         Snapshot: (s) =>
-          s.comments === undefined
-            ? s
-            : SessionStreamItem.cases.Snapshot.make({
-                ...s,
-                comments: s.comments.map((comment) => commentFor(comment, rewrite)),
-              }),
+          SessionStreamItem.cases.Snapshot.make({
+            ...s,
+            turns: s.turns.map((detail) => detailFor(detail, rewrite)),
+            comments: s.comments.map((comment) => commentFor(comment, rewrite)),
+          }),
       },
       () => item
     );

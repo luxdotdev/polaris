@@ -6,6 +6,7 @@ import { ScrubbedDataValue, ScrubbedText } from "./dataValues.ts";
 import { DataWritePreviewFacts } from "./data.ts";
 import { HttpMethod } from "./requests.ts";
 import { CelestialBody } from "./celestial.ts";
+import { Actor } from "./extensions.ts";
 import { ComputerUseCall, ComputerUseRequest, DesktopApp } from "./computerUse.ts";
 import { HarnessKind } from "./harnesses.ts";
 import {
@@ -424,6 +425,11 @@ export class Turn extends Schema.Class<Turn>("Turn")({
   feedback: optionalNullable(FeedbackBatch),
   /** The Comments the Turn carried (`SendFeedback.commentIds`, capability `session.comments`). */
   commentIds: Schema.optionalKey(Schema.Array(CommentId)),
+  /**
+   * Who sent it (`TurnStarted.actor`), kept on the Turn so snapshots and pages name it;
+   * null for the Harness's own Turns and Turns logged before it (read as the owner's).
+   */
+  actor: optionalNullable(Actor),
   /**
    * Set when the Turn is the user's shell command (`RunShellCommand`, capability
    * `session.shell-command`); `prompt` reads `! <command>`.
