@@ -39,7 +39,7 @@ export class LinkedDevice extends Schema.Class<LinkedDevice>("LinkedDevice")({
 export class RelayRouteStatus extends Schema.Class<RelayRouteStatus>("RelayRouteStatus")({
   /** Whether the user turned the Relay route on for this Host. Off by default. */
   state: Schema.Literals(["on", "off"]),
-  /** The relay the Daemon dials, `wss://<relay>/v1`; null until one was set. */
+  /** The relay the Daemon dials or would dial, `wss://<relay>/v1`; Polaris Cloud's unless one was set. */
   url: Schema.NullOr(Schema.String),
   /** On, and the relay accepted the Daemon's key proof on the current socket. */
   connected: Schema.Boolean,
@@ -65,11 +65,21 @@ export const GetRelayRoute = Rpc.make("relayRoute.status", {
 export const POLARIS_CLOUD_RELAY_URL = "wss://relay.polaris.lux.dev/v1";
 
 /**
- * Turns the route on with `url`, or Polaris Cloud's relay without one; on again replaces
- * the URL and reconnects.
+ * Turns the route on with `url`, or with the stored relay without one (Polaris Cloud's when
+ * none is stored); on again replaces the URL and reconnects.
  */
 export const EnableRelayRoute = Rpc.make("relayRoute.enable", {
   payload: { url: Schema.optionalKey(Schema.String) },
+  success: RelayRouteStatus,
+  error: RelayRouteError,
+});
+
+/**
+ * Stores the relay without turning the route on: `url`, or null for Polaris Cloud's. While on,
+ * the route reconnects to it. Capability `linked-devices.relay-url` (ENG-948).
+ */
+export const SetRelayUrl = Rpc.make("relayRoute.setUrl", {
+  payload: { url: Schema.NullOr(Schema.String) },
   success: RelayRouteStatus,
   error: RelayRouteError,
 });
@@ -180,6 +190,7 @@ export const UnregisterLiveActivity = Rpc.make("devices.unregisterLiveActivity",
 export class LinkedDeviceRpcs extends RpcGroup.make(
   GetRelayRoute,
   EnableRelayRoute,
+  SetRelayUrl,
   DisableRelayRoute,
   StartLink,
   AwaitLink,

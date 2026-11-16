@@ -125,6 +125,30 @@ test("turned on before the host reaches the relay, it shows Connected once the h
   await view.findByText("Connected · 0 devices");
 });
 
+test("going back to Polaris Cloud over a stored relay is stored, so a reload opens on Cloud", async () => {
+  const off = { ...(await route("off")), url: "wss://relay.lucas.dev/v1" };
+  let stored: string | null = off.url;
+  fake.answer("relayRoute.status", () => ({ ok: true, value: { ...off, url: stored } }));
+  fake.answer("relayRoute.setUrl", ({ url }) => {
+    stored = url ?? "wss://relay.polaris.lux.dev/v1";
+
+    return { ok: true, value: { ...off, url: stored } };
+  });
+  fake.answerOk("devices.list", []);
+  const first = render(<RelayRoute hostKey="studio" hostLabel="Mac Studio" canSetUrl />);
+
+  fireEvent.click(
+    await within(first.container).findByRole("button", { name: "Use Polaris Cloud" })
+  );
+  await within(first.container).findByText("Off · Polaris Cloud");
+  expect(fake.sent("relayRoute.setUrl")).toEqual([{ hostKey: "studio", url: null }]);
+  first.unmount();
+
+  const again = within(render(<RelayRoute hostKey="studio" hostLabel="Mac Studio" />).container);
+  await again.findByText("Off · Polaris Cloud");
+  expect(again.queryByLabelText("Relay URL")).toBeNull();
+});
+
 test("the footer's address is the relay the switch would use, or uses once on", async () => {
   const off = await route("off");
   const on = { ...off, state: "on" as const, url: "wss://relay.lucas.dev/v1" };

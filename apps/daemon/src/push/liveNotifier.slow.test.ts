@@ -66,6 +66,7 @@ const withNotifier = (
         const route = RelayRoute.of({
           status: unused,
           enable: () => unused,
+          setUrl: () => unused,
           disable: unused,
           startLink: unused,
           awaitLink: () => unused,

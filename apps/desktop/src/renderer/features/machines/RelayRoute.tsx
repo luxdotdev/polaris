@@ -142,8 +142,11 @@ export const RelayRouteRow = ({
 /** How often a route that's on but not yet connected is read again. */
 const connectingPollMs = 2_000;
 
-/** Read when shown; turning it on sends the URL in the field, and a refusal toasts. */
-export const useRelayRoute = (hostKey: string, pollMs = connectingPollMs) => {
+/**
+ * Read when shown; turning it on sends the URL in the field, and a refusal toasts. With
+ * `canSetUrl` (`linked-devices.relay-url`), going back to Polaris Cloud while off is stored.
+ */
+export const useRelayRoute = (hostKey: string, pollMs = connectingPollMs, canSetUrl = false) => {
   const [route, setRoute] = useState<RelayRouteView | null>(null);
   const [linked, setLinked] = useState(0);
   const [own, setOwn] = useState(false);
@@ -213,13 +216,32 @@ export const useRelayRoute = (hostKey: string, pollMs = connectingPollMs) => {
     }
   };
 
+  const choose = async (next: boolean) => {
+    setOwn(next);
+
+    if (next || !canSetUrl || route?.state !== "off" || !isOwnRelay(route.url)) return;
+    setBusy(true);
+
+    try {
+      const stored = await call("relayRoute.setUrl", { hostKey, url: null });
+
+      if (stored === null) setOwn(true);
+      else {
+        setRoute(stored);
+        setDraft("");
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return {
     route,
     linked,
     own,
     draft,
     busy,
-    onOwn: setOwn,
+    onOwn: (next: boolean) => void choose(next),
     onDraft: setDraft,
     onChange: (on: boolean) => void change(on),
   };
@@ -229,8 +251,10 @@ export const RelayRoute = ({
   hostKey,
   hostLabel,
   pollMs,
+  canSetUrl,
 }: {
   readonly hostKey: string;
   readonly hostLabel: string;
   readonly pollMs?: number;
-}) => <RelayRouteRow hostLabel={hostLabel} {...useRelayRoute(hostKey, pollMs)} />;
+  readonly canSetUrl?: boolean;
+}) => <RelayRouteRow hostLabel={hostLabel} {...useRelayRoute(hostKey, pollMs, canSetUrl)} />;

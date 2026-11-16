@@ -97,7 +97,7 @@ const simulateUpdate = (feed: Feed, hostKey: string) => {
 const Input = Schema.Struct({
   hostKey: Schema.optional(Schema.String),
   enabled: Schema.optional(Schema.NullOr(Schema.Boolean)),
-  url: Schema.optional(Schema.String),
+  url: Schema.optional(Schema.NullOr(Schema.String)),
 });
 
 /** Each host's Polaris Relay: Polaris Cloud's on Mac Studio, reaching one phone; off elsewhere. */
@@ -148,11 +148,13 @@ const tailscaleAnswer = (method: string, hostKey: string) => {
 };
 
 /** Turning the relay on stores the URL it was given (Polaris Cloud's without one). */
-const relayAnswer = (method: string, hostKey: string, url: string | undefined) => {
+const relayAnswer = (method: string, hostKey: string, url: string | null | undefined) => {
   if (method === "relayRoute.enable") {
     relays.set(hostKey, url ?? POLARIS_CLOUD_RELAY_URL);
     relaysOn.add(hostKey);
   }
+
+  if (method === "relayRoute.setUrl") relays.set(hostKey, url ?? POLARIS_CLOUD_RELAY_URL);
 
   if (method === "relayRoute.disable") relaysOn.delete(hostKey);
 
@@ -204,6 +206,7 @@ const answer = (
     case "remoteAccess.status":
       return hostKey === undefined ? null : tailscaleAnswer(method, hostKey);
     case "relayRoute.enable":
+    case "relayRoute.setUrl":
     case "relayRoute.disable":
     case "relayRoute.status":
       return hostKey === undefined ? null : relayAnswer(method, hostKey, url);

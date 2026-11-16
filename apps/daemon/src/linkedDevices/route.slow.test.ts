@@ -16,7 +16,6 @@ import {
   DaemonRpcs,
   ExtensionDaemonRpcs,
   type LinkedDevice,
-  POLARIS_CLOUD_RELAY_URL,
   type RelayRouteStatus,
   SessionId,
   SessionPlacement,
@@ -119,6 +118,8 @@ const daemon = (scope: Scope.Scope, relayLinks?: LinkTiming) =>
       handlers,
       secrets: HostSecrets.memory(),
       relayLinks,
+      // Never Polaris Cloud's: the default relay is the local one.
+      relayDefaultUrl: relay.url,
     }).pipe(Scope.provide(scope));
 
     const desktop = yield* connectRpcWith(
@@ -210,14 +211,21 @@ test("a linked device reaches the Daemon with Client power and is recorded as th
 
         expect(insecure).toMatchObject({ reason: "invalid-url" });
 
-        // ENG-948: without a URL the route goes on with Polaris Cloud's relay.
-        const cloud = yield* desktop["relayRoute.enable"]({});
-        expect({ state: cloud.state, url: cloud.url }).toEqual({
-          state: "on",
-          url: POLARIS_CLOUD_RELAY_URL,
+        // ENG-948: a URL is stored while off, null goes back to the default, and on uses it.
+        const brief = (s: RelayRouteStatus) => ({ state: s.state, url: s.url });
+        expect(brief(yield* desktop["relayRoute.status"]())).toEqual({
+          state: "off",
+          url: relay.url,
         });
+        expect(
+          yield* Effect.flip(desktop["relayRoute.setUrl"]({ url: "ws://relay.example/v1" }))
+        ).toMatchObject({ reason: "invalid-url" });
+        const own = yield* desktop["relayRoute.setUrl"]({ url: "wss://relay.lucas.dev/v1" });
+        expect(brief(own)).toEqual({ state: "off", url: "wss://relay.lucas.dev/v1" });
+        const back = yield* desktop["relayRoute.setUrl"]({ url: null });
+        expect(brief(back)).toEqual({ state: "off", url: relay.url });
 
-        yield* desktop["relayRoute.enable"]({ url: relay.url });
+        yield* desktop["relayRoute.enable"]({});
         const status = yield* waitConnected(desktop);
 
         const phone = yield* Effect.promise(makeDevice);

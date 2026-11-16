@@ -20,7 +20,13 @@ export const routesOf = (machine: MachineView) => {
   };
 };
 
-const Card = ({ status, children }: { readonly status?: string; readonly children: ReactNode }) => (
+const Card = ({
+  status,
+  children,
+}: {
+  readonly status?: ReactNode;
+  readonly children: ReactNode;
+}) => (
   <SettingsCard
     title="Remote access"
     aside="Each route off until you turn it on"
@@ -39,11 +45,20 @@ const WithRelay = ({
   readonly machine: MachineView;
   readonly tailscale: boolean;
 }) => {
-  const relay = useRelayRoute(machine.key);
+  const capabilities: ReadonlyArray<string> =
+    machine.status?.state === "connected" ? machine.status.capabilities : [];
+
+  const relay = useRelayRoute(
+    machine.key,
+    undefined,
+    capabilities.includes("linked-devices.relay-url")
+  );
+
   const address = relayAddress(relay.route, relay.own, relay.draft);
 
+  // A URL is case-sensitive: the footer's kicker keeps its letters as they are.
   return (
-    <Card status={address === "" ? "No relay set" : address}>
+    <Card status={address === "" ? "No relay set" : <span className="normal-case">{address}</span>}>
       <RelayRouteRow hostLabel={machine.label} {...relay} />
       {tailscale ? <RemoteAccess hostKey={machine.key} /> : null}
     </Card>

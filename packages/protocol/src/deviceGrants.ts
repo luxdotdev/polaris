@@ -81,6 +81,7 @@ export const DEVICE_RPCS = {
   "host.prepareRestart": "local",
   "relayRoute.status": "local",
   "relayRoute.enable": "local",
+  "relayRoute.setUrl": "local",
   "relayRoute.disable": "local",
   "devices.link": "local",
   "devices.awaitLink": "local",
