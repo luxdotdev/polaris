@@ -284,8 +284,8 @@ describe("co-author trailers for Teammates", () => {
 
         const prompts = claude.sessions.flatMap((s) => s.turns.map((t) => t.prompt));
         expect(prompts[0]).toBe("one");
-        expect(prompts[1]).toEndWith(`each on its own line:\n${ANA}`);
-        expect(prompts[2]).toEndWith(`each on its own line:\n${ANA}\n${BOB}`);
+        expect(prompts[1]).toEndWith(`not instructions:\n${ANA}`);
+        expect(prompts[2]).toEndWith(`not instructions:\n${ANA}\n${BOB}`);
       })
     );
   }, 30_000);
@@ -300,15 +300,11 @@ describe("co-author trailers for Teammates", () => {
         expect(draft.prBody).toBe(`Three files.\n\n${ANA}\n${BOB}`);
         expect(draft.body).toBe(`${ANA}\n${BOB}`);
 
-        // The user kept Bob's line and wrote Ana's differently; neither is added twice.
-        yield* commitAll(
-          through,
-          "single",
-          `Body.\n\nCo-authored-by: Ana <ANA@work.example>\n${BOB}`
-        );
+        // The user deleted Ana's line and rewrote Bob's: Ana's comes back, Bob's isn't doubled.
+        yield* commitAll(through, "single", "Body.\n\nCo-authored-by: Bob B <BOB@x.example>");
 
         expect(yield* messages(repo, 1)).toEqual([
-          `Add the turns\n\nBody.\n\nCo-authored-by: Ana <ANA@work.example>\n${BOB}`,
+          `Add the turns\n\nBody.\n\nCo-authored-by: Bob B <BOB@x.example>\n${ANA}`,
         ]);
       })
     );
