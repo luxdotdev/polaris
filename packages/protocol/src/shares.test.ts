@@ -273,7 +273,7 @@ describe("Comments", () => {
     expect(mayResolveComment(mine, Actor.cases.Client.make({}), null)).toBe(true);
   });
 
-  test("are sent as the message, then each anchor, its quote and its body", () => {
+  test("are sent as the message, then each anchor credited to its author, its quote and its body", () => {
     const quote = CommentAnchor.cases.MessageText.make({
       turnId: TurnId.make("t1"),
       messageId: "m1",
@@ -285,13 +285,15 @@ describe("Comments", () => {
     const prompt = commentsPrompt("Two things", [
       comment(teammate("ada"), lines, " keep both "),
       comment(teammate("bob"), quote, "a channel is simpler"),
+      comment(Actor.cases.Client.make({}), quote, "agreed"),
     ]);
 
     expect(prompt).toBe(
       [
         "Two things",
-        "src/a.ts:3-4 (removed lines)\n```\nconst a = 1;\nconst b = 2;\n```\nkeep both",
-        "From a message\n```\nI used a mutex\n```\na channel is simpler",
+        "src/a.ts:3-4 (removed lines) (comment by ada)\n```\nconst a = 1;\nconst b = 2;\n```\nkeep both",
+        "From a message (comment by bob)\n```\nI used a mutex\n```\na channel is simpler",
+        "From a message (comment by the owner)\n```\nI used a mutex\n```\nagreed",
       ].join("\n\n")
     );
   });
