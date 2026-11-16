@@ -2,7 +2,7 @@
  * The Account Server's `/v1` bodies as Effect Schemas (apps/accounts/README.md is the contract),
  * and the one failure every Accounts call ends in.
  */
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 /** A person as `GET /v1/people` returns them. */
 export const Person = Schema.Struct({
@@ -35,14 +35,29 @@ export const SharedThing = Schema.Struct({
 
 export type SharedThing = typeof SharedThing.Type;
 
-/** The owner's Host as an Invite carries it: its relay address and Noise key. */
+/**
+ * The owner's Host as an Invite carries it: its relay address, Noise key, and the relay's URL
+ * (null is Polaris Cloud, as is an older Account Server that sends none).
+ */
 export const InviteHost = Schema.Struct({
   name: Schema.String,
   relayAddress: Schema.String,
   noiseKey: Schema.String,
+  relayUrl: Schema.NullOr(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed(null))),
 });
 
 export type InviteHost = typeof InviteHost.Type;
+
+/** The owner's Host as `createInvite` sends it: omit `relayUrl` or send null for Polaris Cloud. */
+export const NewInviteHost = Schema.Struct({
+  name: Schema.String,
+  relayAddress: Schema.String,
+  noiseKey: Schema.String,
+  /** `wss://`, or `ws://` on a loopback host; the Account Server refuses anything else. */
+  relayUrl: Schema.optionalKey(Schema.NullOr(Schema.String)),
+});
+
+export type NewInviteHost = typeof NewInviteHost.Type;
 
 /** `GET /v1/invites`: one Invite waiting for this person. */
 export const PendingInvite = Schema.Struct({
@@ -70,16 +85,18 @@ export type AcceptedInvite = typeof AcceptedInvite.Type;
 export const NewInvite = Schema.Struct({
   inviteeLogin: Schema.String,
   share: SharedThing,
-  host: InviteHost,
+  host: NewInviteHost,
   role: ShareRole,
   expiresAt: Schema.String,
 });
 
 export type NewInvite = typeof NewInvite.Type;
 
+/** `relayUrl` is the one the Invite was stored with: null for Polaris Cloud. */
 export const CreatedInvite = Schema.Struct({
   inviteId: Schema.String,
   hostCapability: Schema.String,
+  relayUrl: Schema.NullOr(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed(null))),
 });
 
 export type CreatedInvite = typeof CreatedInvite.Type;
