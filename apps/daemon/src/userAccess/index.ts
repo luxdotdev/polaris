@@ -1,4 +1,4 @@
-export { ConnectionUserAccess, holdsUserAccess } from "./connection.ts";
+export { ConnectionUserAccess, holdsUserAccess, lacksUserAccess } from "./connection.ts";
 
 export { userAccessFile } from "./file.ts";
 

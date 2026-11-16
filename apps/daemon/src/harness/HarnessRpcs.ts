@@ -16,8 +16,9 @@ import {
 } from "@polaris/protocol";
 import { Clock, Effect } from "effect";
 import { RpcGroup } from "effect/rpc";
+import { lacksUserAccess } from "../userAccess/index.ts";
 import { HarnessRegistry } from "../services.ts";
-import { commandLists } from "./CommandLists.ts";
+import { commandLists, notListed } from "./CommandLists.ts";
 import { spinnerVerbsHandler } from "./claude/spinnerVerbs.ts";
 
 export class HarnessRpcs extends RpcGroup.make(
@@ -71,12 +72,15 @@ export const makeModelLists = Effect.gen(function* () {
       return once;
     });
 
-  return Effect.fn("harness.models")(function* ({
-    harness,
-    refresh,
-  }: typeof ListModels.payloadSchema.Type) {
+  /** `cacheOnly`: asking a Harness may start its program, so the answer is only what is cached. */
+  return Effect.fn("harness.models")(function* (
+    { harness, refresh }: typeof ListModels.payloadSchema.Type,
+    cacheOnly = false
+  ) {
     if (!isKnownHarness(harness)) return yield* new NotFound({ what: "harness", id: harness });
-    const cached = refresh ? undefined : cache.get(harness);
+    const cached = refresh && !cacheOnly ? undefined : cache.get(harness);
+
+    if (cached === undefined && cacheOnly) return yield* notListed(harness);
 
     return yield* cached ?? (yield* fresh(harness));
   });
@@ -84,9 +88,17 @@ export const makeModelLists = Effect.gen(function* () {
 
 /** Requires `HarnessRegistry`. */
 export const HarnessRpcsLive = HarnessRpcs.toLayer(
-  Effect.all({
-    "harness.models": makeModelLists,
-    "harness.commands": commandLists,
-    "harness.spinnerVerbs": Effect.sync(spinnerVerbsHandler),
+  Effect.gen(function* () {
+    const models = yield* makeModelLists;
+    const commands = yield* commandLists;
+
+    // Without user access a caller is served the cache alone (ADR 0114).
+    return {
+      "harness.models": (payload, { client }) =>
+        models(payload, lacksUserAccess(client.annotations)),
+      "harness.commands": (payload, { client }) =>
+        commands(payload, lacksUserAccess(client.annotations)),
+      "harness.spinnerVerbs": spinnerVerbsHandler(),
+    };
   })
 );

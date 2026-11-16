@@ -4,6 +4,7 @@ import { connectRpc, socketTransport } from "@polaris/client";
 import { Effect } from "effect";
 import { PredictionCapabilityLive } from "./capability.ts";
 import { startServer } from "../transport/server.ts";
+import { TEST_USER_KEY } from "../transport/userAccess.testing.ts";
 import { newTempDir, removeTempDir } from "../platform/tempDir.testing.ts";
 
 test("Capability RPC discovers configured endpoints, isolates bad responses and negotiates support", async () => {
@@ -42,6 +43,7 @@ test("Capability RPC discovers configured endpoints, isolates bad responses and 
             clientVersion: "0",
             deviceLabel: "fixture",
             capabilities: [],
+            ...TEST_USER_KEY,
           });
 
           const input = { endpoints: [`http://127.0.0.1:${endpoint.port}`] };

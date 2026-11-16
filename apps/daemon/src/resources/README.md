@@ -9,6 +9,9 @@ requests cannot use it.
 Settings → Hosts reads `host.resources.get`. The declare, remove, release and
 `host.workers.setCap` RPCs return that same `HostResourcesSnapshot`. Release frees
 a lease or cancels a queued request without sending a signal to its process.
+Release from a connection without user access (ADR 0114) frees only a lease that
+connection asked for itself, as `polaris lease` does on exit; a wrapper that reconnected
+leaves its lease to the one-second check. Any other release is the user's.
 Removal rejects holders and waiters. Capacity reductions reject excess holders;
 worker-cap reductions reject excess working workers. A null worker cap restores
 `floor(available cores / 3)`, at least one. The default hold limit is 30 minutes.
