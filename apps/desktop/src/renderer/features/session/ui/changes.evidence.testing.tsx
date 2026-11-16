@@ -61,7 +61,7 @@ new file mode 100644
 +def sync(remote: str = "origin") -> int:
 +    """Fetch and fast-forward the current branch."""
 +    result = subprocess.run(["git", "pull", "--ff-only", remote], check=False)
-+    return result.returncode  # 0 when it moved
++    return result.returncode  # 0 when it moved, and anything else when the pull refused to fast-forward or the remote wasn't reachable  # TAIL
 +
 `;
 

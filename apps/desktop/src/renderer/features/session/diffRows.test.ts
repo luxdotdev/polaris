@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { parseUnifiedDiff } from "./model/diff.ts";
-import { diffRows, lineColumns, widestColumns } from "./diffRows.ts";
+import { fileColumns, lineColumns } from "./diffRows.ts";
 
 describe("lineColumns", () => {
   test.each([
@@ -29,12 +29,8 @@ diff --git a/b.ts b/b.ts
 +${"w".repeat(120)}
 `;
 
-describe("widestColumns", () => {
-  test("the widest line of any file sets how far the list scrolls", () => {
-    expect(widestColumns(diffRows(parseUnifiedDiff(PATCH), new Set()))).toBe(300);
-  });
-
-  test("a folded file's lines no longer widen the list", () => {
-    expect(widestColumns(diffRows(parseUnifiedDiff(PATCH), new Set(["a.ts"])))).toBe(120);
+describe("fileColumns", () => {
+  test("each file is as wide as its own widest line, not another file's", () => {
+    expect(parseUnifiedDiff(PATCH).map(fileColumns)).toEqual([300, 120]);
   });
 });
