@@ -58,8 +58,16 @@ const shot = async (page: Page, name: string) => {
 /** Settings → Hosts → this Mac's page. */
 const hostPage = async (page: Page) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.keyboard.press("Meta+,");
-  await page.getByRole("button", { name: "Hosts" }).first().click();
+  const settings = page.getByText("Back to orchestrate");
+
+  // The window takes ⌘, only once the shell has mounted: press until Settings shows.
+  for (let attempt = 0; attempt < 10 && !(await settings.isVisible()); attempt += 1) {
+    await page.keyboard.press("Meta+,");
+    await settings.waitFor({ timeout: 3_000 }).catch(() => undefined);
+  }
+
+  // Inside Settings: the top bar has a Hosts button of its own while Settings is closed.
+  await page.getByRole("button", { name: "Hosts", exact: true }).click();
   await page.getByTestId("hosts-settings").waitFor({ timeout: 15_000 });
   await shot(page, "debug-hosts");
   await page.getByTestId("machine-local").getByRole("button").click({ timeout: 10_000 });
