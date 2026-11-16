@@ -413,6 +413,49 @@ run("Extension safety", [
   "witnessRevokedClosed",
 ]);
 
+run("typecheck shares.qnt", ["typecheck", "shares.qnt"]);
+
+run("Shares and Comments scenarios", ["test", "shares.qnt", "--main=shares"]);
+
+const shares = run("Shares and Comments safety", [
+  "run",
+  "shares.qnt",
+  "--main=shares",
+  "--invariant=safety",
+  `--max-samples=${samples}`,
+  "--max-steps=40",
+  `--seed=${seed}`,
+  "--verbosity=1",
+  "--witnesses",
+  "witnessOutside",
+  "witnessNotGranted",
+  "witnessSentByAnother",
+  "witnessTeammateTurn",
+]);
+
+if (/was witnessed in 0 trace/.test(shares)) {
+  failed = true;
+  console.log("✗ a Shares witness was never reached: the simulation no longer covers it");
+}
+
+for (const mutant of ["unscoped", "resend"]) {
+  const main = `shares_${mutant}_mutant`;
+  run(`Shares ${mutant} regression witness`, ["test", "shares.qnt", `--main=${main}`]);
+  run(
+    `Shares ${mutant} mutant violates safety`,
+    [
+      "run",
+      "shares.qnt",
+      `--main=${main}`,
+      "--invariant=safety",
+      `--max-samples=${samples}`,
+      "--max-steps=40",
+      `--seed=${seed}`,
+    ],
+    true
+  );
+}
+
 run("typecheck languages.qnt", ["typecheck", "languages.qnt"]);
 
 run("language contract scenarios", ["test", "languages.qnt", "--main=languages_test"]);

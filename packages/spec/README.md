@@ -15,6 +15,7 @@ It covers the event store's group commit, receipts and gapless sequence (`apps/d
 | `scripts/check.ts` | Runs every check (`bun run spec`). |
 | `scripts/replay.ts` | Trace validation: replays logs the real Engine committed through the model (below). |
 | `extensions.qnt` | Pairings and Grants (ENG-398): connections scoped by `hello`, the Grant gate, revocation closing live connections. `scripts/replay-extensions.ts` replays a runtime trace through it. |
+| `shares.qnt` | Shared Sessions (ENG-941, ADR 0112 and 0113): Shares and the gate in front of a Teammate's requests, the Account Server's statement on a Teammate's connection, Comments, and `SendFeedback` with Comment IDs. Its instances are `shares` and two mutants that must violate `safety`. |
 | `user-access.qnt` | User access (ENG-700, ADR 0100), which the Daemon no longer runs: the gate is off since ENG-926 (ADR 0110), and ENG-927 revises this model. As specified: `hello` enrols the first user key and holds access for enrolled ones; the user gate refuses user-only requests without it; deleting the enrolment file lets the next key enrol. The protocol's `userAccess.ts` keeps the tables. Safety: one key enrolled at a time, and a user-only request is allowed only on a connection holding access. No event-store commit, acknowledgement or resume semantics change. |
 | `rpc-admission.qnt` | Extension RPC reservations (ENG-418): `transport/rpcAdmission.ts` bounds requests before decoding/forking; `transport/server.ts` connects acquisition, terminal responses, handler finalization and disconnect. Active work retains capacity after disconnect. `transport/rpcAdmission.test.ts` exercises real granted handlers, socket/WebSocket floods, streaming cancellation, failures and token-less Client isolation. No event-store commit, acknowledgement or resume semantics change. |
 
@@ -683,7 +684,7 @@ through the Grant gate, and `close`. Revoking a Pairing closes its live connecti
 `safety`: a live connection never acts as a revoked Pairing (`revokedHaveNoConnections`),
 a refusal names a Grant the Pairing lacks and what is kept for Clients names none
 (`refusalsNameAMissingGrant`), and a token-less connection is never refused
-(`clientsKeepFullPower`). Nine scenarios and a 40-step simulation with three witnesses run
+(`clientsKeepFullPower`). `GRANTS` includes `comment` (ADR 0113). Nine scenarios and a 40-step simulation with three witnesses run
 in `bun run spec`.
 
 | Spec | Code |
@@ -726,6 +727,56 @@ rejects a mutant. `scripts/extensions-replay/runtime.trace.json` is that trace, 
 cd apps/daemon && EXTENSIONS_TRACE_OUTPUT=/tmp/extensions.trace.json bun test src/transport/extensions.test.ts
 bun packages/spec/scripts/replay-extensions.ts /tmp/extensions.trace.json
 ```
+
+## Shares and Comments (ENG-941)
+
+`shares.qnt` models Shared Sessions (CONTEXT.md: Sharing; ADR 0112, 0113) as the protocol
+states them; the Daemon does not serve them yet, so this section maps the model to the
+contract in `packages/protocol` and names where the code will live. People, sessions, Shares
+and Comments are small integers and time is a counter: session 0 stands alone, session 1
+leads a Constellation and session 2 is its Worker.
+
+| Spec | Contract |
+|---|---|
+| `Share`, `Target`, `grantOf` | `shares.ts` `Share`, `ShareTarget` (`Session` or `Constellation`), `SHARE_ROLE_GRANTS` (a Contributor holds every Grant, a Commenter `read` and `comment`) |
+| `createShare`, `renewShare`, `revokeShare` | `shares.create`, `shares.renew`, `shares.revoke`. A Worker's session is refused as a target (`ShareRefused`: `worker`); a lifetime past `MAX_LIFETIME` is refused (`shareExpiry`, `SHARE_MAX_LIFETIME_MS`); a revoked Share is not renewed (`ended`) |
+| `live`, `covers`, `covering`, `decide`, `call` | `isShareLive`, and `shareGrants.ts` `shareCovers` and `decideShareAccess` over `SHARE_RPCS` / `SHARE_COMMANDS`: `NotShared` when no live Share of the person covers what the request touches, `NotGranted` when one covers it and none holds the Grant |
+| `hello`, `refresh`, `statements`, `admitted` | `hello`'s `accountStatement` and `account.refreshStatement` (`StatementRejected`); `vouched` stands for the statement verifying against its issuer's keys and binding this device. A statement lives `STATEMENT_LIFETIME_S`; the Host closes a connection whose statement lapsed, or whose person has no live Share left |
+| `tick` | The Host's clock: a Share expires (`Expired` in the share log) and a statement lapses |
+| `addComment`, `editComment`, `setResolved` | `AddComment`, `EditComment`, `ResolveComment` / `ReopenComment` and their events `CommentAdded`, `CommentEdited`, `CommentResolved`, `CommentReopened` (`comments.ts`). All need the `comment` Grant (`COMMAND_GRANTS`, `SHARE_COMMANDS`); only its author edits a Comment, until it is sent; `mayResolveComment` is the author, the owner or a Contributor |
+| `sendFeedback`, `Turn.carried`, `Comment.sentIn` | `SendFeedback.commentIds`, `Turn.commentIds` and `Comment.sentInTurnId`: one Turn whose Actor is the sender, needing `turn` from a Teammate. Unknown IDs, another session's and already sent ones are refused |
+| `OWNER` | Any Actor that is not a `Teammate`: the owner's own Clients, never gated by a Share |
+
+`safety`: an allowed Teammate request touched the target of a live Share that held its Grant
+(`teammatesStayInShare`, the Share-scoped admission); a Teammate's connection has an unexpired
+statement and a live Share for its person (`connectionsAreVouched`); no Share targets a Worker
+or outlasts the maximum (`sharesAreBounded`); a Comment keeps its author whoever edits, resolves
+or sends it (`commentsKeepAuthor`); and a Comment is carried by at most one Turn, of its own
+session, and says which (`sentWithOneTurn`). Six scenarios and a 40-step simulation with four
+witnesses (a request outside the target, a missing Grant, a Comment sent by someone other than
+its author, a Teammate's Turn) run in `bun run spec`, with two mutants that must each violate
+`safety`:
+
+| Mutant | The bug | What breaks |
+|---|---|---|
+| `shares_unscoped_mutant` | The gate ignores the Share's target | A Share of one session admits a request on another |
+| `shares_resend_mutant` | `SendFeedback` carries a Comment an earlier Turn already carried | Two Turns carry one Comment |
+
+A Comment action changes only `comments`: no Turn starts and no Session State changes, so
+`polaris.qnt` is unchanged. The Turn `SendFeedback` starts is `polaris.qnt`'s `turn.send`,
+decided where `SendTurn` is; in a session that approves for itself it also needs `approve`
+(`decideTurnAccess`, `extensions.qnt`'s `callTurn`). The `comment` Grant joins `GRANTS` in
+`extensions.qnt`: a Pairing may hold it too.
+
+**Left out, on purpose.** The share log, presence, the issuer's JWKS and the relay's routing
+are not modelled; `vouched` abstracts the statement's signature, device binding and expiry
+check. What a request touches is an input: the Host resolves a payload to its session and
+Constellation. One connection per person. RPCs and Commands off the Teammate allowlist
+(`NotShared` whatever they touch) are a table lookup, covered by `shares.test.ts`.
+
+**Not yet tested against real code.** The Daemon answers `shares.*` with `Unsupported` and
+refuses the Comment Commands. The Tasks that serve them add the model-based tests and bind
+each row above to its handler.
 
 ## Authenticated resource receipt challenges (M3.1 salvage)
 
