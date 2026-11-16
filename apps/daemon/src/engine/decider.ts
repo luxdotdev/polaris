@@ -25,6 +25,7 @@ import {
   type RiskSummary,
   type SessionId,
   SessionPlacement,
+  type ShareRole,
   type Turn,
   type TurnId,
   Workspace,
@@ -42,6 +43,7 @@ import {
 import { pickCelestial } from "../store/celestial.ts";
 import { userTurn } from "./session.turns.ts";
 import { reviewDeciders } from "./review.ts";
+import { commentDeciders } from "./comments.ts";
 import { decideSession, type SessionInput } from "./session.ts";
 
 export { stateChanged } from "./session.ts";
@@ -54,6 +56,8 @@ export interface DecideContext {
   /** Who sent it: stamped on the session starts, Turns and approvals it records. */
   readonly actor: Actor;
   readonly extensionGrant?: Grant | null;
+  /** A Teammate's Share role on the session; null for the owner's Clients (`mayResolveComment`). */
+  readonly shareRole?: ShareRole | null;
   /** Fresh ids, used only by the commands that create something. */
   readonly newTurnId: TurnId;
   readonly newWorkspaceId: WorkspaceId;
@@ -78,7 +82,7 @@ export interface DecideContext {
   readonly canCompact?: boolean;
   /**
    * The Turn the command names, looked up in memory or SQL (null if unknown):
-   * ForkSession's `fromTurnId`, AcceptTurns' `throughTurnId`.
+   * ForkSession's `fromTurnId`, AcceptTurns' `throughTurnId`, AddComment's anchor Turn.
    */
   readonly namedTurn: Turn | null;
   /** For RecordVerdict: the Risk Summary it names (null if unknown). */
@@ -604,5 +608,6 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
     OpenInTerminal: (c) => onSession(d, c.sessionId, { type: "terminal.open" }),
     ReturnFromTerminal: (c) => onSession(d, c.sessionId, { type: "terminal.return" }),
     ...reviewDeciders(d),
+    ...commentDeciders(d),
   });
 };

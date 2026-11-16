@@ -360,6 +360,10 @@ const make = Effect.gen(function* () {
         checkouts.updated(command.checkoutId, command.discardChanges, committed.before),
       RemoveReviewCheckout: (command) => checkouts.removed(command.checkoutId),
       RecordVerdict: () => Effect.void,
+      AddComment: () => Effect.void,
+      EditComment: () => Effect.void,
+      ResolveComment: () => Effect.void,
+      ReopenComment: () => Effect.void,
     });
 
   return Reactors.of({ react });

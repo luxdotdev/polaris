@@ -9,6 +9,7 @@ import { CapabilityList } from "./capabilities.ts";
 import { HostInfo } from "./domain.ts";
 import { ExtensionTokenRejected } from "./extensions.ts";
 import { HostId } from "./ids.ts";
+import { Share } from "./shares.ts";
 
 export const LanguageConnectionIdentity = Schema.Struct({
   hostId: HostId,
@@ -92,6 +93,13 @@ export const Hello = Rpc.make("hello", {
      * which approvals and the other user-only RPCs need (`userAccess.ts`). Never in an agent's env.
      */
     userKey: Schema.optionalKey(Schema.RedactedFromValue(Schema.Unknown)),
+    /**
+     * A Teammate's statement from their Account Server (a JWT, `StatementClaims`; ADR 0112): the
+     * connection then acts as that person, within their live Shares on this Host
+     * (`shareGrants.ts`), until the statement expires or `account.refreshStatement` renews it.
+     * A Teammate's Client calls `TeammateRpcs`' `hello`, which can fail with `StatementRejected`.
+     */
+    accountStatement: Schema.optionalKey(Schema.RedactedFromValue(Schema.String)),
   },
   success: Schema.Struct({
     host: HostInfo,
@@ -100,6 +108,8 @@ export const Hello = Rpc.make("hello", {
     languageIdentity: Schema.optionalKey(LanguageConnectionIdentity),
     /** Whether this connection holds user access now (`userAccess.watch` follows it); absent before ENG-700. */
     userAccess: Schema.optionalKey(Schema.Boolean),
+    /** For a Teammate's connection: the person's live Shares on this Host. */
+    shares: Schema.optionalKey(Schema.Array(Share)),
   }),
   error: Schema.Union([LanguageIdentityError, ExtensionTokenRejected, ProtocolMismatch]),
 });

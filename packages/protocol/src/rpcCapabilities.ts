@@ -46,6 +46,8 @@ const browser = "browser.host";
 
 const computerUse = "computer-use";
 
+const shares = "shares";
+
 export const RPC_CAPABILITIES = {
   hello: null,
   dispatch: null,
@@ -273,6 +275,12 @@ export const RPC_CAPABILITIES = {
   "computerUse.app": computerUse,
   "computerUse.preview.watch": "computer-use.preview",
   "computerUse.preview.latest": "computer-use.preview",
+  "shares.create": shares,
+  "shares.renew": shares,
+  "shares.revoke": shares,
+  "shares.list": shares,
+  "shares.watchPresence": shares,
+  "account.refreshStatement": shares,
 } as const satisfies Record<Exclude<DaemonRpcTag, LanguageRpcTag>, RpcRequirement>;
 
 const isLanguageRpc = (tag: DaemonRpcTag): tag is LanguageRpcTag =>

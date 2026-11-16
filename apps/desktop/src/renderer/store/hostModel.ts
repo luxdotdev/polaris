@@ -379,6 +379,12 @@ const fold = (event: DomainEvent): Fold =>
       RiskFindingResolved: () => unchanged,
       RiskSummaryEnded: () => unchanged,
       VerdictRecorded: () => unchanged,
+      // Comments (ADR 0113) are folded once the Desktop App announces `session.comments`.
+      CommentAdded: () => unchanged,
+      CommentEdited: () => unchanged,
+      CommentResolved: () => unchanged,
+      CommentReopened: () => unchanged,
+      CommentOutdated: () => unchanged,
       ApprovalRequested: ({ request }) =>
         onSession(request.sessionId, (entry) => ({
           ...entry,

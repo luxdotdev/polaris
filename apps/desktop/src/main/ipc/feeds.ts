@@ -23,6 +23,7 @@ import { toDataIpcError } from "./data.ts";
 import { tracesOpeners } from "./traces.ts";
 import { httpRequestsOpeners } from "./httpRequests.ts";
 import { githubOpeners } from "../github/ipc.ts";
+import { accountsOpeners } from "../accounts/ipc.ts";
 import { gitOpeners } from "./git.ts";
 import { computerUseOpeners } from "./computerUse.ts";
 import { constellationFeed } from "./constellation.ts";
@@ -87,6 +88,7 @@ const openers: Openers = {
   ...tracesOpeners,
   ...httpRequestsOpeners,
   ...githubOpeners,
+  ...accountsOpeners,
   ...gitOpeners,
   ...computerUseOpeners,
   ...simulatorOpeners,

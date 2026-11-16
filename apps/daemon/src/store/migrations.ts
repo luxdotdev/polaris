@@ -226,6 +226,20 @@ const origins = Effect.gen(function* () {
   yield* sql`CREATE TABLE IF NOT EXISTS origin_state (key TEXT PRIMARY KEY, value TEXT NOT NULL)`;
 });
 
+/** Comments (ADR 0113): each one as its session's events last folded it. */
+const comments = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient;
+  yield* sql`
+    CREATE TABLE IF NOT EXISTS comments (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      added INTEGER NOT NULL,
+      data TEXT NOT NULL
+    )
+  `;
+  yield* sql`CREATE INDEX IF NOT EXISTS comments_session ON comments (session_id, added)`;
+});
+
 export const migrations = SqliteMigrator.fromRecord({
   "0001_event_store": init,
   "0002_subagents": subagents,
@@ -238,6 +252,7 @@ export const migrations = SqliteMigrator.fromRecord({
   "0007_turn_fields": backfillTurnFields,
   "0008_event_type_indexes": eventTypeIndexes,
   "0009_origins": origins,
+  "0010_comments": comments,
 });
 
 export const MigrationsLayer = SqliteMigrator.layer({ loader: migrations });

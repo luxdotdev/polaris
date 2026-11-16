@@ -15,6 +15,7 @@ It covers the event store's group commit, receipts and gapless sequence (`apps/d
 | `scripts/check.ts` | Runs every check (`bun run spec`). |
 | `scripts/replay.ts` | Trace validation: replays logs the real Engine committed through the model (below). |
 | `extensions.qnt` | Pairings and Grants (ENG-398): connections scoped by `hello`, the Grant gate, revocation closing live connections. `scripts/replay-extensions.ts` replays a runtime trace through it. |
+| `shares.qnt` | Shared Sessions (ENG-941, ADR 0112 and 0113): Shares and the gate in front of a Teammate's requests, the Account Server's statement on a Teammate's connection, Comments, and `SendFeedback` with Comment IDs. Its instances are `shares` and two mutants that must violate `safety`. |
 | `user-access.qnt` | User access (ENG-700, ENG-927, ADR 0114): `hello` enrols the first user key a Host sees, holds access for enrolled ones and opens a request for an unknown one (`present`); the user gate refuses user-only requests without access (`userAccessGateFor`, `decideUserAccess`); a connection that holds access allows, denies and revokes (`allow`, `deny`, `revoke`), never the last key (`LastEnrolledApp`), and a closing connection takes its request with it (`release`). `streams` are the admitted user-only requests and streams still open (`watch`): the gate races each against `onLost`, so a revoke or a reread that takes access ends them (`cut`). `stored` is `~/.polaris/user-access.json`, `initialised` whether the file is there, and `enrolled` what the gate decides with: the Daemon reads the file on a keyed `hello`, an allow or a revoke (`reread`), so deleting it (`forget`) is noticed then and brings first use back, while a file with no keys (`emptied`) enrols nobody and opens no request. `apps/daemon/src/userAccess/`, `transport/userAccess.ts` and the protocol's `userAccess.ts`. `verification/userAccess.model.slow.test.ts` runs random steps on the real registry against a reference that transcribes these actions; `transport/userAccess.test.ts` and `userAccess.enrolment.test.ts` check the scenarios over a real socket. Safety: a user-only request is allowed only on a connection holding access; a key is enrolled only on first use or by a connection that held access; a waiting key is never enrolled; requests are bounded and each has an open connection. An open user-only stream belongs to a connection that still holds access; keys are stored only with the file there. `transport/userAccess.hardening.test.ts` checks the file reset, running a program, an open stream at revoke and the emptied registry over a real socket. Not modelled: an unreadable file (enrols nobody), labels and codes. No event-store commit, acknowledgement or resume semantics change. |
 | `rpc-admission.qnt` | Extension RPC reservations (ENG-418): `transport/rpcAdmission.ts` bounds requests before decoding/forking; `transport/server.ts` connects acquisition, terminal responses, handler finalization and disconnect. Active work retains capacity after disconnect. `transport/rpcAdmission.test.ts` exercises real granted handlers, socket/WebSocket floods, streaming cancellation, failures and token-less Client isolation. No event-store commit, acknowledgement or resume semantics change. |
 
@@ -683,7 +684,7 @@ through the Grant gate, and `close`. Revoking a Pairing closes its live connecti
 `safety`: a live connection never acts as a revoked Pairing (`revokedHaveNoConnections`),
 a refusal names a Grant the Pairing lacks and what is kept for Clients names none
 (`refusalsNameAMissingGrant`), and a token-less connection is never refused
-(`clientsKeepFullPower`). Nine scenarios and a 40-step simulation with three witnesses run
+(`clientsKeepFullPower`). `GRANTS` includes `comment` (ADR 0113). Nine scenarios and a 40-step simulation with three witnesses run
 in `bun run spec`.
 
 | Spec | Code |
@@ -726,6 +727,62 @@ rejects a mutant. `scripts/extensions-replay/runtime.trace.json` is that trace, 
 cd apps/daemon && EXTENSIONS_TRACE_OUTPUT=/tmp/extensions.trace.json bun test src/transport/extensions.test.ts
 bun packages/spec/scripts/replay-extensions.ts /tmp/extensions.trace.json
 ```
+
+## Shares and Comments (ENG-941)
+
+`shares.qnt` models Shared Sessions (CONTEXT.md: Sharing; ADR 0112, 0113) as the protocol
+states them. The Daemon serves Comments but not Shares yet, so this section maps the model to
+the contract in `packages/protocol` and, for Comments, to the Daemon's code. People, sessions, Shares
+and Comments are small integers and time is a counter: session 0 stands alone, session 1
+leads a Constellation and session 2 is its Worker.
+
+| Spec | Contract |
+|---|---|
+| `Share`, `Target`, `grantOf` | `shares.ts` `Share`, `ShareTarget` (`Session` or `Constellation`), `SHARE_ROLE_GRANTS` (a Contributor holds every Grant, a Commenter `read` and `comment`) |
+| `createShare`, `renewShare`, `revokeShare` | `shares.create`, `shares.renew`, `shares.revoke`. A Worker's session is refused as a target (`ShareRefused`: `worker`); a lifetime past `MAX_LIFETIME` is refused (`shareExpiry`, `SHARE_MAX_LIFETIME_MS`); a revoked Share is not renewed (`ended`) |
+| `live`, `covers`, `covering`, `decide`, `call` | `isShareLive`, and `shareGrants.ts` `shareCovers` and `decideShareAccess` over `SHARE_RPCS` / `SHARE_COMMANDS`: `NotShared` when no live Share of the person covers what the request touches, `NotGranted` when one covers it and none holds the Grant. The allowlist is by role (`holds`): a Commenter's Share holds `read` and `comment` (subscribe, diff, presence, the Comment Commands); a Contributor's also `turn` (`SendTurn`, `Steer`, `Interrupt`, `Continue`, `Retry`, `SendFeedback`), `approve` (`RespondToApproval`) and `contributor`, the need of what no Grant names (`SetModel`, `SetPermissionMode`, `RenameSession`, `AcceptTurns`), refused to a Commenter as `NotShared` |
+| `hello`, `refresh`, `statements`, `admitted` | `hello`'s `accountStatement` and `account.refreshStatement` (`StatementRejected`); `vouched` stands for the statement verifying against its issuer's keys and binding this device. A statement lives `STATEMENT_LIFETIME_S`; the Host closes a connection whose statement lapsed, or whose person has no live Share left |
+| `tick` | The Host's clock: a Share expires (`Expired` in the share log) and a statement lapses |
+| `addComment`, `editComment`, `setResolved` | `AddComment`, `EditComment`, `ResolveComment` / `ReopenComment` and their events `CommentAdded`, `CommentEdited`, `CommentResolved`, `CommentReopened` (`comments.ts`). All need the `comment` Grant (`COMMAND_GRANTS`, `SHARE_COMMANDS`); only its author edits a Comment, until it is sent; `mayResolveComment` is the author, the owner or a Contributor. Daemon: `engine/comments.ts` decides them, `store/comments.ts` folds them, the `comments` table keeps them |
+| `sendFeedback`, `Turn.carried`, `Comment.sentIn` | `SendFeedback.commentIds`, `Turn.commentIds` and `Comment.sentInTurnId`: one Turn whose Actor is the sender, needing `turn` from a Teammate. Unknown IDs, another session's and already sent ones are refused. Daemon: `engine/review.ts` `sendFeedback` with `carriedComments`; the fold of `TurnStarted` sets `sentInTurnId` |
+| `OWNER` | Any Actor that is not a `Teammate`: the owner's own Clients, never gated by a Share |
+
+`safety`: an allowed Teammate request touched the target of a live Share that held its Grant
+(`teammatesStayInShare`, the Share-scoped admission); a Teammate's connection has an unexpired
+statement and a live Share for its person (`connectionsAreVouched`); no Share targets a Worker
+or outlasts the maximum (`sharesAreBounded`); a Comment keeps its author whoever edits, resolves
+or sends it (`commentsKeepAuthor`); and a Comment is carried by at most one Turn, of its own
+session, and says which (`sentWithOneTurn`). Six scenarios and a 40-step simulation with four
+witnesses (a request outside the target, a missing Grant, a Comment sent by someone other than
+its author, a Teammate's Turn) run in `bun run spec`, with two mutants that must each violate
+`safety`:
+
+| Mutant | The bug | What breaks |
+|---|---|---|
+| `shares_unscoped_mutant` | The gate ignores the Share's target | A Share of one session admits a request on another |
+| `shares_resend_mutant` | `SendFeedback` carries a Comment an earlier Turn already carried | Two Turns carry one Comment |
+
+A Comment action changes only `comments`: no Turn starts and no Session State changes, so
+`polaris.qnt` is unchanged. Neither is `CommentOutdated`, the Host's mark that a later Turn
+changed a line Comment's lines: it changes no author, Turn or sent mark, so it is not modelled. The Turn `SendFeedback` starts is `polaris.qnt`'s `turn.send`,
+decided where `SendTurn` is; in a session that approves for itself it also needs `approve`
+(`decideTurnAccess`, `extensions.qnt`'s `callTurn`). The `comment` Grant joins `GRANTS` in
+`extensions.qnt`: a Pairing may hold it too.
+
+**Left out, on purpose.** The share log, presence, the issuer's JWKS and the relay's routing
+are not modelled; `vouched` abstracts the statement's signature, device binding and expiry
+check. What a request touches is an input: the Host resolves a payload to its session and
+Constellation. One connection per person. RPCs and Commands off the Teammate allowlist
+(`NotShared` whatever they touch: Share management, archiving, terminals, file writes and every
+Host-wide call) are a table lookup, covered by `shares.test.ts`. A Contributor's Constellation
+Lead actions are not listed yet. The Daemon refuses `turn` and `approve` to Teammates at
+runtime until the user gate returns (ENG-927); the model states what the Share allows.
+
+**Tested against real code: Comments only, by example.** `engine/Engine.comments.test.ts`
+runs the real Engine for `commentsKeepAuthor` (across a restart, and when someone else sends
+the Comment) and `sentWithOneTurn` (a resend is refused), and for who may edit and resolve.
+The Share gate is not served (`shares.*` answer `Unsupported`), so there is no model-based
+test or trace validation of `shares.qnt` yet; the Task that serves Shares adds them.
 
 ## Authenticated resource receipt challenges (M3.1 salvage)
 

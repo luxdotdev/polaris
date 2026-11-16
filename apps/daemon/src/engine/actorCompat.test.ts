@@ -64,5 +64,9 @@ test("a Client without actor.linked-device reads a Linked Device's approval as a
 });
 
 test("a Client with actor.linked-device sees the device", () => {
-  expect(actorSessionItemsFor(["actor.linked-device"])).toBeNull();
+  const rewrite = actorSessionItemsFor(["actor.linked-device"]);
+
+  if (rewrite === null) throw new Error("expected a rewrite: Teammates are still unknown to it");
+  expect(actorIn(rewrite(resolved))).toEqual(encodeActor(phone));
+  expect(actorSessionItemsFor(["actor.linked-device", "actor.teammate"])).toBeNull();
 });

@@ -66,6 +66,7 @@ import { VoiceRequestInputs } from "./voiceContract.ts";
 import { BrowserRequestInputs, BrowserSubscriptionInputs } from "./browserContract.ts";
 import { SecretRequestInputs } from "./secretContract.ts";
 import { GitHubRequestInputs, GitHubSubscriptionInputs } from "./githubContract.ts";
+import { AccountsRequestInputs, AccountsSubscriptionInputs } from "./accountsContract.ts";
 import { GitRequestInputs, GitSubscriptionInputs } from "./gitContract.ts";
 import { SimulatorRequestInputs, SimulatorSubscriptionInputs } from "./simulatorContract.ts";
 import { BRANCH_PREFIX } from "./sessionPrefs.ts";
@@ -623,6 +624,7 @@ export const RequestInputs = {
   /** Whether Self-Traces are on now; later changes arrive as `self-traces` App events. */
   "selfTraces.state": Schema.Struct({}),
   ...GitHubRequestInputs,
+  ...AccountsRequestInputs,
   ...GitRequestInputs,
   ...ConstellationRequestInputs,
   ...ConstellationDefaultsInputs,
@@ -701,6 +703,7 @@ export const SubscriptionInputs = {
   /** An inline proposal (`inline.propose`, capability `inline.propose`); closing it cancels. */
   "inline.propose": onHost(InlineRequest.fields),
   ...GitHubSubscriptionInputs,
+  ...AccountsSubscriptionInputs,
   ...GitSubscriptionInputs,
   ...BrowserSubscriptionInputs,
   ...DataSubscriptionInputs,

@@ -13,6 +13,8 @@ import {
   type AgentSession,
   type ConstellationId,
   type ApprovalRequest,
+  type Comment,
+  type CommentId,
   DomainEvent,
   type EventEnvelope,
   type RequestId,
@@ -32,6 +34,7 @@ import {
 import { emptyResources, foldResources, type ResourcesModel } from "../resources/model.ts";
 
 import { pickCelestial } from "./celestial.ts";
+import { carriedBy, type CommentEvent, foldComment } from "./comments.ts";
 import { foldConstellation, graphEvent, type ConstellationRecord } from "./constellation.ts";
 import { purgeWorkspace } from "./removal.ts";
 import { replyPreview } from "./replyPreview.ts";
@@ -52,6 +55,8 @@ export interface SessionRecord {
   readonly pending: ReadonlyMap<RequestId, ApprovalRequest>;
   /** Subagents still working; ended ones are in SQL (`EventStore.readSubagents`). */
   readonly subagents: ReadonlyMap<SubagentId, Subagent>;
+  /** Its Comments (ADR 0113, `comments.ts`); absent when it has none. */
+  readonly comments?: ReadonlyMap<CommentId, Comment>;
 }
 
 export interface ReadModel {
@@ -171,6 +176,11 @@ export const sessionOf: (event: DomainEvent) => SessionId | null =
     RiskFindingResolved: hostEvent,
     RiskSummaryEnded: hostEvent,
     VerdictRecorded: hostEvent,
+    CommentAdded: (event) => event.comment.sessionId,
+    CommentEdited: bySessionId,
+    CommentResolved: bySessionId,
+    CommentReopened: bySessionId,
+    CommentOutdated: bySessionId,
   });
 
 /**
@@ -329,6 +339,7 @@ const updateSession = (
   const change = f(record);
 
   const next: SessionRecord = {
+    ...record,
     session: patchSession(record.session, { ...change.session, updatedAt: fold.at }),
     titleLocked: change.titleLocked ?? record.titleLocked,
     turns: change.turns ?? record.turns,
@@ -495,6 +506,11 @@ const setCheckout =
 
 const keep: Reducer = ({ model }) => model;
 
+const foldCommentEvent =
+  (event: CommentEvent): Reducer =>
+  ({ model, at }) =>
+    foldComment(model, event, at);
+
 const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
   // Constellation projections are folded separately by their graph decider.
   ConstellationStarted: () => keep,
@@ -611,7 +627,7 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
     () =>
     ({ model }) =>
       model,
-  TurnStarted: recordTurn(true),
+  TurnStarted: (event) => (fold) => carriedBy(recordTurn(true)(event)(fold), event.turn),
   TurnEnded: recordTurn(false),
   TurnItemCompleted: recordReply,
   CheckpointRecorded: recordCheckpoint,
@@ -663,6 +679,11 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
   RiskFindingResolved: () => keep,
   RiskSummaryEnded: () => keep,
   VerdictRecorded: () => keep,
+  CommentAdded: foldCommentEvent,
+  CommentEdited: foldCommentEvent,
+  CommentResolved: foldCommentEvent,
+  CommentReopened: foldCommentEvent,
+  CommentOutdated: foldCommentEvent,
 });
 
 export const project = (model: ReadModel, envelope: EventEnvelope): ReadModel => {

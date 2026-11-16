@@ -85,3 +85,23 @@ export type PairingId = typeof PairingId.Type;
 export const LinkedDeviceId = Schema.String.pipe(Schema.brand("LinkedDeviceId"));
 
 export type LinkedDeviceId = typeof LinkedDeviceId.Type;
+
+/** A Share on its owner's Host (CONTEXT.md: Share). */
+export const ShareId = Schema.String.pipe(Schema.brand("ShareId"));
+
+export type ShareId = typeof ShareId.Type;
+
+/** A person, as their Account Server names them: unique only together with the issuer. */
+export const PersonId = Schema.String.pipe(Schema.brand("PersonId"));
+
+export type PersonId = typeof PersonId.Type;
+
+/** An Invite, as the Account Server that holds it names it (CONTEXT.md: Invite). */
+export const InviteId = Schema.String.pipe(Schema.brand("InviteId"));
+
+export type InviteId = typeof InviteId.Type;
+
+/** A Comment, chosen by the Client that adds it (CONTEXT.md: Comment). */
+export const CommentId = Schema.String.pipe(Schema.brand("CommentId"));
+
+export type CommentId = typeof CommentId.Type;

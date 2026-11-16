@@ -35,6 +35,8 @@ import {
 import { userKeyForHost } from "./userKey.ts";
 import type { ConnectionStatusView, HostKind, HostView, IpcError } from "../shared/api.ts";
 import type { GitHub } from "./github/index.ts";
+import type { Accounts } from "@polaris/client/accounts";
+import type { DesktopAccounts } from "./accounts/index.ts";
 import type { LocalDaemon } from "./local/index.ts";
 import type { Machines } from "./machines/service.ts";
 import type { RemoteHostSetting } from "./settings.ts";
@@ -446,7 +448,7 @@ export class HostDirectory extends Context.Service<
 }
 
 /** The services the IPC handlers run on. */
-export type ClientServices = HostDirectory | Machines | GitHub;
+export type ClientServices = HostDirectory | Machines | GitHub | DesktopAccounts | Accounts;
 
 export type ClientRuntime = ManagedRuntime.ManagedRuntime<ClientServices, never>;
 
@@ -455,10 +457,15 @@ export const startClientRuntime = (
   input: HostDirectoryInput,
   machines: Layer.Layer<Machines, never, HostDirectory>,
   github: Layer.Layer<GitHub>,
+  accounts: Layer.Layer<DesktopAccounts | Accounts>,
   /** The Self-Trace Tracer and loggers. */
   observability?: Layer.Layer<never>
 ): ClientRuntime => {
-  const services = Layer.mergeAll(Layer.provideMerge(machines, HostDirectory.layer(input)), github);
+  const services = Layer.mergeAll(
+    Layer.provideMerge(machines, HostDirectory.layer(input)),
+    github,
+    accounts
+  );
 
   return ManagedRuntime.make(
     observability === undefined ? services : Layer.provideMerge(services, observability)
