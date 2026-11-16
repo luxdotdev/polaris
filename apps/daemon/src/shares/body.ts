@@ -29,25 +29,18 @@ export const readCapped = async (response: Response, limit: number): Promise<str
     return null;
   }
 
-  const reader: ReadableStreamDefaultReader<Uint8Array> | undefined = response.body?.getReader();
+  const body: AsyncIterable<Uint8Array> | null = response.body;
 
-  if (reader === undefined) return "";
+  if (body === null) return "";
   const chunks: Array<Uint8Array> = [];
   let size = 0;
 
-  for (;;) {
-    const { done, value } = await reader.read();
+  // Leaving the loop early cancels the stream: nothing past the limit is pulled.
+  for await (const chunk of body) {
+    size += chunk.byteLength;
 
-    if (done) break;
-    size += value.byteLength;
-
-    if (size > limit) {
-      await discard(reader);
-
-      return null;
-    }
-
-    chunks.push(value);
+    if (size > limit) return null;
+    chunks.push(chunk);
   }
 
   return Buffer.concat(chunks).toString("utf8");
