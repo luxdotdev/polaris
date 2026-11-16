@@ -27,6 +27,32 @@ const host: HostView = {
 };
 
 describe("store updates", () => {
+  test("Hosts shared with you stay out of your Hosts, and their feeds still fold", () => {
+    const shared: HostView = { ...host, key: "shared:abc", label: "Lucas's Mac", shared: true };
+
+    const state = reduceUpdates(initialState, [
+      { kind: "hosts", hosts: [host, shared] },
+      {
+        kind: "host",
+        hostKey: shared.key,
+        item: HostStreamItem.cases.Snapshot.make({
+          sequence: seq(1),
+          workspaces: [],
+          worktrees: [],
+          sessions: [],
+        }),
+      },
+    ]);
+
+    expect(state.hosts.map((h) => h.key)).toEqual(["local"]);
+    expect(state.sharedHosts.map((h) => h.key)).toEqual(["shared:abc"]);
+    expect(state.hostModels[shared.key]?.sequence).toBe(seq(1));
+
+    const after = reduceUpdates(state, [{ kind: "hosts", hosts: [host] }]);
+
+    expect(after.sharedHosts).toEqual([]);
+  });
+
   test("one frame's updates fold per Host and per session, and keep untouched slices", () => {
     const key = sessionKey("local", sessionId);
 

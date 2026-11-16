@@ -67,6 +67,7 @@ import { BrowserRequestInputs, BrowserSubscriptionInputs } from "./browserContra
 import { SecretRequestInputs } from "./secretContract.ts";
 import { GitHubRequestInputs, GitHubSubscriptionInputs } from "./githubContract.ts";
 import { AccountsRequestInputs, AccountsSubscriptionInputs } from "./accountsContract.ts";
+import { SharingRequestInputs, SharingSubscriptionInputs } from "./sharingContract.ts";
 import { GitRequestInputs, GitSubscriptionInputs } from "./gitContract.ts";
 import { SimulatorRequestInputs, SimulatorSubscriptionInputs } from "./simulatorContract.ts";
 import { BRANCH_PREFIX } from "./sessionPrefs.ts";
@@ -625,6 +626,7 @@ export const RequestInputs = {
   "selfTraces.state": Schema.Struct({}),
   ...GitHubRequestInputs,
   ...AccountsRequestInputs,
+  ...SharingRequestInputs,
   ...GitRequestInputs,
   ...ConstellationRequestInputs,
   ...ConstellationDefaultsInputs,
@@ -704,6 +706,7 @@ export const SubscriptionInputs = {
   "inline.propose": onHost(InlineRequest.fields),
   ...GitHubSubscriptionInputs,
   ...AccountsSubscriptionInputs,
+  ...SharingSubscriptionInputs,
   ...GitSubscriptionInputs,
   ...BrowserSubscriptionInputs,
   ...DataSubscriptionInputs,

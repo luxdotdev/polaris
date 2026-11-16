@@ -3,6 +3,8 @@
  * wired, untrusted input is decoded before anything runs, and failures cross
  * as `IpcError`s. The real path, end to end, is `scripts/smoke.ts`.
  */
+import { DesktopSharing } from "../sharing/index.ts";
+import { memorySharedStore } from "../sharing/store.ts";
 import { DesktopAccounts } from "../accounts/index.ts";
 import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -127,7 +129,14 @@ const accounts = DesktopAccounts.layer({
   openExternal: () => Promise.resolve(),
 }).pipe(Layer.provide(SecureStorage.memory));
 
-const services = Layer.mergeAll(clientServices, github, accounts);
+const sharing = DesktopSharing.layer({
+  dir: mkdtempSync(join(tmpdir(), "polaris-ipc-sharing-")),
+  fetch: () => Promise.reject(new TypeError("no avatars in tests")),
+  deviceKeys: Effect.die("no relay device in tests"),
+  store: memorySharedStore(),
+});
+
+const services = Layer.provideMerge(sharing, Layer.mergeAll(clientServices, github, accounts));
 
 const revealed: Array<string> = [];
 

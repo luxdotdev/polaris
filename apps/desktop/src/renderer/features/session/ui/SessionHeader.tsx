@@ -30,6 +30,7 @@ import { archiveSession, unarchiveSession } from "../archive.ts";
 import { waitingOn, waitingPhrase } from "../model/background.ts";
 import { BackgroundTasksHover } from "./background.tsx";
 import { useLeadConstellation } from "../../constellation/hooks.ts";
+import { HeaderShare, useOnSharedHost } from "../../sharing/index.ts";
 
 export interface SessionHeaderProps {
   readonly hostKey: string;
@@ -44,7 +45,15 @@ export interface SessionHeaderProps {
 
 const capitalized = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
-const Title = ({ hostKey, session }: { hostKey: string; session: SessionData }) => {
+const Title = ({
+  hostKey,
+  session,
+  renamable,
+}: {
+  hostKey: string;
+  session: SessionData;
+  renamable: boolean;
+}) => {
   const [editing, setEditing] = useState<string | null>(null);
   const title = session.title === "" ? "Untitled session" : session.title;
 
@@ -77,9 +86,9 @@ const Title = ({ hostKey, session }: { hostKey: string; session: SessionData }) 
   return (
     <h1
       className="text-heading text-text-strong cursor-text truncate leading-[21px] tracking-[-0.01em]"
-      title={`${title}\nClick to rename`}
+      title={renamable ? `${title}\nClick to rename` : title}
       data-testid="session-title"
-      onClick={() => setEditing(session.title)}
+      onClick={renamable ? () => setEditing(session.title) : undefined}
     >
       {title}
     </h1>
@@ -147,6 +156,8 @@ export const SessionHeader = (props: SessionHeaderProps) => {
   const { hostKey, session, harness, turnNumber, branch } = props;
   const waiting = waitingOn(session);
   const lead = useLeadConstellation(hostKey, session.id) !== null;
+  // A session shared with you: its owner renames, forks and archives it.
+  const theirs = useOnSharedHost(hostKey);
 
   const state =
     waiting.length > 0
@@ -178,7 +189,7 @@ export const SessionHeader = (props: SessionHeaderProps) => {
         data-testid="session-celestial"
       />
       <div className="flex min-w-0 flex-1 flex-col gap-px">
-        <Title hostKey={hostKey} session={session} />
+        <Title hostKey={hostKey} session={session} renamable={!theirs} />
         <div className="flex min-w-0 items-center gap-1.5 whitespace-nowrap">
           {harness === null ? (
             <span className="text-body text-text-default shrink-0">{session.harness}</span>
@@ -208,7 +219,13 @@ export const SessionHeader = (props: SessionHeaderProps) => {
           )}
         </div>
       </div>
-      <SessionMenu {...props} />
+      <HeaderShare
+        hostKey={hostKey}
+        sessionId={session.id}
+        workspaceId={session.workspaceId}
+        title={session.title}
+      />
+      {theirs ? null : <SessionMenu {...props} />}
     </header>
   );
 };
