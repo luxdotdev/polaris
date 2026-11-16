@@ -1,5 +1,7 @@
 import { DomainEvent, type SessionId, TurnId } from "@polaris/protocol";
-import { Effect, Stream } from "effect";
+import { Clock, Effect, Option, Stream } from "effect";
+import type { ShareBook } from "../shares/identities.ts";
+import { endedSharesOf } from "../shares/shared.ts";
 import type { ServiceError } from "../services.ts";
 import { LiveItem } from "../store/EventStore.ts";
 import { userTurn } from "./session.turns.ts";
@@ -26,6 +28,18 @@ export const queuedTurnToRun = (sessionId: SessionId, ended: SignalResult): Turn
 
   return null;
 };
+
+/** The Shares behind the session's queued Turns that ended since: their Turns must not start. */
+export const endedShares = (
+  store: EngineRuntime["Service"]["store"],
+  book: Option.Option<ShareBook["Service"]>,
+  sessionId: SessionId
+) =>
+  Effect.gen(function* () {
+    const all = Option.isSome(book) ? yield* book.value.all : [];
+
+    return endedSharesOf(yield* store.model, all, sessionId, yield* Clock.currentTimeMillis);
+  });
 
 export const waitForTurnEnd = (
   rt: EngineRuntime["Service"],

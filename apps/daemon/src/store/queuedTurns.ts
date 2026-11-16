@@ -60,6 +60,7 @@ export const foldQueuedTurn = (model: ReadModel, event: QueuedTurnEvent, at: str
                     actor: queued.actor,
                     queuedAt: queued.queuedAt,
                     editedAt: at,
+                    approves: queued.approves,
                   })
                 : queued
             )

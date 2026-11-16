@@ -370,6 +370,15 @@ const asksForEverything = (permissionMode: string | null) =>
 const alsoApproves = (rpc: string, command: string | null, permissionMode: string | null) =>
   rpc === "dispatch" && command === "StartSession" && !asksForEverything(permissionMode);
 
+/**
+ * Whether a queued Turn may still start: in a session that approves for itself by then, only
+ * one whose sender held `approve` (ADR 0078), as a Turn sent then would need.
+ */
+export const queuedTurnMayStart = (
+  queued: { readonly approves?: boolean | null },
+  permissionMode: string | null
+): boolean => queued.approves !== false || asksForEverything(permissionMode);
+
 /** Apply inside the commit decision, using the session's current permission mode. */
 export const decideTurnAccess = (
   grant: Grant | null,

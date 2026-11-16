@@ -2,8 +2,16 @@
  * Queued Turns in the Session machine (ENG-941, README.md here): in a shared session a Turn
  * sent while one is in flight waits its turn, and starts when the Turn before it ends.
  */
-import { Actor, DomainEvent, mayChangeQueuedTurn, QueuedTurn, type Turn } from "@polaris/protocol";
-import { Result } from "effect";
+import {
+  Actor,
+  DomainEvent,
+  mayChangeQueuedTurn,
+  QueuedTurn,
+  queuedTurnMayStart,
+  type ShareId,
+  type Turn,
+} from "@polaris/protocol";
+import { Predicate, Result } from "effect";
 import { patchTurn, type SessionRecord, workingTurn } from "../store/model.ts";
 import { queueOf } from "../store/queuedTurns.ts";
 import type { SessionInput } from "./session.inputs.ts";
@@ -24,7 +32,8 @@ export const queuesTurn = (record: SessionRecord, input: SendInput): boolean =>
 /** The sent Turn joining the queue, or why it can't. The decider stamps who sent it. */
 export const queueTurn = (
   record: SessionRecord,
-  turn: Turn
+  turn: Turn,
+  approves: boolean
 ): Result.Result<ReadonlyArray<DomainEvent>, string> =>
   queueOf(record).length >= QUEUE_LIMIT
     ? Result.fail(`the queue is full (${QUEUE_LIMIT} Turns); wait for one to start`)
@@ -38,15 +47,55 @@ export const queueTurn = (
             actor: turn.actor ?? Actor.cases.Client.make({}),
             queuedAt: turn.startedAt,
             editedAt: null,
+            approves,
           }),
         }),
       ]);
 
-/** The head of the queue as the Turn it starts as at `at`, keeping its Actor; null when empty. */
-export const nextQueued = (record: SessionRecord, at: string) => {
-  const [head] = queueOf(record);
+const cancelledByHost = (queued: QueuedTurn, reason: string) =>
+  DomainEvent.cases.QueuedTurnCancelled.make({
+    sessionId: queued.sessionId,
+    turnId: queued.id,
+    actor: null,
+    reason,
+  });
 
-  if (head === undefined) return null;
+/** Why a queued Turn may not start any more: its sender lost the access it queued with. */
+const barred = (
+  record: SessionRecord,
+  queued: QueuedTurn,
+  endedShares: ReadonlyArray<ShareId>
+): string | null => {
+  if (Predicate.isTagged(queued.actor, "Teammate") && endedShares.includes(queued.actor.shareId))
+    return "Their Share ended";
+
+  return queuedTurnMayStart(queued, record.session.permissionMode)
+    ? null
+    : "The session approves for itself now, and its sender can't approve";
+};
+
+/**
+ * What a clean Turn end does to the queue: Turns whose sender lost access are cancelled, and
+ * the first of the rest starts at `at`, keeping its Actor (`started` is null with none left).
+ */
+export const nextQueued = (
+  record: SessionRecord,
+  at: string,
+  endedShares: ReadonlyArray<ShareId>
+) => {
+  const cancelled: Array<DomainEvent> = [];
+  const waiting: Array<QueuedTurn> = [];
+
+  for (const queued of queueOf(record)) {
+    const reason = barred(record, queued, endedShares);
+
+    if (reason === null) waiting.push(queued);
+    else cancelled.push(cancelledByHost(queued, reason));
+  }
+
+  const [head] = waiting;
+
+  if (head === undefined) return { cancelled, started: null };
 
   const turn = patchTurn(
     userTurn(record.session, {
@@ -58,19 +107,12 @@ export const nextQueued = (record: SessionRecord, at: string) => {
     { actor: head.actor }
   );
 
-  return DomainEvent.cases.TurnStarted.make({ turn, actor: head.actor });
+  return { cancelled, started: DomainEvent.cases.TurnStarted.make({ turn, actor: head.actor }) };
 };
 
 /** Every queued Turn dropped by the Host: the Turn in flight did not end cleanly. */
 export const dropQueue = (record: SessionRecord, reason: string): Array<DomainEvent> =>
-  queueOf(record).map((queued) =>
-    DomainEvent.cases.QueuedTurnCancelled.make({
-      sessionId: record.session.id,
-      turnId: queued.id,
-      actor: null,
-      reason,
-    })
-  );
+  queueOf(record).map((queued) => cancelledByHost(queued, reason));
 
 type ChangeInput = Extract<SessionInput, { type: "queue.cancel" | "queue.edit" }>;
 
@@ -113,7 +155,7 @@ export const queueOrRefuse = (
   const record = need(context);
 
   if (!queuesTurn(record, event)) return reject(enq, turnRefusal(record, "send"));
-  const queued = queueTurn(record, event.turn);
+  const queued = queueTurn(record, event.turn, event.approves !== false);
 
   return Result.isSuccess(queued)
     ? settle(enq, record, queued.success)

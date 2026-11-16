@@ -120,20 +120,25 @@ const turnEnded = (
   );
 
   // The session would go Idle: the head of the queue starts instead, as if sent then.
-  const next = withState && event.status !== "failed" ? nextQueued(record, event.at) : null;
+  const next =
+    withState && event.status !== "failed"
+      ? nextQueued(record, event.at, event.endedShares ?? [])
+      : {
+          cancelled: dropQueue(record, event.error ?? "The Turn before it did not finish"),
+          started: null,
+        };
 
-  if (next === null) {
-    events.push(...dropQueue(record, event.error ?? "The Turn before it did not finish"));
+  events.push(...next.cancelled);
 
+  if (next.started === null)
     return settle(enq, record, events, withState ? turnEndState(event) : undefined);
-  }
 
-  enq.emit({ type: "effect", effect: { type: "runQueuedTurn", turnId: next.turn.id } });
+  enq.emit({ type: "effect", effect: { type: "runQueuedTurn", turnId: next.started.turn.id } });
 
   return settle(
     enq,
     record,
-    [...events, next],
+    [...events, next.started],
     record.session.state === "working" ? undefined : { state: "working" }
   );
 };

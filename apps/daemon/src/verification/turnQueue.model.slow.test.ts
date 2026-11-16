@@ -78,7 +78,12 @@ const EMPTY: View = {
 type Step =
   | { readonly type: "send"; readonly by: number; readonly shared: boolean }
   | { readonly type: "cancel" | "edit"; readonly id: number; readonly by: number }
-  | { readonly type: "end"; readonly status: "completed" | "interrupted" | "failed" }
+  | {
+      readonly type: "end";
+      readonly status: "completed" | "interrupted" | "failed";
+      /** The Teammates whose Share ended by now (`EndBarring`); only a clean end reads it. */
+      readonly barred: ReadonlyArray<number>;
+    }
   | { readonly type: "lose"; readonly how: "exit" | "crash" | "restart" | "fail" };
 
 const send = (v: View, by: number, shared: boolean): View => {
@@ -121,14 +126,14 @@ const drop = (v: View): View => ({
   last: "nothing",
 });
 
-const end = (v: View, status: string): View => {
+const end = (v: View, status: string, barred: ReadonlyArray<number>): View => {
   if (v.inFlight < 0) return v;
 
   if (status === "failed") return drop(v);
-  const [first, ...rest] = v.queue;
+  const [first, ...rest] = v.queue.filter((q) => !barred.includes(q.by));
 
   return first === undefined
-    ? { ...v, state: "idle", inFlight: -1, last: "nothing" }
+    ? { ...v, state: "idle", inFlight: -1, queue: [], last: "nothing" }
     : {
         ...v,
         state: "working",
@@ -148,7 +153,7 @@ const apply = (v: View, step: Step): View => {
     case "edit":
       return change(v, step.id, step.by, step.type === "cancel");
     case "end":
-      return end(v, step.status);
+      return end(v, step.status, step.barred);
     case "lose":
       return v.inFlight < 0 ? v : drop(v);
   }
@@ -321,6 +326,7 @@ const run = (real: Real, step: Step, expected: View): Real => {
             status: step.status,
             error: step.status === "failed" ? "the Turn failed" : null,
             checkpoint: null,
+            endedShares: step.barred.map((person) => ShareId.make(`share-${person}`)),
             at: AT,
           });
     case "lose":
@@ -366,6 +372,7 @@ const step: fc.Arbitrary<Step> = fc.oneof(
         "interrupted" as const,
         "failed" as const
       ),
+      barred: fc.constantFrom<ReadonlyArray<number>>([], [], [], [1], [2], [1, 2]),
     }),
   },
   {

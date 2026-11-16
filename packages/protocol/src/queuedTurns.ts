@@ -21,6 +21,8 @@ export class QueuedTurn extends Schema.Class<QueuedTurn>("QueuedTurn")({
   actor: Actor,
   queuedAt: Timestamp,
   editedAt: optionalNullable(Timestamp),
+  /** False when its sender did not hold `approve` as it queued (`queuedTurnMayStart`). */
+  approves: optionalNullable(Schema.Boolean),
 }) {}
 
 /** The queue's events on the session's log (`events.ts`). A queued Turn starting is its `TurnStarted`. */

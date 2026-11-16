@@ -156,6 +156,7 @@ const withActor = (actor: Actor, event: DomainEvent): DomainEvent =>
             actor,
             queuedAt: e.turn.queuedAt,
             editedAt: e.turn.editedAt,
+            approves: e.turn.approves,
           }),
         }),
     }),
@@ -580,6 +581,7 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
           type: "turn.send",
           turn: d.newTurn(record.session, c.prompt),
           queue: ctx.shared === true,
+          approves: ctx.extensionGrant == null || ctx.extensionGrant.includes("approve"),
         })
       ),
     CancelQueuedTurn: (c) =>

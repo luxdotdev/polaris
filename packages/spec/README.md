@@ -16,7 +16,7 @@ It covers the event store's group commit, receipts and gapless sequence (`apps/d
 | `scripts/replay.ts` | Trace validation: replays logs the real Engine committed through the model (below). |
 | `extensions.qnt` | Pairings and Grants (ENG-398): connections scoped by `hello`, the Grant gate, revocation closing live connections. `scripts/replay-extensions.ts` replays a runtime trace through it. |
 | `shares.qnt` | Shared Sessions (ENG-941, ADR 0112 and 0113): Shares and the gate in front of a Teammate's requests, the Account Server's statement on a Teammate's connection, Comments, and `SendFeedback` with Comment IDs. Its instances are `shares` and two mutants that must violate `safety`. |
-| `turn-queue.qnt` | Queued Turns (ENG-941): in a shared session a Turn sent with one in flight waits in a first-in-first-out queue with its author, starts when that Turn ends cleanly, and is dropped when it does not; its author or the owner cancels or edits it. Its instances are `turn_queue` and three mutants that must violate `safety`. |
+| `turn-queue.qnt` | Queued Turns (ENG-941): in a shared session a Turn sent with one in flight waits in a first-in-first-out queue with its author, starts when that Turn ends cleanly, and is dropped when it does not; its author or the owner cancels or edits it. A Turn whose sender lost access while it waited never starts. Its instances are `turn_queue` and four mutants that must violate `safety`. |
 | `user-access.qnt` | User access (ENG-700, ENG-927, ADR 0114): `hello` enrols the first user key a Host sees, holds access for enrolled ones and opens a request for an unknown one (`present`); the user gate refuses user-only requests without access (`userAccessGateFor`, `decideUserAccess`); a connection that holds access allows, denies and revokes (`allow`, `deny`, `revoke`), never the last key (`LastEnrolledApp`), and a closing connection takes its request with it (`release`). `streams` are the admitted user-only requests and streams still open (`watch`): the gate races each against `onLost`, so a revoke or a reread that takes access ends them (`cut`). `stored` is `~/.polaris/user-access.json`, `initialised` whether the file is there, and `enrolled` what the gate decides with: the Daemon reads the file on a keyed `hello`, an allow or a revoke (`reread`), so deleting it (`forget`) is noticed then and brings first use back, while a file with no keys (`emptied`) enrols nobody and opens no request. `apps/daemon/src/userAccess/`, `transport/userAccess.ts` and the protocol's `userAccess.ts`. `verification/userAccess.model.slow.test.ts` runs random steps on the real registry against a reference that transcribes these actions; `transport/userAccess.test.ts` and `userAccess.enrolment.test.ts` check the scenarios over a real socket. Safety: a user-only request is allowed only on a connection holding access; a key is enrolled only on first use or by a connection that held access; a waiting key is never enrolled; requests are bounded and each has an open connection. An open user-only stream belongs to a connection that still holds access; keys are stored only with the file there. The spec's `user` is the protocol's table, where `any` is only a read or a watch (`userAccess.test.ts` lists each one) and every Command is `user`; checks behind the gate (`isUserCaller`) read the same `holds`, live. `transport/userAccess.hardening.test.ts` checks the file reset, running a program, an open stream at revoke and the emptied registry over a real socket. Not modelled: an unreadable file (enrols nobody), labels and codes. No event-store commit, acknowledgement or resume semantics change. |
 | `rpc-admission.qnt` | Extension RPC reservations (ENG-418): `transport/rpcAdmission.ts` bounds requests before decoding/forking; `transport/server.ts` connects acquisition, terminal responses, handler finalization and disconnect. Active work retains capacity after disconnect. `transport/rpcAdmission.test.ts` exercises real granted handlers, socket/WebSocket floods, streaming cancellation, failures and token-less Client isolation. No event-store commit, acknowledgement or resume semantics change. |
 
@@ -132,7 +132,7 @@ Each finding's instance (`finding1` … `finding4`) is the code before its fix; 
 - `extensions.model.slow.test.ts`: the real `Pairings` store on a SQLite file and `decideAccess` (ENG-398), under random sequences of pair, revoke, authenticate and gated RPCs and Commands, against a reference of `extensions.qnt`: a token opens exactly its Pairing until revoked and nothing when never issued or malformed; a scoped connection is refused exactly what its Grant lacks, naming it, and everything kept for Clients; a token-less connection is never refused.
 - `computerUse.model.slow.test.ts`: the real session machine (`decideSession`, two sessions) and the real app policy (`@polaris/protocol`'s `computerUsePolicy.ts`), under random uses, answers, Turn ends, new Turns and always-allowed removals, against an independent model of `computer-use.qnt` (see "Computer use" below).
 - `computerUseRequest.model.slow.test.ts`: the real session machine (`decideSession`, two sessions) under random requests, Not now and Allow answers, the Host turning Ready, Turn ends and new Turns, against an independent model of the approval half of `computer-use-request.qnt` (see "Computer use requests" below).
-- `turnQueue.model.slow.test.ts`: the real decider (`decide` for `SendTurn`, `CancelQueuedTurn` and `EditQueuedTurn`, `decideSession` for the Harness's Turn ends and exits) folded by the real `foldSession`, under random sends from the owner and two Teammates, cancels, edits, clean and failed Turn ends and Harness exits, against a reference that transcribes `turn-queue.qnt`'s `apply` (see "Queued Turns" below).
+- `turnQueue.model.slow.test.ts`: the real decider (`decide` for `SendTurn`, `CancelQueuedTurn` and `EditQueuedTurn`, `decideSession` for the Harness's Turn ends and exits) folded by the real `foldSession`, under random sends from the owner and two Teammates, cancels, edits, clean and failed Turn ends (some after a Teammate's Share ended) and Harness exits, against a reference that transcribes `turn-queue.qnt`'s `apply` (see "Queued Turns" below).
 - `findings.slow.test.ts`: the bugs below, as regression tests (a new finding that cannot be fixed at once goes there as `test.todo`).
 
 `POLARIS_PBT_RUNS` sets the number of runs (CI: 25 for the store, 12 for the Engine), `POLARIS_PBT_SEED` replays a seed fast-check printed, and `POLARIS_PBT_STATS=1` prints what the runs reached.
@@ -802,28 +802,35 @@ machine decides.
 | `send(p)` with no Turn in flight | `turn.send` in `engine/session.ts`: the Turn starts |
 | `send(p)` with a Turn in flight | `queueOrRefuse`, `queueTurn` (`engine/session.queue.ts`): `TurnQueued`, or refused at `LIMIT` (`QUEUE_LIMIT`) |
 | `cancel(p, t)`, `edit(p, t)` | `changeQueued` behind `queue.cancel` and `queue.edit`; `mayChange` is `mayChangeQueuedTurn` (`@polaris/protocol`) |
-| `endClean` | `harness.turnEnded` with `completed` or `interrupted`: `nextQueued` starts the head (`runQueuedTurn`), or the session goes Idle |
-| `endBroken` | `dropQueue`: a failed or limited Turn, a Harness exit, `session.fail`, `daemon.recover`, an unattended interrupt, a terminal UI closing |
+| `End("completed")`, `End("interrupted")` | `harness.turnEnded` with `completed` or `interrupted`: `nextQueued` starts the head (`runQueuedTurn`), or the session goes Idle |
+| `EndBarring(people)` | the same Turn end with `endedShares` (the supervisor's `endedShares`, `shares/shared.ts`) or a sender without `approve` in a session that approves for itself (`queuedTurnMayStart`): their queued Turns are cancelled, the first of the rest starts |
+| `End("failed")`, `Lose` | `dropQueue`: a failed or limited Turn, a Harness exit, `session.fail`, `daemon.recover`, an unattended interrupt, a terminal UI closing |
 | `queue`, `authorOf` | `SessionRecord.queue` (`store/queuedTurns.ts`, the `queued_turns` table), `QueuedTurn.actor` |
 | `ran`, `runBy` | `TurnStarted` and its `actor` |
 
 **Safety** (`safety`): `queueNeedsATurn` (a Turn waits only behind one in flight), `fifo`
 (Turns start in the order they were sent), `authorsKept` (a Turn runs as whoever sent it),
-`cancelledNeverRun`, `authorOrOwnerChanges` (nobody else cancelled or edited), `bounded` and
-`inFlightRan`. The mutants `turn_queue_lifo_mutant` (the newest starts first),
-`turn_queue_cancel_mutant` (anyone cancels) and `turn_queue_keeps_mutant` (a broken Turn keeps
-the queue) must each violate it. The witnesses reach two authors' Turns run in order, an
-owner's cancel of a Teammate's Turn, a refused cancel, a dropped queue and a full one.
+`cancelledNeverRun`, `authorOrOwnerChanges` (nobody else cancelled or edited),
+`barredNeverStart` (a Turn whose sender lost access by the time it would start never starts),
+`bounded` and `inFlightRan`. The mutants `turn_queue_lifo_mutant` (the newest starts first),
+`turn_queue_cancel_mutant` (anyone cancels), `turn_queue_keeps_mutant` (a broken Turn keeps
+the queue) and `turn_queue_barred_mutant` (no check as a Turn starts) must each violate it. The
+witnesses reach two authors' Turns run in order, an owner's cancel of a Teammate's Turn, a
+refused cancel, a dropped queue, a full one and a barred Turn cancelled as the next starts.
 
 **Left out, on purpose.** Whether the session is shared (an input: the dispatcher resolves it
 from the live Shares, and an unshared session refuses as before; `Engine.queuedTurns.test.ts`),
 the Share gate in front of the command (`shares.qnt`), Steer, prompts' text, and persistence
-(the same test restarts the Engine with a Turn queued).
+(the same test restarts the Engine with a Turn queued). Why a sender is barred is an input:
+the model does not tell an ended Share from a lost `approve`. A Pairing revoked while its
+Extension's Turn waits is not re-checked (ENG-941 follow-up).
 
 **Tested against real code.** `verification/turnQueue.model.slow.test.ts` (above) and
 `engine/Engine.queuedTurns.test.ts`, which runs the real Engine and fake Harness: two people's
 Turns in order with their Actors and one Idle at the end, cancel and edit rules, an interrupt
-starting the next, a failure and a restart dropping the queue with its reason.
+starting the next, a failure and a restart dropping the queue with its reason, and a Turn
+queued through a Share revoked since, or without `approve` before the session approves for
+itself, cancelled as the next starts.
 
 ## Authenticated resource receipt challenges (M3.1 salvage)
 

@@ -5,6 +5,8 @@ import {
   type Capability,
   Command,
   DomainEvent,
+  type Grant,
+  PairingId,
   PersonId,
   SessionId,
   SessionPlacement,
@@ -39,7 +41,7 @@ const S = SessionId.make("s-queue");
 
 const OWNER = Actor.cases.Client.make({});
 
-const share = (name: string) =>
+const share = (name: string, revokedAt: string | null = null) =>
   new Share({
     id: ShareId.make(`share-${name}`),
     target: ShareTarget.cases.Session.make({ sessionId: S }),
@@ -55,7 +57,7 @@ const share = (name: string) =>
     grant: ["read", "comment", "approve", "turn"],
     createdAt: "2026-01-01T00:00:00.000Z",
     expiresAt: "2999-01-01T00:00:00.000Z",
-    revokedAt: null,
+    revokedAt,
   });
 
 const teammate = (name: string) =>
@@ -71,6 +73,8 @@ const bob = teammate("Bob");
 
 /** An Engine whose Host has `shares`; the fake Harness ends a Turn only when the test says. */
 const setup = (shares: ReadonlyArray<Share>, onInterrupt = false) => {
+  let current = shares;
+
   const driver = makeFakeDriver(
     "claude",
     onInterrupt
@@ -90,18 +94,43 @@ const setup = (shares: ReadonlyArray<Share>, onInterrupt = false) => {
     filename: join(tempDir(), "state.sqlite"),
     fakes: makeFakes(),
     drivers: [driver],
-  }).pipe(Layer.provide(Layer.succeed(ShareBook)({ all: Effect.succeed(shares), bind: () => {} })));
+  }).pipe(
+    Layer.provide(Layer.succeed(ShareBook)({ all: Effect.sync(() => current), bind: () => {} }))
+  );
 
-  return { driver, layer };
+  /** The owner revokes `name`'s Share. */
+  const revoke = (name: string) => {
+    current = current.map((s) =>
+      s.person.name === name ? share(name, "2026-06-01T00:00:00.000Z") : s
+    );
+  };
+
+  return { driver, layer, revoke };
 };
 
 const run = <A, E>(layer: Layer.Layer<Env>, program: Effect.Effect<A, E, Env>) =>
   Effect.runPromise(program.pipe(Effect.provide(layer)));
 
-const dispatch = (command: Command, actor: Actor = OWNER) =>
+const dispatch = (command: Command, actor: Actor = OWNER, extensionGrant: Grant | null = null) =>
   Effect.flatMap(Engine, (engine) =>
-    engine.dispatch({ commandId: cid("queue"), command, deviceLabel: "MacBook", actor })
+    engine.dispatch({
+      commandId: cid("queue"),
+      command,
+      deviceLabel: "MacBook",
+      actor,
+      extensionGrant,
+    })
   );
+
+const cancellations = (upTo: number) =>
+  Effect.gen(function* () {
+    const store = yield* EventStore;
+    const log = yield* store.readEvents({ after: 0, upTo, sessionId: S });
+
+    return log.flatMap(({ event }) =>
+      DomainEvent.guards.QueuedTurnCancelled(event) ? [[event.turnId, event.reason]] : []
+    );
+  });
 
 const rejection = (command: Command, actor: Actor = OWNER) =>
   Effect.flip(dispatch(command, actor)).pipe(
@@ -368,6 +397,67 @@ describe("queued Turns in a shared session (ENG-941)", () => {
             actor: null,
             reason: "the model call failed",
           }),
+        ]);
+      })
+    );
+  });
+
+  test("a Turn queued through a Share that ended since never starts; the next one does", async () => {
+    const { driver, layer, revoke } = setup([share("Ana"), share("Bob")]);
+
+    await run(
+      layer,
+      Effect.gen(function* () {
+        yield* working(driver);
+        yield* send("from Ana", ana);
+        yield* send("from Bob", bob);
+        const turnId = yield* queuedId("from Ana");
+        revoke("Ana");
+        yield* endTurn(driver);
+        yield* handed(driver, 2);
+
+        expect(prompts(driver)).toEqual(["first", "from Bob"]);
+        expect(yield* queue).toEqual([]);
+        const model = yield* Effect.flatMap(EventStore, (store) => store.model);
+        expect(yield* cancellations(model.sequence)).toEqual([[turnId, "Their Share ended"]]);
+      })
+    );
+  });
+
+  test("a Turn queued without approve never starts once the session approves for itself", async () => {
+    const { driver, layer } = setup([share("Ana")]);
+
+    const raycast = Actor.cases.Extension.make({
+      pairingId: PairingId.make("p1"),
+      name: "Raycast",
+    });
+
+    await run(
+      layer,
+      Effect.gen(function* () {
+        yield* working(driver);
+
+        const sendTurn = Command.cases.SendTurn.make({
+          sessionId: S,
+          prompt: "from Raycast",
+          attachments: [],
+        });
+
+        yield* dispatch(sendTurn, raycast, ["read", "turn"]);
+        const turnId = yield* queuedId("from Raycast");
+        // The owner's edit keeps it the Extension's Turn, sent without `approve`.
+        yield* dispatch(
+          Command.cases.EditQueuedTurn.make({ sessionId: S, turnId, prompt: "reworded" })
+        );
+        yield* dispatch(
+          Command.cases.SetPermissionMode.make({ sessionId: S, permissionMode: "auto" })
+        );
+        yield* endTurn(driver);
+        const idle = yield* waitFor((m) => m.sessions.get(S)?.session.state === "idle");
+
+        expect(prompts(driver)).toEqual(["first"]);
+        expect(yield* cancellations(idle.sequence)).toEqual([
+          [turnId, "The session approves for itself now, and its sender can't approve"],
         ]);
       })
     );

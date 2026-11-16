@@ -21,6 +21,7 @@ import {
   TurnTrigger,
   TurnStatus,
   WorktreeSetupRun,
+  ShareId,
 } from "@polaris/protocol";
 import { Schema } from "effect";
 import type { EventObject } from "xstate";
@@ -41,6 +42,8 @@ export const eventSchemas = {
       turn: Turn,
       /** The session is shared: with a Turn in flight the Turn joins the queue (`session.queue.ts`). */
       queue: Schema.optionalKey(Schema.Boolean),
+      /** False when its sender holds no `approve` Grant; a queued Turn keeps it. */
+      approves: Schema.optionalKey(Schema.Boolean),
     })
   ),
   "queue.cancel": standard(Schema.Struct({ turnId: TurnId, actor: Actor })),
@@ -150,6 +153,8 @@ export const eventSchemas = {
       limit: Schema.optionalKey(
         Schema.NullOr(Schema.Struct({ resetsAt: Schema.NullOr(Schema.String) }))
       ),
+      /** Shares of queued Turns' senders that no longer cover the session (`session.queue.ts`). */
+      endedShares: Schema.optionalKey(Schema.Array(ShareId)),
       ...At,
     })
   ),
@@ -208,7 +213,8 @@ export const normalizedInput = (input: SessionInput, at: string) => {
   if (input.type === "idle.timeout")
     return { ...input, backgroundExpired: input.backgroundExpired ?? false, at: input.at ?? at };
 
-  if (input.type === "turn.send") return { ...input, queue: input.queue ?? false };
+  if (input.type === "turn.send")
+    return { ...input, queue: input.queue ?? false, approves: input.approves ?? true };
 
   if (input.type === "approval.respond") return { ...input, actor: input.actor ?? null };
 
@@ -228,5 +234,7 @@ export const normalizedInput = (input: SessionInput, at: string) => {
   if (input.type === "turns.accept")
     return { ...input, userTurnNumber: input.userTurnNumber ?? null };
 
-  return input.type === "harness.turnEnded" ? { ...input, limit: input.limit ?? null } : input;
+  return input.type === "harness.turnEnded"
+    ? { ...input, limit: input.limit ?? null, endedShares: input.endedShares ?? [] }
+    : input;
 };

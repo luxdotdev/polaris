@@ -16,6 +16,8 @@ module turn_queue_model {
   const BUG_ANYONE_CANCELS: bool
   /** A Turn that fails leaves the queue waiting behind no Turn. */
   const BUG_KEEPS_QUEUE: bool
+  /** A queued Turn starts although its sender lost the access it queued with. */
+  const BUG_STARTS_BARRED: bool
 
   /** The owner, on any of their own Clients; 1 and 2 are Teammates with the `turn` Grant. */
   pure val OWNER = 0
@@ -42,6 +44,9 @@ module turn_queue_model {
     cancelled: Set[int],
     dropped: Set[int],
     changes: Set[{ id: int, author: int, by: int }],
+    // The queued Turns cancelled because their sender lost access, and whether one started.
+    barredOut: Set[int],
+    barredRan: bool,
   }
 
   type Event =
@@ -50,12 +55,18 @@ module turn_queue_model {
     | Edit({ id: int, by: int })
     /** `harness.turnEnded`: `completed`, `interrupted` or `failed`. */
     | End(str)
+    /**
+     * A clean Turn end by which these Teammates lost the access they queued with: their Share
+     * ended, or the session approves for itself now and they hold no `approve`.
+     */
+    | EndBarring(Set[int])
     /** The Harness exits, the Daemon restarts or the session fails with the Turn in flight. */
     | Lose
 
   pure val empty: View = {
     state: "idle", inFlight: -1, queue: [], ran: [], next: 0, last: Nothing,
     arrived: [], cancelled: Set(), dropped: Set(), changes: Set(),
+    barredOut: Set(), barredRan: false,
   }
 
   pure def ids(queue: List[Queued]): Set[int] = queue.indices().map(i => queue[i].id)
@@ -85,24 +96,34 @@ module turn_queue_model {
   pure def drop(v: View, state: str): View =
     { ...v, state: state, inFlight: -1, queue: [], dropped: v.dropped.union(ids(v.queue)), last: Nothing }
 
-  /** `turnEnded`: a Turn that ends cleanly starts the head (`nextQueued`); a failed one drops the queue. */
-  pure def end(v: View, status: str): View =
+  /**
+   * `turnEnded`: a Turn that ends cleanly cancels the queued Turns of `barred` people and starts
+   * the first of the rest (`nextQueued`); a failed one drops the queue.
+   */
+  pure def end(v: View, status: str, barred: Set[int]): View =
     if (v.inFlight < 0) v
     else if (status == "failed")
       if (BUG_KEEPS_QUEUE) { ...v, state: "stopped", inFlight: -1, last: Nothing } else drop(v, "stopped")
-    else if (v.queue.length() == 0) { ...v, state: "idle", inFlight: -1, last: Nothing }
     else {
-      val at = if (BUG_LIFO) v.queue.length() - 1 else 0
-      val first = v.queue[at]
-      { ...v, state: "working", inFlight: first.id, ran: v.ran.append(first),
-        queue: v.queue.select(q => q.id != first.id), last: Started }
+      val out = if (BUG_STARTS_BARRED) Set() else ids(v.queue.select(q => barred.contains(q.by)))
+      val waiting = v.queue.select(q => not(out.contains(q.id)))
+      val left = { ...v, queue: waiting, dropped: v.dropped.union(out), barredOut: v.barredOut.union(out) }
+      if (waiting.length() == 0) { ...left, state: "idle", inFlight: -1, last: Nothing }
+      else {
+        val at = if (BUG_LIFO) waiting.length() - 1 else 0
+        val first = waiting[at]
+        { ...left, state: "working", inFlight: first.id, ran: v.ran.append(first),
+          queue: waiting.select(q => q.id != first.id), last: Started,
+          barredRan: v.barredRan or barred.contains(first.by) }
+      }
     }
 
   pure def apply(v: View, e: Event): View = match e {
     | Send(p) => send(v, p.by, p.shared)
     | Cancel(p) => change(v, p.id, p.by, true)
     | Edit(p) => change(v, p.id, p.by, false)
-    | End(status) => end(v, status)
+    | End(status) => end(v, status, Set())
+    | EndBarring(barred) => end(v, "completed", barred)
     | Lose => if (v.inFlight < 0) v else drop(v, "stopped")
   }
 
@@ -114,7 +135,11 @@ module turn_queue_model {
     nondet shared = Set(true, false).oneOf()
     nondet id = 0.to(MAX_TURNS - 1).oneOf()
     nondet status = Set("completed", "interrupted", "failed").oneOf()
-    nondet e = Set(Send({ by: by, shared: shared }), Cancel({ id: id, by: by }), Edit({ id: id, by: by }), End(status), Lose).oneOf()
+    nondet barred = Set(Set(1), Set(2), Set(1, 2)).oneOf()
+    nondet e = Set(
+      Send({ by: by, shared: shared }), Cancel({ id: id, by: by }), Edit({ id: id, by: by }),
+      End(status), EndBarring(barred), Lose,
+    ).oneOf()
     publish(e)
   }
 
@@ -133,11 +158,14 @@ module turn_queue_model {
   val cancelledNeverRun = ids(view.ran).intersect(view.cancelled.union(view.dropped)) == Set()
   /** Only its author or the owner cancels or edits a queued Turn. */
   val authorOrOwnerChanges = view.changes.forall(c => c.by == OWNER or c.by == c.author)
+  /** A Turn whose sender lost access by the time it would start never starts. */
+  val barredNeverStart = not(view.barredRan)
   val bounded = view.queue.length() <= LIMIT
   val inFlightRan = view.inFlight >= 0 implies (view.ran.length() > 0 and view.ran[view.ran.length() - 1].id == view.inFlight)
 
   val safety = all {
-    queueNeedsATurn, fifo, authorsKept, cancelledNeverRun, authorOrOwnerChanges, bounded, inFlightRan,
+    queueNeedsATurn, fifo, authorsKept, cancelledNeverRun, authorOrOwnerChanges, barredNeverStart,
+    bounded, inFlightRan,
   }
 
   // States the simulation must reach, or `safety` proves little.
@@ -146,10 +174,11 @@ module turn_queue_model {
   val witnessCancelRefused = view.last == Refused and view.queue.length() > 0
   val witnessDropped = view.dropped != Set()
   val witnessFull = view.queue.length() == LIMIT
+  val witnessBarred = view.barredOut != Set() and view.state == "working"
 }
 
 module turn_queue {
-  import turn_queue_model(BUG_LIFO=false, BUG_ANYONE_CANCELS=false, BUG_KEEPS_QUEUE=false).*
+  import turn_queue_model(BUG_LIFO=false, BUG_ANYONE_CANCELS=false, BUG_KEEPS_QUEUE=false, BUG_STARTS_BARRED=false).*
 
   run twoPeoplesTurnsRunInOrderTest = init
     .then(publish(Send({ by: OWNER, shared: true }))).expect(view.last == Started)
@@ -195,6 +224,17 @@ module turn_queue {
     .then(publish(Lose))
     .expect(view.queue == [] and view.dropped == Set(1, 3) and ids(view.ran) == Set(0, 2) and safety)
 
+  run barredTurnsNeverStartTest = init
+    .then(publish(Send({ by: OWNER, shared: true })))
+    .then(publish(Send({ by: 1, shared: true })))
+    .then(publish(Send({ by: 2, shared: true })))
+    .then(publish(Send({ by: 1, shared: true })))
+    .then(publish(EndBarring(Set(1))))
+    .expect(view.inFlight == 2 and view.queue == [] and view.barredOut == Set(1, 3) and safety)
+    .then(publish(Send({ by: 2, shared: true })))
+    .then(publish(EndBarring(Set(2))))
+    .expect(view.state == "idle" and ids(view.ran) == Set(0, 2) and safety)
+
   run fullQueueRefusesTest = init
     .then(publish(Send({ by: OWNER, shared: true })))
     .then(publish(Send({ by: 1, shared: true })))
@@ -206,7 +246,7 @@ module turn_queue {
 
 /** The head taken from the back: a later Turn overtakes an earlier one. */
 module turn_queue_lifo_mutant {
-  import turn_queue_model(BUG_LIFO=true, BUG_ANYONE_CANCELS=false, BUG_KEEPS_QUEUE=false).*
+  import turn_queue_model(BUG_LIFO=true, BUG_ANYONE_CANCELS=false, BUG_KEEPS_QUEUE=false, BUG_STARTS_BARRED=false).*
 
   run overtakesTest = init
     .then(publish(Send({ by: 0, shared: true })))
@@ -217,7 +257,7 @@ module turn_queue_lifo_mutant {
 
 /** No author check: one Teammate cancels another's queued Turn. */
 module turn_queue_cancel_mutant {
-  import turn_queue_model(BUG_LIFO=false, BUG_ANYONE_CANCELS=true, BUG_KEEPS_QUEUE=false).*
+  import turn_queue_model(BUG_LIFO=false, BUG_ANYONE_CANCELS=true, BUG_KEEPS_QUEUE=false, BUG_STARTS_BARRED=false).*
 
   run cancelsAnothersTest = init
     .then(publish(Send({ by: 0, shared: true })))
@@ -227,10 +267,20 @@ module turn_queue_cancel_mutant {
 
 /** A failed Turn keeps the queue: Turns wait behind nothing. */
 module turn_queue_keeps_mutant {
-  import turn_queue_model(BUG_LIFO=false, BUG_ANYONE_CANCELS=false, BUG_KEEPS_QUEUE=true).*
+  import turn_queue_model(BUG_LIFO=false, BUG_ANYONE_CANCELS=false, BUG_KEEPS_QUEUE=true, BUG_STARTS_BARRED=false).*
 
   run waitsBehindNothingTest = init
     .then(publish(Send({ by: 0, shared: true })))
     .then(publish(Send({ by: 1, shared: true })))
     .then(publish(End("failed"))).expect(view.queue.length() == 1 and not(safety))
+}
+
+/** No re-check when a Turn ends: a Turn queued through a Share that ended since still starts. */
+module turn_queue_barred_mutant {
+  import turn_queue_model(BUG_LIFO=false, BUG_ANYONE_CANCELS=false, BUG_KEEPS_QUEUE=false, BUG_STARTS_BARRED=true).*
+
+  run startsBarredTest = init
+    .then(publish(Send({ by: 0, shared: true })))
+    .then(publish(Send({ by: 1, shared: true })))
+    .then(publish(EndBarring(Set(1)))).expect(view.inFlight == 1 and not(safety))
 }

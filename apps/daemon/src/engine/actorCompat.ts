@@ -44,6 +44,7 @@ const queuedFor = (queued: QueuedTurn, rewrite: Rewrite): QueuedTurn => {
         actor,
         queuedAt: queued.queuedAt,
         editedAt: queued.editedAt,
+        approves: queued.approves,
       });
 };
 
