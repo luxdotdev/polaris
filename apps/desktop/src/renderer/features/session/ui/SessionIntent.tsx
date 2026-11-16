@@ -43,6 +43,7 @@ import { holdOpenFrom, setTurnOpen, showTurnDiff, uiKey, useSessionUi } from "..
 import { ForkDialog, type ForkTarget } from "./ForkDialog.tsx";
 import type { RowContext } from "./rows.tsx";
 import { SessionComposer } from "./SessionComposer.tsx";
+import { useSharedRole } from "../../sharing/index.ts";
 import { SessionHeader } from "./SessionHeader.tsx";
 import { Transcript } from "./Transcript.tsx";
 import { useSessionChrome } from "../chrome.ts";
@@ -98,6 +99,8 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
   const model = useSession(hostKey, sessionId);
   const key = uiKey(hostKey, sessionId);
   const ui = useSessionUi(key);
+  // A Commenter comments; Turns come with the Contributor role (ENG-927).
+  const commenter = useSharedRole(hostKey, sessionId) === "commenter";
   const host = useHost(hostKey);
   const { where, branch } = useWhere(hostKey, model.session);
   const [forking, setForking] = useState<ForkTarget | null>(null);
@@ -278,7 +281,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
         <div className="px-panel empty:hidden">
           <SendComments hostKey={hostKey} sessionId={sessionId} />
         </div>
-        {harness === null ? null : (
+        {harness === null || commenter ? null : (
           <SessionComposer
             hostKey={hostKey}
             uiKey={key}

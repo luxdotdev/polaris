@@ -78,13 +78,13 @@ const useOthers = (people: ReadonlyArray<PresenceView>, owner: boolean) => {
   }, [people, owner, accounts]);
 };
 
+/** Your role in a session shared with you; undefined in your own sessions. */
+export const useSharedRole = (hostKey: string, sessionId: string) =>
+  useSharedWithMe()?.sessions.find((s) => s.hostKey === hostKey && s.sessionId === sessionId)?.role;
+
 /** Your role in a session shared with you, where the owner sees Share. */
 const RoleChip = ({ hostKey, sessionId }: ShareSheetTarget) => {
-  const withMe = useSharedWithMe();
-
-  const role = withMe?.sessions.find(
-    (s) => s.hostKey === hostKey && s.sessionId === sessionId
-  )?.role;
+  const role = useSharedRole(hostKey, sessionId);
 
   if (role === undefined) return null;
 
