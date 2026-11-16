@@ -31,6 +31,19 @@ const SignInResponse = Schema.Struct({ url: Schema.String });
 
 const decodeSignIn = Schema.decodeUnknownPromise(SignInResponse);
 
+const NONCE_COOKIE = "polaris_sign_in";
+
+const nonceCookie = (config: AccountsConfig, value: string, maxAge: number) =>
+  `${NONCE_COOKIE}=${value}; Path=/sign-in; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${
+    config.origin.startsWith("https:") ? "; Secure" : ""
+  }`;
+
+const cookieOf = (request: Request, name: string) =>
+  (request.headers.get("cookie") ?? "")
+    .split(";")
+    .map((part) => part.trim().split("="))
+    .find(([key]) => key === name)?.[1];
+
 /** Starts GitHub sign-in in the browser, returning to `callbackURL` on this server afterwards. */
 const startSignIn = async (auth: Auth, request: Request, callbackURL: string) => {
   const started = await auth.api.signInSocial({
@@ -64,15 +77,22 @@ export const pages = (config: AccountsConfig, auth: Auth) => async (request: Req
 
       const done = new URL("/sign-in/done", config.origin);
       done.search = url.search;
+      const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(24))).toString("base64url");
+      done.searchParams.set("nonce", nonce);
+      const started = await startSignIn(auth, request, `${done.pathname}${done.search}`);
+      started.headers.append("set-cookie", nonceCookie(config, nonce, 600));
 
-      return startSignIn(auth, request, `${done.pathname}${done.search}`);
+      return started;
     }
 
     case "/sign-in/done": {
       const redirect = url.searchParams.get("redirect_uri");
       const session = await auth.api.getSession({ headers: request.headers });
+      const nonce = url.searchParams.get("nonce");
+      // Only the browser that started this sign-in at /sign-in may finish it.
+      const started = nonce !== null && cookieOf(request, NONCE_COOKIE) === nonce;
 
-      if (session === null || redirect === null || !isDeviceRedirect(redirect)) {
+      if (!started || session === null || redirect === null || !isDeviceRedirect(redirect)) {
         return html(
           "Can't sign in",
           "<p>Sign-in didn't finish. Start again from Polaris.</p>",
@@ -90,7 +110,11 @@ export const pages = (config: AccountsConfig, auth: Auth) => async (request: Req
 
       return new Response(null, {
         status: 302,
-        headers: { location: back.toString(), "cache-control": "no-store" },
+        headers: {
+          location: back.toString(),
+          "cache-control": "no-store",
+          "set-cookie": nonceCookie(config, "", 0),
+        },
       });
     }
 

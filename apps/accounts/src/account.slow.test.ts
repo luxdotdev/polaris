@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { Schema } from "effect";
-import { Me } from "./api/definition.ts";
+import { Me, Person } from "./api/definition.ts";
 import {
   type Accounts,
   CookieJar,
@@ -168,5 +168,84 @@ describe("commit email", () => {
       commitEmail: "2002+quiet@users.noreply.127.0.0.1",
       commitEmails: ["2002+quiet@users.noreply.127.0.0.1"],
     });
+  });
+});
+
+describe("identity is the GitHub account", () => {
+  test("an address that moves to another GitHub account never joins it to the first person", async () => {
+    const first = {
+      id: 3001,
+      login: "first",
+      name: "First",
+      emails: [{ email: "shared@example.com", primary: true, verified: true }],
+    };
+
+    const firstToken = (await accounts.signIn(first)).token;
+    accounts.github.signInAs({ ...first, emails: [] });
+
+    const second = {
+      id: 3002,
+      login: "second",
+      name: "Second",
+      emails: [{ email: "shared@example.com", primary: true, verified: true }],
+    };
+
+    const secondToken = (await accounts.signIn(second)).token;
+
+    const [a, b] = await Promise.all(
+      [firstToken, secondToken].map(async (token) =>
+        readJson(await accounts.call("GET", "/v1/me", { token }), Me)
+      )
+    );
+
+    expect(a?.personId).not.toBe(b?.personId);
+    expect(b).toMatchObject({ login: "second", commitEmail: "shared@example.com" });
+  });
+
+  test("a login someone renamed away from finds whoever holds it on GitHub now", async () => {
+    const casey = { id: 4001, login: "casey", name: "Casey", emails: [] };
+    const caseyToken = (await accounts.signIn(casey)).token;
+
+    const caseyId = (
+      await readJson(await accounts.call("GET", "/v1/me", { token: caseyToken }), Me)
+    ).personId;
+
+    accounts.github.rename(4001, "casey-new");
+
+    const dana = { id: 4002, login: "casey", name: "Dana", emails: [] };
+    const danaToken = (await accounts.signIn(dana)).token;
+
+    const danaId = (await readJson(await accounts.call("GET", "/v1/me", { token: danaToken }), Me))
+      .personId;
+
+    const byOldLogin = await readJson(
+      await accounts.call("GET", "/v1/people?login=casey", { token: caseyToken }),
+      Person
+    );
+
+    expect(byOldLogin.personId).toBe(danaId);
+
+    const byNewLogin = await readJson(
+      await accounts.call("GET", "/v1/people?login=casey-new", { token: danaToken }),
+      Person
+    );
+
+    expect(byNewLogin.personId).toBe(caseyId);
+  });
+
+  test("finishing a sign-in needs the browser that started it", async () => {
+    const { jar } = await accounts.signIn(alex);
+    const loopback = encodeURIComponent("http://127.0.0.1:9/callback");
+
+    const forged = await fetch(
+      `${accounts.origin}/sign-in/done?redirect_uri=${loopback}&nonce=guess`,
+      {
+        redirect: "manual",
+        headers: { cookie: jar.header() },
+      }
+    );
+
+    expect(forged.status).toBe(400);
+    expect(forged.headers.get("location")).toBeNull();
   });
 });

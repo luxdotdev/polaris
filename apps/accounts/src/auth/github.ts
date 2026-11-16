@@ -3,8 +3,11 @@ import type { BetterAuthPlugin } from "better-auth";
 import type { OAuth2Tokens, OAuthProvider } from "@better-auth/core/oauth2";
 import { authorizationCodeRequest, getOAuth2Tokens } from "@better-auth/core/oauth2";
 import type { GithubOptions } from "@better-auth/core/social-providers";
+import { and, ne, sql } from "drizzle-orm";
 import type { GitHubConfig } from "../config.ts";
-import { defaultCommitEmail, fetchEmails, fetchUser } from "../github/index.ts";
+import type { Database } from "../db/index.ts";
+import { user as userTable } from "../db/schema.ts";
+import { defaultCommitEmail, fetchEmails, fetchUser, noreplyEmail } from "../github/index.ts";
 
 const decodeTokenResponse = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown));
 
@@ -16,8 +19,11 @@ export const githubProvider = (github: GitHubConfig): GithubOptions => ({
   overrideUserInfoOnSignIn: true,
 });
 
-/** The person behind a GitHub token: name and avatar, login, and their primary verified address. */
-const userInfo = async (github: GitHubConfig, token: OAuth2Tokens) => {
+/**
+ * The person behind a GitHub token. Better Auth's email is their noreply address, unique to the
+ * GitHub account, so no two GitHub accounts can ever meet on an address.
+ */
+const userInfo = async (github: GitHubConfig, db: Database, token: OAuth2Tokens) => {
   if (token.accessToken === undefined) return null;
 
   const [user, emails] = await Promise.all([
@@ -26,11 +32,24 @@ const userInfo = async (github: GitHubConfig, token: OAuth2Tokens) => {
   ]);
 
   const githubId = String(user.id);
+  const person = { githubId, login: user.login };
+
+  // Whoever held this login has renamed on GitHub: `~id` (no GitHub login has `~`) until they sign in.
+  await db
+    .update(userTable)
+    .set({ login: sql`'~' || ${userTable.githubId}` })
+    .where(
+      and(
+        sql`lower(${userTable.login}) = ${user.login.toLowerCase()}`,
+        ne(userTable.githubId, githubId)
+      )
+    );
 
   return {
     user: {
       name: user.name ?? user.login,
-      email: defaultCommitEmail(github, { githubId, login: user.login }, emails),
+      email: noreplyEmail(github, person),
+      primaryEmail: defaultCommitEmail(github, person, emails),
       image: user.avatar_url,
       emailVerified: true,
       login: user.login,
@@ -65,7 +84,7 @@ const exchangeCode = async (
  * Points the GitHub provider at `github.webUrl` and `github.apiUrl`, which Better Auth fixes to
  * github.com; this is what lets GitHub Enterprise Server or a test's fake GitHub sign people in.
  */
-export const githubHost = (github: GitHubConfig): BetterAuthPlugin => ({
+export const githubHost = (github: GitHubConfig, db: Database): BetterAuthPlugin => ({
   id: "polaris-github-host",
   init: (ctx) => ({
     context: {
@@ -76,7 +95,7 @@ export const githubHost = (github: GitHubConfig): BetterAuthPlugin => ({
               ...provider,
               validateAuthorizationCode: (input) =>
                 exchangeCode(github, githubProvider(github), input),
-              getUserInfo: (token) => userInfo(github, token),
+              getUserInfo: (token) => userInfo(github, db, token),
             }
       ),
     },

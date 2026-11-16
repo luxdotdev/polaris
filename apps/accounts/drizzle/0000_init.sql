@@ -88,6 +88,7 @@ CREATE TABLE "user" (
 	"updated_at" timestamp with time zone NOT NULL,
 	"login" text NOT NULL,
 	"github_id" text NOT NULL,
+	"primary_email" text NOT NULL,
 	"commit_email" text,
 	CONSTRAINT "user_email_unique" UNIQUE("email")
 );

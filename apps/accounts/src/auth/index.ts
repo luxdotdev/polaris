@@ -30,14 +30,17 @@ export const authFor = (config: AccountsConfig, db: Database) =>
       additionalFields: {
         login: { type: "string", required: true },
         githubId: { type: "string", required: true },
+        primaryEmail: { type: "string", required: true },
         commitEmail: { type: "string", required: false, input: false },
       },
     },
+    // A person is their GitHub account: never join two GitHub accounts into one person by address.
+    account: { accountLinking: { enabled: false } },
     socialProviders: { github: githubProvider(config.github) },
     // A person's name, login and addresses come from GitHub only; the session JWT isn't a statement.
     disabledPaths: ["/update-user", "/change-email", "/token"],
     plugins: [
-      githubHost(config.github),
+      githubHost(config.github, db),
       bearer(),
       jwt({
         disableSettingJwtHeader: true,

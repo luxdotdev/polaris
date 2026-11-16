@@ -23,6 +23,7 @@ export const user = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
     login: text("login").notNull(),
     githubId: text("github_id").notNull(),
+    primaryEmail: text("primary_email").notNull(),
     commitEmail: text("commit_email"),
   },
   (t) => [

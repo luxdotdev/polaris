@@ -1,4 +1,4 @@
-import { Effect, Redacted } from "effect";
+import { Effect, Redacted, Schedule } from "effect";
 import { readConfig } from "./config.ts";
 import { migrateDatabase, openDatabase } from "./db/index.ts";
 import { accountServer } from "./server/index.ts";
@@ -8,7 +8,13 @@ const config = await Effect.runPromise(readConfig);
 
 const { db } = openDatabase(Redacted.value(config.databaseUrl));
 
-await migrateDatabase(db);
+// Postgres may still be starting beside it (compose, the README's docker commands): retry for a minute.
+await Effect.runPromise(
+  Effect.tryPromise(() => migrateDatabase(db)).pipe(
+    Effect.tapError(() => Effect.logWarning("Postgres isn't ready; retrying")),
+    Effect.retry({ schedule: Schedule.spaced("2 seconds"), times: 30 })
+  )
+);
 
 const server = accountServer(config, db);
 

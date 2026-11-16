@@ -99,7 +99,10 @@ const AccountHandlers = HttpApiBuilder.group(AccountsApi, "account", (handlers) 
       }).pipe(Effect.orDie)
     )
     .handle("person", ({ query }) =>
-      findByLogin(query.login).pipe(Effect.map(toPerson), Effect.catchTag("StoreError", Effect.die))
+      Effect.flatMap(CurrentPerson, (p) => findByLogin(p.personId, query.login)).pipe(
+        Effect.map(toPerson),
+        Effect.catchTag("StoreError", Effect.die)
+      )
     )
 );
 

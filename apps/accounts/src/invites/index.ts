@@ -1,4 +1,4 @@
-import { and, eq, gt, ne, sql } from "drizzle-orm";
+import { and, eq, gt, ne, or, sql } from "drizzle-orm";
 import { Effect, Schema } from "effect";
 import {
   type HostRef,
@@ -51,7 +51,7 @@ export const createInvite = Effect.fn("createInvite")(function* (
   }
 ) {
   const { db } = yield* Accounts;
-  const invitee = yield* findByLogin(input.inviteeLogin);
+  const invitee = yield* findByLogin(ownerId, input.inviteeLogin);
 
   if (invitee.id === ownerId)
     return yield* new InvalidInvite({ message: "You can't invite yourself." });
@@ -146,6 +146,26 @@ const openInviteFor = Effect.fn("openInviteFor")(function* (personId: string, in
   return row;
 });
 
+/** Matches the invitee's Invite while it can still be answered: pending and unexpired, or accepted. */
+const answerable = (personId: string, inviteId: string) =>
+  and(
+    eq(invite.id, inviteId),
+    eq(invite.inviteeId, personId),
+    or(
+      eq(invite.status, "accepted"),
+      and(eq(invite.status, "pending"), gt(invite.expiresAt, sql`now()`))
+    )
+  );
+
+/** Why an answer changed nothing: a missing or closed Invite, read after the fact. */
+const notAnswerable = Effect.fn(function* (personId: string, inviteId: string) {
+  const row = yield* openInviteFor(personId, inviteId);
+
+  return yield* new InviteClosed({ inviteId, status: row.status });
+});
+
+class NotAnswerable extends Error {}
+
 /** Accepts an Invite from one device; a second device of the same person accepts it again. */
 export const acceptInvite = Effect.fn("acceptInvite")(function* (
   personId: string,
@@ -154,9 +174,22 @@ export const acceptInvite = Effect.fn("acceptInvite")(function* (
 ) {
   const { db } = yield* Accounts;
   const changes = yield* ShareChanges;
-  const row = yield* openInviteFor(personId, inviteId);
-  yield* store(() =>
+
+  // One conditional update, so a revoke or decline that lands first is never overwritten.
+  const row = yield* store(() =>
     db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(invite)
+        .set({
+          status: "accepted",
+          version: sql`${invite.version} + 1`,
+          answeredAt: sql`coalesce(${invite.answeredAt}, now())`,
+        })
+        .where(answerable(personId, inviteId))
+        .returning();
+
+      if (updated === undefined) throw new NotAnswerable();
+
       await tx
         .insert(shareDevice)
         .values({ inviteId, ...device })
@@ -164,16 +197,15 @@ export const acceptInvite = Effect.fn("acceptInvite")(function* (
           target: [shareDevice.inviteId, shareDevice.noiseKey],
           set: { relayAddress: device.relayAddress },
         });
-      await tx
-        .update(invite)
-        .set({
-          status: "accepted",
-          version: sql`${invite.version} + 1`,
-          answeredAt: row.answeredAt ?? new Date(),
-        })
-        .where(eq(invite.id, inviteId));
+
+      return updated;
     })
+  ).pipe(
+    Effect.catchTag("StoreError", (error) =>
+      error.cause instanceof NotAnswerable ? notAnswerable(personId, inviteId) : Effect.fail(error)
+    )
   );
+
   yield* changes.changed(inviteId);
   const owner = yield* findPerson(row.ownerId);
 
@@ -192,13 +224,17 @@ export const declineInvite = Effect.fn("declineInvite")(function* (
 ) {
   const { db } = yield* Accounts;
   const changes = yield* ShareChanges;
-  yield* openInviteFor(personId, inviteId);
-  yield* store(() =>
+
+  const updated = yield* store(() =>
     db
       .update(invite)
-      .set({ status: "declined", version: sql`${invite.version} + 1`, answeredAt: new Date() })
-      .where(eq(invite.id, inviteId))
+      .set({ status: "declined", version: sql`${invite.version} + 1`, answeredAt: sql`now()` })
+      .where(answerable(personId, inviteId))
+      .returning({ id: invite.id })
   );
+
+  if (updated.length === 0) return yield* notAnswerable(personId, inviteId);
+
   yield* changes.changed(inviteId);
 });
 

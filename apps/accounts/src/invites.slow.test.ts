@@ -233,3 +233,22 @@ describe("invites", () => {
     expect((await invite({ role: "owner" })).status).toBe(400);
   });
 });
+
+test("an accept racing a revoke never brings the capability back", async () => {
+  const shares = await Promise.all(Array.from({ length: 10 }, () => created()));
+  await Promise.all(
+    shares.flatMap(({ inviteId, hostCapability }) => [
+      accounts.call("DELETE", `/v1/shares/${inviteId}/devices`, { capability: hostCapability }),
+      accounts.call("POST", `/v1/invites/${inviteId}/accept`, {
+        token: teammateToken,
+        body: { relayAddress: "relay-race", noiseKey: randomNoiseKey() },
+      }),
+    ])
+  );
+
+  const after = await Promise.all(
+    shares.map(({ inviteId, hostCapability }) => devices(inviteId, hostCapability))
+  );
+
+  expect(after.map((r) => r.status)).toEqual(shares.map(() => 401));
+});

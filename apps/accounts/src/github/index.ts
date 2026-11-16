@@ -45,6 +45,23 @@ const getJson = async (github: GitHubConfig, path: string, accessToken: string) 
   return response.json();
 };
 
+/** A GitHub account by login, or undefined when GitHub has none; the login may have moved on. */
+export const fetchUserByLogin = async (
+  github: GitHubConfig,
+  accessToken: string,
+  login: string
+) => {
+  try {
+    return await decodeUser(
+      await getJson(github, `/users/${encodeURIComponent(login)}`, accessToken)
+    );
+  } catch (error) {
+    if (error instanceof GitHubRequestFailed && error.status === 404) return undefined;
+
+    throw error;
+  }
+};
+
 export const fetchUser = async (github: GitHubConfig, accessToken: string) =>
   decodeUser(await getJson(github, "/user", accessToken));
 

@@ -65,7 +65,8 @@ days and renew while used.
 - **With a browser (Desktop App).** Open `{iss}/sign-in?redirect_uri=<uri>&state=<opaque>` in the
   user's browser. After GitHub, the browser is sent to `<uri>?token=<session token>&state=<state>`.
   `<uri>` must be `http://127.0.0.1:<port>/…`, `http://localhost:<port>/…`, `http://[::1]:<port>/…`
-  or `polaris://…`; anything else is refused. Check `state`.
+  or `polaris://…`; anything else is refused. Check `state`. Only the browser that opened
+  `/sign-in` can finish it (a cookie set there), so a link can't mint a token in a signed-in browser.
 - **Without one (fallback).** Better Auth's device authorization flow:
   `POST {iss}/api/auth/device/code {client_id}` gives `user_code` and `verification_uri_complete`
   (`{iss}/device?user_code=…`) for the user to open on any signed-in browser; poll
@@ -80,7 +81,7 @@ Sign out with `POST {iss}/api/auth/sign-out` and the Bearer token.
 | | Auth | Request | Response |
 |---|---|---|---|
 | `POST /v1/statements` | Bearer | `{noiseKey}` | `{jwt}` |
-| `GET /v1/people?login=` | Bearer | | `{personId, login, name, avatarUrl}`; `login` is case-insensitive |
+| `GET /v1/people?login=` | Bearer | | `{personId, login, name, avatarUrl}`: whoever holds `login` on GitHub now, if they have an Account here |
 | `GET /v1/me` | Bearer | | `{personId, login, name, avatarUrl, commitEmail, commitEmails}` |
 | `PUT /v1/me` | Bearer | `{commitEmail}` | as `GET /v1/me` |
 | `POST /v1/invites` | Bearer (owner) | `{inviteeLogin, share, host, role, expiresAt}` | `{inviteId, hostCapability}` |
@@ -94,6 +95,9 @@ where `share` is `{id, title, kind: "session" | "constellation"}`, `host` is
 `{name, relayAddress, noiseKey}`, `role` is `"contributor" | "commenter"`, `owner` is a person as
 `GET /v1/people` returns it, and times are ISO 8601.
 
+- **Identity.** A person is one GitHub account (its numeric ID), never an address: two GitHub
+  accounts are never merged, and a login is resolved through GitHub (with the asker's token) so a
+  login someone renamed away from never reaches them.
 - **Commit email.** `commitEmails` lists the person's verified GitHub addresses (primary first,
   read with the `user:email` scope) and GitHub's noreply address, `ID+login@users.noreply.<host>`.
   `commitEmail` defaults to the primary verified address, else the noreply one; `PUT` takes only an

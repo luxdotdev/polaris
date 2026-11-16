@@ -1,9 +1,15 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { Effect } from "effect";
 import type { Person } from "../api/definition.ts";
 import { CommitEmailNotAllowed, PersonNotFound } from "../api/definition.ts";
 import { account, user } from "../db/schema.ts";
-import { commitEmailChoices, fetchEmails, noreplyEmail } from "../github/index.ts";
+import type { Database } from "../db/index.ts";
+import {
+  commitEmailChoices,
+  fetchEmails,
+  fetchUserByLogin,
+  noreplyEmail,
+} from "../github/index.ts";
 import { Accounts, store } from "../server/services.ts";
 
 export type PersonRow = typeof user.$inferSelect;
@@ -15,8 +21,8 @@ export const toPerson = (row: PersonRow): Person => ({
   avatarUrl: row.image ?? null,
 });
 
-/** The address that credits this person's work: their choice, else the one set at sign-in. */
-export const commitEmailOf = (row: PersonRow) => row.commitEmail ?? row.email;
+/** The address that credits this person's work: their choice, else GitHub's primary verified one. */
+export const commitEmailOf = (row: PersonRow) => row.commitEmail ?? row.primaryEmail;
 
 export const findPerson = Effect.fn("findPerson")(function* (personId: string) {
   const { db } = yield* Accounts;
@@ -29,14 +35,36 @@ export const findPerson = Effect.fn("findPerson")(function* (personId: string) {
   return row;
 });
 
-export const findByLogin = Effect.fn("findByLogin")(function* (login: string) {
-  const { db } = yield* Accounts;
+/** The GitHub token stored at this person's last sign-in. */
+const githubTokenOf = (db: Database, personId: string) => async () => {
+  const [linked] = await db
+    .select({ accessToken: account.accessToken })
+    .from(account)
+    .where(and(eq(account.userId, personId), eq(account.providerId, "github")))
+    .orderBy(desc(account.updatedAt))
+    .limit(1);
+
+  if (linked?.accessToken == null) throw new Error("no GitHub token on file");
+
+  return linked.accessToken;
+};
+
+/**
+ * The person who holds `login` on GitHub now, asked of GitHub with the asker's token, so a login
+ * someone renamed away from never resolves to them.
+ */
+export const findByLogin = Effect.fn("findByLogin")(function* (askerId: string, login: string) {
+  const { db, config } = yield* Accounts;
+  const token = yield* store(githubTokenOf(db, askerId));
+  const holder = yield* store(() => fetchUserByLogin(config.github, token, login));
+
+  if (holder === undefined) return yield* new PersonNotFound({ login });
 
   const rows = yield* store(() =>
     db
       .select()
       .from(user)
-      .where(eq(sql`lower(${user.login})`, login.toLowerCase()))
+      .where(eq(user.githubId, String(holder.id)))
       .limit(1)
   );
 
@@ -52,22 +80,13 @@ const commitEmailsOf = Effect.fn("commitEmailsOf")(function* (row: PersonRow) {
   const { db, config } = yield* Accounts;
   const fallback = [...new Set([commitEmailOf(row), noreplyEmail(config.github, row)])];
 
-  return yield* store(async () => {
-    const [linked] = await db
-      .select({ accessToken: account.accessToken })
-      .from(account)
-      .where(and(eq(account.userId, row.id), eq(account.providerId, "github")))
-      .orderBy(desc(account.updatedAt))
-      .limit(1);
-
-    if (linked?.accessToken == null) throw new Error("no GitHub token on file");
-
-    return commitEmailChoices(
+  return yield* store(async () =>
+    commitEmailChoices(
       config.github,
       row,
-      await fetchEmails(config.github, linked.accessToken)
-    );
-  }).pipe(
+      await fetchEmails(config.github, await githubTokenOf(db, row.id)())
+    )
+  ).pipe(
     Effect.tapError((error) => Effect.logWarning("could not list GitHub addresses", error)),
     Effect.orElseSucceed(() => fallback)
   );

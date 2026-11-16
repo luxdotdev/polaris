@@ -1,5 +1,5 @@
 {
-  "id": "2dfae74b-33cc-4b8a-a88e-9b641e3a8e56",
+  "id": "d3012de2-f926-45ff-9984-576fc45215bd",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -646,6 +646,12 @@
         },
         "github_id": {
           "name": "github_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "primary_email": {
+          "name": "primary_email",
           "type": "text",
           "primaryKey": false,
           "notNull": true
