@@ -379,6 +379,11 @@ const fold = (event: DomainEvent): Fold =>
       RiskFindingResolved: () => same,
       RiskSummaryEnded: () => same,
       VerdictRecorded: () => same,
+      // Comments (ADR 0113) are folded once the Desktop App announces `session.comments`.
+      CommentAdded: () => same,
+      CommentEdited: () => same,
+      CommentResolved: () => same,
+      CommentReopened: () => same,
       SessionCreated:
         ({ session }): Fold =>
         (m) => ({ ...m, session }),

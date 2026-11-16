@@ -14,6 +14,7 @@ export interface GrantChoice {
 
 const COPY: Readonly<Record<GrantKind, { readonly label: string; readonly help: string }>> = {
   read: { label: "Read", help: "See agent sessions, turns, approvals and diffs" },
+  comment: { label: "Comment", help: "Add comments to agent sessions, and edit or resolve them" },
   approve: {
     label: "Approve",
     help: "Allow or deny approvals. Also needed to send turns to a session that approves on its own",

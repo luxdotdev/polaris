@@ -323,6 +323,13 @@ export const DEVICE_RPCS = {
   "requests.send.get": "local",
   "requests.curl.parse": "local",
   "requests.curl.format": "local",
+  // Creating and renewing start from an Invite the Desktop App makes on the Account Server.
+  "shares.create": "local",
+  "shares.renew": "local",
+  "shares.revoke": "device",
+  "shares.list": "device",
+  "shares.watchPresence": "device",
+  "account.refreshStatement": "local",
 } as const satisfies Record<DaemonRpcTag, DeviceAccess>;
 
 export const DEVICE_COMMANDS = {
@@ -353,6 +360,10 @@ export const DEVICE_COMMANDS = {
   OpenInTerminal: "local",
   ReturnFromTerminal: "local",
   SendFeedback: "device",
+  AddComment: "device",
+  EditComment: "device",
+  ResolveComment: "device",
+  ReopenComment: "device",
   AcceptTurns: "device",
   LinkPullRequest: "local",
   OpenReviewCheckout: "local",

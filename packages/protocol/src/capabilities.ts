@@ -54,6 +54,19 @@ export const Capability = Schema.Literals([
   "linked-devices.presence",
   /** A Client announces it when it decodes the `LinkedDevice` Actor; others read it as `Client`. */
   "actor.linked-device",
+  /** A Client announces it when it decodes the `Teammate` Actor; others read it as `Client`. */
+  "actor.teammate",
+  /**
+   * Shares (ADR 0112): `shares.*`, `account.refreshStatement`, and `accountStatement` and
+   * `shares` in `hello`. Advertised only when the Daemon serves them.
+   */
+  "shares",
+  /**
+   * Comments (ADR 0113): `AddComment`, `EditComment`, `ResolveComment`, `ReopenComment`, the
+   * `Comment*` events, `SendFeedback.commentIds`, `Turn.commentIds` and the session snapshot's
+   * `comments`. Needed on both sides: a Client without it is sent none of them.
+   */
+  "session.comments",
   /** `voice.transcribe`, `voice.settings` and `voice.setKey` (ADR 0077). */
   "voice",
   /**

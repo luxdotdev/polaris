@@ -63,6 +63,8 @@ import { EventEnvelope } from "./events.ts";
 import { ExtensionRpcs, GrantGate, NotGranted } from "./extensions.ts";
 import { gateUserRpcs, UserAccessGate } from "./userAccess.ts";
 import { RemoteAccessRpcs } from "./remoteAccess.ts";
+import { Comment } from "./comments.ts";
+import { ShareRpcs } from "./shares.ts";
 import { LinkedDeviceRpcs } from "./linkedDevices.ts";
 import { VoiceRpcs } from "./voice.ts";
 import { SecretRpcs } from "./secrets.ts";
@@ -179,6 +181,7 @@ export const SessionStreamItem = Schema.TaggedUnion({
     session: AgentSession,
     turns: Schema.Array(TurnDetail),
     pendingApprovals: Schema.Array(ApprovalRequest),
+    comments: optionalArray(Comment),
   },
   Event: { envelope: EventEnvelope },
   /** Ephemeral live output for an item still in progress. Not persisted, not sequenced. */
@@ -796,7 +799,7 @@ export const DaemonRpcDefinitions = RpcGroup.make(
     TracingSkillRpcs
   )
   .merge(BrowserStackRpcs, DeveloperModeRpcs, SelfTraceRpcs, SimulatorRpcs, RequestsRpcs)
-  .merge(ComputerUseRpcs);
+  .merge(ComputerUseRpcs, ShareRpcs);
 
 // A const, not a class: inferring `RpcGroup.Rpcs` from a class over the gated group is
 // too deep for the linter's single-program checker (TS2589), which types every Client as `any`.
