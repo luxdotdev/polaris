@@ -64,6 +64,9 @@ export const GetRelayRoute = Rpc.make("relayRoute.status", {
 /** Polaris Cloud's relay: the one a Host dials unless the user gives their own (ENG-948). */
 export const POLARIS_CLOUD_RELAY_URL = "wss://relay.polaris.lux.dev/v1";
 
+/** Polaris Cloud's Account Server: the issuer Add account starts on unless the user gives their own (ENG-944). */
+export const POLARIS_CLOUD_ACCOUNTS_URL = "https://auth.polaris.lux.dev";
+
 /**
  * Turns the route on with `url`, or with the stored relay without one (Polaris Cloud's when
  * none is stored); on again replaces the URL and reconnects.
