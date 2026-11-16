@@ -25,6 +25,7 @@ import type {
   InterdiffInput,
   PullRequestFetch,
 } from "./git/review/index.ts";
+import type { LineSpan } from "./git/changedLines.ts";
 import type { HarnessDriver } from "./harness/HarnessDriver.ts";
 import type { RulesOutcome, RulesRequest } from "./rules/run.ts";
 
@@ -89,6 +90,16 @@ export class Checkpoints extends Context.Service<
       readonly turnId: TurnId;
       readonly label: "before" | "after";
     }) => Effect.Effect<{ readonly ref: string; readonly commit: string } | null, ServiceError>;
+    /**
+     * The spans of `path` (from the repository's top) that changed from `from` to `to`, on
+     * `from`'s side. Left out by fakes that never mark Comments outdated.
+     */
+    readonly changedLines?: (options: {
+      readonly cwd: string;
+      readonly from: string;
+      readonly to: string;
+      readonly path: string;
+    }) => Effect.Effect<ReadonlyArray<LineSpan>, ServiceError>;
   }
 >()("polaris/daemon/Checkpoints") {}
 

@@ -384,6 +384,7 @@ const fold = (event: DomainEvent): Fold =>
       CommentEdited: () => same,
       CommentResolved: () => same,
       CommentReopened: () => same,
+      CommentOutdated: () => same,
       SessionCreated:
         ({ session }): Fold =>
         (m) => ({ ...m, session }),

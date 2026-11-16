@@ -3,6 +3,7 @@
  * wired, untrusted input is decoded before anything runs, and failures cross
  * as `IpcError`s. The real path, end to end, is `scripts/smoke.ts`.
  */
+import { DesktopAccounts } from "../accounts/index.ts";
 import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -120,7 +121,13 @@ const github = GitHub.layer({
   endpoints: { web: "https://github.test", api: "https://api.github.test" },
 }).pipe(Layer.provide(SecureStorage.memory));
 
-const services = Layer.mergeAll(clientServices, github);
+const accounts = DesktopAccounts.layer({
+  dir: mkdtempSync(join(tmpdir(), "polaris-ipc-accounts-")),
+  fetch: () => Promise.reject(new TypeError("no Account Server in tests")),
+  openExternal: () => Promise.resolve(),
+}).pipe(Layer.provide(SecureStorage.memory));
+
+const services = Layer.mergeAll(clientServices, github, accounts);
 
 const revealed: Array<string> = [];
 
@@ -303,6 +310,25 @@ describe("requests", () => {
     expect(Exit.isFailure(await run(open({ url })))).toBe(true);
     expect(opened).toEqual([]);
   });
+
+  test.each(["file:///etc/passwd", "polaris://session/a/b", "javascript:alert(1)"])(
+    "the handler itself refuses %s, past the IPC decode",
+    async (url) => {
+      const opened: Array<string> = [];
+
+      const handler = requestHandlers({
+        ...context,
+        openExternal: async (target) => {
+          opened.push(target);
+        },
+      })["shell.openExternal"];
+
+      const exit = await run(handler({ url }));
+
+      expect(Exit.isFailure(exit)).toBe(true);
+      expect(opened).toEqual([]);
+    }
+  );
 
   test("Reveal in Finder works for this Mac's Host and a WSL distro's, never over ssh", async () => {
     const reveal = requestRunner(handlers, "shell.revealInFinder");

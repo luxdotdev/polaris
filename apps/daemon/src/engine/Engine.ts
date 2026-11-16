@@ -37,6 +37,7 @@ import {
   type Turn,
 } from "@polaris/protocol";
 import { Context, Effect, Layer, Option, type Stream } from "effect";
+import { CommentOutdating } from "./commentOutdating.ts";
 import type { ServiceError } from "../services.ts";
 import { registerHandoffContributor } from "../service/upgrade.ts";
 import { AutoArchive } from "./autoArchive.ts";
@@ -162,7 +163,8 @@ const EngineParts = Layer.mergeAll(Dispatcher.layer, Streams.layer).pipe(
       TerminalHandoff.layer,
       Worktrees.layer,
       CheckpointPruning.layer,
-      ReviewCheckouts.layer
+      ReviewCheckouts.layer,
+      CommentOutdating.layer
     )
   ),
   Layer.provideMerge(Supervisor.layer),
@@ -194,6 +196,7 @@ const make = Effect.gen(function* () {
   const recoveredTurns = yield* recoverOnStart(runtime);
   yield* checkouts.recover;
   yield* checkouts.followSessions;
+  yield* (yield* CommentOutdating).follow;
 
   // Runs before every exec into a new binary; a failed exec needs nothing undone.
   // See docs/adr/0004-restart-recovery-never-continues-a-turn.md.

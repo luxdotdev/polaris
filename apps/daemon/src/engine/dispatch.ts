@@ -13,6 +13,7 @@ import {
   type NotFound,
   type NotGranted,
   type Grant,
+  type ShareRole,
   RiskSummaryRef,
   type Sequence,
   TurnId,
@@ -36,6 +37,8 @@ export interface DispatchInput {
   /** Who sent it (ENG-398); a token-less Client when left out. */
   readonly actor?: Actor;
   readonly extensionGrant?: Grant | null;
+  /** A Teammate's Share role on the session (`DecideContext.shareRole`). */
+  readonly shareRole?: ShareRole | null;
 }
 
 export type Dispatch = (
@@ -154,6 +157,9 @@ const make = Effect.gen(function* () {
     if (Predicate.isTagged(command, "AcceptTurns"))
       return rt.findTurn(command.sessionId, command.throughTurnId).pipe(Effect.orDie);
 
+    if (Predicate.isTagged(command, "AddComment"))
+      return rt.findTurn(command.sessionId, command.anchor.turnId).pipe(Effect.orDie);
+
     return Effect.succeed(null);
   };
 
@@ -186,6 +192,7 @@ const make = Effect.gen(function* () {
       deviceLabel: input.deviceLabel,
       actor: input.actor ?? Actor.cases.Client.make({}),
       extensionGrant: input.extensionGrant ?? null,
+      shareRole: input.shareRole ?? null,
       newTurnId: TurnId.make(`turn_${crypto.randomUUID()}`),
       newWorkspaceId: WorkspaceId.make(`ws_${crypto.randomUUID()}`),
       attachments: yield* resolveAttachments(commandId, command),

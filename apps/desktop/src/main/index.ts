@@ -90,6 +90,7 @@ import {
   serveRenderer,
 } from "./protocol.ts";
 import { internetFetch } from "./net.ts";
+import { DesktopAccounts } from "./accounts/index.ts";
 import { distrustInSession } from "./tls/distrust.ts";
 import { createHostAddresses, type HostAddresses } from "./hostAddress/index.ts";
 import {
@@ -525,6 +526,11 @@ const start = async () => {
       localHost: Layer.succeed(LocalHost, local),
     }),
     githubLayer({ userData, env, secureStorage }),
+    DesktopAccounts.layer({
+      dir: join(userData, "accounts"),
+      fetch: internetFetch,
+      openExternal: (url) => shell.openExternal(url),
+    }).pipe(Layer.provide(secureStorage)),
     selfTraces.layer
   );
   const clientRuntime = runtime;
