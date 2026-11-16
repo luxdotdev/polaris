@@ -181,6 +181,7 @@ export const RPC_CAPABILITIES = {
   "remoteAccess.disable": "remote-access",
   "relayRoute.status": devices,
   "relayRoute.enable": devices,
+  "relayRoute.setUrl": "linked-devices.relay-url",
   "relayRoute.disable": devices,
   "devices.link": devices,
   "devices.awaitLink": devices,

@@ -17,4 +17,5 @@ export const revealPath = (
         Local: (): string | null => (entry.key === LOCAL_HOST_KEY ? path : null),
         Ssh: (): string | null => null,
         Wsl: ({ distro }): string | null => wslWindowsPath(distro, path),
+        Relay: (): string | null => null,
       });

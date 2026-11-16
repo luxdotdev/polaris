@@ -107,6 +107,7 @@ export const USER_RPCS = {
   "host.prepareRestart": "any",
   "relayRoute.status": "any",
   "relayRoute.enable": "user",
+  "relayRoute.setUrl": "user",
   "relayRoute.disable": "user",
   "devices.link": "user",
   "devices.awaitLink": "user",

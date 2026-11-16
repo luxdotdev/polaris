@@ -2,7 +2,8 @@
 /**
  * Launches the packaged app (`bun run package` first) against a local Daemon and checks that
  * it calls itself Polaris, finds its Daemon builds and icon, connects, and has its fuses set:
- * it refuses ELECTRON_RUN_AS_NODE, NODE_OPTIONS and --inspect (ENG-878). The app is driven
+ * it refuses ELECTRON_RUN_AS_NODE, NODE_OPTIONS and --inspect (ENG-878), and that it makes a relay
+ * identity on its own sodium-native, unpacked from the asar (ENG-943). The app is driven
  * over Chromium's remote debugging port, since the fuses close the Node inspector Playwright's
  * Electron launcher needs.
  *
@@ -10,7 +11,7 @@
  */
 import { spawnSync } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -207,6 +208,34 @@ const checkBundle = async () => {
     "Resources/daemon/manifest.json"
   );
   check("window icon", existsSync(join(resources, "icon.png")), "Resources/icon.png");
+
+  // Signing rewrites it, so only its count is checked here; the relay identity proves it loads.
+  const unpacked = join(resources, "app.asar.unpacked/out/main");
+
+  const natives = existsSync(unpacked)
+    ? readdirSync(unpacked).filter((f) => f.endsWith(".node"))
+    : [];
+
+  check("sodium-native unpacked", natives.length === 1, natives.join(", ") || "none");
+};
+
+const RELAY_ADDRESS = /^[A-Za-z0-9_-]{22}$/;
+
+const NOISE_KEY = /^[A-Za-z0-9_-]{43}$/;
+
+/** This app's relay identity, which only loads when sodium-native does. */
+const checkRelayIdentity = async (page: Page) => {
+  const device = await page.evaluate(() => window.polaris.request("devices.thisDevice", {}));
+
+  check(
+    "relay identity",
+    device.ok &&
+      RELAY_ADDRESS.test(device.value.relayAddress) &&
+      NOISE_KEY.test(device.value.noiseKey),
+    device.ok
+      ? `address ${device.value.relayAddress}`
+      : `${device.error.code}: ${device.error.message}`
+  );
 };
 
 /** Starts the app with NODE_OPTIONS and --inspect; it must connect and run neither. */
@@ -243,6 +272,7 @@ const checkAppAndInspector = async (socket: string) => {
       await page.waitForFunction(() => Boolean(window.polaris));
       await waitForLocalHost(page);
       check("local Daemon", true, "connected");
+      await checkRelayIdentity(page);
 
       if (shot !== null) await page.screenshot({ path: shot });
     } finally {

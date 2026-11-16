@@ -13,6 +13,10 @@ Polaris learned on top of it.
   `R1`). Mobile pages are iPhone frames: "Mobile" holds the first app
   (H4, D6–D8), "Mobile chrome exploration" its redesign at 393×852, named
   `MX-<letter> · <surface> · <variant> · <Midnight|Moonlit>`.
+- "Polaris — Orchestrator" is over Paper's size limit: writes lose data.
+  Read from it, but put new work in a new file per feature, rebuilt from
+  `get_jsx` of the artboards it reuses. The first is "Polaris — Shared
+  Sessions" (id `01M7K2P5N23A38T7S9SZEKHA5R`, SS1–SS6).
 - Start new artboards by duplicating the nearest accepted one (artboard 5
   "Orchestrate · Elevated" for anything in the Orchestrator, E1 for the
   Editor, R1 for Review) or by cloning its title bar, workspace bar or

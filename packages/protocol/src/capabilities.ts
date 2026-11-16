@@ -54,6 +54,8 @@ export const Capability = Schema.Literals([
   "linked-devices.presence",
   /** `userAccess.*`: the Host enrols several Desktop Apps and gates user-only requests (ADR 0114). */
   "user-access.enrolment",
+  /** `relayRoute.setUrl`: store the relay, or go back to Polaris Cloud's, without turning it on (ENG-948). */
+  "linked-devices.relay-url",
   /** A Client announces it when it decodes the `LinkedDevice` Actor; others read it as `Client`. */
   "actor.linked-device",
   /** `voice.transcribe`, `voice.settings` and `voice.setKey` (ADR 0077). */

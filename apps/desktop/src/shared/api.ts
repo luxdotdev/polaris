@@ -212,7 +212,7 @@ export interface ConnectionStatusView {
   readonly lastSeenAt: number | null;
 }
 
-export type HostKind = "local" | "ssh" | "wsl" | "socket";
+export type HostKind = "local" | "ssh" | "wsl" | "socket" | "relay";
 
 export interface HostView {
   readonly key: string;
