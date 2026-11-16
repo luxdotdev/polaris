@@ -19,6 +19,8 @@ export const ActionUnsupportedReason = Schema.Literals([
   "local-unsupported",
   /** No interactive shell hand-off for this kind of Host. */
   "no-terminal",
+  /** A Host reached through the Polaris Relay: only its Daemon is reachable, no shell. */
+  "relay-host",
 ]);
 
 export type ActionUnsupportedReason = typeof ActionUnsupportedReason.Type;
@@ -166,6 +168,15 @@ export const makeHostAccess = (
                 interactiveArgv: Effect.succeed(wslShellArgv(distro)),
               },
               runners.wsl
+            )
+          ),
+        Relay: ({ hostAddress }) =>
+          Effect.fail(
+            unsupported(
+              hostAddress,
+              "exec",
+              "relay-host",
+              "a Host reached through the relay has no shell here"
             )
           ),
       }),

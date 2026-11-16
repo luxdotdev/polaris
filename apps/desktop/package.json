@@ -74,6 +74,8 @@
     "@electron/fuses": "2.1.3",
     "@electron/packager": "20.3.0",
     "@happy-dom/global-registrator": "20.14.5",
+    "@polaris/relay": "workspace:*",
+    "@polaris/sdk": "workspace:*",
     "@rolldown/plugin-babel": "0.2.4",
     "@tailwindcss/vite": "4.3.3",
     "@testing-library/react": "16.3.3",
