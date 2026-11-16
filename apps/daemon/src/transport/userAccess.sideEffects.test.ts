@@ -12,9 +12,6 @@ import { makeBenchDriver } from "../harness/bench/BenchDriver.ts";
 import type { HarnessDriver } from "../harness/HarnessDriver.ts";
 import { HarnessRpcsLive } from "../harness/HarnessRpcs.ts";
 import { scopedTempDir } from "../platform/tempDir.testing.ts";
-import { predictionRequestHandlers } from "../prediction/index.ts";
-import { ManagedServer } from "../prediction/managed/server.ts";
-import { ManagedModelServer } from "../prediction/managed/service.ts";
 import { HostResources } from "../resources/index.ts";
 import { processIdentity } from "../resources/process.ts";
 import { ResourceRpcsLive } from "../resources/rpc.ts";
@@ -67,7 +64,35 @@ const withCallers = <A, E, HE, HR>(
     })
   );
 
-test("a socket-only process can't read files, reach the Host's loopback, use stored credentials or the provider key, or report presence", async () => {
+const endpoint = { kind: "openai" as const, url: "http://127.0.0.1:9/v1" };
+
+const completion = PredictionRequest.make({
+  context: [],
+  path: "a.ts",
+  prefix: "const a = ",
+  suffix: ";\n",
+  model: "fixture",
+  format: "mellum-spm",
+  endpoint,
+  budgetTokens: 512,
+  maxTokens: 32,
+  maxLines: 3,
+});
+
+const edit = EditPredictionRequest.make({
+  context: [],
+  path: "a.ts",
+  buffer: "const a = 1;\n",
+  cursor: 0,
+  focus: null,
+  history: [],
+  model: "fixture",
+  format: "zeta-2.1",
+  endpoint,
+  maxTokens: 32,
+});
+
+test("a socket-only process can't read files, reach the Host's loopback, use stored credentials or the provider key, have the Host fetch an endpoint, or report presence", async () => {
   const reached: Array<string> = [];
 
   /** Records that the request got past the gate, then fails as a defect. */
@@ -85,7 +110,10 @@ test("a socket-only process can't read files, reach the Host's loopback, use sto
     ServerRpcs.toLayerHandler("files.grep", () => reach("grep")),
     ServerRpcs.toLayerHandler("data.describe", () => reach("describe")),
     ServerRpcs.toLayerHandler("voice.transcribe", () => Stream.fromEffect(reach("transcribe"))),
-    ServerRpcs.toLayerHandler("presence.report", () => reach("presence"))
+    ServerRpcs.toLayerHandler("presence.report", () => reach("presence")),
+    ServerRpcs.toLayerHandler("prediction.capability", () => reach("capability")),
+    ServerRpcs.toLayerHandler("prediction.complete", () => Stream.fromEffect(reach("complete"))),
+    ServerRpcs.toLayerHandler("prediction.edit", () => Stream.fromEffect(reach("edit")))
   );
 
   const requests = (client: Client, root: string) => {
@@ -117,6 +145,9 @@ test("a socket-only process can't read files, reach the Host's loopback, use sto
       describe: outcome(client["data.describe"]({ sessionId, source: "production" })),
       transcribe: outcome(Stream.runDrain(client["voice.transcribe"]({ audio: blob }))),
       presence: outcome(client["presence.report"]({ presence: "present" })),
+      capability: outcome(client["prediction.capability"]({ endpoints: [endpoint.url] })),
+      complete: outcome(Stream.runDrain(client["prediction.complete"](completion))),
+      edit: outcome(Stream.runDrain(client["prediction.edit"](edit))),
     });
   };
 
@@ -140,12 +171,26 @@ test("a socket-only process can't read files, reach the Host's loopback, use sto
     describe: "UserAccessRequired:data.describe",
     transcribe: "UserAccessRequired:voice.transcribe",
     presence: "UserAccessRequired:presence.report",
+    capability: "UserAccessRequired:prediction.capability",
+    complete: "UserAccessRequired:prediction.complete",
+    edit: "UserAccessRequired:prediction.edit",
   });
   expect(result.before).toEqual([]);
   // The enrolled Desktop App reaches every handler.
   expect(new Set(Object.values(result.admitted))).toEqual(new Set(["defect"]));
   expect(result.after).toEqual(
-    ["describe", "grep", "open", "presence", "read", "readVersioned", "transcribe"].toSorted()
+    [
+      "capability",
+      "complete",
+      "describe",
+      "edit",
+      "grep",
+      "open",
+      "presence",
+      "read",
+      "readVersioned",
+      "transcribe",
+    ].toSorted()
   );
 });
 
@@ -191,91 +236,6 @@ test("traces.watch issues the ingestion endpoint to the user only, and persists 
     expect(result.appPages.map((page) => page.endpoint)).toEqual([f.endpoint, null]);
     expect(f.endpoint).not.toBeNull();
   }));
-
-/** A stopped managed server that owns every endpoint and counts what would start or wake it. */
-class StoppedServer extends ManagedServer {
-  starts = 0;
-  touches = 0;
-
-  override ownsUrl() {
-    return true;
-  }
-
-  override isServing() {
-    return false;
-  }
-
-  override start() {
-    this.starts += 1;
-
-    return Promise.reject(new Error("no model in this test"));
-  }
-
-  override touch() {
-    this.touches += 1;
-  }
-}
-
-const endpoint = { kind: "openai" as const, url: "http://127.0.0.1:9/v1" };
-
-const completion = PredictionRequest.make({
-  context: [],
-  path: "a.ts",
-  prefix: "const a = ",
-  suffix: ";\n",
-  model: "fixture",
-  format: "mellum-spm",
-  endpoint,
-  budgetTokens: 512,
-  maxTokens: 32,
-  maxLines: 3,
-});
-
-test("a prediction from a socket-only process never starts the stopped managed server", async () => {
-  const result = await Effect.runPromise(
-    Effect.gen(function* () {
-      const root = yield* temporary;
-      const server = new StoppedServer({ defaultDir: root });
-
-      const handlers = predictionRequestHandlers.pipe(
-        Layer.provide(Layer.succeed(ManagedModelServer, server))
-      );
-
-      const edit = EditPredictionRequest.make({
-        context: [],
-        path: "a.ts",
-        buffer: "const a = 1;\n",
-        cursor: 0,
-        focus: null,
-        history: [],
-        model: "fixture",
-        format: "zeta-2.1",
-        endpoint,
-        maxTokens: 32,
-      });
-
-      return yield* withCallers(handlers, ({ app, agent }) =>
-        Effect.gen(function* () {
-          const refused = {
-            complete: yield* outcome(Stream.runDrain(agent["prediction.complete"](completion))),
-            edit: yield* outcome(Stream.runDrain(agent["prediction.edit"](edit))),
-          };
-
-          const untouched = { starts: server.starts, touches: server.touches };
-          yield* outcome(Stream.runDrain(app["prediction.complete"](completion)));
-
-          return { refused, untouched, startsForTheUser: server.starts };
-        })
-      );
-    }).pipe(Effect.scoped)
-  );
-
-  expect(result).toEqual({
-    refused: { complete: "PredictionError", edit: "PredictionError" },
-    untouched: { starts: 0, touches: 0 },
-    startsForTheUser: 1,
-  });
-});
 
 test("harness.models and harness.commands serve a socket-only process the cache and never ask the Harness for it", async () => {
   const asked = { models: 0, commands: 0 };

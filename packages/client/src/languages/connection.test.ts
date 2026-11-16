@@ -31,6 +31,8 @@ const identity = {
   version: "0",
   deviceLabel: "fixture",
   capabilities: ["blobs", "languages", "languages.preview-media"] as const,
+  // The Desktop App's key: a fresh root enrols it, and reading a file is the user's (ADR 0114).
+  userKey: Redacted.make("0".repeat(64)),
 };
 
 const availability = { toolIds: [], checkout: null, refresh: false, phase: "feature" as const };

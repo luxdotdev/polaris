@@ -58,12 +58,13 @@ agent's shell included, could approve its own Pending Approvals, send Turns and 
   A third review found `any` entries that were not that, and closed them. Reads that reach
   beyond Host state are `user`: file contents by any path (`files.read`, `files.readVersioned`,
   `files.grep`), the Host's loopback (`hostAddress.open`), a data source's stored credentials
-  (`data.describe`) and the Host's provider key (`voice.transcribe`); so is `presence.report`,
-  which holds back the user's push notifications. Five handlers do less for a caller the gate
-  would refuse: `traces.watch` issues and persists no ingestion endpoint, `prediction.complete`
-  and `prediction.edit` use the managed model server only while it serves and never start it
-  or keep it awake, and `harness.models` and `harness.commands` answer from the cache alone,
-  since asking a Harness may start its program. `host.resources.acquire` and `release` stay
+  (`data.describe`) and the Host's provider key (`voice.transcribe`); so are
+  `prediction.capability`, `prediction.complete` and `prediction.edit`, which connect to an
+  endpoint their caller names and start the managed model server, and `presence.report`,
+  which holds back the user's push notifications. Three handlers do less for a caller the gate
+  would refuse: `traces.watch` issues and persists no ingestion endpoint, and `harness.models`
+  and `harness.commands` answer from the cache alone, since asking a Harness may start its
+  program. `host.resources.acquire` and `release` stay
   open because `polaris lease` sends no key: a lease ends with the process it names, and
   without user access a connection releases only a lease it asked for itself. What is still
   open and not purely a read is listed in ENG-953: a lease may name any live process, the git

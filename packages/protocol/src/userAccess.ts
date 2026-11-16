@@ -89,8 +89,8 @@ export const USER_COMMANDS = {
  * connection's own flow control, and `host.resources.acquire` and `release`: `polaris lease`
  * sends no key, a lease ends with the process it names, and without user access a connection
  * releases only a lease it asked for. A read of file contents, a stored credential or a
- * provider key is `user`. Handlers of `traces.watch`, `prediction.complete`, `prediction.edit`,
- * `harness.models` and `harness.commands` do less without user access.
+ * provider key is `user`, and so is whatever connects to an address its caller names. Handlers
+ * of `traces.watch`, `harness.models` and `harness.commands` do less without user access.
  */
 export const USER_RPCS = {
   hello: "any",
@@ -189,10 +189,10 @@ export const USER_RPCS = {
   "attachments.clear": "user",
   "inline.propose": "user",
   "commit.suggestMessage": "user",
-  "prediction.capability": "any",
-  "prediction.complete": "any",
+  "prediction.capability": "user",
+  "prediction.complete": "user",
   "prediction.context": "any",
-  "prediction.edit": "any",
+  "prediction.edit": "user",
   "prediction.managed": "user",
   "prediction.managed.watch": "any",
   "prediction.server": "user",

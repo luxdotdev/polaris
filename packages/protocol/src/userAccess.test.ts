@@ -87,10 +87,7 @@ const READ_ONLY = [
   "languages.trust.inspect",
   "origins.forCommit",
   "origins.match",
-  "prediction.capability",
-  "prediction.complete",
   "prediction.context",
-  "prediction.edit",
   "prediction.managed.watch",
   "profiles.get",
   "profiles.watch",
@@ -169,6 +166,10 @@ test.each([
   "data.describe",
   "voice.transcribe",
   "presence.report",
+  // They connect to an endpoint the caller names.
+  "prediction.capability",
+  "prediction.complete",
+  "prediction.edit",
 ])("%s is refused without user access and allowed with it", (rpc) => {
   expect(decideUserAccess(rpc, null, false)?.what).toBe(rpc);
   expect(decideUserAccess(rpc, null, true)).toBeNull();
