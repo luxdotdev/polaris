@@ -18,6 +18,7 @@ import {
   uninterrupted,
 } from "../git/interrupt.ts";
 import { constellationRef, mergedInto } from "../git/constellationBundles.ts";
+import { withTrailers } from "../coAuthors/index.ts";
 import { commitSigning, signingOptions } from "../git/signing.ts";
 import { gitStatus } from "../git/status.ts";
 import { bothChangeDependencies, regenerable, regenerate, staleNotices } from "./regenerate.ts";
@@ -188,7 +189,8 @@ export const mergeClaim = Effect.fnUntraced(function* (
   graph: Constellation,
   attempt: Attempt,
   leadPath: string,
-  head: string
+  head: string,
+  trailers: ReadonlyArray<string> = []
 ): Effect.fn.Return<MergeOutcome, ConstellationTransferError> {
   if (attempt.claim === null || head !== attempt.claim.head)
     return yield* refused(
@@ -211,7 +213,7 @@ export const mergeClaim = Effect.fnUntraced(function* (
 
   if (branch instanceof ConstellationTransferError) return yield* branch;
 
-  const message = `Merge ${attempt.branch} (${attempt.taskId})`;
+  const message = withTrailers(`Merge ${attempt.branch} (${attempt.taskId})`, trailers);
   const fastForward = yield* git(() => mergedInto(leadPath, "HEAD", head));
   const signing = fastForward ? null : yield* git(() => commitSigning(leadPath));
 

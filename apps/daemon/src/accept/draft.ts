@@ -14,6 +14,7 @@ import {
 } from "@polaris/protocol";
 import { Duration, Effect, Option, Predicate, Schema, Stream } from "effect";
 import { type HarnessDriver, HarnessEvent } from "../harness/HarnessDriver.ts";
+import { withTrailers } from "../coAuthors/index.ts";
 import { type ForkedTurn, forkPreamble } from "../engine/fork.ts";
 
 /** Commit titles, at most. */
@@ -76,6 +77,20 @@ export const templateDraft = (input: DraftInput, note: string | null): AcceptDra
     note,
   });
 };
+
+/** The draft with the Teammates' trailers its commit body and pull request text lack. */
+export const creditDraft = (draft: AcceptDraft, trailers: ReadonlyArray<string>): AcceptDraft =>
+  trailers.length === 0
+    ? draft
+    : new AcceptDraft({
+        title: draft.title,
+        body: withTrailers(draft.body, trailers),
+        prTitle: draft.prTitle,
+        prBody: withTrailers(draft.prBody, trailers),
+        turnTitles: draft.turnTitles,
+        source: draft.source,
+        note: draft.note,
+      });
 
 /** Starts the draft request, so the bench Harness can answer it (`harness/bench/accept.ts`). */
 export const ACCEPT_DRAFT_MARKER = "Write the commit message and the pull request text.";
