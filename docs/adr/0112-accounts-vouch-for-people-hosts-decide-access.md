@@ -27,6 +27,10 @@ real identity, no way to find a person, and no base for Teams, shared always-on 
   Host admits it only if a statement from that issuer, verified against keys fetched from that
   issuer over TLS, binds its key to that person, and a live Share names them. Each new device is
   recorded in the share log.
+- The relay routes only devices a Host lists, so creating an Invite gives the Host a capability for
+  that Share, and the Daemon asks the issuer for the Teammate's accepted devices while the Share is
+  live (never when no Share is), then lists them. A Teammate can join while the owner's apps are
+  closed.
 - The Account Server never decides access and is never on the data path. The relay keeps routing
   by key and never consults it. Invites and finding people work only within one Account Server.
 - A user's access to their own Hosts stays local (ENG-927): an Account may suggest "this is your
