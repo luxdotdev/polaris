@@ -41,6 +41,8 @@ import { useDeveloperMode } from "./useDeveloperMode.ts";
 import { ThemeCard } from "./ThemeCard.tsx";
 import { ACCESSIBILITY_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 import { InboxBadge } from "../inbox/index.ts";
+import { usePolarisAccounts } from "../accounts/index.ts";
+import { PolarisAccountsPanel } from "./PolarisAccounts.tsx";
 
 const Row = ({
   Glyph,
@@ -158,6 +160,7 @@ export const SettingsScreen = ({
   const { colours } = useTheme();
   const { motion, setMotion } = useMotionPreference();
   const constellations = useConstellationNotifications();
+  const accounts = usePolarisAccounts();
 
   const followed = useFollowedHosts();
   const developerMode = developerModeLine(useDeveloperMode(followed));
@@ -228,6 +231,7 @@ export const SettingsScreen = ({
           />
           <Row Glyph={DeveloperModeGlyph} title="Developer mode" line={developerMode} last />
         </View>
+        <PolarisAccountsPanel accounts={accounts} />
       </View>
     </ScrollView>
   );

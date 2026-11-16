@@ -21,6 +21,21 @@ const GROUPS: ReadonlyArray<GroupSource> = [
     title: "General",
     sections: [
       {
+        id: "account",
+        title: "Polaris accounts",
+        blurb:
+          "The accounts you share sessions through. Each lives on an account server and signs in with GitHub.",
+        keywords: [
+          "account",
+          "sharing",
+          "share",
+          "sign in",
+          "commit email",
+          "polaris cloud",
+          "server",
+        ],
+      },
+      {
         id: "appearance",
         title: "Appearance",
         blurb: `How Polaris looks on ${clientCopy().machine}. These settings stay on ${clientCopy().machine}; hosts don't share them.`,
