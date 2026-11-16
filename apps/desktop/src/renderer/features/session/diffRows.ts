@@ -55,3 +55,29 @@ export const diffRows = (
 
     return [...gap, head, ...fileBody(file), { kind: "foot", key: `foot:${file.path}` }];
   });
+
+/** The tab stop `white-space: pre` uses (CSS `tab-size`'s default). */
+const TAB_SIZE = 8;
+
+// East Asian wide and fullwidth ranges and emoji drawn as emoji: two monospace cells each.
+const WIDE =
+  /[ᄀ-ᅟ⺀-〾ぁ-㏿㐀-䶿一-鿿ꀀ-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦\u{20000}-\u{3FFFD}]|\p{Emoji_Presentation}/u;
+
+/** The monospace cells a line takes unwrapped: tabs to their stop, wide characters as two. */
+export const lineColumns = (text: string): number => {
+  let columns = 0;
+
+  for (const char of text) {
+    if (char === "\t") columns += TAB_SIZE - (columns % TAB_SIZE);
+    else columns += WIDE.test(char) ? 2 : 1;
+  }
+
+  return columns;
+};
+
+/** The widest line's cells: how far the unwrapped Changes list scrolls sideways. */
+export const widestColumns = (rows: ReadonlyArray<DiffRow>): number =>
+  rows.reduce(
+    (widest, row) => (row.kind === "line" ? Math.max(widest, lineColumns(row.line.text)) : widest),
+    0
+  );
