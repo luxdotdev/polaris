@@ -1,4 +1,19 @@
 {
   "$comment": "Flaky tests the required lane skips; the nightly runs them with --quarantined. Each entry needs an issue and expires 30 days after it was added. See tooling/test/quarantine.md.",
-  "entries": []
+  "entries": [
+    {
+      "file": "apps/daemon/src/suggestedReply/lazy.test.ts",
+      "test": "the fallback starts when the preference is turned on after start-up",
+      "os": "all",
+      "issue": "ENG-920",
+      "added": "2026-11-10"
+    },
+    {
+      "file": "apps/daemon/src/transport/byteStreamsReset.test.ts",
+      "test": "Host-address streams: misbehaving peers > a disconnect terminates a loopback socket whose Host stopped reading, instead of waiting to drain",
+      "os": ["macos"],
+      "issue": "ENG-892",
+      "added": "2026-11-10"
+    }
+  ]
 }
