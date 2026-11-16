@@ -123,6 +123,8 @@ export class StatementClaims extends Schema.Class<StatementClaims>("StatementCla
   sub: PersonId,
   /** Seconds since the epoch, as JWTs carry them. */
   iat: Schema.optionalKey(Schema.Int),
+  /** Not valid before this, when present. */
+  nbf: Schema.optionalKey(Schema.Int),
   exp: Schema.Int,
   /** base64url of the device's X25519 static public key. */
   cnf: Schema.Struct({ noiseKey: Schema.String }),
@@ -137,7 +139,8 @@ export class StatementRejected extends Schema.TaggedError<StatementRejected>()(
   "StatementRejected",
   {
     /**
-     * `malformed`: not a statement. `signature`: no key of its issuer signed it. `expired`.
+     * `malformed`: not a statement. `signature`: no key of its issuer signed it. `expired`:
+     * past `exp`, or not valid yet (`nbf`).
      * `issuer-unreachable`: its keys could not be fetched. `device`: bound to another device
      * than this connection's. `person`: another person than the connection's. `no-share`: no
      * live Share on this Host names that person at that issuer.

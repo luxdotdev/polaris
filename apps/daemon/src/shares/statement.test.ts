@@ -2,7 +2,13 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { STATEMENT_LIFETIME_S } from "@polaris/protocol";
 import { Effect } from "effect";
 import { type FakeIssuer, startFakeIssuer, type StatementOptions } from "./issuer.testing.ts";
-import { isIssuerUrl, JWKS_REFETCH_MS, statementVerifier } from "./statement.ts";
+import {
+  CLOCK_SKEW_MS,
+  isIssuerUrl,
+  JWKS_MAX_BYTES,
+  JWKS_REFETCH_MS,
+  statementVerifier,
+} from "./statement.ts";
 
 let server: FakeIssuer;
 
@@ -30,7 +36,7 @@ test("a statement the pinned issuer signed names its person, its device and its 
 
   expect(statement).toMatchObject({ personId: "p1", noiseKey: "device-key", login: "octocat" });
   expect(statement.expiresAt).toBeGreaterThan(before + 58_000);
-  expect(statement.expiresAt).toBeLessThanOrEqual(Date.now() + 60_000);
+  expect(statement.expiresAt).toBeLessThanOrEqual(Date.now() + 60_000 + CLOCK_SKEW_MS);
 });
 
 test("a statement never vouches for longer than a statement's lifetime", async () => {
@@ -46,8 +52,26 @@ test("a statement never vouches for longer than a statement's lifetime", async (
 const refusals: ReadonlyArray<readonly [string, StatementOptions, string]> = [
   ["signed by a key the issuer does not publish", { forged: true }, "signature"],
   ["issued by another Account Server", { iss: "https://evil.test" }, "signature"],
-  ["already expired", { ttlS: -5 }, "expired"],
+  ["expired beyond the clock-skew allowance", { ttlS: -(CLOCK_SKEW_MS / 1000) - 5 }, "expired"],
+  ["not valid yet (nbf)", { nbfS: CLOCK_SKEW_MS / 1000 + 60 }, "expired"],
+  ["issued in the Host's future (iat)", { iatS: CLOCK_SKEW_MS / 1000 + 60 }, "expired"],
+  ["signed with HS256 in its header", { alg: "HS256" }, "malformed"],
+  ["with no algorithm", { alg: "none" }, "malformed"],
 ];
+
+test.each([
+  ["whose nbf is a few seconds ahead", { nbfS: 5 }],
+  ["that expired a few seconds ago", { ttlS: -5 }],
+] satisfies ReadonlyArray<readonly [string, StatementOptions]>)(
+  "a statement %s is accepted within the clock-skew allowance",
+  async (_, options) => {
+    const verifier = statementVerifier({ fetch: server.fetch });
+
+    expect(
+      await reasonOf(verifier, server.issuer, await server.statement("p1", "k", options))
+    ).toBe("accepted");
+  }
+);
 
 test.each(refusals)("a statement %s is refused", async (_, options, reason) => {
   const verifier = statementVerifier({ fetch: server.fetch });
@@ -122,4 +146,54 @@ test.each([
   ["not a url", false],
 ])("issuer %s is one the Host asks: %p", (issuer, allowed) => {
   expect(isIssuerUrl(issuer)).toBe(allowed);
+});
+
+/** A `fetch` whose answer is `body` in chunks, counting what the Host pulled. */
+const streamed = (body: string, chunk = 4096) => {
+  const bytes = new TextEncoder().encode(body);
+  let pulled = 0;
+
+  const fetch = async () =>
+    new Response(
+      new ReadableStream<Uint8Array>({
+        pull: (controller) => {
+          if (pulled >= bytes.length) {
+            controller.close();
+
+            return;
+          }
+
+          controller.enqueue(bytes.slice(pulled, pulled + chunk));
+          pulled += chunk;
+        },
+      })
+    );
+
+  return { fetch, pulled: () => pulled };
+};
+
+test("a JWKS past the byte limit is not read to its end, and vouches for nobody", async () => {
+  const jwks = await (await server.fetch(`${server.issuer}/api/auth/jwks`)).text();
+  const padded = streamed(`${jwks}${" ".repeat(1024 * 1024)}`);
+  const verifier = statementVerifier({ fetch: padded.fetch });
+
+  expect(await reasonOf(verifier, server.issuer, await server.statement("p1", "k"))).toBe(
+    "issuer-unreachable"
+  );
+  expect(padded.pulled()).toBeLessThan(JWKS_MAX_BYTES * 2);
+});
+
+test("a JWKS that arrives from another origin vouches for nobody", async () => {
+  const verifier = statementVerifier({
+    fetch: async (input, init) => {
+      const response = await server.fetch(input, init);
+      Object.defineProperty(response, "url", { value: "https://evil.test/api/auth/jwks" });
+
+      return response;
+    },
+  });
+
+  expect(await reasonOf(verifier, server.issuer, await server.statement("p1", "k"))).toBe(
+    "issuer-unreachable"
+  );
 });

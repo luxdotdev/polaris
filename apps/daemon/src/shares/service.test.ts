@@ -94,7 +94,11 @@ const onHost = <A, E>(root: string, server: FakeIssuer, program: Effect.Effect<A
       return yield* program;
     }).pipe(
       Effect.provide(
-        Shares.layer({ fetch: server.fetch, timing: { waitS: 2, pauseMs: 5, retryMs: 20 } }).pipe(
+        Shares.layer({
+          fetch: server.fetch,
+          timing: { waitS: 2, pauseMs: 5, retryMs: 20 },
+          skewMs: 0,
+        }).pipe(
           Layer.provide(
             Layer.mergeAll(
               ShareStore.layer(join(root, "shares.sqlite")),
@@ -429,6 +433,46 @@ test("a session ends when its device's statement lapses or the issuer no longer 
       yield* until(() => lapsed.isClosed, "the lapsed statement's session to end");
 
       expect(shares.guests.peers()).toEqual([]);
+    })
+  );
+});
+
+test("a device one Share stops listing loses that Share and its open session, and keeps the other", async () => {
+  const server = await issuer();
+  const other = InviteId.make("inv_2");
+  server.invite(other, CAPABILITY);
+  const phone = withSession();
+
+  await onHost(
+    tempDir("pl-shares-"),
+    server,
+    Effect.gen(function* () {
+      const shares = yield* Shares;
+      const first = yield* shares.create(invite(server), OWNER);
+      const second = yield* shares.create(invite(server, { inviteId: other }), OWNER);
+
+      const teammate = {
+        issuer: server.issuer,
+        personId: PERSON,
+        noiseKey: phone.listed.noiseKey,
+        relayAddress: Schema.decodeSync(RelayAddress)(phone.listed.relayAddress),
+      };
+
+      const mine = () => shares.sharesOf(teammate).map((share) => share.id);
+
+      server.list(INVITE, [phone.listed]);
+      server.list(other, [phone.listed]);
+      yield* until(() => mine().length === 2, "both Shares to list the device");
+      const open = phone.serve(shares);
+
+      // The first Share's Invite no longer lists the phone; the second still does.
+      server.list(INVITE, []);
+      yield* until(() => open.isClosed, "the session that held the first Share to end");
+
+      expect(mine()).toEqual([second.id]);
+      expect(mine()).not.toContain(first.id);
+      expect(yield* admits(phone.listed)).toBe(true);
+      expect(phone.serve(shares).isClosed).toBe(false);
     })
   );
 });

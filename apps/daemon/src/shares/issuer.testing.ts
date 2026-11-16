@@ -39,6 +39,12 @@ export interface StatementOptions {
   /** Signed by a key that is not in the JWKS. */
   readonly forged?: boolean;
   readonly name?: string;
+  /** Seconds from now it becomes valid (`nbf`); absent unless given. */
+  readonly nbfS?: number;
+  /** Seconds from now it says it was issued (`iat`). Default 0. */
+  readonly iatS?: number;
+  /** The header's `alg`. Default EdDSA. */
+  readonly alg?: string;
 }
 
 export interface FakeDevice {
@@ -96,11 +102,14 @@ export const startFakeIssuer = async (
     const by = given.forged === true ? outsider : signer;
     const now = Math.floor(Date.now() / 1000);
 
+    const notBefore = given.nbfS === undefined ? [] : [["nbf", now + given.nbfS] as const];
+
     const claims = {
+      ...Object.fromEntries(notBefore),
       iss: given.iss ?? issuer,
       aud: given.iss ?? issuer,
       sub: given.sub ?? personId,
-      iat: now,
+      iat: now + (given.iatS ?? 0),
       exp: now + (given.ttlS ?? 900),
       cnf: { noiseKey: given.noiseKey ?? noiseKey },
       login: "octocat",
@@ -109,7 +118,7 @@ export const startFakeIssuer = async (
       commitEmail: "octocat@github.test",
     };
 
-    const signed = `${b64(JSON.stringify({ alg: "EdDSA", kid: by.kid }))}.${b64(JSON.stringify(claims))}`;
+    const signed = `${b64(JSON.stringify({ alg: given.alg ?? "EdDSA", kid: by.kid }))}.${b64(JSON.stringify(claims))}`;
 
     const signature = await crypto.subtle.sign(
       { name: "Ed25519" },

@@ -59,6 +59,7 @@ export interface SharesOptions {
   readonly fetch?: Fetch | undefined;
   readonly now?: (() => number) | undefined;
   readonly timing?: Partial<PollTiming> | undefined;
+  readonly skewMs?: number | undefined;
 }
 
 /** What a Teammate's connection stands on: its statement's expiry and its live Shares. */
@@ -159,7 +160,7 @@ const makeShares = Effect.fn("makeShares")(function* (options: SharesOptions) {
   const runFork = Effect.runForkWith(context);
   const now = options.now ?? Date.now;
   const request = options.fetch ?? fetch;
-  const verifier = statementVerifier({ fetch: options.fetch, now });
+  const verifier = statementVerifier({ fetch: options.fetch, now, skewMs: options.skewMs });
   const stamp = () => new Date(now()).toISOString();
 
   const shares = new Map<ShareId, StoredShare>(
@@ -167,7 +168,13 @@ const makeShares = Effect.fn("makeShares")(function* (options: SharesOptions) {
   );
 
   const capabilities = new Map<ShareId, string>();
-  const sessions = new Map<DeviceSession, TeammateDevice>();
+
+  /** Each open session with the Shares that listed its device when last checked. */
+  const sessions = new Map<
+    DeviceSession,
+    { device: TeammateDevice; shares: ReadonlySet<ShareId> }
+  >();
+
   const peerListeners = new Set<() => void>();
   const presence = sharePresence();
   let targets = NO_TARGETS;
@@ -209,13 +216,19 @@ const makeShares = Effect.fn("makeShares")(function* (options: SharesOptions) {
   const ofPerson = (share: Share) => (device: TeammateDevice) =>
     device.issuer === share.issuer && device.personId === share.person.id;
 
-  const sharesOf = (device: TeammateDevice) =>
-    live()
+  /** The person's live Shares that list this device: another device's Share is not its own. */
+  const sharesOf = (device: TeammateDevice) => {
+    const listing = new Set(table.sharesOf(device));
+
+    return live()
       .map(({ share }) => share)
-      .filter((share) => ofPerson(share)(device));
+      .filter((share) => listing.has(share.id) && ofPerson(share)(device));
+  };
+
+  const listingOf = (device: TeammateDevice) => new Set(sharesOf(device).map((share) => share.id));
 
   const endSessions = (matches: (device: TeammateDevice) => boolean) => {
-    for (const [session, device] of sessions) if (matches(device)) session.end();
+    for (const [session, { device }] of sessions) if (matches(device)) session.end();
   };
 
   /** The issuer's verified word names the person: the first is the Invite's acceptance. */
@@ -308,16 +321,27 @@ const makeShares = Effect.fn("makeShares")(function* (options: SharesOptions) {
     );
   };
 
+  /**
+   * A session outlives neither its statement nor any Share that listed its device: losing one
+   * ends it, so every request and feed it had open through that Share closes with it.
+   */
+  const endOutlived = () => {
+    for (const [session, held] of sessions) {
+      const listing = listingOf(held.device);
+      const lost = [...held.shares].some((id) => !listing.has(id));
+
+      if (lost || table.find(held.device.relayAddress, held.device.noiseKey) === null)
+        session.end();
+      else held.shares = listing;
+    }
+  };
+
   /** Brings polls, devices, sessions, peers and the one timer in step with the Shares and the clock. */
   function settle(): void {
     expire();
     table.sync(live());
     table.prune();
-    // A session outlives neither its statement nor the last live Share that listed its device.
-    endSessions(
-      (device) =>
-        table.find(device.relayAddress, device.noiseKey) === null || sharesOf(device).length === 0
-    );
+    endOutlived();
     const peers = table.peers().join(",");
 
     if (peers !== listed) {
@@ -343,7 +367,7 @@ const makeShares = Effect.fn("makeShares")(function* (options: SharesOptions) {
       return;
     }
 
-    sessions.set(session, device);
+    sessions.set(session, { device, shares: listingOf(device) });
 
     for (const shareId of table.sharesOf(device))
       persist(

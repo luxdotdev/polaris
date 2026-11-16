@@ -10,6 +10,7 @@ import {
   StatementRejected,
 } from "@polaris/protocol";
 import { Effect, Option, Predicate, Schema } from "effect";
+import { fromIssuer, readCapped } from "./body.ts";
 
 export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
@@ -45,7 +46,17 @@ const decodeHeader = Schema.decodeUnknownOption(Schema.fromJsonString(Header));
 
 const decodeClaims = Schema.decodeUnknownOption(Schema.fromJsonString(StatementClaims));
 
-const decodeJwks = Schema.decodeUnknownOption(Jwks);
+const decodeJwks = Schema.decodeUnknownOption(Schema.fromJsonString(Jwks));
+
+/** The most a JWKS answer may weigh and hold; an Account Server keeps a handful of keys. */
+export const JWKS_MAX_BYTES = 16 * 1024;
+
+const JWKS_MAX_KEYS = 16;
+
+const KEY_FIELD_MAX = 256;
+
+/** How far the issuer's clock and the Host's may differ, for `nbf`, `iat` and `exp` alike. */
+export const CLOCK_SKEW_MS = 30_000;
 
 /** A statement the pinned issuer signed and that has not expired. */
 export interface VerifiedStatement {
@@ -92,8 +103,14 @@ export interface StatementVerifier {
 }
 
 export const statementVerifier = (
-  options: { readonly fetch?: Fetch | undefined; readonly now?: (() => number) | undefined } = {}
+  options: {
+    readonly fetch?: Fetch | undefined;
+    readonly now?: (() => number) | undefined;
+    /** For tests: the clock-skew allowance, `CLOCK_SKEW_MS` unless given. */
+    readonly skewMs?: number | undefined;
+  } = {}
 ): StatementVerifier => {
+  const skew = options.skewMs ?? CLOCK_SKEW_MS;
   const request = options.fetch ?? fetch;
   const now = options.now ?? Date.now;
   const cache = new Map<string, IssuerKeys>();
@@ -105,12 +122,20 @@ export const statementVerifier = (
       signal: AbortSignal.timeout(JWKS_TIMEOUT_MS),
     });
 
+    if (!fromIssuer(response, issuer)) throw new Error("the JWKS came from another origin");
+
     if (!response.ok) throw new Error(`the JWKS answered ${response.status}`);
-    const jwks = Option.getOrThrow(decodeJwks(await response.json()));
+    const body = await readCapped(response, JWKS_MAX_BYTES);
+
+    if (body === null) throw new Error("the JWKS is too large");
+    const jwks = Option.getOrThrow(decodeJwks(body));
+
+    if (jwks.keys.length > JWKS_MAX_KEYS) throw new Error("the JWKS holds too many keys");
 
     const keys = await Promise.all(
       jwks.keys
         .filter((jwk) => jwk.kty === "OKP" && jwk.crv === "Ed25519" && jwk.x !== undefined)
+        .filter((jwk) => Math.max(jwk.x?.length ?? 0, jwk.kid?.length ?? 0) <= KEY_FIELD_MAX)
         .map(async (jwk) => ({
           kid: jwk.kid ?? null,
           key: await crypto.subtle.importKey(
@@ -194,13 +219,16 @@ export const statementVerifier = (
     if (!(await signedBy(keys, bytes(signature), signed))) return "signature";
     const at = now();
 
-    if (claims.exp * 1000 <= at) return "expired";
+    // Not valid yet (`nbf`, or an `iat` ahead of the Host) reads as not valid now, like `exp`.
+    if (Math.max(claims.nbf ?? 0, claims.iat ?? 0) * 1000 - skew > at) return "expired";
+
+    if (claims.exp * 1000 + skew <= at) return "expired";
 
     return {
       issuer,
       personId: claims.sub,
       noiseKey: claims.cnf.noiseKey,
-      expiresAt: Math.min(claims.exp * 1000, at + STATEMENT_LIFETIME_S * 1000),
+      expiresAt: Math.min(claims.exp * 1000 + skew, at + STATEMENT_LIFETIME_S * 1000),
       login: claims.login,
       name: claims.name,
       avatarUrl: claims.avatarUrl,

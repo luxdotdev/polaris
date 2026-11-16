@@ -11,9 +11,6 @@ import type { ShareId } from "@polaris/protocol";
 import type { RelayAddress } from "@polaris/protocol/relay";
 import { Predicate } from "effect";
 
-/** The most devices one Share lists as relay peers, whatever its issuer answers. */
-export const MAX_DEVICES_PER_SHARE = 16;
-
 export interface PollTiming {
   /** Seconds the issuer may hold a poll (the contract's default and maximum is 60). */
   readonly waitS: number;
@@ -130,7 +127,7 @@ export const deviceTable = (options: DeviceTableOptions): DeviceTable => {
   const apply = async (stored: StoredShare, listed: ReadonlyArray<IssuerDevice>) => {
     const next = new Map<string, Entry>();
 
-    for (const device of listed.slice(0, MAX_DEVICES_PER_SHARE)) {
+    for (const device of listed) {
       const entry = await vouched(stored, device);
 
       if (entry === null) continue;

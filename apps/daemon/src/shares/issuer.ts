@@ -6,6 +6,7 @@
 import { PersonId } from "@polaris/protocol";
 import { RelayAddress } from "@polaris/protocol/relay";
 import { Option, Schema } from "effect";
+import { fromIssuer, readCapped } from "./body.ts";
 import type { Fetch } from "./statement.ts";
 
 /** A device that accepted the Invite, with the issuer's current statement for it. */
@@ -29,7 +30,27 @@ export const DevicesAnswer = Schema.TaggedUnion({
 
 export type DevicesAnswer = typeof DevicesAnswer.Type;
 
-const decodeList = Schema.decodeUnknownOption(Schema.Array(Schema.Unknown));
+const decodeList = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Array(Schema.Unknown)));
+
+/** The most devices one Share lists as relay peers, whatever its issuer answers. */
+export const MAX_DEVICES_PER_SHARE = 16;
+
+/** The most a devices answer may weigh: 16 devices with their statements fit several times. */
+export const DEVICES_MAX_BYTES = 64 * 1024;
+
+const STATEMENT_MAX = 4096;
+
+const FIELD_MAX = 256;
+
+const bounded = (device: IssuerDevice) =>
+  device.statement.length <= STATEMENT_MAX &&
+  Math.max(device.personId.length, device.noiseKey.length) <= FIELD_MAX;
+
+const etagOf = (response: Response) => {
+  const etag = response.headers.get("etag");
+
+  return etag !== null && etag.length <= FIELD_MAX ? etag : null;
+};
 
 const decodeDevice = Schema.decodeUnknownOption(IssuerDevice);
 
@@ -49,20 +70,26 @@ export interface DevicesRequest {
 const devicesUrl = (issuer: string, inviteId: string) =>
   `${issuer}/v1/shares/${encodeURIComponent(inviteId)}/devices`;
 
-const read = async (response: Response): Promise<DevicesAnswer> => {
+const read = async (response: Response, issuer: string): Promise<DevicesAnswer> => {
+  if (!fromIssuer(response, issuer)) return DevicesAnswer.cases.Unreachable.make({});
+
   if (response.status === 304) return DevicesAnswer.cases.Unchanged.make({});
 
   if (response.status === 401 || response.status === 404) return DevicesAnswer.cases.Gone.make({});
 
   if (!response.ok) return DevicesAnswer.cases.Unreachable.make({});
-  const list = Option.getOrNull(decodeList(await response.json()));
+  const body = await readCapped(response, DEVICES_MAX_BYTES);
+  const list = body === null ? null : Option.getOrNull(decodeList(body));
 
   if (list === null) return DevicesAnswer.cases.Unreachable.make({});
 
   // A device the Host can't read is left out; the rest of the list still stands.
   return DevicesAnswer.cases.Devices.make({
-    etag: response.headers.get("etag"),
-    devices: list.flatMap((entry) => Option.toArray(decodeDevice(entry))),
+    etag: etagOf(response),
+    devices: list
+      .slice(0, MAX_DEVICES_PER_SHARE)
+      .flatMap((entry) => Option.toArray(decodeDevice(entry)))
+      .filter(bounded),
   });
 };
 
@@ -82,7 +109,8 @@ export const fetchDevices = async (
         redirect: "error",
         headers,
         signal: options.signal === undefined ? timeout : AbortSignal.any([options.signal, timeout]),
-      })
+      }),
+      options.issuer
     );
   } catch {
     return DevicesAnswer.cases.Unreachable.make({});

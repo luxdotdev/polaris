@@ -136,7 +136,7 @@ const daemon = (scope: Scope.Scope) =>
       handlers,
       secrets: HostSecrets.memory(),
       relayDefaultUrl: relay.url,
-      shares: { timing: { pauseMs: 20, retryMs: 100 } },
+      shares: { timing: { pauseMs: 20, retryMs: 100 }, skewMs: 0 },
     }).pipe(Scope.provide(scope));
 
     const desktop = yield* connectRpcWith(
