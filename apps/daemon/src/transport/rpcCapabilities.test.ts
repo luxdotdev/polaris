@@ -37,18 +37,8 @@ const previewServed = new Set<string>(
       )
 );
 
-/** Shares (ADR 0112) answer Unsupported and aren't announced until the Daemon serves them. */
-const sharesServed = new Set<string>(
-  daemonCapabilities.includes("shares")
-    ? []
-    : Object.entries(RPC_CAPABILITIES).flatMap(([tag, need]) => (need === "shares" ? [tag] : []))
-);
-
 const conditional = (tag: string) =>
-  languageServed.has(tag) ||
-  simulatorServed.has(tag) ||
-  previewServed.has(tag) ||
-  sharesServed.has(tag);
+  languageServed.has(tag) || simulatorServed.has(tag) || previewServed.has(tag);
 
 test("this Daemon announces the capability of every RPC it serves, so no Client guard refuses it", () => {
   const refused = [...DaemonRpcs.requests.values()].flatMap(({ _tag: tag }) =>

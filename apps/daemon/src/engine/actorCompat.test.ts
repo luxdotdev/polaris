@@ -5,10 +5,12 @@ import {
   DomainEvent,
   EventEnvelope,
   LinkedDeviceId,
+  PersonId,
   RequestId,
   Sequence,
   SessionId,
   SessionStreamItem,
+  ShareId,
 } from "@polaris/protocol";
 import { Predicate, Schema } from "effect";
 import { actorSessionItemsFor } from "./actorCompat.ts";
@@ -18,20 +20,27 @@ const phone = Actor.cases.LinkedDevice.make({
   name: "Phone",
 });
 
-const resolved = SessionStreamItem.cases.Event.make({
-  envelope: new EventEnvelope({
-    sequence: Sequence.make(3),
-    occurredAt: "2026-10-27T00:00:00.000Z",
-    commandId: null,
-    event: DomainEvent.cases.ApprovalResolved.make({
-      sessionId: SessionId.make("s1"),
-      requestId: RequestId.make("r1"),
-      decision: ApprovalDecision.cases.Allow.make({ remember: false }),
-      resolvedBy: "Phone",
-      actor: phone,
-    }),
-  }),
+const teammate = Actor.cases.Teammate.make({
+  shareId: ShareId.make("share_1"),
+  personId: PersonId.make("p1"),
+  name: "The Octocat",
 });
+
+const resolvedBy = (actor: Actor) =>
+  SessionStreamItem.cases.Event.make({
+    envelope: new EventEnvelope({
+      sequence: Sequence.make(3),
+      occurredAt: "2026-10-27T00:00:00.000Z",
+      commandId: null,
+      event: DomainEvent.cases.ApprovalResolved.make({
+        sessionId: SessionId.make("s1"),
+        requestId: RequestId.make("r1"),
+        decision: ApprovalDecision.cases.Allow.make({ remember: false }),
+        resolvedBy: "Someone",
+        actor,
+      }),
+    }),
+  });
 
 /** What a Client from before Linked Devices decodes the Actor with. */
 const OldActor = Schema.TaggedUnion({
@@ -53,16 +62,28 @@ const actorIn = (item: SessionStreamItem): typeof Actor.Encoded | null | undefin
   return actor == null ? actor : encodeActor(actor);
 };
 
-test("a Client without actor.linked-device reads a Linked Device's approval as a Client's", () => {
-  const old = actorSessionItemsFor([]);
+test.each([
+  ["a Linked Device", phone, ["actor.teammate"]],
+  ["a Teammate", teammate, ["actor.linked-device"]],
+] as const)("a Client that can't decode %s reads its approval as a Client's", (_, actor, known) => {
+  const old = actorSessionItemsFor(known);
 
   if (old === null) throw new Error("expected a rewrite for an older Client");
-  const actor = actorIn(old(resolved));
+  const seen = actorIn(old(resolvedBy(actor)));
 
-  expect(Schema.is(OldActor)(actor)).toBe(true);
-  expect(actor).toEqual(encodeActor(Actor.cases.Client.make({})));
+  expect(Schema.is(OldActor)(seen)).toBe(true);
+  expect(seen).toEqual(encodeActor(Actor.cases.Client.make({})));
 });
 
-test("a Client with actor.linked-device sees the device", () => {
-  expect(actorSessionItemsFor(["actor.linked-device"])).toBeNull();
+test.each([
+  ["a Linked Device", phone, ["actor.linked-device"]],
+  ["a Teammate", teammate, ["actor.teammate"]],
+] as const)("a Client that announced %s's Actor sees it", (_, actor, known) => {
+  const rewrite = actorSessionItemsFor(known) ?? ((item: SessionStreamItem) => item);
+
+  expect(actorIn(rewrite(resolvedBy(actor)))).toEqual(encodeActor(actor));
+});
+
+test("a Client that decodes every Actor gets its items as they are", () => {
+  expect(actorSessionItemsFor(["actor.linked-device", "actor.teammate"])).toBeNull();
 });

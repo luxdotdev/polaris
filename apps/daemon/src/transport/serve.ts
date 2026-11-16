@@ -102,6 +102,7 @@ import { lazyUsage } from "./lazyUsage.ts";
 import { lazyVoiceHandlers } from "./lazyVoice.ts";
 import { LiveNotifierLive } from "../push/liveNotifier.ts";
 import { PushNotifierLive } from "../push/notifier.ts";
+import { ShareTargetsLive } from "../shares/targets.ts";
 
 /** Exit status when another Daemon already holds the lock or answers on the socket. */
 export const SERVE_EXIT_ALREADY_RUNNING = 75;
@@ -267,7 +268,8 @@ export const daemonHandlers = Layer.mergeAll(
   lazyVoiceHandlers,
   byteStreamHandlers,
   SimulatorRpcHandlers,
-  selfTraceExport
+  selfTraceExport,
+  ShareTargetsLive
 ).pipe(Layer.provide(daemonServices));
 
 /** What the lazy language handlers serve: unavailable where no language artifact runs. */
@@ -317,6 +319,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "linked-devices",
   "linked-devices.presence",
   "linked-devices.relay-url",
+  "shares",
   "presence",
   "voice",
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),

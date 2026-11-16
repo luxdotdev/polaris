@@ -7,3 +7,9 @@ import { UserAccessGate } from "@polaris/protocol";
 
 /** The user gate the protocol's `DaemonRpcs` asks for: it lets every request through. */
 export const openUserAccessGate = UserAccessGate.of((effect) => effect);
+
+/**
+ * Whether a Teammate may send Turns and answer approvals. Not while the user gate is off: a
+ * Share's `turn` and `approve` Grants are refused until enrolment returns (ENG-927).
+ */
+export const teammatesMayAct = (): boolean => false;

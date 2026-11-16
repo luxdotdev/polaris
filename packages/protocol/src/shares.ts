@@ -112,18 +112,24 @@ export type ShareLogEntry = typeof ShareLogEntry.Type;
 export const STATEMENT_LIFETIME_S = 15 * 60;
 
 /**
- * The claims of a statement: a JWT the Account Server at `iss` signs, binding the person
- * `sub` to the device whose relay key is `key`. The Host checks it against that issuer's JWKS.
+ * The claims of a statement, exactly as the Account Server signs them (apps/accounts/README.md):
+ * an EdDSA JWT from `iss` binding the person `sub` to the device whose relay Noise key is
+ * `cnf.noiseKey`. The Host checks it against that issuer's JWKS.
  */
 export class StatementClaims extends Schema.Class<StatementClaims>("StatementClaims")({
   iss: Schema.String,
+  /** The issuer again, when present. */
+  aud: Schema.optionalKey(Schema.String),
   sub: PersonId,
-  /** The device's relay public key, as the relay routes it. */
-  key: Schema.String,
   /** Seconds since the epoch, as JWTs carry them. */
-  iat: Schema.Int,
+  iat: Schema.optionalKey(Schema.Int),
   exp: Schema.Int,
+  /** base64url of the device's X25519 static public key. */
+  cnf: Schema.Struct({ noiseKey: Schema.String }),
+  login: Schema.String,
   name: Schema.String,
+  avatarUrl: Schema.NullOr(Schema.String),
+  commitEmail: Schema.NullOr(Schema.String),
 }) {}
 
 /** `hello` or `account.refreshStatement` with a statement the Host does not accept. */
@@ -188,12 +194,15 @@ export class ShareRefused extends Schema.TaggedError<ShareRefused>()("ShareRefus
 
 /**
  * Records a Share for the Invite the owner's Client made on the Account Server at `issuer`.
- * `hostCapability` lets this Host ask that issuer for the person and their accepted devices
- * while the Share is live; it never leaves the Host. `expiresAt` null takes the default.
+ * `personId` is that server's ID for the invitee (`GET /v1/people`), pinned on the Share from
+ * the start; `inviteeLogin` is for display until their first statement names them.
+ * `hostCapability` lets this Host ask that issuer for their accepted devices while the Share
+ * is live; it never leaves the Host. `expiresAt` null takes the default.
  */
 export const CreateShare = Rpc.make("shares.create", {
   payload: {
     target: ShareTarget,
+    personId: PersonId,
     inviteeLogin: Schema.String,
     role: ShareRole,
     expiresAt: Schema.NullOr(Timestamp),

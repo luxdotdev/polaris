@@ -18,7 +18,6 @@ import {
   RestartRpcs,
   SecretRejected,
   SecretRpcs,
-  ShareRpcs,
   VoiceError,
   VoiceRpcs,
   encodePairingString,
@@ -31,7 +30,8 @@ import { deviceOf } from "../../linkedDevices/connection.ts";
 import { RelayRoute } from "../../linkedDevices/route.ts";
 import { HostPresence } from "../../presence/index.ts";
 import { RemoteAccessControl } from "../../remoteAccess/service.ts";
-import { type DefaultOptions, notYet, unsupported, unsupportedFeed } from "./shared.ts";
+import { ShareRpcsLive } from "../../shares/rpc.ts";
+import { type DefaultOptions, notYet, unsupportedFeed } from "./shared.ts";
 
 const notADevice = () =>
   new PushRegistrationError({
@@ -231,16 +231,6 @@ const secretDefaults = SecretRpcs.toLayer({
     Effect.fail(new SecretRejected({ reason: "storage", message: notYet("Secret Requests") })),
 });
 
-// Shares (ADR 0112) answer `Unsupported` until the Daemon announces `shares`.
-const shareDefaults = ShareRpcs.toLayer({
-  "shares.create": unsupported("shares"),
-  "shares.renew": unsupported("shares"),
-  "shares.revoke": unsupported("shares"),
-  "shares.list": unsupported("shares"),
-  "shares.watchPresence": unsupportedFeed("shares"),
-  "account.refreshStatement": unsupported("shares"),
-});
-
 /** Constellations, Host resources, Pairings, remote access, Linked Devices, presence, voice, secrets, Shares. */
 export const hostDefaults = (options: DefaultOptions) =>
   Layer.mergeAll(
@@ -255,5 +245,5 @@ export const hostDefaults = (options: DefaultOptions) =>
     HostStatsRpcs.toLayer({ "host.stats.watch": unsupportedFeed("host.stats") }),
     voiceDefaults,
     secretDefaults,
-    shareDefaults
+    ShareRpcsLive
   );

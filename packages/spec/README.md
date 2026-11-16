@@ -731,18 +731,19 @@ bun packages/spec/scripts/replay-extensions.ts /tmp/extensions.trace.json
 ## Shares and Comments (ENG-941)
 
 `shares.qnt` models Shared Sessions (CONTEXT.md: Sharing; ADR 0112, 0113) as the protocol
-states them; the Daemon does not serve them yet, so this section maps the model to the
-contract in `packages/protocol` and names where the code will live. People, sessions, Shares
+states them. The Daemon serves Shares (`apps/daemon/src/shares/`) and not yet Comments, so
+this section maps the model to the contract in `packages/protocol` and to the Share code.
+People, sessions, Shares
 and Comments are small integers and time is a counter: session 0 stands alone, session 1
 leads a Constellation and session 2 is its Worker.
 
 | Spec | Contract |
 |---|---|
 | `Share`, `Target`, `grantOf` | `shares.ts` `Share`, `ShareTarget` (`Session` or `Constellation`), `SHARE_ROLE_GRANTS` (a Contributor holds every Grant, a Commenter `read` and `comment`) |
-| `createShare`, `renewShare`, `revokeShare` | `shares.create`, `shares.renew`, `shares.revoke`. A Worker's session is refused as a target (`ShareRefused`: `worker`); a lifetime past `MAX_LIFETIME` is refused (`shareExpiry`, `SHARE_MAX_LIFETIME_MS`); a revoked Share is not renewed (`ended`) |
-| `live`, `covers`, `covering`, `decide`, `call` | `isShareLive`, and `shareGrants.ts` `shareCovers` and `decideShareAccess` over `SHARE_RPCS` / `SHARE_COMMANDS`: `NotShared` when no live Share of the person covers what the request touches, `NotGranted` when one covers it and none holds the Grant. The allowlist is by role (`holds`): a Commenter's Share holds `read` and `comment` (subscribe, diff, presence, the Comment Commands); a Contributor's also `turn` (`SendTurn`, `Steer`, `Interrupt`, `Continue`, `Retry`, `SendFeedback`), `approve` (`RespondToApproval`) and `contributor`, the need of what no Grant names (`SetModel`, `SetPermissionMode`, `RenameSession`, `AcceptTurns`), refused to a Commenter as `NotShared` |
-| `hello`, `refresh`, `statements`, `admitted` | `hello`'s `accountStatement` and `account.refreshStatement` (`StatementRejected`); `vouched` stands for the statement verifying against its issuer's keys and binding this device. A statement lives `STATEMENT_LIFETIME_S`; the Host closes a connection whose statement lapsed, or whose person has no live Share left |
-| `tick` | The Host's clock: a Share expires (`Expired` in the share log) and a statement lapses |
+| `createShare`, `renewShare`, `revokeShare` | `shares.create`, `shares.renew`, `shares.revoke` (`shares/service.ts`). The person is pinned when the Share is created (`personId`) and never changes. A Worker's session is refused as a target (`ShareRefused`: `worker`); a lifetime past `MAX_LIFETIME` is refused (`shareExpiry`, `SHARE_MAX_LIFETIME_MS`); a revoked Share is not renewed (`ended`) |
+| `live`, `covers`, `covering`, `decide`, `call` | `isShareLive`, and `shareGrants.ts` `shareCovers` and `decideShareAccess` over `SHARE_RPCS` / `SHARE_COMMANDS`: `NotShared` when no live Share of the person covers what the request touches, `NotGranted` when one covers it and none holds the Grant. The Daemon applies it in `shares/gate.ts` (`decideTeammate`), resolving what a request touches in `shares/targets.ts`. The allowlist is by role (`holds`): a Commenter's Share holds `read` and `comment` (subscribe, diff, presence, the Comment Commands); a Contributor's also `turn` (`SendTurn`, `Steer`, `Interrupt`, `Continue`, `Retry`, `SendFeedback`), `approve` (`RespondToApproval`) and `contributor`, the need of what no Grant names (`SetModel`, `SetPermissionMode`, `RenameSession`, `AcceptTurns`), refused to a Commenter as `NotShared` |
+| `hello`, `refresh`, `statements`, `admitted` | `hello`'s `accountStatement` and `account.refreshStatement` (`StatementRejected`); `vouched` stands for the statement verifying against the pinned issuer's keys (`shares/statement.ts`), naming the Share's person and binding this device (`shares/devices.ts`, `Shares.present`). A statement lives `STATEMENT_LIFETIME_S`; the Host closes a connection whose statement lapsed, or whose person has no live Share left |
+| `tick` | The Host's clock: a Share expires (`Expired` in the share log) and a statement lapses (`shares/service.ts` `settle`, one timer while a Share is live) |
 | `addComment`, `editComment`, `setResolved` | `AddComment`, `EditComment`, `ResolveComment` / `ReopenComment` and their events `CommentAdded`, `CommentEdited`, `CommentResolved`, `CommentReopened` (`comments.ts`). All need the `comment` Grant (`COMMAND_GRANTS`, `SHARE_COMMANDS`); only its author edits a Comment, until it is sent; `mayResolveComment` is the author, the owner or a Contributor |
 | `sendFeedback`, `Turn.carried`, `Comment.sentIn` | `SendFeedback.commentIds`, `Turn.commentIds` and `Comment.sentInTurnId`: one Turn whose Actor is the sender, needing `turn` from a Teammate. Unknown IDs, another session's and already sent ones are refused |
 | `OWNER` | Any Actor that is not a `Teammate`: the owner's own Clients, never gated by a Share |
@@ -777,9 +778,11 @@ Host-wide call) are a table lookup, covered by `shares.test.ts`. A Contributor's
 Lead actions are not listed yet. The Daemon refuses `turn` and `approve` to Teammates at
 runtime until the user gate returns (ENG-927); the model states what the Share allows.
 
-**Not yet tested against real code.** The Daemon answers `shares.*` with `Unsupported` and
-refuses the Comment Commands. The Tasks that serve them add the model-based tests and bind
-each row above to its handler.
+**Not yet model-tested against real code.** The Daemon serves `shares.*` and
+`account.refreshStatement`, and the rows above name their handlers; they are covered by the
+Daemon's own tests (`shares/*.test.ts`, and `shares/teammate.slow.test.ts` through a real relay
+and a fake Account Server), not by a model-based test that replays `shares.qnt`. The Comment
+Commands are still refused; the Task that serves them adds the model-based test for both.
 
 ## Authenticated resource receipt challenges (M3.1 salvage)
 

@@ -83,6 +83,24 @@ export class DeviceConnections extends Context.Service<
   { readonly serve: (session: DeviceSession, device: LinkedDevice) => Effect.Effect<void> }
 >()("polaris/daemon/linkedDevices/DeviceConnections") {}
 
+/**
+ * Peers the route lists and serves besides Linked Devices: Teammates' devices (ADR 0112,
+ * `../shares/`). Without it the route has none.
+ */
+export class RelayGuests extends Context.Service<
+  RelayGuests,
+  {
+    /** The relay addresses to list right now. */
+    readonly peers: () => ReadonlyArray<RelayAddress>;
+    /** The guest a proven handshake from `source` with `noiseKey` is, or null to refuse it. */
+    readonly admit: (source: RelayAddress, noiseKey: string) => string | null;
+    readonly serve: (session: DeviceSession, guestId: string) => void;
+    readonly ended: (session: DeviceSession) => void;
+    /** Calls `listener` whenever `peers` changes; returns the unsubscribe. */
+    readonly watch: (listener: () => void) => () => void;
+  }
+>()("polaris/daemon/linkedDevices/RelayGuests") {}
+
 export class RelayRoute extends Context.Service<
   RelayRoute,
   {
@@ -168,6 +186,7 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
   const store = yield* LinkedDevices;
   const secrets = yield* HostSecrets;
   const connections = yield* DeviceConnections;
+  const guests = Option.getOrNull(yield* Effect.serviceOption(RelayGuests));
   const context = yield* Effect.context<never>();
   const runFork = Effect.runForkWith(context);
   const links = new Map<string, OpenLink>();
@@ -265,6 +284,7 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
   const peers = (): ReadonlyArray<RelayAddress> => [
     ...new Set([
       ...store.linked().map((device) => device.relayAddress),
+      ...(guests?.peers() ?? []),
       ...[...links.values()].flatMap((open) => (open.listed ? [open.address] : [])),
     ]),
   ];
@@ -324,7 +344,10 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
       .linked()
       .find((candidate) => candidate.noiseKey === noiseKey && candidate.relayAddress === source);
 
-    return device === undefined ? null : { kind: "device", deviceId: device.id };
+    if (device !== undefined) return { kind: "device", deviceId: device.id };
+    const guestId = guests?.admit(source, noiseKey) ?? null;
+
+    return guestId === null ? null : { kind: "guest", guestId };
   };
 
   const serve = (session: DeviceSession, deviceId: string) => {
@@ -346,6 +369,8 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
   };
 
   const ended = (session: DeviceSession) => {
+    guests?.ended(session);
+
     for (const [id, open] of connected)
       if (open.session === session) {
         connected.delete(id);
@@ -368,6 +393,7 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
       peers,
       admit,
       serve,
+      serveGuest: guests?.serve,
       ended,
       onConnectedChange: (connected) => {
         log(connected ? "connected" : "disconnected");
@@ -398,8 +424,11 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
       catch: () => failed("the Relay route setting could not be saved"),
     }).pipe(Effect.tap(() => Effect.sync(() => (setting = next))));
 
+  const unwatchGuests = guests?.watch(() => link?.peersChanged());
+
   yield* Effect.addFinalizer(() =>
     Effect.sync(() => {
+      unwatchGuests?.();
       link?.stop();
       link = null;
       links.forEach((open) => clearTimeout(open.timer));

@@ -47,6 +47,8 @@ const MAX_BUFFERED_BYTES = 1024 * 1024;
 export type Admission =
   | { readonly kind: "device"; readonly deviceId: string }
   | { readonly kind: "link"; readonly complete: () => void }
+  /** A peer that is no Linked Device: a Teammate's device (`RelayGuests`). */
+  | { readonly kind: "guest"; readonly guestId: string }
   | null;
 
 export interface RelayLinkOptions {
@@ -59,6 +61,8 @@ export interface RelayLinkOptions {
   readonly admit: (source: RelayAddress, deviceKey: Uint8Array, payload: Uint8Array) => Admission;
   /** A device's new session: the Daemon serves a connection over it. */
   readonly serve: (session: DeviceSession, deviceId: string) => void;
+  /** A guest's new session; without it a guest's session is ended. */
+  readonly serveGuest?: ((session: DeviceSession, guestId: string) => void) | undefined;
   /** A device's session ended, whoever ended it. */
   readonly ended?: (session: DeviceSession) => void;
   readonly onConnectedChange: (connected: boolean) => void;
@@ -323,7 +327,10 @@ export class RelayLink {
     });
 
     this.sessions.set(source, session);
-    this.options.serve(session, admitted.deviceId);
+
+    if (admitted.kind === "device") this.options.serve(session, admitted.deviceId);
+    else if (this.options.serveGuest === undefined) session.end();
+    else this.options.serveGuest(session, admitted.guestId);
   }
 
   private sendText(text: string): void {

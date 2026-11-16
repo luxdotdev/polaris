@@ -1,9 +1,10 @@
 /**
- * A Client that didn't announce `actor.linked-device` can't decode the `LinkedDevice`
- * Actor, so it reads a Linked Device's commands as a Client's (ADR 0083).
+ * A Client that didn't announce `actor.linked-device` or `actor.teammate` can't decode that
+ * Actor, so it reads such a command as a Client's (ADR 0083, ADR 0112; `actorFor`).
  */
 import {
-  Actor,
+  type Actor,
+  actorFor,
   type Capability,
   DomainEvent,
   EventEnvelope,
@@ -12,33 +13,37 @@ import {
 } from "@polaris/protocol";
 import { Predicate } from "effect";
 
-const CLIENT = Actor.cases.Client.make({});
+type Degrade = (actor: Actor) => Actor;
 
-const asClient = (actor: Actor | null | undefined) =>
-  actor != null && Predicate.isTagged(actor, "LinkedDevice") ? CLIENT : actor;
+const eventFor = (event: DomainEvent, degrade: Degrade): DomainEvent => {
+  const known = (actor: Actor | null | undefined) =>
+    actor == null || degrade(actor) === actor ? null : degrade(actor);
 
-const eventFor = (event: DomainEvent): DomainEvent =>
-  DomainEvent.matchOrElse(
+  return DomainEvent.matchOrElse(
     event,
     {
-      SessionCreated: (e) =>
-        asClient(e.actor) === e.actor
-          ? e
-          : DomainEvent.cases.SessionCreated.make({ ...e, actor: CLIENT }),
-      TurnStarted: (e) =>
-        asClient(e.actor) === e.actor
-          ? e
-          : DomainEvent.cases.TurnStarted.make({ ...e, actor: CLIENT }),
-      ApprovalResolved: (e) =>
-        asClient(e.actor) === e.actor
-          ? e
-          : DomainEvent.cases.ApprovalResolved.make({ ...e, actor: CLIENT }),
+      SessionCreated: (e) => {
+        const actor = known(e.actor);
+
+        return actor === null ? e : DomainEvent.cases.SessionCreated.make({ ...e, actor });
+      },
+      TurnStarted: (e) => {
+        const actor = known(e.actor);
+
+        return actor === null ? e : DomainEvent.cases.TurnStarted.make({ ...e, actor });
+      },
+      ApprovalResolved: (e) => {
+        const actor = known(e.actor);
+
+        return actor === null ? e : DomainEvent.cases.ApprovalResolved.make({ ...e, actor });
+      },
     },
     () => event
   );
+};
 
-const envelopeFor = (envelope: EventEnvelope): EventEnvelope => {
-  const event = eventFor(envelope.event);
+const envelopeFor = (envelope: EventEnvelope, degrade: Degrade): EventEnvelope => {
+  const event = eventFor(envelope.event, degrade);
 
   return event === envelope.event
     ? envelope
@@ -50,20 +55,32 @@ const envelopeFor = (envelope: EventEnvelope): EventEnvelope => {
       });
 };
 
-const hostItem = (item: HostStreamItem): HostStreamItem =>
-  Predicate.isTagged(item, "Event")
-    ? HostStreamItem.cases.Event.make({ envelope: envelopeFor(item.envelope) })
-    : item;
+/** Null when the Client decodes every Actor; else the Actor as it can read it. */
+const degradeFor = (capabilities: ReadonlyArray<Capability>): Degrade | null =>
+  capabilities.includes("actor.linked-device") && capabilities.includes("actor.teammate")
+    ? null
+    : (actor) => actorFor(actor, capabilities);
 
-const sessionItem = (item: SessionStreamItem): SessionStreamItem =>
-  Predicate.isTagged(item, "Event")
-    ? SessionStreamItem.cases.Event.make({ envelope: envelopeFor(item.envelope) })
-    : item;
+/** Identity (null) for Clients that announced both Actor capabilities. */
+export const actorHostItemsFor = (capabilities: ReadonlyArray<Capability>) => {
+  const degrade = degradeFor(capabilities);
 
-/** Identity (null) for Clients that announced `actor.linked-device`. */
-export const actorHostItemsFor = (capabilities: ReadonlyArray<Capability>) =>
-  capabilities.includes("actor.linked-device") ? null : hostItem;
+  return degrade === null
+    ? null
+    : (item: HostStreamItem): HostStreamItem =>
+        Predicate.isTagged(item, "Event")
+          ? HostStreamItem.cases.Event.make({ envelope: envelopeFor(item.envelope, degrade) })
+          : item;
+};
 
-/** Identity (null) for Clients that announced `actor.linked-device`. */
-export const actorSessionItemsFor = (capabilities: ReadonlyArray<Capability>) =>
-  capabilities.includes("actor.linked-device") ? null : sessionItem;
+/** Identity (null) for Clients that announced both Actor capabilities. */
+export const actorSessionItemsFor = (capabilities: ReadonlyArray<Capability>) => {
+  const degrade = degradeFor(capabilities);
+
+  return degrade === null
+    ? null
+    : (item: SessionStreamItem): SessionStreamItem =>
+        Predicate.isTagged(item, "Event")
+          ? SessionStreamItem.cases.Event.make({ envelope: envelopeFor(item.envelope, degrade) })
+          : item;
+};
