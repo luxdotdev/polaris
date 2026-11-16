@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import {
   Actor,
+  type Capability,
   Command,
   CommentAnchor,
   CommentId,
@@ -292,6 +293,59 @@ describe("Comments (ADR 0113)", () => {
     // The sent marks replay too.
     const replayed = await run(layer, comments);
     expect(replayed.get(CommentId.make("c-owner"))?.sentInTurnId).toBe(turn.id);
+  });
+
+  test("a Turn keeps its sender through its end and a restart; older Clients read a Teammate as a Client", async () => {
+    const layer = setup();
+
+    await run(
+      layer,
+      Effect.gen(function* () {
+        const turnId = yield* idleSession(yield* registerWorkspace);
+        yield* add("c-ana", lines(turnId, 3, 5), "Rename this", ana);
+        yield* dispatch(feedback(["c-ana"]), bob, "contributor");
+        yield* waitFor(
+          (m) =>
+            m.sessions.get(sessionId)?.turns[1]?.status === "completed" &&
+            m.sessions.get(sessionId)?.session.state === "idle"
+        );
+      })
+    );
+
+    const snapshotFor = (capabilities: ReadonlyArray<Capability>) =>
+      Effect.flatMap(Engine, (engine) =>
+        engine
+          .subscribeSession({ sessionId, afterSequence: null, turnLimit: null, capabilities })
+          .pipe(Stream.take(1), Stream.runCollect)
+      ).pipe(
+        Effect.map((items) => {
+          const compat = actorSessionItemsFor(capabilities);
+          const first = items[0]!;
+          const item = compat === null ? first : compat(first);
+
+          if (!Predicate.isTagged(item, "Snapshot")) throw new Error("expected a snapshot");
+
+          return item.turns.map((d) => d.turn.actor);
+        })
+      );
+
+    const replayed = await run(
+      layer,
+      Effect.gen(function* () {
+        const store = yield* EventStore;
+        const model = yield* store.model;
+
+        return {
+          actors: model.sessions.get(sessionId)!.turns.map((t) => t.actor),
+          current: yield* snapshotFor(["actor.teammate", "actor.linked-device"]),
+          older: yield* snapshotFor([]),
+        };
+      })
+    );
+
+    expect(replayed.actors).toEqual([OWNER, bob]);
+    expect(replayed.current).toEqual([OWNER, bob]);
+    expect(replayed.older).toEqual([OWNER, OWNER]);
   });
 
   test("who may edit, resolve and send", async () => {

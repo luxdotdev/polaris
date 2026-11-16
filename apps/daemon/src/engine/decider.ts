@@ -140,7 +140,8 @@ const withActor = (actor: Actor, event: DomainEvent): DomainEvent =>
   Match.value(event).pipe(
     Match.tags({
       SessionCreated: (e) => DomainEvent.cases.SessionCreated.make({ ...e, actor }),
-      TurnStarted: (e) => DomainEvent.cases.TurnStarted.make({ ...e, actor }),
+      TurnStarted: (e) =>
+        DomainEvent.cases.TurnStarted.make({ turn: patchTurn(e.turn, { actor }), actor }),
       ApprovalResolved: (e) => DomainEvent.cases.ApprovalResolved.make({ ...e, actor }),
     }),
     Match.orElse((e) => e)

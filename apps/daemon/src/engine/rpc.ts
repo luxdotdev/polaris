@@ -25,7 +25,7 @@ import { Context, Effect, Layer, Stream } from "effect";
 import { actorOf, pairingOf } from "../extensions/connection.ts";
 import { Engine } from "./Engine.ts";
 import { hostItemsFor, sessionItemsFor } from "./limitedCompat.ts";
-import { actorHostItemsFor, actorSessionItemsFor } from "./actorCompat.ts";
+import { actorHostItemsFor, actorSessionItemsFor, actorTurnPageFor } from "./actorCompat.ts";
 import { planHostItemsFor, planSessionItemsFor } from "./planCompat.ts";
 
 /** Per-connection annotation set by the `hello` handler. */
@@ -166,13 +166,18 @@ const ReadTurnsHandler = DaemonRpcs.toLayerHandler(
   Effect.gen(function* () {
     const engine = yield* Engine;
 
-    return ({ sessionId, beforeIndex, limit }, { client }) =>
-      engine.readTurnPage({
+    return ({ sessionId, beforeIndex, limit }, { client }) => {
+      const compat = actorTurnPageFor(announcedAll(client.annotations));
+
+      const page = engine.readTurnPage({
         sessionId,
         beforeIndex,
         limit,
         subagents: announced(client.annotations, "session.subagents"),
       });
+
+      return compat === null ? page : Effect.map(page, compat);
+    };
   })
 );
 
