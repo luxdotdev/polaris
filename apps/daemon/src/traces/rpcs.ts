@@ -11,6 +11,7 @@ import { TraceRuntime } from "./runtime.ts";
 import { TraceSettings } from "./settings.ts";
 import { TraceStore } from "./store.ts";
 import { DeveloperModeState } from "../developerMode/service.ts";
+import { lacksUserAccess } from "../userAccess/index.ts";
 import { firstScope, readScopes, watchScopes } from "./self/reads.ts";
 
 export const TracesRpcsLive = TracesRpcs.toLayer(
@@ -30,11 +31,12 @@ export const TracesRpcsLive = TracesRpcs.toLayer(
       });
 
     return {
-      "traces.watch": ({ sessionId, filter, scope }) =>
+      "traces.watch": ({ sessionId, filter, scope }, { client }) =>
         Stream.unwrap(
           Effect.gen(function* () {
             const scopes = yield* scopesFor(sessionId, scope);
-            let first = true;
+            // Issuing the ingestion endpoint persists a token: only for the user (ADR 0114).
+            let first = !lacksUserAccess(client.annotations);
 
             return watchScopes(store, scopes, filter).pipe(
               Stream.mapEffect((page) =>

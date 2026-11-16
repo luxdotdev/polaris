@@ -18,6 +18,13 @@ import { HarnessRegistry } from "../services.ts";
 
 export const STALE_MS = 60_000;
 
+/** The answer to a caller without user access when nothing is cached yet. */
+export const notListed = (harness: HarnessKind) =>
+  new HarnessUnavailable({
+    harness,
+    message: "Not listed yet; a Desktop App this Host has enrolled asks the Harness",
+  });
+
 type Listing = Effect.Effect<HarnessCommands, NotFound | HarnessUnavailable>;
 
 /** Lets a listing's failure handler find the entry made for it. */
@@ -104,14 +111,19 @@ export const commandLists = Effect.gen(function* () {
       );
     });
 
-  return Effect.fn("harness.commands")(function* ({ harness, cwd, refresh }: Payload) {
+  /** `cacheOnly`: asking a Harness may start its program, so the answer is only what is cached. */
+  return Effect.fn("harness.commands")(function* (
+    { harness, cwd, refresh }: Payload,
+    cacheOnly = false
+  ) {
     if (!isKnownHarness(harness)) return yield* new NotFound({ what: "harness", id: harness });
     const key = `${harness}\u0000${cwd}`;
-    const entry = refresh ? undefined : cache.get(key);
+    const entry = refresh && !cacheOnly ? undefined : cache.get(key);
 
-    if (entry === undefined) return yield* yield* fresh(key, harness, cwd);
+    if (entry === undefined)
+      return cacheOnly ? yield* notListed(harness) : yield* yield* fresh(key, harness, cwd);
 
-    if ((yield* Clock.currentTimeMillis) - entry.at > STALE_MS)
+    if (!cacheOnly && (yield* Clock.currentTimeMillis) - entry.at > STALE_MS)
       yield* revalidate(key, entry, harness, cwd);
 
     return yield* entry.listing;

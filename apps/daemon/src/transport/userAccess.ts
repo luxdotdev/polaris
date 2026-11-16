@@ -31,7 +31,7 @@ export interface TransportFacts {
 }
 
 /** Whether a request comes from the owner's token-less Client, the only kind this gate decides for. */
-const tokenlessClient = (client: Rpc.ServerClient, transport: TransportFacts) => {
+export const tokenlessClient = (client: Rpc.ServerClient, transport: TransportFacts) => {
   const admission = admissionOf(client);
 
   return (

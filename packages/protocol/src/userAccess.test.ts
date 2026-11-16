@@ -16,8 +16,10 @@ test("a Daemon's own CLIs keep their RPCs without a key", () => {
 
 /**
  * Reviewed: each reads or watches and changes nothing on the Host beyond its caller's own
- * connection. `host.resources.acquire` and `release` are the one exception (`polaris lease`
- * sends no key; a lease is its caller's own). A new `any` fails here until it is added on purpose.
+ * connection. `host.resources.acquire` and `release` are the exception (`polaris lease` sends
+ * no key; a lease ends with the process it names, and without user access a connection releases
+ * only a lease it asked for). The git reads are a known exception too: git runs under the
+ * repository's own config. A new `any` fails here until it is added on purpose.
  */
 const READ_ONLY = [
   "attachments.read",
@@ -33,7 +35,6 @@ const READ_ONLY = [
   "constellation.status",
   "constellation.subscribe",
   "continuity.watch",
-  "data.describe",
   "data.queryLog.page",
   "data.queryLog.watch",
   "data.schemaDiff",
@@ -44,10 +45,7 @@ const READ_ONLY = [
   "devices.watch",
   "dispatch",
   "extensions.list",
-  "files.grep",
   "files.listDir",
-  "files.read",
-  "files.readVersioned",
   "files.searchPaths",
   "files.stat",
   "files.watch",
@@ -70,7 +68,6 @@ const READ_ONLY = [
   "host.restartPreview",
   "host.stats.watch",
   "hostAddress.names",
-  "hostAddress.open",
   "languages.availability",
   "languages.availability.watch",
   "languages.catalog",
@@ -95,7 +92,6 @@ const READ_ONLY = [
   "prediction.context",
   "prediction.edit",
   "prediction.managed.watch",
-  "presence.report",
   "profiles.get",
   "profiles.watch",
   "relayRoute.status",
@@ -134,7 +130,6 @@ const READ_ONLY = [
   "usage.watch",
   "userAccess.watch",
   "voice.settings",
-  "voice.transcribe",
 ];
 
 test("only the reviewed read-only RPCs are open without user access, and no Command is", () => {
@@ -166,6 +161,14 @@ test.each([
   "attachments.clear",
   "attachments.setSettings",
   "data.source.remove",
+  // A second review: these read file contents or credentials, or acted for the user.
+  "hostAddress.open",
+  "files.read",
+  "files.readVersioned",
+  "files.grep",
+  "data.describe",
+  "voice.transcribe",
+  "presence.report",
 ])("%s is refused without user access and allowed with it", (rpc) => {
   expect(decideUserAccess(rpc, null, false)?.what).toBe(rpc);
   expect(decideUserAccess(rpc, null, true)).toBeNull();
