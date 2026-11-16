@@ -39,6 +39,12 @@ import { installerDmg } from "./packaging/dmg.ts";
 import { assertAppFuses, fusedBinary, fusesHook } from "./packaging/fuses.ts";
 import { checkSizeBudget } from "./packaging/size.ts";
 import { stageKoffi } from "./packaging/koffi.ts";
+import {
+  foreignNatives,
+  mainNatives,
+  sodiumPrebuilds,
+  UNPACK_NATIVES,
+} from "./packaging/natives.ts";
 import { packageTargets, targetOptions } from "./packaging/targets.ts";
 import { installerWindows, windowsPackageVersion } from "./packaging/windows.ts";
 
@@ -105,7 +111,12 @@ if (!existsSync(join(ICONS, windows ? "Polaris.ico" : "Polaris.icns")))
 
 await buildRenderer();
 
+// A fresh main, so no earlier build's chunk or native module ships.
+rmSync(join(OUT_DIR, "main"), { recursive: true, force: true });
+
 await buildMain({ minify: true });
+
+const natives = mainNatives(join(OUT_DIR, "main"), sodiumPrebuilds(REPO_ROOT));
 
 if (windows) {
   const startup = await Bun.build({
@@ -207,7 +218,9 @@ for (const target of targets) {
     darwinDarkModeSupport: true,
     // polaris:// deep links (src/shared/deepLink.ts); Windows registers at launch.
     protocols: [{ name: "Polaris", schemes: ["polaris"] }],
-    asar: true,
+    // Native modules load from outside the asar, and only the target's own ships.
+    asar: { unpack: UNPACK_NATIVES },
+    ignore: foreignNatives(natives, target),
     // Fuses go in before the asar digest and signing (packaging/fuses.ts).
     afterCopyExtraResources: [fusesHook],
     prune: false,

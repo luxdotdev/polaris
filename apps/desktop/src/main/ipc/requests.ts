@@ -54,6 +54,7 @@ import { pricedStats } from "./constellationStats.ts";
 import type { SnapshotCache } from "../snapshotCache.ts";
 import { publishDirty, savedAll } from "../editorDirty.ts";
 import type { AppUpdates } from "../updates/index.ts";
+import type { DesktopRelayDevice } from "../relayDevice.ts";
 import type { PredictionBridge } from "../prediction/bridge.ts";
 
 /** What the handlers need from the app outside the Client runtime. */
@@ -67,6 +68,8 @@ export interface RequestContext {
   readonly updates: Pick<AppUpdates, "get" | "check" | "setAutomatic">;
   readonly restartToUpdate: () => void;
   readonly showAppInFinder: () => void;
+  /** This app's relay identity (`relayDevice.ts`); absent in tests that don't need it. */
+  readonly relayDevice?: Pick<DesktopRelayDevice, "publicKeys">;
   readonly settings: () => Settings;
   readonly cache: Pick<SnapshotCache, "get" | "put" | "rendererFlushed">;
   /** The price table for Usage estimates. */
@@ -284,6 +287,12 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   "updates.setAutomatic": ({ enabled }) => Effect.sync(() => ctx.updates.setAutomatic(enabled)),
   "updates.restart": () => Effect.sync(ctx.restartToUpdate).pipe(done),
   "updates.showInFinder": () => Effect.sync(ctx.showAppInFinder).pipe(done),
+  "devices.thisDevice": () =>
+    ctx.relayDevice === undefined
+      ? Effect.fail<IpcError>({ code: "Unavailable", message: "No relay identity in this app" })
+      : ctx.relayDevice.publicKeys.pipe(
+          Effect.mapError((error): IpcError => ({ code: error._tag, message: error.message }))
+        ),
   "settings.get": () =>
     Effect.sync(() => {
       const settings = ctx.settings();
