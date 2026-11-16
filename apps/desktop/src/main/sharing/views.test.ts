@@ -5,7 +5,7 @@ import { Actor, PersonId, SharePresenceEntry, ShareId, LinkedDeviceId } from "@p
 import type { HostView } from "../../shared/api.ts";
 import { lookupFailure } from "./owner.ts";
 import { type SharedEntry, sharedHostKey } from "./store.ts";
-import { withMeView } from "./teammate.ts";
+import { isRelayUrl, withMeView } from "./teammate.ts";
 import { presenceViews } from "./views.ts";
 
 const noAvatar = () => null;
@@ -167,5 +167,19 @@ describe("presence", () => {
       ["You", true],
       ["Maya", false],
     ]);
+  });
+});
+
+describe("an Invite's relay", () => {
+  test("is dialled over wss, or plain ws only to this machine", () => {
+    expect(
+      [
+        "wss://relay.polaris.lux.dev/v1",
+        "ws://127.0.0.1:4000/v1",
+        "ws://relay.example.com/v1",
+        "https://relay.example.com/v1",
+        "not a url",
+      ].map(isRelayUrl)
+    ).toEqual([true, true, false, false, false]);
   });
 });

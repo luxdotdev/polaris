@@ -133,8 +133,9 @@ export const teammateSharing = (input: TeammateInput) => {
   /** One relay Host per owner's Host, connecting as the Account its first session came through. */
   const hostEntry = (entry: SharedEntry): HostEntry | null => {
     const address = relayAddress(entry.host.relayAddress);
+    const relayUrl = entry.host.relayUrl ?? input.defaultRelayUrl;
 
-    if (Option.isNone(address)) return null;
+    if (Option.isNone(address) || !isRelayUrl(relayUrl)) return null;
 
     return {
       key: sharedHostKey(entry.host.relayAddress),
@@ -143,7 +144,7 @@ export const teammateSharing = (input: TeammateInput) => {
       alias: null,
       proofHarness: false,
       target: HostTarget.Relay({
-        relayUrl: entry.host.relayUrl ?? input.defaultRelayUrl,
+        relayUrl,
         hostAddress: address.value,
         hostNoiseKey: entry.host.noiseKey,
       }),
@@ -208,6 +209,13 @@ export const teammateSharing = (input: TeammateInput) => {
       acceptedAt: input.now(),
     };
 
+    const known = (yield* SubscriptionRef.get(shared)).find((s) => sameHost(s, entry));
+
+    if (hostEntry(entry) === null || (known !== undefined && !sameKeys(known, entry)))
+      return yield* new InviteRefused({
+        message: "This invite names a host Polaris can't reach safely.",
+      });
+
     const next = yield* SubscriptionRef.updateAndGet(shared, (before) => [
       ...before.filter((s) => !(s.sessionId === entry.sessionId && sameHost(s, entry))),
       entry,
@@ -254,5 +262,26 @@ const sharedHost = (host: {
 };
 
 const sameHost = (a: SharedEntry, b: SharedEntry) => a.host.relayAddress === b.host.relayAddress;
+
+/** A relay address seen before must keep its Noise key, relay and owner. */
+const sameKeys = (a: SharedEntry, b: SharedEntry) =>
+  a.host.noiseKey === b.host.noiseKey &&
+  a.host.relayUrl === b.host.relayUrl &&
+  a.owner.login === b.owner.login;
+
+const LOOPBACK = new Set(["127.0.0.1", "localhost", "[::1]"]);
+
+/** wss anywhere; plain ws only to this machine (a local relay in tests and development). */
+export const isRelayUrl = (url: string): boolean => {
+  if (!URL.canParse(url)) return false;
+  const parsed = new URL(url);
+
+  return parsed.protocol === "wss:" || (parsed.protocol === "ws:" && LOOPBACK.has(parsed.hostname));
+};
+
+/** An accepted Invite whose Host can't be dialled safely, or that contradicts one seen before. */
+export class InviteRefused extends Schema.TaggedError<InviteRefused>()("InviteRefused", {
+  message: Schema.String,
+}) {}
 
 export type TeammateSharing = ReturnType<typeof teammateSharing>;

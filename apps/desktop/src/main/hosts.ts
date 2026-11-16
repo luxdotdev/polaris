@@ -285,6 +285,42 @@ export interface HostDirectoryInput {
   readonly relay?: HostConnectionOptions["relay"];
 }
 
+/** One Host's connection options; a Teammate's carry the statement and none of this user's keys. */
+const connectionOptions = (
+  entry: HostEntry,
+  input: {
+    readonly [K in "identity" | "ssh" | "clientIdentity" | "userKey" | "rpc" | "relay"]:
+      | HostDirectoryInput[K]
+      | (K extends "identity" ? never : undefined);
+  }
+): HostConnectionOptions => {
+  const { identity, ssh, clientIdentity, userKey, rpc, relay } = input;
+  const teammate = entry.teammate;
+
+  let options: HostConnectionOptions = {
+    key: entry.key,
+    name: entry.label,
+    target: entry.target,
+    identity:
+      teammate !== undefined
+        ? { ...identity, accountStatement: teammate.accountStatement }
+        : userKey === undefined
+          ? identity
+          : { ...identity, userKey: userKeyForHost(userKey, entry.key) },
+    ssh: entry.remoteCommand === null ? { ...ssh } : { ...ssh, remoteCommand: entry.remoteCommand },
+  };
+
+  // The language proof is this user's own; another person's Host never sees it.
+  if (clientIdentity !== undefined && teammate === undefined)
+    options = { ...options, clientIdentity };
+
+  if (rpc !== undefined) options = { ...options, rpc };
+
+  if (relay !== undefined) options = { ...options, relay };
+
+  return options;
+};
+
 /** The Hosts this app connects to, and their views for the renderers. */
 export class HostDirectory extends Context.Service<
   HostDirectory,
@@ -368,30 +404,9 @@ export class HostDirectory extends Context.Service<
 
             const teammate = entry.teammate;
 
-            let options: HostConnectionOptions = {
-              key: entry.key,
-              name: entry.label,
-              target: entry.target,
-              // A Teammate holds no user access on another person's Host: no user key.
-              identity:
-                teammate !== undefined
-                  ? { ...identity, accountStatement: teammate.accountStatement }
-                  : userKey === undefined
-                    ? identity
-                    : { ...identity, userKey: userKeyForHost(userKey, entry.key) },
-              ssh:
-                entry.remoteCommand === null
-                  ? { ...ssh }
-                  : { ...ssh, remoteCommand: entry.remoteCommand },
-            };
-
-            if (clientIdentity !== undefined) options = { ...options, clientIdentity };
-
-            if (rpc !== undefined) options = { ...options, rpc };
-
-            if (relay !== undefined) options = { ...options, relay };
-
-            const connection = yield* registry.add(options);
+            const connection = yield* registry.add(
+              connectionOptions(entry, { identity, ssh, clientIdentity, userKey, rpc, relay })
+            );
 
             const changes =
               connection.sessionChanges === undefined
