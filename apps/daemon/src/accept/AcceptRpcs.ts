@@ -21,6 +21,7 @@ import {
 } from "@polaris/protocol";
 import { Effect, Option } from "effect";
 import { RpcGroup } from "effect/rpc";
+import { sessionTrailers, withTrailers } from "../coAuthors/index.ts";
 import { gitText } from "../git/git.ts";
 import { HarnessRegistry } from "../services.ts";
 import { EventStore } from "../store/EventStore.ts";
@@ -34,7 +35,7 @@ import {
   validBranchName,
 } from "./branch.ts";
 import { type CommitGroup, CommitRefused, commitTurns } from "./commit.ts";
-import { draftAccept, templateDraft } from "./draft.ts";
+import { creditDraft, draftAccept, templateDraft } from "./draft.ts";
 import { pushBranch } from "./push.ts";
 import {
   type AcceptContext,
@@ -157,14 +158,28 @@ const commit = (ctx: AcceptContext, payload: CommitPayload) =>
     if (payload.title.trim() === "") return yield* refuse("the commit message is empty");
     const turns = yield* checkpointed(ctx.root, ctx.range);
     const target = yield* targetBranch(ctx, payload.branch);
+    const store = yield* EventStore;
+
+    const credit = (range: AcceptContext["range"]) =>
+      sessionTrailers(store, ctx.record.session.id, range).pipe(Effect.orElseSucceed(() => []));
 
     const groups: ReadonlyArray<CommitGroup> =
       payload.granularity === "single"
-        ? [{ turns, message: message(payload.title, payload.body) }]
-        : turns.map((turn, i) => ({
-            turns: [turn],
-            message: message(payload.turnTitles[i]?.trim() || payload.title, ""),
-          }));
+        ? [
+            {
+              turns,
+              message: withTrailers(message(payload.title, payload.body), yield* credit(ctx.range)),
+            },
+          ]
+        : yield* Effect.forEach(turns, (turn, i) =>
+            Effect.map(credit(ctx.range.slice(i, i + 1)), (trailers) => ({
+              turns: [turn],
+              message: withTrailers(
+                message(payload.turnTitles[i]?.trim() || payload.title, ""),
+                trailers
+              ),
+            }))
+          );
 
     const { root } = ctx;
 
@@ -220,11 +235,17 @@ const draft = (ctx: AcceptContext) =>
       stat,
     };
 
-    return yield* Option.match(driver, {
+    const drafted = yield* Option.match(driver, {
       onNone: () =>
         Effect.succeed(templateDraft(input, "the session's Harness isn't on this Host")),
       onSome: (found) => draftAccept(found, ctx.root, input),
     });
+
+    const trailers = yield* sessionTrailers(store, ctx.record.session.id, ctx.range).pipe(
+      Effect.orElseSucceed(() => [])
+    );
+
+    return creditDraft(drafted, trailers);
   });
 
 const push = (root: string, branch: string) =>

@@ -81,6 +81,23 @@ test(
 );
 
 test(
+  "Accept's merge commit credits the worker session's Teammates",
+  async () => {
+    const s = await setup();
+    write(s.root, "lead.txt", "lead\n");
+    await commitAll(s.root, "lead moved on");
+    const ana = "Co-authored-by: Ana Lima <ana@work.example>";
+
+    await Effect.runPromise(mergeClaim(s.graph, s.attempt, s.root, s.head, [ana]));
+
+    expect(await gitText(s.root, ["log", "-1", "--format=%B"])).toBe(
+      `Merge polaris/A (A)\n\n${ana}\n`
+    );
+  },
+  GIT_WORK_MS
+);
+
+test(
   "Accept's merge refuses a dirty or detached Lead checkout and names the step, leaving it as it was",
   async () => {
     const s = await setup();

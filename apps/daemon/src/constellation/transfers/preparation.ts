@@ -1,4 +1,6 @@
-import { Predicate, Effect } from "effect";
+import { Context, Predicate, Effect } from "effect";
+import { sessionTrailers } from "../../coAuthors/index.ts";
+import { EventStore } from "../../store/EventStore.ts";
 import type { ConstellationPreparation, ConstellationRuntimeService } from "../runtime.ts";
 import { ConstellationOwner } from "../runtime.ts";
 import { ConstellationWorktrees, gitOperation, transferError } from "../worktrees.ts";
@@ -19,9 +21,9 @@ export const withWorktreePreparation = Effect.fnUntraced(function* (
   const storage = yield* TransferStorage;
   const hostId = yield* ConstellationOwner;
 
-  const context = yield* Effect.context<
-    import("../../store/EventStore.ts").EventStore | ConstellationWorktrees | TransferStorage
-  >();
+  const context = yield* Effect.context<EventStore | ConstellationWorktrees | TransferStorage>();
+
+  const store = Context.get(context, EventStore);
 
   return {
     ...runtime,
@@ -102,7 +104,8 @@ export const withWorktreePreparation = Effect.fnUntraced(function* (
           model,
           command.action.mergedHead,
           worktrees,
-          storage
+          storage,
+          store
         ).pipe(Effect.mapError(mapError));
 
         checks.push(...accepted.checks);
@@ -141,13 +144,19 @@ const acceptedChecks = Effect.fnUntraced(function* (
   model: import("../../store/model.ts").ReadModel,
   head: string,
   worktrees: ConstellationWorktrees["Service"],
-  storage: TransferStorage["Service"]
+  storage: TransferStorage["Service"],
+  store: EventStore["Service"]
 ) {
   const leadPath = model.sessions.get(record.graph.leadSessionId)?.session.cwd;
 
   if (leadPath === undefined)
     return yield* transferError("E-LEAD", "The Lead checkout is unavailable");
-  const merged = yield* worktrees.mergeClaim(record.graph, attempt, leadPath, head);
+
+  const trailers = yield* sessionTrailers(store, attempt.sessionId, null).pipe(
+    Effect.orElseSucceed((): ReadonlyArray<string> => [])
+  );
+
+  const merged = yield* worktrees.mergeClaim(record.graph, attempt, leadPath, head, trailers);
   const checks: Array<import("../../engine/constellation.inputs.ts").RecordedCheck> = [];
 
   for (const stored of yield* storage.receipts) {
