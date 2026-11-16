@@ -12,6 +12,9 @@ import {
   Command,
   CommandId,
   CommandRejected,
+  GitDiffSpec,
+  NotFound,
+  TurnId,
   StatementRejected,
   CommentId,
   ConstellationId,
@@ -46,6 +49,7 @@ import { HostSecrets } from "../secrets/index.ts";
 import { ServerRpcs } from "../transport/rpcs.ts";
 import { startServer } from "../transport/server.ts";
 import { TEST_USER_KEY } from "../transport/userAccess.testing.ts";
+import { WorkingTreeFallback } from "../git/diffScope.ts";
 import { RequestShare } from "./connection.ts";
 import { type FakeIssuer, startFakeIssuer, type StatementOptions } from "./issuer.testing.ts";
 import { Shares } from "./service.ts";
@@ -82,6 +86,13 @@ const targets = Layer.effectDiscard(
           return touch === undefined ? null : { touch, cwd: "/repo", worker: id === WORKER };
         }),
       hasConstellation: (id) => Effect.succeed(id === C1),
+      // Of S1's Turns, `done` has ended and `live` is working.
+      turn: (sessionId, turnId) =>
+        Effect.succeed(
+          sessionId === S1 && (turnId === "done" || turnId === "live")
+            ? { index: turnId === "done" ? 1 : 2, working: turnId === "live" }
+            : null
+        ),
     })
   )
 );
@@ -94,6 +105,12 @@ const handlers = Layer.mergeAll(
       Effect.fail(
         new CommandRejected({ commandId, reason: JSON.stringify(Option.getOrNull(share)) })
       )
+    )
+  ),
+  // `git.diff` answers whether it may read the working tree, as the gate left it.
+  ServerRpcs.toLayerHandler("git.diff", () =>
+    Effect.flatMap(WorkingTreeFallback, (allowed) =>
+      Effect.fail(new NotFound({ what: "working-tree", id: String(allowed) }))
     )
   ),
   ServerRpcs.toLayerHandler("subscribeSession", () => Stream.never)
@@ -567,3 +584,39 @@ test("a hello that presents another device's statement is refused and the connec
     })
   );
 }, 30_000);
+
+test("a Teammate's diff names real Turns of the shared session, and reads the working tree only for one still working", async () => {
+  await scoped((scope) =>
+    Effect.gen(function* () {
+      const host = yield* daemon(scope);
+      const laptop = yield* Effect.promise(makeDevice);
+      yield* shareWith(host, laptop);
+      const { client, socket } = yield* opened(host, laptop);
+      yield* client.hello(hello);
+
+      /** "true" or "false" as the handler saw the fallback, or the gate's refusal. */
+      const diff = (spec: GitDiffSpec) =>
+        Effect.flip(client["git.diff"]({ cwd: "/repo", spec })).pipe(
+          Effect.map((error) => (error instanceof NotFound ? error.id : error._tag))
+        );
+
+      const turn = (id: string) => TurnId.make(id);
+      const one = (id: string) => GitDiffSpec.cases.Turn.make({ sessionId: S1, turnId: turn(id) });
+
+      const run = (first: string, last: string) =>
+        GitDiffSpec.cases.Turns.make({
+          sessionId: S1,
+          firstTurnId: turn(first),
+          lastTurnId: turn(last),
+        });
+
+      expect(yield* diff(one("done"))).toBe("false");
+      expect(yield* diff(one("live"))).toBe("true");
+      expect(yield* diff(run("done", "live"))).toBe("true");
+      // A last Turn that never ran would have fallen back to the whole working tree.
+      expect(yield* diff(run("done", "never-ran"))).toBe("NotShared");
+      expect(yield* diff(one("never-ran"))).toBe("NotShared");
+      socket.close();
+    })
+  );
+});

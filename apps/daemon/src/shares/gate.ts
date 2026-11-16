@@ -17,10 +17,12 @@ import {
   ShareGate,
   ShareTarget,
   type ShareTouch,
+  TurnId,
 } from "@polaris/protocol";
-import { Effect, Option, Schema } from "effect";
+import { Effect, Option, Predicate, Schema } from "effect";
 import type { Rpc } from "effect/rpc";
 import { actorOf, pairingOf } from "../extensions/connection.ts";
+import { WorkingTreeFallback } from "../git/diffScope.ts";
 import { teammatesMayAct } from "../transport/userAccess.ts";
 import { RequestShare, type TeammateDevice } from "./connection.ts";
 import { type Shares, type ShareTargets, teammateActor } from "./service.ts";
@@ -34,7 +36,13 @@ const Subject = Schema.Struct({
     Schema.Struct({ _tag: Schema.String, sessionId: Schema.optionalKey(SessionId) })
   ),
   spec: Schema.optionalKey(
-    Schema.Struct({ _tag: Schema.String, sessionId: Schema.optionalKey(SessionId) })
+    Schema.Struct({
+      _tag: Schema.String,
+      sessionId: Schema.optionalKey(SessionId),
+      turnId: Schema.optionalKey(TurnId),
+      firstTurnId: Schema.optionalKey(TurnId),
+      lastTurnId: Schema.optionalKey(TurnId),
+    })
   ),
   target: Schema.optionalKey(ShareTarget),
 });
@@ -49,6 +57,8 @@ export interface RequestSubject {
   readonly constellationId: ConstellationId | null;
   /** The directory a `git.diff` asks about. */
   readonly cwd: string | null;
+  /** The Turns a `git.diff` names, first to last; empty for anything else. */
+  readonly turnIds: ReadonlyArray<TurnId>;
 }
 
 const NOTHING: RequestSubject = {
@@ -56,7 +66,12 @@ const NOTHING: RequestSubject = {
   sessionId: null,
   constellationId: null,
   cwd: null,
+  turnIds: [],
 };
+
+/** The Turns a diff spec names: one Turn, or the first and last of a run. */
+const turnsOf = (spec: (typeof Subject.Type)["spec"]): ReadonlyArray<TurnId> =>
+  [spec?.turnId, spec?.firstTurnId, spec?.lastTurnId].filter((id) => id !== undefined);
 
 const ofTarget = (target: ShareTarget): ShareTouch =>
   ShareTarget.match(target, {
@@ -82,7 +97,12 @@ export const subjectOf = (
 
   // A diff of the working tree or a range names a path, which no Share covers.
   if (rpc === "git.diff")
-    return { ...NOTHING, sessionId: subject.spec?.sessionId ?? null, cwd: subject.cwd ?? null };
+    return {
+      ...NOTHING,
+      sessionId: subject.spec?.sessionId ?? null,
+      cwd: subject.cwd ?? null,
+      turnIds: turnsOf(subject.spec),
+    };
 
   if (rpc === "shares.watchPresence")
     return subject.target === undefined ? NOTHING : { ...NOTHING, ...ofTarget(subject.target) };
@@ -100,6 +120,12 @@ const commandAccess = (command: string | null): string | null => {
   return command !== null && Object.hasOwn(table, command) ? (table[command] ?? null) : null;
 };
 
+/**
+ * The Turns of a diff as the Host knows them: `missing` when one is not the session's or the
+ * run is backwards, `working` when the last has not ended, else `ended`.
+ */
+export type DiffTurns = "missing" | "working" | "ended";
+
 export interface TeammateRequest {
   readonly shares: ReadonlyArray<Share>;
   readonly now: number;
@@ -108,6 +134,8 @@ export interface TeammateRequest {
   readonly touch: ShareTouch;
   /** Where the subject's session runs; null without one. */
   readonly sessionCwd: string | null;
+  /** What Host state says of the Turns a `git.diff` names; null for any other request. */
+  readonly diffTurns: DiffTurns | null;
   /** Whether Teammates may send Turns and answer approvals yet (`teammatesMayAct`). */
   readonly mayAct: boolean;
 }
@@ -128,6 +156,10 @@ export const decideTeammate = (request: TeammateRequest): NotShared | NotGranted
 
   // A session's diff is read where that session runs, never in a directory the Teammate names.
   if (rpc === "git.diff" && subject.cwd !== request.sessionCwd) return new NotShared({ what: rpc });
+
+  // Its Turns are the shared session's own: an unknown one would diff the whole working tree.
+  if (rpc === "git.diff" && request.diffTurns !== "working" && request.diffTurns !== "ended")
+    return new NotShared({ what: rpc });
   const access = commandAccess(subject.command);
 
   if (rpc === "dispatch" && !request.mayAct && (access === "turn" || access === "approve"))
@@ -166,6 +198,28 @@ const touchOf = (
           ? { touch: { sessionId: subject.sessionId, constellationId: null }, cwd: null }
           : { touch: found.touch, cwd: found.cwd }
       );
+
+/** What Host state says of the Turns `subject` names; null when it names none. */
+export const diffTurnsOf = (
+  targets: ShareTargets,
+  subject: RequestSubject
+): Effect.Effect<DiffTurns | null> => {
+  const { sessionId, turnIds } = subject;
+
+  if (sessionId === null || turnIds.length === 0) return Effect.succeed(null);
+
+  return Effect.map(
+    Effect.forEach(turnIds, (turnId) => targets.turn(sessionId, turnId)),
+    (turns): DiffTurns => {
+      const first = turns[0] ?? null;
+      const last = turns.at(-1) ?? null;
+
+      if (first === null || last === null || first.index > last.index) return "missing";
+
+      return last.working ? "working" : "ended";
+    }
+  );
+};
 
 export const shareGateFor = (options: {
   readonly shares: Shares["Service"];
@@ -206,6 +260,8 @@ export const shareGateFor = (options: {
     return Effect.gen(function* () {
       const { touch, cwd } = yield* touchOf(shares.targets, subject);
       const mine = shares.sharesOf(teammate);
+      const diff = Predicate.isTagged(rpc, "git.diff");
+      const diffTurns = diff ? yield* diffTurnsOf(shares.targets, subject) : null;
 
       const refusal = decideTeammate({
         shares: mine,
@@ -214,6 +270,7 @@ export const shareGateFor = (options: {
         subject,
         touch,
         sessionCwd: cwd,
+        diffTurns,
         mayAct: teammatesMayAct(),
       });
 
@@ -222,7 +279,12 @@ export const shareGateFor = (options: {
 
       if (share === null) return yield* effect;
       const actor = teammateActor(share);
-      const scoped = Effect.provideService(effect, RequestShare, { actor, grant: share.grant });
+
+      // Only a Turn still working may be read up to the working tree as it stands.
+      const scoped = Effect.provideService(effect, RequestShare, {
+        actor,
+        grant: share.grant,
+      }).pipe(Effect.provideService(WorkingTreeFallback, !diff || diffTurns === "working"));
 
       if (!FEEDS.has(rpc._tag)) return yield* scoped;
 

@@ -6,7 +6,7 @@ import { Effect, Layer } from "effect";
 import { makeFakeBlobChannel } from "../files/testing.ts";
 import { Checkpoints } from "../services.ts";
 import { CheckpointsLive, captureCheckpoint, checkpointRef } from "./Checkpoints.ts";
-import { computeDiff, DiffSpec } from "./diff.ts";
+import { computeDiff, DiffNotFound, DiffSpec } from "./diff.ts";
 import { gitExecutable } from "./executable.ts";
 import { handleGitDiff, handleGitStatus } from "./GitRpcs.ts";
 import { findRepoRoot, gitText, mayBeInWorkTree, runGitRaw } from "./git.ts";
@@ -308,6 +308,28 @@ describe("git.diff", () => {
     expect(diff.files).toBe(2);
     expect(text).toContain("+agent edit");
     expect(text).not.toContain("later.txt");
+  });
+
+  test("Turns without an after checkpoint read the working tree only when that is allowed", async () => {
+    const root = await repo({ "a.txt": "one\n" });
+    await captureCheckpoint({ cwd: root, sessionId, turnId, label: "before" });
+    write(root, "unrelated.txt", "someone else's work\n");
+
+    const run = DiffSpec.cases.Turns.make({
+      sessionId,
+      firstTurnId: turnId,
+      lastTurnId: TurnId.make("never-ran"),
+    });
+
+    const one = DiffSpec.cases.Turn.make({ sessionId, turnId });
+
+    expect(decode((await computeDiff(root, run)).bytes)).toContain("unrelated.txt");
+    await Promise.resolve(
+      expect(computeDiff(root, run, { workingTree: false })).rejects.toBeInstanceOf(DiffNotFound)
+    );
+    await Promise.resolve(
+      expect(computeDiff(root, one, { workingTree: false })).rejects.toBeInstanceOf(DiffNotFound)
+    );
   });
 
   test("Range and the handler deliver the diff through the BlobChannel", async () => {

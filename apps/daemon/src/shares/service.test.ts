@@ -89,6 +89,7 @@ const onHost = <A, E>(root: string, server: FakeIssuer, program: Effect.Effect<A
               : null
           ),
         hasConstellation: (id) => Effect.succeed(id === "c1"),
+        turn: () => Effect.succeed(null),
       });
 
       return yield* program;

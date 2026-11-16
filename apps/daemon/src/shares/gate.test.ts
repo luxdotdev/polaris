@@ -13,16 +13,19 @@ import {
   SharePerson,
   ShareTarget,
   type ShareTouch,
+  type Turn,
   TurnId,
 } from "@polaris/protocol";
 import { Effect } from "effect";
 import type { ConstellationRecord } from "../store/constellation.ts";
-import { emptyModel, patchSession, type ReadModel } from "../store/model.ts";
-import { session, workerSession } from "../push/push.testing.ts";
+import { emptyModel, patchSession, patchTurn, type ReadModel } from "../store/model.ts";
+import { session, turn as turnFixture, workerSession } from "../push/push.testing.ts";
 import {
   coveringShare,
   decideTeammate,
   decodeSubject,
+  type DiffTurns,
+  diffTurnsOf,
   type RequestSubject,
   subjectOf,
   type TeammateRequest,
@@ -62,6 +65,7 @@ const named = (fields: Partial<RequestSubject> = {}): RequestSubject => ({
   sessionId: S1,
   constellationId: null,
   cwd: null,
+  turnIds: [],
   ...fields,
 });
 
@@ -73,6 +77,7 @@ const request = (rpc: string, subject: RequestSubject, fields: Partial<TeammateR
     subject,
     touch,
     sessionCwd: "/repo",
+    diffTurns: "ended",
     mayAct: false,
     ...fields,
   });
@@ -141,7 +146,7 @@ test("a request names its session wherever the payload carries it", () => {
     named({ command: "SendTurn" })
   );
   expect(subjectOf("git.diff", decodeSubject({ cwd: "/repo", spec: turn }))).toEqual(
-    named({ cwd: "/repo" })
+    named({ cwd: "/repo", turnIds: [TurnId.make("t1")] })
   );
   expect(subjectOf("shares.watchPresence", decodeSubject({ target }))).toEqual(
     named({ sessionId: null, constellationId: C1 })
@@ -191,7 +196,7 @@ const model = (): ReadModel => {
 };
 
 test("a session touches its Constellation as its Lead or as a Worker, and a Worker is marked", async () => {
-  const targets = targetsOf(Effect.sync(model));
+  const targets = targetsOf(Effect.sync(model), () => Effect.succeed(null));
   const worker = await Effect.runPromise(targets.session(S1));
   const lead = await Effect.runPromise(targets.session(LEAD));
   const alone = await Effect.runPromise(targets.session(SessionId.make("alone")));
@@ -201,4 +206,63 @@ test("a session touches its Constellation as its Lead or as a Worker, and a Work
   expect(alone?.touch.constellationId).toBeNull();
   expect(await Effect.runPromise(targets.session(SessionId.make("gone")))).toBeNull();
   expect(await Effect.runPromise(targets.hasConstellation(C1))).toBe(true);
+});
+
+test.each(["missing", null] as const)(
+  "a diff whose Turns are %p in the shared session is refused",
+  (diffTurns) => {
+    const refusal = request("git.diff", named({ cwd: "/repo" }), { diffTurns });
+
+    expect(refusal).toBeInstanceOf(NotShared);
+    expect(request("git.diff", named({ cwd: "/repo" }), { diffTurns: "working" })).toBeNull();
+  }
+);
+
+/** A session with an ended Turn 1 and a working Turn 2; `old` is only in SQL, as Turn 0. */
+const turnTargets = () => {
+  const turn = (id: string, index: number, status: Turn["status"]) =>
+    patchTurn(turnFixture(id, null, status), { index });
+
+  const withTurns: ReadModel = {
+    ...emptyModel,
+    sessions: new Map([
+      [
+        S1,
+        {
+          session,
+          titleLocked: false,
+          turns: [turn("done", 1, "completed"), turn("live", 2, "working")],
+          pending: new Map(),
+          subagents: new Map(),
+        },
+      ],
+    ]),
+  };
+
+  return targetsOf(Effect.succeed(withTurns), (sessionId, turnId) =>
+    Effect.succeed(sessionId === S1 && turnId === "old" ? turn("old", 0, "completed") : null)
+  );
+};
+
+const turnsCases: ReadonlyArray<readonly [string, ReadonlyArray<string>, DiffTurns | null]> = [
+  ["one ended Turn", ["done"], "ended"],
+  ["a Turn still working", ["live"], "working"],
+  ["a run that ends at the working Turn", ["done", "live"], "working"],
+  ["a run from a Turn only the store still holds", ["old", "done"], "ended"],
+  ["a real first Turn and a last one that never ran", ["done", "never-ran"], "missing"],
+  ["a first Turn that never ran", ["never-ran", "done"], "missing"],
+  ["a run named backwards", ["live", "done"], "missing"],
+  ["no Turn at all", [], null],
+];
+
+test.each(turnsCases)("a diff of %s reads as %p from Host state", async (_, ids, expected) => {
+  const subject = named({ cwd: "/repo", turnIds: ids.map((id) => TurnId.make(id)) });
+
+  expect(await Effect.runPromise(diffTurnsOf(turnTargets(), subject))).toBe(expected);
+});
+
+test("a Turn of another session is not the shared session's", async () => {
+  const other = named({ sessionId: SessionId.make("alone"), turnIds: [TurnId.make("done")] });
+
+  expect(await Effect.runPromise(diffTurnsOf(turnTargets(), other))).toBe("missing");
 });

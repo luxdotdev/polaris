@@ -25,6 +25,7 @@ import {
   type ShareTouch,
   StatementRejected,
   type Timestamp,
+  type TurnId,
 } from "@polaris/protocol";
 import { Context, Effect, Layer, Option, Predicate, Queue, Redacted, Stream } from "effect";
 import { RelayGuests } from "../linkedDevices/route.ts";
@@ -46,12 +47,18 @@ export interface ShareTargets {
     readonly worker: boolean;
   } | null>;
   readonly hasConstellation: (id: ConstellationId) => Effect.Effect<boolean>;
+  /** A Turn of that session, recent or old; null when the session has no such Turn. */
+  readonly turn: (
+    sessionId: SessionId,
+    turnId: TurnId
+  ) => Effect.Effect<{ readonly index: number; readonly working: boolean } | null>;
 }
 
 /** Before the Engine binds its own: the Host has no sessions, so nothing can be shared. */
 const NO_TARGETS: ShareTargets = {
   session: () => Effect.succeed(null),
   hasConstellation: () => Effect.succeed(false),
+  turn: () => Effect.succeed(null),
 };
 
 export interface SharesOptions {
@@ -608,6 +615,7 @@ const makeShares = Effect.fn("makeShares")(function* (options: SharesOptions) {
     targets: {
       session: (id) => Effect.suspend(() => targets.session(id)),
       hasConstellation: (id) => Effect.suspend(() => targets.hasConstellation(id)),
+      turn: (sessionId, turnId) => Effect.suspend(() => targets.turn(sessionId, turnId)),
     },
     presence,
     // Sliding by one: a burst of changes reads the list once more, never once per change.
