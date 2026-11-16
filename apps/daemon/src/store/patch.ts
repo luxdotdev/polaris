@@ -49,8 +49,9 @@ export const patchSession = (session: AgentSession, patch: SessionPatch): AgentS
 export type TurnPatch = Partial<typeof Turn.Type>;
 
 /** A copy of `turn` with `patch` applied. */
-export const patchTurn = (turn: Turn, patch: TurnPatch): Turn =>
-  new Turn({
+/** `commentIds` is an optional key: it is kept only when the Turn has it. */
+export const patchTurn = (turn: Turn, patch: TurnPatch): Turn => {
+  const fields = {
     id: turn.id,
     sessionId: turn.sessionId,
     index: turn.index,
@@ -71,5 +72,11 @@ export const patchTurn = (turn: Turn, patch: TurnPatch): Turn =>
     checkpointAfterCommit: turn.checkpointAfterCommit,
     startedAt: turn.startedAt,
     endedAt: turn.endedAt,
-    ...patch,
-  });
+  };
+
+  return new Turn(
+    turn.commentIds === undefined
+      ? { ...fields, ...patch }
+      : { ...fields, commentIds: turn.commentIds, ...patch }
+  );
+};

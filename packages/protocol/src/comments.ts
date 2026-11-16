@@ -54,6 +54,11 @@ export class Comment extends Schema.Class<Comment>("Comment")({
   resolvedBy: optionalNullable(Actor),
   /** The Turn that carried it to the agent (`SendFeedback.commentIds`); null until sent. */
   sentInTurnId: optionalNullable(TurnId),
+  /**
+   * The later Turn that changed the lines a `DiffLines` Comment is anchored to: Clients show
+   * it as outdated, where it was written. Null while they stand.
+   */
+  outdatedInTurnId: optionalNullable(TurnId),
 }) {}
 
 /** The Comment events of the session's log (`events.ts`); each records its Actor. */
@@ -69,6 +74,8 @@ export const commentEventFields = {
   },
   CommentResolved: { sessionId: SessionId, commentId: CommentId, actor: Actor },
   CommentReopened: { sessionId: SessionId, commentId: CommentId, actor: Actor },
+  /** The Host found that `turnId` changed a `DiffLines` Comment's anchored lines. */
+  CommentOutdated: { sessionId: SessionId, commentId: CommentId, turnId: TurnId },
 };
 
 /** Whether two Actors are the same one: the same Pairing, Linked Device or person. */
@@ -100,12 +107,21 @@ const anchorLabel = (anchor: CommentAnchor): string =>
     MessageText: () => "From a message",
   });
 
+/** Who a Comment is credited to in the Turn that carries it: the owner's own Clients are "the owner". */
+export const commentAuthorName = (author: Actor): string =>
+  Actor.match(author, {
+    Client: () => "the owner",
+    Extension: (a) => a.name,
+    LinkedDevice: () => "the owner",
+    Teammate: (a) => a.name,
+  });
+
 const anchorQuote = (anchor: CommentAnchor): string =>
   CommentAnchor.match(anchor, { DiffLines: (a) => a.code, MessageText: (a) => a.quote });
 
 /**
- * The prompt `SendFeedback` sends for Comments: the message, then each Comment's anchor,
- * quoted text and body, as `feedbackPrompt` renders drafts. Clients preview the Turn with it.
+ * The prompt `SendFeedback` sends for Comments: the message, then each Comment's anchor and
+ * author, quoted text and body, as `feedbackPrompt` renders drafts. Clients preview the Turn with it.
  */
 export const commentsPrompt = (
   message: string | null,
@@ -116,7 +132,13 @@ export const commentsPrompt = (
   if (message !== null && message.trim() !== "") parts.push(message.trim());
 
   for (const comment of comments)
-    parts.push(quotedNote(anchorLabel(comment.anchor), anchorQuote(comment.anchor), comment.body));
+    parts.push(
+      quotedNote(
+        `${anchorLabel(comment.anchor)} (comment by ${commentAuthorName(comment.author)})`,
+        anchorQuote(comment.anchor),
+        comment.body
+      )
+    );
 
   return parts.join("\n\n");
 };

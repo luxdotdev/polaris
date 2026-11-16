@@ -731,8 +731,8 @@ bun packages/spec/scripts/replay-extensions.ts /tmp/extensions.trace.json
 ## Shares and Comments (ENG-941)
 
 `shares.qnt` models Shared Sessions (CONTEXT.md: Sharing; ADR 0112, 0113) as the protocol
-states them; the Daemon does not serve them yet, so this section maps the model to the
-contract in `packages/protocol` and names where the code will live. People, sessions, Shares
+states them. The Daemon serves Comments but not Shares yet, so this section maps the model to
+the contract in `packages/protocol` and, for Comments, to the Daemon's code. People, sessions, Shares
 and Comments are small integers and time is a counter: session 0 stands alone, session 1
 leads a Constellation and session 2 is its Worker.
 
@@ -743,8 +743,8 @@ leads a Constellation and session 2 is its Worker.
 | `live`, `covers`, `covering`, `decide`, `call` | `isShareLive`, and `shareGrants.ts` `shareCovers` and `decideShareAccess` over `SHARE_RPCS` / `SHARE_COMMANDS`: `NotShared` when no live Share of the person covers what the request touches, `NotGranted` when one covers it and none holds the Grant. The allowlist is by role (`holds`): a Commenter's Share holds `read` and `comment` (subscribe, diff, presence, the Comment Commands); a Contributor's also `turn` (`SendTurn`, `Steer`, `Interrupt`, `Continue`, `Retry`, `SendFeedback`), `approve` (`RespondToApproval`) and `contributor`, the need of what no Grant names (`SetModel`, `SetPermissionMode`, `RenameSession`, `AcceptTurns`), refused to a Commenter as `NotShared` |
 | `hello`, `refresh`, `statements`, `admitted` | `hello`'s `accountStatement` and `account.refreshStatement` (`StatementRejected`); `vouched` stands for the statement verifying against its issuer's keys and binding this device. A statement lives `STATEMENT_LIFETIME_S`; the Host closes a connection whose statement lapsed, or whose person has no live Share left |
 | `tick` | The Host's clock: a Share expires (`Expired` in the share log) and a statement lapses |
-| `addComment`, `editComment`, `setResolved` | `AddComment`, `EditComment`, `ResolveComment` / `ReopenComment` and their events `CommentAdded`, `CommentEdited`, `CommentResolved`, `CommentReopened` (`comments.ts`). All need the `comment` Grant (`COMMAND_GRANTS`, `SHARE_COMMANDS`); only its author edits a Comment, until it is sent; `mayResolveComment` is the author, the owner or a Contributor |
-| `sendFeedback`, `Turn.carried`, `Comment.sentIn` | `SendFeedback.commentIds`, `Turn.commentIds` and `Comment.sentInTurnId`: one Turn whose Actor is the sender, needing `turn` from a Teammate. Unknown IDs, another session's and already sent ones are refused |
+| `addComment`, `editComment`, `setResolved` | `AddComment`, `EditComment`, `ResolveComment` / `ReopenComment` and their events `CommentAdded`, `CommentEdited`, `CommentResolved`, `CommentReopened` (`comments.ts`). All need the `comment` Grant (`COMMAND_GRANTS`, `SHARE_COMMANDS`); only its author edits a Comment, until it is sent; `mayResolveComment` is the author, the owner or a Contributor. Daemon: `engine/comments.ts` decides them, `store/comments.ts` folds them, the `comments` table keeps them |
+| `sendFeedback`, `Turn.carried`, `Comment.sentIn` | `SendFeedback.commentIds`, `Turn.commentIds` and `Comment.sentInTurnId`: one Turn whose Actor is the sender, needing `turn` from a Teammate. Unknown IDs, another session's and already sent ones are refused. Daemon: `engine/review.ts` `sendFeedback` with `carriedComments`; the fold of `TurnStarted` sets `sentInTurnId` |
 | `OWNER` | Any Actor that is not a `Teammate`: the owner's own Clients, never gated by a Share |
 
 `safety`: an allowed Teammate request touched the target of a live Share that held its Grant
@@ -763,7 +763,8 @@ its author, a Teammate's Turn) run in `bun run spec`, with two mutants that must
 | `shares_resend_mutant` | `SendFeedback` carries a Comment an earlier Turn already carried | Two Turns carry one Comment |
 
 A Comment action changes only `comments`: no Turn starts and no Session State changes, so
-`polaris.qnt` is unchanged. The Turn `SendFeedback` starts is `polaris.qnt`'s `turn.send`,
+`polaris.qnt` is unchanged. Neither is `CommentOutdated`, the Host's mark that a later Turn
+changed a line Comment's lines: it changes no author, Turn or sent mark, so it is not modelled. The Turn `SendFeedback` starts is `polaris.qnt`'s `turn.send`,
 decided where `SendTurn` is; in a session that approves for itself it also needs `approve`
 (`decideTurnAccess`, `extensions.qnt`'s `callTurn`). The `comment` Grant joins `GRANTS` in
 `extensions.qnt`: a Pairing may hold it too.
@@ -777,9 +778,11 @@ Host-wide call) are a table lookup, covered by `shares.test.ts`. A Contributor's
 Lead actions are not listed yet. The Daemon refuses `turn` and `approve` to Teammates at
 runtime until the user gate returns (ENG-927); the model states what the Share allows.
 
-**Not yet tested against real code.** The Daemon answers `shares.*` with `Unsupported` and
-refuses the Comment Commands. The Tasks that serve them add the model-based tests and bind
-each row above to its handler.
+**Tested against real code: Comments only, by example.** `engine/Engine.comments.test.ts`
+runs the real Engine for `commentsKeepAuthor` (across a restart, and when someone else sends
+the Comment) and `sentWithOneTurn` (a resend is refused), and for who may edit and resolve.
+The Share gate is not served (`shares.*` answer `Unsupported`), so there is no model-based
+test or trace validation of `shares.qnt` yet; the Task that serves Shares adds them.
 
 ## Authenticated resource receipt challenges (M3.1 salvage)
 

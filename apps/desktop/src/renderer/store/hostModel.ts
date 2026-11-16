@@ -384,6 +384,7 @@ const fold = (event: DomainEvent): Fold =>
       CommentEdited: () => unchanged,
       CommentResolved: () => unchanged,
       CommentReopened: () => unchanged,
+      CommentOutdated: () => unchanged,
       ApprovalRequested: ({ request }) =>
         onSession(request.sessionId, (entry) => ({
           ...entry,

@@ -99,6 +99,7 @@ export const eventCapability = (event: DomainEvent): Capability | null =>
       CommentEdited: needs("session.comments"),
       CommentResolved: needs("session.comments"),
       CommentReopened: needs("session.comments"),
+      CommentOutdated: needs("session.comments"),
       ApprovalRequested: ({ request }) => approvalCapability(request.kind),
       ApprovalResolved: ({ decision }) =>
         Predicate.isTagged(decision, "Provided") ? "approval.secret" : null,
