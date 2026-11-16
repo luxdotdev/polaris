@@ -151,7 +151,9 @@ export class ConstellationWorktrees extends Context.Service<
       graph: Constellation,
       attempt: Attempt,
       leadPath: string,
-      mergedHead: string
+      mergedHead: string,
+      /** Teammates' `Co-authored-by` lines for a merge commit's message. */
+      trailers?: ReadonlyArray<string>
     ) => Effect.Effect<MergeOutcome, ConstellationTransferError>;
     readonly cleanup: (
       graph: Constellation,
@@ -251,14 +253,14 @@ export class ConstellationWorktrees extends Context.Service<
               head: status.head,
             };
           }),
-        mergeClaim: (graph, attempt, leadPath, mergedHead) =>
+        mergeClaim: (graph, attempt, leadPath, mergedHead, trailers) =>
           serial.withPermits(1)(
             Effect.gen(function* () {
               const checkout = yield* gitOperation(() => leadCheckout(graph, leadPath));
 
               if (checkout instanceof ConstellationTransferError) return yield* checkout;
 
-              return yield* mergeClaim(graph, attempt, checkout, mergedHead);
+              return yield* mergeClaim(graph, attempt, checkout, mergedHead, trailers);
             })
           ),
         cleanup: (graph, leadPath, candidates, busySessions, mergedRef = "HEAD") =>

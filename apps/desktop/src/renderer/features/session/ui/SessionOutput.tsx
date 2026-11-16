@@ -29,6 +29,12 @@ import { isWindowsHost } from "../../../shell/hostPlatform.ts";
 import { useHost, useSession } from "../hooks.ts";
 import { useDiffSyntax } from "../useDiffSyntax.ts";
 import { LineCode } from "./LineCode.tsx";
+import {
+  ChangesCommentsProvider,
+  CommentsRow,
+  LineNumber,
+  useChangesMarks,
+} from "./changesComments.tsx";
 import { fileCardId, FileScrollbar, useFileScroll } from "./FileScrollbar.tsx";
 import type { FileScroll } from "../fileScroll.ts";
 import { turnOpening } from "../model/conversation.ts";
@@ -157,7 +163,7 @@ const RowView = ({ row, path, syntax, wrap, scroll, overflows, onFold }: RowView
           data-scroll-file={path}
         >
           <span className="text-text-subtle tabular w-[42px] shrink-0 pr-2 text-right">
-            {row.line.newNumber ?? ""}
+            <LineNumber path={path} line={row.line} />
           </span>
           <span
             className={cn(
@@ -192,6 +198,8 @@ const RowView = ({ row, path, syntax, wrap, scroll, overflows, onFold }: RowView
       ) : (
         <div className={cn(CARD, "rounded-b-row h-1.5 border-b")} />
       );
+    case "comments":
+      return <CommentsRow row={row} path={path} card={CARD} />;
     case "gap":
       return <div className="h-3" />;
   }
@@ -217,7 +225,8 @@ interface DiffListProps {
 const DiffList = ({ files, folded, onFold }: DiffListProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const probeRef = useRef<HTMLSpanElement>(null);
-  const rows = useMemo(() => diffRows(files, folded), [files, folded]);
+  const marks = useChangesMarks();
+  const rows = useMemo(() => diffRows(files, folded, marks), [files, folded, marks]);
   const paths = useMemo(() => rowPaths(rows), [rows]);
   const syntax = useDiffSyntax(files);
   const wrap = useSettings((s) => s.appearance.wordWrap);
@@ -653,7 +662,9 @@ export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) 
         ) : picked !== null ? (
           picked
         ) : subagent === null ? (
-          <Changes current={current} state={state} folded={folded} onFold={fold} />
+          <ChangesCommentsProvider hostKey={hostKey} sessionId={sessionId} group={current}>
+            <Changes current={current} state={state} folded={folded} onFold={fold} />
+          </ChangesCommentsProvider>
         ) : (
           <SubagentPane
             shown={subagent}

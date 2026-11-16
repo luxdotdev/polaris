@@ -15,6 +15,12 @@ export type DiffRow =
   | { readonly kind: "line"; readonly key: string; readonly line: DiffLine }
   | { readonly kind: "note"; readonly key: string; readonly text: string }
   | { readonly kind: "foot"; readonly key: string }
+  | {
+      readonly kind: "comments";
+      readonly key: string;
+      readonly side: "new" | "old";
+      readonly line: number;
+    }
   | { readonly kind: "gap"; readonly key: string };
 
 export const ROW_HEIGHT: Record<DiffRow["kind"], number> = {
@@ -23,10 +29,34 @@ export const ROW_HEIGHT: Record<DiffRow["kind"], number> = {
   line: 20,
   note: 28,
   foot: 6,
+  comments: 120,
   gap: 12,
 };
 
-const fileBody = (file: DiffFile): ReadonlyArray<DiffRow> => {
+/** A line's place for Comments: the new side, or the old for a removed line. */
+export const lineSide = (line: DiffLine): { side: "new" | "old"; line: number } | null => {
+  if (line.newNumber !== null) return { side: "new", line: line.newNumber };
+
+  return line.oldNumber === null ? null : { side: "old", line: line.oldNumber };
+};
+
+/** Where Comment rows go: "path\0side\0line" of each thread's or draft's last line. */
+export const commentMark = (path: string, side: "new" | "old", line: number) =>
+  `${path}\u0000${side}\u0000${line}`;
+
+const commentsAfter = (
+  file: DiffFile,
+  line: DiffLine,
+  marks: ReadonlySet<string>
+): ReadonlyArray<DiffRow> => {
+  const at = lineSide(line);
+
+  if (at === null || !marks.has(commentMark(file.path, at.side, at.line))) return [];
+
+  return [{ kind: "comments", key: `comments:${commentMark(file.path, at.side, at.line)}`, ...at }];
+};
+
+const fileBody = (file: DiffFile, marks: ReadonlySet<string>): ReadonlyArray<DiffRow> => {
   if (file.binary) return [{ kind: "note", key: `${file.path}:binary`, text: "Binary file" }];
 
   if (file.hunks.length === 0)
@@ -34,17 +64,17 @@ const fileBody = (file: DiffFile): ReadonlyArray<DiffRow> => {
 
   return file.hunks.flatMap((hunk, h) => [
     { kind: "hunk" as const, key: `${file.path}:${h}`, header: hunk.header },
-    ...hunk.lines.map((line, n) => ({
-      kind: "line" as const,
-      key: `${file.path}:${h}:${n}`,
-      line,
-    })),
+    ...hunk.lines.flatMap((line, n) => [
+      { kind: "line" as const, key: `${file.path}:${h}:${n}`, line },
+      ...(marks.size === 0 ? [] : commentsAfter(file, line, marks)),
+    ]),
   ]);
 };
 
 export const diffRows = (
   files: ReadonlyArray<DiffFile>,
-  folded: ReadonlySet<string>
+  folded: ReadonlySet<string>,
+  marks: ReadonlySet<string> = new Set()
 ): ReadonlyArray<DiffRow> =>
   files.flatMap((file, n) => {
     const isFolded = folded.has(file.path);
@@ -53,7 +83,7 @@ export const diffRows = (
 
     if (isFolded) return [...gap, head];
 
-    return [...gap, head, ...fileBody(file), { kind: "foot", key: `foot:${file.path}` }];
+    return [...gap, head, ...fileBody(file, marks), { kind: "foot", key: `foot:${file.path}` }];
   });
 
 /** The tab stop `white-space: pre` uses (CSS `tab-size`'s default). */

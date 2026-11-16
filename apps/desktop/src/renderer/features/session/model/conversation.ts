@@ -8,6 +8,7 @@
  * them. Rows are cached per Turn view (`turnRows.ts`).
  */
 import type {
+  Actor,
   ApprovalRequest,
   Attachment,
   TurnId,
@@ -108,6 +109,10 @@ export type Row =
       readonly startedAt: string;
       /** The user's shell command (`!`) with its output, in place of the prompt's text. */
       readonly shell?: ShellView | null;
+      /** The Comments it carried (`Turn.commentIds`): quoted cards, and `text` is only the message. */
+      readonly commentIds?: ReadonlyArray<string>;
+      /** Who sent it (`Turn.actor`); null for the owner, or before the Host kept it. */
+      readonly actor?: Actor | null;
     }
   /** A Turn the Harness started itself: what woke it, in place of a prompt. */
   | {

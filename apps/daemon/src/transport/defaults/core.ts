@@ -16,7 +16,6 @@ import {
   GitStatus,
   Grep,
   HarnessAvailabilityQuery,
-  Hello,
   InlineError,
   InlinePropose,
   LanguageIdentityError,
@@ -52,10 +51,13 @@ import {
 import { Effect, Stream } from "effect";
 import { RpcGroup } from "effect/rpc";
 import { ClientCapabilities, DeviceLabel } from "../../engine/rpc.ts";
-import { admissionOf } from "../../extensions/admission.ts";
+import { admissionOf, rejectConnection } from "../../extensions/admission.ts";
 import { pairingOf, scopeConnection } from "../../extensions/connection.ts";
 import { deviceOf } from "../../linkedDevices/connection.ts";
 import { BlobChannel } from "../../services.ts";
+import { teammateOf } from "../../shares/connection.ts";
+import { Shares } from "../../shares/service.ts";
+import { ServerHello } from "../rpcs.ts";
 import { helloHost } from "../hostInfo.ts";
 import { bindLanguageIdentity } from "../languageIdentity.ts";
 import { ConnectionBlobs } from "../rpcs.ts";
@@ -64,7 +66,7 @@ import { type DefaultOptions, fileError, notYet, unsupported, unsupportedFeed } 
 /** The RPCs `DaemonRpcs` declares itself rather than merging in from a named group. */
 const CoreRpcs = RpcGroup.make(
   InlinePropose,
-  Hello,
+  ServerHello,
   Dispatch,
   SubscribeHost,
   SubscribeSession,
@@ -114,7 +116,15 @@ export const coreDefaults = (options: DefaultOptions) =>
     // Record which device this connection is (for ApprovalResolved.resolvedBy), what it
     // understands (e.g. whether to send it ItemProgress), and the Pairing it acts as.
     hello: (
-      { deviceLabel, capabilities, languageProof, extensionToken, protocolVersions, userKey },
+      {
+        deviceLabel,
+        capabilities,
+        languageProof,
+        extensionToken,
+        protocolVersions,
+        userKey,
+        accountStatement,
+      },
       { client }
     ) =>
       Effect.gen(function* () {
@@ -139,22 +149,38 @@ export const coreDefaults = (options: DefaultOptions) =>
         // The Pairing the connection keeps, not this hello's: a later token-less
         // hello on a scoped connection cannot relabel it.
         const pairing = pairingOf(client);
+        const teammate = teammateOf(client);
 
-        client.annotate(DeviceLabel, pairing?.name ?? deviceOf(client)?.name ?? deviceLabel);
+        // A Teammate's connection stands on its statement and its person's live Shares.
+        const standing =
+          teammate === null
+            ? null
+            : yield* Effect.flatMap(Shares, (shares) =>
+                accountStatement === undefined
+                  ? shares.standing(teammate)
+                  : shares.present(teammate, accountStatement)
+              ).pipe(Effect.tapError(() => Effect.sync(() => rejectConnection(client))));
+
+        const label = pairing?.name ?? deviceOf(client)?.name ?? deviceLabel;
+
+        client.annotate(DeviceLabel, standing?.shares[0]?.person.name ?? label);
         client.annotate(ClientCapabilities, capabilities);
         admissionOf(client).protocolReady = true;
 
-        // Extensions and Linked Devices have their own gates; only a token-less Client holds a key.
+        // Extensions, Linked Devices and Teammates have their own gates; only a token-less Client holds a key.
         const userAccess =
           pairing === null &&
           deviceOf(client) === null &&
+          teammate === null &&
           options.userAccess.present(client, { key: userKey, label: deviceLabel });
 
-        const response = {
+        const host = {
           ...helloHost(options.hostInfo, capabilities),
           capabilities: options.capabilities,
           userAccess,
         };
+
+        const response = standing === null ? host : { ...host, shares: standing.shares };
 
         return languageIdentity === null ? response : { ...response, languageIdentity };
       }),

@@ -3,12 +3,19 @@
  * Turns on, the Turn rail. Both bring a row into view through `reveal`.
  */
 import type { SessionId } from "@polaris/protocol";
+import { Predicate } from "effect";
 import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "zustand";
 import { useApp, useCommands } from "../../../shell/hooks.ts";
 import type { TurnView } from "../../../store/sessionModel.ts";
 import { olderRow, type Row, turnStartRow } from "../model/conversation.ts";
 import { useOlderTurns } from "../older.ts";
+import {
+  type CommentTick,
+  CommentTicks,
+  SelectionComment,
+  useSessionComments,
+} from "../../comments/index.ts";
 import { revisedIds, visualizationTurns } from "../model/polarisTools/index.ts";
 import { RAIL_MIN_TURNS } from "../model/rail.ts";
 import { groupOf, groupTurns } from "../model/turnGroups.ts";
@@ -92,6 +99,30 @@ const useRequestedTurn = (
   }, [pending, hostKey, sessionId, turns, rows, older, reveal]);
 };
 
+/** A tick per message with Comments, by its row (rows hold finished replies by item id). */
+const useCommentTicks = (props: TranscriptProps, rows: ReadonlyArray<Row>) => {
+  const { comments } = useSessionComments(props.hostKey, props.sessionId);
+
+  return useMemo((): ReadonlyArray<CommentTick> => {
+    const counts = new Map<string, number>();
+
+    for (const c of comments)
+      if (Predicate.isTagged(c.anchor, "MessageText"))
+        counts.set(c.anchor.messageId, (counts.get(c.anchor.messageId) ?? 0) + 1);
+
+    if (counts.size === 0) return [];
+
+    return rows.flatMap((row, index) => {
+      const id = row.kind === "item" && row.entry.kind === "item" ? row.entry.item.id : null;
+      const n = id === null ? undefined : counts.get(id);
+
+      return n === undefined
+        ? []
+        : [{ key: row.key, index, label: `${n} ${n === 1 ? "comment" : "comments"}` }];
+    });
+  }, [comments, rows]);
+};
+
 export interface TranscriptProps {
   readonly uiKey: string;
   readonly hostKey: string;
@@ -128,6 +159,7 @@ export const Transcript = (props: TranscriptProps) => {
     setReveal((r) => ({ key, nonce: (r?.nonce ?? 0) + 1, align }));
 
   useRequestedTurn(props, rows, older, (key) => revealRow(key, "start"));
+  const ticks = useCommentTicks(props, rows);
 
   return (
     <VisualizationScopeContext value={visualizations}>
@@ -155,6 +187,17 @@ export const Transcript = (props: TranscriptProps) => {
             }}
           />
         ) : null}
+        <CommentTicks
+          ticks={ticks}
+          total={rows.length}
+          onJump={(key) => revealRow(key, "center")}
+        />
+        <SelectionComment
+          host={host}
+          hostKey={props.hostKey}
+          sessionId={props.sessionId}
+          turns={turns}
+        />
         {find.finding === null ? null : (
           <TranscriptSearch
             turns={turns}

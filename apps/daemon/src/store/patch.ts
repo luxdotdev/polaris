@@ -65,6 +65,7 @@ export const patchTurn = (turn: Turn, patch: TurnPatch): Turn => {
     serviceTier: turn.serviceTier,
     status: turn.status,
     feedback: turn.feedback,
+    actor: turn.actor,
     shellCommand: turn.shellCommand,
     idleCompaction: turn.idleCompaction,
     checkpointBefore: turn.checkpointBefore,

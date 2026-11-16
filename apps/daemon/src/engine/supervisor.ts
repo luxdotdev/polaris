@@ -27,6 +27,7 @@ import {
   ConstellationLiveness,
   type ConstellationLivenessService,
 } from "../constellation/liveness.ts";
+import { coAuthorNote, sessionTrailers } from "../coAuthors/index.ts";
 import { LiveItem } from "../store/EventStore.ts";
 import { workingTurn } from "../store/model.ts";
 import { suggestReply } from "./suggestedReplies.ts";
@@ -482,12 +483,19 @@ const make = (
           // Before opening: a Harness may report its cursor as soon as it opens.
           const session = (yield* store.model).sessions.get(sessionId)?.session;
 
-          const promptInput =
+          const basePrompt =
             session !== undefined &&
             session.parentSessionId !== null &&
             session.harnessCursor === null
               ? yield* withForkContext(session, session.parentSessionId, prompt)
               : prompt;
+
+          const trailers = yield* sessionTrailers(store, sessionId, null).pipe(
+            Effect.orElseSucceed(() => [])
+          );
+
+          const promptInput =
+            trailers.length === 0 ? basePrompt : `${basePrompt}\n\n${coAuthorNote(trailers)}`;
 
           const entry = yield* timedStart(
             openHarness(sessionId),

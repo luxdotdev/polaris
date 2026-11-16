@@ -15,6 +15,7 @@ import {
   type ByteTransport,
   type Capability,
   GrantGate,
+  ShareGate,
   UserAccessGate,
   type HostInfo,
   type LinkedDevice,
@@ -47,7 +48,21 @@ import { Pairings } from "../extensions/pairings.ts";
 import { RemoteAccessLive } from "../extensions/remoteAccess.ts";
 import { RemoteAccessControl } from "../remoteAccess/service.ts";
 import { ConnectionDevice, deviceOf } from "../linkedDevices/connection.ts";
-import { DeviceConnections, type LinkTiming, RelayRoute } from "../linkedDevices/route.ts";
+import {
+  DeviceConnections,
+  type LinkTiming,
+  type RelayGuests,
+  RelayRoute,
+} from "../linkedDevices/route.ts";
+import {
+  ConnectionTeammate,
+  TeammateConnections,
+  type TeammateDevice,
+  teammateOf,
+} from "../shares/connection.ts";
+import { shareGateFor } from "../shares/gate.ts";
+import { Shares, type SharesOptions } from "../shares/service.ts";
+import { ShareStore } from "../shares/store.ts";
 import { HostPresence, type PresenceOptions } from "../presence/index.ts";
 import type { DeviceSession } from "../linkedDevices/session.ts";
 import { LinkedDevices } from "../linkedDevices/store.ts";
@@ -114,6 +129,8 @@ export interface ServeOptions<ROut, E, RIn> {
   readonly relayDefaultUrl?: string | undefined;
   /** For tests: a shorter presence lease (`HostPresence`). */
   readonly presence?: PresenceOptions;
+  /** For tests: the issuer's HTTP, the clock and the poll's timing (`Shares`). */
+  readonly shares?: SharesOptions | undefined;
 }
 
 export interface RunningServer {
@@ -186,6 +203,8 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       | HostSecrets
       | DeviceConnections
       | HostPresence
+      | Shares
+      | RelayGuests
     >
 > =>
   Effect.gen(function* () {
@@ -237,6 +256,8 @@ export const startServer = <ROut = never, E = never, RIn = never>(
         readonly tokenRequired: boolean;
         /** Over the Relay route: the Linked Device it acts as (ADR 0083). */
         readonly device: LinkedDevice | null;
+        /** Over the Relay route: the Teammate's device it acts as (ADR 0112). */
+        readonly teammate: TeammateDevice | null;
         readonly authenticated: () => void;
         rpcLimited: boolean;
         closing: boolean;
@@ -263,6 +284,35 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       | ((session: DeviceSession, device: LinkedDevice) => Effect.Effect<void>)
       | null = null;
 
+    // As `serveDevice`, for a Teammate's session.
+    let serveTeammate:
+      | ((session: DeviceSession, teammate: TeammateDevice) => Effect.Effect<void>)
+      | null = null;
+
+    const hostSecrets = options.secrets ?? HostSecrets.layer;
+
+    // Shares and their devices (ADR 0112): the Relay route lists and admits them as guests.
+    const shareServices = Shares.guestsLayer.pipe(
+      Layer.provideMerge(Shares.layer(options.shares)),
+      Layer.provide(
+        Layer.mergeAll(
+          ShareStore.layer(join(root, "shares.sqlite")).pipe(
+            Layer.catchTag("ShareStoreError", (error) =>
+              Layer.effect(
+                ShareStore,
+                Effect.fail(new ServiceError({ service: "transport", message: error.message }))
+              )
+            )
+          ),
+          hostSecrets,
+          Layer.succeed(TeammateConnections)({
+            serve: (session, teammate) =>
+              serveTeammate === null ? session.close : serveTeammate(session, teammate),
+          })
+        )
+      )
+    );
+
     const deviceServices = RelayRoute.layer({
       root,
       hostInfo,
@@ -271,6 +321,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     }).pipe(
       Layer.provideMerge(
         Layer.mergeAll(
+          shareServices,
           LinkedDevices.layer(join(root, "linked-devices.sqlite")).pipe(
             Layer.catchTag("LinkedDeviceStoreError", (error) =>
               Layer.effect(
@@ -279,7 +330,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
               )
             )
           ),
-          options.secrets ?? HostSecrets.layer,
+          hostSecrets,
           Layer.succeed(HostPresence)(presence),
           Layer.succeed(DeviceConnections)({
             serve: (session, device) =>
@@ -365,6 +416,9 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       if (connection.device !== null && deviceOf(client) === null)
         client.annotate(ConnectionDevice, connection.device);
 
+      if (connection.teammate !== null && teammateOf(client) === null)
+        client.annotate(ConnectionTeammate, connection.teammate);
+
       const current = () =>
         !connection.closing &&
         connections.get(client.id) === connection &&
@@ -418,8 +472,24 @@ export const startServer = <ROut = never, E = never, RIn = never>(
 
     yield* phase("starting the Daemon's services (event store, Engine, Constellations)");
 
+    const transportFacts = {
+      tokenRequired: (client: Rpc.ServerClient) =>
+        connections.get(client.id)?.tokenRequired ?? options.extensionTokenRequired ?? false,
+      deviceOf: (client: Rpc.ServerClient) => connections.get(client.id)?.device ?? null,
+      teammateOf: (client: Rpc.ServerClient) => connections.get(client.id)?.teammate ?? null,
+    };
+
+    // Built with the handlers, so the gate and they share one `Shares`.
+    const shareGate = Layer.effect(
+      ShareGate,
+      Effect.map(Shares, (shares) =>
+        shareGateFor({ shares, teammateOf: transportFacts.teammateOf })
+      )
+    ).pipe(Layer.provide(deviceServices));
+
     const handlers = yield* Layer.build(
-      Layer.merge(
+      Layer.mergeAll(
+        shareGate,
         defaultHandlers({ hostInfo, capabilities, userAccess }).pipe(
           Layer.provide(extensionServices)
         ),
@@ -445,12 +515,6 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       )
     );
 
-    const transportFacts = {
-      tokenRequired: (client: Rpc.ServerClient) =>
-        connections.get(client.id)?.tokenRequired ?? options.extensionTokenRequired ?? false,
-      deviceOf: (client: Rpc.ServerClient) => connections.get(client.id)?.device ?? null,
-    };
-
     // A defect fails only its own request (ADR 0064).
     yield* RpcServer.make(ServerRpcs, {
       spanPrefix: "polaris.rpc",
@@ -470,7 +534,8 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       transport: ByteTransport,
       tokenRequired: boolean,
       authenticated = () => {},
-      device: LinkedDevice | null = null
+      device: LinkedDevice | null = null,
+      teammate: TeammateDevice | null = null
     ) =>
       Effect.scoped(
         Effect.gen(function* () {
@@ -525,9 +590,10 @@ export const startServer = <ROut = never, E = never, RIn = never>(
               })
             );
 
-          const wireOptions = tokenRequired
-            ? { ...options.wire, ...GATEWAY_WIRE_LIMITS }
-            : options.wire;
+          // A Teammate's connection is as bounded as an Extension's.
+          const limited = tokenRequired || teammate !== null;
+
+          const wireOptions = limited ? { ...options.wire, ...GATEWAY_WIRE_LIMITS } : options.wire;
 
           const wire = yield* makeWire(transport, onJson, {
             ...wireOptions,
@@ -546,8 +612,9 @@ export const startServer = <ROut = never, E = never, RIn = never>(
             close: transport.close,
             authenticated,
             device,
+            teammate,
             tokenRequired: tokenRequired || (options.extensionTokenRequired ?? false),
-            rpcLimited: tokenRequired || (options.extensionTokenRequired ?? false),
+            rpcLimited: limited || (options.extensionTokenRequired ?? false),
             closing: false,
           };
 
@@ -594,6 +661,15 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       Effect.asVoid(
         Effect.forkIn(
           serveConnection(session, false, () => {}, device).pipe(
+            Effect.ensuring(Effect.sync(() => session.end()))
+          ),
+          scope
+        )
+      );
+    serveTeammate = (session, teammate) =>
+      Effect.asVoid(
+        Effect.forkIn(
+          serveConnection(session, false, () => {}, null, teammate).pipe(
             Effect.ensuring(Effect.sync(() => session.end()))
           ),
           scope

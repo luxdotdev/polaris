@@ -10,6 +10,7 @@
  * them with `EventStore.readTurns`.
  */
 import {
+  type Actor,
   type AgentSession,
   type ConstellationId,
   type ApprovalRequest,
@@ -408,7 +409,7 @@ const checkpointCommit = (turn: Turn, known: Turn | undefined): string | null =>
 /** A Turn's start or end; its user-Turn number and reply preview come from the fold, not the event. */
 const recordTurn =
   (started: boolean) =>
-  ({ turn }: { readonly turn: Turn }): Reducer =>
+  ({ turn, actor }: { readonly turn: Turn; readonly actor?: Actor | null }): Reducer =>
   (fold) =>
     updateSession(fold, turn.sessionId, (r) => {
       const known = r.turns.find((t) => t.id === turn.id);
@@ -426,6 +427,8 @@ const recordTurn =
         userTurnNumber: known?.userTurnNumber ?? opened?.number ?? turn.userTurnNumber,
         replyPreview: known?.replyPreview ?? turn.replyPreview,
         checkpointAfterCommit: checkpointCommit(turn, known),
+        // Who sent it: the TurnStarted's Actor, kept through the Turn's later events.
+        actor: known?.actor ?? actor ?? turn.actor,
       });
 
       // Idle compaction's Turn leaves the reply the user last read.
