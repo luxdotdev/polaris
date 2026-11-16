@@ -69,10 +69,14 @@ module shares_model {
   def covering(by: int, session: int): Set[int] = s.shares.keys().filter(id =>
     s.shares.get(id).person == by and live(s.shares.get(id), s.now)
       and (BUG_UNSCOPED or covers(s.shares.get(id).target, session)))
+  /** `need` is a Grant, or `contributor` for what no Grant names (`SetModel`, `AcceptTurns`…). */
+  pure def holds(share: Share, need: str): bool =
+    if (need == "contributor") share.role == "contributor" else share.grant.contains(need)
   def decide(by: int, session: int, need: str): Outcome =
     if (by == OWNER) Allowed
     else if (covering(by, session) == Set()) NotShared
-    else if (covering(by, session).exists(id => s.shares.get(id).grant.contains(need))) Allowed
+    else if (covering(by, session).exists(id => holds(s.shares.get(id), need))) Allowed
+    else if (need == "contributor") NotShared
     else NotGranted(need)
   /** The owner always acts; a Teammate only over a connection with a statement. */
   def present(by: int): bool = by == OWNER or s.statements.keys().contains(by)
@@ -225,7 +229,7 @@ module shares_model {
     nondet role = Set("contributor", "commenter").oneOf()
     nondet lifetime = 1.to(MAX_LIFETIME + 1).oneOf()
     nondet vouched = Set(true, false).oneOf()
-    nondet need = Set("read", "comment", "approve", "turn").oneOf()
+    nondet need = Set("read", "comment", "approve", "turn", "contributor").oneOf()
     nondet comment = COMMENT_IDS.oneOf()
     nondet ids = COMMENT_IDS.powerset().oneOf()
     nondet resolved = Set(true, false).oneOf()
@@ -251,7 +255,7 @@ module shares_model {
       s.shares.get(id).person == s.request.by,
       live(s.shares.get(id), s.now),
       covers(s.shares.get(id).target, s.request.session),
-      s.shares.get(id).grant.contains(s.request.need),
+      holds(s.shares.get(id), s.request.need),
     })
   /** A Teammate's connection has an unexpired statement and a live Share for its person. */
   val connectionsAreVouched = s.statements.keys().forall(p =>
@@ -288,6 +292,8 @@ module shares {
     .then(createShare(0, 1, SessionT(0), "contributor", DEFAULT_LIFETIME))
     .then(hello(1, true))
     .then(call(1, 0, "turn")).expect(s.last == Allowed)
+    .then(call(1, 0, "contributor")).expect(s.last == Allowed)
+    .then(call(1, 1, "contributor")).expect(s.last == NotShared)
     .then(call(1, 1, "read")).expect(s.last == NotShared)
     .then(sendFeedback(1, 1, Set())).expect(s.last == NotShared and s.turns.length() == 0 and safety)
 
@@ -305,6 +311,7 @@ module shares {
     .then(hello(1, true))
     .then(addComment(1, 0, 0)).expect(s.last == Allowed)
     .then(call(1, 0, "turn")).expect(s.last == NotGranted("turn"))
+    .then(call(1, 0, "contributor")).expect(s.last == NotShared)
     .then(sendFeedback(1, 0, Set(0))).expect(s.last == NotGranted("turn") and s.turns.length() == 0)
     .then(sendFeedback(OWNER, 0, Set(0))).expect(s.last == Allowed)
     .expect(s.turns[0].actor == OWNER and s.comments.get(0).author == 1 and s.comments.get(0).sentIn == 0)

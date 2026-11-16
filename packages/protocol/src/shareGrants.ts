@@ -1,9 +1,9 @@
 /**
  * What a Teammate's connection may do (ADR 0112): an allowlist of RPCs and `dispatch`
- * Commands, each with the Grant it needs from a Share. A request passes only when a live
- * Share of the connection's person covers what the request touches and holds that Grant;
- * everything else is the owner's. Unlike `grants.ts` it is not exhaustive: a new RPC or
- * Command is refused to Teammates until someone lists it here.
+ * Commands by role. A Commenter watches and comments; a Contributor acts in the shared
+ * target as the owner can. Share management, archiving, terminals, file writes and every
+ * Host-wide call stay the owner's and are never listed. Unlike `grants.ts` it is not
+ * exhaustive: a new RPC or Command is refused to Teammates until someone lists it here.
  */
 import { Schema } from "effect";
 import { RpcGroup, RpcMiddleware } from "effect/rpc";
@@ -27,8 +27,11 @@ import {
 } from "./shares.ts";
 import { ReadTurns } from "./turns.ts";
 
-/** `open`: any Teammate connection, whatever it touches. A Grant: within a Share holding it. */
-export type ShareAccess = GrantKind | "open";
+/**
+ * `open`: any Teammate connection, whatever it touches. A Grant: within a Share holding it.
+ * `contributor`: within a Contributor's Share, for what no Grant names.
+ */
+export type ShareAccess = GrantKind | "open" | "contributor";
 
 /** `dispatch` itself is decided per Command (`SHARE_COMMANDS`). */
 export const SHARE_RPCS = {
@@ -41,8 +44,13 @@ export const SHARE_RPCS = {
   "git.diff": "read",
   "constellation.subscribe": "read",
   "shares.watchPresence": "read",
+  // K2 lists a Contributor's Constellation Lead actions here (start Workers, review Claims).
 } as const satisfies Partial<Record<DaemonRpcTag, ShareAccess>>;
 
+/**
+ * `turn` and `approve` entries are what a Contributor's Share allows; the Daemon still
+ * refuses them to Teammates until the user gate returns (ENG-927).
+ */
 export const SHARE_COMMANDS = {
   SendTurn: "turn",
   Steer: "turn",
@@ -51,11 +59,15 @@ export const SHARE_COMMANDS = {
   Retry: "turn",
   SendFeedback: "turn",
   RespondToApproval: "approve",
+  SetModel: "contributor",
+  SetPermissionMode: "contributor",
+  RenameSession: "contributor",
+  AcceptTurns: "contributor",
   AddComment: "comment",
   EditComment: "comment",
   ResolveComment: "comment",
   ReopenComment: "comment",
-} as const satisfies Partial<Record<Command["_tag"], GrantKind>>;
+} as const satisfies Partial<Record<Command["_tag"], Exclude<ShareAccess, "open">>>;
 
 /**
  * What a request touches, as the Host resolves it from the payload: its Agent Session,
@@ -87,7 +99,8 @@ const shareAccess = (rpc: string, command: string | null): ShareAccess | null =>
  * The refusal for a request on a Teammate's connection, or null when it may proceed.
  * `shares` are the connection's person's Shares on this Host and `now` the Host's clock in
  * milliseconds. For `dispatch`, `command` is the Command's tag. `NotShared`: only the owner may,
- * or no live Share covers `touch`. `NotGranted`: one covers it, and none holds the Grant.
+ * no live Share covers `touch`, or it takes a Contributor and none of them is one.
+ * `NotGranted`: one covers it, and none holds the Grant.
  */
 export const decideShareAccess = (
   shares: ReadonlyArray<Share>,
@@ -108,6 +121,9 @@ export const decideShareAccess = (
   );
 
   if (covering.length === 0) return new NotShared({ what });
+
+  if (access === "contributor")
+    return covering.some((share) => share.role === "contributor") ? null : new NotShared({ what });
 
   return covering.some((share) => share.grant.includes(access))
     ? null

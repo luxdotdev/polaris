@@ -129,6 +129,35 @@ describe("the Share gate", () => {
     expect(dispatch("RespondToApproval")).toEqual(
       new NotGranted({ what: "dispatch:RespondToApproval", needed: "approve" })
     );
+
+    for (const command of ["SetModel", "SetPermissionMode", "RenameSession", "AcceptTurns"])
+      expect(dispatch(command)).toEqual(new NotShared({ what: `dispatch:${command}` }));
+  });
+
+  test("a Contributor acts in the shared session as the owner can", () => {
+    const shares = [share("contributor", onSession)];
+
+    const commands = [
+      "SendTurn",
+      "Steer",
+      "Interrupt",
+      "Continue",
+      "Retry",
+      "SendFeedback",
+      "RespondToApproval",
+      "SetModel",
+      "SetPermissionMode",
+      "RenameSession",
+      "AcceptTurns",
+      "AddComment",
+    ];
+
+    for (const command of commands) {
+      expect(decideShareAccess(shares, NOW, "dispatch", command, touching(session))).toBeNull();
+      expect(decideShareAccess(shares, NOW, "dispatch", command, touching(other))).toBeInstanceOf(
+        NotShared
+      );
+    }
   });
 
   test("an ended Share admits nothing", () => {
@@ -153,7 +182,10 @@ describe("the Share gate", () => {
       ["shares.create", null],
       ["subscribeHost", null],
       ["dispatch", "ArchiveSession"],
-      ["dispatch", "SetPermissionMode"],
+      ["dispatch", "ForkSession"],
+      ["dispatch", "RunShellCommand"],
+      ["shares.revoke", null],
+      ["files.read", null],
       ["dispatch", null],
       ["dispatch", "toString"],
     ] as const;

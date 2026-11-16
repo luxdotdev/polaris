@@ -27,7 +27,10 @@ const COPY: Readonly<Record<GrantKind, { readonly label: string; readonly help: 
   voice: { label: "Voice", help: "Talk to agent sessions by voice" },
 };
 
-export const GRANT_CHOICES: ReadonlyArray<GrantChoice> = GRANT_KINDS.map((kind) => ({
+// TODO(ENG-941): `comment` is hidden until the Daemon serves Comments; F3 decides if Pairings get it.
+const PAIRABLE: ReadonlyArray<GrantKind> = GRANT_KINDS.filter((kind) => kind !== "comment");
+
+export const GRANT_CHOICES: ReadonlyArray<GrantChoice> = PAIRABLE.map((kind) => ({
   kind,
   ...COPY[kind],
 }));

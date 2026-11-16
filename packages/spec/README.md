@@ -740,7 +740,7 @@ leads a Constellation and session 2 is its Worker.
 |---|---|
 | `Share`, `Target`, `grantOf` | `shares.ts` `Share`, `ShareTarget` (`Session` or `Constellation`), `SHARE_ROLE_GRANTS` (a Contributor holds every Grant, a Commenter `read` and `comment`) |
 | `createShare`, `renewShare`, `revokeShare` | `shares.create`, `shares.renew`, `shares.revoke`. A Worker's session is refused as a target (`ShareRefused`: `worker`); a lifetime past `MAX_LIFETIME` is refused (`shareExpiry`, `SHARE_MAX_LIFETIME_MS`); a revoked Share is not renewed (`ended`) |
-| `live`, `covers`, `covering`, `decide`, `call` | `isShareLive`, and `shareGrants.ts` `shareCovers` and `decideShareAccess` over `SHARE_RPCS` / `SHARE_COMMANDS`: `NotShared` when no live Share of the person covers what the request touches, `NotGranted` when one covers it and none holds the Grant |
+| `live`, `covers`, `covering`, `decide`, `call` | `isShareLive`, and `shareGrants.ts` `shareCovers` and `decideShareAccess` over `SHARE_RPCS` / `SHARE_COMMANDS`: `NotShared` when no live Share of the person covers what the request touches, `NotGranted` when one covers it and none holds the Grant. The allowlist is by role (`holds`): a Commenter's Share holds `read` and `comment` (subscribe, diff, presence, the Comment Commands); a Contributor's also `turn` (`SendTurn`, `Steer`, `Interrupt`, `Continue`, `Retry`, `SendFeedback`), `approve` (`RespondToApproval`) and `contributor`, the need of what no Grant names (`SetModel`, `SetPermissionMode`, `RenameSession`, `AcceptTurns`), refused to a Commenter as `NotShared` |
 | `hello`, `refresh`, `statements`, `admitted` | `hello`'s `accountStatement` and `account.refreshStatement` (`StatementRejected`); `vouched` stands for the statement verifying against its issuer's keys and binding this device. A statement lives `STATEMENT_LIFETIME_S`; the Host closes a connection whose statement lapsed, or whose person has no live Share left |
 | `tick` | The Host's clock: a Share expires (`Expired` in the share log) and a statement lapses |
 | `addComment`, `editComment`, `setResolved` | `AddComment`, `EditComment`, `ResolveComment` / `ReopenComment` and their events `CommentAdded`, `CommentEdited`, `CommentResolved`, `CommentReopened` (`comments.ts`). All need the `comment` Grant (`COMMAND_GRANTS`, `SHARE_COMMANDS`); only its author edits a Comment, until it is sent; `mayResolveComment` is the author, the owner or a Contributor |
@@ -772,7 +772,10 @@ decided where `SendTurn` is; in a session that approves for itself it also needs
 are not modelled; `vouched` abstracts the statement's signature, device binding and expiry
 check. What a request touches is an input: the Host resolves a payload to its session and
 Constellation. One connection per person. RPCs and Commands off the Teammate allowlist
-(`NotShared` whatever they touch) are a table lookup, covered by `shares.test.ts`.
+(`NotShared` whatever they touch: Share management, archiving, terminals, file writes and every
+Host-wide call) are a table lookup, covered by `shares.test.ts`. A Contributor's Constellation
+Lead actions are not listed yet. The Daemon refuses `turn` and `approve` to Teammates at
+runtime until the user gate returns (ENG-927); the model states what the Share allows.
 
 **Not yet tested against real code.** The Daemon answers `shares.*` with `Unsupported` and
 refuses the Comment Commands. The Tasks that serve them add the model-based tests and bind
