@@ -87,7 +87,7 @@ reads and writes, every Host-wide call.
   stop), `answer` and `message` (`turn`), and `status`. They reach the Constellation as the user
   would. A Teammate's Workers are new sessions on this Host in Worktrees the Host makes: an
   existing session would join the shared Constellation and widen the Share, so it is refused, as
-  are another Host and a Worktree path. What starts agent work (all but accepting, approving and
+  are another Host and a Worktree path, branch or base the Teammate names. What starts agent work (all but accepting, approving and
   stopping a Claim) waits with Turns while `teammatesMayAct` is off. Planning, pausing,
   completing, archiving and handing over (`constellation.plan`, `set_state`), Share management,
   terminals and file writes stay the owner's.

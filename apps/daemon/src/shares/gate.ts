@@ -33,6 +33,8 @@ const Placement = Schema.Struct({
   _tag: Schema.String,
   hostId: Schema.optionalKey(Schema.String),
   worktree: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  branch: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  base: Schema.optionalKey(Schema.NullOr(Schema.String)),
 });
 
 /** What a request names, wherever its payload puts it. */
@@ -176,12 +178,13 @@ const rpcAccess = (rpc: string): string | null => {
 
 /**
  * Whether a Teammate may place a Worker there: a new session on this Host, in a Worktree the
- * Host makes. An existing session would join the shared Constellation, and widen the Share.
+ * Host makes on the branch and base the Constellation picks. An existing session, path, branch or
+ * base the Teammate names would reach past the shared Constellation, and widen the Share.
  */
 const placesWithin = (
-  { _tag: placed, hostId: on, worktree }: typeof Placement.Type,
+  { _tag: placed, hostId: on, worktree, branch, base }: typeof Placement.Type,
   hostId: string
-) => placed === "New" && on === hostId && worktree == null;
+) => placed === "New" && on === hostId && worktree == null && branch == null && base == null;
 
 /** What starts agent work, held back with Turns while Teammates may not act. */
 const startsWork = (rpc: string, subject: RequestSubject): boolean => {

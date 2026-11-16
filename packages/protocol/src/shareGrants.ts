@@ -64,7 +64,7 @@ export const SHARE_RPCS = {
    * What the owner does through a Constellation's Lead, by Grant: start Workers, review Claims,
    * answer and message. Planning, pausing, completing, archiving and handing over
    * (`constellation.plan`, `constellation.set_state`) stay the owner's. The Daemon also keeps a
-   * Teammate's Workers on this Host, in Worktrees it makes, and holds what starts agent work
+   * Teammate's Workers on this Host, in Worktrees, branches and bases it picks, and holds what starts agent work
    * back while Turns are.
    */
   "constellation.dispatch": "start",

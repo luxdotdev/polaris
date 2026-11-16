@@ -184,6 +184,14 @@ test.each([
     "a Worktree it names",
     WorkerPlacement.cases.New.make({ hostId: HostId.make(HOST), worktree: "/elsewhere" }),
   ],
+  [
+    "a branch it names",
+    WorkerPlacement.cases.New.make({ hostId: HostId.make(HOST), branch: "main" }),
+  ],
+  [
+    "a base it names",
+    WorkerPlacement.cases.New.make({ hostId: HostId.make(HOST), base: "secret" }),
+  ],
 ])("a Teammate never places a Worker in %s", (_, worker) => {
   const contributor = constellationShare("contributor");
   const sendBack = ReviewAction.cases.SendBack.make({ reason: "redo", worker });
