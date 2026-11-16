@@ -136,11 +136,7 @@ const AccountsCard = ({
     <SettingsCard
       title="Accounts"
       aside={rows.length === 0 ? undefined : accountsSummary(view, clientCopy().machine)}
-      status={
-        view.storageAvailable
-          ? "The commit email is a verified address on the GitHub account; it credits your shared turns."
-          : clientCopy().noTokenStore
-      }
+      status={view.storageAvailable ? "Signs in with GitHub" : clientCopy().noTokenStore}
       action={
         adding ? undefined : (
           <SettingsButton variant="primary" disabled={!view.storageAvailable} onClick={onAdd}>
@@ -157,6 +153,12 @@ const AccountsCard = ({
             <AccountRow key={row.id} row={row} onSignInAgain={onAdd} />
           ))}
         </SettingsWell>
+      )}
+      {rows.length === 0 ? null : (
+        <p className="text-caption text-text-subtle px-gap">
+          The commit email is a verified address on the GitHub account; it credits your shared
+          turns.
+        </p>
       )}
     </SettingsCard>
   );
@@ -195,30 +197,43 @@ const SharingAccounts = ({
   }));
 
   return (
-    <WorkspaceOverrides
-      label="Sharing account per workspace"
-      keys={Object.keys(view.workspaces).filter((key) => options.some((o) => o.key === key))}
-      options={options}
-      addLabel="Each workspace is shared as the Polaris account chosen at its first share."
-      onAdd={(key) => setWorkspace(options, key, first.id)}
-      onRemove={(key) => setWorkspace(options, key, null)}
-      control={(key) => (
-        <span className="w-[200px] shrink-0">
-          <SettingsSelect
-            label="Polaris account"
-            value={view.workspaces[key]}
-            options={accountOptions}
-            onChange={(id) => setWorkspace(options, key, id)}
-          />
-        </span>
-      )}
-    />
+    <section className="flex flex-col gap-2" aria-label="Sharing account per workspace">
+      <h2 className="text-heading-sm text-text-strong px-gap">Sharing account per workspace</h2>
+      <WorkspaceOverrides
+        label="Sharing account per workspace"
+        keys={Object.keys(view.workspaces).filter((key) => options.some((o) => o.key === key))}
+        options={options}
+        addLabel="Each workspace is shared as the Polaris account chosen at its first share."
+        onAdd={(key) => setWorkspace(options, key, first.id)}
+        onRemove={(key) => setWorkspace(options, key, null)}
+        control={(key) => (
+          <span className="w-[200px] shrink-0">
+            <SettingsSelect
+              label="Polaris account"
+              value={view.workspaces[key]}
+              options={accountOptions}
+              onChange={(id) => setWorkspace(options, key, id)}
+            />
+          </span>
+        )}
+      />
+    </section>
   );
 };
 
 const Body = ({ view }: { readonly view: PolarisAccountsView }) => {
   const options = useWorkspaceOptions();
   const [adding, setAdding] = useState(false);
+  const count = view.accounts.length;
+  const [counted, setCounted] = useState(count);
+
+  // An Account just added closes Add account.
+  if (count !== counted) {
+    setCounted(count);
+
+    if (count > counted) setAdding(false);
+  }
+
   const showAdd = adding || view.signIn !== null;
 
   return (

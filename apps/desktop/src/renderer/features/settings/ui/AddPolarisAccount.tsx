@@ -20,10 +20,10 @@ const Radio = ({ checked }: { readonly checked: boolean }) => (
     aria-hidden
     className={cn(
       "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border",
-      checked ? "border-focus" : "border-hairline-strong"
+      checked ? "border-text-strong" : "border-text-subtle/60"
     )}
   >
-    {checked ? <span className="bg-focus size-2 rounded-full" /> : null}
+    {checked ? <span className="bg-text-strong size-2 rounded-full" /> : null}
   </span>
 );
 
@@ -140,7 +140,7 @@ export const AddPolarisAccount = ({
       title="Add account"
       aside="Account server"
       data-testid="add-polaris-account"
-      status="GitHub accounts for pull requests stay in Settings → Review."
+      status="GitHub accounts stay in Review"
       action={
         <span className="flex items-center gap-2">
           <Button variant="ghost" size="xs" onClick={cancel}>

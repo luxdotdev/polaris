@@ -177,3 +177,18 @@ test("with no Account, the page offers only Add account: no sharing per workspac
   expect(screen.getByText("No Polaris account on this Mac yet")).not.toBeNull();
   expect(screen.queryByText("Sharing account per workspace")).toBeNull();
 });
+
+test("Add account closes once the new Account arrives", () => {
+  mount(view());
+
+  act(() => {
+    fireEvent.click(screen.getByRole("button", { name: "Add account" }));
+  });
+  expect(screen.queryByTestId("add-polaris-account")).not.toBeNull();
+  act(() => {
+    fake
+      .feeds("accounts")[0]
+      ?.listener.items([view({ accounts: [...view().accounts, account("a3", "hubot")] })]);
+  });
+  expect(screen.queryByTestId("add-polaris-account")).toBeNull();
+});
