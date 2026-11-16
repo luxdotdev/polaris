@@ -3,6 +3,7 @@ import { MAX_WAIT_S } from "../api/longPoll.ts";
 import type { AccountsConfig } from "../config.ts";
 import { migrateDatabase, openDatabase } from "../db/index.ts";
 import { accountServer } from "../server/index.ts";
+import { challengeOf } from "../signIn/index.ts";
 import { type FakeGitHubUser, startFakeGitHub } from "./fakeGitHub.ts";
 import { freshDatabase } from "./postgres.ts";
 
@@ -29,6 +30,14 @@ export const readJson = async <S extends Schema.ConstraintDecoder<unknown>>(
 
 /** A random X25519-sized key in base64url, as a device's relay key looks. */
 export const randomNoiseKey = () =>
+  Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
+
+/** The Desktop App's loopback redirect in tests; nothing listens there. */
+export const LOOPBACK = "http://127.0.0.1:9/callback";
+
+const Token = Schema.Struct({ token: Schema.String });
+
+const randomToken = () =>
   Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
 
 /** A whole Account Server on a local port, signing people in through a fake GitHub. */
@@ -95,24 +104,6 @@ export const startAccounts = async () => {
     throw new Error("too many redirects");
   };
 
-  /** Signs `user` in the way a Desktop App does; returns the session token its loopback receives. */
-  const signIn = async (user: FakeGitHubUser, jar = new CookieJar()) => {
-    github.signInAs(user);
-    const loopback = "http://127.0.0.1:9/callback";
-
-    const { url } = await browse(
-      `${origin}/sign-in?redirect_uri=${encodeURIComponent(loopback)}&state=s1`,
-      jar
-    );
-
-    const back = new URL(url);
-    const token = back.searchParams.get("token");
-
-    if (!url.startsWith(loopback) || token === null) throw new Error(`sign-in ended at ${url}`);
-
-    return { token, state: back.searchParams.get("state"), jar };
-  };
-
   const call = (
     method: string,
     path: string,
@@ -140,11 +131,46 @@ export const startAccounts = async () => {
     return fetch(`${origin}${path}`, init);
   };
 
+  /** Runs the browser half of a Desktop App's sign-in; returns what its loopback receives. */
+  const authorize = async (
+    user: FakeGitHubUser,
+    jar = new CookieJar(),
+    verifier = randomToken()
+  ) => {
+    github.signInAs(user);
+    const start = new URL(`${origin}/sign-in`);
+    start.searchParams.set("redirect_uri", LOOPBACK);
+    start.searchParams.set("state", "s1");
+    start.searchParams.set("code_challenge", challengeOf(verifier));
+    start.searchParams.set("code_challenge_method", "S256");
+    const { url } = await browse(start.toString(), jar);
+    const back = new URL(url);
+    const code = back.searchParams.get("code");
+
+    if (!url.startsWith(LOOPBACK) || code === null) throw new Error(`sign-in ended at ${url}`);
+
+    return { code, verifier, state: back.searchParams.get("state"), url: back, jar };
+  };
+
+  const exchange = (code: string, verifier: string) =>
+    call("POST", "/v1/sign-in/token", { body: { code, code_verifier: verifier } });
+
+  /** Signs `user` in the way a Desktop App does; returns the session token it trades its code for. */
+  const signIn = async (user: FakeGitHubUser, jar = new CookieJar()) => {
+    const authorized = await authorize(user, jar);
+    const response = await exchange(authorized.code, authorized.verifier);
+    const { token } = await readJson(response, Token);
+
+    return { token, state: authorized.state, url: authorized.url, jar };
+  };
+
   return {
     origin,
     github,
     db,
     browse,
+    authorize,
+    exchange,
     signIn,
     call,
     stop: async () => {

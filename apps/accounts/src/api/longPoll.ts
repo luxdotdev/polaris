@@ -14,8 +14,15 @@ export const STATEMENT_REFRESH_MS = 5 * 60 * 1000;
 /** How often a waiting request rereads, for changes made on another instance. */
 const RECHECK_MS = 5000;
 
-const etagOf = (version: number, now: number) =>
-  `"${version}.${Math.floor(now / STATEMENT_REFRESH_MS)}"`;
+/** Covers the device list too: a sign-out drops a device without bumping the Share's version. */
+const etagOf = (version: number, devices: ReadonlyArray<{ noiseKey: string }>, now: number) => {
+  const keys = new Bun.CryptoHasher("sha256")
+    .update(devices.map((d) => d.noiseKey).join(","))
+    .digest("base64url")
+    .slice(0, 16);
+
+  return `"${version}.${keys}.${Math.floor(now / STATEMENT_REFRESH_MS)}"`;
+};
 
 const waitSeconds = (url: string) => {
   const raw = new URL(url, "http://local").searchParams.get("wait");
@@ -58,8 +65,8 @@ export const devicesResponse = Effect.fn("devicesResponse")(function* (inviteId:
   while (true) {
     const signal = yield* changes.next(inviteId);
     const now = Date.now();
-    const { version } = yield* shareDevices(inviteId);
-    const etag = etagOf(version, now);
+    const { version, devices } = yield* shareDevices(inviteId);
+    const etag = etagOf(version, devices, now);
 
     if (etag !== ifNoneMatch) return yield* fullResponse(inviteId, etag);
     const untilRefresh = STATEMENT_REFRESH_MS - (now % STATEMENT_REFRESH_MS);

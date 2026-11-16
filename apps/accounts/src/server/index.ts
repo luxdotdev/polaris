@@ -23,7 +23,7 @@ export const accountServer = (config: AccountsConfig, db: Database) => {
   );
 
   const api = HttpRouter.toWebHandler(routes);
-  const page = pages(config, auth);
+  const page = pages(config, auth, db);
 
   const fetch = async (request: Request): Promise<Response> => {
     const path = new URL(request.url).pathname;

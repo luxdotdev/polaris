@@ -1,16 +1,20 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import { sql } from "drizzle-orm";
 import { Schema } from "effect";
 import { Me, Person } from "./api/definition.ts";
 import {
   type Accounts,
   CookieJar,
+  LOOPBACK,
   randomNoiseKey,
   readJson,
   startAccounts,
 } from "./testing/harness.ts";
 
 const Statement = Schema.Struct({ jwt: Schema.String });
+
+const Token = Schema.Struct({ token: Schema.String });
 
 const alex = {
   id: 1001,
@@ -98,13 +102,20 @@ describe("sign-in and statements", () => {
     ).toBe(400);
   });
 
-  test("sign-in hands a token only to a loopback or polaris: redirect", async () => {
-    const { response } = await accounts.browse(
-      `${accounts.origin}/sign-in?redirect_uri=${encodeURIComponent("https://attacker.example/cb")}`,
-      new CookieJar()
-    );
+  test("sign-in refuses a web redirect, and a device that sends no S256 challenge", async () => {
+    const challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
 
-    expect(response.status).toBe(400);
+    for (const query of [
+      `redirect_uri=${encodeURIComponent("https://attacker.example/cb")}&state=s&code_challenge=${challenge}&code_challenge_method=S256`,
+      `redirect_uri=${encodeURIComponent(LOOPBACK)}&state=s`,
+    ]) {
+      const { response } = await accounts.browse(
+        `${accounts.origin}/sign-in?${query}`,
+        new CookieJar()
+      );
+
+      expect(response.status).toBe(400);
+    }
   });
 
   test("finding a person needs a session and an existing login", async () => {
@@ -233,19 +244,74 @@ describe("identity is the GitHub account", () => {
     expect(byNewLogin.personId).toBe(caseyId);
   });
 
-  test("finishing a sign-in needs the browser that started it", async () => {
-    const { jar } = await accounts.signIn(alex);
-    const loopback = encodeURIComponent("http://127.0.0.1:9/callback");
+  test("signing in again brings the login, name and avatar up to date", async () => {
+    const riley = { id: 4101, login: "riley", name: "Riley", emails: [] };
+    await accounts.signIn(riley);
+    accounts.github.rename(4101, "riley-renamed");
+    const { token } = await accounts.signIn({ ...riley, login: "riley-renamed", name: "Riley R" });
+    const me = await readJson(await accounts.call("GET", "/v1/me", { token }), Me);
+    expect(me).toMatchObject({ login: "riley-renamed", name: "Riley R" });
+  });
+});
 
-    const forged = await fetch(
-      `${accounts.origin}/sign-in/done?redirect_uri=${loopback}&nonce=guess`,
-      {
-        redirect: "manual",
-        headers: { cookie: jar.header() },
-      }
+describe("the device's sign-in handoff (RFC 8252)", () => {
+  test("the redirect gets a one-use code and the state, never a token", async () => {
+    const { code, verifier, url } = await accounts.authorize(alex);
+    expect([...url.searchParams.keys()].sort()).toEqual(["code", "state"]);
+    expect(url.searchParams.get("state")).toBe("s1");
+
+    const first = await accounts.exchange(code, verifier);
+    const { token } = await readJson(first, Token);
+    expect((await accounts.call("GET", "/v1/me", { token })).status).toBe(200);
+
+    const again = await accounts.exchange(code, verifier);
+    expect(again.status).toBe(400);
+  });
+
+  test("a code is worth nothing without its verifier, and a wrong guess spends it", async () => {
+    const { code, verifier } = await accounts.authorize(alex);
+    expect((await accounts.exchange(code, `${verifier}x`)).status).toBe(400);
+    expect((await accounts.exchange(code, verifier)).status).toBe(400);
+  });
+
+  test("a code lapses after 60 seconds", async () => {
+    const { code, verifier } = await accounts.authorize(alex);
+    await accounts.db.execute(
+      sql`update sign_in set code_expires_at = now() - interval '1 second'`
     );
+    expect((await accounts.exchange(code, verifier)).status).toBe(400);
+  });
 
-    expect(forged.status).toBe(400);
-    expect(forged.headers.get("location")).toBeNull();
+  test("the completion URL hands out nothing without a sign-in this browser started", async () => {
+    const { jar } = await accounts.signIn(alex);
+
+    const direct = await fetch(`${accounts.origin}/sign-in/done`, {
+      redirect: "manual",
+      headers: { cookie: jar.header() },
+    });
+
+    expect(direct.status).toBe(400);
+    expect(direct.headers.get("location")).toBeNull();
+  });
+
+  test("a browser already signed in still goes through GitHub for each new sign-in", async () => {
+    const { jar } = await accounts.signIn(alex);
+    const start = new URL(`${accounts.origin}/sign-in`);
+    start.searchParams.set("redirect_uri", LOOPBACK);
+    start.searchParams.set("state", "s2");
+    start.searchParams.set("code_challenge", "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
+    start.searchParams.set("code_challenge_method", "S256");
+    const started = await fetch(start, { redirect: "manual", headers: { cookie: jar.header() } });
+    expect(started.status).toBe(302);
+    expect(started.headers.get("location")).toStartWith(accounts.github.url);
+    jar.keep(started);
+
+    const skipped = await fetch(`${accounts.origin}/sign-in/done`, {
+      redirect: "manual",
+      headers: { cookie: jar.header() },
+    });
+
+    expect(skipped.status).toBe(400);
+    expect(skipped.headers.get("location")).toBeNull();
   });
 });

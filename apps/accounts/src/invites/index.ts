@@ -8,7 +8,7 @@ import {
   type Role,
   type ShareRef,
 } from "../api/definition.ts";
-import { invite, shareDevice, user } from "../db/schema.ts";
+import { invite, session, shareDevice, user } from "../db/schema.ts";
 import { findByLogin, findPerson, toPerson } from "../people/index.ts";
 import { Accounts, ShareChanges, store } from "../server/services.ts";
 
@@ -76,6 +76,7 @@ export const createInvite = Effect.fn("createInvite")(function* (
       id: inviteId,
       ownerId,
       inviteeId: invitee.id,
+      inviteeGithubId: invitee.githubId,
       shareId: input.share.id,
       shareTitle: input.share.title,
       shareKind: input.share.kind,
@@ -151,6 +152,11 @@ const answerable = (personId: string, inviteId: string) =>
   and(
     eq(invite.id, inviteId),
     eq(invite.inviteeId, personId),
+    // Only the GitHub account the owner invited, whatever login it has now.
+    eq(
+      invite.inviteeGithubId,
+      sql`(select ${user.githubId} from ${user} where ${user.id} = ${personId})`
+    ),
     or(
       eq(invite.status, "accepted"),
       and(eq(invite.status, "pending"), gt(invite.expiresAt, sql`now()`))
@@ -166,12 +172,16 @@ const notAnswerable = Effect.fn(function* (personId: string, inviteId: string) {
 
 class NotAnswerable extends Error {}
 
-/** Accepts an Invite from one device; a second device of the same person accepts it again. */
+/**
+ * Accepts an Invite from one device; a second device of the same person accepts it again. The
+ * device stays on the Share while the session that accepted stays signed in.
+ */
 export const acceptInvite = Effect.fn("acceptInvite")(function* (
-  personId: string,
+  person: { readonly personId: string; readonly sessionId: string },
   inviteId: string,
   device: { readonly relayAddress: string; readonly noiseKey: string }
 ) {
+  const { personId, sessionId } = person;
   const { db } = yield* Accounts;
   const changes = yield* ShareChanges;
 
@@ -192,10 +202,10 @@ export const acceptInvite = Effect.fn("acceptInvite")(function* (
 
       await tx
         .insert(shareDevice)
-        .values({ inviteId, ...device })
+        .values({ inviteId, sessionId, ...device })
         .onConflictDoUpdate({
           target: [shareDevice.inviteId, shareDevice.noiseKey],
-          set: { relayAddress: device.relayAddress },
+          set: { relayAddress: device.relayAddress, sessionId },
         });
 
       return updated;
@@ -267,7 +277,7 @@ export const revokeShare = Effect.fn("revokeShare")(function* (inviteId: string)
   yield* changes.changed(inviteId);
 });
 
-/** The Share's version and its teammate's accepted devices (none unless accepted). */
+/** The Share's version and its teammate's accepted devices still signed in (none unless accepted). */
 export const shareDevices = Effect.fn("shareDevices")(function* (inviteId: string) {
   const { db } = yield* Accounts;
 
@@ -289,7 +299,8 @@ export const shareDevices = Effect.fn("shareDevices")(function* (inviteId: strin
           db
             .select({ relayAddress: shareDevice.relayAddress, noiseKey: shareDevice.noiseKey })
             .from(shareDevice)
-            .where(eq(shareDevice.inviteId, inviteId))
+            .innerJoin(session, eq(session.id, shareDevice.sessionId))
+            .where(and(eq(shareDevice.inviteId, inviteId), gt(session.expiresAt, sql`now()`)))
             .orderBy(shareDevice.createdAt)
         )
       : [];

@@ -1,23 +1,8 @@
 import { Schema } from "effect";
 import type { Auth } from "../auth/index.ts";
 import type { AccountsConfig } from "../config.ts";
-
-const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
-
-/** Where a signed-in device may receive its session token: a loopback port, or the Mobile App's scheme. */
-export const isDeviceRedirect = (raw: string | null) => {
-  if (raw === null) return false;
-
-  try {
-    const url = new URL(raw);
-
-    if (url.protocol === "polaris:") return true;
-
-    return url.protocol === "http:" && LOOPBACK_HOSTS.has(url.hostname);
-  } catch {
-    return false;
-  }
-};
+import type { Database } from "../db/index.ts";
+import { finishPending, signInRequestOf, startPending } from "../signIn/index.ts";
 
 const escape = (text: string) => text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
@@ -60,76 +45,75 @@ const startSignIn = async (auth: Auth, request: Request, callbackURL: string) =>
   return new Response(null, { status: 302, headers });
 };
 
+const cantSignIn = () =>
+  html("Can't sign in", "<p>Sign-in didn't finish. Start again from Polaris.</p>", 400);
+
+/** `/sign-in`: records a pending sign-in bound to this browser, then always asks GitHub. */
+const beginSignIn = async (config: AccountsConfig, auth: Auth, db: Database, request: Request) => {
+  const wanted = signInRequestOf(new URL(request.url).searchParams);
+
+  if (wanted === undefined) {
+    return html("Can't sign in", "<p>This sign-in link isn't from a Polaris app.</p>", 400);
+  }
+
+  const { id, browserSecret } = await startPending(db, wanted);
+  const started = await startSignIn(auth, request, "/sign-in/done");
+  started.headers.append("set-cookie", nonceCookie(config, `${id}.${browserSecret}`, 600));
+
+  return started;
+};
+
+/** `/sign-in/done`: GitHub signed this browser in; hand the device a one-use code, never a token. */
+const finishSignIn = async (config: AccountsConfig, auth: Auth, db: Database, request: Request) => {
+  const [id, browserSecret] = (cookieOf(request, NONCE_COOKIE) ?? "").split(".");
+  const session = await auth.api.getSession({ headers: request.headers });
+
+  if (id === undefined || browserSecret === undefined || session === null) return cantSignIn();
+
+  const finished = await finishPending(
+    db,
+    { id, browserSecret },
+    { userId: session.user.id, sessionCreatedAt: session.session.createdAt }
+  );
+
+  if (finished === undefined) return cantSignIn();
+  const back = new URL(finished.redirectUri);
+  back.searchParams.set("code", finished.code);
+  back.searchParams.set("state", finished.state);
+
+  return new Response(null, {
+    status: 302,
+    headers: {
+      location: back.toString(),
+      "cache-control": "no-store",
+      "set-cookie": nonceCookie(config, "", 0),
+    },
+  });
+};
+
 /**
- * The browser pages: `/sign-in` signs a device in with GitHub and hands it a session token at its
- * loopback redirect; `/device` approves a device-flow code.
+ * The browser pages: `/sign-in` signs a device in with GitHub and hands its redirect a one-use
+ * authorization code (RFC 8252, PKCE); `/device` approves a device-flow code.
  */
-export const pages = (config: AccountsConfig, auth: Auth) => async (request: Request) => {
-  const url = new URL(request.url);
-
-  switch (url.pathname) {
-    case "/sign-in": {
-      const redirect = url.searchParams.get("redirect_uri");
-
-      if (!isDeviceRedirect(redirect)) {
-        return html("Can't sign in", "<p>This sign-in link isn't from a Polaris app.</p>", 400);
-      }
-
-      const done = new URL("/sign-in/done", config.origin);
-      done.search = url.search;
-      const nonce = Buffer.from(crypto.getRandomValues(new Uint8Array(24))).toString("base64url");
-      done.searchParams.set("nonce", nonce);
-      const started = await startSignIn(auth, request, `${done.pathname}${done.search}`);
-      started.headers.append("set-cookie", nonceCookie(config, nonce, 600));
-
-      return started;
-    }
-
-    case "/sign-in/done": {
-      const redirect = url.searchParams.get("redirect_uri");
-      const session = await auth.api.getSession({ headers: request.headers });
-      const nonce = url.searchParams.get("nonce");
-      // Only the browser that started this sign-in at /sign-in may finish it.
-      const started = nonce !== null && cookieOf(request, NONCE_COOKIE) === nonce;
-
-      if (!started || session === null || redirect === null || !isDeviceRedirect(redirect)) {
+export const pages =
+  (config: AccountsConfig, auth: Auth, db: Database) => async (request: Request) => {
+    switch (new URL(request.url).pathname) {
+      case "/sign-in":
+        return beginSignIn(config, auth, db, request);
+      case "/sign-in/done":
+        return finishSignIn(config, auth, db, request);
+      case "/sign-in/failed":
         return html(
           "Can't sign in",
-          "<p>Sign-in didn't finish. Start again from Polaris.</p>",
+          "<p>GitHub didn't sign you in. Start again from Polaris.</p>",
           400
         );
-      }
-
-      const context = await auth.$context;
-      const deviceSession = await context.internalAdapter.createSession(session.user.id);
-      const back = new URL(redirect);
-      back.searchParams.set("token", deviceSession.token);
-      const state = url.searchParams.get("state");
-
-      if (state !== null) back.searchParams.set("state", state);
-
-      return new Response(null, {
-        status: 302,
-        headers: {
-          location: back.toString(),
-          "cache-control": "no-store",
-          "set-cookie": nonceCookie(config, "", 0),
-        },
-      });
+      case "/device":
+        return devicePage(config, auth, request, new URL(request.url));
+      default:
+        return undefined;
     }
-
-    case "/sign-in/failed":
-      return html(
-        "Can't sign in",
-        "<p>GitHub didn't sign you in. Start again from Polaris.</p>",
-        400
-      );
-    case "/device":
-      return devicePage(config, auth, request, url);
-    default:
-      return undefined;
-  }
-};
+  };
 
 const devicePage = async (config: AccountsConfig, auth: Auth, request: Request, url: URL) => {
   const userCode = (url.searchParams.get("user_code") ?? "").trim().toUpperCase();

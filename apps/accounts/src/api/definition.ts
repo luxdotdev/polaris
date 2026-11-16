@@ -97,10 +97,17 @@ export class CommitEmailNotAllowed extends Schema.TaggedError<CommitEmailNotAllo
   { httpApiStatus: 400 }
 ) {}
 
-/** The signed-in person, set by {@link SessionAuth}. */
+/** An authorization code that is unknown, used, expired, or doesn't match its verifier. */
+export class InvalidGrant extends Schema.TaggedError<InvalidGrant>()(
+  "InvalidGrant",
+  { error: Schema.Literal("invalid_grant") },
+  { httpApiStatus: 400 }
+) {}
+
+/** The signed-in person and the session they signed in with, set by {@link SessionAuth}. */
 export class CurrentPerson extends Context.Service<
   CurrentPerson,
-  { readonly personId: string; readonly login: string }
+  { readonly personId: string; readonly login: string; readonly sessionId: string }
 >()("@polaris/accounts/CurrentPerson") {}
 
 /** The Share a `Capability` credential names, set by {@link CapabilityAuth}. */
@@ -127,6 +134,17 @@ export class CapabilityAuth extends HttpApiMiddleware.Service<
   security: { capability: HttpApiSecurity.http({ scheme: "Capability" }) },
   error: Unauthorized,
 }) {}
+
+/** Finishes a device's sign-in: its authorization code and PKCE verifier for a session token. */
+export class SignInGroup extends HttpApiGroup.make("signIn")
+  .add(
+    HttpApiEndpoint.post("token", "/sign-in/token", {
+      payload: Schema.Struct({ code: Schema.String, code_verifier: Schema.String }),
+      success: Schema.Struct({ token: Schema.String }),
+      error: InvalidGrant,
+    })
+  )
+  .prefix("/v1") {}
 
 export class AccountGroup extends HttpApiGroup.make("account")
   .add(
@@ -194,6 +212,7 @@ export class SharesGroup extends HttpApiGroup.make("shares")
 
 /** The Polaris endpoints of an Account Server; Better Auth's are under `/api/auth`. */
 export class AccountsApi extends HttpApi.make("accounts")
+  .add(SignInGroup)
   .add(AccountGroup)
   .add(InvitesGroup)
   .add(SharesGroup) {}

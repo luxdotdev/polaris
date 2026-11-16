@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import { sql } from "drizzle-orm";
 import { Schema } from "effect";
 import { PendingInvite, ShareDevice } from "./api/definition.ts";
 import { type Accounts, randomNoiseKey, readJson, startAccounts } from "./testing/harness.ts";
@@ -251,4 +252,95 @@ test("an accept racing a revoke never brings the capability back", async () => {
   );
 
   expect(after.map((r) => r.status)).toEqual(shares.map(() => 401));
+});
+
+test("an invite to a login someone renamed away from goes to whoever holds it on GitHub now", async () => {
+  const before = { id: 5001, login: "morgan", name: "Morgan", emails: [] };
+  const beforeToken = (await accounts.signIn(before)).token;
+  accounts.github.rename(5001, "morgan-old");
+
+  const holderToken = (await accounts.signIn({ id: 5002, login: "morgan", name: "M2", emails: [] }))
+    .token;
+
+  const { inviteId } = await readJson(await invite({ inviteeLogin: "morgan" }), Created);
+
+  const pendingFor = async (token: string) =>
+    (
+      await readJson(
+        await accounts.call("GET", "/v1/invites", { token }),
+        Schema.Array(PendingInvite)
+      )
+    ).map((p) => p.inviteId);
+
+  expect(await pendingFor(holderToken)).toEqual([inviteId]);
+  expect(await pendingFor(beforeToken)).toEqual([]);
+
+  const byFormerHolder = await accounts.call("POST", `/v1/invites/${inviteId}/accept`, {
+    token: beforeToken,
+    body: { relayAddress: "relay-m", noiseKey: randomNoiseKey() },
+  });
+
+  expect(byFormerHolder.status).toBe(404);
+});
+
+describe("a device leaves the Share when its session ends", () => {
+  const acceptOnNewSession = async () => {
+    const { inviteId, hostCapability } = await created();
+    const { token } = await accounts.signIn(teammate);
+    const noiseKey = randomNoiseKey();
+    await accounts.call("POST", `/v1/invites/${inviteId}/accept`, {
+      token,
+      body: { relayAddress: "relay-laptop", noiseKey },
+    });
+    const listed = await devices(inviteId, hostCapability);
+    expect((await readJson(listed, Devices)).map((d) => d.noiseKey)).toEqual([noiseKey]);
+
+    return { inviteId, hostCapability, token, etag: listed.headers.get("etag") ?? "" };
+  };
+
+  test("signing out drops the device and its statements, and wakes a waiting Host", async () => {
+    const { inviteId, hostCapability, token, etag } = await acceptOnNewSession();
+
+    const signedOut = await fetch(`${accounts.origin}/api/auth/sign-out`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, origin: accounts.origin },
+    });
+
+    expect(signedOut.status).toBe(200);
+    const started = Date.now();
+    const after = await devices(inviteId, hostCapability, { "if-none-match": etag }, 30);
+    expect(after.status).toBe(200);
+    expect(Date.now() - started).toBeLessThan(6000);
+    expect(await after.json()).toEqual([]);
+  });
+
+  test("an expired session's device is dropped too", async () => {
+    const { inviteId, hostCapability, token } = await acceptOnNewSession();
+    await accounts.db.execute(
+      sql`update session set expires_at = now() - interval '1 second' where token = ${token}`
+    );
+
+    expect(await (await devices(inviteId, hostCapability)).json()).toEqual([]);
+  });
+
+  test("the teammate's other devices stay on the Share", async () => {
+    const { inviteId, hostCapability } = await created();
+    const stays = randomNoiseKey();
+    await accounts.call("POST", `/v1/invites/${inviteId}/accept`, {
+      token: teammateToken,
+      body: { relayAddress: "relay-desk", noiseKey: stays },
+    });
+    const { token } = await accounts.signIn(teammate);
+    await accounts.call("POST", `/v1/invites/${inviteId}/accept`, {
+      token,
+      body: { relayAddress: "relay-laptop", noiseKey: randomNoiseKey() },
+    });
+    await fetch(`${accounts.origin}/api/auth/sign-out`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, origin: accounts.origin },
+    });
+
+    const listed = await readJson(await devices(inviteId, hostCapability), Devices);
+    expect(listed.map((d) => d.noiseKey)).toEqual([stays]);
+  });
 });

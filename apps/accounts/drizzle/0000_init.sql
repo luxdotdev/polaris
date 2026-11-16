@@ -33,6 +33,7 @@ CREATE TABLE "invite" (
 	"id" text PRIMARY KEY NOT NULL,
 	"owner_id" text NOT NULL,
 	"invitee_id" text NOT NULL,
+	"invitee_github_id" text NOT NULL,
 	"share_id" text NOT NULL,
 	"share_title" text NOT NULL,
 	"share_kind" text NOT NULL,
@@ -75,7 +76,22 @@ CREATE TABLE "share_device" (
 	"invite_id" text NOT NULL,
 	"noise_key" text NOT NULL,
 	"relay_address" text NOT NULL,
+	"session_id" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "sign_in" (
+	"id" text PRIMARY KEY NOT NULL,
+	"browser_hash" text NOT NULL,
+	"code_challenge" text NOT NULL,
+	"state" text NOT NULL,
+	"redirect_uri" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"user_id" text,
+	"code_hash" text,
+	"code_expires_at" timestamp with time zone,
+	CONSTRAINT "sign_in_code_hash_unique" UNIQUE("code_hash")
 );
 --> statement-breakpoint
 CREATE TABLE "user" (
@@ -108,10 +124,13 @@ ALTER TABLE "invite" ADD CONSTRAINT "invite_owner_id_user_id_fk" FOREIGN KEY ("o
 ALTER TABLE "invite" ADD CONSTRAINT "invite_invitee_id_user_id_fk" FOREIGN KEY ("invitee_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "share_device" ADD CONSTRAINT "share_device_invite_id_invite_id_fk" FOREIGN KEY ("invite_id") REFERENCES "public"."invite"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "share_device" ADD CONSTRAINT "share_device_session_id_session_id_fk" FOREIGN KEY ("session_id") REFERENCES "public"."session"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sign_in" ADD CONSTRAINT "sign_in_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "account_user_id_idx" ON "account" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "invite_invitee_idx" ON "invite" USING btree ("invitee_id","status");--> statement-breakpoint
 CREATE INDEX "session_user_id_idx" ON "session" USING btree ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "share_device_key_idx" ON "share_device" USING btree ("invite_id","noise_key");--> statement-breakpoint
+CREATE INDEX "share_device_session_idx" ON "share_device" USING btree ("session_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "user_login_lower_idx" ON "user" USING btree (lower("login"));--> statement-breakpoint
 CREATE UNIQUE INDEX "user_github_id_idx" ON "user" USING btree ("github_id");--> statement-breakpoint
 CREATE INDEX "verification_identifier_idx" ON "verification" USING btree ("identifier");

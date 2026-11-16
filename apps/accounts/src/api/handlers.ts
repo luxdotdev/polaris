@@ -10,6 +10,7 @@ import {
 } from "../invites/index.ts";
 import { findByLogin, findPerson, me, setCommitEmail, toPerson } from "../people/index.ts";
 import { Accounts, store } from "../server/services.ts";
+import { exchangeCode } from "../signIn/index.ts";
 import { signStatement } from "../statements/index.ts";
 import {
   AccountsApi,
@@ -43,6 +44,7 @@ export const SessionAuthLive = Layer.effect(
         return yield* Effect.provideService(handler, CurrentPerson, {
           personId: session.user.id,
           login: session.user.login,
+          sessionId: session.session.id,
         });
       }),
     });
@@ -83,6 +85,14 @@ const sameShare = Effect.fn(function* (inviteId: string) {
     return yield* new Unauthorized({ message: "Unknown or revoked capability." });
 });
 
+const SignInHandlers = HttpApiBuilder.group(AccountsApi, "signIn", (handlers) =>
+  handlers.handle("token", ({ payload }) =>
+    exchangeCode(payload.code, payload.code_verifier).pipe(
+      Effect.catchTag("StoreError", Effect.die)
+    )
+  )
+);
+
 const AccountHandlers = HttpApiBuilder.group(AccountsApi, "account", (handlers) =>
   handlers
     .handle("me", () => Effect.flatMap(CurrentPerson, (p) => me(p.personId)).pipe(Effect.orDie))
@@ -117,7 +127,7 @@ const InvitesHandlers = HttpApiBuilder.group(AccountsApi, "invites", (handlers) 
       Effect.flatMap(CurrentPerson, (p) => pendingInvites(p.personId)).pipe(Effect.orDie)
     )
     .handle("accept", ({ params, payload }) =>
-      Effect.flatMap(CurrentPerson, (p) => acceptInvite(p.personId, params.inviteId, payload)).pipe(
+      Effect.flatMap(CurrentPerson, (p) => acceptInvite(p, params.inviteId, payload)).pipe(
         Effect.catchTag("StoreError", Effect.die)
       )
     )
@@ -141,6 +151,9 @@ const SharesHandlers = HttpApiBuilder.group(AccountsApi, "shares", (handlers) =>
     )
 );
 
-export const HandlersLive = Layer.mergeAll(AccountHandlers, InvitesHandlers, SharesHandlers).pipe(
-  Layer.provide([SessionAuthLive, CapabilityAuthLive])
-);
+export const HandlersLive = Layer.mergeAll(
+  SignInHandlers,
+  AccountHandlers,
+  InvitesHandlers,
+  SharesHandlers
+).pipe(Layer.provide([SessionAuthLive, CapabilityAuthLive]));

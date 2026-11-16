@@ -109,6 +109,20 @@ export const deviceCode = pgTable("device_code", {
 
 // Polaris's own tables.
 
+/** A device's sign-in in flight: started at `/sign-in`, finished by trading its code once. */
+export const signIn = pgTable("sign_in", {
+  id: text("id").primaryKey(),
+  browserHash: text("browser_hash").notNull(),
+  codeChallenge: text("code_challenge").notNull(),
+  state: text("state").notNull(),
+  redirectUri: text("redirect_uri").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  codeHash: text("code_hash").unique(),
+  codeExpiresAt: timestamp("code_expires_at", { withTimezone: true }),
+});
+
 export const invite = pgTable(
   "invite",
   {
@@ -119,6 +133,7 @@ export const invite = pgTable(
     inviteeId: text("invitee_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    inviteeGithubId: text("invitee_github_id").notNull(),
     shareId: text("share_id").notNull(),
     shareTitle: text("share_title").notNull(),
     shareKind: text("share_kind").notNull(),
@@ -144,7 +159,14 @@ export const shareDevice = pgTable(
       .references(() => invite.id, { onDelete: "cascade" }),
     noiseKey: text("noise_key").notNull(),
     relayAddress: text("relay_address").notNull(),
+    // The session that accepted on this device; signing it out takes the device off the Share.
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => session.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("share_device_key_idx").on(t.inviteId, t.noiseKey)]
+  (t) => [
+    uniqueIndex("share_device_key_idx").on(t.inviteId, t.noiseKey),
+    index("share_device_session_idx").on(t.sessionId),
+  ]
 );
