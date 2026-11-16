@@ -4,6 +4,7 @@
  */
 import { Effect, Schema } from "effect";
 import { commentEventFields } from "./comments.ts";
+import { queuedTurnEventFields } from "./queuedTurns.ts";
 import { constellationEventFields, resourceEventFields } from "./constellation/events.ts";
 import { ConstellationId } from "./constellation/domain.ts";
 import {
@@ -225,6 +226,9 @@ export const DomainEvent = Schema.TaggedUnion({
 
   /** Comments (ADR 0113; capability `session.comments`), on their session's stream. */
   ...commentEventFields,
+
+  /** Queued Turns (capability `session.queued-turns`), on their session's stream. */
+  ...queuedTurnEventFields,
 });
 
 export type DomainEvent = typeof DomainEvent.Type;

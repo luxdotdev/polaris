@@ -36,7 +36,15 @@ export const eventSchemas = {
   // Client commands
   "session.start": standard(Schema.Struct({ session: AgentSession, turn: Turn })),
   "session.fork": standard(Schema.Struct({ session: AgentSession })),
-  "turn.send": standard(Schema.Struct({ turn: Turn })),
+  "turn.send": standard(
+    Schema.Struct({
+      turn: Turn,
+      /** The session is shared: with a Turn in flight the Turn joins the queue (`session.queue.ts`). */
+      queue: Schema.optionalKey(Schema.Boolean),
+    })
+  ),
+  "queue.cancel": standard(Schema.Struct({ turnId: TurnId, actor: Actor })),
+  "queue.edit": standard(Schema.Struct({ turnId: TurnId, prompt: Schema.String, actor: Actor })),
   "turn.continue": Nothing,
   "turn.retry": standard(Schema.Struct({ turn: Turn })),
   "turn.steer": standard(
@@ -182,7 +190,9 @@ export type SessionEffect =
   /** The idle timer fired and the session went Dormant: stop its Harness now. */
   | "stopHarness"
   /** The deferred input lane waits outside the reactor lock, then signals delivery again. */
-  | { readonly type: "waitForTurn"; readonly turnId: TurnId };
+  | { readonly type: "waitForTurn"; readonly turnId: TurnId }
+  /** The Turn before it ended and this queued Turn started: hand it to the Harness. */
+  | { readonly type: "runQueuedTurn"; readonly turnId: TurnId };
 
 export type Emitted =
   | { readonly type: "domain"; readonly event: DomainEvent }
@@ -197,6 +207,8 @@ export const isEmitted = (event: EventObject): event is Emitted => EMITTED.has(e
 export const normalizedInput = (input: SessionInput, at: string) => {
   if (input.type === "idle.timeout")
     return { ...input, backgroundExpired: input.backgroundExpired ?? false, at: input.at ?? at };
+
+  if (input.type === "turn.send") return { ...input, queue: input.queue ?? false };
 
   if (input.type === "approval.respond") return { ...input, actor: input.actor ?? null };
 

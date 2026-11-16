@@ -15,6 +15,7 @@ import {
   EventEnvelope,
   NotFound,
   NotGranted,
+  QueuedTurn,
   RequestId,
   ReviewCheckout,
   Sequence,
@@ -31,6 +32,7 @@ import { Effect, Predicate, Schema } from "effect";
 import type { SqlClient, SqlError } from "effect/sql";
 import { emptyResources, foldResources } from "../resources/model.ts";
 import { commentsOf } from "./comments.ts";
+import { queueOf } from "./queuedTurns.ts";
 import { constellationOf } from "./constellation.ts";
 import { project } from "./model.ts";
 import { withoutConstellationsOf } from "./removal.ts";
@@ -68,6 +70,8 @@ export const SubagentJson = json(Subagent);
 export const ReviewCheckoutJson = json(ReviewCheckout);
 
 export const CommentJson = json(Comment);
+
+export const QueueJson = json(Schema.Array(QueuedTurn));
 
 export const RejectionJson = json(
   Schema.Union([CommandRejected, NotFound, NotGranted, ConstellationRejected])
@@ -132,6 +136,7 @@ const SESSION_TABLES = [
   "origin_fingerprints",
   "origin_turns",
   "comments",
+  "queued_turns",
 ] as const;
 
 /** `WorkspaceRemoved`: every projection row of the Workspace and its sessions (`removal.ts`). */
@@ -251,6 +256,32 @@ const commentRows =
     );
   };
 
+/** The session's queue as the fold left it: one row, gone when the queue is empty. */
+const queueRow =
+  (sessionId: SessionId): Projection =>
+  ({ sql, after }) => {
+    const record = after.sessions.get(sessionId);
+    const queue = record === undefined ? [] : queueOf(record);
+
+    return queue.length === 0
+      ? sql`DELETE FROM queued_turns WHERE session_id = ${sessionId}`
+      : sql`INSERT INTO queued_turns ${sql.insert({
+          session_id: sessionId,
+          data: QueueJson.encode(queue),
+        })} ON CONFLICT (session_id) DO UPDATE SET data = excluded.data`;
+  };
+
+/** A Turn that started out of the queue leaves its row; any other Turn writes nothing here. */
+const leftQueueRow =
+  (turn: Turn): Projection =>
+  (target) => {
+    const before = target.before.sessions.get(turn.sessionId);
+
+    return before !== undefined && queueOf(before).some((queued) => queued.id === turn.id)
+      ? queueRow(turn.sessionId)(target)
+      : Effect.void;
+  };
+
 const commentRow = (event: { readonly sessionId: SessionId; readonly commentId: CommentId }) =>
   commentRows(event.sessionId, [event.commentId]);
 
@@ -343,14 +374,16 @@ const projectionOf: (event: DomainEvent) => Projection = DomainEvent.match<Proje
   SessionBackgroundTasksChanged: (event) => sessionRow(event.sessionId),
   SessionNotified: () => () => Effect.void,
   SessionBackgroundCommandFailed: () => () => Effect.void,
-  TurnStarted: ({ turn }) =>
-    turn.commentIds === undefined
-      ? turnRow(turn)
-      : (target) =>
-          Effect.all([
-            turnRow(turn)(target),
-            commentRows(turn.sessionId, turn.commentIds ?? [])(target),
-          ]),
+  TurnStarted:
+    ({ turn }) =>
+    (target) =>
+      Effect.all([
+        turnRow(turn)(target),
+        turn.commentIds === undefined
+          ? Effect.void
+          : commentRows(turn.sessionId, turn.commentIds)(target),
+        leftQueueRow(turn)(target),
+      ]),
   TurnEnded: ({ turn }) => turnRow(turn),
   CheckpointRecorded: (event) =>
     sessionRow(event.sessionId, ({ sql, after }) =>
@@ -406,6 +439,9 @@ const projectionOf: (event: DomainEvent) => Projection = DomainEvent.match<Proje
   CommentResolved: commentRow,
   CommentReopened: commentRow,
   CommentOutdated: commentRow,
+  TurnQueued: ({ turn }) => queueRow(turn.sessionId),
+  QueuedTurnEdited: (event) => queueRow(event.sessionId),
+  QueuedTurnCancelled: (event) => queueRow(event.sessionId),
 });
 
 /** Persist what `envelope` changed between the read model `before` it and `after` it. */
@@ -480,6 +516,15 @@ export const loadModel = (sql: SqlClient.SqlClient) =>
       data: string;
     }>`SELECT data FROM comments ORDER BY session_id, added`;
 
+    const queueRowsLoaded = yield* sql<{
+      session_id: string;
+      data: string;
+    }>`SELECT session_id, data FROM queued_turns`;
+
+    const queueBySession = new Map(
+      queueRowsLoaded.map((row) => [row.session_id, QueueJson.decode(row.data)])
+    );
+
     const turnsBySession = new Map<string, Array<Turn>>();
 
     for (const row of turns) {
@@ -526,6 +571,7 @@ export const loadModel = (sql: SqlClient.SqlClient) =>
         pending: pendingBySession.get(session.id) ?? new Map(),
         subagents: subagentsBySession.get(session.id) ?? new Map(),
         comments: commentsBySession.get(session.id) ?? new Map(),
+        queue: queueBySession.get(session.id) ?? [],
       };
     });
 

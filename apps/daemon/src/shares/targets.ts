@@ -8,18 +8,8 @@ import { Effect, Layer } from "effect";
 import type { ReadModel } from "../store/model.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { ShareBook } from "./identities.ts";
+import { constellationOf } from "./shared.ts";
 import { Shares, type ShareTargets } from "./service.ts";
-
-const constellationOf = (model: ReadModel, sessionId: SessionId) => {
-  const worker = model.sessions.get(sessionId)?.session.worker ?? null;
-
-  if (worker !== null) return worker.constellationId;
-
-  for (const { graph } of model.constellations.values())
-    if (graph.leadSessionId === sessionId) return graph.id;
-
-  return null;
-};
 
 /** Reads a Turn the model no longer holds; null when the session has no such Turn. */
 export type ReadTurn = (sessionId: SessionId, turnId: TurnId) => Effect.Effect<Turn | null>;

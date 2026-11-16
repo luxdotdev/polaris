@@ -79,7 +79,7 @@ export const userAccessGateFor = (transport: TransportFacts, registry: UserAcces
   });
 
 /**
- * Whether a Teammate may send Turns and answer approvals. Still off: a Share's `turn` and
- * `approve` Grants stay refused until that is decided, now that enrolment is back (ENG-927).
+ * Whether a Teammate may send Turns: a Share's `turn` Grant now decides (ENG-941). The
+ * Share gate still reads it, so one line turns them off.
  */
-export const teammatesMayAct = (): boolean => false;
+export const teammatesMayAct = (): boolean => true;

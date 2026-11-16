@@ -30,6 +30,7 @@ export const gatingCapabilities: ReadonlyArray<Capability> = [
   "approval.secret",
   "computer-use",
   "session.comments",
+  "session.queued-turns",
 ];
 
 const needs = (capability: Capability) => (): Capability => capability;
@@ -100,6 +101,9 @@ export const eventCapability = (event: DomainEvent): Capability | null =>
       CommentResolved: needs("session.comments"),
       CommentReopened: needs("session.comments"),
       CommentOutdated: needs("session.comments"),
+      TurnQueued: needs("session.queued-turns"),
+      QueuedTurnEdited: needs("session.queued-turns"),
+      QueuedTurnCancelled: needs("session.queued-turns"),
       ApprovalRequested: ({ request }) => approvalCapability(request.kind),
       ApprovalResolved: ({ decision }) =>
         Predicate.isTagged(decision, "Provided") ? "approval.secret" : null,

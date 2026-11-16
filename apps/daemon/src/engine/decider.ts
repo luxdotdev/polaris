@@ -22,6 +22,7 @@ import {
   DomainEvent,
   isKnownHarness,
   NotFound,
+  QueuedTurn,
   type RiskSummary,
   type SessionId,
   SessionPlacement,
@@ -58,6 +59,8 @@ export interface DecideContext {
   readonly extensionGrant?: Grant | null;
   /** A Teammate's Share role on the session; null for the owner's Clients (`mayResolveComment`). */
   readonly shareRole?: ShareRole | null;
+  /** For SendTurn: the session is shared, so a Turn sent with one in flight joins its queue. */
+  readonly shared?: boolean;
   /** Fresh ids, used only by the commands that create something. */
   readonly newTurnId: TurnId;
   readonly newWorkspaceId: WorkspaceId;
@@ -143,6 +146,18 @@ const withActor = (actor: Actor, event: DomainEvent): DomainEvent =>
       TurnStarted: (e) =>
         DomainEvent.cases.TurnStarted.make({ turn: patchTurn(e.turn, { actor }), actor }),
       ApprovalResolved: (e) => DomainEvent.cases.ApprovalResolved.make({ ...e, actor }),
+      TurnQueued: (e) =>
+        DomainEvent.cases.TurnQueued.make({
+          turn: new QueuedTurn({
+            id: e.turn.id,
+            sessionId: e.turn.sessionId,
+            prompt: e.turn.prompt,
+            attachments: e.turn.attachments,
+            actor,
+            queuedAt: e.turn.queuedAt,
+            editedAt: e.turn.editedAt,
+          }),
+        }),
     }),
     Match.orElse((e) => e)
   );
@@ -561,8 +576,21 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
     StartSession: (c) => startSession(d, c),
     SendTurn: (c) =>
       d.withSession(c.sessionId, (record) =>
-        d.lifecycle(record, { type: "turn.send", turn: d.newTurn(record.session, c.prompt) })
+        d.lifecycle(record, {
+          type: "turn.send",
+          turn: d.newTurn(record.session, c.prompt),
+          queue: ctx.shared === true,
+        })
       ),
+    CancelQueuedTurn: (c) =>
+      onSession(d, c.sessionId, { type: "queue.cancel", turnId: c.turnId, actor: ctx.actor }),
+    EditQueuedTurn: (c) =>
+      onSession(d, c.sessionId, {
+        type: "queue.edit",
+        turnId: c.turnId,
+        prompt: c.prompt,
+        actor: ctx.actor,
+      }),
     RunShellCommand: (c) => runShellCommand(d, c),
     CompactSession: (c) => compactSession(d, c),
     Continue: (c) => onSession(d, c.sessionId, { type: "turn.continue" }),

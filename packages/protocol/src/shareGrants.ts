@@ -54,6 +54,8 @@ export const SHARE_RPCS = {
 export const SHARE_COMMANDS = {
   SendTurn: "turn",
   Steer: "turn",
+  CancelQueuedTurn: "turn",
+  EditQueuedTurn: "turn",
   Interrupt: "turn",
   Continue: "turn",
   Retry: "turn",

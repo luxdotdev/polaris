@@ -240,6 +240,17 @@ const comments = Effect.gen(function* () {
   yield* sql`CREATE INDEX IF NOT EXISTS comments_session ON comments (session_id, added)`;
 });
 
+/** Queued Turns (ENG-941): each session's queue as its events last folded it. */
+const queuedTurns = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient;
+  yield* sql`
+    CREATE TABLE IF NOT EXISTS queued_turns (
+      session_id TEXT PRIMARY KEY,
+      data TEXT NOT NULL
+    )
+  `;
+});
+
 export const migrations = SqliteMigrator.fromRecord({
   "0001_event_store": init,
   "0002_subagents": subagents,
@@ -253,6 +264,7 @@ export const migrations = SqliteMigrator.fromRecord({
   "0008_event_type_indexes": eventTypeIndexes,
   "0009_origins": origins,
   "0010_comments": comments,
+  "0011_queued_turns": queuedTurns,
 });
 
 export const MigrationsLayer = SqliteMigrator.layer({ loader: migrations });

@@ -66,11 +66,22 @@ export const Command = Schema.TaggedUnion({
     /** The Review a Reviewer's or walkthrough's session is for; set by the Daemon only. */
     reviewSubject: Schema.optionalKey(Schema.NullOr(ReviewSubject)),
   },
+  /**
+   * A new Turn. In a shared session with a Turn in flight it joins the queue instead
+   * (`TurnQueued`, capability `session.queued-turns`) and starts when the Turns ahead end.
+   */
   SendTurn: {
     sessionId: SessionId,
     prompt: Schema.String,
     attachments: Schema.Array(AttachmentId),
   },
+  /**
+   * Take a queued Turn out of the session's queue (capability `session.queued-turns`): its
+   * author or the owner (`mayChangeQueuedTurn`). Refused once it started.
+   */
+  CancelQueuedTurn: { sessionId: SessionId, turnId: TurnId },
+  /** Change a queued Turn's prompt, keeping its place: its author or the owner. */
+  EditQueuedTurn: { sessionId: SessionId, turnId: TurnId, prompt: Schema.String },
   /**
    * Run `command` in the session's directory as a new Turn (capability `session.shell-command`,
    * where the Harness `runsShellCommands`): the Daemon runs it, then the agent reads its output.

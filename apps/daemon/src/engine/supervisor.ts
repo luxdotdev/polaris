@@ -36,8 +36,15 @@ import { isWorker, usageLimitOf } from "./limits.ts";
 import { worktreeIdFor } from "./decider.ts";
 import { contextChanged, contextUsageOf } from "./context.ts";
 import { finalReply, forkPreamble } from "./fork.ts";
-import { EngineRuntime, type EventSource, type LiveHarness, type Progress } from "./runtime.ts";
-import { deferredUserTurns, refuseUserTurn } from "./supervisor.turns.ts";
+import {
+  EngineRuntime,
+  type EventSource,
+  type LiveHarness,
+  type Progress,
+  type SignalResult,
+} from "./runtime.ts";
+import { deferredUserTurns, queuedTurnToRun, refuseUserTurn } from "./supervisor.turns.ts";
+import { withWorkerAdmission } from "../resources/workerAdmission.ts";
 import { HarnessTurnAliases } from "./supervisor.aliases.ts";
 import type { ShellTurn } from "./supervisor.shell.ts";
 import { DEFAULT_HARNESS_START_TIMEOUT, timedStart } from "./supervisor.start.ts";
@@ -403,11 +410,34 @@ const make = (
       });
     });
 
+  /** The machine started the head of the queue: hand it to the Harness, after this event's work. */
+  const runQueued = (sessionId: SessionId, ended: SignalResult) =>
+    Effect.gen(function* () {
+      const queued = queuedTurnToRun(sessionId, ended);
+
+      if (queued === null) return;
+
+      yield* withWorkerAdmission(
+        store,
+        sessionId,
+        rt.serially(sessionId)(deliverTurn(queued))
+      ).pipe(
+        Effect.flatMap((delivered) =>
+          delivered === undefined
+            ? rt.failSession(sessionId, "The queued Turn's worker admission was retired")
+            : Effect.void
+        ),
+        Effect.catchCause((cause) => Effect.logError("running a queued Turn failed", cause)),
+        Effect.forkIn(rt.engineScope)
+      );
+    });
+
   const onTurnEnded = (sessionId: SessionId, event: HarnessEventOf<"TurnEnded">, at: string) =>
     Effect.gen(function* () {
       rt.dropProgress(sessionId, event.turnId);
       const after = yield* rt.capture(sessionId, event.turnId, "after");
-      yield* rt.signal(sessionId, {
+
+      const ended = yield* rt.signal(sessionId, {
         type: "harness.turnEnded",
         turnId: event.turnId,
         status: event.status,
@@ -416,6 +446,8 @@ const make = (
         limit: yield* limitOf(sessionId, event, at),
         at,
       });
+
+      yield* runQueued(sessionId, ended);
     });
 
   const onWorktreeCreated = (sessionId: SessionId, path: string) =>

@@ -329,8 +329,12 @@ test("a Teammate reaches its Share's target as that person, and nothing of the o
         grant: [...share.grant],
         role: "contributor",
       });
-      // Turns wait for the user gate (ENG-927), even for a Contributor.
-      expect(yield* outcome(client, sendTurn)).toBe("NotGranted");
+      // A Contributor's Share holds the `turn` Grant: the Turn is sent as the Teammate too.
+      expect(yield* outcome(client, sendTurn)).toEqual({
+        actor,
+        grant: [...share.grant],
+        role: "contributor",
+      });
       // Another session, and everything that is the owner's.
       expect(yield* outcome(client, resolve(S2))).toBe("NotShared");
       expect(
@@ -398,7 +402,7 @@ test("a Teammate that presents the owner's user key still holds no user access",
       const host = yield* daemon(scope);
       const laptop = yield* Effect.promise(makeDevice);
 
-      yield* shareWith(host, laptop);
+      const share = yield* shareWith(host, laptop);
       const { client, socket } = yield* opened(host, laptop);
 
       // The key the owner's Desktop App enrolled: over a Share it enrols and binds nothing.
@@ -412,11 +416,17 @@ test("a Teammate that presents the owner's user key still holds no user access",
       expect(owner.enrolled.map((entry) => entry.self)).toEqual([true]);
       expect(owner.requests).toEqual([]);
 
-      // What only the owner may is refused by the Share gate, and Turns stay off.
+      // What only the owner may is refused by the Share gate, and its Turn is the Teammate's.
       const refused = yield* Effect.flip(client["userAccess.revoke"]({ id: app!.id }));
 
       expect(refused._tag).toBe("NotShared");
-      expect(yield* outcome(client, sendTurn)).toBe("NotGranted");
+      expect(yield* outcome(client, sendTurn)).toMatchObject({
+        actor: Actor.cases.Teammate.make({
+          shareId: share.id,
+          personId: PERSON,
+          name: "The Octocat",
+        }),
+      });
       socket.close();
     })
   );

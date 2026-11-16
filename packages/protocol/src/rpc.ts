@@ -65,6 +65,7 @@ import { gateUserRpcs, UserAccessGate } from "./userAccess.ts";
 import { UserAccessRpcs } from "./userAccessEnrolment.ts";
 import { RemoteAccessRpcs } from "./remoteAccess.ts";
 import { Comment } from "./comments.ts";
+import { QueuedTurn } from "./queuedTurns.ts";
 import { ShareRpcs } from "./shares.ts";
 import { LinkedDeviceRpcs } from "./linkedDevices.ts";
 import { VoiceRpcs } from "./voice.ts";
@@ -183,6 +184,8 @@ export const SessionStreamItem = Schema.TaggedUnion({
     turns: Schema.Array(TurnDetail),
     pendingApprovals: Schema.Array(ApprovalRequest),
     comments: optionalArray(Comment),
+    /** The session's queue, in order (capability `session.queued-turns`). */
+    queuedTurns: optionalArray(QueuedTurn),
   },
   Event: { envelope: EventEnvelope },
   /** Ephemeral live output for an item still in progress. Not persisted, not sequenced. */

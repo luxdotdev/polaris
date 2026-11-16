@@ -54,6 +54,8 @@ export const USER_COMMANDS = {
   RunShellCommand: "user",
   CompactSession: "user",
   Steer: "user",
+  CancelQueuedTurn: "user",
+  EditQueuedTurn: "user",
   Interrupt: "user",
   StopBackgroundTasks: "user",
   BackgroundCommand: "user",

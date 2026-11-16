@@ -347,6 +347,8 @@ export const DEVICE_COMMANDS = {
   RunShellCommand: "local",
   CompactSession: "local",
   Steer: "device",
+  CancelQueuedTurn: "device",
+  EditQueuedTurn: "device",
   Interrupt: "device",
   StopBackgroundTasks: "local",
   BackgroundCommand: "local",

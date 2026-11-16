@@ -30,6 +30,8 @@ export const COMMAND_GRANTS = {
   RunShellCommand: "client",
   CompactSession: "client",
   Steer: "turn",
+  CancelQueuedTurn: "turn",
+  EditQueuedTurn: "turn",
   Interrupt: "turn",
   StopBackgroundTasks: "client",
   BackgroundCommand: "client",
@@ -377,7 +379,11 @@ export const decideTurnAccess = (
   if (grant === null || permissionMode === null || asksForEverything(permissionMode)) return null;
 
   // `SendFeedback` reaches here only from a Teammate: Extensions are refused it at the gate.
-  if (!Command.isAnyOf(["SendTurn", "Steer", "Continue", "Retry", "SendFeedback"])(command))
+  if (
+    !Command.isAnyOf(["SendTurn", "Steer", "Continue", "Retry", "SendFeedback", "EditQueuedTurn"])(
+      command
+    )
+  )
     return null;
 
   return grant.includes("approve")

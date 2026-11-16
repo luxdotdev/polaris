@@ -19,8 +19,10 @@ import {
   TurnId,
   WorkspaceId,
 } from "@polaris/protocol";
-import { Context, Effect, Layer, Option, Predicate } from "effect";
+import { Clock, Context, Effect, Layer, Option, Predicate } from "effect";
 import { sharedRevertRefusal } from "../accept/reactor.ts";
+import { ShareBook } from "../shares/identities.ts";
+import { isSessionShared } from "../shares/shared.ts";
 import { CommitResult } from "../store/EventStore.ts";
 import type { ReadModel } from "../store/model.ts";
 import { decide } from "./decider.ts";
@@ -77,6 +79,7 @@ const make = Effect.gen(function* () {
   const rt = yield* EngineRuntime;
   const { react } = yield* Reactors;
   const { store } = rt;
+  const book = yield* Effect.serviceOption(ShareBook);
 
   const resolveAttachments = (commandId: CommandId, command: Command) =>
     Effect.gen(function* () {
@@ -182,6 +185,22 @@ const make = Effect.gen(function* () {
       ? store.review.riskSummary(RiskSummaryRef.cases.ById.make({ summaryId: command.summaryId }))
       : Effect.succeed(null);
 
+  /** For SendTurn: whether a live Share covers the session, so the Turn may queue. */
+  const isShared = (command: Command) =>
+    Effect.gen(function* () {
+      if (!Predicate.isTagged(command, "SendTurn") || Option.isNone(book)) return false;
+      const shares = yield* book.value.all;
+
+      if (shares.length === 0) return false;
+
+      return isSessionShared(
+        yield* store.model,
+        shares,
+        command.sessionId,
+        yield* Clock.currentTimeMillis
+      );
+    });
+
   const commitCommand: Dispatch = Effect.fn("Engine.dispatch")(function* (input: DispatchInput) {
     const { commandId, command } = input;
     yield* refuseSharedRevert(commandId, command);
@@ -193,6 +212,7 @@ const make = Effect.gen(function* () {
       actor: input.actor ?? Actor.cases.Client.make({}),
       extensionGrant: input.extensionGrant ?? null,
       shareRole: input.shareRole ?? null,
+      shared: yield* isShared(command),
       newTurnId: TurnId.make(`turn_${crypto.randomUUID()}`),
       newWorkspaceId: WorkspaceId.make(`ws_${crypto.randomUUID()}`),
       attachments: yield* resolveAttachments(commandId, command),

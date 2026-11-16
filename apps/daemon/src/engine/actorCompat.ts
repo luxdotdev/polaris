@@ -10,6 +10,7 @@ import {
   DomainEvent,
   EventEnvelope,
   HostStreamItem,
+  QueuedTurn,
   SessionStreamItem,
   type Turn,
   TurnDetail,
@@ -28,6 +29,22 @@ const commentFor = (comment: Comment, rewrite: Rewrite): Comment => {
   return author === comment.author && resolvedBy === comment.resolvedBy
     ? comment
     : patchComment(comment, { author, resolvedBy });
+};
+
+const queuedFor = (queued: QueuedTurn, rewrite: Rewrite): QueuedTurn => {
+  const actor = rewrite(queued.actor);
+
+  return actor === queued.actor
+    ? queued
+    : new QueuedTurn({
+        id: queued.id,
+        sessionId: queued.sessionId,
+        prompt: queued.prompt,
+        attachments: queued.attachments,
+        actor,
+        queuedAt: queued.queuedAt,
+        editedAt: queued.editedAt,
+      });
 };
 
 const turnFor = (turn: Turn, rewrite: Rewrite): Turn => {
@@ -91,6 +108,19 @@ const eventFor = (event: DomainEvent, rewrite: Rewrite): DomainEvent => {
         rewrite(e.actor) === e.actor
           ? e
           : DomainEvent.cases.CommentReopened.make({ ...e, actor: rewrite(e.actor) }),
+      TurnQueued: (e) => {
+        const turn = queuedFor(e.turn, rewrite);
+
+        return turn === e.turn ? e : DomainEvent.cases.TurnQueued.make({ turn });
+      },
+      QueuedTurnEdited: (e) =>
+        rewrite(e.actor) === e.actor
+          ? e
+          : DomainEvent.cases.QueuedTurnEdited.make({ ...e, actor: rewrite(e.actor) }),
+      QueuedTurnCancelled: (e) =>
+        same(e.actor) || e.actor === null
+          ? e
+          : DomainEvent.cases.QueuedTurnCancelled.make({ ...e, actor: rewrite(e.actor) }),
     },
     () => event
   );
@@ -158,6 +188,7 @@ export const actorSessionItemsFor = (capabilities: ReadonlyArray<Capability>) =>
             ...s,
             turns: s.turns.map((detail) => detailFor(detail, rewrite)),
             comments: s.comments.map((comment) => commentFor(comment, rewrite)),
+            queuedTurns: s.queuedTurns.map((queued) => queuedFor(queued, rewrite)),
           }),
       },
       () => item

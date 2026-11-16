@@ -62,8 +62,13 @@ reads and writes, every Host-wide call.
 - A request that passes also carries the Share's role, which decides who may resolve a Comment.
 - A request that passes carries the Share it acts through (`RequestShare`): `dispatch` records
   `Actor.Teammate` and decides Turns on that Share's Grant.
-- **Turns and approvals are refused to Teammates** while the user gate is off
-  (`teammatesMayAct` in `../transport/userAccess.ts`, ENG-927), whatever the Share's Grant says.
+- **Turns follow the Share's Grant** (`teammatesMayAct` in `../transport/userAccess.ts` is
+  on, ENG-941): a Contributor sends, steers and interrupts; a Commenter is refused
+  (`NotGranted`). A Turn into a session that approves for itself also needs `approve`
+  (ADR 0078), which a Contributor holds.
+- **A shared session queues Turns.** While a live Share covers a session (`shared.ts`), a Turn
+  sent with one in flight joins its queue, first in first out with no owner priority, and its
+  author or the owner may cancel or edit it (`../engine/README.md`, Queued Turns).
 - A Teammate's connection has the Extension gateway's Wire and RPC limits.
 
 ## Trust

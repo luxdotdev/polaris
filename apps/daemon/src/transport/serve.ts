@@ -345,6 +345,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "session.stop-background",
   "session.background-command",
   "session.comments",
+  "session.queued-turns",
   "session.background-command-failed",
   "session.compaction",
   "session.notify",

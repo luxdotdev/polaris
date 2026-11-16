@@ -71,6 +71,12 @@ export const Capability = Schema.Literals([
    * `comments`. Needed on both sides: a Client without it is sent none of them.
    */
   "session.comments",
+  /**
+   * Queued Turns (ENG-941): `CancelQueuedTurn`, `EditQueuedTurn`, the `TurnQueued` and
+   * `QueuedTurn*` events and the session snapshot's `queuedTurns`. A Client without it is
+   * sent none of them; its Turn sent into a shared session still queues.
+   */
+  "session.queued-turns",
   /** `voice.transcribe`, `voice.settings` and `voice.setKey` (ADR 0077). */
   "voice",
   /**
