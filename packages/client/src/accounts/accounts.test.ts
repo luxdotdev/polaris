@@ -103,7 +103,48 @@ describe("signing in", () => {
     );
 
     expect(flow.userCode).toBe("ABCD-EFGH");
+    expect(flow.verificationUri).toBe(`${server.origin}/device?user_code=ABCD-EFGH`);
     expect(list.map((a) => [a.server, a.login])).toEqual([[server.origin, "hubot"]]);
+  });
+
+  test.each([
+    ["https://b.example", "file:///etc/passwd"],
+    ["https://b.example", "polaris://session/a/b"],
+    ["https://b.example", "javascript:alert(1)"],
+    ["https://b.example", "https://evil.example/device?user_code=ABCD-EFGH"],
+    ["https://b.example", "http://b.example/device"],
+    ["https://b.example", "https://user:pw@b.example/device"],
+    ["http://localhost:4100", "http://localhost:4101/device"],
+  ])("a device sign-in from %s refuses the verification URI %s", async (origin, uri) => {
+    const server = fakeAccountServer(origin, { verificationUri: uri });
+    const store = memoryAccountStore();
+
+    const [failure, state] = await run(
+      store,
+      Effect.gen(function* () {
+        const accounts = yield* Accounts;
+        const failure = yield* Effect.flip(accounts.startDeviceSignIn(server.origin));
+
+        return [failure, yield* SubscriptionRef.get(accounts.state)] as const;
+      }),
+      fakeServers(server)
+    );
+
+    expect(failure.reason).toBe("sign-in-failed");
+    expect(failure.message).toBe("the Account Server sent a sign-in page that isn't its own");
+    expect(state.deviceSignIn).toBeNull();
+  });
+
+  test("a local Account Server's device sign-in may use http on loopback", async () => {
+    const server = fakeAccountServer("http://localhost:4100");
+
+    const flow = await run(
+      memoryAccountStore(),
+      Effect.flatMap(Accounts, (a) => a.startDeviceSignIn(server.origin)),
+      fakeServers(server)
+    );
+
+    expect(flow.verificationUri).toBe("http://localhost:4100/device?user_code=ABCD-EFGH");
   });
 });
 

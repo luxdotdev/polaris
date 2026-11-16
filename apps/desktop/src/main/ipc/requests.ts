@@ -33,6 +33,7 @@ import {
 } from "../../shared/contract.ts";
 import { type ClientServices, HostDirectory, toIpcError } from "../hosts.ts";
 import { revealPath } from "../reveal.ts";
+import { externalUrl } from "../../shared/externalUrl.ts";
 import { githubHandlers } from "../github/ipc.ts";
 import { accountsHandlers } from "../accounts/ipc.ts";
 import { gitHandlers } from "./git.ts";
@@ -324,11 +325,18 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   "settings.setSessionDefault": ({ harness, value }) =>
     Effect.sync(() => ctx.setSessionDefault(harness, value)).pipe(done),
   "settings.setSessions": ({ patch }) => Effect.sync(() => ctx.setSessions(patch)).pipe(done),
-  "shell.openExternal": ({ url }) =>
-    Effect.tryPromise({
-      try: () => ctx.openExternal(url),
+  "shell.openExternal": ({ url }) => {
+    // Checked again here, so no path into this handler reaches the OS with another scheme.
+    const target = externalUrl(url);
+
+    if (target === null)
+      return Effect.fail<IpcError>({ code: "InvalidInput", message: "only web links open" });
+
+    return Effect.tryPromise({
+      try: () => ctx.openExternal(target),
       catch: (cause): IpcError => ({ code: "OpenFailed", message: String(cause) }),
-    }).pipe(done),
+    }).pipe(done);
+  },
   "visualization.serve": ({ document }) => Effect.sync(() => ({ url: ctx.serveFrame(document) })),
   "shell.revealInFinder": ({ hostKey, path }) =>
     HostDirectory.use((dir) => {

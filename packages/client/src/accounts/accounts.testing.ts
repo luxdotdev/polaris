@@ -35,7 +35,11 @@ type Json =
 const json = (body: Json, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
-export const fakeAccountServer = (origin: string) => {
+/** `verificationUri` stands in for a server that sends its device sign-in page elsewhere. */
+export const fakeAccountServer = (
+  origin: string,
+  options: { readonly verificationUri?: string } = {}
+) => {
   const codes = new Map<string, { challenge: string; person: FakePerson }>();
   const sessions = new Map<string, FakePerson>();
   const devices = new Map<string, FakePerson | null>();
@@ -77,7 +81,8 @@ export const fakeAccountServer = (origin: string) => {
       return json({
         device_code: "dc",
         user_code: "ABCD-EFGH",
-        verification_uri_complete: `${origin}/device?user_code=ABCD-EFGH`,
+        verification_uri_complete:
+          options.verificationUri ?? `${origin}/device?user_code=ABCD-EFGH`,
         expires_in: 900,
         interval: 0,
       });

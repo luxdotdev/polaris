@@ -25,7 +25,13 @@ import {
   type Person,
 } from "./contract.ts";
 import { type AccountServer, accountServer, type Fetch } from "./http.ts";
-import { accountServerOrigin, pkceSecrets, newAccountId, signInUrl } from "./server.ts";
+import {
+  accountServerOrigin,
+  pkceSecrets,
+  newAccountId,
+  signInUrl,
+  verificationUriOn,
+} from "./server.ts";
 import { type AccountRecord, type AccountsFile, type AccountStore } from "./store.ts";
 
 /** How one sign-in reaches a browser and comes back: a loopback listener, or the OS's auth session. */
@@ -279,11 +285,12 @@ const make = Effect.fn("Accounts.make")(function* (input: AccountsInput) {
     yield* cancelDeviceSignIn;
     const origin = yield* accountServerOrigin(server);
     const started = yield* serverAt(origin).deviceCode(input.clientId);
+    const verificationUri = yield* verificationUriOn(origin, started.verification_uri_complete);
 
     const flow: DeviceSignIn = {
       server: origin,
       userCode: started.user_code,
-      verificationUri: started.verification_uri_complete,
+      verificationUri,
       expiresAt: now() + started.expires_in * 1000,
       failure: null,
     };

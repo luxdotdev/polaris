@@ -31,6 +31,32 @@ export const accountServerOrigin = (input: string): Effect.Effect<string, Accoun
   return Effect.succeed(url.origin);
 };
 
+/**
+ * A device sign-in's verification URI, only on the Account Server's own origin over https (or
+ * http on loopback): the app opens it in a browser, so another scheme or origin is refused.
+ */
+export const verificationUriOn = (
+  origin: string,
+  uri: string
+): Effect.Effect<string, AccountsError> => {
+  const refuse = Effect.fail(
+    new AccountsError({
+      reason: "sign-in-failed",
+      message: "the Account Server sent a sign-in page that isn't its own",
+    })
+  );
+
+  if (!URL.canParse(uri)) return refuse;
+  const url = new URL(uri);
+
+  const scheme =
+    url.protocol === "https:" || (url.protocol === "http:" && LOOPBACK.has(url.hostname));
+
+  if (!scheme || url.origin !== origin || url.username !== "" || url.password !== "") return refuse;
+
+  return Effect.succeed(url.href);
+};
+
 export const isPolarisCloud = (server: string) => server === POLARIS_CLOUD_ACCOUNTS_URL;
 
 const base64Url = (bytes: Uint8Array) => Base64Url.encode(bytes);

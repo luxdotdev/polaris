@@ -311,6 +311,25 @@ describe("requests", () => {
     expect(opened).toEqual([]);
   });
 
+  test.each(["file:///etc/passwd", "polaris://session/a/b", "javascript:alert(1)"])(
+    "the handler itself refuses %s, past the IPC decode",
+    async (url) => {
+      const opened: Array<string> = [];
+
+      const handler = requestHandlers({
+        ...context,
+        openExternal: async (target) => {
+          opened.push(target);
+        },
+      })["shell.openExternal"];
+
+      const exit = await run(handler({ url }));
+
+      expect(Exit.isFailure(exit)).toBe(true);
+      expect(opened).toEqual([]);
+    }
+  );
+
   test("Reveal in Finder works for this Mac's Host and a WSL distro's, never over ssh", async () => {
     const reveal = requestRunner(handlers, "shell.revealInFinder");
 
