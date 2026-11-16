@@ -22,22 +22,15 @@ import {
 } from "@polaris/ui";
 import { isKnownHarness, type SessionId } from "@polaris/protocol";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  lazy,
-  type ReactNode,
-  type RefObject,
-  Suspense,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { type DiffRow, diffRows, ROW_HEIGHT, widestColumns } from "../diffRows.ts";
+import { lazy, type ReactNode, Suspense, useMemo, useRef, useState } from "react";
+import { type DiffRow, diffRows, ROW_HEIGHT } from "../diffRows.ts";
 import { type DiffSyntax, lineSyntax } from "../diffSyntax.ts";
 import { isWindowsHost } from "../../../shell/hostPlatform.ts";
 import { useHost, useSession } from "../hooks.ts";
 import { useDiffSyntax } from "../useDiffSyntax.ts";
 import { LineCode } from "./LineCode.tsx";
+import { fileCardId, FileScrollbar, useFileScroll } from "./FileScrollbar.tsx";
+import type { FileScroll } from "../fileScroll.ts";
 import { turnOpening } from "../model/conversation.ts";
 import {
   groupOf,
@@ -78,12 +71,6 @@ import {
 
 const CARD = "mx-4 border-x border-hairline bg-surface-sunken";
 
-/** A card row's content kept in view as the list scrolls sideways: inside the card's margin and border. */
-const PINNED = "sticky left-[17px] w-[calc(var(--lane-width,100%)-34px)]";
-
-/** The gutter's 64px, the card's margins and borders, and 12px of breathing room past the widest line. */
-const LINE_CHROME = 110;
-
 const LINE_FILL = { add: "bg-diff-added-bg", remove: "bg-diff-removed-bg", context: "" } as const;
 
 const SIGN = { add: "+", remove: "−", context: "" } as const;
@@ -103,61 +90,59 @@ interface RowViewProps {
   readonly path: string;
   readonly syntax: DiffSyntax;
   readonly wrap: boolean;
+  readonly scroll: FileScroll;
+  /** Whether this row's file is wider than its card, so its foot carries a scrollbar. */
+  readonly overflows: boolean;
   readonly onFold: (path: string) => void;
 }
 
-const RowView = ({ row, path, syntax, wrap, onFold }: RowViewProps) => {
+const RowView = ({ row, path, syntax, wrap, scroll, overflows, onFold }: RowViewProps) => {
   switch (row.kind) {
     case "file":
       return (
         <div
+          id={fileCardId(row.file.path)}
           className={cn(
             CARD,
-            "rounded-t-row group/file h-9 w-[calc(100%-2rem)] border-t transition-[border-radius] duration-120 ease-out",
+            "rounded-t-row group/file flex h-9 w-[calc(100%-2rem)] items-center border-t pr-1.5 transition-[border-radius] duration-120 ease-out",
             row.folded ? "rounded-b-row border-b" : "border-hairline border-b"
           )}
         >
-          <div className={cn(PINNED, "flex h-full items-center pr-1.5")}>
-            <button
-              type="button"
-              onClick={() => onFold(row.file.path)}
-              aria-expanded={!row.folded}
-              className="flex h-full min-w-0 flex-1 cursor-default items-center gap-2.5 px-3 text-left"
-              data-testid="diff-file"
-            >
-              <DisclosureChevron open={!row.folded} size={12} className="text-text-subtle" />
-              <span className="text-code-inline text-text-default truncate font-mono">
-                {row.file.oldPath === null
-                  ? row.file.path
-                  : `${row.file.oldPath} → ${row.file.path}`}
-              </span>
-              <Counts added={row.file.added} removed={row.file.removed} />
-              <span className="flex-1" />
-              {row.file.status === "modified" ? null : (
-                <span className="text-caption text-text-subtle">{row.file.status}</span>
-              )}
-            </button>
-            {row.file.status === "deleted" ? null : (
-              <OpenInEditorButton
-                path={row.file.path}
-                line={firstChangedLine(row.file)}
-                className="opacity-0 group-hover/file:opacity-100 focus-visible:opacity-100"
-              />
+          <button
+            type="button"
+            onClick={() => onFold(row.file.path)}
+            aria-expanded={!row.folded}
+            className="flex h-full min-w-0 flex-1 cursor-default items-center gap-2.5 px-3 text-left"
+            data-testid="diff-file"
+          >
+            <DisclosureChevron open={!row.folded} size={12} className="text-text-subtle" />
+            <span className="text-code-inline text-text-default truncate font-mono">
+              {row.file.oldPath === null ? row.file.path : `${row.file.oldPath} → ${row.file.path}`}
+            </span>
+            <Counts added={row.file.added} removed={row.file.removed} />
+            <span className="flex-1" />
+            {row.file.status === "modified" ? null : (
+              <span className="text-caption text-text-subtle">{row.file.status}</span>
             )}
-          </div>
+          </button>
+          {row.file.status === "deleted" ? null : (
+            <OpenInEditorButton
+              path={row.file.path}
+              line={firstChangedLine(row.file)}
+              className="opacity-0 group-hover/file:opacity-100 focus-visible:opacity-100"
+            />
+          )}
         </div>
       );
     case "hunk":
       return (
-        <div className={cn(CARD, "h-6")}>
-          <div
-            className={cn(
-              PINNED,
-              "text-code-inline text-text-subtle truncate px-3 font-mono leading-6"
-            )}
-          >
-            {row.header}
-          </div>
+        <div
+          className={cn(
+            CARD,
+            "text-code-inline text-text-subtle flex h-6 items-center truncate px-3 font-mono"
+          )}
+        >
+          {row.header}
         </div>
       );
     case "line":
@@ -169,37 +154,44 @@ const RowView = ({ row, path, syntax, wrap, onFold }: RowViewProps) => {
             wrap ? "min-h-5 items-start" : "h-5 items-center",
             LINE_FILL[row.line.kind]
           )}
+          data-scroll-file={path}
         >
-          <span className="bg-surface-sunken sticky left-0 flex shrink-0 self-stretch">
-            <span className={cn("flex", LINE_FILL[row.line.kind])}>
-              <span className="text-text-subtle tabular w-[42px] pr-2 text-right">
-                {row.line.newNumber ?? ""}
-              </span>
-              <span
-                className={cn(
-                  "w-[22px] text-center",
-                  row.line.kind === "add" ? "text-diff-added-text" : "text-diff-removed-text"
-                )}
-              >
-                {SIGN[row.line.kind]}
-              </span>
-            </span>
+          <span className="text-text-subtle tabular w-[42px] shrink-0 pr-2 text-right">
+            {row.line.newNumber ?? ""}
           </span>
-          <LineCode text={row.line.text} runs={lineSyntax(syntax, path, row.line)} wrap={wrap} />
+          <span
+            className={cn(
+              "w-[22px] shrink-0 text-center",
+              row.line.kind === "add" ? "text-diff-added-text" : "text-diff-removed-text"
+            )}
+          >
+            {SIGN[row.line.kind]}
+          </span>
+          <LineCode
+            text={row.line.text}
+            runs={lineSyntax(syntax, path, row.line)}
+            wrap={wrap}
+            onCode={(span) => scroll.code(path, span)}
+          />
         </div>
       );
     case "note":
       return (
-        <div className={cn(CARD, "h-7")}>
-          <div
-            className={cn(PINNED, "text-caption text-text-subtle flex h-full items-center px-3")}
-          >
-            {row.text}
-          </div>
+        <div className={cn(CARD, "text-caption text-text-subtle flex h-7 items-center px-3")}>
+          {row.text}
         </div>
       );
     case "foot":
-      return <div className={cn(CARD, "rounded-b-row h-1.5 border-b")} />;
+      return overflows ? (
+        <div
+          className={cn(CARD, "rounded-b-row flex h-3 items-center border-b pr-1.5 pl-16")}
+          data-scroll-file={path}
+        >
+          <FileScrollbar path={path} scroll={scroll} />
+        </div>
+      ) : (
+        <div className={cn(CARD, "rounded-b-row h-1.5 border-b")} />
+      );
     case "gap":
       return <div className="h-3" />;
   }
@@ -216,22 +208,6 @@ const rowPaths = (rows: ReadonlyArray<DiffRow>) => {
   });
 };
 
-/** The list's visible width as `--lane-width`, without its scrollbar, for the pinned card rows. */
-const useLaneWidth = (ref: RefObject<HTMLDivElement | null>) =>
-  useEffect(() => {
-    const lane = ref.current;
-
-    if (lane === null) return;
-
-    const observer = new ResizeObserver(() =>
-      lane.style.setProperty("--lane-width", `${lane.clientWidth}px`)
-    );
-
-    observer.observe(lane);
-
-    return () => observer.disconnect();
-  }, [ref]);
-
 interface DiffListProps {
   readonly files: ReadonlyArray<DiffFile>;
   readonly folded: ReadonlySet<string>;
@@ -240,12 +216,12 @@ interface DiffListProps {
 
 const DiffList = ({ files, folded, onFold }: DiffListProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const probeRef = useRef<HTMLSpanElement>(null);
   const rows = useMemo(() => diffRows(files, folded), [files, folded]);
   const paths = useMemo(() => rowPaths(rows), [rows]);
   const syntax = useDiffSyntax(files);
   const wrap = useSettings((s) => s.appearance.wordWrap);
-  useLaneWidth(scrollRef);
-  const columns = useMemo(() => (wrap ? 0 : widestColumns(rows)), [rows, wrap]);
+  const { scroll, overflowing } = useFileScroll(scrollRef, probeRef, files, wrap);
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -261,19 +237,19 @@ const DiffList = ({ files, folded, onFold }: DiffListProps) => {
   return (
     <div
       ref={scrollRef}
-      className={cn(
-        "min-h-0 flex-1 select-text",
-        wrap ? "overflow-x-hidden overflow-y-auto" : "overflow-auto"
-      )}
+      className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto select-text"
       data-testid="diff"
     >
-      <div ref={virtualizer.containerRef} className="relative w-max min-w-full">
-        {/* Widens the rows to the widest line, so every character scrolls into view. */}
+      <div ref={virtualizer.containerRef} className="relative w-full">
+        {/* 100 code cells, in a box of no width: a cell's width, for how far each file scrolls. */}
         <div
           aria-hidden
-          className="text-code-inline h-0 font-mono"
-          style={{ width: `calc(${columns}ch + ${LINE_CHROME}px)` }}
-        />
+          className="pointer-events-none invisible absolute top-0 left-0 w-0 overflow-hidden"
+        >
+          <span ref={probeRef} className="text-code-inline font-mono whitespace-pre">
+            {"0".repeat(100)}
+          </span>
+        </div>
         {virtualizer.getVirtualItems().map((item) => {
           const row = rows[item.index];
 
@@ -289,6 +265,8 @@ const DiffList = ({ files, folded, onFold }: DiffListProps) => {
                 path={paths[item.index] ?? ""}
                 syntax={syntax}
                 wrap={wrap}
+                scroll={scroll}
+                overflows={overflowing.has(paths[item.index] ?? "")}
                 onFold={onFold}
               />
             </div>

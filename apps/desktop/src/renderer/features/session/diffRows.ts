@@ -75,9 +75,10 @@ export const lineColumns = (text: string): number => {
   return columns;
 };
 
-/** The widest line's cells: how far the unwrapped Changes list scrolls sideways. */
-export const widestColumns = (rows: ReadonlyArray<DiffRow>): number =>
-  rows.reduce(
-    (widest, row) => (row.kind === "line" ? Math.max(widest, lineColumns(row.line.text)) : widest),
+/** A file's widest line in cells: how far its card scrolls sideways. */
+export const fileColumns = (file: DiffFile): number =>
+  file.hunks.reduce(
+    (widest, hunk) =>
+      hunk.lines.reduce((wide, line) => Math.max(wide, lineColumns(line.text)), widest),
     0
   );
