@@ -84,7 +84,7 @@ export const outcome = <A, E extends { readonly _tag: string }>(effect: Effect.E
   });
 
 /** The SDK's group, which decodes both gates' refusals. */
-const connectAt = (socketPath: string) =>
+export const connectAt = (socketPath: string) =>
   Effect.flatMap(socketTransport(socketPath), (transport) =>
     connectRpcWith(ExtensionDaemonRpcs, transport)
   );

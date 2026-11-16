@@ -86,8 +86,11 @@ export const USER_COMMANDS = {
 
 /**
  * `any` RPCs are the reads and watches, `hello`, `dispatch` (decided per Command), a
- * connection's own flow control and presence, and `host.resources.acquire` and `release`:
- * `polaris lease` sends no key, and a lease is its caller's own and ends with it.
+ * connection's own flow control, and `host.resources.acquire` and `release`: `polaris lease`
+ * sends no key, a lease ends with the process it names, and without user access a connection
+ * releases only a lease it asked for. A read of file contents, a stored credential or a
+ * provider key is `user`, and so is whatever connects to an address its caller names. Handlers
+ * of `traces.watch`, `harness.models` and `harness.commands` do less without user access.
  */
 export const USER_RPCS = {
   hello: "any",
@@ -131,8 +134,8 @@ export const USER_RPCS = {
   "userAccess.allow": "user",
   "userAccess.deny": "user",
   "userAccess.revoke": "user",
-  // Returns text for the caller's audio, as a prediction does for its text; changes nothing.
-  "voice.transcribe": "any",
+  // Spends the Host's provider key; a Linked Device's own gate still admits it.
+  "voice.transcribe": "user",
   "voice.settings": "any",
   "voice.setKey": "user",
   "secret.provide": "user",
@@ -147,7 +150,7 @@ export const USER_RPCS = {
   "continuity.watch": "any",
   "continuity.markRead": "user",
   "continuity.saveDraft": "user",
-  "presence.report": "any",
+  "presence.report": "user",
   "data.sources.watch": "any",
   "traces.watch": "any",
   "traces.get": "any",
@@ -160,7 +163,7 @@ export const USER_RPCS = {
   "profiles.restartWithProfiling": "user",
   "traces.compare": "any",
   "data.schemaDiff": "any",
-  "data.describe": "any",
+  "data.describe": "user",
   "data.edits.commit": "user",
   "data.query": "user",
   "data.queryLog.watch": "any",
@@ -172,7 +175,7 @@ export const USER_RPCS = {
   "data.source.access": "user",
   "host.stats.watch": "any",
   "byteStream.credit": "any",
-  "hostAddress.open": "any",
+  "hostAddress.open": "user",
   "hostAddress.names": "any",
   "browser.host": "user",
   "browser.claim": "user",
@@ -180,25 +183,25 @@ export const USER_RPCS = {
   "browser.acceptStream": "user",
   "browser.closeStream": "user",
   "attachments.stage": "user",
-  "attachments.read": "any",
+  "attachments.read": "user",
   "attachments.settings": "any",
   "attachments.setSettings": "user",
   "attachments.clear": "user",
   "inline.propose": "user",
   "commit.suggestMessage": "user",
-  "prediction.capability": "any",
-  "prediction.complete": "any",
+  "prediction.capability": "user",
+  "prediction.complete": "user",
   "prediction.context": "any",
-  "prediction.edit": "any",
+  "prediction.edit": "user",
   "prediction.managed": "user",
   "prediction.managed.watch": "any",
   "prediction.server": "user",
   "files.listDir": "any",
   "files.stat": "any",
-  "files.read": "any",
-  "files.readVersioned": "any",
+  "files.read": "user",
+  "files.readVersioned": "user",
   "files.searchPaths": "any",
-  "files.grep": "any",
+  "files.grep": "user",
   "files.watch": "any",
   "files.watchFile": "any",
   "files.write": "user",
@@ -206,8 +209,8 @@ export const USER_RPCS = {
   "files.delete": "user",
   "files.rename": "user",
   "git.status": "any",
-  "git.diff": "any",
-  "git.show": "any",
+  "git.diff": "user",
+  "git.show": "user",
   "git.stage": "user",
   "git.unstage": "user",
   "git.discard": "user",
@@ -215,8 +218,8 @@ export const USER_RPCS = {
   "git.init": "user",
   "git.sync": "user",
   "git.watch": "any",
-  "git.log": "any",
-  "git.blame": "any",
+  "git.log": "user",
+  "git.blame": "user",
   "origins.match": "any",
   "origins.forCommit": "any",
   "review.checkoutStatus": "any",

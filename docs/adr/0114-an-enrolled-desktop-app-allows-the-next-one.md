@@ -54,11 +54,25 @@ agent's shell included, could approve its own Pending Approvals, send Turns and 
   `AcceptTurns`, pushed with the Host's git credentials through a Constellation export, and
   deleted staged attachments and stored data source credentials. The protocol's
   `userAccess.test.ts` lists every `any` entry against a reviewed set, so a new one is added
-  there on purpose. Reads stay open, as do a connection's own flow control and presence,
-  `voice.transcribe` and the predictions (they return a result and keep nothing), and
-  `host.resources.acquire` and `release`: `polaris lease` sends no key, and a lease is its
-  caller's own and ends with it. Extensions and Linked Devices were already refused the gated
-  requests by their own tables, or reach them through their Grants; nothing moved for them.
+  there on purpose. Reads of Host state stay open, as does a connection's own flow control.
+  A third review found `any` entries that were not that, and closed them. Reads that reach
+  beyond Host state are `user`: file contents by any path (`files.read`, `files.readVersioned`,
+  `files.grep`) or through git (`git.show`, `git.diff`, `git.log`, `git.blame`), a message's
+  staged attachment (`attachments.read`), the Host's loopback (`hostAddress.open`), a data source's stored credentials
+  (`data.describe`) and the Host's provider key (`voice.transcribe`); so are
+  `prediction.capability`, `prediction.complete` and `prediction.edit`, which connect to an
+  endpoint their caller names and start the managed model server, and `presence.report`,
+  which holds back the user's push notifications. Three handlers do less for a caller the gate
+  would refuse: `traces.watch` issues and persists no ingestion endpoint, and `harness.models`
+  and `harness.commands` answer from the cache alone, since asking a Harness may start its
+  program. `host.resources.acquire` and `release` stay
+  open because `polaris lease` sends no key: a lease ends with the process it names, and
+  without user access a connection releases only a lease it asked for itself. What is still
+  open and not purely a read is listed in ENG-953: a lease may name any live process,
+  `git.status` and `git.watch` run git under the repository's own config, and some watches create their store on
+  first use. Extensions and Linked Devices were already refused the gated requests by their
+  own tables, or reach them through their Grants (a Linked Device still transcribes and lists
+  Models); nothing moved for them.
 - **Checks behind the gate fail closed.** The transport annotates every connection with its
   user access, read live. A Constellation's transfers and defaults take an unbound connection
   for the user only through that annotation, so a request the gate never admitted is refused
