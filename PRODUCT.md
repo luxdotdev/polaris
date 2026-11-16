@@ -16,6 +16,8 @@ Electron (decided in ENG-184): Chromium 152, React with the React Compiler, Pier
 
 An individual developer supervising several Agent Sessions at once, across the local Mac and remote Hosts. They read and review far more than they type: most of their time goes to judging what a Harness did, deciding what it should do next, and answering it when it Needs You. They live in the app for hours, mostly in dark mode, and grow from occasional use into power use.
 
+A second audience is a team that shares Agent Sessions: an owner shares one Agent Session or Constellation with Teammates, who watch, comment and, when allowed, act in it. Sharing is optional and needs an Account; nothing changes for someone who never shares.
+
 ## Product Purpose
 
 Polaris is a native, GPU-rendered IDE and agent orchestrator. It lets one developer launch, watch, steer, and review the work of third-party Harnesses (Claude Code, Codex) across every connected Host, then read and edit the code themselves. Success is a developer who trusts what they are shipping from several agents without watching any of them constantly.
