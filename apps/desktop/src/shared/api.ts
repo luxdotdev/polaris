@@ -90,6 +90,7 @@ import type { RestartDaemonResult, RestartPreviewView } from "./restart.ts";
 import type { VoiceRequestOutputs } from "./voiceContract.ts";
 import type { SecretRequestOutputs } from "./secretContract.ts";
 import type { LinkedDeviceView, LinkedDevicesRequestOutputs } from "./linkedDevicesContract.ts";
+import type { UserAccessRequestOutputs, UserAccessView } from "./userAccessContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
 import type { GitRequestOutputs, GitSubscriptionItems } from "./gitContract.ts";
 import type { BrowserRequestOutputs, BrowserSubscriptionItems } from "./browserContract.ts";
@@ -453,6 +454,7 @@ export interface RequestOutputs
     ResourceRequestOutputs,
     RemoteAccessRequestOutputs,
     LinkedDevicesRequestOutputs,
+    UserAccessRequestOutputs,
     VoiceRequestOutputs,
     SecretRequestOutputs,
     DataRequestOutputs,
@@ -625,6 +627,7 @@ export interface SubscriptionItems
   "plan-limits": Plain<PlanLimit>;
   "host.stats": typeof HostStatsItem.Encoded;
   "devices.watch": ReadonlyArray<LinkedDeviceView>;
+  "userAccess.watch": UserAccessView;
   "review.watchRiskSummary": RiskSummary;
   "inline.propose": InlineStreamItem;
   constellation: ConstellationStreamItem;

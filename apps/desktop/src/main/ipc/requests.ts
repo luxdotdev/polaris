@@ -40,6 +40,7 @@ import { remoteAccessHandlers } from "./remoteAccess.ts";
 import type { PickedApp } from "../../shared/computerUseContract.ts";
 import { computerUseHandlers } from "./computerUse.ts";
 import { linkedDevicesHandlers } from "./linkedDevices.ts";
+import { userAccessHandlers } from "./userAccess.ts";
 import { voiceHandlers } from "./voice.ts";
 import { browserHandlers } from "../browser/ipc.ts";
 import { simulatorHandlers } from "../simulator/ipc.ts";
@@ -272,6 +273,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   ...remoteAccessHandlers,
   ...computerUseHandlers,
   ...linkedDevicesHandlers,
+  ...userAccessHandlers,
   ...voiceHandlers,
   ...browserHandlers(ctx.browser),
   ...secretHandlers,

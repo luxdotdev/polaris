@@ -27,6 +27,7 @@ import { PullsPublisher } from "../features/pulls/index.ts";
 import { CheckoutPublisher } from "../features/review/checkout/Publisher.tsx";
 import { writeClipboard } from "../features/clipboard.ts";
 import { PaneBoundary } from "../features/crash/index.ts";
+import { UserAccessWatcher } from "../features/userAccess/index.ts";
 import { Shell } from "./Shell.tsx";
 
 export interface AppProps {
@@ -59,6 +60,7 @@ export const App = ({ value, onboarding = settled }: AppProps) => (
               <BrowserForget />
               <BrowserWorking />
               <UpgradeStatusPublisher />
+              <UserAccessWatcher />
               <Toaster />
             </TooltipProvider>
           </CopyProvider>

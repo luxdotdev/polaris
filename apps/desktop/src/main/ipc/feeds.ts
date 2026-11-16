@@ -128,6 +128,8 @@ const openers: Openers = {
   // Ends at once, empty, on a Daemon without `host.stats`.
   "host.stats": ({ hostKey }) => onLive(hostKey, watchHostStats),
   "devices.watch": ({ hostKey }) => onLive(hostKey, (session) => session.client["devices.watch"]()),
+  "userAccess.watch": ({ hostKey }) =>
+    onLive(hostKey, (session) => session.client["userAccess.watch"]()),
   "review.watchRiskSummary": ({ hostKey, summaryId }) =>
     onLive(hostKey, (session) => session.client["review.watchRiskSummary"]({ summaryId })),
   "inline.propose": ({ hostKey, ...request }) =>

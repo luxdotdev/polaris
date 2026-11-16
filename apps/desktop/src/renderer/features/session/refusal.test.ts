@@ -7,7 +7,7 @@ const refused = (what: string) => ({
   message: `${what} is only for a Desktop App this Host has enrolled`,
 });
 
-test("a refused approval names the host and how to move user access here", () => {
+test("a refused approval on a 0.9.0 daemon names the host and how to move user access here", () => {
   noteHostKinds([{ key: "pi", kind: "ssh", label: "lucas-rpi" }]);
 
   expect(refusalText(refused("dispatch:RespondToApproval"), "pi")).toBe(
