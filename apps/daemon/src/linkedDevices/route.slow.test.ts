@@ -16,6 +16,7 @@ import {
   DaemonRpcs,
   ExtensionDaemonRpcs,
   type LinkedDevice,
+  POLARIS_CLOUD_RELAY_URL,
   type RelayRouteStatus,
   SessionId,
   SessionPlacement,
@@ -208,6 +209,13 @@ test("a linked device reaches the Daemon with Client power and is recorded as th
         );
 
         expect(insecure).toMatchObject({ reason: "invalid-url" });
+
+        // ENG-948: without a URL the route goes on with Polaris Cloud's relay.
+        const cloud = yield* desktop["relayRoute.enable"]({});
+        expect({ state: cloud.state, url: cloud.url }).toEqual({
+          state: "on",
+          url: POLARIS_CLOUD_RELAY_URL,
+        });
 
         yield* desktop["relayRoute.enable"]({ url: relay.url });
         const status = yield* waitConnected(desktop);

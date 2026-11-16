@@ -6,7 +6,7 @@
 import { SettingsCard, SettingsWell } from "@polaris/ui";
 import type { ReactNode } from "react";
 import type { MachineView } from "../../../../shared/api.ts";
-import { RelayRouteRow, useRelayRoute } from "../RelayRoute.tsx";
+import { RelayRouteRow, relayAddress, useRelayRoute } from "../RelayRoute.tsx";
 import { RemoteAccess } from "../RemoteAccess.tsx";
 
 /** Which routes a connected host's daemon offers; empty otherwise. */
@@ -31,7 +31,7 @@ const Card = ({ status, children }: { readonly status?: string; readonly childre
   </SettingsCard>
 );
 
-/** With the relay: its address, saved or typed, is the footer's mono line. */
+/** With the relay: the address it uses or would use, Polaris Cloud's or typed, is the footer's mono line. */
 const WithRelay = ({
   machine,
   tailscale,
@@ -40,7 +40,7 @@ const WithRelay = ({
   readonly tailscale: boolean;
 }) => {
   const relay = useRelayRoute(machine.key);
-  const address = relay.route?.url ?? relay.draft.trim();
+  const address = relayAddress(relay.route, relay.own, relay.draft);
 
   return (
     <Card status={address === "" ? "No relay set" : address}>

@@ -61,9 +61,15 @@ export const GetRelayRoute = Rpc.make("relayRoute.status", {
   error: RelayRouteError,
 });
 
-/** Turns the route on with `url`; on again replaces the URL and reconnects. */
+/** Polaris Cloud's relay: the one a Host dials unless the user gives their own (ENG-948). */
+export const POLARIS_CLOUD_RELAY_URL = "wss://relay.polaris.lux.dev/v1";
+
+/**
+ * Turns the route on with `url`, or Polaris Cloud's relay without one; on again replaces
+ * the URL and reconnects.
+ */
 export const EnableRelayRoute = Rpc.make("relayRoute.enable", {
-  payload: { url: Schema.String },
+  payload: { url: Schema.optionalKey(Schema.String) },
   success: RelayRouteStatus,
   error: RelayRouteError,
 });
