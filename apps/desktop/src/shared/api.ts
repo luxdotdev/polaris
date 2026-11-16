@@ -92,6 +92,7 @@ import type { SecretRequestOutputs } from "./secretContract.ts";
 import type { LinkedDeviceView, LinkedDevicesRequestOutputs } from "./linkedDevicesContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
 import type { AccountsRequestOutputs, AccountsSubscriptionItems } from "./accountsContract.ts";
+import type { SharingRequestOutputs, SharingSubscriptionItems } from "./sharingContract.ts";
 import type { GitRequestOutputs, GitSubscriptionItems } from "./gitContract.ts";
 import type { BrowserRequestOutputs, BrowserSubscriptionItems } from "./browserContract.ts";
 import type { SimulatorRequestOutputs, SimulatorSubscriptionItems } from "./simulatorContract.ts";
@@ -229,6 +230,11 @@ export interface HostView {
   /** The Daemon runs the scripted bench Harness (the dev Daemon): the proof session may run here. */
   readonly proofHarness: boolean;
   readonly status: ConnectionStatusView;
+  /**
+   * Another person's Host, reached through the relay for sessions they shared with you
+   * (`sharing.withMe`). The store keeps these out of `hosts`: they are not your machines.
+   */
+  readonly shared?: true;
 }
 
 // ── Machines ────────────────────────────────────────────────────────────────
@@ -449,6 +455,7 @@ export interface RequestOutputs
     PredictionUiOutputs,
     GitHubRequestOutputs,
     AccountsRequestOutputs,
+    SharingRequestOutputs,
     GitRequestOutputs,
     BrowserRequestOutputs,
     ConstellationRequestOutputs,
@@ -605,6 +612,7 @@ export interface SubscriptionItems
   extends
     GitHubSubscriptionItems,
     AccountsSubscriptionItems,
+    SharingSubscriptionItems,
     GitSubscriptionItems,
     BrowserSubscriptionItems,
     DataSubscriptionItems,

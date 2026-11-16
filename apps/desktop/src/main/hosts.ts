@@ -7,6 +7,7 @@ import { hostname } from "node:os";
 import {
   type ClientIdentity,
   type ConnectionStatus,
+  type ConnectFailure,
   type HostConnection,
   type HostConnectionOptions,
   type LiveSession,
@@ -37,6 +38,7 @@ import type { ConnectionStatusView, HostKind, HostView, IpcError } from "../shar
 import type { GitHub } from "./github/index.ts";
 import type { Accounts } from "@polaris/client/accounts";
 import type { DesktopAccounts } from "./accounts/index.ts";
+import type { DesktopSharing } from "./sharing/index.ts";
 import type { LocalDaemon } from "./local/index.ts";
 import type { Machines } from "./machines/service.ts";
 import type { RemoteHostSetting } from "./settings.ts";
@@ -73,6 +75,14 @@ export interface HostEntry {
   readonly remoteCommand: ReadonlyArray<string> | null;
   /** Screenshots and tests only: report this round trip instead of the measured one. */
   readonly simulatedLatencyMs: number | null;
+  /** Another person's Host, for what they shared with this user (`sharing/`). */
+  readonly teammate?: TeammateEntry;
+}
+
+/** How a Teammate connects: as the person their Account's statement names (ADR 0112). */
+export interface TeammateEntry {
+  readonly accountId: string;
+  readonly accountStatement: Effect.Effect<Redacted.Redacted<string>, ConnectFailure>;
 }
 
 export const statusView = (status: ConnectionStatus): ConnectionStatusView => ({
@@ -109,7 +119,7 @@ export const hostView = (
 
   if (languageConnectionEpoch !== null) lifetime.languageConnectionEpoch = languageConnectionEpoch;
 
-  return {
+  const view: HostView = {
     key: entry.key,
     label: entry.label,
     colour: entry.colour,
@@ -125,6 +135,8 @@ export const hostView = (
           : status.latencyMs,
     },
   };
+
+  return entry.teammate === undefined ? view : { ...view, shared: true };
 };
 
 /** A Host on a local socket under its own name: screenshots and tests only (`POLARIS_DESKTOP_EXTRA_HOSTS`). */
@@ -354,14 +366,19 @@ export class HostDirectory extends Context.Service<
             yield* stop(entry.key);
             byKey.set(entry.key, entry);
 
+            const teammate = entry.teammate;
+
             let options: HostConnectionOptions = {
               key: entry.key,
               name: entry.label,
               target: entry.target,
+              // A Teammate holds no user access on another person's Host: no user key.
               identity:
-                userKey === undefined
-                  ? identity
-                  : { ...identity, userKey: userKeyForHost(userKey, entry.key) },
+                teammate !== undefined
+                  ? { ...identity, accountStatement: teammate.accountStatement }
+                  : userKey === undefined
+                    ? identity
+                    : { ...identity, userKey: userKeyForHost(userKey, entry.key) },
               ssh:
                 entry.remoteCommand === null
                   ? { ...ssh }
@@ -384,25 +401,25 @@ export class HostDirectory extends Context.Service<
                     connection.sessionChanges.pipe(Stream.map(() => undefined))
                   );
 
+            const own = teammate === undefined ? connection.sessionChanges : undefined;
+
             const report =
-              presence === undefined || connection.sessionChanges === undefined
+              presence === undefined || own === undefined
                 ? Effect.void
-                : reportPresence(connection.sessionChanges, presence);
+                : reportPresence(own, presence);
 
             const lease =
-              developerModeLease !== true || connection.sessionChanges === undefined
+              developerModeLease !== true || own === undefined
                 ? Effect.void
-                : holdDeveloperModeLease(connection.sessionChanges);
+                : holdDeveloperModeLease(own);
 
             const developerMode =
-              connection.sessionChanges === undefined
-                ? Effect.void
-                : hostDeveloperModes.watch(entry.key, connection.sessionChanges);
+              own === undefined ? Effect.void : hostDeveloperModes.watch(entry.key, own);
 
             const browsers =
-              browserHost === undefined || connection.sessionChanges === undefined
+              browserHost === undefined || own === undefined
                 ? Effect.void
-                : browserHost(entry.key, connection.sessionChanges);
+                : browserHost(entry.key, own);
 
             const track = changes.pipe(
               Stream.runForEach(() =>
@@ -448,7 +465,13 @@ export class HostDirectory extends Context.Service<
 }
 
 /** The services the IPC handlers run on. */
-export type ClientServices = HostDirectory | Machines | GitHub | DesktopAccounts | Accounts;
+export type ClientServices =
+  | HostDirectory
+  | Machines
+  | GitHub
+  | DesktopAccounts
+  | Accounts
+  | DesktopSharing;
 
 export type ClientRuntime = ManagedRuntime.ManagedRuntime<ClientServices, never>;
 
@@ -458,13 +481,13 @@ export const startClientRuntime = (
   machines: Layer.Layer<Machines, never, HostDirectory>,
   github: Layer.Layer<GitHub>,
   accounts: Layer.Layer<DesktopAccounts | Accounts>,
+  sharing: Layer.Layer<DesktopSharing, never, HostDirectory | Accounts>,
   /** The Self-Trace Tracer and loggers. */
   observability?: Layer.Layer<never>
 ): ClientRuntime => {
-  const services = Layer.mergeAll(
-    Layer.provideMerge(machines, HostDirectory.layer(input)),
-    github,
-    accounts
+  const services = Layer.provideMerge(
+    sharing,
+    Layer.mergeAll(Layer.provideMerge(machines, HostDirectory.layer(input)), github, accounts)
   );
 
   return ManagedRuntime.make(

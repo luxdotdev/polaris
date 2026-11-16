@@ -9,7 +9,7 @@ import { CapabilityList } from "./capabilities.ts";
 import { HostInfo } from "./domain.ts";
 import { ExtensionTokenRejected } from "./extensions.ts";
 import { HostId } from "./ids.ts";
-import { Share } from "./shares.ts";
+import { Share, StatementRejected } from "./shares.ts";
 
 export const LanguageConnectionIdentity = Schema.Struct({
   hostId: HostId,
@@ -97,7 +97,7 @@ export const Hello = Rpc.make("hello", {
      * A Teammate's statement from their Account Server (a JWT, `StatementClaims`; ADR 0112): the
      * connection then acts as that person, within their live Shares on this Host
      * (`shareGrants.ts`), until the statement expires or `account.refreshStatement` renews it.
-     * A Teammate's Client calls `TeammateRpcs`' `hello`, which can fail with `StatementRejected`.
+     * A statement the Host does not accept fails `hello` with `StatementRejected`.
      */
     accountStatement: Schema.optionalKey(Schema.RedactedFromValue(Schema.String)),
   },
@@ -111,5 +111,10 @@ export const Hello = Rpc.make("hello", {
     /** For a Teammate's connection: the person's live Shares on this Host. */
     shares: Schema.optionalKey(Schema.Array(Share)),
   }),
-  error: Schema.Union([LanguageIdentityError, ExtensionTokenRejected, ProtocolMismatch]),
+  error: Schema.Union([
+    LanguageIdentityError,
+    ExtensionTokenRejected,
+    ProtocolMismatch,
+    StatementRejected,
+  ]),
 });
