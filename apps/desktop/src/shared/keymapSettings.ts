@@ -18,6 +18,7 @@ export type SettingsCommandId =
   | "settings.hosts"
   | "settings.reviewer"
   | "settings.github"
+  | "settings.account"
   | "settings.voice"
   | "settings.attachments"
   | "github.addAccount";
@@ -128,6 +129,12 @@ export const SETTINGS_BINDINGS: ReadonlyArray<KeyBinding> = [
     title: "Settings: GitHub accounts",
     keys: [],
     palette: SETTINGS(["github", "account", "owner", "organization", "sign in", "pull requests"]),
+  },
+  {
+    id: "settings.account",
+    title: "Settings: Polaris accounts",
+    keys: [],
+    palette: SETTINGS(["account", "sharing", "share", "sign in", "commit email", "polaris cloud"]),
   },
   {
     id: "github.addAccount",

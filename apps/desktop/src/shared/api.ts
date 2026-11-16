@@ -91,6 +91,7 @@ import type { VoiceRequestOutputs } from "./voiceContract.ts";
 import type { SecretRequestOutputs } from "./secretContract.ts";
 import type { LinkedDeviceView, LinkedDevicesRequestOutputs } from "./linkedDevicesContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
+import type { AccountsRequestOutputs, AccountsSubscriptionItems } from "./accountsContract.ts";
 import type { GitRequestOutputs, GitSubscriptionItems } from "./gitContract.ts";
 import type { BrowserRequestOutputs, BrowserSubscriptionItems } from "./browserContract.ts";
 import type { SimulatorRequestOutputs, SimulatorSubscriptionItems } from "./simulatorContract.ts";
@@ -447,6 +448,7 @@ export interface RequestOutputs
   extends
     PredictionUiOutputs,
     GitHubRequestOutputs,
+    AccountsRequestOutputs,
     GitRequestOutputs,
     BrowserRequestOutputs,
     ConstellationRequestOutputs,
@@ -602,6 +604,7 @@ export type TerminalItem =
 export interface SubscriptionItems
   extends
     GitHubSubscriptionItems,
+    AccountsSubscriptionItems,
     GitSubscriptionItems,
     BrowserSubscriptionItems,
     DataSubscriptionItems,

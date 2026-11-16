@@ -36,6 +36,7 @@ import { useUpdates } from "../updates/store.ts";
 import { AboutPage } from "./AboutPage.tsx";
 import { AppearancePage } from "./AppearancePage.tsx";
 import { GitHubPage } from "./GitHubPage.tsx";
+import { PolarisAccountsPage } from "./PolarisAccountsPage.tsx";
 import { HarnessesPage } from "./HarnessesPage.tsx";
 import { ReviewerPage } from "./ReviewerPage.tsx";
 import { SessionsPage } from "./SessionsPage.tsx";
@@ -46,7 +47,17 @@ import { VoicePage } from "./VoicePage.tsx";
 import { ConstellationsPage } from "./ConstellationsPage.tsx";
 import { ConstellationMark } from "../../sessions/glyphs.tsx";
 
+/** A person in a circle: the Polaris accounts page. */
+const AccountGlyph = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden className="opacity-90">
+    <circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" strokeWidth="1.3" />
+    <circle cx="8" cy="6.5" r="2" fill="none" stroke="currentColor" strokeWidth="1.3" />
+    <path d="M4.6 12.4a4 4 0 0 1 6.8 0" fill="none" stroke="currentColor" strokeWidth="1.3" />
+  </svg>
+);
+
 const ICONS: Readonly<Record<SettingsSection, ReactNode>> = {
+  account: <AccountGlyph />,
   appearance: <ContrastIcon />,
   sessions: <BranchIcon />,
   editor: <CommandIcon />,
@@ -177,6 +188,8 @@ const Page = ({ route }: { readonly route: SettingsRoute }) => {
       return <AboutPage />;
     case "appearance":
       return <AppearancePage />;
+    case "account":
+      return <PolarisAccountsPage />;
     case "sessions":
       return <SessionsPage />;
     case "editor":

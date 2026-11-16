@@ -25,6 +25,7 @@ export const settingsCommands = (shell: ShellActions): CommandHandlers => ({
   "settings.hosts": { run: () => shell.openSettings("hosts") },
   "settings.reviewer": { run: () => shell.openSettings("reviewer") },
   "settings.github": { run: () => shell.openSettings("github") },
+  "settings.account": { run: () => shell.openSettings("account") },
   "settings.voice": { run: () => shell.openSettings("voice") },
   "settings.attachments": { run: () => shell.openSettings("attachments") },
   "github.addAccount": { run: () => shell.openSettings("github", { adding: true }) },

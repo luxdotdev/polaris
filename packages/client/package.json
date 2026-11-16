@@ -8,6 +8,7 @@
     ".": "./src/index.ts",
     "./access": "./src/access/index.ts",
     "./accounts": "./src/accounts/index.ts",
+    "./accounts/testing": "./src/accounts/accounts.testing.ts",
     "./continuity": "./src/continuity/index.ts",
     "./connection": "./src/connection.ts",
     "./failures": "./src/failures.ts",

@@ -3,6 +3,7 @@
  * wired, untrusted input is decoded before anything runs, and failures cross
  * as `IpcError`s. The real path, end to end, is `scripts/smoke.ts`.
  */
+import { DesktopAccounts } from "../accounts/index.ts";
 import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -120,7 +121,13 @@ const github = GitHub.layer({
   endpoints: { web: "https://github.test", api: "https://api.github.test" },
 }).pipe(Layer.provide(SecureStorage.memory));
 
-const services = Layer.mergeAll(clientServices, github);
+const accounts = DesktopAccounts.layer({
+  dir: mkdtempSync(join(tmpdir(), "polaris-ipc-accounts-")),
+  fetch: () => Promise.reject(new TypeError("no Account Server in tests")),
+  openExternal: () => Promise.resolve(),
+}).pipe(Layer.provide(SecureStorage.memory));
+
+const services = Layer.mergeAll(clientServices, github, accounts);
 
 const revealed: Array<string> = [];
 

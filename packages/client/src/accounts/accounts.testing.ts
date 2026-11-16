@@ -120,27 +120,30 @@ export const fakeAccountServer = (origin: string) => {
     return routes(request, path);
   };
 
-  /** The browser: GitHub signs `signedIn` in and the server redirects with a code. */
+  /** What the browser is sent back to after `url` (`/sign-in?…`): GitHub signed `signedIn` in. */
+  const redirectFor = (url: string, overrides: { state?: string } = {}) => {
+    const params = new URL(url).searchParams;
+    const code = `c${++next}`;
+    codes.set(code, { challenge: params.get("code_challenge") ?? "", person: signedIn });
+    const back = new URL(params.get("redirect_uri") ?? "");
+    back.searchParams.set("code", code);
+    back.searchParams.set("state", overrides.state ?? params.get("state") ?? "");
+
+    return back.toString();
+  };
+
+  /** The browser as an `Authorizer`, returning to a loopback nobody listens on. */
   const browser = (overrides: { state?: string } = {}) =>
     Effect.sync((): Authorizer => ({
       redirectUri: "http://127.0.0.1:9/callback",
-      open: (url) =>
-        Effect.sync(() => {
-          const params = new URL(url).searchParams;
-          const code = `c${++next}`;
-          codes.set(code, { challenge: params.get("code_challenge") ?? "", person: signedIn });
-          const back = new URL(params.get("redirect_uri") ?? "");
-          back.searchParams.set("code", code);
-          back.searchParams.set("state", overrides.state ?? params.get("state") ?? "");
-
-          return back.toString();
-        }),
+      open: (url) => Effect.sync(() => redirectFor(url, overrides)),
     }));
 
   return {
     origin,
     fetch,
     calls,
+    redirectFor,
     browser,
     signInAs: (person: FakePerson) => {
       signedIn = person;
