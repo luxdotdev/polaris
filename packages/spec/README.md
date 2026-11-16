@@ -823,7 +823,7 @@ from the live Shares, and an unshared session refuses as before; `Engine.queuedT
 the Share gate in front of the command (`shares.qnt`), Steer, prompts' text, and persistence
 (the same test restarts the Engine with a Turn queued). Why a sender is barred is an input:
 the model does not tell an ended Share from a lost `approve`. A Pairing revoked while its
-Extension's Turn waits is not re-checked (ENG-941 follow-up).
+Extension's Turn waits is not re-checked (ENG-955).
 
 **Tested against real code.** `verification/turnQueue.model.slow.test.ts` (above) and
 `engine/Engine.queuedTurns.test.ts`, which runs the real Engine and fake Harness: two people's
