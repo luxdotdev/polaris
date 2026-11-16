@@ -40,5 +40,6 @@ export const unsupportedMessage = (error: HostActionUnsupported, copy: ClientCop
     Match.when("local-unsupported", () => copy.localHostUnsupported),
     Match.when("unmanaged-local", () => unmanagedLocal(copy)),
     Match.when("no-terminal", () => `${copy.localHost} needs no ssh hand-off`),
+    Match.when("relay-host", () => "This host is reached through the relay, without ssh"),
     Match.exhaustive
   );

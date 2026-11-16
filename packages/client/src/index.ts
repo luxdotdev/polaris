@@ -13,6 +13,8 @@ export * from "./HostConnection.ts";
 
 export * from "./HostRegistry.ts";
 
+export * from "./relayConnector.ts";
+
 export * from "./presence.ts";
 
 export * from "./hostStats.ts";

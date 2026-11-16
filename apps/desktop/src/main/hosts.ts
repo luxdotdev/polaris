@@ -48,6 +48,7 @@ export const hostKind = (entry: Pick<HostEntry, "key" | "target">): HostKind =>
     Local: (): HostKind => (entry.key === LOCAL_HOST_KEY ? "local" : "socket"),
     Ssh: (): HostKind => "ssh",
     Wsl: (): HostKind => "wsl",
+    Relay: (): HostKind => "relay",
   });
 
 export class UnknownHost extends Error {
@@ -266,6 +267,8 @@ export interface HostDirectoryInput {
   ) => Effect.Effect<void>;
   /** Every connection's RPC options, e.g. whether requests carry trace context. */
   readonly rpc?: HostConnectionOptions["rpc"];
+  /** Opens Hosts reached through a relay, as this app's relay device (`relayDevice.ts`). */
+  readonly relay?: HostConnectionOptions["relay"];
 }
 
 /** The Hosts this app connects to, and their views for the renderers. */
@@ -293,6 +296,7 @@ export class HostDirectory extends Context.Service<
     developerModeLease,
     browserHost,
     rpc,
+    relay,
   }: HostDirectoryInput) =>
     Layer.effect(
       HostDirectory,
@@ -365,6 +369,8 @@ export class HostDirectory extends Context.Service<
             if (clientIdentity !== undefined) options = { ...options, clientIdentity };
 
             if (rpc !== undefined) options = { ...options, rpc };
+
+            if (relay !== undefined) options = { ...options, relay };
 
             const connection = yield* registry.add(options);
 

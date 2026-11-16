@@ -35,6 +35,7 @@ import {
   SubscriptionRef,
 } from "effect";
 import type { RpcClientError } from "effect/rpc/RpcClientError";
+import type { RelayAddress } from "@polaris/protocol/relay";
 import {
   type ConnectionEvent,
   connectionMachine,
@@ -76,7 +77,16 @@ export type HostTarget = Data.TaggedEnum<{
   };
   /** A WSL 2 distro on this Windows machine (experimental; `wsl/`). */
   Wsl: { readonly distro: string };
+  /** A Host reached through the Polaris Relay (`relay/`): a Noise session to its static key. */
+  Relay: {
+    readonly relayUrl: string;
+    readonly hostAddress: RelayAddress;
+    /** The Host's Noise static public key, base64url. */
+    readonly hostNoiseKey: string;
+  };
 }>;
+
+export type RelayTarget = Data.TaggedEnum.Value<HostTarget, "Relay">;
 
 export const HostTarget = Data.taggedEnum<HostTarget>();
 
@@ -117,6 +127,8 @@ export interface HostConnectionOptions {
   readonly rpc?: RpcConnectionOptions;
   readonly ssh?: SshOptions;
   readonly wsl?: WslConnectorOptions;
+  /** Opens a Relay target's session; from `@polaris/client/relay`, which loads libsodium. */
+  readonly relay?: (target: RelayTarget) => Connector;
 }
 
 export interface ConnectionStatus {
@@ -260,6 +272,15 @@ export const connectorFor = (options: HostConnectionOptions): Connector => {
         remoteCommand === undefined ? (options.wsl ?? {}) : { ...options.wsl, remoteCommand }
       );
     },
+    Relay: (target) =>
+      options.relay?.(target) ??
+      Effect.fail(
+        new ConnectFailure({
+          kind: "transient",
+          reason: "connection-failed",
+          detail: "this Client has no relay identity",
+        })
+      ),
   });
 };
 
