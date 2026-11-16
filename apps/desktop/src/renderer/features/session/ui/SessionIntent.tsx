@@ -47,6 +47,7 @@ import { SessionHeader } from "./SessionHeader.tsx";
 import { Transcript } from "./Transcript.tsx";
 import { useSessionChrome } from "../chrome.ts";
 import { EditorPlaceProvider } from "../../editor-links/index.ts";
+import { SendComments } from "../../comments/index.ts";
 
 /** The shell's session slot props (`app/slots.tsx`). */
 export interface SessionViewProps {
@@ -274,6 +275,9 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
             title: session.title === "" ? session.harness : session.title,
           }}
         />
+        <div className="px-panel empty:hidden">
+          <SendComments hostKey={hostKey} sessionId={sessionId} />
+        </div>
         {harness === null ? null : (
           <SessionComposer
             hostKey={hostKey}

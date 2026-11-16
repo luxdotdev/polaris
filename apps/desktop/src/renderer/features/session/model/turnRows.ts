@@ -193,12 +193,15 @@ const openingRow = (view: TurnView, part: Part): Row => {
         key: `${turn.id}:prompt`,
         turnId: part.turnId,
         number: part.number,
-        text: turn.prompt,
+        // A Turn of Comments shows them as cards; its text is only the sender's message.
+        text: (turn.commentIds?.length ?? 0) > 0 ? (turn.feedback?.message ?? "") : turn.prompt,
         attachments: turn.attachments,
         model: turn.model,
         effort: turn.effort,
         startedAt: turn.startedAt,
         shell: shellOf(view),
+        commentIds: turn.commentIds ?? [],
+        actor: turn.actor ?? null,
       }
     : {
         kind: "trigger",

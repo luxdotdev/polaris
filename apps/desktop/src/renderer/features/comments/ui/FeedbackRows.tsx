@@ -4,7 +4,10 @@
  */
 import { Button, cn } from "@polaris/ui";
 import { ANNOTATION_INSET } from "../../review/index.ts";
-import { removeFeedback } from "../data/actions.ts";
+import { useState } from "react";
+import { type Done, removeFeedback } from "../data/actions.ts";
+import { addComment } from "../data/session.ts";
+import type { Draft } from "../model/feedback.ts";
 import { useComments } from "../data/store.ts";
 import type { SentComment } from "../model/feedback.ts";
 
@@ -22,6 +25,34 @@ const Row = ({
   </div>
 );
 
+/** "Comment": posts a draft as the session's Comment on its latest Turn, then drops the draft. */
+const postDraft = async (
+  subjectKey: string,
+  hostKey: string,
+  sessionId: string,
+  turnId: string,
+  draft: Draft
+): Promise<Done> => {
+  const done = await addComment(
+    hostKey,
+    sessionId,
+    {
+      kind: "lines",
+      turnId,
+      path: draft.path,
+      side: draft.lines.side,
+      start: draft.lines.start,
+      end: draft.lines.end,
+      code: draft.code,
+    },
+    draft.note
+  );
+
+  if (done.ok) removeFeedback(subjectKey, draft.id);
+
+  return done;
+};
+
 export const DraftRow = ({
   subjectKey,
   draftId,
@@ -31,8 +62,11 @@ export const DraftRow = ({
 }) => {
   const draft = useComments((s) => s.batches[subjectKey]?.comments.find((c) => c.id === draftId));
   const nextTurn = useComments((s) => s.sessions[subjectKey]?.nextTurn ?? null);
+  const session = useComments((s) => s.sessions[subjectKey]);
+  const [error, setError] = useState<string | null>(null);
 
   if (draft === undefined) return null;
+  const turnId = session?.shared === true ? (session.latestTurnId ?? null) : null;
 
   return (
     <Row testId="feedback-draft">
@@ -48,8 +82,23 @@ export const DraftRow = ({
         <Button size="xs" variant="ghost" onClick={() => removeFeedback(subjectKey, draftId)}>
           Remove
         </Button>
+        {session === undefined || turnId === null ? null : (
+          <Button
+            size="xs"
+            variant="secondary"
+            title="Post it to the session, where everyone it is shared with sees it"
+            onClick={() =>
+              void postDraft(subjectKey, session.hostKey, session.sessionId, turnId, draft).then(
+                (done) => setError(done.ok ? null : done.message)
+              )
+            }
+          >
+            Comment
+          </Button>
+        )}
       </div>
       <p className="text-body text-text-default break-words whitespace-pre-wrap">{draft.note}</p>
+      {error === null ? null : <p className="text-caption text-failed-text">{error}</p>}
     </Row>
   );
 };
