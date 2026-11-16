@@ -109,7 +109,9 @@ describe("a session's Comments in the renderer", () => {
       event(2, DomainEvent.cases.TurnStarted.make({ turn: sent, actor: ana })),
     ]);
 
-    expect(model.comments?.map((c): [string, string | null | undefined] => [c.id, c.sentInTurnId])).toEqual([
+    expect(
+      model.comments?.map((c): [string, string | null | undefined] => [c.id, c.sentInTurnId])
+    ).toEqual([
       ["c1", "t2"],
       ["c2", null],
     ]);

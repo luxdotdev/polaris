@@ -57,6 +57,7 @@ import { items as itemsScene } from "./itemsScene.ts";
 import { tools as toolsScene } from "./toolsScene.ts";
 import { polarisTools, PREVIEW_NOTICE } from "./polarisScene.ts";
 import { secret } from "./secretScene.ts";
+import { shared, sharedDraft } from "./sharedScene.ts";
 import { setDataOutputShown } from "../../data/output/index.ts";
 import { setTracesOutputShown } from "../../traces/output/index.ts";
 import { findTrace, fixtureSnapshot } from "../../traces/preview/fixtureApi.ts";
@@ -176,6 +177,7 @@ const SCENES = {
   visualizations,
   "visualizations-30": visualizations30,
   "traces-output": tracesOutput,
+  shared,
 } as const;
 
 const SCENE_NAMES = [
@@ -202,6 +204,7 @@ const SCENE_NAMES = [
   "visualizations",
   "visualizations-30",
   "traces-output",
+  "shared",
   "new",
   "setup",
   "none-ready",
@@ -548,8 +551,10 @@ const sceneOf = (hash: string): Scene => {
 
 /** Output open on the Data tab (the Turn with the pending write) or the Traces tab. */
 const showSceneOutput = (scene: Scene, sessionId: SessionId) => {
-  if (scene !== "data-output" && scene !== "traces-output") return;
+  if (scene !== "data-output" && scene !== "traces-output" && scene !== "shared") return;
   showOutput({ hostKey: HOST, workspaceId }, sessionId);
+
+  if (scene === "shared") return sharedDraft(HOST);
 
   if (scene === "data-output") setDataOutputShown(uiKey(HOST, sessionId), true);
   else setTracesOutputShown(uiKey(HOST, sessionId), true);
@@ -633,6 +638,7 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
     (scene === "attachments" ||
       scene === "background" ||
       scene === "polaris" ||
+      scene === "shared" ||
       scene === "long") &&
     shown?.session != null
   ) {

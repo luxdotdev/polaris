@@ -69,7 +69,9 @@ export const turn = (
   status: TurnStatus,
   attachments: ReadonlyArray<Attachment> = [],
   /** Fields a scene sets itself (a Harness-started Turn's trigger and times). */
-  patch: Partial<Pick<Turn, "trigger" | "startedAt" | "endedAt">> = {}
+  patch: Partial<
+    Pick<Turn, "trigger" | "startedAt" | "endedAt" | "actor" | "commentIds" | "feedback">
+  > = {}
 ) =>
   new Turn({
     id: TurnId.make(`${sessionId}-t${index}`),
