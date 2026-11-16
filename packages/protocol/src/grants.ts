@@ -47,6 +47,10 @@ export const COMMAND_GRANTS = {
   OpenInTerminal: "client",
   ReturnFromTerminal: "client",
   SendFeedback: "client",
+  AddComment: "comment",
+  EditComment: "comment",
+  ResolveComment: "comment",
+  ReopenComment: "comment",
   AcceptTurns: "client",
   LinkPullRequest: "client",
   OpenReviewCheckout: "client",
@@ -323,6 +327,12 @@ export const RPC_GRANTS = {
   "requests.send.get": "client",
   "requests.curl.parse": "client",
   "requests.curl.format": "client",
+  "shares.create": "client",
+  "shares.renew": "client",
+  "shares.revoke": "client",
+  "shares.list": "client",
+  "shares.watchPresence": "read",
+  "account.refreshStatement": "open",
 } as const satisfies Record<DaemonRpcTag, RpcAccess>;
 
 const commandAccess = (tag: string): CommandAccess =>
@@ -362,7 +372,9 @@ export const decideTurnAccess = (
 ): NotGranted | null => {
   if (grant === null || permissionMode === null || asksForEverything(permissionMode)) return null;
 
-  if (!Command.isAnyOf(["SendTurn", "Steer", "Continue", "Retry"])(command)) return null;
+  // `SendFeedback` reaches here only from a Teammate: Extensions are refused it at the gate.
+  if (!Command.isAnyOf(["SendTurn", "Steer", "Continue", "Retry", "SendFeedback"])(command))
+    return null;
 
   return grant.includes("approve")
     ? null

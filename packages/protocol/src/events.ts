@@ -3,6 +3,7 @@
  * every read model a Client sees is a projection of these.
  */
 import { Effect, Schema } from "effect";
+import { commentEventFields } from "./comments.ts";
 import { constellationEventFields, resourceEventFields } from "./constellation/events.ts";
 import { ConstellationId } from "./constellation/domain.ts";
 import {
@@ -221,6 +222,9 @@ export const DomainEvent = Schema.TaggedUnion({
     note: Schema.NullOr(Schema.String),
   },
   VerdictRecorded: { verdict: Verdict },
+
+  /** Comments (ADR 0113; capability `session.comments`), on their session's stream. */
+  ...commentEventFields,
 });
 
 export type DomainEvent = typeof DomainEvent.Type;

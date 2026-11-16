@@ -518,6 +518,8 @@ const compactSession = (d: Deciding, command: CommandOf<"CompactSession">): Deci
 const onSession = (d: Deciding, sessionId: SessionId, input: SessionInput): Decision =>
   d.withSession(sessionId, (record) => d.lifecycle(record, input));
 
+const COMMENTS_NOT_YET = "Comments aren't available on this host yet";
+
 export const decide = (model: ReadModel, command: Command, ctx: DecideContext): Decision => {
   const mode =
     "sessionId" in command
@@ -604,5 +606,10 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
     OpenInTerminal: (c) => onSession(d, c.sessionId, { type: "terminal.open" }),
     ReturnFromTerminal: (c) => onSession(d, c.sessionId, { type: "terminal.return" }),
     ...reviewDeciders(d),
+    // Comments (ADR 0113) are decided once the Daemon folds them; until then it refuses them.
+    AddComment: () => d.reject(COMMENTS_NOT_YET),
+    EditComment: () => d.reject(COMMENTS_NOT_YET),
+    ResolveComment: () => d.reject(COMMENTS_NOT_YET),
+    ReopenComment: () => d.reject(COMMENTS_NOT_YET),
   });
 };

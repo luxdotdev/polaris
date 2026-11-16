@@ -363,6 +363,10 @@ const projectionOf: (event: DomainEvent) => Projection = DomainEvent.match<Proje
   RiskFindingResolved: reviewRow,
   RiskSummaryEnded: reviewRow,
   VerdictRecorded: reviewRow,
+  CommentAdded: () => () => Effect.void,
+  CommentEdited: () => () => Effect.void,
+  CommentResolved: () => () => Effect.void,
+  CommentReopened: () => () => Effect.void,
 });
 
 /** Persist what `envelope` changed between the read model `before` it and `after` it. */

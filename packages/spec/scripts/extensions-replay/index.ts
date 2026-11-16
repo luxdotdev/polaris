@@ -7,7 +7,7 @@
  */
 import { Match, Schema } from "effect";
 
-export const GrantName = Schema.Literals(["read", "approve", "turn", "start", "voice"]);
+export const GrantName = Schema.Literals(["read", "comment", "approve", "turn", "start", "voice"]);
 
 /** What a call needs: anyone, token-less Clients only, or a Grant. */
 export const Need = Schema.Literals(["open", "client", ...GrantName.literals]);

@@ -7,8 +7,10 @@ import { WorktreeSetup } from "./worktreeSetup.ts";
 import { Schema } from "effect";
 import { ApprovalDecision, PermissionMode, SessionOrigin } from "./domain.ts";
 import { HarnessKind } from "./harnesses.ts";
+import { CommentAnchor } from "./comments.ts";
 import {
   AttachmentId,
+  CommentId,
   RequestId,
   ReviewCheckoutId,
   RiskFindingId,
@@ -157,7 +159,29 @@ export const Command = Schema.TaggedUnion({
     sessionId: SessionId,
     feedback: FeedbackBatch,
     attachments: Schema.Array(AttachmentId),
+    /**
+     * Comments of this session to send with the Turn (capability `session.comments`), after
+     * the batch's own, in this order. Refused when one is unknown or was already sent; the
+     * Turn records them (`Turn.commentIds`) and each keeps its author.
+     */
+    commentIds: Schema.optionalKey(Schema.Array(CommentId)),
   },
+
+  // ── Comments (ADR 0113; capability `session.comments`) ──
+
+  /** Add a Comment to the session. Changes no Session State and reaches no Harness. */
+  AddComment: {
+    sessionId: SessionId,
+    commentId: CommentId,
+    anchor: CommentAnchor,
+    body: Schema.String,
+  },
+  /** Change a Comment's text: its author only, and only until it is sent. */
+  EditComment: { sessionId: SessionId, commentId: CommentId, body: Schema.String },
+  /** Resolve a Comment: its author, the owner or a Contributor (`mayResolveComment`). */
+  ResolveComment: { sessionId: SessionId, commentId: CommentId },
+  /** Reopen a resolved Comment: whoever may resolve it. */
+  ReopenComment: { sessionId: SessionId, commentId: CommentId },
   /**
    * Accept the session's Turns through `throughTurnId`, a contiguous prefix
    * (capability `session.accept`). Refused with a Turn in flight or for a Turn
