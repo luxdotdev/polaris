@@ -70,6 +70,8 @@ export * from "./deviceGrants.ts";
 
 export * from "./userAccess.ts";
 
+export * from "./userAccessEnrolment.ts";
+
 export * from "./hello.ts";
 
 export * from "./notification.ts";

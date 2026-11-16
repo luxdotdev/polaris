@@ -1,5 +1,5 @@
 /**
- * What only the user may do on a Host (ENG-700, ADR 0100): every RPC and `dispatch`
+ * What only the user may do on a Host (ENG-700, ADR 0100, 0114): every RPC and `dispatch`
  * Command is `user` or `any`, exhaustive over `DaemonRpcs` and `Command` so a new one
  * fails typecheck until someone decides. A token-less connection gets `user` only after
  * its `hello` presented an enrolled user key; Extensions and Linked Devices keep their own
@@ -120,6 +120,11 @@ export const USER_RPCS = {
   "devices.registerLiveActivity": "any",
   "devices.unregisterLiveActivity": "any",
   "devices.watch": "any",
+  // A Desktop App that waits watches its own request; only one that holds access decides.
+  "userAccess.watch": "any",
+  "userAccess.allow": "user",
+  "userAccess.deny": "user",
+  "userAccess.revoke": "user",
   "voice.transcribe": "any",
   "voice.settings": "any",
   "voice.setKey": "user",

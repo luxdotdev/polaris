@@ -114,7 +114,7 @@ export const coreDefaults = (options: DefaultOptions) =>
     // Record which device this connection is (for ApprovalResolved.resolvedBy), what it
     // understands (e.g. whether to send it ItemProgress), and the Pairing it acts as.
     hello: (
-      { deviceLabel, capabilities, languageProof, extensionToken, protocolVersions },
+      { deviceLabel, capabilities, languageProof, extensionToken, protocolVersions, userKey },
       { client }
     ) =>
       Effect.gen(function* () {
@@ -144,8 +144,11 @@ export const coreDefaults = (options: DefaultOptions) =>
         client.annotate(ClientCapabilities, capabilities);
         admissionOf(client).protocolReady = true;
 
-        // Extensions and Linked Devices have their own gates; a token-less Client holds user access.
-        const userAccess = pairing === null && deviceOf(client) === null;
+        // Extensions and Linked Devices have their own gates; only a token-less Client holds a key.
+        const userAccess =
+          pairing === null &&
+          deviceOf(client) === null &&
+          options.userAccess.present(client, { key: userKey, label: deviceLabel });
 
         const response = {
           ...helloHost(options.hostInfo, capabilities),

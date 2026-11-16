@@ -12,12 +12,14 @@ import { featureDefaults } from "./features.ts";
 import { hostDefaults } from "./host.ts";
 import { requestDefaults } from "./requests.ts";
 import type { DefaultOptions } from "./shared.ts";
+import { userAccessDefaults } from "./userAccess.ts";
 import { workspaceDefaults } from "./workspace.ts";
 
 export const defaultHandlers = (options: DefaultOptions) =>
   Layer.mergeAll(
     coreDefaults(options),
     hostDefaults(options),
+    userAccessDefaults(options),
     workspaceDefaults,
     featureDefaults,
     requestDefaults

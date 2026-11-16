@@ -10,6 +10,7 @@ import { livePreview, PREVIEW_CAPABILITY } from "../computerUse/preview/group.ts
 import { hostPlatform } from "../platform/index.ts";
 import { simulatorCapable } from "../simulator/service.ts";
 import { daemonCapabilities, LANGUAGE_CAPABILITIES } from "./serve.ts";
+import { TRANSPORT_CAPABILITIES } from "./server.ts";
 
 const languageCapabilities = new Set<Capability>(LANGUAGE_CAPABILITIES);
 
@@ -37,12 +38,15 @@ const previewServed = new Set<string>(
       )
 );
 
+/** What `hello` announces: the transport's own capabilities with `serve.ts`'s. */
+const announced = [...TRANSPORT_CAPABILITIES, ...daemonCapabilities];
+
 const conditional = (tag: string) =>
   languageServed.has(tag) || simulatorServed.has(tag) || previewServed.has(tag);
 
 test("this Daemon announces the capability of every RPC it serves, so no Client guard refuses it", () => {
   const refused = [...DaemonRpcs.requests.values()].flatMap(({ _tag: tag }) =>
-    conditional(tag) || rpcAllowed(tag, daemonCapabilities) ? [] : [tag]
+    conditional(tag) || rpcAllowed(tag, announced) ? [] : [tag]
   );
 
   expect(refused).toEqual([]);

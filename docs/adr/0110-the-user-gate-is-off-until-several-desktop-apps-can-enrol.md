@@ -1,5 +1,5 @@
 ---
-status: accepted (ENG-926)
+status: superseded by 0114 (ENG-927)
 ---
 
 # The user gate is off until several Desktop Apps can enrol

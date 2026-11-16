@@ -64,7 +64,8 @@ import { defaultHandlers } from "./defaults/index.ts";
 import { loadHostInfo } from "./hostInfo.ts";
 import { acquireLock, type DaemonAlreadyRunning, LockError } from "./lock.ts";
 import { ConnectionBlobs, ServerRpcs } from "./rpcs.ts";
-import { openUserAccessGate } from "./userAccess.ts";
+import { userAccessGateFor } from "./userAccess.ts";
+import { userAccessFile, userAccessRegistry } from "../userAccess/index.ts";
 import { listen, prepareSocketPath } from "./socket.ts";
 import { languageIdentityFor, revokeLanguageIdentity } from "./languageIdentity.ts";
 import {
@@ -78,7 +79,7 @@ import {
 } from "./languageConnectionLifetime.ts";
 
 /** Capabilities the transport itself provides. Handler modules add theirs via `capabilities`. */
-export const TRANSPORT_CAPABILITIES: ReadonlyArray<Capability> = ["blobs"];
+export const TRANSPORT_CAPABILITIES: ReadonlyArray<Capability> = ["blobs", "user-access.enrolment"];
 
 export interface ServeOptions<ROut, E, RIn> {
   /** Real handlers; any RPC they don't cover falls back to the placeholders. */
@@ -210,6 +211,11 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     const root = options.root ?? defaults.root;
     const hostInfo = yield* loadHostInfo(root, takeStopRecord(root));
     const capabilities = [...new Set([...TRANSPORT_CAPABILITIES, ...(options.capabilities ?? [])])];
+
+    const userAccess = userAccessRegistry({
+      hostId: hostInfo.hostId,
+      file: userAccessFile(root),
+    });
 
     const serialization = RpcSerialization.json;
     const encoder = serialization.makeUnsafe();
@@ -403,7 +409,9 @@ export const startServer = <ROut = never, E = never, RIn = never>(
 
     const handlers = yield* Layer.build(
       Layer.merge(
-        defaultHandlers({ hostInfo, capabilities }).pipe(Layer.provide(extensionServices)),
+        defaultHandlers({ hostInfo, capabilities, userAccess }).pipe(
+          Layer.provide(extensionServices)
+        ),
         // SAFETY: `handlers` is omitted only when ROut, E and RIn keep their `never` defaults.
         ((options.handlers ?? Layer.empty) as Layer.Layer<ROut, E, RIn>).pipe(
           Layer.provide(
@@ -440,7 +448,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       Effect.provideService(RpcServer.Protocol, protocol),
       Effect.provideService(ConnectionBlobs, blobsMiddleware),
       Effect.provideService(GrantGate, grantGateFor(transportFacts)),
-      Effect.provideService(UserAccessGate, openUserAccessGate),
+      Effect.provideService(UserAccessGate, userAccessGateFor(transportFacts, userAccess)),
       Effect.provideContext(handlers),
       Effect.forkScoped
     );
@@ -542,6 +550,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
                 presence.disconnect(clientId);
                 lifetimes.forEach((lifetime) => lifetime.seal());
                 clients.forEach(revokeLanguageIdentity);
+                clients.forEach(userAccess.release);
                 clients.forEach((client) => rejectConnection(client));
                 clients.clear();
               });

@@ -88,7 +88,7 @@ export const Hello = Rpc.make("hello", {
      */
     protocolVersions: Schema.optionalKey(ProtocolRange),
     /**
-     * The Desktop App's user key (ADR 0100): an enrolled key gives the connection user access,
+     * The Desktop App's user key (ADR 0114): an enrolled key gives the connection user access,
      * which approvals and the other user-only RPCs need (`userAccess.ts`). Never in an agent's env.
      */
     userKey: Schema.optionalKey(Schema.RedactedFromValue(Schema.Unknown)),
@@ -98,7 +98,7 @@ export const Hello = Rpc.make("hello", {
     protocolVersion: Schema.Int,
     capabilities: CapabilityList,
     languageIdentity: Schema.optionalKey(LanguageConnectionIdentity),
-    /** Whether this connection holds user access; absent from a Daemon before ENG-700. */
+    /** Whether this connection holds user access now (`userAccess.watch` follows it); absent before ENG-700. */
     userAccess: Schema.optionalKey(Schema.Boolean),
   }),
   error: Schema.Union([LanguageIdentityError, ExtensionTokenRejected, ProtocolMismatch]),

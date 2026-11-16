@@ -29,6 +29,10 @@ The iPhone Client (a Linked Device): for starting, continuing, and supervising A
 A Client the user links once through the Desktop App, after which it sees every Host the Desktop App knows; it reaches them through the Polaris Relay.
 _Avoid_: Pairing (that is an Extension's), paired phone
 
+**User access**:
+What a Desktop App holds on a Host once the Host has enrolled its user key: only then may it approve, send Turns, start Agent Sessions and make the other user-only requests. The first Desktop App on a Host gets it on first use; each later one asks, and a Desktop App that already holds it allows or denies the request and can revoke any of them. It covers the user's own Desktop Apps only: Extensions act through their Grant, Linked Devices through their link.
+_Avoid_: Admin, owner access, trusted device, pairing (that is an Extension's)
+
 **Polaris Relay**:
 A service that a Host's Daemon and the user's Linked Devices both reach out to, so a phone can reach a Host on another network; it carries their end-to-end encrypted traffic and wakes the phone for notifications, and can read neither.
 _Avoid_: Proxy, tunnel, server
