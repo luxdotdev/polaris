@@ -314,7 +314,7 @@ module shares_model {
     nondet role = Set("contributor", "commenter").oneOf()
     nondet lifetime = 1.to(MAX_LIFETIME + 1).oneOf()
     nondet vouched = Set(true, false).oneOf()
-    nondet need = Set("read", "comment", "approve", "turn", "contributor").oneOf()
+    nondet need = Set("read", "comment", "approve", "turn", "start", "contributor").oneOf()
     nondet comment = COMMENT_IDS.oneOf()
     nondet ids = COMMENT_IDS.powerset().oneOf()
     nondet resolved = Set(true, false).oneOf()
@@ -481,8 +481,9 @@ module shares {
     .then(createShare(0, 1, ConstellationT(0), "contributor", DEFAULT_LIFETIME))
     .then(createShare(1, 2, ConstellationT(0), "commenter", DEFAULT_LIFETIME))
     .then(hello(1, true)).then(hello(2, true))
-    .then(call(1, 1, "contributor")).expect(s.last == Allowed)
-    .then(call(2, 1, "contributor")).expect(s.last == NotShared and safety)
+    .then(call(1, 1, "start")).expect(s.last == Allowed)
+    .then(call(1, WORKER, "approve")).expect(s.last == Allowed)
+    .then(call(2, 1, "start")).expect(s.last == NotGranted("start") and safety)
 
   run refusedRefreshLapsesTest = init
     .then(createShare(0, 1, SessionT(0), "contributor", MAX_LIFETIME))

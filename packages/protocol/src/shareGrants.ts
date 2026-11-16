@@ -61,15 +61,17 @@ export const SHARE_RPCS = {
   "devices.unregisterPush": "open",
   "constellation.status": "read",
   /**
-   * What the owner does through a Constellation's Lead: start Workers, answer questions and
-   * proposals, message, accept or send back Claims. Planning, pausing, completing, archiving
-   * and handing over (`constellation.plan`, `constellation.set_state`) stay the owner's.
+   * What the owner does through a Constellation's Lead, by Grant: start Workers, review Claims,
+   * answer and message. Planning, pausing, completing, archiving and handing over
+   * (`constellation.plan`, `constellation.set_state`) stay the owner's. The Daemon also keeps a
+   * Teammate's Workers on this Host, in Worktrees it makes, and holds what starts agent work
+   * back while Turns are.
    */
-  "constellation.dispatch": "contributor",
-  "constellation.worker.start": "contributor",
-  "constellation.review": "contributor",
-  "constellation.answer": "contributor",
-  "constellation.message": "contributor",
+  "constellation.dispatch": "start",
+  "constellation.worker.start": "start",
+  "constellation.review": "approve",
+  "constellation.answer": "turn",
+  "constellation.message": "turn",
 } as const satisfies Partial<Record<DaemonRpcTag, ShareAccess>>;
 
 /**

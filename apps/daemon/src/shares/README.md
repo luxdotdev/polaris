@@ -82,11 +82,15 @@ reads and writes, every Host-wide call.
 - `shares.mute` mutes a target for the caller alone: a Teammate for their devices, the owner for
   their Linked Devices (all of the session's pushes). Mutes and registrations are in
   `shares.sqlite` and outlive a restart; a muted session still shows its Needs You in the apps.
-- In a shared Constellation a Contributor does what the owner does through the Lead:
-  `constellation.dispatch` and `worker.start` (start Workers), `review` (accept, send back,
-  stop), `answer`, `message` and `status`. They reach the Constellation as the user would.
-  Planning, pausing, completing, archiving and handing over (`constellation.plan`, `set_state`),
-  Share management, terminals and file writes stay the owner's.
+- In a shared Constellation a Contributor does what the owner does through the Lead, by Grant:
+  `constellation.dispatch` and `worker.start` (`start`), `review` (`approve`: accept, send back,
+  stop), `answer` and `message` (`turn`), and `status`. They reach the Constellation as the user
+  would. A Teammate's Workers are new sessions on this Host in Worktrees the Host makes: an
+  existing session would join the shared Constellation and widen the Share, so it is refused, as
+  are another Host and a Worktree path. What starts agent work (all but accepting, approving and
+  stopping a Claim) waits with Turns while `teammatesMayAct` is off. Planning, pausing,
+  completing, archiving and handing over (`constellation.plan`, `set_state`), Share management,
+  terminals and file writes stay the owner's.
 
 ## Trust
 

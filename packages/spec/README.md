@@ -783,10 +783,13 @@ check. What a request touches is an input: the Host resolves a payload to its se
 Constellation. One connection per person. RPCs and Commands off the Teammate allowlist
 (`NotShared` whatever they touch: Share management, archiving, terminals, file writes and every
 Host-wide call) are a table lookup, covered by `shares.test.ts`. A Contributor's Constellation
-Lead actions (`constellation.dispatch`, `worker.start`, `review`, `answer`, `message`) are
-`contributor` calls on the Lead's session (`leadActionsAreAContributorsTest`); planning and the
-Constellation's lifecycle (`constellation.plan`, `set_state`) stay off the allowlist. They reach
-the Constellation as the user, as the owner's own Client would. The Daemon refuses `turn` to
+Lead actions are calls on the Lead's session by Grant (`leadActionsAreAContributorsTest`):
+`start` for `constellation.dispatch` and `worker.start`, `approve` for `review`, `turn` for
+`answer` and `message`; planning and the Constellation's lifecycle (`constellation.plan`,
+`set_state`) stay off the allowlist. They reach the Constellation as the user, as the owner's own
+Client would. The gate's further checks are not modelled: a Teammate's Workers are new sessions
+on this Host in Worktrees it makes (never an existing session, which would join the shared
+Constellation and widen the Share), and what starts agent work waits with Turns (`gate.test.ts`). The Daemon refuses `turn` to
 Teammates at runtime until `teammatesMayAct` allows it (ENG-927); `approve` is on. The model
 states what the Share allows. The owner's presence hold, a Teammate's several devices and the
 push's delivery are left out of the Needs You model.

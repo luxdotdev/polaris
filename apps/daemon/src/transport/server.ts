@@ -490,7 +490,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     const shareGate = Layer.effect(
       ShareGate,
       Effect.map(Shares, (shares) =>
-        shareGateFor({ shares, teammateOf: transportFacts.teammateOf })
+        shareGateFor({ shares, teammateOf: transportFacts.teammateOf, hostId: hostInfo.hostId })
       )
     ).pipe(Layer.provide(deviceServices));
 

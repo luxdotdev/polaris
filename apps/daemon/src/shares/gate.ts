@@ -13,6 +13,7 @@ import {
   SessionId,
   type Share,
   SHARE_COMMANDS,
+  SHARE_RPCS,
   shareCovers,
   ShareGate,
   ShareTarget,
@@ -26,6 +27,13 @@ import { WorkingTreeFallback } from "../git/diffScope.ts";
 import { teammatesMayAct } from "../transport/userAccess.ts";
 import { RequestShare, type TeammateDevice } from "./connection.ts";
 import { type Shares, type ShareTargets, teammateActor } from "./service.ts";
+
+/** Where a Worker runs, as `WorkerPlacement` names it. */
+const Placement = Schema.Struct({
+  _tag: Schema.String,
+  hostId: Schema.optionalKey(Schema.String),
+  worktree: Schema.optionalKey(Schema.NullOr(Schema.String)),
+});
 
 /** What a request names, wherever its payload puts it. */
 const Subject = Schema.Struct({
@@ -45,6 +53,12 @@ const Subject = Schema.Struct({
     })
   ),
   target: Schema.optionalKey(ShareTarget),
+  // `constellation.dispatch` and `constellation.review`: where Workers would run.
+  tasks: Schema.optionalKey(Schema.Array(Schema.Struct({ worker: Placement }))),
+  defaultWorker: Schema.optionalKey(Schema.NullOr(Placement)),
+  action: Schema.optionalKey(
+    Schema.Struct({ _tag: Schema.String, worker: Schema.optionalKey(Placement) })
+  ),
 });
 
 /** Reads what a request names out of its payload; none when it names nothing readable. */
@@ -59,6 +73,10 @@ export interface RequestSubject {
   readonly cwd: string | null;
   /** The Turns a `git.diff` names, first to last; empty for anything else. */
   readonly turnIds: ReadonlyArray<TurnId>;
+  /** The Workers a Constellation call would place; empty for anything else. */
+  readonly placements: ReadonlyArray<typeof Placement.Type>;
+  /** A `constellation.review`'s action; null for anything else. */
+  readonly review: string | null;
 }
 
 const NOTHING: RequestSubject = {
@@ -67,6 +85,8 @@ const NOTHING: RequestSubject = {
   constellationId: null,
   cwd: null,
   turnIds: [],
+  placements: [],
+  review: null,
 };
 
 /** The Turns a diff spec names: one Turn, or the first and last of a run. */
@@ -111,6 +131,12 @@ export const subjectOf = (
     ...NOTHING,
     sessionId: subject.sessionId ?? null,
     constellationId: subject.constellationId ?? null,
+    placements: [
+      ...(subject.tasks ?? []).map((task) => task.worker),
+      ...(subject.defaultWorker == null ? [] : [subject.defaultWorker]),
+      ...(subject.action?.worker === undefined ? [] : [subject.action.worker]),
+    ],
+    review: rpc === "constellation.review" ? (subject.action?._tag ?? null) : null,
   };
 };
 
@@ -138,7 +164,31 @@ export interface TeammateRequest {
   readonly diffTurns: DiffTurns | null;
   /** Whether Teammates may send Turns yet (`teammatesMayAct`); approvals are always theirs to answer. */
   readonly mayAct: boolean;
+  /** This Host: a Teammate's Workers run here, never on the owner's other Hosts. */
+  readonly hostId: string;
 }
+
+const rpcAccess = (rpc: string): string | null => {
+  const table: Readonly<Record<string, string>> = SHARE_RPCS;
+
+  return Object.hasOwn(table, rpc) ? (table[rpc] ?? null) : null;
+};
+
+/**
+ * Whether a Teammate may place a Worker there: a new session on this Host, in a Worktree the
+ * Host makes. An existing session would join the shared Constellation, and widen the Share.
+ */
+const placesWithin = (
+  { _tag: placed, hostId: on, worktree }: typeof Placement.Type,
+  hostId: string
+) => placed === "New" && on === hostId && worktree == null;
+
+/** What starts agent work, held back with Turns while Teammates may not act. */
+const startsWork = (rpc: string, subject: RequestSubject): boolean => {
+  const access = rpc === "dispatch" ? commandAccess(subject.command) : rpcAccess(rpc);
+
+  return access === "turn" || access === "start" || subject.review === "SendBack";
+};
 
 /** The refusal for a Teammate's request, or null when its Shares allow it. */
 export const decideTeammate = (request: TeammateRequest): NotShared | NotGranted | null => {
@@ -160,10 +210,15 @@ export const decideTeammate = (request: TeammateRequest): NotShared | NotGranted
   // Its Turns are the shared session's own: an unknown one would diff the whole working tree.
   if (rpc === "git.diff" && request.diffTurns !== "working" && request.diffTurns !== "ended")
     return new NotShared({ what: rpc });
-  const access = commandAccess(subject.command);
 
-  if (rpc === "dispatch" && !request.mayAct && access === "turn")
-    return new NotGranted({ what: `dispatch:${subject.command ?? ""}`, needed: access });
+  if (!subject.placements.every((placement) => placesWithin(placement, request.hostId)))
+    return new NotShared({ what: rpc });
+
+  if (!request.mayAct && startsWork(rpc, subject))
+    return new NotGranted({
+      what: rpc === "dispatch" ? `dispatch:${subject.command ?? ""}` : rpc,
+      needed: "turn",
+    });
 
   return null;
 };
@@ -225,6 +280,8 @@ export const shareGateFor = (options: {
   readonly shares: Shares["Service"];
   /** The Teammate a connection came in as, from the transport rather than annotations. */
   readonly teammateOf: (client: Rpc.ServerClient) => TeammateDevice | null;
+  /** This Host's ID: where a Teammate's Workers may run. */
+  readonly hostId: string;
   readonly now?: () => number;
 }) => {
   const { shares } = options;
@@ -272,6 +329,7 @@ export const shareGateFor = (options: {
         sessionCwd: cwd,
         diffTurns,
         mayAct: teammatesMayAct(),
+        hostId: options.hostId,
       });
 
       if (refusal !== null) return yield* refusal;

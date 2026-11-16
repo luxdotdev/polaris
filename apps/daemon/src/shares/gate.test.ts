@@ -4,9 +4,11 @@ import {
   ConstellationId,
   GitDiffSpec,
   GRANT_KINDS,
+  HostId,
   NotGranted,
   NotShared,
   PersonId,
+  ReviewAction,
   SessionId,
   Share,
   ShareId,
@@ -15,6 +17,7 @@ import {
   type ShareTouch,
   type Turn,
   TurnId,
+  WorkerPlacement,
 } from "@polaris/protocol";
 import { Effect } from "effect";
 import type { ConstellationRecord } from "../store/constellation.ts";
@@ -31,6 +34,8 @@ import {
   type TeammateRequest,
 } from "./gate.ts";
 import { targetsOf } from "./targets.ts";
+
+const HOST = "host-1";
 
 const NOW = Date.parse("2026-11-16T12:00:00.000Z");
 
@@ -66,6 +71,8 @@ const named = (fields: Partial<RequestSubject> = {}): RequestSubject => ({
   constellationId: null,
   cwd: null,
   turnIds: [],
+  placements: [],
+  review: null,
   ...fields,
 });
 
@@ -79,6 +86,7 @@ const request = (rpc: string, subject: RequestSubject, fields: Partial<TeammateR
     sessionCwd: "/repo",
     diffTurns: "ended",
     mayAct: false,
+    hostId: HOST,
     ...fields,
   });
 
@@ -111,21 +119,81 @@ const constellationShare = (role: "contributor" | "commenter") =>
     grant: role === "contributor" ? GRANT_KINDS : ["read", "comment"],
   });
 
-const lead = (rpc: string, shared: Share) =>
-  request(rpc, named({ sessionId: null, constellationId: C1 }), {
+/** A Constellation call by its Teammate, its payload decoded as the gate reads it. */
+/** What a Constellation call's payload may say of where Workers run. */
+interface LeadPayload {
+  readonly defaultWorker?: WorkerPlacement;
+  readonly tasks?: ReadonlyArray<{ readonly taskId: string; readonly worker: WorkerPlacement }>;
+  readonly action?: ReviewAction;
+}
+
+const lead = (rpc: string, shared: Share, payload: LeadPayload = {}, mayAct = true) =>
+  request(rpc, subjectOf(rpc, decodeSubject({ constellationId: C1, ...payload })), {
     shares: [shared],
     touch: { sessionId: null, constellationId: C1 },
+    mayAct,
   });
 
+const here = WorkerPlacement.cases.New.make({ hostId: HostId.make(HOST) });
+
 test.each([
-  "constellation.dispatch",
-  "constellation.worker.start",
-  "constellation.review",
-  "constellation.answer",
-  "constellation.message",
-])("a Contributor of the Constellation may call %s; a Commenter may not", (rpc) => {
-  expect(lead(rpc, constellationShare("contributor"))).toBeNull();
-  expect(lead(rpc, constellationShare("commenter"))).toBeInstanceOf(NotShared);
+  ["constellation.dispatch", { defaultWorker: here }, "start"],
+  ["constellation.worker.start", {}, "start"],
+  ["constellation.review", { action: ReviewAction.cases.Approve.make({}) }, "approve"],
+  ["constellation.answer", {}, "turn"],
+  ["constellation.message", {}, "turn"],
+])(
+  "a Contributor of the Constellation may call %s; a Commenter lacks its Grant",
+  (rpc, payload, needed) => {
+    expect(lead(rpc, constellationShare("contributor"), payload)).toBeNull();
+    const refusal = lead(rpc, constellationShare("commenter"), payload);
+
+    expect(refusal).toBeInstanceOf(NotGranted);
+    expect(refusal).toMatchObject({ needed });
+  }
+);
+
+test.each([
+  ["constellation.dispatch", { defaultWorker: here }],
+  ["constellation.worker.start", {}],
+  ["constellation.answer", {}],
+  ["constellation.message", {}],
+  [
+    "constellation.review",
+    { action: ReviewAction.cases.SendBack.make({ reason: "redo", worker: here }) },
+  ],
+])("%s starts agent work, so it waits with Turns while Teammates may not act", (rpc, payload) => {
+  const refusal = lead(rpc, constellationShare("contributor"), payload, false);
+
+  expect(refusal).toBeInstanceOf(NotGranted);
+  expect(refusal).toMatchObject({ what: rpc, needed: "turn" });
+});
+
+test("accepting a Claim starts no agent, so a Contributor may while Turns wait", () => {
+  const accept = ReviewAction.cases.Accept.make({ mergedHead: "abc", receipts: [] });
+
+  expect(
+    lead("constellation.review", constellationShare("contributor"), { action: accept }, false)
+  ).toBeNull();
+});
+
+test.each([
+  ["an existing session", WorkerPlacement.cases.Existing.make({ sessionId: S1 })],
+  ["another Host", WorkerPlacement.cases.New.make({ hostId: HostId.make("host-2") })],
+  [
+    "a Worktree it names",
+    WorkerPlacement.cases.New.make({ hostId: HostId.make(HOST), worktree: "/elsewhere" }),
+  ],
+])("a Teammate never places a Worker in %s", (_, worker) => {
+  const contributor = constellationShare("contributor");
+  const sendBack = ReviewAction.cases.SendBack.make({ reason: "redo", worker });
+
+  for (const [rpc, payload] of [
+    ["constellation.dispatch", { defaultWorker: worker }],
+    ["constellation.dispatch", { tasks: [{ taskId: "t1", worker }] }],
+    ["constellation.review", { action: sendBack }],
+  ] as const)
+    expect(lead(rpc, contributor, payload)).toBeInstanceOf(NotShared);
 });
 
 test.each(["constellation.plan", "constellation.set_state", "constellation.defaults.set"])(
