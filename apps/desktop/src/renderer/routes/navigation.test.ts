@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { WorkspaceId } from "@polaris/protocol";
+import { SessionId, WorkspaceId } from "@polaris/protocol";
 import { createStore } from "zustand/vanilla";
 import { type AppState, initialState } from "../store/store.ts";
 import { hostModel, hostView, workspaces } from "./fixtures.testing.ts";
@@ -40,6 +40,21 @@ const withData = (counts: Readonly<Record<string, number>>) => {
 globalThis.requestAnimationFrame ??= () => 0;
 
 describe("navigation", () => {
+  test("opening a shared session keeps your Workspace; choosing a Workspace closes it", () => {
+    const app = withData({ local: 2 });
+    const nav = createNavigation({ app, storage: null });
+
+    app.setState({ sharedHosts: [{ ...hostView("shared:lucas"), shared: true }] });
+    nav.actions.selectWorkspace({ hostKey: "local", workspaceId: WorkspaceId.make("local1") });
+    nav.actions.selectSession({ hostKey: "shared:lucas", sessionId: SessionId.make("theirs") });
+
+    expect([nav.current().hostKey, nav.current().workspaceId]).toEqual(["local", "local1"]);
+    expect(nav.current().shared?.sessionId).toBe(SessionId.make("theirs"));
+
+    nav.actions.selectWorkspace({ hostKey: "local", workspaceId: WorkspaceId.make("local0") });
+    expect(nav.current().shared).toBeNull();
+  });
+
   test("the bar turns into the machine bar at 11 Workspaces, and ⌃N then picks machines", () => {
     const app = createStore<AppState>(() => initialState);
     const nav = createNavigation({ app, storage: null });

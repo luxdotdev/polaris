@@ -16,6 +16,7 @@ import { createPredictionBridge } from "./prediction/bridge.ts";
  *   ELECTRON_RENDERER_URL=<url>       dev: load the renderer from the Vite server
  *   POLARIS_DESKTOP_EXTRA_HOSTS=<json> screenshots and tests: [{ key, label, socket }] as more Hosts
  *   POLARIS_DESKTOP_LOCAL_LABEL=<name> the local Host's name (default clientCopy().localHost, "This Mac")
+ *   POLARIS_DESKTOP_RELAY_URL=<url>    tests: the relay for Invites that name none (Polaris Cloud)
  */
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -55,6 +56,7 @@ import { legacyTokens } from "./github/store.ts";
 import { secureStorageLayer } from "./secure/electron.ts";
 import { SecureStorage } from "./secure/index.ts";
 import { type DesktopRelayDevice, desktopRelayDevice } from "./relayDevice.ts";
+import { DesktopSharing } from "./sharing/index.ts";
 import { iconPng, nameApp, showIcon } from "./identity.ts";
 import { registerIpc } from "./ipc/index.ts";
 import { createDesktopSelfTraces } from "./selfTraces/index.ts";
@@ -531,6 +533,12 @@ const start = async () => {
       fetch: internetFetch,
       openExternal: (url) => shell.openExternal(url),
     }).pipe(Layer.provide(secureStorage)),
+    DesktopSharing.layer({
+      dir: join(userData, "sharing"),
+      fetch: internetFetch,
+      deviceKeys: device.publicKeys,
+      defaultRelayUrl: env.POLARIS_DESKTOP_RELAY_URL,
+    }),
     selfTraces.layer
   );
   const clientRuntime = runtime;

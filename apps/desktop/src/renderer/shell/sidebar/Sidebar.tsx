@@ -39,6 +39,7 @@ import { HostStateNote } from "../HostState.tsx";
 import { useApp, useNav, useSelection, useShellActions } from "../hooks.ts";
 import { useNow } from "../useNow.ts";
 import { Elsewhere } from "./Elsewhere.tsx";
+import { SharedWithYou } from "../../features/sharing/index.ts";
 import { CompactSessionRow } from "./SessionRow.tsx";
 import { commandShortcut } from "../../../shared/keymap.ts";
 
@@ -312,6 +313,7 @@ const WorkspaceSidebar = () => {
         <div className="flex flex-col px-2 pt-2">
           <SectionHeader empty="None yet">Sessions</SectionHeader>
         </div>
+        <SharedWithYou />
       </SidebarFrame>
     );
   }
@@ -345,6 +347,7 @@ const WorkspaceSidebar = () => {
       ) : (
         <>
           <WorkspaceSessions hostKey={hostKey} model={model} workspace={workspace} />
+          <SharedWithYou />
           <Elsewhere hostKey={hostKey} workspaceId={workspace.id} />
         </>
       )}
@@ -406,6 +409,7 @@ const MachineSidebar = () => {
             />
           ))}
           <MachineReviews hostKey={hostKey} model={model} now={now} />
+          <SharedWithYou />
           <Elsewhere hostKey={hostKey} workspaceId={null} />
         </>
       )}
