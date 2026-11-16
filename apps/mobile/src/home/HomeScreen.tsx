@@ -25,6 +25,7 @@ import Svg, { Path } from "react-native-svg";
 import { Celestial, sessionCelestial } from "../celestial/index.tsx";
 import { HORIZON_INSET, HorizonScreen } from "../horizon/index.tsx";
 import { constellationMenu, type MenuAction, sessionMenu, useMenuActions } from "../menus/index.ts";
+import { SharedWithYou } from "../shared/SharedWithYou.tsx";
 import { themedStyles, useReducedMotion, useTheme } from "../theme/index.ts";
 import { useHomeHosts } from "./feed/useHomeHosts.ts";
 import {
@@ -471,6 +472,7 @@ export const HomeScreen = ({
               />
             )
           }
+          ListFooterComponent={<SharedWithYou onOpen={actions.openSession} />}
           renderSectionHeader={({ section }) => <SectionHead section={section} />}
           ItemSeparatorComponent={Gap}
           renderItem={({ item }) => (

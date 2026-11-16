@@ -1,7 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import { Actor, DomainEvent, LinkedDeviceId, PairingId, TurnId } from "@polaris/protocol";
+import {
+  Actor,
+  commentsPrompt,
+  DomainEvent,
+  LinkedDeviceId,
+  PairingId,
+  TurnId,
+} from "@polaris/protocol";
 import { applySessionItem, type SessionFold } from "../thread/fold.ts";
 import { event, snapshot, turn } from "../thread/daemon.testing.ts";
+import { promptMessage } from "./commands.ts";
 import { comment, maya, onLines, onMessage, owner } from "./comments.testing.ts";
 import {
   bylineOf,
@@ -167,5 +175,20 @@ describe("the fold", () => {
     );
 
     expect(state?.comments[0]?.resolvedAt ?? null).toBeNull();
+  });
+});
+
+describe("a Turn carrying Comments", () => {
+  test("shows only its own message; the Comments are cards", () => {
+    const carried = [
+      comment("a", onMessage("t-0", "m1")),
+      comment("b", onLines("t-0", "serve.ts")),
+    ];
+
+    const own = "Do both of these, then carry on with variant 4.";
+
+    expect(promptMessage(commentsPrompt(own, carried), carried)).toBe(own);
+    expect(promptMessage(commentsPrompt(null, carried), carried)).toBe("");
+    expect(promptMessage("typed by hand", carried)).toBe("typed by hand");
   });
 });

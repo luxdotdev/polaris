@@ -70,6 +70,8 @@ export const useMenuActions = (): ((action: MenuAction) => void) => {
             navigation.push({ screen: "newSession", workspaceId: null, hostId }),
           // Offered disabled; the native menu never hands it back.
           fork: () => undefined,
+          // The thread's own menu handles it.
+          comment: () => undefined,
           reply: (sending) =>
             dispatch(sending.hostId, failureTitle(sending.reply), replyCommand(sending)),
           send: ({ hostId, command, failure }) => dispatch(hostId, failure, command),

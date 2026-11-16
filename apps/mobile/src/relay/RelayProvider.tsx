@@ -27,6 +27,7 @@ import {
 } from "react";
 import { type HostRegistry, useHostRegistry } from "../runtime/hosts.tsx";
 import {
+  ensureSecrets,
   forgetLink,
   keepHosts,
   loadHosts,
@@ -63,6 +64,8 @@ export interface Relay {
    * with that Host when it didn't answer (it still trusts the keys), else empty.
    */
   readonly unlinkHost: (hostId: string) => Promise<ReadonlyArray<LinkedHost>>;
+  /** This device on the relay, made (and its keys kept) on first use: what a Teammate dials with. */
+  readonly device: () => Promise<RelayDevice>;
 }
 
 const RelayContext = createContext<Relay | null>(null);
@@ -179,6 +182,15 @@ export const RelayProvider = ({ children }: { readonly children: ReactNode }) =>
 
   const unlinkHost = useCallback((hostId: string) => unlinkSome(new Set([hostId])), [unlinkSome]);
 
+  const sharingDevice = useCallback(async () => {
+    if (device.current !== null) return device.current;
+    const opened = await deviceKeys(await ensureSecrets());
+    device.current ??= makeRelayDevice(opened);
+    setKeys(opened);
+
+    return device.current;
+  }, []);
+
   const value = useMemo<Relay>(
     () => ({
       loaded,
@@ -188,8 +200,9 @@ export const RelayProvider = ({ children }: { readonly children: ReactNode }) =>
       link,
       unlink,
       unlinkHost,
+      device: sharingDevice,
     }),
-    [loaded, keys, hosts, link, unlink, unlinkHost]
+    [loaded, keys, hosts, link, unlink, unlinkHost, sharingDevice]
   );
 
   return <RelayContext.Provider value={value}>{children}</RelayContext.Provider>;

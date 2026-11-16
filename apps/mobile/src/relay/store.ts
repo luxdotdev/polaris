@@ -46,6 +46,18 @@ export const loadHosts = async (): Promise<ReadonlyArray<LinkedHost>> => {
   return text === null ? [] : Option.getOrElse(decodeHosts(text), () => []);
 };
 
+/** The stored secrets, or new ones saved now: a Teammate's device before any link (ADR 0112). */
+export const ensureSecrets = async (): Promise<DeviceSecrets> => {
+  const held = await loadSecrets();
+
+  if (held !== null) return held;
+  const fresh = generateDeviceSecrets();
+  await SecureStore.setItemAsync(IDENTITY, toBase64Url(fresh.identitySeed), options);
+  await SecureStore.setItemAsync(NOISE, toBase64Url(fresh.noiseSecret), options);
+
+  return fresh;
+};
+
 /** Keeps the secrets and adds `hosts` to the linked ones (a Host linked again is replaced). */
 export const saveLink = async (
   secrets: DeviceSecrets,
