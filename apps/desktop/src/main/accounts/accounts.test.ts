@@ -107,7 +107,7 @@ test("a server that isn't https is refused before the browser opens", async () =
   await runtime.runPromise(DesktopAccounts.use((a) => a.signIn("http://team.example")));
   const view = await until((v) => v.failure !== null);
 
-  expect(view.failure?.message).toBe("an Account Server needs https");
+  expect(view.failure?.message).toBe("an account server needs https");
   expect(view.accounts).toEqual([]);
   await runtime.dispose();
 });

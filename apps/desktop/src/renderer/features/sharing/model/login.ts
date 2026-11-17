@@ -54,8 +54,8 @@ const possessive = (who: string) => (who === "They" ? "Their" : `${who}'s`);
 /** The role's plain statement: what the person may do, and on whose login. */
 export const roleStatement = (role: ShareRole, who: string, harness: HarnessKind): string =>
   role === "contributor"
-    ? `${who} can send Turns and answer approvals. ${possessive(who)} Turns run on your ${loginName(harness)} login and count against your plan.`
-    : `${who} can comment on messages and changes, and can't send Turns or answer approvals.`;
+    ? `${who} can send turns and answer approvals. ${possessive(who)} turns run on your ${loginName(harness)} login and count against your plan.`
+    : `${who} can comment on messages and changes, and can't send turns or answer approvals.`;
 
 /** The warning under a Contributor's statements; null for a commenter or a business login. */
 export const loginWarning = (
@@ -65,7 +65,7 @@ export const loginWarning = (
 ): string | null => {
   if (role !== "contributor" || login.kind === "business") return null;
   const name = loginName(harness);
-  const terms = "may not let someone else send Turns on it. A Commenter share avoids this.";
+  const terms = "may not let someone else send turns on it. A commenter share avoids this.";
 
   return login.kind === "consumer"
     ? `This session runs on a personal ${name} login (${login.plan}). Its terms ${terms}`

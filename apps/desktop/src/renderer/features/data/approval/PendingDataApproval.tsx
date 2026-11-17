@@ -53,7 +53,7 @@ export const PendingDataApproval = ({
   readonly source: DataSource;
 }) => {
   const pending = usePendingDataApproval(hostKey, source);
-  const hostLabel = useApp((s) => s.hosts.find((h) => h.key === hostKey)?.label ?? "this Host");
+  const hostLabel = useApp((s) => s.hosts.find((h) => h.key === hostKey)?.label ?? "this host");
 
   if (pending === null) return null;
   const { request, target, sessionTitle } = pending;

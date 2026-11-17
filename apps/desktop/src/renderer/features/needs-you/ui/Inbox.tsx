@@ -206,7 +206,7 @@ const ALSO: Record<AlsoKind, { readonly icon: ReactNode; readonly action: string
 
 const alsoDetail = (item: AlsoWaiting): string => {
   if (item.kind === "failed")
-    return `Failed · ${item.entry.session.lastError ?? "the Turn errored"}`;
+    return `Failed · ${item.entry.session.lastError ?? "the turn errored"}`;
 
   return item.kind === "in-terminal" ? "In your terminal" : "Interrupted when the daemon stopped";
 };

@@ -101,7 +101,7 @@ export const ComputerUseApproval = ({
   harness,
   onRespond,
 }: ComputerUseApprovalProps) => {
-  const host = useApp((s) => s.hosts.find((h) => h.key === hostKey)?.label ?? "this Host");
+  const host = useApp((s) => s.hosts.find((h) => h.key === hostKey)?.label ?? "this host");
 
   return (
     <AppApprovalCard

@@ -21,12 +21,12 @@ export const accountServerOrigin = (input: string): Effect.Effect<string, Accoun
   const url = new URL(withScheme);
 
   if (url.protocol !== "https:" && !(url.protocol === "http:" && LOOPBACK.has(url.hostname)))
-    return refuse("an Account Server needs https");
+    return refuse("an account server needs https");
 
   if (url.username !== "" || url.password !== "" || url.search !== "" || url.hash !== "")
-    return refuse("an Account Server is an origin, with nothing after it");
+    return refuse("an account server is an origin, with nothing after it");
 
-  if (url.pathname !== "/") return refuse("an Account Server is an origin, without a path");
+  if (url.pathname !== "/") return refuse("an account server is an origin, without a path");
 
   return Effect.succeed(url.origin);
 };
@@ -42,7 +42,7 @@ export const verificationUriOn = (
   const refuse = Effect.fail(
     new AccountsError({
       reason: "sign-in-failed",
-      message: "the Account Server sent a sign-in page that isn't its own",
+      message: "the account server sent a sign-in page that isn't its own",
     })
   );
 

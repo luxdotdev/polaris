@@ -45,7 +45,7 @@ export const usePendingOrigins = (at: RequestsSessionKey) => {
 
 export const PendingOriginApprovals = ({ at }: { readonly at: RequestsSessionKey }) => {
   const pending = usePendingOrigins(at);
-  const hostLabel = useApp((s) => s.hosts.find((h) => h.key === at.hostKey)?.label ?? "this Host");
+  const hostLabel = useApp((s) => s.hosts.find((h) => h.key === at.hostKey)?.label ?? "this host");
 
   if (pending.length === 0) return null;
 
