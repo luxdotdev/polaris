@@ -146,6 +146,6 @@ export const shareConsequences = (
 ): ReadonlyArray<string> => [
   `${name} will see everything in this session, including command output.`,
   role === "contributor"
-    ? `${name} can send Turns and answer approvals. ${name === "They" ? "Their" : `${name}'s`} Turns run on your ${loginName(harness)} login and count against your plan.`
-    : `${name} can comment, but not send Turns or answer approvals.`,
+    ? `${name} can send turns and answer approvals. ${name === "They" ? "Their" : `${name}'s`} turns run on your ${loginName(harness)} login and count against your plan.`
+    : `${name} can comment, but not send turns or answer approvals.`,
 ];

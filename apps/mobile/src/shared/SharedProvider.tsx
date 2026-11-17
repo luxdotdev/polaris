@@ -59,7 +59,7 @@ const relayTransport = (
     const address = Option.getOrNull(decodeAddress(share.host.relayAddress));
 
     if (address === null)
-      return yield* new TransportError({ message: "the Invite's relay address is malformed" });
+      return yield* new TransportError({ message: "the invite's relay address is malformed" });
 
     const relay = yield* Effect.tryPromise({
       try: device,

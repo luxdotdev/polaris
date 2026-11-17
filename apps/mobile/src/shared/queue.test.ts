@@ -81,7 +81,7 @@ describe("a shared session's queue in the thread", () => {
     );
 
     expect(queueView(state).paused).toBe(true);
-    expect(pausedLine(queueView(state).turns.length)).toBe("Queue paused · 2 Turns");
+    expect(pausedLine(queueView(state).turns.length)).toBe("Queue paused · 2 turns");
   });
 
   test("its author or the owner may change a queued Turn; another Teammate may not", () => {

@@ -25,6 +25,6 @@ export const mayChangeQueued = (queued: QueuedTurn, viewer: Viewer): boolean =>
   viewer.kind === "owner" ||
   (Predicate.isTagged(queued.actor, "Teammate") && queued.actor.personId === viewer.personId);
 
-/** "Queue paused · 2 Turns". */
+/** "Queue paused · 2 turns". */
 export const pausedLine = (count: number): string =>
-  `Queue paused · ${count} Turn${count === 1 ? "" : "s"}`;
+  `Queue paused · ${count} turn${count === 1 ? "" : "s"}`;

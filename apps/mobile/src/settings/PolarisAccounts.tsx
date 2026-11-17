@@ -65,7 +65,7 @@ const accountActions = (accounts: PolarisAccounts, row: AccountRow) => {
 const askForServer = (then: (server: string) => void) =>
   Alert.prompt(
     "Your own server",
-    "The Account Server's https address, from whoever runs it for your team",
+    "The account server's https address, from whoever runs it for your team",
     [
       { text: "Cancel", style: "cancel" },
       { text: "Continue", onPress: (text?: string) => text?.trim() && then(text.trim()) },

@@ -53,7 +53,7 @@ export const loginWarning = (
 ): string | null => {
   if (role !== "contributor" || login.kind === "business") return null;
   const name = loginName(harness);
-  const terms = "may not let someone else send Turns on it. A Commenter share avoids this.";
+  const terms = "may not let someone else send turns on it. A commenter share avoids this.";
 
   return login.kind === "consumer"
     ? `This session runs on a personal ${name} login (${login.plan}). Its terms ${terms}`
