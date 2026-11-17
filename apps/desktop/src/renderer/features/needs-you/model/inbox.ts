@@ -178,3 +178,19 @@ export const buildInbox = (input: InboxInput): Inbox => {
     count,
   };
 };
+
+const DECISIONS: Record<AnsweredElsewhere["resolution"]["decision"], string> = {
+  Allow: "Approved",
+  Deny: "Denied",
+  Answer: "Answered",
+  Provided: "Secret saved",
+};
+
+/** "Approved on Lucas's iPhone", or "Approved by Alex Rivera" when a Teammate answered. */
+export const answeredLine = (resolution: AnsweredElsewhere["resolution"]): string => {
+  const decided = DECISIONS[resolution.decision];
+
+  return resolution.teammate == null
+    ? `${decided} on ${resolution.resolvedBy}`
+    : `${decided} by ${resolution.teammate}`;
+};
