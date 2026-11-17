@@ -87,7 +87,10 @@ reads and writes, every Host-wide call.
 - In a shared Constellation a Contributor does what the owner does through the Lead, by Grant:
   `constellation.dispatch` and `worker.start` (`start`), `review` (`approve`: accept, send back,
   stop), `answer` and `message` (`turn`), and `status`. They reach the Constellation as the user
-  would. A Teammate's Workers are new sessions on this Host in Worktrees the Host makes: an
+  would, carrying the Teammate's Actor (`../constellation/rpc.ts` `actingCaller`): `AttemptStarted`,
+  `ClaimApproved`, `AttemptRejected` and `OperatorMessageSent` record it, and the Lead hears
+  their name ("approved by The Octocat (a Teammate)"). A Worker restart names its Constellation
+  and only reaches that one's Workers. A Teammate's Workers are new sessions on this Host in Worktrees the Host makes: an
   existing session would join the shared Constellation and widen the Share, so it is refused, as
   are another Host and a Worktree path, branch or base the Teammate names. What starts agent work (all but accepting, approving and
   stopping a Claim) waits with Turns while `teammatesMayAct` is off. Planning, pausing,

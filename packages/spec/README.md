@@ -787,7 +787,7 @@ Lead actions are calls on the Lead's session by Grant (`leadActionsAreAContribut
 `start` for `constellation.dispatch` and `worker.start`, `approve` for `review`, `turn` for
 `answer` and `message`; planning and the Constellation's lifecycle (`constellation.plan`,
 `set_state`) stay off the allowlist. They reach the Constellation as the user, as the owner's own
-Client would. The gate's further checks are not modelled: a Teammate's Workers are new sessions
+Client would, and its events record the Teammate's Actor (not modelled; `constellation/teammate.test.ts`). The gate's further checks are not modelled: a Teammate's Workers are new sessions
 on this Host in Worktrees, branches and bases it picks (never an existing session, which would join the shared
 Constellation and widen the Share), and what starts agent work waits with Turns (`gate.test.ts`). The Daemon refuses `turn` to
 Teammates at runtime until `teammatesMayAct` allows it (ENG-927); `approve` is on. The model

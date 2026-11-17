@@ -44,11 +44,18 @@ export const message = (d: GraphDecision, command: GraphCommand<"Message">) => {
       target: command.target,
       text: command.text,
       questionId: null,
+      actor: d.actor(),
     })
   );
 
   if (d.ctx.binding.kind === "user")
-    d.notify(NotificationItem.cases.OperatorMessage.make({ messageId: id, text: command.text }));
+    d.notify(
+      NotificationItem.cases.OperatorMessage.make({
+        messageId: id,
+        text: command.text,
+        actor: d.actor(),
+      })
+    );
 };
 
 export const answer = (d: GraphDecision, command: GraphCommand<"Answer">) => {
@@ -151,7 +158,10 @@ export const answer = (d: GraphDecision, command: GraphCommand<"Answer">) => {
       target: MessageTarget.cases.Worker.make({ attemptId }),
       text,
       questionId,
+      actor: d.actor(),
     })
   );
-  d.notify(NotificationItem.cases.QuestionAnswered.make({ attemptId, questionId, text }));
+  d.notify(
+    NotificationItem.cases.QuestionAnswered.make({ attemptId, questionId, text, actor: d.actor() })
+  );
 };

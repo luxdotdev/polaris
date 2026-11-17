@@ -56,6 +56,7 @@ export const attemptData = (attempt: Attempt) => ({
   handedUpReason: attempt.handedUpReason,
   rejectionReason: attempt.rejectionReason,
   rejectedBy: attempt.rejectedBy,
+  reviewedBy: attempt.reviewedBy,
   nudgedAt: attempt.nudgedAt,
   settleReason: attempt.settleReason,
   failureKind: attempt.failureKind,

@@ -57,7 +57,8 @@ Desktop App authorization is checked by the Daemon, not asserted in a payload.
   every verified reference. SendBack
   chooses same/existing or new session; `mergeConflictBase` selects that cause.
   The rejected Attempt retains `rejectionReason` and `rejectedBy` (`user` or
-  `lead`; both nullable, additive, from `AttemptRejected.reason`/`by`); its old
+  `lead`; both nullable, additive, from `AttemptRejected.reason`/`by`), and
+  `reviewedBy`, the Teammate who acted as the user through a Share; its old
   Claim stays alongside it in snapshots and status. The retry's first Turn
   carries the verbatim reason and rejected Claim; a MergeConflict names the
   base to merge first. Startup delivers any committed Attempt without its durable
@@ -145,7 +146,9 @@ defaults to null; the runtime producer must enrich it. H's observed source is
 W/L connects the Session-machine/Harness event drain.
 
 An Attempt's Claim-review fields are required and nullable: `claimedAt`
-(AttemptClaimed), `approvedByUserAt` (ClaimApproved), `handedUpAt` /
+(AttemptClaimed), `approvedByUserAt` (ClaimApproved; `reviewedBy` names a Teammate who
+approved through a Share, and `AttemptStarted`, `ClaimApproved`, `AttemptRejected` and
+`OperatorMessageSent` carry that `actor`), `handedUpAt` /
 `handedUpReason` (ClaimHandedUp) and `nudgedAt` (AttemptNudged).
 
 A verified receipt contains a `ToolCallReference` to Host/session/Turn/item;

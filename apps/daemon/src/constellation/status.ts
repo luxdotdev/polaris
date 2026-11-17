@@ -14,6 +14,7 @@ import { childTasks, isParent } from "./parents.ts";
 import { activeAttempt, latestAttempt, projectTask } from "./projections.ts";
 import { type HostSlots, phaseOf, phaseText, slotLine, workerLine } from "./slots.ts";
 import { heldWait } from "./waiting.ts";
+import { userName } from "./userName.ts";
 import { sharedFilesWarning } from "./sharedFiles.ts";
 import { eventTask, statusScope, type StatusScope, type StatusView } from "./statusView.ts";
 
@@ -63,7 +64,8 @@ const reviewLines = (
 ): ReadonlyArray<string> => {
   const lines: Array<string> = [];
 
-  if (attempt.approvedByUserAt !== null) lines.push("  Approved by the user · awaiting merge.");
+  if (attempt.approvedByUserAt !== null)
+    lines.push(`  Approved by ${userName(attempt.reviewedBy)} · awaiting merge.`);
 
   if (attempt.handedUpAt !== null)
     lines.push(
@@ -110,7 +112,7 @@ const rejectionLines = (record: ConstellationRecord, task: Task): ReadonlyArray<
 
   if (previous !== undefined) {
     lines.push(
-      `  Sent back attempt ${previous.id}${previous.rejectedBy === "user" ? " by the user" : ""}${previous.claim === null ? "" : ` · Claim ${previous.claim.head}`}`
+      `  Sent back attempt ${previous.id}${previous.rejectedBy === "user" ? ` by ${userName(previous.reviewedBy)}` : ""}${previous.claim === null ? "" : ` · Claim ${previous.claim.head}`}`
     );
 
     if (previous.rejectionReason !== null) {

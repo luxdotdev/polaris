@@ -1,5 +1,5 @@
 import { ConstellationCommand, ConstellationRpcs } from "@polaris/protocol";
-import { Context, Effect } from "effect";
+import { Context, Effect, Option } from "effect";
 import type { ConstellationBinding } from "../engine/constellation.inputs.ts";
 import { getDefaults, setDefaults } from "./defaults.ts";
 import { finding, refusal } from "./decision.ts";
@@ -11,6 +11,7 @@ import { ConstellationRuntime } from "./runtime.ts";
 import { startWorker } from "./startWorker.ts";
 import { RemoteWorkers } from "./transfers/assignments.ts";
 import { holdsUserAccess } from "../userAccess/index.ts";
+import { RequestShare } from "../shares/connection.ts";
 
 /** Only the authenticated transport sets this annotation. Unbound connections read as the user. */
 export class ConstellationCaller extends Context.Service<
@@ -20,6 +21,16 @@ export class ConstellationCaller extends Context.Service<
 
 const caller = (annotations: Context.Context<never>): ConstellationBinding =>
   Context.getOrUndefined(annotations, ConstellationCaller) ?? { kind: "user" };
+
+/** The caller, with the Teammate when a Share's gate admitted the request as the user's. */
+export const actingCaller = (annotations: Context.Context<never>) =>
+  Effect.map(Effect.serviceOption(RequestShare), (share): ConstellationBinding => {
+    const binding = caller(annotations);
+
+    return Option.isSome(share) && binding.kind === "user"
+      ? { kind: "user", actor: share.value.actor }
+      : binding;
+  });
 
 /**
  * The user, for what changes the Host: a binding that says so, or a connection the user gate
@@ -78,13 +89,21 @@ export const ConstellationRpcHandlers = ConstellationRpcs.toLayer(
       "constellation.plan": ({ commandId, ...payload }, { client }) =>
         graphs.command(caller(client.annotations), commandId, C.Plan.make(payload)),
       "constellation.dispatch": ({ commandId, ...payload }, { client }) =>
-        graphs.command(caller(client.annotations), commandId, C.Dispatch.make(payload)),
+        Effect.flatMap(actingCaller(client.annotations), (binding) =>
+          graphs.command(binding, commandId, C.Dispatch.make(payload))
+        ),
       "constellation.review": ({ commandId, ...payload }, { client }) =>
-        graphs.command(caller(client.annotations), commandId, C.Review.make(payload)),
+        Effect.flatMap(actingCaller(client.annotations), (binding) =>
+          graphs.command(binding, commandId, C.Review.make(payload))
+        ),
       "constellation.answer": ({ commandId, ...payload }, { client }) =>
-        graphs.command(caller(client.annotations), commandId, C.Answer.make(payload)),
+        Effect.flatMap(actingCaller(client.annotations), (binding) =>
+          graphs.command(binding, commandId, C.Answer.make(payload))
+        ),
       "constellation.message": ({ commandId, ...payload }, { client }) =>
-        graphs.command(caller(client.annotations), commandId, C.Message.make(payload)),
+        Effect.flatMap(actingCaller(client.annotations), (binding) =>
+          graphs.command(binding, commandId, C.Message.make(payload))
+        ),
       "constellation.set_state": ({ commandId, ...payload }, { client }) =>
         graphs.command(caller(client.annotations), commandId, C.SetState.make(payload)),
       "constellation.worker.block": ({ commandId, ...payload }, { client }) =>

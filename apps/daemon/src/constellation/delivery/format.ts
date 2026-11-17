@@ -10,6 +10,7 @@ import { capacityBlocked, failureKindLabel } from "../failureKind.ts";
 import type { SlotSource } from "../slots.ts";
 import { auditLines, dueAudit, nextSlotStall } from "../stall.ts";
 import { proposalDetails } from "../status.ts";
+import { userName } from "../userName.ts";
 
 const line = (text: string) => text.replace(/\s+/g, " ").trim();
 
@@ -17,7 +18,7 @@ const REASON_LIMIT = 240;
 
 /** Who sent it back and why; the next Attempt's brief carries the reason in full. */
 const sentBackLine = (task: string, attempt: Attempt | undefined) => {
-  const by = attempt?.rejectedBy === "user" ? " by the user" : "";
+  const by = attempt?.rejectedBy === "user" ? ` by ${userName(attempt.reviewedBy)}` : "";
   const reason = line(attempt?.rejectionReason ?? "");
 
   if (reason === "") return `${task}: sent back${by}.`;
@@ -61,7 +62,7 @@ export const notificationLine = (record: ConstellationRecord, n: ConstellationNo
       if (attempt?.approvedByUserAt == null || attempt.claim === null)
         return `${worker(i.attemptId)}: approved by the user, then claimed again; review the new claim.`;
 
-      return `${worker(i.attemptId)}: approved by the user. Accept it with mergedHead ${attempt.claim.head}; Polaris merges ${attempt.branch} into your branch.`;
+      return `${worker(i.attemptId)}: approved by ${userName(attempt.reviewedBy)}. Accept it with mergedHead ${attempt.claim.head}; Polaris merges ${attempt.branch} into your branch.`;
     }),
     Match.tag(
       "Question",
@@ -86,11 +87,14 @@ export const notificationLine = (record: ConstellationRecord, n: ConstellationNo
           ? worker(message.target.attemptId)
           : "the workers";
 
-      return `You told ${target}: ${line(i.text)}`;
+      const teller = userName(i.actor);
+
+      return `${teller === "the user" ? "You" : teller} told ${target}: ${line(i.text)}`;
     }),
     Match.tag(
       "QuestionAnswered",
-      (i) => `${worker(i.attemptId)} received an answer to ${line(i.questionId)}: ${line(i.text)}`
+      (i) =>
+        `${worker(i.attemptId)} received an answer${i.actor == null ? "" : ` from ${userName(i.actor)}`} to ${line(i.questionId)}: ${line(i.text)}`
     ),
     Match.exhaustive
   );
