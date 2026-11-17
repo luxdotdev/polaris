@@ -328,9 +328,9 @@ export const DEVICE_RPCS = {
   "requests.send.get": "local",
   "requests.curl.parse": "local",
   "requests.curl.format": "local",
-  // Creating and renewing start from an Invite the Desktop App makes on the Account Server.
-  "shares.create": "local",
-  "shares.renew": "local",
+  // The owner shares from their phone too (DESIGN.md "Shared Sessions", Mobile v1).
+  "shares.create": "device",
+  "shares.renew": "device",
   "shares.revoke": "device",
   "shares.list": "device",
   "shares.watchPresence": "device",
