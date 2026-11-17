@@ -22,7 +22,7 @@ import type {
   Worktree,
 } from "@polaris/protocol";
 import type { UserTurn } from "../../shared/needsYou.ts";
-import { Match } from "effect";
+import { Match, Predicate } from "effect";
 import { applyResourceEvent, type HostResources, resourcesFromSnapshot } from "./hostResources.ts";
 import type { SessionData } from "./plain.ts";
 
@@ -31,6 +31,8 @@ export interface ResolvedApproval {
   readonly request: ApprovalRequest;
   /** The device label of the Client that answered first (`ApprovalResolved.resolvedBy`). */
   readonly resolvedBy: string;
+  /** The Teammate who answered, by name, in a shared session (ENG-941); null for the owner's. */
+  readonly teammate?: string | null;
   readonly decision: ApprovalDecision["_tag"];
   readonly at: string;
 }
@@ -395,7 +397,7 @@ const fold = (event: DomainEvent): Fold =>
           pendingApprovals: [...withoutRequest(request.id)(entry).pendingApprovals, request],
         })),
       ApprovalResolved:
-        ({ sessionId, requestId, resolvedBy, decision }): Fold =>
+        ({ sessionId, requestId, resolvedBy, decision, actor }): Fold =>
         (m, at) =>
           updateSession({
             model: m,
@@ -406,7 +408,11 @@ const fold = (event: DomainEvent): Fold =>
               const next = withoutRequest(requestId)(entry);
 
               if (request === undefined) return next;
-              const resolution = { request, resolvedBy, decision: decision._tag, at };
+
+              const teammate =
+                actor != null && Predicate.isTagged(actor, "Teammate") ? actor.name : null;
+
+              const resolution = { request, resolvedBy, teammate, decision: decision._tag, at };
 
               return {
                 ...next,

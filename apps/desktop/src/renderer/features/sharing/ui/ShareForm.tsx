@@ -2,7 +2,7 @@
  * The share sheet signed in (Paper SS3): the sharing account, the person by GitHub handle, the
  * role, the expiry and what sharing allows, then who has access and the share log.
  */
-import type { SessionId, ShareRole } from "@polaris/protocol";
+import type { HarnessKind, SessionId, ShareRole } from "@polaris/protocol";
 import {
   Button,
   DialogTitle,
@@ -22,6 +22,8 @@ import type { PolarisAccountView } from "../../../../shared/accountsContract.ts"
 import type { ShareView } from "../../../../shared/sharingContract.ts";
 import { useNow } from "../../../shell/useNow.ts";
 import { polaris } from "../../bridge.ts";
+import { usePlanLimits } from "../../harness/index.ts";
+import { useSession } from "../../session/hooks.ts";
 import { refreshSharedSessions } from "../data/feeds.ts";
 import {
   bareLogin,
@@ -33,6 +35,7 @@ import {
   isLogin,
   shareRefusal,
 } from "../model/copy.ts";
+import { harnessLogin, loginWarning, roleStatement } from "../model/login.ts";
 import { Access } from "./Access.tsx";
 
 export interface ShareFormProps {
@@ -91,22 +94,60 @@ const AccountSwitch = ({
   );
 };
 
-const Statements = ({ who }: { readonly who: string }) => (
-  <ul className="text-body text-text-default flex flex-col gap-2 px-5 py-4">
-    <li className="flex gap-2.5">
-      <DotIcon size={14} className="text-text-subtle mt-0.5 shrink-0" />
-      {who} will see everything in this session, including command output.
-    </li>
-    <li className="flex gap-2.5">
-      <ChatIcon size={14} className="text-text-subtle mt-0.5 shrink-0" />
-      {who} can comment on messages and changes, and can't send Turns or answer approvals.
-    </li>
-    <li className="flex gap-2.5">
-      <LockIcon size={14} className="text-text-subtle mt-0.5 shrink-0" />
-      Terminals, editing files and managing who has access stay yours.
-    </li>
-  </ul>
+/** Paper SS3's neutral "i": a circle and a mark, in the text colour. */
+const InfoGlyph = () => (
+  <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" className="mt-0.5 shrink-0">
+    <circle cx="7" cy="7" r="5.8" fill="none" stroke="currentColor" strokeWidth="1.1" />
+    <path d="M7 4v3.5" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    <circle cx="7" cy="9.8" r=".7" fill="currentColor" />
+  </svg>
 );
+
+const Statements = ({
+  who,
+  role,
+  harness,
+  warning,
+}: {
+  readonly who: string;
+  readonly role: ShareRole;
+  readonly harness: HarnessKind;
+  readonly warning: string | null;
+}) => (
+  <div className="flex flex-col gap-2.5 px-5 py-4">
+    <ul className="text-body text-text-default flex flex-col gap-2">
+      <li className="flex gap-2.5">
+        <DotIcon size={14} className="text-text-subtle mt-0.5 shrink-0" />
+        {who} will see everything in this session, including command output.
+      </li>
+      <li className="flex gap-2.5" data-testid="share-role-statement">
+        <ChatIcon size={14} className="text-text-subtle mt-0.5 shrink-0" />
+        {roleStatement(role, who, harness)}
+      </li>
+      <li className="flex gap-2.5">
+        <LockIcon size={14} className="text-text-subtle mt-0.5 shrink-0" />
+        Terminals, editing files and managing who has access stay yours.
+      </li>
+    </ul>
+    {warning === null ? null : (
+      <p
+        className="bg-well border-hairline text-body text-text-default flex gap-2.5 rounded-[10px] border px-3 py-2.5"
+        data-testid="share-login-warning"
+      >
+        <InfoGlyph />
+        {warning}
+      </p>
+    )}
+  </div>
+);
+
+/** The session's Harness and what its login is on this Host, for a Contributor's statements. */
+const useLogin = (hostKey: string, sessionId: SessionId) => {
+  const harness = useSession(hostKey, sessionId).session?.harness ?? "claude";
+  const limits = usePlanLimits(hostKey);
+
+  return { harness, login: harnessLogin(limits, harness) };
+};
 
 const useShares = (hostKey: string, sessionId: SessionId) => {
   const [shares, setShares] = useState<ReadonlyArray<ShareView> | null>(null);
@@ -130,11 +171,12 @@ export const ShareForm = (props: ShareFormProps) => {
   const [accountId, setAccountId] = useState(fallback?.id ?? "");
   const account = accounts.find((a) => a.id === accountId) ?? fallback;
   const [login, setLogin] = useState("");
-  const [role, setRole] = useState<ShareRole>("commenter");
+  const [role, setRole] = useState<ShareRole>("contributor");
   const [days, setDays] = useState<ExpiryDays>(DEFAULT_EXPIRY_DAYS);
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
   const { shares, reload } = useShares(hostKey, sessionId);
+  const { harness, login: harnessLoginKind } = useLogin(hostKey, sessionId);
   const now = useNow();
 
   if (account === undefined) return null;
@@ -207,15 +249,11 @@ export const ShareForm = (props: ShareFormProps) => {
             value={role}
             onValueChange={setRole}
             options={[
-              { value: "contributor", label: "Contributor", disabled: true },
+              { value: "contributor", label: "Contributor" },
               { value: "commenter", label: "Commenter" },
             ]}
           />
         </div>
-        <span />
-        <span className="text-caption text-text-subtle -mt-1.5">
-          Contributor comes once teammates can send Turns.
-        </span>
         <span className="text-body text-text-subtle">Expires</span>
         <div className="flex items-center gap-3">
           <Select
@@ -239,7 +277,12 @@ export const ShareForm = (props: ShareFormProps) => {
         </div>
       </div>
       <div className="border-hairline border-t">
-        <Statements who={who} />
+        <Statements
+          who={who}
+          role={role}
+          harness={harness}
+          warning={loginWarning(role, harnessLoginKind, harness)}
+        />
       </div>
       <div className="border-hairline flex items-center gap-1.5 border-t px-5 py-3">
         <span className="text-caption text-text-subtle flex-1">

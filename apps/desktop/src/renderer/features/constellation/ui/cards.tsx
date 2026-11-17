@@ -25,6 +25,7 @@ import {
   type TaskGlyphKind,
   toneOf,
 } from "../model/index.ts";
+import { approvedLine } from "../model/reviewer.ts";
 import { ConstellationMark, TaskGlyph } from "./glyphs.tsx";
 import { IdLane, LaneSpacer, laneStyle } from "./lane.tsx";
 import { ID_TONE } from "./rows.tsx";
@@ -233,7 +234,7 @@ const lineOf = (r: ConstellationRecord, n: NotificationData, facts: Facts): Dige
         task: task(attemptId),
         glyph: "review",
         tone: "text-text-subtle",
-        body: "approved by you · the lead merges",
+        body: approvedLine(attemptOf(r, attemptId)),
       }),
       Question: ({ attemptId, question }): DigestLine => ({
         key: n.id,

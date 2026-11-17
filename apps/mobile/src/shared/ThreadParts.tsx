@@ -2,7 +2,7 @@
  * A shared session's thread chrome (SS6): who is watching and the role chip or share icon in the
  * header, the Comment composer with a Commenter's note, and "Send N comments as a turn".
  */
-import type { SessionId } from "@polaris/protocol";
+import type { HarnessKind, SessionId } from "@polaris/protocol";
 import { mobileType } from "@polaris/ui/tokens";
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
@@ -198,6 +198,7 @@ export const SharedSheets = ({
   connection,
   sessionId,
   title,
+  harness,
   sharing,
   onCloseShare,
 }: {
@@ -205,6 +206,7 @@ export const SharedSheets = ({
   readonly connection: HostConnection;
   readonly sessionId: SessionId;
   readonly title: string;
+  readonly harness: HarnessKind;
   readonly sharing: boolean;
   readonly onCloseShare: () => void;
 }) => (
@@ -221,6 +223,7 @@ export const SharedSheets = ({
       connection={connection}
       sessionId={sessionId}
       title={title}
+      harness={harness}
       onClose={onCloseShare}
     />
   </>
@@ -336,3 +339,5 @@ const useStyles = themedStyles((c) => ({
   },
   sendLabel: { ...mobileType.subhead, color: c.textDefault },
 }));
+
+export { QueuedTurns } from "./QueuedTurns.tsx";

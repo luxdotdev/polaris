@@ -3,10 +3,10 @@
  * sharing allows, then the Invite on the Account Server and the Share on the Host. Mounted only
  * while open: it reads the accounts and relay providers.
  */
-import type { ShareRole } from "@polaris/protocol";
+import type { HarnessKind, PlanLimit, ShareRole } from "@polaris/protocol";
 import { mobileType } from "@polaris/ui/tokens";
-import { Effect } from "effect";
-import { useState } from "react";
+import { Effect, Predicate, Stream } from "effect";
+import { useEffect, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { type AccountsOutcome, usePolarisAccounts } from "../accounts/AccountsProvider.tsx";
 import { useRelay } from "../relay/RelayProvider.tsx";
@@ -14,6 +14,7 @@ import type { HostConnection } from "../runtime/hostConnection.ts";
 import { InstrumentSheet, SheetHeader } from "../sheet/index.tsx";
 import { themedStyles, useTheme } from "../theme/index.ts";
 import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
+import { harnessLogin, loginWarning } from "./login.ts";
 import { roleWord } from "./model.ts";
 import { firstName, loginOf, type ShareCalls, shareConsequences, shareSession } from "./share.ts";
 
@@ -43,6 +44,47 @@ const useShareCalls = (connection: HostConnection): ShareCalls => {
   };
 };
 
+/** How long the sheet listens for the Host's Plan Limits, which `usage.watch` sends first. */
+const LIMITS_MS = 1500;
+
+/** The Host's Plan Limits, once, for what the Harness login is; empty until they arrive. */
+const usePlanLimits = (connection: HostConnection) => {
+  const [limits, setLimits] = useState<ReadonlyArray<PlanLimit>>([]);
+
+  useEffect(() => {
+    let open = true;
+
+    void connection
+      .run((client) => client["usage.watch"]({}).pipe(Stream.timeout(LIMITS_MS), Stream.runCollect))
+      .then((items) => {
+        const found = items.flatMap((item) =>
+          Predicate.isTagged(item, "PlanLimitChanged") ? [item.limit] : []
+        );
+
+        if (open) setLimits(found);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      open = false;
+    };
+  }, [connection]);
+
+  return limits;
+};
+
+const Warning = ({ text }: { readonly text: string }) => {
+  const styles = useStyles();
+
+  return (
+    <View style={styles.warning} accessibilityRole="text">
+      <Text style={styles.body} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
+        {text}
+      </Text>
+    </View>
+  );
+};
+
 const Body = ({ text }: { readonly text: string }) => {
   const styles = useStyles();
 
@@ -57,10 +99,12 @@ const ShareForm = ({
   connection,
   sessionId,
   title,
+  harness,
 }: {
   readonly connection: HostConnection;
   readonly sessionId: string;
   readonly title: string;
+  readonly harness: HarnessKind;
 }) => {
   const styles = useStyles();
   const { colours } = useTheme();
@@ -71,6 +115,7 @@ const ShareForm = ({
   const [role, setRole] = useState<ShareRole>("contributor");
   const [busy, setBusy] = useState(false);
   const [said, setSaid] = useState<string | null>(null);
+  const limits = usePlanLimits(connection);
   const account = accounts.state?.accounts.find((held) => held.signedOutAt === null);
   const host = relay.hosts.find((linked) => linked.hostId === connection.hostId);
 
@@ -91,6 +136,7 @@ const ShareForm = ({
     );
 
   const named = loginOf(login);
+  const warning = loginWarning(role, harnessLogin(limits, harness), harness);
   const shown = named === "" ? "They" : `@${named}`;
 
   const share = async () => {
@@ -144,9 +190,10 @@ const ShareForm = ({
           </Pressable>
         ))}
       </View>
-      {shareConsequences(shown, role).map((line) => (
+      {shareConsequences(shown, role, harness).map((line) => (
         <Body key={line} text={line} />
       ))}
+      {warning === null ? null : <Warning text={warning} />}
       <Body text={`Shared through ${account.login}. The invite lasts 7 days.`} />
       {said === null ? null : <Body text={said} />}
       <Pressable
@@ -168,12 +215,14 @@ export const ShareSheet = ({
   connection,
   sessionId,
   title,
+  harness,
   onClose,
 }: {
   readonly open: boolean;
   readonly connection: HostConnection | null;
   readonly sessionId: string;
   readonly title: string;
+  readonly harness: HarnessKind;
   readonly onClose: () => void;
 }) => {
   if (!open || connection === null) return null;
@@ -181,7 +230,7 @@ export const ShareSheet = ({
   return (
     <InstrumentSheet open onClose={onClose}>
       <SheetHeader title="Share" onClose={onClose} />
-      <ShareForm connection={connection} sessionId={sessionId} title={title} />
+      <ShareForm connection={connection} sessionId={sessionId} title={title} harness={harness} />
     </InstrumentSheet>
   );
 };
@@ -189,6 +238,14 @@ export const ShareSheet = ({
 const useStyles = themedStyles((c) => ({
   form: { gap: 12, paddingHorizontal: 16, paddingBottom: 20 },
   body: { ...mobileType.callout, color: c.textDefault },
+  warning: {
+    backgroundColor: c.panel,
+    borderWidth: 1,
+    borderColor: c.hairline,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
   input: {
     ...mobileType.body,
     color: c.textStrong,

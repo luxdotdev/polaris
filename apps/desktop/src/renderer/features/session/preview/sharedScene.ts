@@ -10,6 +10,7 @@ import {
   CommentId,
   FeedbackBatch,
   PersonId,
+  QueuedTurn,
   ShareId,
   TurnId,
   TurnItem,
@@ -124,6 +125,19 @@ const COMMENTS = [
   ),
 ];
 
+/** A Turn waiting behind the working one (Paper SS1's queued row). */
+const queued = (id: string, actor: Actor, prompt: string, age: number) =>
+  new QueuedTurn({
+    id: TurnId.make(`${ID}-${id}`),
+    sessionId: session(ID, {}).id,
+    prompt,
+    attachments: [],
+    actor,
+    queuedAt: minutesAgo(age),
+    editedAt: null,
+    approves: true,
+  });
+
 export const shared = (): SessionModel => {
   const s = session(ID, { title: "Orchestrator layouts", turnCount: 25 });
   const I = TurnItem.cases;
@@ -131,6 +145,10 @@ export const shared = (): SessionModel => {
   return model({
     session: s,
     comments: COMMENTS,
+    queuedTurns: [
+      queued("q1", maya, "Then publish all four as artifacts", 2),
+      queued("q2", alex, "Run the slow tier on the Pi before you merge", 1),
+    ],
     turns: [
       view(
         turn(s.id, 23, "Prototype the Orchestrator layouts for 177.", "completed", [], {

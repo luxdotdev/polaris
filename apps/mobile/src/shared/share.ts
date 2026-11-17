@@ -4,8 +4,16 @@
  * the Host with the person's id pinned (`shares.create`).
  */
 import type { AccountRecord, CreatedInvite, NewInvite, Person } from "@polaris/client/accounts";
-import { PersonId, InviteId, SessionId, type ShareRole, ShareTarget } from "@polaris/protocol";
+import {
+  type HarnessKind,
+  PersonId,
+  InviteId,
+  SessionId,
+  type ShareRole,
+  ShareTarget,
+} from "@polaris/protocol";
 import { Redacted } from "effect";
+import { loginName } from "./login.ts";
 
 /** The owner's Host as the relay reaches it: what an Invite tells the Teammate's device. */
 export interface ShareHost {
@@ -81,9 +89,13 @@ export const firstName = (person: Person) =>
   (person.name ?? person.login).split(/\s+/)[0] ?? person.login;
 
 /** What the sheet says sharing allows, plainly (DESIGN.md "Share"). */
-export const shareConsequences = (name: string, role: ShareRole): ReadonlyArray<string> => [
+export const shareConsequences = (
+  name: string,
+  role: ShareRole,
+  harness: HarnessKind
+): ReadonlyArray<string> => [
   `${name} will see everything in this session, including command output.`,
   role === "contributor"
-    ? `${name}'s turns run on your Claude login and count against your plan.`
-    : `${name} can comment, but not send turns or answer approvals.`,
+    ? `${name} can send Turns and answer approvals. ${name === "They" ? "Their" : `${name}'s`} Turns run on your ${loginName(harness)} login and count against your plan.`
+    : `${name} can comment, but not send Turns or answer approvals.`,
 ];

@@ -21,6 +21,7 @@ import {
 import { Match } from "effect";
 import type { SessionData } from "./plain.ts";
 import { foldComments, type SessionComment } from "./sessionComments.ts";
+import { foldQueue, type SessionQueuedTurn } from "./sessionQueue.ts";
 
 /** An item still in progress: the latest `ItemProgress`, plus text streamed as deltas. */
 export interface LiveItem {
@@ -93,6 +94,8 @@ export interface SessionModel {
   readonly settledWrites?: ReadonlyArray<SettledWrite>;
   /** The session's Comments (ADR 0113), in the order they were added; absent reads as none. */
   readonly comments?: ReadonlyArray<SessionComment>;
+  /** Turns waiting in the session's queue (ENG-941), first in first out; absent reads as none. */
+  readonly queuedTurns?: ReadonlyArray<SessionQueuedTurn>;
 }
 
 /** How a Secret Request ended: its value saved, declined, or withdrawn (a timeout too). */
@@ -388,7 +391,7 @@ const fold = (event: DomainEvent): Fold =>
       CommentResolved: () => same,
       CommentReopened: () => same,
       CommentOutdated: () => same,
-      // Queued Turns (ENG-954): no Client shows the queue yet.
+      // Queued Turns (ENG-941) fold in `applyEnvelope` (`sessionQueue.ts`).
       TurnQueued: () => same,
       QueuedTurnEdited: () => same,
       QueuedTurnCancelled: () => same,
@@ -517,10 +520,14 @@ const applyEnvelope = (model: SessionModel, envelope: EventEnvelope): SessionMod
   const folded = fold(envelope.event)(model);
   const before = model.comments ?? [];
   const comments = foldComments(before, envelope);
+  const waiting = model.queuedTurns ?? [];
+  const queuedTurns = foldQueue(waiting, envelope);
 
-  return comments === before
-    ? { ...folded, sequence: envelope.sequence }
-    : { ...folded, comments, sequence: envelope.sequence };
+  const next: SessionModel = { ...folded, sequence: envelope.sequence };
+
+  if (comments !== before) return { ...next, comments, queuedTurns };
+
+  return queuedTurns === waiting ? next : { ...next, queuedTurns };
 };
 
 const liveOf = (view: Holder, itemId: string): LiveItem =>
@@ -557,6 +564,7 @@ export const applySessionItem = (model: SessionModel, item: SessionStreamItem): 
         settledSecrets: model.settledSecrets ?? [],
         settledWrites: model.settledWrites ?? [],
         comments: snapshot.comments,
+        queuedTurns: snapshot.queuedTurns,
       }),
       Event: ({ envelope }) => applyEnvelope(model, envelope),
       Delta: ({ turnId, itemId, field, text, subagentId }) =>

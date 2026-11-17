@@ -9,6 +9,7 @@ import {
   type ApprovalDecision,
   ApprovalRequest,
   type Comment,
+  type QueuedTurn,
   type DomainEvent,
   RequestId,
   type SessionStreamItem,
@@ -18,6 +19,7 @@ import {
 } from "@polaris/protocol";
 import { Match, Predicate } from "effect";
 import { foldComments } from "./commentFold.ts";
+import { foldQueue } from "./queueFold.ts";
 
 export interface TurnEntry {
   readonly turn: Turn;
@@ -53,6 +55,8 @@ export interface SessionFold {
   readonly secretOutcomes: ReadonlyArray<SecretOutcome>;
   /** The session's Comments (ADR 0113), oldest first; empty on a Host without them. */
   readonly comments: ReadonlyArray<Comment>;
+  /** Turns waiting in a shared session's queue (ENG-941), first in first out; absent is none. */
+  readonly queuedTurns?: ReadonlyArray<QueuedTurn>;
 }
 
 type Fold = (state: SessionFold) => SessionFold;
@@ -217,14 +221,16 @@ export const applySessionItem = (
         ),
         secretOutcomes: state?.secretOutcomes ?? [],
         comments: snapshot.comments ?? [],
+        queuedTurns: snapshot.queuedTurns ?? [],
       }),
       Event: ({ envelope }) => {
         if (state === null || envelope.sequence <= state.sequence) return state;
         // A session's feed carries only that session's events.
         const next = foldEvent(envelope.event)(state);
         const comments = foldComments(next.comments, envelope.event, envelope.occurredAt);
+        const queuedTurns = foldQueue(next.queuedTurns ?? [], envelope.event, envelope.occurredAt);
 
-        return { ...next, comments, sequence: envelope.sequence };
+        return { ...next, comments, queuedTurns, sequence: envelope.sequence };
       },
       Delta: ({ turnId, itemId, field, text, subagentId }) =>
         state === null || subagentId !== null || field !== "text"

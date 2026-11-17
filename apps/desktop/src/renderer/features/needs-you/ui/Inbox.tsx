@@ -30,12 +30,13 @@ import { type CardAction, CardMenu } from "./CardMenu.tsx";
 import { ConstellationGroups } from "./ConstellationGroups.tsx";
 import { quietFact } from "../model/quiet.ts";
 import type { Dismissible } from "../model/dismissed.ts";
-import type {
-  AlsoKind,
-  AlsoWaiting,
-  AnsweredElsewhere,
-  Place,
-  WaitingSession,
+import {
+  type AlsoKind,
+  type AlsoWaiting,
+  type AnsweredElsewhere,
+  answeredLine,
+  type Place,
+  type WaitingSession,
 } from "../model/inbox.ts";
 import { offersAlwaysAllow } from "../../data/approval/decide.ts";
 import { DENY_PROMPT, dryRunKicker, writeName, writeWants } from "../../data/write/model.ts";
@@ -259,13 +260,6 @@ const Also = ({ item, reserve }: { readonly item: AlsoWaiting; readonly reserve:
   );
 };
 
-const DECISIONS: Record<AnsweredElsewhere["resolution"]["decision"], string> = {
-  Allow: "Approved",
-  Deny: "Denied",
-  Answer: "Answered",
-  Provided: "Secret saved",
-};
-
 const Answered = ({ item }: { readonly item: AnsweredElsewhere }) => (
   <div
     data-testid="answered-elsewhere"
@@ -275,8 +269,7 @@ const Answered = ({ item }: { readonly item: AnsweredElsewhere }) => (
       {item.entry.session.title || "Untitled session"}
     </p>
     <p className="text-caption text-text-subtle truncate">
-      {DECISIONS[item.resolution.decision]} on {item.resolution.resolvedBy} ·{" "}
-      {item.resolution.request.title}
+      {answeredLine(item.resolution)} · {item.resolution.request.title}
     </p>
   </div>
 );
