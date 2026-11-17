@@ -16,7 +16,15 @@ import { themedStyles, useTheme } from "../theme/index.ts";
 import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 import { harnessLogin, loginWarning } from "./login.ts";
 import { roleWord } from "./model.ts";
-import { firstName, loginOf, type ShareCalls, shareConsequences, shareSession } from "./share.ts";
+import {
+  firstName,
+  loginOf,
+  type ShareCalls,
+  shareConsequences,
+  shareFailure,
+  shareNotTaken,
+  shareSession,
+} from "./share.ts";
 
 const ROLES: ReadonlyArray<ShareRole> = ["contributor", "commenter"];
 
@@ -38,7 +46,8 @@ const useShareCalls = (connection: HostConnection): ShareCalls => {
       connection.run((client) =>
         client["shares.create"](share).pipe(
           Effect.asVoid,
-          Effect.mapError((error) => new Error(error.message))
+          Effect.mapError((error) => new Error(shareFailure(error, connection.name))),
+          Effect.catchDefect(() => Effect.fail(new Error(shareNotTaken(connection.name))))
         )
       ),
   };
@@ -146,6 +155,7 @@ const ShareForm = ({
       name: host.hostName,
       relayAddress: host.hostAddress,
       noiseKey: host.hostNoiseKey,
+      relayUrl: host.relayUrl,
     };
 
     try {
@@ -194,7 +204,7 @@ const ShareForm = ({
         <Body key={line} text={line} />
       ))}
       {warning === null ? null : <Warning text={warning} />}
-      <Body text={`Shared through ${account.login}. The invite lasts 7 days.`} />
+      <Body text={`Sharing as @${account.login}. The invite lasts 7 days.`} />
       {said === null ? null : <Body text={said} />}
       <Pressable
         accessibilityRole="button"

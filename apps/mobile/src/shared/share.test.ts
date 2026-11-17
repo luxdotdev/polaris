@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import type { AccountRecord } from "@polaris/client/accounts";
-import { SessionId, ShareTarget } from "@polaris/protocol";
+import { NotFound, SessionId, ShareRefused, ShareTarget } from "@polaris/protocol";
 import { Redacted } from "effect";
-import { type ShareCalls, shareSession } from "./share.ts";
+import { type ShareCalls, shareFailure, shareSession } from "./share.ts";
 
 const account: AccountRecord = {
   id: "a1",
@@ -45,7 +45,12 @@ test("the Share pins the Account Server's person id, its issuer and the Invite's
   await shareSession(
     {
       account,
-      host: { name: "Mac Studio", relayAddress: "addr", noiseKey: "host-key" },
+      host: {
+        name: "Mac Studio",
+        relayAddress: "addr",
+        noiseKey: "host-key",
+        relayUrl: "wss://relay.team.dev/v1",
+      },
       sessionId: "s-1",
       title: "Polaris planning",
       login: " @maya ",
@@ -83,7 +88,12 @@ test("no Share is recorded when the person isn't on the Account Server", async (
   const refused = await shareSession(
     {
       account,
-      host: { name: "Mac Studio", relayAddress: "addr", noiseKey: "k" },
+      host: {
+        name: "Mac Studio",
+        relayAddress: "addr",
+        noiseKey: "k",
+        relayUrl: "wss://relay.polaris.lux.dev/v1",
+      },
       sessionId: "s-1",
       title: "t",
       login: "nobody",
@@ -97,4 +107,21 @@ test("no Share is recorded when the person isn't on the Account Server", async (
 
   expect(refused).toBe("No one is @nobody on this server");
   expect(created).toBe(false);
+});
+
+test("a share the Host refuses reads as product copy, never the transport's error", () => {
+  const decodeFailure = new Error('Expected { readonly "_tag": "NotFound" } | ShareRefused');
+
+  expect(shareFailure(new ShareRefused({ reason: "worker" }), "Mac Studio")).toBe(
+    "A worker's session is shared through its constellation."
+  );
+  expect(shareFailure(new ShareRefused({ reason: "issuer-unreachable" }), "Mac Studio")).toBe(
+    "Mac Studio couldn't reach your Polaris account's server."
+  );
+  expect(shareFailure(new NotFound({ what: "session", id: "s-1" }), "Mac Studio")).toBe(
+    "This session isn't on Mac Studio anymore."
+  );
+  expect(shareFailure(decodeFailure, "Mac Studio")).toBe(
+    "Mac Studio didn't take the share from this phone. Share it from the desktop app for now."
+  );
 });

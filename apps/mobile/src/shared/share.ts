@@ -8,11 +8,14 @@ import {
   type HarnessKind,
   PersonId,
   InviteId,
+  NotFound,
   SessionId,
+  ShareRefused,
   type ShareRole,
   ShareTarget,
+  Unsupported,
 } from "@polaris/protocol";
-import { Redacted } from "effect";
+import { Match, Redacted } from "effect";
 import { loginName } from "./login.ts";
 
 /** The owner's Host as the relay reaches it: what an Invite tells the Teammate's device. */
@@ -20,6 +23,8 @@ export interface ShareHost {
   readonly name: string;
   readonly relayAddress: string;
   readonly noiseKey: string;
+  /** The relay the Host is linked through, so the Teammate's device dials the same one. */
+  readonly relayUrl: string;
 }
 
 export interface ShareRequest {
@@ -51,6 +56,35 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The default lifetime the Host gives a Share made with no expiry (`SHARE_DEFAULT_LIFETIME_MS`). */
 const SHARE_DAYS = 7;
+
+const refusal = (reason: ShareRefused["reason"], host: string) =>
+  Match.value(reason).pipe(
+    Match.when("worker", () => "A worker's session is shared through its constellation."),
+    Match.when("issuer-unreachable", () => `${host} couldn't reach your Polaris account's server.`),
+    Match.when("invite", () => `${host} couldn't check the invite. Try sharing again.`),
+    Match.orElse(() => "The share couldn't be made. Try sharing again.")
+  );
+
+/** Any other failure, such as a reply this app can't read: never shown raw. */
+export const shareNotTaken = (host: string) =>
+  `${host} didn't take the share from this phone. Share it from the desktop app for now.`;
+
+/**
+ * What the sheet says when the Host doesn't record the Share (`shares.create`): product copy for
+ * each refusal, and never a raw transport or decode error.
+ */
+export const shareFailure = (
+  error: ShareRefused | NotFound | Unsupported | Error,
+  host: string
+) => {
+  if (error instanceof ShareRefused) return refusal(error.reason, host);
+
+  if (error instanceof NotFound) return `This session isn't on ${host} anymore.`;
+
+  if (error instanceof Unsupported) return `${host} needs a newer Polaris to share sessions.`;
+
+  return shareNotTaken(host);
+};
 
 /** "octocat" from "@octocat" or " octocat ". */
 export const loginOf = (typed: string) => typed.trim().replace(/^@/, "");
