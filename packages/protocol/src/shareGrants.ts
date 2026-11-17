@@ -55,6 +55,7 @@ export const SHARE_COMMANDS = {
   SendTurn: "turn",
   Steer: "turn",
   CancelQueuedTurn: "turn",
+  ResumeQueue: "turn",
   EditQueuedTurn: "turn",
   Interrupt: "turn",
   Continue: "turn",

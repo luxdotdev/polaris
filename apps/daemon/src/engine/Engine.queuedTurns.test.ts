@@ -6,6 +6,7 @@ import {
   Command,
   DomainEvent,
   type Grant,
+  Pairing,
   PairingId,
   PersonId,
   SessionId,
@@ -23,6 +24,7 @@ import { EventStore } from "../store/EventStore.ts";
 import { queueOf } from "../store/queuedTurns.ts";
 import { actorSessionItemsFor } from "./actorCompat.ts";
 import { Engine } from "./Engine.ts";
+import { PairingBook } from "./queueAccess.ts";
 import {
   cid,
   engineLayer,
@@ -41,7 +43,9 @@ const S = SessionId.make("s-queue");
 
 const OWNER = Actor.cases.Client.make({});
 
-const share = (name: string, revokedAt: string | null = null) =>
+const CONTRIBUTOR: Grant = ["read", "comment", "approve", "turn"];
+
+const share = (name: string, revokedAt: string | null = null, grant: Grant = CONTRIBUTOR) =>
   new Share({
     id: ShareId.make(`share-${name}`),
     target: ShareTarget.cases.Session.make({ sessionId: S }),
@@ -54,7 +58,7 @@ const share = (name: string, revokedAt: string | null = null) =>
       commitEmail: null,
     }),
     role: "contributor",
-    grant: ["read", "comment", "approve", "turn"],
+    grant,
     createdAt: "2026-01-01T00:00:00.000Z",
     expiresAt: "2999-01-01T00:00:00.000Z",
     revokedAt,
@@ -67,6 +71,18 @@ const teammate = (name: string) =>
     name,
   });
 
+const raycast = Actor.cases.Extension.make({ pairingId: PairingId.make("p1"), name: "Raycast" });
+
+const pairing = (revokedAt: string | null) =>
+  new Pairing({
+    id: PairingId.make("p1"),
+    name: "Raycast",
+    grant: ["read", "turn"],
+    createdAt: "2026-01-01T00:00:00.000Z",
+    lastUsedAt: null,
+    revokedAt,
+  });
+
 const ana = teammate("Ana");
 
 const bob = teammate("Bob");
@@ -74,6 +90,7 @@ const bob = teammate("Bob");
 /** An Engine whose Host has `shares`; the fake Harness ends a Turn only when the test says. */
 const setup = (shares: ReadonlyArray<Share>, onInterrupt = false) => {
   let current = shares;
+  let pairings: ReadonlyArray<Pairing> | null = null;
 
   const driver = makeFakeDriver(
     "claude",
@@ -95,7 +112,8 @@ const setup = (shares: ReadonlyArray<Share>, onInterrupt = false) => {
     fakes: makeFakes(),
     drivers: [driver],
   }).pipe(
-    Layer.provide(Layer.succeed(ShareBook)({ all: Effect.sync(() => current), bind: () => {} }))
+    Layer.provide(Layer.succeed(ShareBook)({ all: Effect.sync(() => current), bind: () => {} })),
+    Layer.provide(Layer.succeed(PairingBook)({ all: Effect.sync(() => pairings), bind: () => {} }))
   );
 
   /** The owner revokes `name`'s Share. */
@@ -105,7 +123,19 @@ const setup = (shares: ReadonlyArray<Share>, onInterrupt = false) => {
     );
   };
 
-  return { driver, layer, revoke };
+  /** The owner makes `name` a Commenter: their Share no longer holds `turn`. */
+  const demote = (name: string) => {
+    current = current.map((s) =>
+      s.person.name === name ? share(name, null, ["read", "comment"]) : s
+    );
+  };
+
+  /** What the Pairing store holds from now on. */
+  const paired = (now: ReadonlyArray<Pairing>) => {
+    pairings = now;
+  };
+
+  return { driver, layer, revoke, demote, paired };
 };
 
 const run = <A, E>(layer: Layer.Layer<Env>, program: Effect.Effect<A, E, Env>) =>
@@ -349,23 +379,107 @@ describe("queued Turns in a shared session (ENG-941)", () => {
     );
   });
 
-  test("an interrupted Turn makes way for the next queued one", async () => {
-    const { driver, layer } = setup([share("Ana")], true);
+  test("an Interrupt pauses the queue; a Turn sent then joins the back; a resume starts the head as its sender's", async () => {
+    const { driver, layer } = setup([share("Ana"), share("Bob")], true);
 
     await run(
       layer,
       Effect.gen(function* () {
         yield* working(driver);
-        yield* send("next", ana);
+        yield* send("from Ana", ana);
+        yield* send("from Bob", bob);
         yield* dispatch(Command.cases.Interrupt.make({ sessionId: S }), ana);
+        yield* waitFor((m) => m.sessions.get(S)?.session.state === "idle");
+
+        // Stop started nobody's Turn, and a Turn sent now waits behind the others.
+        yield* send("from the owner");
+        expect(prompts(driver)).toEqual(["first"]);
+        expect((yield* record).session.state).toBe("idle");
+        expect(yield* queue).toEqual([
+          ["from Ana", ana],
+          ["from Bob", bob],
+          ["from the owner", OWNER],
+        ]);
+
+        const resume = Command.cases.ResumeQueue.make({ sessionId: S });
+        const bobs = yield* queuedId("from Bob");
+        yield* dispatch(Command.cases.CancelQueuedTurn.make({ sessionId: S, turnId: bobs }), bob);
+        yield* dispatch(resume, bob);
         yield* handed(driver, 2);
 
-        const now = yield* record;
-        expect(now.turns.map((t) => [t.prompt, t.status])).toEqual([
-          ["first", "interrupted"],
-          ["next", "working"],
+        // Bob resumed; the Turn is Ana's.
+        expect((yield* record).turns.at(-1)).toMatchObject({
+          prompt: "from Ana",
+          status: "working",
+          actor: ana,
+        });
+        expect(yield* rejection(resume)).toBe("a Turn is working; the queue is not paused");
+
+        // The queue runs on from there.
+        yield* endTurn(driver);
+        yield* handed(driver, 3);
+        yield* endTurn(driver);
+        yield* waitFor((m) => m.sessions.get(S)?.session.state === "idle");
+        expect(prompts(driver)).toEqual(["first", "from Ana", "from the owner"]);
+        expect(yield* rejection(resume)).toBe("no Turns are queued");
+      })
+    );
+  });
+
+  test("a queued Turn starts only if its sender may still send one: an unpaired Extension and a Commenter may not", async () => {
+    const { driver, layer, demote, paired } = setup([share("Ana"), share("Bob")]);
+
+    await run(
+      layer,
+      Effect.gen(function* () {
+        paired([pairing(null)]);
+        yield* working(driver);
+
+        const fromRaycast = Command.cases.SendTurn.make({
+          sessionId: S,
+          prompt: "from Raycast",
+          attachments: [],
+        });
+
+        yield* dispatch(fromRaycast, raycast, ["read", "turn"]);
+        yield* send("from Ana", ana);
+        yield* send("from Bob", bob);
+        const raycasts = yield* queuedId("from Raycast");
+        const anas = yield* queuedId("from Ana");
+
+        paired([pairing("2026-06-01T00:00:00.000Z")]);
+        demote("Ana");
+        yield* endTurn(driver);
+        yield* handed(driver, 2);
+
+        expect(prompts(driver)).toEqual(["first", "from Bob"]);
+        const model = yield* Effect.flatMap(EventStore, (store) => store.model);
+        expect(yield* cancellations(model.sequence)).toEqual([
+          [raycasts, "Its Extension was unpaired"],
+          [anas, "Their Share no longer allows Turns"],
         ]);
-        expect(now.session.state).toBe("working");
+      })
+    );
+  });
+
+  test("a resume checks the senders too: a paused Turn whose Share ended is cancelled, not started", async () => {
+    const { driver, layer, revoke } = setup([share("Ana")], true);
+
+    await run(
+      layer,
+      Effect.gen(function* () {
+        yield* working(driver);
+        yield* send("from Ana", ana);
+        const turnId = yield* queuedId("from Ana");
+        yield* dispatch(Command.cases.Interrupt.make({ sessionId: S }));
+        yield* waitFor((m) => m.sessions.get(S)?.session.state === "idle");
+        revoke("Ana");
+        yield* dispatch(Command.cases.ResumeQueue.make({ sessionId: S }));
+
+        const model = yield* Effect.flatMap(EventStore, (store) => store.model);
+        expect(model.sessions.get(S)!.session.state).toBe("idle");
+        expect(prompts(driver)).toEqual(["first"]);
+        expect(yield* cancellations(model.sequence)).toEqual([[turnId, "Their Share ended"]]);
       })
     );
   });
@@ -426,11 +540,6 @@ describe("queued Turns in a shared session (ENG-941)", () => {
 
   test("a Turn queued without approve never starts once the session approves for itself", async () => {
     const { driver, layer } = setup([share("Ana")]);
-
-    const raycast = Actor.cases.Extension.make({
-      pairingId: PairingId.make("p1"),
-      name: "Raycast",
-    });
 
     await run(
       layer,
@@ -493,6 +602,61 @@ describe("queued Turns in a shared session (ENG-941)", () => {
 
     expect(after.queue).toEqual([]);
     expect(after.dropped).toEqual(["The Daemon restarted"]);
+  });
+
+  test("archiving a session cancels its paused queue", async () => {
+    const { driver, layer } = setup([share("Ana")], true);
+
+    await run(
+      layer,
+      Effect.gen(function* () {
+        yield* working(driver);
+        yield* send("never runs", ana);
+        const turnId = yield* queuedId("never runs");
+        yield* dispatch(Command.cases.Interrupt.make({ sessionId: S }));
+        yield* waitFor((m) => m.sessions.get(S)?.session.state === "idle");
+        yield* dispatch(
+          Command.cases.ArchiveSession.make({ sessionId: S, deleteMergedBranch: false })
+        );
+        const model = yield* waitFor((m) => m.sessions.get(S)?.session.state === "archived");
+
+        expect(yield* queue).toEqual([]);
+        expect(yield* cancellations(model.sequence)).toEqual([
+          [turnId, "The session was archived"],
+        ]);
+      })
+    );
+  });
+
+  test("a paused queue survives a restart, and a resume then starts its head", async () => {
+    const { driver, layer } = setup([share("Ana")], true);
+
+    await run(
+      layer,
+      Effect.gen(function* () {
+        yield* working(driver);
+        yield* send("paused before the restart", ana);
+        yield* dispatch(Command.cases.Interrupt.make({ sessionId: S }));
+        yield* waitFor((m) => m.sessions.get(S)?.session.state === "idle");
+      })
+    );
+
+    const after = await run(
+      layer,
+      Effect.gen(function* () {
+        yield* waitFor((m) => m.sessions.get(S)?.session.state === "dormant");
+        const kept = yield* queue;
+        yield* dispatch(Command.cases.ResumeQueue.make({ sessionId: S }));
+        yield* waitUntil(
+          () => driver.latest(S)?.turns.at(-1)?.prompt === "paused before the restart"
+        );
+
+        return { kept, last: (yield* record).turns.at(-1) };
+      })
+    );
+
+    expect(after.kept).toEqual([["paused before the restart", ana]]);
+    expect(after.last).toMatchObject({ status: "working", actor: ana });
   });
 
   test("the queue reaches only Clients that announced session.queued-turns", async () => {

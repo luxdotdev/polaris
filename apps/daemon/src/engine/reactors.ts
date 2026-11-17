@@ -292,6 +292,7 @@ const make = Effect.gen(function* () {
       // A queued Turn runs when the machine starts it (`runQueuedTurn`, supervisor.ts).
       CancelQueuedTurn: () => Effect.void,
       EditQueuedTurn: () => Effect.void,
+      ResumeQueue: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
       Continue: (command) => continueTurn(command.sessionId, committed),
       Retry: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
       RunShellCommand: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),

@@ -104,6 +104,8 @@ import { LiveNotifierLive } from "../push/liveNotifier.ts";
 import { PushNotifierLive } from "../push/notifier.ts";
 import { CommitIdentitiesLive } from "../shares/identities.ts";
 import { ShareTargetsLive } from "../shares/targets.ts";
+import { PairingBookLive } from "../extensions/book.ts";
+import { PairingBook } from "../engine/queueAccess.ts";
 
 /** Exit status when another Daemon already holds the lock or answers on the socket. */
 export const SERVE_EXIT_ALREADY_RUNNING = 75;
@@ -213,6 +215,8 @@ export const engineServices = Layer.mergeAll(
   Layer.provideMerge(lazySimulator),
   // Co-author trailers read Teammates' commit emails from the Shares (ENG-941).
   Layer.provideMerge(CommitIdentitiesLive),
+  // A queued Turn's Extension is checked against the Pairings as it would start (ENG-941).
+  Layer.provideMerge(PairingBook.layer),
   Layer.provideMerge(EventStore.layerLive)
 );
 
@@ -272,7 +276,8 @@ export const daemonHandlers = Layer.mergeAll(
   byteStreamHandlers,
   SimulatorRpcHandlers,
   selfTraceExport,
-  ShareTargetsLive
+  ShareTargetsLive,
+  PairingBookLive
 ).pipe(Layer.provide(daemonServices));
 
 /** What the lazy language handlers serve: unavailable where no language artifact runs. */

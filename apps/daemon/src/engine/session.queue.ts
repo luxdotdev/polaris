@@ -8,15 +8,14 @@ import {
   mayChangeQueuedTurn,
   QueuedTurn,
   queuedTurnMayStart,
-  type ShareId,
   type Turn,
 } from "@polaris/protocol";
-import { Predicate, Result } from "effect";
+import { Result } from "effect";
 import { patchTurn, type SessionRecord, workingTurn } from "../store/model.ts";
 import { queueOf } from "../store/queuedTurns.ts";
-import type { SessionInput } from "./session.inputs.ts";
+import type { BarredTurn, SessionInput } from "./session.inputs.ts";
 import { type Context, type Enqueue, need, reject, settle } from "./session.settle.ts";
-import { turnRefusal, userTurn } from "./session.turns.ts";
+import { takesTurn, turnRefusal, userTurn } from "./session.turns.ts";
 
 /** The most Turns a session keeps waiting; one more is refused. */
 export const QUEUE_LIMIT = 20;
@@ -25,9 +24,17 @@ const QUEUES = new Set(["starting", "working", "needs-you"]);
 
 type SendInput = Extract<SessionInput, { type: "turn.send" }>;
 
-/** Whether a sent Turn waits: asked to queue, with a Turn in flight the Harness is running. */
+/** A paused queue: Turns wait behind no Turn, since the one before them was interrupted. */
+export const isPaused = (record: SessionRecord): boolean =>
+  queueOf(record).length > 0 && workingTurn(record) === undefined;
+
+/**
+ * Whether a sent Turn waits: asked to queue, with a Turn in flight the Harness is running; or
+ * the queue is paused, where it joins the back whoever sent it.
+ */
 export const queuesTurn = (record: SessionRecord, input: SendInput): boolean =>
-  input.queue === true && workingTurn(record) !== undefined && QUEUES.has(record.session.state);
+  (isPaused(record) && takesTurn(record)) ||
+  (input.queue === true && workingTurn(record) !== undefined && QUEUES.has(record.session.state));
 
 /** The sent Turn joining the queue, or why it can't. The decider stamps who sent it. */
 export const queueTurn = (
@@ -61,13 +68,14 @@ const cancelledByHost = (queued: QueuedTurn, reason: string) =>
   });
 
 /** Why a queued Turn may not start any more: its sender lost the access it queued with. */
-const barred = (
+const barredReason = (
   record: SessionRecord,
   queued: QueuedTurn,
-  endedShares: ReadonlyArray<ShareId>
+  barred: ReadonlyArray<BarredTurn>
 ): string | null => {
-  if (Predicate.isTagged(queued.actor, "Teammate") && endedShares.includes(queued.actor.shareId))
-    return "Their Share ended";
+  const listed = barred.find((b) => b.turnId === queued.id);
+
+  if (listed !== undefined) return listed.reason;
 
   return queuedTurnMayStart(queued, record.session.permissionMode)
     ? null
@@ -81,13 +89,13 @@ const barred = (
 export const nextQueued = (
   record: SessionRecord,
   at: string,
-  endedShares: ReadonlyArray<ShareId>
+  barred: ReadonlyArray<BarredTurn>
 ) => {
   const cancelled: Array<DomainEvent> = [];
   const waiting: Array<QueuedTurn> = [];
 
   for (const queued of queueOf(record)) {
-    const reason = barred(record, queued, endedShares);
+    const reason = barredReason(record, queued, barred);
 
     if (reason === null) waiting.push(queued);
     else cancelled.push(cancelledByHost(queued, reason));
@@ -110,9 +118,31 @@ export const nextQueued = (
   return { cancelled, started: DomainEvent.cases.TurnStarted.make({ turn, actor: head.actor }) };
 };
 
-/** Every queued Turn dropped by the Host: the Turn in flight did not end cleanly. */
-export const dropQueue = (record: SessionRecord, reason: string): Array<DomainEvent> =>
+/** Every queued Turn cancelled by the Host, whatever the session is doing. */
+export const clearQueue = (record: SessionRecord, reason: string): Array<DomainEvent> =>
   queueOf(record).map((queued) => cancelledByHost(queued, reason));
+
+/** The queue dropped with the Turn in flight, which did not end cleanly. A paused queue stays. */
+export const dropQueue = (record: SessionRecord, reason: string): Array<DomainEvent> =>
+  workingTurn(record) === undefined ? [] : clearQueue(record, reason);
+
+type EndedInput = Extract<SessionInput, { type: "harness.turnEnded" }>;
+
+/**
+ * What a Turn's end does to the queue behind it: completed, the head starts; interrupted, the
+ * queue pauses untouched; failed (or ended by a terminal UI), it is dropped.
+ */
+export const afterTurn = (record: SessionRecord, event: EndedInput, withState: boolean) => {
+  if (!withState || event.status === "failed")
+    return {
+      cancelled: dropQueue(record, event.error ?? "The Turn before it did not finish"),
+      started: null,
+    };
+
+  return event.status === "interrupted"
+    ? { cancelled: [], started: null }
+    : nextQueued(record, event.at, event.barred ?? []);
+};
 
 type ChangeInput = Extract<SessionInput, { type: "queue.cancel" | "queue.edit" }>;
 
@@ -173,4 +203,28 @@ export const changeQueue = (
   return Result.isSuccess(changed)
     ? settle(enq, record, changed.success)
     : reject(enq, changed.failure);
+};
+
+type ResumeInput = Extract<SessionInput, { type: "queue.resume" }>;
+
+/** `ResumeQueue`: a paused queue's head starts, as a Turn sent now would, with its own Actor. */
+export const resumeQueue = (
+  { context, event }: { context: Context; event: ResumeInput },
+  enq: Enqueue
+) => {
+  const record = need(context);
+
+  if (workingTurn(record) !== undefined)
+    return reject(enq, "a Turn is working; the queue is not paused");
+
+  if (queueOf(record).length === 0) return reject(enq, "no Turns are queued");
+
+  if (!takesTurn(record)) return reject(enq, turnRefusal(record, "send"));
+  const next = nextQueued(record, event.at, event.barred);
+
+  return next.started === null
+    ? settle(enq, record, next.cancelled)
+    : settle(enq, record, [...next.cancelled, next.started], {
+        state: record.session.state === "idle" ? "working" : "starting",
+      });
 };

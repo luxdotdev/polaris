@@ -476,6 +476,8 @@ const turnQueue = run("Queued Turns safety", [
   "witnessDropped",
   "witnessFull",
   "witnessBarred",
+  "witnessPaused",
+  "witnessResumed",
 ]);
 
 if (/was witnessed in 0 trace/.test(turnQueue)) {
@@ -483,7 +485,7 @@ if (/was witnessed in 0 trace/.test(turnQueue)) {
   console.log("✗ a Queued Turns witness was never reached: the simulation no longer covers it");
 }
 
-for (const mutant of ["lifo", "cancel", "keeps", "barred"]) {
+for (const mutant of ["lifo", "cancel", "keeps", "barred", "interrupt"]) {
   const main = `turn_queue_${mutant}_mutant`;
   run(`Queued Turns ${mutant} regression witness`, ["test", "turn-queue.qnt", `--main=${main}`]);
   run(

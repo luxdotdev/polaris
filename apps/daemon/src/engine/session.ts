@@ -12,7 +12,15 @@ import {
 import { deferredDelivery, refusedInput } from "./session.deferred.ts";
 import { harnessTurn, takesTurn, turnRefusal } from "./session.turns.ts";
 import { modelChanged } from "./session.model.ts";
-import { changeQueue, dropQueue, nextQueued, queueOrRefuse } from "./session.queue.ts";
+import {
+  afterTurn,
+  changeQueue,
+  clearQueue,
+  dropQueue,
+  isPaused,
+  queueOrRefuse,
+  resumeQueue,
+} from "./session.queue.ts";
 import { type Context, type Enqueue, HANDLED, need, reject, settle } from "./session.settle.ts";
 import { DomainEvent, type SessionState, type Turn } from "@polaris/protocol";
 import { Predicate, Result } from "effect";
@@ -52,7 +60,8 @@ const sendTurn = (
 ) => {
   const record = need(context);
 
-  if (!takesTurn(record)) return undefined;
+  // Behind a paused queue a new Turn joins the back (`queueOrRefuse`).
+  if (!takesTurn(record) || isPaused(record)) return undefined;
 
   return settle(enq, record, [DomainEvent.cases.TurnStarted.make({ turn: event.turn })], {
     state: record.session.state === "idle" ? "working" : "starting",
@@ -119,14 +128,8 @@ const turnEnded = (
     endTurn(turn, status, event.at, event.checkpoint)
   );
 
-  // The session would go Idle: the head of the queue starts instead, as if sent then.
-  const next =
-    withState && event.status !== "failed"
-      ? nextQueued(record, event.at, event.endedShares ?? [])
-      : {
-          cancelled: dropQueue(record, event.error ?? "The Turn before it did not finish"),
-          started: null,
-        };
+  // A completed Turn starts the head of the queue, as if sent then; an interrupted one pauses it.
+  const next = afterTurn(record, event, withState);
 
   events.push(...next.cancelled);
 
@@ -244,7 +247,6 @@ const interruptUnattended = (
       ...endBackgroundWork(record, at),
       ...withdrawPending(record, "daemon", "Interrupted"),
       endTurn(turn, "interrupted", at),
-      ...dropQueue(record, "Interrupted"),
     ],
     withState ? { state: "dormant" } : undefined
   );
@@ -269,6 +271,7 @@ const archive = ({ context, event }: { context: Context; event: { at: string } }
     [
       ...endBackgroundWork(record, event.at),
       ...withdrawPending(record, "daemon", "The session was archived"),
+      ...clearQueue(record, "The session was archived"),
     ],
     { state: "archived" }
   );
@@ -353,6 +356,7 @@ export const sessionMachine = createMachine({
     "turn.send": queueOrRefuse,
     "queue.cancel": changeQueue,
     "queue.edit": changeQueue,
+    "queue.resume": resumeQueue,
     "turn.continue": ({ context }, enq) => reject(enq, turnRefusal(need(context), "continue")),
     "turn.retry": ({ context }, enq) => reject(enq, turnRefusal(need(context), "retry")),
     "turn.steer": ({ context, event }, enq) => {

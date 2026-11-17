@@ -46,6 +46,7 @@ import { userTurn } from "./session.turns.ts";
 import { reviewDeciders } from "./review.ts";
 import { commentDeciders } from "./comments.ts";
 import { decideSession, type SessionInput } from "./session.ts";
+import type { BarredTurn } from "./session.inputs.ts";
 
 export { stateChanged } from "./session.ts";
 
@@ -61,6 +62,8 @@ export interface DecideContext {
   readonly shareRole?: ShareRole | null;
   /** For SendTurn: the session is shared, so a Turn sent with one in flight joins its queue. */
   readonly shared?: boolean;
+  /** For ResumeQueue: the queued Turns whose sender lost access since (`queueAccess.ts`). */
+  readonly barred?: ReadonlyArray<BarredTurn>;
   /** Fresh ids, used only by the commands that create something. */
   readonly newTurnId: TurnId;
   readonly newWorkspaceId: WorkspaceId;
@@ -592,6 +595,19 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
         turnId: c.turnId,
         prompt: c.prompt,
         actor: ctx.actor,
+      }),
+    // The head starts as its own sender's Turn: the one who resumed is not stamped on it.
+    ResumeQueue: (c) =>
+      d.withSession(c.sessionId, (record) => {
+        const decision = decideSession(record, {
+          type: "queue.resume",
+          barred: ctx.barred ?? [],
+          at: ctx.now,
+        });
+
+        return decision.rejection === null
+          ? d.ok(...decision.events)
+          : d.reject(decision.rejection);
       }),
     RunShellCommand: (c) => runShellCommand(d, c),
     CompactSession: (c) => compactSession(d, c),

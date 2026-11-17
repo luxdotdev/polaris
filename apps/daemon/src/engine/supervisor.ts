@@ -43,13 +43,9 @@ import {
   type Progress,
   type SignalResult,
 } from "./runtime.ts";
-import {
-  deferredUserTurns,
-  endedShares,
-  queuedTurnToRun,
-  refuseUserTurn,
-} from "./supervisor.turns.ts";
+import { deferredUserTurns, queuedTurnToRun, refuseUserTurn } from "./supervisor.turns.ts";
 import { ShareBook } from "../shares/identities.ts";
+import { PairingBook, queueAccess } from "./queueAccess.ts";
 import { withWorkerAdmission } from "../resources/workerAdmission.ts";
 import { HarnessTurnAliases } from "./supervisor.aliases.ts";
 import type { ShellTurn } from "./supervisor.shell.ts";
@@ -75,7 +71,8 @@ const make = (
   liveness: ConstellationLivenessService,
   usage: Option.Option<UsageIndex["Service"]>,
   secrets: SecretRequests["Service"],
-  shares: Option.Option<ShareBook["Service"]>
+  shares: Option.Option<ShareBook["Service"]>,
+  pairings: Option.Option<PairingBook["Service"]>
 ): Supervisor["Service"] => {
   const { store, live, progress } = rt;
   // A live secret printed by a command never reaches the log or a Client (ADR 0089).
@@ -451,7 +448,7 @@ const make = (
         error: redactNullable(event.error),
         checkpoint: after,
         limit: yield* limitOf(sessionId, event, at),
-        endedShares: yield* endedShares(store, shares, sessionId),
+        barred: yield* queueAccess(store, shares, pairings, sessionId),
         at,
       });
 
@@ -677,7 +674,8 @@ export class Supervisor extends Context.Service<
         yield* ConstellationLiveness,
         yield* Effect.serviceOption(UsageIndex),
         yield* SecretRequests,
-        yield* Effect.serviceOption(ShareBook)
+        yield* Effect.serviceOption(ShareBook),
+        yield* Effect.serviceOption(PairingBook)
       );
     })
   );

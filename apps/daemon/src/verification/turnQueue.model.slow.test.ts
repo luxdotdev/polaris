@@ -84,12 +84,14 @@ type Step =
       /** The Teammates whose Share ended by now (`EndBarring`); only a clean end reads it. */
       readonly barred: ReadonlyArray<number>;
     }
+  | { readonly type: "resume"; readonly by: number; readonly barred: ReadonlyArray<number> }
   | { readonly type: "lose"; readonly how: "exit" | "crash" | "restart" | "fail" };
 
 const send = (v: View, by: number, shared: boolean): View => {
   const turn = { id: v.next, by, prompt: 0 };
+  const waits = v.inFlight < 0 ? v.queue.length > 0 : shared;
 
-  if (v.inFlight < 0)
+  if (v.inFlight < 0 && !waits)
     return {
       ...v,
       state: "working",
@@ -99,7 +101,7 @@ const send = (v: View, by: number, shared: boolean): View => {
       last: "started",
     };
 
-  return shared && v.queue.length < QUEUE_LIMIT
+  return waits && v.queue.length < QUEUE_LIMIT
     ? { ...v, queue: [...v.queue, turn], next: v.next + 1, last: "queued" }
     : { ...v, last: "refused" };
 };
@@ -126,14 +128,12 @@ const drop = (v: View): View => ({
   last: "nothing",
 });
 
-const end = (v: View, status: string, barred: ReadonlyArray<number>): View => {
-  if (v.inFlight < 0) return v;
-
-  if (status === "failed") return drop(v);
+/** `advance`: barred people's queued Turns go; the first of the rest starts. */
+const advance = (v: View, barred: ReadonlyArray<number>, idle: Outcome): View => {
   const [first, ...rest] = v.queue.filter((q) => !barred.includes(q.by));
 
   return first === undefined
-    ? { ...v, state: "idle", inFlight: -1, queue: [], last: "nothing" }
+    ? { ...v, state: "idle", inFlight: -1, queue: [], last: idle }
     : {
         ...v,
         state: "working",
@@ -142,6 +142,22 @@ const end = (v: View, status: string, barred: ReadonlyArray<number>): View => {
         queue: rest,
         last: "started",
       };
+};
+
+const end = (v: View, status: string, barred: ReadonlyArray<number>): View => {
+  if (v.inFlight < 0) return v;
+
+  if (status === "failed") return drop(v);
+
+  return status === "interrupted"
+    ? { ...v, state: "idle", inFlight: -1, last: "nothing" }
+    : advance(v, barred, "nothing");
+};
+
+const resume = (v: View, barred: ReadonlyArray<number>): View => {
+  if (v.inFlight >= 0 || v.queue.length === 0) return { ...v, last: "refused" };
+
+  return advance(v, barred, "changed");
 };
 
 /** `apply` of turn-queue.qnt. */
@@ -154,6 +170,8 @@ const apply = (v: View, step: Step): View => {
       return change(v, step.id, step.by, step.type === "cancel");
     case "end":
       return end(v, step.status, step.barred);
+    case "resume":
+      return resume(v, step.barred);
     case "lose":
       return v.inFlight < 0 ? v : drop(v);
   }
@@ -209,12 +227,24 @@ const fresh = (): SessionRecord =>
     AT
   )!;
 
-const context = (by: number, id: number, shared: boolean): DecideContext => ({
+/** The queued Turns of `people`, as the Host's check of Shares and Pairings would list them. */
+const barredTurns = (v: View, people: ReadonlyArray<number>) =>
+  v.queue
+    .filter((q) => people.includes(q.by))
+    .map((q) => ({ turnId: turnId(q.id), reason: "Their Share ended" }));
+
+const context = (
+  by: number,
+  id: number,
+  shared: boolean,
+  barred: ReadonlyArray<{ turnId: TurnId; reason: string }> = []
+): DecideContext => ({
   commandId: CommandId.make(`c${id}`),
   now: AT,
   deviceLabel: "model",
   actor: actorOf(by),
   shared,
+  barred,
   newTurnId: turnId(id),
   newWorkspaceId: WorkspaceId.make("unused"),
   attachments: [],
@@ -256,9 +286,16 @@ const signal = (real: Real, input: SessionInput): Real => {
   return { ...next, last: next.last === "started" ? "started" : "nothing" };
 };
 
-const command = (real: Real, by: number, id: number, shared: boolean, c: Command): Real => {
+const command = (
+  real: Real,
+  by: number,
+  id: number,
+  shared: boolean,
+  c: Command,
+  barred: ReadonlyArray<{ turnId: TurnId; reason: string }> = []
+): Real => {
   const model = { ...emptyModel, sessions: new Map([[S, real.record]]) };
-  const exit = Effect.runSyncExit(decide(model, c, context(by, id, shared)));
+  const exit = Effect.runSyncExit(decide(model, c, context(by, id, shared, barred)));
 
   if (Exit.isFailure(exit)) return { ...real, last: "refused" };
   const next = after(real, exit.value, false);
@@ -326,9 +363,18 @@ const run = (real: Real, step: Step, expected: View): Real => {
             status: step.status,
             error: step.status === "failed" ? "the Turn failed" : null,
             checkpoint: null,
-            endedShares: step.barred.map((person) => ShareId.make(`share-${person}`)),
+            barred: barredTurns(expected, step.barred),
             at: AT,
           });
+    case "resume":
+      return command(
+        real,
+        step.by,
+        0,
+        false,
+        Command.cases.ResumeQueue.make({ sessionId: S }),
+        barredTurns(expected, step.barred)
+      );
     case "lose":
       return working === undefined ? real : { ...signal(real, LOSSES[step.how]), last: "nothing" };
   }
@@ -376,6 +422,14 @@ const step: fc.Arbitrary<Step> = fc.oneof(
     }),
   },
   {
+    weight: 2,
+    arbitrary: fc.record({
+      type: fc.constant("resume" as const),
+      by: person,
+      barred: fc.constantFrom<ReadonlyArray<number>>([], [], [1], [2]),
+    }),
+  },
+  {
     weight: 1,
     arbitrary: fc.record({
       type: fc.constant("lose" as const),
@@ -399,10 +453,12 @@ test(
 
           const { next: _next, ...view } = expected;
           expect(observe(real)).toEqual(view);
-          // `queueNeedsATurn`: nothing waits behind no Turn.
-          expect(queueOf(real.record).length === 0 || workingTurn(real.record) !== undefined).toBe(
-            true
-          );
+          // `queueNeedsATurn`: a Turn waits behind one in flight, or paused in an Idle session.
+          expect(
+            queueOf(real.record).length === 0 ||
+              workingTurn(real.record) !== undefined ||
+              real.record.session.state === "idle"
+          ).toBe(true);
         }
       }),
       { numRuns: runs, ...pbtSeed() }

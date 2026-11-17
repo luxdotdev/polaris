@@ -58,7 +58,7 @@ describe("queued Turns", () => {
     expect(mayChangeQueuedTurn(queuedBy(Actor.cases.Client.make({})), teammate("ana"))).toBe(false);
   });
 
-  test.each(["CancelQueuedTurn", "EditQueuedTurn"])(
+  test.each(["CancelQueuedTurn", "EditQueuedTurn", "ResumeQueue"])(
     "%s takes the turn Grant: a Contributor's Share allows it, a Commenter's does not",
     (command) => {
       const touch = { sessionId: session, constellationId: null };
@@ -83,5 +83,9 @@ describe("queued Turns", () => {
     expect(
       decideTurnAccess(turnOnly, Command.cases.CancelQueuedTurn.make(target), "auto")
     ).toBeNull();
+    // A resume starts a Turn, so it needs what sending one would.
+    expect(
+      decideTurnAccess(turnOnly, Command.cases.ResumeQueue.make({ sessionId: session }), "auto")
+    ).toEqual(new NotGranted({ what: "dispatch:ResumeQueue", needed: "approve" }));
   });
 });

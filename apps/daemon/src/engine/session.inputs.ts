@@ -21,7 +21,6 @@ import {
   TurnTrigger,
   TurnStatus,
   WorktreeSetupRun,
-  ShareId,
 } from "@polaris/protocol";
 import { Schema } from "effect";
 import type { EventObject } from "xstate";
@@ -32,6 +31,11 @@ const standard = Schema.toStandardSchemaV1;
 const At = { at: Schema.String };
 
 const Nothing = standard(Schema.Struct({}));
+
+/** Queued Turns whose sender may no longer send into the session, each with why (`queueAccess.ts`). */
+const Barred = Schema.Array(Schema.Struct({ turnId: TurnId, reason: Schema.String }));
+
+export type BarredTurn = (typeof Barred.Type)[number];
 
 export const eventSchemas = {
   // Client commands
@@ -48,6 +52,8 @@ export const eventSchemas = {
   ),
   "queue.cancel": standard(Schema.Struct({ turnId: TurnId, actor: Actor })),
   "queue.edit": standard(Schema.Struct({ turnId: TurnId, prompt: Schema.String, actor: Actor })),
+  /** `ResumeQueue`: the head of a paused queue starts. */
+  "queue.resume": standard(Schema.Struct({ barred: Barred, ...At })),
   "turn.continue": Nothing,
   "turn.retry": standard(Schema.Struct({ turn: Turn })),
   "turn.steer": standard(
@@ -153,8 +159,7 @@ export const eventSchemas = {
       limit: Schema.optionalKey(
         Schema.NullOr(Schema.Struct({ resetsAt: Schema.NullOr(Schema.String) }))
       ),
-      /** Shares of queued Turns' senders that no longer cover the session (`session.queue.ts`). */
-      endedShares: Schema.optionalKey(Schema.Array(ShareId)),
+      barred: Schema.optionalKey(Barred),
       ...At,
     })
   ),
@@ -235,6 +240,6 @@ export const normalizedInput = (input: SessionInput, at: string) => {
     return { ...input, userTurnNumber: input.userTurnNumber ?? null };
 
   return input.type === "harness.turnEnded"
-    ? { ...input, limit: input.limit ?? null, endedShares: input.endedShares ?? [] }
+    ? { ...input, limit: input.limit ?? null, barred: input.barred ?? [] }
     : input;
 };

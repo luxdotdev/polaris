@@ -68,7 +68,9 @@ reads and writes, every Host-wide call.
   (ADR 0078), which a Contributor holds.
 - **A shared session queues Turns.** While a live Share covers a session (`shared.ts`), a Turn
   sent with one in flight joins its queue, first in first out with no owner priority, and its
-  author or the owner may cancel or edit it (`../engine/README.md`, Queued Turns).
+  author or the owner may cancel or edit it. An Interrupt pauses the queue until someone with
+  `turn` resumes it, and a Turn starts only if its sender's Share still covers the session and
+  holds `turn` (`../engine/README.md`, Queued Turns).
 - A Teammate's connection has the Extension gateway's Wire and RPC limits.
 
 ## Trust

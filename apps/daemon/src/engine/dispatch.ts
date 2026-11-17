@@ -23,6 +23,7 @@ import { Clock, Context, Effect, Layer, Option, Predicate } from "effect";
 import { sharedRevertRefusal } from "../accept/reactor.ts";
 import { ShareBook } from "../shares/identities.ts";
 import { isSessionShared } from "../shares/shared.ts";
+import { PairingBook, queueAccess } from "./queueAccess.ts";
 import { CommitResult } from "../store/EventStore.ts";
 import type { ReadModel } from "../store/model.ts";
 import { decide } from "./decider.ts";
@@ -80,6 +81,7 @@ const make = Effect.gen(function* () {
   const { react } = yield* Reactors;
   const { store } = rt;
   const book = yield* Effect.serviceOption(ShareBook);
+  const pairings = yield* Effect.serviceOption(PairingBook);
 
   const resolveAttachments = (commandId: CommandId, command: Command) =>
     Effect.gen(function* () {
@@ -213,6 +215,9 @@ const make = Effect.gen(function* () {
       extensionGrant: input.extensionGrant ?? null,
       shareRole: input.shareRole ?? null,
       shared: yield* isShared(command),
+      barred: Predicate.isTagged(command, "ResumeQueue")
+        ? yield* queueAccess(store, book, pairings, command.sessionId)
+        : [],
       newTurnId: TurnId.make(`turn_${crypto.randomUUID()}`),
       newWorkspaceId: WorkspaceId.make(`ws_${crypto.randomUUID()}`),
       attachments: yield* resolveAttachments(commandId, command),

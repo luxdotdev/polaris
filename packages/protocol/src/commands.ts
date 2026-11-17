@@ -80,6 +80,11 @@ export const Command = Schema.TaggedUnion({
    * author or the owner (`mayChangeQueuedTurn`). Refused once it started.
    */
   CancelQueuedTurn: { sessionId: SessionId, turnId: TurnId },
+  /**
+   * Start the head of a paused queue: an interrupted Turn leaves the Turns behind it queued
+   * and the session Idle until someone holding `turn` resumes it.
+   */
+  ResumeQueue: { sessionId: SessionId },
   /** Change a queued Turn's prompt, keeping its place: its author or the owner. */
   EditQueuedTurn: { sessionId: SessionId, turnId: TurnId, prompt: Schema.String },
   /**

@@ -205,6 +205,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       | HostPresence
       | Shares
       | RelayGuests
+      | Pairings
     >
 > =>
   Effect.gen(function* () {
@@ -340,17 +341,19 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       )
     );
 
+    const pairingStore = Pairings.layer(join(root, "extensions.sqlite")).pipe(
+      Layer.catchTag("PairingStoreError", (error) =>
+        Layer.effect(
+          Pairings,
+          Effect.fail(new ServiceError({ service: "transport", message: error.message }))
+        )
+      )
+    );
+
     const extensionServices = Layer.mergeAll(
       deviceServices,
       RemoteAccessLive.pipe(Layer.provideMerge(RemoteAccessControl.layer({ root }))),
-      Pairings.layer(join(root, "extensions.sqlite")).pipe(
-        Layer.catchTag("PairingStoreError", (error) =>
-          Layer.effect(
-            Pairings,
-            Effect.fail(new ServiceError({ service: "transport", message: error.message }))
-          )
-        )
-      ),
+      pairingStore,
       Layer.succeed(ExtensionConnections)(extensionConnections)
     );
 
@@ -499,8 +502,9 @@ export const startServer = <ROut = never, E = never, RIn = never>(
             Layer.merge(
               BlobChannelOutsideRequest,
               Layer.mergeAll(
-                // The same layer as the transport's, so both share one Relay route (one build).
+                // The same layers as the transport's, so both share one Relay route and Pairing store.
                 deviceServices,
+                pairingStore,
                 Layer.succeed(HostLanguageEnvironment)({
                   hostId: hostInfo.hostId,
                   root: options.root ?? defaults.root,
