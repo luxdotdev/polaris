@@ -63,12 +63,12 @@ const teammate = (
   if (senders.shares === null) return null;
   const share = liveShare(senders.shares, senders.now, touch, shareId);
 
-  if (share === null) return "Their Share ended";
+  if (share === null) return "Their share ended";
 
-  if (!share.grant.includes("turn")) return "Their Share no longer allows Turns";
+  if (!share.grant.includes("turn")) return "Their share no longer allows turns";
 
   return selfApproves && !share.grant.includes("approve")
-    ? "Their Share no longer allows approving"
+    ? "Their share no longer allows approving"
     : null;
 };
 
@@ -76,12 +76,12 @@ const extension = (senders: Senders, pairingId: string, selfApproves: boolean): 
   if (senders.pairings === null) return null;
   const pairing = senders.pairings.find((p) => p.id === pairingId);
 
-  if (pairing === undefined || pairing.revokedAt !== null) return "Its Extension was unpaired";
+  if (pairing === undefined || pairing.revokedAt !== null) return "Its extension was unpaired";
 
-  if (!pairing.grant.includes("turn")) return "Its Extension may no longer send Turns";
+  if (!pairing.grant.includes("turn")) return "Its extension may no longer send turns";
 
   return selfApproves && !pairing.grant.includes("approve")
-    ? "Its Extension may no longer approve"
+    ? "Its extension may no longer approve"
     : null;
 };
 

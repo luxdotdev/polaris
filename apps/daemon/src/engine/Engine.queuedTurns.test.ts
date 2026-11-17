@@ -462,8 +462,8 @@ describe("queued Turns in a shared session (ENG-941)", () => {
         expect(prompts(driver)).toEqual(["first", "from Bob"]);
         const model = yield* Effect.flatMap(EventStore, (store) => store.model);
         expect(yield* cancellations(model.sequence)).toEqual([
-          [raycasts, "Its Extension was unpaired"],
-          [anas, "Their Share no longer allows Turns"],
+          [raycasts, "Its extension was unpaired"],
+          [anas, "Their share no longer allows turns"],
         ]);
       })
     );
@@ -486,7 +486,7 @@ describe("queued Turns in a shared session (ENG-941)", () => {
         const model = yield* Effect.flatMap(EventStore, (store) => store.model);
         expect(model.sessions.get(S)!.session.state).toBe("idle");
         expect(prompts(driver)).toEqual(["first"]);
-        expect(yield* cancellations(model.sequence)).toEqual([[turnId, "Their Share ended"]]);
+        expect(yield* cancellations(model.sequence)).toEqual([[turnId, "Their share ended"]]);
       })
     );
   });
@@ -540,7 +540,7 @@ describe("queued Turns in a shared session (ENG-941)", () => {
         expect(prompts(driver)).toEqual(["first", "from Bob"]);
         expect(yield* queue).toEqual([]);
         const model = yield* Effect.flatMap(EventStore, (store) => store.model);
-        expect(yield* cancellations(model.sequence)).toEqual([[turnId, "Their Share ended"]]);
+        expect(yield* cancellations(model.sequence)).toEqual([[turnId, "Their share ended"]]);
       })
     );
   });
@@ -583,8 +583,8 @@ describe("queued Turns in a shared session (ENG-941)", () => {
   const autoMode = Command.cases.SetPermissionMode.make({ sessionId: S, permissionMode: "auto" });
 
   test.each([
-    ["an Extension whose Pairing", "Its Extension may no longer approve"],
-    ["a Teammate whose Share", "Their Share no longer allows approving"],
+    ["an Extension whose Pairing", "Its extension may no longer approve"],
+    ["a Teammate whose Share", "Their share no longer allows approving"],
   ] as const)(
     "%s loses approve while its Turn waits: it never starts once the session approves for itself",
     async (who, reason) => {

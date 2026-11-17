@@ -49,6 +49,7 @@ import { type Feed, openHostFeed, openSessionFeed } from "./resume.ts";
 import {
   type ClientBlobs,
   connectRpc,
+  connectTeammateRpc,
   type DaemonClient,
   isDaemonDefect,
   type RpcConnectionOptions,
@@ -337,7 +338,12 @@ export const makeHostConnection = Effect.fnUntraced(function* (
     Effect.scoped(
       Effect.gen(function* () {
         const transport = yield* connector;
-        const connection = yield* connectRpc(transport, options.rpc);
+
+        // A Teammate's requests can be refused by the Share gate, which only its group decodes.
+        const connect =
+          options.identity.accountStatement === undefined ? connectRpc : connectTeammateRpc;
+
+        const connection = yield* connect(transport, options.rpc);
         const lifetime = new AbortController();
         yield* Effect.addFinalizer(() => Effect.sync(() => lifetime.abort()));
 

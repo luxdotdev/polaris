@@ -135,7 +135,7 @@ type EndedInput = Extract<SessionInput, { type: "harness.turnEnded" }>;
 export const afterTurn = (record: SessionRecord, event: EndedInput, withState: boolean) => {
   if (!withState || event.status === "failed")
     return {
-      cancelled: dropQueue(record, event.error ?? "The Turn before it did not finish"),
+      cancelled: dropQueue(record, event.error ?? "The turn before it did not finish"),
       started: null,
     };
 

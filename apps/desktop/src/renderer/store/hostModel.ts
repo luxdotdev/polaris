@@ -41,6 +41,12 @@ export interface ResolvedApproval {
 const RESOLVED_KEPT = 3;
 
 /** `SessionBackgroundCommandFailed`: the command named (null: every one) and the Harness's reason. */
+/** A queued Turn the Host would not start, with why ("Their share ended"). */
+export interface QueueDrop {
+  readonly turnId: string;
+  readonly reason: string;
+}
+
 export interface BackgroundFailure {
   readonly itemId: string | null;
   readonly reason: string;
@@ -60,6 +66,8 @@ export interface SessionEntry {
   readonly lastNotification?: SessionNotification;
   /** The latest Run in background the Harness couldn't carry out, seen live; a new object each time. */
   readonly lastBackgroundFailure?: BackgroundFailure;
+  /** The latest queued Turn the Host cancelled itself, seen live; a new object each time. */
+  readonly lastQueueDrop?: QueueDrop;
   /** Subagents still working in this session. */
   readonly subagents: ReadonlyArray<Subagent>;
 }
@@ -387,10 +395,13 @@ const fold = (event: DomainEvent): Fold =>
       CommentResolved: () => unchanged,
       CommentReopened: () => unchanged,
       CommentOutdated: () => unchanged,
-      // Queued Turns (ENG-954): no Client shows the queue yet.
+      // The queue itself is folded per session (`sessionQueue.ts`); here only the Host's drops.
       TurnQueued: () => unchanged,
       QueuedTurnEdited: () => unchanged,
-      QueuedTurnCancelled: () => unchanged,
+      QueuedTurnCancelled: ({ sessionId, turnId, actor, reason }) =>
+        actor === null && reason !== null
+          ? onSession(sessionId, (entry) => ({ ...entry, lastQueueDrop: { turnId, reason } }))
+          : unchanged,
       ApprovalRequested: ({ request }) =>
         onSession(request.sessionId, (entry) => ({
           ...entry,

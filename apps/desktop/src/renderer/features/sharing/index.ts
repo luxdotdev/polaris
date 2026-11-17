@@ -7,11 +7,13 @@ export {
   refreshSharedSessions,
   useActorViewer,
   useIsShared,
+  useOnSharedHost,
+  useShareEndedNotice,
   useSharedView,
   useSharedWithMe,
 } from "./data/feeds.ts";
 
-export { HeaderShare, openShareSheet, useOnSharedHost, useSharedRole } from "./ui/HeaderShare.tsx";
+export { HeaderShare, openShareSheet, useSharedRole } from "./ui/HeaderShare.tsx";
 
 export { SharedWithYou } from "./ui/SharedWithYou.tsx";
 

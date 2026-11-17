@@ -57,6 +57,12 @@ const userAccessText = (error: IpcError, hostKey: string | undefined): string =>
 /** The Daemon's reason, first letter up: "Interrupt the Turn in flight before archiving". */
 export const refusalText = (error: IpcError, hostKey?: string): string => {
   if (error.code === "UserAccessRequired") return userAccessText(error, hostKey);
+
+  // The Share gate's refusals on someone else's Host name an RPC; say what it means instead.
+  if (error.code === "NotShared")
+    return "Only the owner can do this. It's outside what was shared with you.";
+
+  if (error.code === "NotGranted") return "Your role in this share doesn't allow this.";
   const text = error.message.replace(/^CommandRejected:\s*/, "").trim();
 
   // Someone else answered first (a Teammate or another of your devices): no request id.

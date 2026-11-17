@@ -231,7 +231,7 @@ const fresh = (): SessionRecord =>
 const barredTurns = (v: View, people: ReadonlyArray<number>) =>
   v.queue
     .filter((q) => people.includes(q.by))
-    .map((q) => ({ turnId: turnId(q.id), reason: "Their Share ended" }));
+    .map((q) => ({ turnId: turnId(q.id), reason: "Their share ended" }));
 
 const context = (
   by: number,

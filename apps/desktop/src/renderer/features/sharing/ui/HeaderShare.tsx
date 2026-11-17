@@ -9,8 +9,7 @@ import { useMemo } from "react";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 import type { PresenceView } from "../../../../shared/sharingContract.ts";
-import { useApp } from "../../../shell/hooks.ts";
-import { useIsShared, usePresence, useSharedWithMe } from "../data/feeds.ts";
+import { useIsShared, useOnSharedHost, usePresence, useSharedWithMe } from "../data/feeds.ts";
 import { personName, roleLabel } from "../model/copy.ts";
 import { PersonAvatar } from "./Avatar.tsx";
 import { ShareDialog } from "./ShareDialog.tsx";
@@ -134,10 +133,6 @@ const OwnerShare = ({
     </>
   );
 };
-
-/** Whether the session is on another person's Host, shared with you. */
-export const useOnSharedHost = (hostKey: string): boolean =>
-  useApp((s) => s.sharedHosts.some((h) => h.key === hostKey));
 
 export const HeaderShare = (props: {
   readonly hostKey: string;

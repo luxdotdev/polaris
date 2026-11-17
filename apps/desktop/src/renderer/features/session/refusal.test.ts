@@ -37,3 +37,16 @@ test("an approval someone else answered first says so, without the request's id"
     })
   ).toBe("This request was already answered.");
 });
+
+// ENG-941: a Teammate's refused request named the RPC ("terminal.open is outside what is…").
+test("the Share gate's refusals say whose it is to do, not which RPC was refused", () => {
+  expect(
+    refusalText({
+      code: "NotShared",
+      message: "terminal.open is outside what is shared with you",
+    })
+  ).toBe("Only the owner can do this. It's outside what was shared with you.");
+  expect(
+    refusalText({ code: "NotGranted", message: "dispatch:SendTurn needs the turn Grant" })
+  ).toBe("Your role in this share doesn't allow this.");
+});

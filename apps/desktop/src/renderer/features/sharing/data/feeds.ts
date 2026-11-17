@@ -59,6 +59,31 @@ export const actorViewerOf = (
   };
 };
 
+/**
+ * The notice in place of the composer once a session's Share ended: nothing sent from here
+ * would reach the owner's Host any more. Null while the Share stands, and on your own sessions.
+ */
+export const shareEndedNotice = (
+  view: SharedWithMeView | null,
+  hostKey: string,
+  sessionId: string
+): string | null => {
+  const session = view?.sessions.find((s) => s.hostKey === hostKey && s.sessionId === sessionId);
+
+  if (session === undefined || !session.ended) return null;
+
+  return `This share ended. Ask ${actorViewerOf(view, hostKey, sessionId).owner} to share it again.`;
+};
+
+/** A Host others shared with you, dialled or not: one whose Shares all ended isn't, once relaunched. */
+export const isSharedHost = (
+  connected: ReadonlyArray<{ readonly key: string }>,
+  view: SharedWithMeView | null,
+  hostKey: string
+): boolean =>
+  connected.some((h) => h.key === hostKey) ||
+  (view?.sessions.some((s) => s.hostKey === hostKey) ?? false);
+
 const withMe = createStore<{ readonly view: SharedWithMeView | null }>(() => ({ view: null }));
 
 let watching = false;
@@ -93,6 +118,17 @@ export const useActorViewer = (hostKey: string, sessionId: string) => {
   const view = useStore(withMe, (s) => s.view);
 
   return useMemo(() => actorViewerOf(view, hostKey, sessionId), [view, hostKey, sessionId]);
+};
+
+/** The ended-Share notice for a session, or null (`shareEndedNotice`). */
+export const useShareEndedNotice = (hostKey: string, sessionId: string): string | null =>
+  shareEndedNotice(useSharedView(), hostKey, sessionId);
+
+/** Whether the session is on another person's Host, shared with you. */
+export const useOnSharedHost = (hostKey: string): boolean => {
+  const connected = useApp((s) => s.sharedHosts);
+
+  return isSharedHost(connected, useSharedView(), hostKey);
 };
 
 const NO_ONE: ReadonlyArray<PresenceView> = [];

@@ -27,6 +27,8 @@ export const SharedEntry = Schema.Struct({
   title: Schema.String,
   role: ShareRole,
   acceptedAt: Schema.Number,
+  /** When the Account Server said the Share ended (revoked, declined or lapsed). */
+  endedAt: Schema.optionalKey(Schema.Number),
 });
 
 export type SharedEntry = typeof SharedEntry.Type;

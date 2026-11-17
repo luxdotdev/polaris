@@ -12,7 +12,13 @@ import { HostDirectory } from "../hosts.ts";
 import type { InternetFetch } from "../net.ts";
 import { ownerSharing } from "./owner.ts";
 import { fileSharedStore, type SharedStore } from "./store.ts";
-import { type DeviceKeys, type InvitesByAccount, teammateSharing, withMeView } from "./teammate.ts";
+import {
+  type DeviceKeys,
+  hostsToCheck,
+  type InvitesByAccount,
+  teammateSharing,
+  withMeView,
+} from "./teammate.ts";
 import { presenceViewer } from "./views.ts";
 import { TEAMMATE_TURN_LIMIT, teammateHostFeed, teammateHostItems } from "./teammateFeed.ts";
 import type { RelayDeviceUnavailable } from "../relayDevice.ts";
@@ -124,6 +130,19 @@ const make = Effect.fn("DesktopSharing.make")(function* (input: DesktopSharingIn
       ],
       { concurrency: "unbounded" }
     ).pipe(Stream.runForEach(() => publish)),
+    scope
+  );
+
+  // A shared Host that stops answering may have revoked the Share: ask on each attempt.
+  yield* Effect.forkIn(
+    SubscriptionRef.changes(hosts.views).pipe(
+      Stream.mapEffect((views) =>
+        Effect.map(SubscriptionRef.get(shared), (entries) => hostsToCheck(entries, views))
+      ),
+      Stream.flatMap((due) => Stream.fromIterable(due)),
+      Stream.changesWith((a, b) => a.hostKey === b.hostKey && a.attempt === b.attempt),
+      Stream.runForEach(({ hostKey }) => Effect.ignore(teammate.checkStanding(hostKey)))
+    ),
     scope
   );
 

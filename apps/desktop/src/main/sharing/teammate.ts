@@ -53,6 +53,24 @@ const offline = (view: HostView | undefined) =>
 
 const ended = (view: HostView | undefined) => view?.status.failure?.reason === "share-ended";
 
+/** The Account Server's answers that mean an accepted Invite no longer stands. */
+const CLOSED = new Set(["InviteClosed", "InviteNotFound"]);
+
+/**
+ * The shared Hosts worth asking the Account Server about: out of reach, with a Share not yet
+ * known to have ended. A revoked device gets no answer from the Host, as an offline Host gives.
+ */
+export const hostsToCheck = (
+  shared: ReadonlyArray<SharedEntry>,
+  hosts: ReadonlyArray<HostView>
+): ReadonlyArray<{ readonly hostKey: string; readonly attempt: string }> =>
+  hosts.flatMap((view) =>
+    offline(view) &&
+    shared.some((s) => s.endedAt === undefined && sharedHostKey(s.host.relayAddress) === view.key)
+      ? [{ hostKey: view.key, attempt: `${view.status.since}/${view.status.attempt}` }]
+      : []
+  );
+
 /** The sidebar's view: Invites not yet accepted here, then what was, newest first. */
 export const withMeView = (input: {
   readonly accounts: ReadonlyArray<AccountRecord>;
@@ -102,8 +120,8 @@ export const withMeView = (input: {
         hostName: entry.host.name,
         role: entry.role,
         selfPersonId: input.accounts.find((a) => a.id === entry.accountId)?.personId ?? null,
-        hostOffline: offline(view),
-        ended: ended(view),
+        hostOffline: entry.endedAt === undefined && offline(view),
+        ended: entry.endedAt !== undefined || ended(view),
       };
     });
 
@@ -159,7 +177,7 @@ export const teammateSharing = (input: TeammateInput) => {
     const seen = new Set<string>();
 
     for (const entry of yield* SubscriptionRef.get(shared)) {
-      const host = hostEntry(entry);
+      const host = entry.endedAt === undefined ? hostEntry(entry) : null;
 
       if (host === null || seen.has(host.key)) continue;
       seen.add(host.key);
@@ -192,8 +210,6 @@ export const teammateSharing = (input: TeammateInput) => {
   const accept = Effect.fn("Sharing.accept")(function* (accountId: string, inviteId: string) {
     const keys = yield* input.deviceKeys;
     const accepted = yield* accounts.accept(accountId, inviteId, keys);
-    // SAFETY: B2 adds the optional relayUrl to InviteHost; an older Account Server omits it.
-    const host = accepted.host as typeof accepted.host & { readonly relayUrl?: string };
 
     const entry: SharedEntry = {
       accountId,
@@ -203,7 +219,7 @@ export const teammateSharing = (input: TeammateInput) => {
         name: accepted.owner.name,
         avatarUrl: accepted.owner.avatarUrl,
       },
-      host: sharedHost(host),
+      host: sharedHost(accepted.host),
       sessionId: accepted.share.id,
       title: accepted.share.title,
       role: accepted.role,
@@ -211,6 +227,7 @@ export const teammateSharing = (input: TeammateInput) => {
     };
 
     const known = (yield* SubscriptionRef.get(shared)).find((s) => sameHost(s, entry));
+    const key = sharedHostKey(entry.host.relayAddress);
 
     if (hostEntry(entry) === null || (known !== undefined && !sameKeys(known, entry)))
       return yield* new InviteRefused({
@@ -228,13 +245,58 @@ export const teammateSharing = (input: TeammateInput) => {
     // A Host already connected stays so; its host feed follows `shared`.
     if (added !== null) yield* hosts.add(added);
 
-    return { hostKey: sharedHostKey(entry.host.relayAddress), sessionId: entry.sessionId };
+    // A Host that was refusing this device (its last Share ended) is dialled again at once.
+    if (known?.endedAt !== undefined)
+      yield* Effect.ignore(Effect.flatMap(hosts.connection(key), (c) => c.retryNow));
+
+    return { hostKey: key, sessionId: entry.sessionId };
+  });
+
+  /** Whether the Account Server still holds this accepted Invite; unknown counts as standing. */
+  const stands = (entry: SharedEntry) =>
+    Effect.gen(function* () {
+      const keys = yield* input.deviceKeys;
+
+      yield* accounts.accept(entry.accountId, entry.inviteId, keys);
+
+      return true;
+    }).pipe(
+      Effect.catchTag("AccountsError", (error) =>
+        Effect.succeed(!CLOSED.has(error.serverTag ?? ""))
+      ),
+      Effect.orElseSucceed(() => true)
+    );
+
+  /**
+   * Asks the Account Server about the Shares on a Host that stopped answering and marks the
+   * ones that ended. The Host stays dialled, so a new Share from it resumes the same feed.
+   */
+  const checkStanding = Effect.fn("Sharing.checkStanding")(function* (hostKey: string) {
+    const on = (s: SharedEntry) => sharedHostKey(s.host.relayAddress) === hostKey;
+
+    const open = (yield* SubscriptionRef.get(shared)).filter(
+      (s) => on(s) && s.endedAt === undefined
+    );
+
+    const closed = new Set<string>();
+
+    for (const entry of open) if (!(yield* stands(entry))) closed.add(entry.inviteId);
+
+    if (closed.size === 0) return;
+    const endedAt = input.now();
+
+    const next = yield* SubscriptionRef.updateAndGet(shared, (before) =>
+      before.map((s) => (closed.has(s.inviteId) ? { ...s, endedAt } : s))
+    );
+
+    yield* store.write(next);
   });
 
   return {
     connectAll,
     fetchInvites,
     accept,
+    checkStanding,
     decline: (accountId: string, inviteId: string) => accounts.decline(accountId, inviteId),
     /** The sessions shared through the Host with this key now and on every change. */
     sessionsOn: (hostKey: string) =>
@@ -253,11 +315,12 @@ const sharedHost = (host: {
   readonly name: string;
   readonly relayAddress: string;
   readonly noiseKey: string;
-  readonly relayUrl?: string;
+  readonly relayUrl: string | null;
 }): SharedEntry["host"] => {
   const kept = { name: host.name, relayAddress: host.relayAddress, noiseKey: host.noiseKey };
 
-  if (host.relayUrl === undefined) return kept;
+  // A null relay is Polaris Cloud: kept absent, as the store and sameKeys read it.
+  if (host.relayUrl === null) return kept;
 
   return { ...kept, relayUrl: host.relayUrl };
 };
