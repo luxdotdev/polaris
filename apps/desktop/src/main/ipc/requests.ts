@@ -35,6 +35,7 @@ import { type ClientServices, HostDirectory, toIpcError } from "../hosts.ts";
 import { revealPath } from "../reveal.ts";
 import { externalUrl } from "../../shared/externalUrl.ts";
 import { githubHandlers } from "../github/ipc.ts";
+import { sharingHandlers } from "../sharing/ipc.ts";
 import { accountsHandlers } from "../accounts/ipc.ts";
 import { gitHandlers } from "./git.ts";
 import { constellationHandlers, resourceHandlers } from "./constellation.ts";
@@ -273,6 +274,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
       : Effect.fail({ code: "Unavailable", message: "Prediction settings unavailable" }),
   ...githubHandlers,
   ...accountsHandlers,
+  ...sharingHandlers,
   ...gitHandlers,
   ...constellationHandlers,
   ...resourceHandlers,

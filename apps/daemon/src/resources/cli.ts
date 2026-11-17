@@ -117,6 +117,7 @@ export const runLease = async (args: ReadonlyArray<string>): Promise<number> => 
           if (gate !== null && gate !== undefined) writeSync(gate, "go\n");
           started = true;
           yield* Effect.promise(() => exited);
+          // Its own lease, asked on this connection: all a caller without user access may release.
           yield* client["host.resources.release"]({
             commandId: CommandId.make(randomUUID()),
             leaseId: requestId,

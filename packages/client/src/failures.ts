@@ -36,6 +36,8 @@ export const NeedsAttentionReason = Schema.Literals([
   "protocol-mismatch",
   /** The Extension token in `hello` is malformed, unknown or revoked: pair again. */
   "pairing-rejected",
+  /** A Teammate's Account Server statement names no live Share on this Host any more. */
+  "share-ended",
 ]);
 
 export type NeedsAttentionReason = typeof NeedsAttentionReason.Type;

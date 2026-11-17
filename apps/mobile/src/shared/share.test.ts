@@ -26,7 +26,7 @@ test("the Share pins the Account Server's person id, its issuer and the Invite's
     invite: (accountId, invite) => {
       seen.push(["invite", accountId, invite.inviteeLogin, invite.host.noiseKey, invite.role]);
 
-      return Promise.resolve({ inviteId: "inv-1", hostCapability: "cap-secret" });
+      return Promise.resolve({ inviteId: "inv-1", hostCapability: "cap-secret", relayUrl: null });
     },
     create: (share) => {
       seen.push([

@@ -76,8 +76,11 @@ export const memorySecrets = (): HostSecrets["Service"] => {
   return HostSecrets.of({
     store: "file",
     get: (key) => Effect.sync(() => Option.fromNullishOr(values.get(key))),
+    // Checks keys as the Keychain and file stores do, so a test catches a key they refuse.
     set: (key, value) =>
-      Effect.andThen(checkValue("file", value), () => Effect.sync(() => values.set(key, value))),
+      Effect.andThen(Effect.andThen(checkKey("file", key), checkValue("file", value)), () =>
+        Effect.sync(() => values.set(key, value))
+      ),
     remove: (key) => Effect.sync(() => void values.delete(key)),
   });
 };

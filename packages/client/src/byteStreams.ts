@@ -76,12 +76,17 @@ export const hostAddressNames = (
  * Opens a byte stream to `target` on the Host's loopback and answers it as a ByteTransport:
  * `incoming` is the Host's bytes, `write` sends ours, `close` (or the scope's end) closes the
  * Daemon's socket. Fails `Unsupported` when the Daemon has no `host-address` capability, and
- * `HostAddressError` when the name is not a Host address or the loopback connect failed.
+ * `HostAddressError` when the name is not a Host address or the loopback connect failed, and
+ * `UserAccessRequired` when this Desktop App isn't enrolled on the Host.
  */
 export const openHostAddressStream = Effect.fnUntraced(function* (
   session: ByteStreamSession,
   target: HostAddressTarget
-): Effect.fn.Return<ByteTransport, HostAddressError | Unsupported | RpcClientError, Scope.Scope> {
+): Effect.fn.Return<
+  ByteTransport,
+  HostAddressError | Unsupported | RpcClientError | UserAccessRequired,
+  Scope.Scope
+> {
   if (!session.capabilities.includes("host-address"))
     return yield* new Unsupported({ capability: "host-address" });
 
@@ -90,7 +95,7 @@ export const openHostAddressStream = Effect.fnUntraced(function* (
 
   const opened = yield* Deferred.make<
     ByteStreamEndpoint,
-    HostAddressError | Unsupported | RpcClientError
+    HostAddressError | Unsupported | RpcClientError | UserAccessRequired
   >();
 
   let endpoint: ByteStreamEndpoint | null = null;

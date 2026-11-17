@@ -31,7 +31,10 @@ const maya = teammate("Maya Chen");
 
 const OWNER = Actor.cases.Client.make({});
 
-const ID = "s-shared";
+/** The shared scene's session, which the sharing scenes share. */
+export const SHARED_SESSION_ID = "s-shared";
+
+const ID = SHARED_SESSION_ID;
 
 // The fixture names a Turn by its index: turns 24 and 25 are indexes 23 and 24.
 const T24 = TurnId.make(`${ID}-t23`);

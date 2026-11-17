@@ -4,7 +4,8 @@ import { Context } from "effect";
 import { ConnectionUserAccess } from "../userAccess/index.ts";
 import { ConstellationCaller, isUserCaller } from "./rpc.ts";
 
-const held = (holds: boolean) => Context.make(ConnectionUserAccess, { holds: () => holds });
+const held = (holds: boolean) =>
+  Context.make(ConnectionUserAccess, { holds: () => holds, refused: () => !holds });
 
 test("what changes the Host takes an unbound connection for the user only while the user gate holds it", () => {
   expect({

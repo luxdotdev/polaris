@@ -17,6 +17,7 @@ import {
   useSpacePeek,
 } from "../../features/constellation/ui/peek.tsx";
 import { BackgroundTasksHover } from "../../features/session/ui/background.tsx";
+import { SharedTitle } from "../../features/sharing/index.ts";
 import { RenameField, SessionMenu, useRenaming } from "../../features/sessions/ui/SessionMenu.tsx";
 import type { SessionEntry } from "../../store/hostModel.ts";
 import { needsYou, shownState } from "../../routes/topBar.ts";
@@ -204,7 +205,9 @@ export const SessionRow = ({ hostKey, entry, now }: SessionRowProps) => {
               rename.renaming ? (
                 <RenameField hostKey={hostKey} entry={entry} onDone={rename.stop} />
               ) : (
-                session.title || "Untitled session"
+                <SharedTitle hostKey={hostKey} sessionId={session.id}>
+                  {session.title || "Untitled session"}
+                </SharedTitle>
               )
             }
             description={sessionLine(entry, activity, waiting)}
@@ -263,7 +266,9 @@ export const CompactSessionRow = ({
         rename.renaming ? (
           <RenameField hostKey={hostKey} entry={entry} onDone={rename.stop} />
         ) : (
-          entry.session.title || "Untitled session"
+          <SharedTitle hostKey={hostKey} sessionId={entry.session.id}>
+            {entry.session.title || "Untitled session"}
+          </SharedTitle>
         )
       }
       meta={meta}

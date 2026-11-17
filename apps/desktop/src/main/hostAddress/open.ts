@@ -25,6 +25,8 @@ export const openThroughHost =
         HostAddressError: (error) => Effect.fail(failureStatus(error.reason)),
         Unsupported: () => Effect.fail<ProxyStatus>(502),
         RpcClientError: () => Effect.fail<ProxyStatus>(503),
+        // This Desktop App isn't enrolled on the Host: its loopback is not ours to reach.
+        UserAccessRequired: () => Effect.fail<ProxyStatus>(403),
       })
     );
 

@@ -13,8 +13,11 @@ export const useSession = (hostKey: string, sessionId: SessionId): SessionModel 
   return useApp((s) => s.sessions[sessionKey(hostKey, sessionId)]) ?? emptySessionModel;
 };
 
+/** The session's Host: one of yours, or the owner's for a session shared with you. */
 export const useHost = (hostKey: string): HostView | undefined =>
-  useApp((s) => s.hosts.find((h) => h.key === hostKey));
+  useApp(
+    (s) => s.hosts.find((h) => h.key === hostKey) ?? s.sharedHosts.find((h) => h.key === hostKey)
+  );
 
 export const hasCapability = (host: HostView | undefined, capability: Capability) =>
   host?.status.capabilities.includes(capability) ?? false;

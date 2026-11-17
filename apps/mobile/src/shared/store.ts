@@ -11,7 +11,7 @@ import type { Keychain } from "../accounts/store.ts";
 /** The Invite's Host; `relayUrl` once Account Servers send it (B2), else Polaris Cloud's relay. */
 export const SharedHostAddress = Schema.Struct({
   ...InviteHost.fields,
-  relayUrl: Schema.optionalKey(Schema.String),
+  relayUrl: Schema.optionalKey(Schema.NullOr(Schema.String)),
 });
 
 export type SharedHostAddress = typeof SharedHostAddress.Type;
@@ -25,7 +25,7 @@ const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]"]);
 export const relayUrlOf = (host: SharedHostAddress): string => {
   const named = host.relayUrl;
 
-  if (named === undefined || !URL.canParse(named)) return POLARIS_CLOUD_RELAY_URL;
+  if (named == null || !URL.canParse(named)) return POLARIS_CLOUD_RELAY_URL;
   const url = new URL(named);
   const ok = url.protocol === "wss:" || (url.protocol === "ws:" && LOOPBACK.has(url.hostname));
 

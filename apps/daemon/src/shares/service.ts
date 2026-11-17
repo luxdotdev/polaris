@@ -199,7 +199,9 @@ const makeShares = Effect.fn("makeShares")(function* (options: SharesOptions) {
       )
     );
 
-  const capabilityKey = (id: ShareId) => `shares/${id}/capability`;
+  // Secret keys are lowercase, digits and dashes: a Share id's "_" becomes "-".
+  const capabilityKey = (id: ShareId) =>
+    `shares/${id.toLowerCase().replaceAll("_", "-")}/capability`;
 
   const capabilityOf = (id: ShareId) =>
     Effect.runPromise(

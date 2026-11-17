@@ -79,7 +79,7 @@ import { defaultHandlers } from "./defaults/index.ts";
 import { loadHostInfo } from "./hostInfo.ts";
 import { acquireLock, type DaemonAlreadyRunning, LockError } from "./lock.ts";
 import { ConnectionBlobs, ServerRpcs } from "./rpcs.ts";
-import { userAccessGateFor } from "./userAccess.ts";
+import { tokenlessClient, userAccessGateFor } from "./userAccess.ts";
 import { ConnectionUserAccess, userAccessFile, userAccessRegistry } from "../userAccess/index.ts";
 import { listen, prepareSocketPath } from "./socket.ts";
 import { languageIdentityFor, revokeLanguageIdentity } from "./languageIdentity.ts";
@@ -401,6 +401,13 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       });
     });
 
+    const transportFacts = {
+      tokenRequired: (client: Rpc.ServerClient) =>
+        connections.get(client.id)?.tokenRequired ?? options.extensionTokenRequired ?? false,
+      deviceOf: (client: Rpc.ServerClient) => connections.get(client.id)?.device ?? null,
+      teammateOf: (client: Rpc.ServerClient) => connections.get(client.id)?.teammate ?? null,
+    };
+
     const connectionMiddleware = ConnectionBlobs.of((effect, { client, rpc }) => {
       const connection = connections.get(client.id);
 
@@ -414,7 +421,10 @@ export const startServer = <ROut = never, E = never, RIn = never>(
 
       // Handlers with a check of their own read the user gate's answer, live (ADR 0114).
       if (Context.getOrUndefined(client.annotations, ConnectionUserAccess) === undefined)
-        client.annotate(ConnectionUserAccess, { holds: () => userAccess.holds(client) });
+        client.annotate(ConnectionUserAccess, {
+          holds: () => userAccess.holds(client),
+          refused: () => tokenlessClient(client, transportFacts) && !userAccess.holds(client),
+        });
 
       if (connection.device !== null && deviceOf(client) === null)
         client.annotate(ConnectionDevice, connection.device);
@@ -474,13 +484,6 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     });
 
     yield* phase("starting the Daemon's services (event store, Engine, Constellations)");
-
-    const transportFacts = {
-      tokenRequired: (client: Rpc.ServerClient) =>
-        connections.get(client.id)?.tokenRequired ?? options.extensionTokenRequired ?? false,
-      deviceOf: (client: Rpc.ServerClient) => connections.get(client.id)?.device ?? null,
-      teammateOf: (client: Rpc.ServerClient) => connections.get(client.id)?.teammate ?? null,
-    };
 
     // Built with the handlers, so the gate and they share one `Shares`.
     const shareGate = Layer.effect(

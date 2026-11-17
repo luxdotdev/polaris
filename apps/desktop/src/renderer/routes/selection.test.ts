@@ -25,6 +25,15 @@ const resolve = (nav: Partial<typeof initialNav>) =>
   resolveSelection({ nav: { ...initialNav, ...nav }, bar, models });
 
 describe("selection", () => {
+  test("a session shared with you opens in the pane; your Workspace stays chosen", () => {
+    const shared = { hostKey: "shared:lucas", sessionId: SessionId.make("theirs") };
+    const s = resolve({ hostKey: "home", workspaceId: WorkspaceId.make("a"), shared });
+
+    expect([s.hostKey, s.workspaceId, s.sessionId]).toEqual(["home", "a", null]);
+    expect(s.shared).toEqual(shared);
+    expect(resolve({ shared, pane: "new-session" }).shared).toBeNull();
+  });
+
   test("nothing chosen yet: the first chip, and its loudest session (needs you first)", () => {
     const s = resolve({});
 

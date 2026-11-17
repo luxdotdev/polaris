@@ -95,6 +95,8 @@ const helloOn = Effect.fnUntraced(function* (
         // hello is open to every connection, and this one sends no language proof.
         NotGranted: Effect.die,
         LanguageIdentityError: Effect.die,
+        // A Pairing presents no account statement, so none can be rejected.
+        StatementRejected: Effect.die,
       })
     );
 
