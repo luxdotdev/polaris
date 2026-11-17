@@ -1,11 +1,12 @@
 /**
  * The Share store (CONTEXT.md: Share; ADR 0112): one SQLite file beside the event store with
- * each Share, the Invite it waits on, its log and the devices it has admitted. The host
- * capability is not here: it lives in HostSecrets.
+ * each Share, the Invite it waits on, its log and the devices it has admitted, Teammates' push
+ * registrations and who muted which target. The host capability is not here: it lives in HostSecrets.
  */
 import { Database } from "bun:sqlite";
 import { chmodSync } from "node:fs";
-import { InviteId, Share, ShareId, ShareLogEntry } from "@polaris/protocol";
+import { InviteId, PersonId, Share, ShareId, ShareLogEntry, ShareTarget } from "@polaris/protocol";
+import { PushRegistration, RelayAddress } from "@polaris/protocol/relay";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
 export class ShareStoreError extends Schema.TaggedError<ShareStoreError>()("ShareStoreError", {
@@ -39,6 +40,42 @@ const decodeLog = Schema.decodeUnknownOption(Schema.Array(LogRow));
 
 const encodeEntry = Schema.encodeSync(Schema.fromJsonString(ShareLogEntry));
 
+/** A Teammate's device registered for push over its own connection. */
+export interface StoredPush {
+  readonly issuer: string;
+  readonly personId: PersonId;
+  readonly noiseKey: string;
+  readonly relayAddress: RelayAddress;
+  readonly registration: PushRegistration;
+}
+
+const PushRow = Schema.Struct({
+  issuer: Schema.String,
+  person_id: PersonId,
+  noise_key: Schema.String,
+  relay_address: RelayAddress,
+  registration: Schema.fromJsonString(PushRegistration),
+});
+
+const decodePushRows = Schema.decodeUnknownOption(Schema.Array(PushRow));
+
+const encodeRegistration = Schema.encodeSync(Schema.fromJsonString(PushRegistration));
+
+/** A person who muted a target: `owner`, or a Teammate's `issuer personId`. */
+export interface StoredMute {
+  readonly person: string;
+  readonly target: ShareTarget;
+}
+
+const MuteRow = Schema.Struct({
+  person: Schema.String,
+  target: Schema.fromJsonString(ShareTarget),
+});
+
+const decodeMuteRows = Schema.decodeUnknownOption(Schema.Array(MuteRow));
+
+const encodeTarget = Schema.encodeSync(Schema.fromJsonString(ShareTarget));
+
 const toStored = (row: typeof Row.Type): StoredShare => ({
   share: row.share,
   inviteId: row.invite_id,
@@ -68,6 +105,16 @@ export class ShareStore extends Context.Service<
       deviceKey: string,
       entry: ShareLogEntry
     ) => Effect.Effect<boolean, ShareStoreError>;
+    readonly pushes: Effect.Effect<ReadonlyArray<StoredPush>, ShareStoreError>;
+    /** Replaces the device's registration (one per Noise key). */
+    readonly setPush: (push: StoredPush) => Effect.Effect<void, ShareStoreError>;
+    /** Forgets it; with `token`, only while that is still the device's token. */
+    readonly clearPush: (
+      noiseKey: string,
+      token: string | null
+    ) => Effect.Effect<void, ShareStoreError>;
+    readonly mutes: Effect.Effect<ReadonlyArray<StoredMute>, ShareStoreError>;
+    readonly setMuted: (mute: StoredMute, muted: boolean) => Effect.Effect<void, ShareStoreError>;
   }
 >()("polaris/daemon/shares/ShareStore") {
   static layer(path: string) {
@@ -96,6 +143,14 @@ export class ShareStore extends Context.Service<
         )`);
         db.exec(`CREATE TABLE IF NOT EXISTS share_devices (
           share_id TEXT NOT NULL, device_key TEXT NOT NULL, PRIMARY KEY (share_id, device_key)
+        )`);
+
+        db.exec(`CREATE TABLE IF NOT EXISTS teammate_push (
+          noise_key TEXT PRIMARY KEY, issuer TEXT NOT NULL, person_id TEXT NOT NULL,
+          relay_address TEXT NOT NULL, registration TEXT NOT NULL
+        )`);
+        db.exec(`CREATE TABLE IF NOT EXISTS share_mutes (
+          person TEXT NOT NULL, target TEXT NOT NULL, PRIMARY KEY (person, target)
         )`);
 
         const run = <A>(body: () => A) =>
@@ -169,6 +224,75 @@ export class ShareStore extends Context.Service<
 
                 return added;
               })()
+            ),
+          pushes: run(() =>
+            Option.getOrElse(
+              decodePushRows(
+                db
+                  .query(
+                    `SELECT issuer, person_id, noise_key, relay_address, registration
+                     FROM teammate_push ORDER BY rowid`
+                  )
+                  .all()
+              ),
+              () => []
+            ).map((row) => ({
+              issuer: row.issuer,
+              personId: row.person_id,
+              noiseKey: row.noise_key,
+              relayAddress: row.relay_address,
+              registration: row.registration,
+            }))
+          ),
+          setPush: (push) =>
+            run(() =>
+              db
+                .query(
+                  `INSERT OR REPLACE INTO teammate_push
+                   (noise_key, issuer, person_id, relay_address, registration) VALUES (?, ?, ?, ?, ?)`
+                )
+                .run(
+                  push.noiseKey,
+                  push.issuer,
+                  push.personId,
+                  push.relayAddress,
+                  encodeRegistration(push.registration)
+                )
+            ),
+          clearPush: (noiseKey, token) =>
+            run(() => {
+              const rows = Option.getOrElse(
+                decodePushRows(
+                  db
+                    .query(
+                      `SELECT issuer, person_id, noise_key, relay_address, registration
+                       FROM teammate_push WHERE noise_key = ?`
+                    )
+                    .all(noiseKey)
+                ),
+                () => []
+              );
+
+              if (token !== null && rows.every((row) => row.registration.token !== token)) return;
+              db.query("DELETE FROM teammate_push WHERE noise_key = ?").run(noiseKey);
+            }),
+          mutes: run(() =>
+            Option.getOrElse(
+              decodeMuteRows(
+                db.query("SELECT person, target FROM share_mutes ORDER BY rowid").all()
+              ),
+              () => []
+            )
+          ),
+          setMuted: ({ person, target }, muted) =>
+            run(() =>
+              db
+                .query(
+                  muted
+                    ? "INSERT OR IGNORE INTO share_mutes (person, target) VALUES (?, ?)"
+                    : "DELETE FROM share_mutes WHERE person = ? AND target = ?"
+                )
+                .run(person, encodeTarget(target))
             ),
         });
       })

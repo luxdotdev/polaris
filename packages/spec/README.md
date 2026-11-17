@@ -15,7 +15,7 @@ It covers the event store's group commit, receipts and gapless sequence (`apps/d
 | `scripts/check.ts` | Runs every check (`bun run spec`). |
 | `scripts/replay.ts` | Trace validation: replays logs the real Engine committed through the model (below). |
 | `extensions.qnt` | Pairings and Grants (ENG-398): connections scoped by `hello`, the Grant gate, revocation closing live connections. `scripts/replay-extensions.ts` replays a runtime trace through it. |
-| `shares.qnt` | Shared Sessions (ENG-941, ADR 0112 and 0113): Shares and the gate in front of a Teammate's requests, the Account Server's statement on a Teammate's connection, Comments, and `SendFeedback` with Comment IDs. Its instances are `shares` and two mutants that must violate `safety`. |
+| `shares.qnt` | Shared Sessions (ENG-941, ADR 0112 and 0113): Shares and the gate in front of a Teammate's requests, the Account Server's statement on a Teammate's connection, Comments, `SendFeedback` with Comment IDs, and approvals: Needs You for Contributors, mutes, and the first answer recorded with its Actor. Its instances are `shares` and four mutants that must violate `safety`. |
 | `turn-queue.qnt` | Queued Turns (ENG-941): in a shared session a Turn sent with one in flight waits in a first-in-first-out queue with its author, starts when that Turn completes, pauses when it is interrupted until someone resumes the queue, and is dropped when it fails; its author or the owner cancels or edits it. A Turn whose sender lost access while it waited never starts. Its instances are `turn_queue` and five mutants that must violate `safety`. |
 | `user-access.qnt` | User access (ENG-700, ENG-927, ADR 0114): `hello` enrols the first user key a Host sees, holds access for enrolled ones and opens a request for an unknown one (`present`); the user gate refuses user-only requests without access (`userAccessGateFor`, `decideUserAccess`); a connection that holds access allows, denies and revokes (`allow`, `deny`, `revoke`), never the last key (`LastEnrolledApp`), and a closing connection takes its request with it (`release`). `streams` are the admitted user-only requests and streams still open (`watch`): the gate races each against `onLost`, so a revoke or a reread that takes access ends them (`cut`). `stored` is `~/.polaris/user-access.json`, `initialised` whether the file is there, and `enrolled` what the gate decides with: the Daemon reads the file on a keyed `hello`, an allow or a revoke (`reread`), so deleting it (`forget`) is noticed then and brings first use back, while a file with no keys (`emptied`) enrols nobody and opens no request. `apps/daemon/src/userAccess/`, `transport/userAccess.ts` and the protocol's `userAccess.ts`. `verification/userAccess.model.slow.test.ts` runs random steps on the real registry against a reference that transcribes these actions; `transport/userAccess.test.ts` and `userAccess.enrolment.test.ts` check the scenarios over a real socket. Safety: a user-only request is allowed only on a connection holding access; a key is enrolled only on first use or by a connection that held access; a waiting key is never enrolled; requests are bounded and each has an open connection. An open user-only stream belongs to a connection that still holds access; keys are stored only with the file there. The spec's `user` is the protocol's table, where `any` is only a read or a watch (`userAccess.test.ts` lists each one) and every Command is `user`; checks behind the gate (`isUserCaller`) read the same `holds`, live. `transport/userAccess.hardening.test.ts` checks the file reset, running a program, an open stream at revoke and the emptied registry over a real socket. Not modelled: an unreadable file (enrols nobody), labels and codes. No event-store commit, acknowledgement or resume semantics change. |
 | `rpc-admission.qnt` | Extension RPC reservations (ENG-418): `transport/rpcAdmission.ts` bounds requests before decoding/forking; `transport/server.ts` connects acquisition, terminal responses, handler finalization and disconnect. Active work retains capacity after disconnect. `transport/rpcAdmission.test.ts` exercises real granted handlers, socket/WebSocket floods, streaming cancellation, failures and token-less Client isolation. No event-store commit, acknowledgement or resume semantics change. |
@@ -48,7 +48,7 @@ cd packages/spec && bun scripts/replay.ts /tmp/polaris-traces
 | `log: List[Event]` (a position is a sequence) | the `events` table; `ReadModel.sequence` |
 | `receipts: str -> Receipt` | the `command_receipts` table (`Applied(seq)`, `Refused` for a rejection) |
 | `viewOf(log, s)` / `applyEvent` | `model.ts` `project`, reduced to a Turn's status, the Session State and pending approvals |
-| `decideClient` | the session machine (`engine/session.ts`, driven by `decider.ts`): `SendTurn`, `Continue` (refused once its Interrupted Turn is accepted), `Retry` (only after a Failed Turn, as a new Turn; the spec leaves out its prompt), `RespondToApproval`, `ArchiveSession` (`session.archive`: refused with a Turn in flight in every state), `UnarchiveSession`, `AcceptTurns` (`turns.accept`, `engine/session.accept.ts`), and `RecordVerdict` (`engine/review.ts`, always recorded once its Finding exists) |
+| `decideClient` | the session machine (`engine/session.ts`, driven by `decider.ts`): `SendTurn`, `Continue` (refused once its Interrupted Turn is accepted), `Retry` (only after a Failed Turn, as a new Turn; the spec leaves out its prompt), `RespondToApproval` (the first answer wins whoever sends it; `ApprovalResolved` records the sender's Actor, a Teammate's by name in `resolvedBy` too, and a Teammate's `Allow` that would outlive the request is refused, `engine/session.approvals.ts`: who answers is `shares.qnt`'s, the spec's `answers` race is the same for every Actor), `ArchiveSession` (`session.archive`: refused with a Turn in flight in every state), `UnarchiveSession`, `AcceptTurns` (`turns.accept`, `engine/session.accept.ts`), and `RecordVerdict` (`engine/review.ts`, always recorded once its Finding exists) |
 | `AcceptTurns({ session, through })`, `TurnsAccepted(n)`, `SessionView.accepted` | `AcceptTurns`, `TurnsAccepted` (`throughIndex` + 1: the spec numbers Turns from 1), `AgentSession.acceptedThroughIndex`. Refused with a Turn in flight, when Archived, for a Turn that doesn't exist or one before the accepted one; the same Turn again records nothing. With `revertLaterTurns`, also refused before deciding when another Agent Session in the same checkout changed the files it would restore (`accept/shared.ts`); the spec leaves out files, and a refusal records nothing |
 | `RecordVerdict`, `ReviewRecorded` | `RecordVerdict` / `VerdictRecorded`, standing for every review-only event (`reviewOnlyEventTypes` in `store/model.ts`: Risk Summary and Finding events too): no session, and left out of the host stream (`hostOmittedEventTypes`) |
 | `RemoveWorkspace`, `decideRemoval`, `WorkspaceRemoved`, `SessionView.removed` | `RemoveWorkspace` (`removeWorkspace` in `engine/decider.ts`): refused unless every session of the Workspace is Archived, and NotFound once removed; accepted, one host-stream `WorkspaceRemoved`. The spec has one Workspace holding every session. Removal purges the Workspace, its sessions (Turns, items, Subagents, approvals, drafts, read positions) and its Constellations from the read model and every projection table (`store/removal.ts`, `purgeWorkspaceRows` in `store/projection.ts`); `loadModel` drops the Constellations it folds from the log at the removal too. The `events` log keeps every event, so a replay reaches the same purged state (`docs/adr/0086-removal-purges-projections-the-log-keeps-the-events.md`) |
@@ -748,6 +748,9 @@ leads a Constellation and session 2 is its Worker.
 | `tick` | The Host's clock: a Share expires (`Expired` in the share log) and a statement lapses (`shares/service.ts` `settle`, one timer while a Share is live) |
 | `addComment`, `editComment`, `setResolved` | `AddComment`, `EditComment`, `ResolveComment` / `ReopenComment` and their events `CommentAdded`, `CommentEdited`, `CommentResolved`, `CommentReopened` (`comments.ts`). All need the `comment` Grant (`COMMAND_GRANTS`, `SHARE_COMMANDS`); only its author edits a Comment, until it is sent; `mayResolveComment` is the author, the owner or a Contributor. Daemon: `engine/comments.ts` decides them, `store/comments.ts` folds them, the `comments` table keeps them |
 | `sendFeedback`, `Turn.carried`, `Comment.sentIn` | `SendFeedback.commentIds`, `Turn.commentIds` and `Comment.sentInTurnId`: one Turn whose Actor is the sender, needing `turn` from a Teammate. Unknown IDs, another session's and already sent ones are refused. Daemon: `engine/review.ts` `sendFeedback` with `carriedComments`; the fold of `TurnStarted` sets `sentInTurnId` |
+| `requestApproval`, `needsYou`, `covered`, `muted`, `pushed` | An `ApprovalRequested` and the pushes it causes (`push/notifier.ts`): the owner's Linked Devices (held while the owner is at a Desktop App, `push/hold.ts`, which the model leaves out) and, at once, each Contributor's devices that a live Share listing them covers with `approve` (`shares/notifications.ts` `teammatesFor`, registered over the Teammate's own connection with `devices.registerPush`), less everyone who muted the session (`isMuted`). `pushed` is a ghost: who the last Needs You went to, cleared by every other step |
+| `respond` | `RespondToApproval` from any Actor: `approve` from a Teammate (`SHARE_COMMANDS`), the first answer wins (`polaris.qnt`'s `approvalsCloseOnce`; a later one is rejected "already resolved"), and `ApprovalResolved.actor` names who gave it (`withActor` in `engine/decider.ts`; `resolvedBy` is a Teammate's name). `remember` stands for an `Allow` that outlives the request (`remember`, `dataScope`): refused to a Teammate (`engine/session.approvals.ts`) |
+| `mute`, `Mute`, `gatedOn` | `shares.mute` (`shares/rpc.ts`, `ShareNotifications.setMuted`, the `share_mutes` table): each person's own, the owner's included; a Teammate's needs a Share that lets them read the target. A Constellation's gate is decided through its Lead's session |
 | `OWNER` | Any Actor that is not a `Teammate`: the owner's own Clients, never gated by a Share |
 
 `safety`: an allowed Teammate request touched the target of a live Share that held its Grant
@@ -755,15 +758,19 @@ leads a Constellation and session 2 is its Worker.
 statement and a live Share for its person (`connectionsAreVouched`); no Share targets a Worker
 or outlasts the maximum (`sharesAreBounded`); a Comment keeps its author whoever edits, resolves
 or sends it (`commentsKeepAuthor`); and a Comment is carried by at most one Turn, of its own
-session, and says which (`sentWithOneTurn`). Six scenarios and a 40-step simulation with four
-witnesses (a request outside the target, a missing Grant, a Comment sent by someone other than
-its author, a Teammate's Turn) run in `bun run spec`, with two mutants that must each violate
-`safety`:
+session, and says which (`sentWithOneTurn`); only the owner's `Allow` outlives its request (`onlyTheOwnerRemembers`);
+and a Needs You reaches only the owner and Contributors, never someone who muted its session
+(`needsYouStaysInShare`). Ten scenarios and a 40-step simulation with six witnesses (a request
+outside the target, a missing Grant, a Comment sent by someone other than its author, a
+Teammate's Turn, a Teammate's answer, a Teammate's Needs You) run in `bun run spec`, with four
+mutants that must each violate `safety`:
 
 | Mutant | The bug | What breaks |
 |---|---|---|
 | `shares_unscoped_mutant` | The gate ignores the Share's target | A Share of one session admits a request on another |
 | `shares_resend_mutant` | `SendFeedback` carries a Comment an earlier Turn already carried | Two Turns carry one Comment |
+| `shares_remember_mutant` | A Teammate's `Allow` is remembered | An Allow outlives its request on the owner's Host, given by a Teammate |
+| `shares_commenters_mutant` | Needs You ignores the Grant | A Commenter's devices are asked what they cannot answer |
 
 A Comment action changes only `comments`: no Turn starts and no Session State changes, so
 `polaris.qnt` is unchanged. Neither is `CommentOutdated`, the Host's mark that a later Turn
@@ -778,9 +785,17 @@ check. What a request touches is an input: the Host resolves a payload to its se
 Constellation. One connection per person. RPCs and Commands off the Teammate allowlist
 (`NotShared` whatever they touch: Share management, archiving, terminals, file writes and every
 Host-wide call) are a table lookup, covered by `shares.test.ts`. A Contributor's Constellation
-Lead actions are not listed yet. The Daemon lets a Teammate's `turn` through the Share gate
-(`teammatesMayAct`, ENG-941); what a Turn sent into a working session does is `turn-queue.qnt`
-(Queued Turns, below).
+Lead actions are calls on the Lead's session by Grant (`leadActionsAreAContributorsTest`):
+`start` for `constellation.dispatch` and `worker.start`, `approve` for `review`, `turn` for
+`answer` and `message`; planning and the Constellation's lifecycle (`constellation.plan`,
+`set_state`) stay off the allowlist. They reach the Constellation as the user, as the owner's own
+Client would, and its events record the Teammate's Actor (not modelled; `constellation/teammate.test.ts`). The gate's further checks are not modelled: a Teammate's Workers are new sessions
+on this Host in Worktrees, branches and bases it picks (never an existing session, which would join the shared
+Constellation and widen the Share), and what starts agent work waits with Turns (`gate.test.ts`). The Daemon lets a Teammate's
+`turn` through the Share gate (`teammatesMayAct`, ENG-941) and `approve` is on; what a Turn
+sent into a working session does is `turn-queue.qnt` (Queued Turns, below). The model
+states what the Share allows. The owner's presence hold, a Teammate's several devices and the
+push's delivery are left out of the Needs You model.
 
 **Tested against real code by example, not by a model-based test.** Comments:
 `engine/Engine.comments.test.ts` runs the real Engine for `commentsKeepAuthor` (across a
@@ -788,7 +803,11 @@ restart, and when someone else sends the Comment) and `sentWithOneTurn` (a resen
 and for who may edit and resolve. Shares: the Daemon serves `shares.*` and
 `account.refreshStatement`, the rows above name their handlers, and they are covered by
 `shares/*.test.ts` and by `shares/teammate.slow.test.ts` through a real relay and a fake
-Account Server. No model-based test or trace validation replays `shares.qnt` yet (ENG-951).
+Account Server. Approvals: `engine/Engine.actor.test.ts` runs the real Engine for a Teammate's
+first answer, its Actor and name, the owner's late answer and a remembered Allow refused;
+`shares/notifications.test.ts` runs the real Share service and store for `needsYou` and `mute`;
+`push/hold.test.ts` runs the real notifier for the fan-out and the owner's mute. No model-based
+test or trace validation replays `shares.qnt` yet (ENG-951).
 
 ## Queued Turns (ENG-941)
 

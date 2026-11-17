@@ -87,6 +87,8 @@ const withNotifier = (
           sendLive: (_, slice) => (sent.push(slice), true),
           host: { hostId: "host-1", hostName: "studio" },
           wake: () => unused,
+          checkPush: () => Effect.die("not used by the notifier"),
+          wakePeer: () => Effect.die("not used by the notifier"),
         });
 
         yield* Layer.build(

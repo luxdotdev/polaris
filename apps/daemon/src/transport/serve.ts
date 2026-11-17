@@ -328,6 +328,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "linked-devices.presence",
   "linked-devices.relay-url",
   "shares",
+  "shares.contributor",
   "presence",
   "voice",
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),

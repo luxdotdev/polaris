@@ -1,4 +1,5 @@
 import { Effect, Schema } from "effect";
+import { Actor } from "../extensions.ts";
 import { HostId, SessionId, TurnId, Timestamp } from "../ids.ts";
 import { optionalNullable } from "../models.ts";
 import {
@@ -72,7 +73,12 @@ export const constellationEventFields = {
   },
   ProposalAccepted: { ...graph, proposalId: Schema.String, task: Schema.suspend(() => Task) },
   ProposalDeclined: { ...graph, proposalId: Schema.String, reason: Schema.String },
-  AttemptStarted: { ...graph, attempt: Schema.suspend(() => Attempt) },
+  /** `actor` on what the user does: a Teammate acting through a Share; null for the owner. */
+  AttemptStarted: {
+    ...graph,
+    attempt: Schema.suspend(() => Attempt),
+    actor: optionalNullable(Actor),
+  },
   AttemptProgressed: {
     ...attempt,
     note: Schema.String,
@@ -81,7 +87,12 @@ export const constellationEventFields = {
     waiting: optionalNullable(AttemptWaiting),
   },
   AttemptClaimed: { ...attempt, claim: Schema.suspend(() => Claim) },
-  ClaimApproved: { ...attempt, by: Schema.Literal("user"), at: Timestamp },
+  ClaimApproved: {
+    ...attempt,
+    by: Schema.Literal("user"),
+    at: Timestamp,
+    actor: optionalNullable(Actor),
+  },
   ClaimHandedUp: { ...attempt, reason: optionalNullable(Schema.String), at: Timestamp },
   AttemptBlocked: {
     ...attempt,
@@ -114,6 +125,7 @@ export const constellationEventFields = {
     ...attempt,
     reason: Schema.String,
     by: optionalNullable(Schema.Literals(["user", "lead"])),
+    actor: optionalNullable(Actor),
   },
   AttemptSettled: {
     ...attempt,
@@ -143,6 +155,7 @@ export const constellationEventFields = {
     target: Schema.suspend(() => MessageTarget),
     text: Schema.String,
     questionId: optionalNullable(Schema.String),
+    actor: optionalNullable(Actor),
   },
   WorkerInputDelivered: { ...graph, id: Schema.String, sessionId: SessionId, at: Timestamp },
   OperatorMessageResolved: { ...graph, id: Schema.String },

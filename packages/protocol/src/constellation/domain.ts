@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { Actor } from "../extensions.ts";
 import { HarnessKind } from "../harnesses.ts";
 import { HostId, SessionId, Timestamp, TurnId, WorkspaceId } from "../ids.ts";
 import {
@@ -260,6 +261,8 @@ export class Attempt extends Schema.Class<Attempt>("ConstellationAttempt")({
   rejectionReason: optionalNullable(Schema.String),
   /** Who sent the Claim back; null before this was recorded. */
   rejectedBy: optionalNullable(Schema.Literals(["user", "lead"])),
+  /** The Teammate who approved or sent back the Claim through a Share; null for the owner. */
+  reviewedBy: optionalNullable(Actor),
   /** The one automatic nudge after a silent end (AttemptNudged). */
   nudgedAt: Schema.NullOr(Timestamp),
   /** Why a lost or failed Attempt settled (AttemptSettled.reason); null while active. */
@@ -305,8 +308,18 @@ export const NotificationItem = Schema.TaggedUnion({
   Approved: { attemptId: AttemptId },
   Question: { attemptId: AttemptId, question: ConstellationQuestion },
   Proposal: { attemptId: AttemptId, proposalId: Schema.String },
-  OperatorMessage: { messageId: Schema.String, text: Schema.String },
-  QuestionAnswered: { attemptId: AttemptId, questionId: Schema.String, text: Schema.String },
+  /** `actor`: a Teammate who sent it through a Share; null for the owner. */
+  OperatorMessage: {
+    messageId: Schema.String,
+    text: Schema.String,
+    actor: optionalNullable(Actor),
+  },
+  QuestionAnswered: {
+    attemptId: AttemptId,
+    questionId: Schema.String,
+    text: Schema.String,
+    actor: optionalNullable(Actor),
+  },
 });
 
 export type NotificationItem = typeof NotificationItem.Type;

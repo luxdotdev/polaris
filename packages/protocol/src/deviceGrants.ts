@@ -334,6 +334,7 @@ export const DEVICE_RPCS = {
   "shares.revoke": "device",
   "shares.list": "device",
   "shares.watchPresence": "device",
+  "shares.mute": "device",
   "account.refreshStatement": "local",
 } as const satisfies Record<DaemonRpcTag, DeviceAccess>;
 

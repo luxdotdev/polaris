@@ -431,6 +431,8 @@ const shares = run("Shares and Comments safety", [
   "witnessNotGranted",
   "witnessSentByAnother",
   "witnessTeammateTurn",
+  "witnessTeammateAnswered",
+  "witnessTeammateNeedsYou",
 ]);
 
 if (/was witnessed in 0 trace/.test(shares)) {
@@ -438,7 +440,7 @@ if (/was witnessed in 0 trace/.test(shares)) {
   console.log("✗ a Shares witness was never reached: the simulation no longer covers it");
 }
 
-for (const mutant of ["unscoped", "resend"]) {
+for (const mutant of ["unscoped", "resend", "remember", "commenters"]) {
   const main = `shares_${mutant}_mutant`;
   run(`Shares ${mutant} regression witness`, ["test", "shares.qnt", `--main=${main}`]);
   run(

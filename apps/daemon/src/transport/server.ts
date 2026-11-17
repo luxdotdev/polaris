@@ -62,6 +62,7 @@ import {
 } from "../shares/connection.ts";
 import { shareGateFor } from "../shares/gate.ts";
 import { Shares, type SharesOptions } from "../shares/service.ts";
+import { ShareNotifications } from "../shares/notifications.ts";
 import { ShareStore } from "../shares/store.ts";
 import { HostPresence, type PresenceOptions } from "../presence/index.ts";
 import type { DeviceSession } from "../linkedDevices/session.ts";
@@ -206,6 +207,9 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       | Shares
       | RelayGuests
       | Pairings
+      | ShareNotifications
+      | ShareStore
+      | TeammateConnections
     >
 > =>
   Effect.gen(function* () {
@@ -295,7 +299,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     // Shares and their devices (ADR 0112): the Relay route lists and admits them as guests.
     const shareServices = Shares.guestsLayer.pipe(
       Layer.provideMerge(Shares.layer(options.shares)),
-      Layer.provide(
+      Layer.provideMerge(
         Layer.mergeAll(
           ShareStore.layer(join(root, "shares.sqlite")).pipe(
             Layer.catchTag("ShareStoreError", (error) =>
@@ -314,7 +318,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       )
     );
 
-    const deviceServices = RelayRoute.layer({
+    const relayRoute = RelayRoute.layer({
       root,
       hostInfo,
       links: options.relayLinks,
@@ -349,6 +353,9 @@ export const startServer = <ROut = never, E = never, RIn = never>(
         )
       )
     );
+
+    // Needs You for Teammates' devices and everyone's mutes, beside the owner's pushes.
+    const deviceServices = ShareNotifications.layer.pipe(Layer.provideMerge(relayRoute));
 
     const extensionServices = Layer.mergeAll(
       deviceServices,
@@ -489,7 +496,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     const shareGate = Layer.effect(
       ShareGate,
       Effect.map(Shares, (shares) =>
-        shareGateFor({ shares, teammateOf: transportFacts.teammateOf })
+        shareGateFor({ shares, teammateOf: transportFacts.teammateOf, hostId: hostInfo.hostId })
       )
     ).pipe(Layer.provide(deviceServices));
 

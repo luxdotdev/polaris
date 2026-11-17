@@ -156,7 +156,7 @@ export const UnlinkSelf = Rpc.make("devices.unlinkSelf", {
 export class PushRegistrationError extends Schema.TaggedError<PushRegistrationError>()(
   "PushRegistrationError",
   {
-    /** `not-a-device`: only a Linked Device's own connection registers for push. */
+    /** `not-a-device`: only a Linked Device's or a Teammate's own connection registers for push. */
     reason: Schema.Literals(["not-a-device", "failed"]),
     message: Schema.String,
   }

@@ -150,7 +150,13 @@ export const startAttempt = (d: GraphDecision, taskId: TaskId, cause?: Attempt["
   validateDraft(d, draft);
 
   if (d.findings.length === 0)
-    d.emit(ConstellationEvent.cases.AttemptStarted.make({ ...d.fields(), attempt: draft }));
+    d.emit(
+      ConstellationEvent.cases.AttemptStarted.make({
+        ...d.fields(),
+        attempt: draft,
+        actor: d.actor(),
+      })
+    );
 };
 
 export const dispatch = (d: GraphDecision, command: GraphCommand<"Dispatch">) => {
@@ -274,7 +280,12 @@ const reviewMetadata = (
       );
     else if (attempt.approvedByUserAt === null) {
       d.emit(
-        ConstellationEvent.cases.ClaimApproved.make({ ...fields(), by: "user", at: d.ctx.now })
+        ConstellationEvent.cases.ClaimApproved.make({
+          ...fields(),
+          by: "user",
+          at: d.ctx.now,
+          actor: d.actor(),
+        })
       );
       d.notify(NotificationItem.cases.Approved.make({ attemptId: attempt.id }));
     }
@@ -434,6 +445,7 @@ export const review = (d: GraphDecision, command: GraphCommand<"Review">) => {
       ...fields(),
       reason: command.action.reason,
       by: d.ctx.binding.kind === "user" ? "user" : "lead",
+      actor: d.actor(),
     })
   );
 

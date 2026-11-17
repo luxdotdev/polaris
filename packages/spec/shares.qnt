@@ -1,8 +1,10 @@
 // -*- mode: Bluespec; -*-
 /**
  * Shared Sessions (ENG-941, ADR 0112 and 0113): Shares and the gate in front of a Teammate's
- * requests, the Account Server's statement on a Teammate's connection, and Comments as events
- * of the shared session's log, sent to the agent by `SendFeedback` with Comment IDs.
+ * requests, the Account Server's statement on a Teammate's connection, Comments as events
+ * of the shared session's log, sent to the agent by `SendFeedback` with Comment IDs, and
+ * approvals: Needs You reaches the Contributors who did not mute the session, and the first
+ * answer is recorded with who gave it.
  *
  * People, sessions, Shares and Comments are small integers; time is a counter. The contract is
  * `packages/protocol/src/shares.ts`, `shareGrants.ts` and `comments.ts`; README.md, "Shares and
@@ -13,6 +15,10 @@ module shares_model {
   const BUG_UNSCOPED: bool
   /** `SendFeedback` carries a Comment that an earlier Turn already carried. */
   const BUG_RESEND: bool
+  /** A Teammate's Allow is remembered beyond its request (on the Host or in the Harness). */
+  const BUG_REMEMBER: bool
+  /** Needs You goes to anyone a Share covers, whatever its Grant: a Commenter too. */
+  const BUG_COMMENTERS: bool
 
   /** The owner, on any of their own Clients; never gated by a Share. */
   pure val OWNER = 0
@@ -23,6 +29,7 @@ module shares_model {
   pure def constellationOf(session: int): int = if (session == 0) -1 else 0
   pure val SHARE_IDS = Set(0, 1, 2)
   pure val COMMENT_IDS = Set(0, 1, 2)
+  pure val APPROVAL_IDS = Set(0, 1)
   /** `SHARE_DEFAULT_LIFETIME_MS` (7 days) and `SHARE_MAX_LIFETIME_MS` (30 days), in ticks. */
   pure val DEFAULT_LIFETIME = 2
   pure val MAX_LIFETIME = 4
@@ -43,6 +50,10 @@ module shares_model {
   type Turn = { session: int, actor: int, carried: Set[int] }
   type Outcome = Nothing | Allowed | NotShared | NotGranted(str) | Rejected | StatementRejected
   type Request = { by: int, session: int, need: str }
+  /** `by`: who answered it first, -1 while pending; `remembered`: an Allow that outlives it. */
+  type Approval = { session: int, by: int, remembered: bool }
+  /** One person's mute of a shared target (`shares.mute`). */
+  type Mute = { person: int, target: Target }
 
   type State = {
     now: int,
@@ -51,10 +62,15 @@ module shares_model {
     statements: int -> int,
     comments: int -> Comment,
     turns: List[Turn],
+    approvals: int -> Approval,
+    mutes: Set[Mute],
     last: Outcome,
     // Ghosts: the gated request `last` answered, and who added each Comment.
     request: Request,
     authored: int -> int,
+    // Ghosts: who the last Needs You went to, and the session it was about.
+    pushed: Set[int],
+    pushedAbout: int,
   }
   var s: State
 
@@ -85,9 +101,28 @@ module shares_model {
     statements.keys().filter(p => statements.get(p) > now and hasLive(shares, p, now))
       .mapBy(p => statements.get(p))
 
+  // ── shares/notifications.ts `teammatesFor` and `isMuted` ─────────────────
+  /** A live Share of `person` covers `session`, holding `approve` unless `anyGrant`. */
+  def covered(person: int, session: int, anyGrant: bool): bool = s.shares.keys().exists(id => all {
+    s.shares.get(id).person == person,
+    live(s.shares.get(id), s.now),
+    covers(s.shares.get(id).target, session),
+    anyGrant or s.shares.get(id).grant.contains("approve"),
+  })
+  def approves(person: int, session: int): bool = covered(person, session, false)
+  def muted(person: int, session: int): bool =
+    s.mutes.exists(m => m.person == person and covers(m.target, session))
+  /** The owner's devices, and every Contributor's covering the session, less those who muted it. */
+  def needsYou(session: int): Set[int] =
+    PEOPLE.filter(p => covered(p, session, BUG_COMMENTERS)).union(Set(OWNER)).filter(p => not(muted(p, session)))
+  /** The session a target's gate decides on: a Constellation's through its Lead. */
+  pure def gatedOn(target: Target): int = match target { | SessionT(t) => t | ConstellationT(_) => 1 }
+
   action init = s' = {
     now: 0, shares: Map(), statements: Map(), comments: Map(), turns: [],
+    approvals: Map(), mutes: Set(),
     last: Nothing, request: { by: OWNER, session: 0, need: "" }, authored: Map(),
+    pushed: Set(), pushedAbout: 0,
   }
 
   // ── shares.create: never a Worker's session, never past the maximum ──────
@@ -100,8 +135,8 @@ module shares_model {
     }
     all {
       not(s.shares.keys().contains(id)),
-      s' = if (ok) { ...s, shares: s.shares.put(id, share), last: Nothing }
-        else { ...s, last: Rejected },
+      s' = if (ok) { ...s, pushed: Set(), shares: s.shares.put(id, share), last: Nothing }
+        else { ...s, pushed: Set(), last: Rejected },
     }
   }
 
@@ -111,8 +146,8 @@ module shares_model {
     val renewed = { ...s.shares.get(id), since: s.now, expires: s.now + lifetime }
     all {
       s.shares.keys().contains(id),
-      s' = if (ok) { ...s, shares: s.shares.set(id, renewed), last: Nothing }
-        else { ...s, last: Rejected },
+      s' = if (ok) { ...s, pushed: Set(), shares: s.shares.set(id, renewed), last: Nothing }
+        else { ...s, pushed: Set(), last: Rejected },
     }
   }
 
@@ -121,34 +156,35 @@ module shares_model {
     val shares = s.shares.set(id, { ...s.shares.get(id), revoked: true })
     all {
       s.shares.keys().contains(id),
-      s' = { ...s, shares: shares, statements: admitted(s.statements, shares, s.now), last: Nothing },
+      s' = { ...s, pushed: Set(), shares: shares, statements: admitted(s.statements, shares, s.now), last: Nothing },
     }
   }
 
   /** Time passes: Shares expire, and statements that were not refreshed lapse. */
   action tick = s' = {
     ...s, now: s.now + 1, statements: admitted(s.statements, s.shares, s.now + 1), last: Nothing,
+    pushed: Set(),
   }
 
   // ── hello with `accountStatement`; `vouched`: the issuer's keys verify it ──
   action hello(person: int, vouched: bool): bool = {
     val ok = vouched and hasLive(s.shares, person, s.now)
     val without = s.statements.keys().exclude(Set(person)).mapBy(p => s.statements.get(p))
-    s' = if (ok) { ...s, statements: s.statements.put(person, s.now + STATEMENT_LIFETIME), last: Nothing }
-      else { ...s, statements: without, last: StatementRejected }
+    s' = if (ok) { ...s, pushed: Set(), statements: s.statements.put(person, s.now + STATEMENT_LIFETIME), last: Nothing }
+      else { ...s, pushed: Set(), statements: without, last: StatementRejected }
   }
 
   // ── account.refreshStatement: a refused one leaves the old statement to lapse ──
   action refresh(person: int, vouched: bool): bool = all {
     s.statements.keys().contains(person),
-    s' = if (vouched) { ...s, statements: s.statements.set(person, s.now + STATEMENT_LIFETIME), last: Nothing }
-      else { ...s, last: StatementRejected },
+    s' = if (vouched) { ...s, pushed: Set(), statements: s.statements.set(person, s.now + STATEMENT_LIFETIME), last: Nothing }
+      else { ...s, pushed: Set(), last: StatementRejected },
   }
 
   // ── any RPC or Command of the Teammate allowlist, touching `session` ─────
   action call(by: int, session: int, need: str): bool = all {
     present(by),
-    s' = { ...s, last: decide(by, session, need), request: { by: by, session: session, need: need } },
+    s' = { ...s, pushed: Set(), last: decide(by, session, need), request: { by: by, session: session, need: need } },
   }
 
   // ── AddComment → CommentAdded ────────────────────────────────────────────
@@ -160,8 +196,8 @@ module shares_model {
       present(by), not(s.comments.keys().contains(id)),
       s' = if (gate == Allowed) {
         ...s, comments: s.comments.put(id, comment), authored: s.authored.put(id, by),
-        last: Allowed, request: asked,
-      } else { ...s, last: gate, request: asked },
+        last: Allowed, request: asked, pushed: Set(),
+      } else { ...s, pushed: Set(), last: gate, request: asked },
     }
   }
 
@@ -174,6 +210,7 @@ module shares_model {
       present(by), s.comments.keys().contains(id),
       s' = {
         ...s,
+        pushed: Set(),
         comments: if (ok) s.comments.set(id, { ...comment, body: comment.body + 1 }) else s.comments,
         last: if (gate != Allowed) gate else if (ok) Allowed else Rejected,
         request: { by: by, session: comment.session, need: "comment" },
@@ -192,6 +229,7 @@ module shares_model {
       present(by), s.comments.keys().contains(id),
       s' = {
         ...s,
+        pushed: Set(),
         comments: if (ok) s.comments.set(id, { ...comment, resolved: resolved }) else s.comments,
         last: if (gate != Allowed) gate else if (ok) Allowed else Rejected,
         request: { by: by, session: comment.session, need: "comment" },
@@ -210,12 +248,59 @@ module shares_model {
       present(by),
       s' = {
         ...s,
+        pushed: Set(),
         turns: if (ok) s.turns.append({ session: session, actor: by, carried: ids }) else s.turns,
         comments: if (ok) s.comments.keys().mapBy(id =>
           if (ids.contains(id)) { ...s.comments.get(id), sentIn: index } else s.comments.get(id))
           else s.comments,
         last: if (gate != Allowed) gate else if (ok) Allowed else Rejected,
         request: { by: by, session: session, need: "turn" },
+      },
+    }
+  }
+
+  // ── ApprovalRequested: the owner's pushes and the Contributors' (`push/notifier.ts` `fanOut`) ──
+  action requestApproval(id: int, session: int): bool = all {
+    not(s.approvals.keys().contains(id)),
+    s' = {
+      ...s,
+      approvals: s.approvals.put(id, { session: session, by: -1, remembered: false }),
+      pushed: needsYou(session), pushedAbout: session, last: Nothing,
+    },
+  }
+
+  // ── RespondToApproval → ApprovalResolved with the Actor; the first answer wins ──
+  action respond(by: int, id: int, remember: bool): bool = {
+    val approval = s.approvals.get(id)
+    val gate = decide(by, approval.session, "approve")
+    val ok = gate == Allowed and approval.by == -1
+      and (by == OWNER or not(remember) or BUG_REMEMBER)
+    all {
+      present(by), s.approvals.keys().contains(id),
+      s' = {
+        ...s,
+        pushed: Set(),
+        approvals: if (ok) s.approvals.set(id, { ...approval, by: by, remembered: remember })
+          else s.approvals,
+        last: if (gate != Allowed) gate else if (ok) Allowed else Rejected,
+        request: { by: by, session: approval.session, need: "approve" },
+      },
+    }
+  }
+
+  // ── shares.mute: each person's own, for what their Share lets them read ──
+  action mute(by: int, target: Target, on: bool): bool = {
+    val gate = decide(by, gatedOn(target), "read")
+    val mine = { person: by, target: target }
+    all {
+      present(by),
+      s' = {
+        ...s,
+        pushed: Set(),
+        mutes: if (gate != Allowed) s.mutes else if (on) s.mutes.union(Set(mine))
+          else s.mutes.exclude(Set(mine)),
+        last: gate,
+        request: { by: by, session: gatedOn(target), need: "read" },
       },
     }
   }
@@ -229,10 +314,11 @@ module shares_model {
     nondet role = Set("contributor", "commenter").oneOf()
     nondet lifetime = 1.to(MAX_LIFETIME + 1).oneOf()
     nondet vouched = Set(true, false).oneOf()
-    nondet need = Set("read", "comment", "approve", "turn", "contributor").oneOf()
+    nondet need = Set("read", "comment", "approve", "turn", "start", "contributor").oneOf()
     nondet comment = COMMENT_IDS.oneOf()
     nondet ids = COMMENT_IDS.powerset().oneOf()
     nondet resolved = Set(true, false).oneOf()
+    nondet approval = APPROVAL_IDS.oneOf()
     any {
       createShare(id, person, target, role, lifetime),
       renewShare(id, lifetime),
@@ -245,6 +331,9 @@ module shares_model {
       editComment(by, comment),
       setResolved(by, comment, resolved),
       sendFeedback(by, session, ids),
+      requestApproval(approval, session),
+      respond(by, approval, resolved),
+      mute(by, target, resolved),
     }
   }
 
@@ -273,9 +362,15 @@ module shares_model {
     s.turns.indices().forall(i => s.turns[i].carried.contains(id) iff s.comments.get(id).sentIn == i))
     and s.turns.indices().forall(i => s.turns[i].carried.forall(id =>
       s.comments.keys().contains(id) and s.comments.get(id).session == s.turns[i].session))
+  /** Only the owner's Allow outlives its request. */
+  val onlyTheOwnerRemembers = s.approvals.keys().forall(id =>
+    s.approvals.get(id).remembered implies s.approvals.get(id).by == OWNER)
+  /** A Needs You reaches only the owner and Contributors, and nobody who muted its session. */
+  val needsYouStaysInShare = s.pushed.forall(p =>
+    (p == OWNER or approves(p, s.pushedAbout)) and not(muted(p, s.pushedAbout)))
   val safety = all {
     teammatesStayInShare, connectionsAreVouched, sharesAreBounded, commentsKeepAuthor,
-    sentWithOneTurn,
+    sentWithOneTurn, onlyTheOwnerRemembers, needsYouStaysInShare,
   }
 
   val witnessOutside = s.last == NotShared and s.statements.keys().contains(s.request.by)
@@ -283,10 +378,13 @@ module shares_model {
   val witnessSentByAnother = s.turns.indices().exists(i =>
     s.turns[i].carried.exists(id => s.comments.get(id).author != s.turns[i].actor))
   val witnessTeammateTurn = s.turns.indices().exists(i => s.turns[i].actor != OWNER)
+  val witnessTeammateAnswered = s.approvals.keys().exists(id =>
+    s.approvals.get(id).by != OWNER and s.approvals.get(id).by != -1)
+  val witnessTeammateNeedsYou = s.pushed.exists(p => p != OWNER)
 }
 
 module shares {
-  import shares_model(BUG_UNSCOPED=false, BUG_RESEND=false).*
+  import shares_model(BUG_UNSCOPED=false, BUG_RESEND=false, BUG_REMEMBER=false, BUG_COMMENTERS=false).*
 
   run outsideTheTargetIsRefusedTest = init
     .then(createShare(0, 1, SessionT(0), "contributor", DEFAULT_LIFETIME))
@@ -346,6 +444,47 @@ module shares {
     .then(hello(1, true)).expect(s.last == StatementRejected)
     .then(renewShare(0, DEFAULT_LIFETIME)).expect(s.last == Rejected and safety)
 
+  run contributorAnswersFirstTest = init
+    .then(createShare(0, 1, SessionT(0), "contributor", DEFAULT_LIFETIME))
+    .then(hello(1, true))
+    .then(requestApproval(0, 0)).expect(s.pushed == Set(OWNER, 1))
+    .then(respond(1, 0, true)).expect(s.last == Rejected and s.approvals.get(0).by == -1)
+    .then(respond(1, 0, false)).expect(s.last == Allowed and s.approvals.get(0).by == 1)
+    .then(respond(OWNER, 0, false)).expect(s.last == Rejected and s.approvals.get(0).by == 1)
+    .then(requestApproval(1, 0))
+    .then(respond(OWNER, 1, true)).expect(s.approvals.get(1).remembered and safety)
+
+  run commenterIsNotAskedTest = init
+    .then(createShare(0, 1, SessionT(0), "commenter", DEFAULT_LIFETIME))
+    .then(hello(1, true))
+    .then(requestApproval(0, 0)).expect(s.pushed == Set(OWNER))
+    .then(respond(1, 0, false)).expect(s.last == NotGranted("approve") and s.approvals.get(0).by == -1)
+    .then(revokeShare(0))
+    .then(createShare(1, 2, SessionT(0), "contributor", DEFAULT_LIFETIME))
+    .then(requestApproval(1, 0)).expect(s.pushed == Set(OWNER, 2) and safety)
+
+  run eachPersonMutesForThemselvesTest = init
+    .then(createShare(0, 1, ConstellationT(0), "contributor", DEFAULT_LIFETIME))
+    .then(createShare(1, 2, SessionT(0), "contributor", DEFAULT_LIFETIME))
+    .then(hello(1, true)).then(hello(2, true))
+    .then(mute(1, ConstellationT(0), true)).expect(s.last == Allowed)
+    .then(requestApproval(0, WORKER)).expect(s.pushed == Set(OWNER))
+    .then(mute(2, ConstellationT(0), true)).expect(s.last == NotShared)
+    .then(mute(OWNER, SessionT(0), true))
+    .then(requestApproval(1, 0)).expect(s.pushed == Set(2))
+    // Muted or not, a Contributor still answers: the app shows the Needs You.
+    .then(respond(1, 0, false)).expect(s.last == Allowed and s.approvals.get(0).by == 1)
+    .then(mute(1, ConstellationT(0), false))
+    .then(requestApproval(2, WORKER)).expect(s.pushed == Set(OWNER, 1) and safety)
+
+  run leadActionsAreAContributorsTest = init
+    .then(createShare(0, 1, ConstellationT(0), "contributor", DEFAULT_LIFETIME))
+    .then(createShare(1, 2, ConstellationT(0), "commenter", DEFAULT_LIFETIME))
+    .then(hello(1, true)).then(hello(2, true))
+    .then(call(1, 1, "start")).expect(s.last == Allowed)
+    .then(call(1, WORKER, "approve")).expect(s.last == Allowed)
+    .then(call(2, 1, "start")).expect(s.last == NotGranted("start") and safety)
+
   run refusedRefreshLapsesTest = init
     .then(createShare(0, 1, SessionT(0), "contributor", MAX_LIFETIME))
     .then(hello(1, true))
@@ -355,7 +494,7 @@ module shares {
 
 /** The gate before Share-scoped admission: a Share of one session admits another. */
 module shares_unscoped_mutant {
-  import shares_model(BUG_UNSCOPED=true, BUG_RESEND=false).*
+  import shares_model(BUG_UNSCOPED=true, BUG_RESEND=false, BUG_REMEMBER=false, BUG_COMMENTERS=false).*
 
   run reachesAnotherSessionTest = init
     .then(createShare(0, 1, SessionT(0), "contributor", DEFAULT_LIFETIME))
@@ -365,10 +504,30 @@ module shares_unscoped_mutant {
 
 /** `SendFeedback` without the already-sent refusal: two Turns carry one Comment. */
 module shares_resend_mutant {
-  import shares_model(BUG_UNSCOPED=false, BUG_RESEND=true).*
+  import shares_model(BUG_UNSCOPED=false, BUG_RESEND=true, BUG_REMEMBER=false, BUG_COMMENTERS=false).*
 
   run carriesACommentTwiceTest = init
     .then(addComment(OWNER, 0, 0))
     .then(sendFeedback(OWNER, 0, Set(0)))
     .then(sendFeedback(OWNER, 0, Set(0))).expect(s.last == Allowed and not(safety))
+}
+
+/** A Teammate's Allow is remembered: it outlives the request, on the owner's Host. */
+module shares_remember_mutant {
+  import shares_model(BUG_UNSCOPED=false, BUG_RESEND=false, BUG_REMEMBER=true, BUG_COMMENTERS=false).*
+
+  run rememberedByATeammateTest = init
+    .then(createShare(0, 1, SessionT(0), "contributor", DEFAULT_LIFETIME))
+    .then(hello(1, true))
+    .then(requestApproval(0, 0))
+    .then(respond(1, 0, true)).expect(s.last == Allowed and not(safety))
+}
+
+/** Needs You ignores the Grant: a Commenter's devices are asked what they can't answer. */
+module shares_commenters_mutant {
+  import shares_model(BUG_UNSCOPED=false, BUG_RESEND=false, BUG_REMEMBER=false, BUG_COMMENTERS=true).*
+
+  run commenterIsAskedTest = init
+    .then(createShare(0, 1, SessionT(0), "commenter", DEFAULT_LIFETIME))
+    .then(requestApproval(0, 0)).expect(s.pushed == Set(OWNER, 1) and not(safety))
 }

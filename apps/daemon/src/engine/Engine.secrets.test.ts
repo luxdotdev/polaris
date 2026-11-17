@@ -3,11 +3,14 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Database } from "bun:sqlite";
 import {
+  Actor,
   ApprovalDecision,
   Command,
+  PersonId,
   type RequestId,
   SessionId,
   SessionPlacement,
+  ShareId,
   TurnItem,
 } from "@polaris/protocol";
 import { Effect, Fiber, type Layer, Option, Predicate, Redacted, type Scope, Stream } from "effect";
@@ -228,6 +231,45 @@ describe("Secret Requests", () => {
 
     expect(Predicate.isTagged(allow, "CommandRejected")).toBe(true);
     expect(Predicate.isTagged(provided, "CommandRejected")).toBe(true);
+    expect(stillPending).toBe(true);
+  });
+
+  test("a Teammate can't answer a Secret Request, not even to decline it", async () => {
+    const { layer } = setup();
+    const S = SessionId.make("secret-teammate");
+
+    const teammate = Actor.cases.Teammate.make({
+      shareId: ShareId.make("share_1"),
+      personId: PersonId.make("p1"),
+      name: "The Octocat",
+    });
+
+    const [declined, stillPending] = await run(
+      layer,
+      Effect.gen(function* () {
+        yield* startWorking(S);
+        const { requestId } = yield* ask(S);
+
+        const declined = yield* Effect.flatMap(Engine, (engine) =>
+          engine.dispatch({
+            commandId: cid(),
+            command: Command.cases.RespondToApproval.make({
+              sessionId: S,
+              requestId,
+              decision: ApprovalDecision.cases.Deny.make({ reason: null }),
+            }),
+            deviceLabel: "The Octocat",
+            actor: teammate,
+          })
+        ).pipe(Effect.flip);
+
+        const model = yield* waitFor(() => true);
+
+        return [declined, model.sessions.get(S)?.pending.has(requestId)] as const;
+      })
+    );
+
+    expect(declined).toMatchObject({ reason: "a Secret Request is the owner's to answer" });
     expect(stillPending).toBe(true);
   });
 

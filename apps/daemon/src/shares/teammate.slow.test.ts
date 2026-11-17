@@ -18,10 +18,13 @@ import {
   StatementRejected,
   CommentId,
   ConstellationId,
+  ConstellationSetState,
+  ConstellationPlan,
   DaemonRpcs,
   InviteId,
   ListShares,
   PersonId,
+  PushRegistrationError,
   ReadFile,
   type RelayRouteStatus,
   RevokeUserAccess,
@@ -31,10 +34,15 @@ import {
   type ShareRole,
   ShareTarget,
   type ShareTouch,
+  SetConstellationStateAction,
+  ReviewAction,
+  AttemptId,
   SubscribeHost,
   TeammateRpcs,
 } from "@polaris/protocol";
-import { fromBase64Url, toBase64Url } from "@polaris/protocol/relay";
+import { fromBase64Url, type RelayAddress, toBase64Url } from "@polaris/protocol/relay";
+import { signPushTicket } from "@polaris/protocol/relay/party";
+import { pushSuite } from "../push/seal.ts";
 import { Effect, Exit, Fiber, Layer, Option, Redacted, Schema, Scope, Stream } from "effect";
 import { RpcGroup } from "effect/rpc";
 import {
@@ -119,7 +127,14 @@ const handlers = Layer.mergeAll(
 
 /** What a Teammate's Client calls, and what only the owner may, so its refusals decode. */
 const Probe = TeammateRpcs.merge(
-  RpcGroup.make(SubscribeHost, ListShares, ReadFile, RevokeUserAccess).middleware(ShareGate)
+  RpcGroup.make(
+    SubscribeHost,
+    ListShares,
+    ReadFile,
+    RevokeUserAccess,
+    ConstellationPlan,
+    ConstellationSetState
+  ).middleware(ShareGate)
 );
 
 const hello = { clientName: "test", clientVersion: "0", deviceLabel: "Claimed", capabilities: [] };
@@ -482,6 +497,100 @@ test("a Constellation's Share covers its Lead and Workers, later ones too, by it
       ]);
 
       expect(feeds.map((error) => error._tag)).toEqual(["ConstellationRejected", "NotShared"]);
+      socket.close();
+    })
+  );
+}, 30_000);
+
+test("a Constellation's Contributor acts through its Lead and registers for its Needs You; the owner's calls stay refused", async () => {
+  await scoped((scope) =>
+    Effect.gen(function* () {
+      const host = yield* daemon(scope);
+      const laptop = yield* Effect.promise(makeDevice);
+
+      yield* shareWith(host, laptop, {
+        target: ShareTarget.cases.Constellation.make({ constellationId: C1 }),
+      });
+
+      const { client, socket } = yield* opened(host, laptop);
+      yield* client.hello(hello);
+      const C2 = ConstellationId.make("c2");
+
+      const review = (constellationId: ConstellationId) =>
+        Effect.flip(
+          client["constellation.review"]({
+            commandId: CommandId.make(crypto.randomUUID()),
+            constellationId,
+            attemptId: AttemptId.make("a1"),
+            revision: 0,
+            action: ReviewAction.cases.Approve.make({}),
+          })
+        ).pipe(Effect.map((error) => error._tag));
+
+      // Its own Constellation reaches the handler (none is mounted here); another's doesn't.
+      expect(yield* review(C1)).toBe("ConstellationRejected");
+      expect(yield* review(C2)).toBe("NotShared");
+
+      // Planning, archiving and the rest of the Constellation's lifecycle stay the owner's.
+      const archive = yield* Effect.flip(
+        client["constellation.set_state"]({
+          commandId: CommandId.make(crypto.randomUUID()),
+          constellationId: C1,
+          action: SetConstellationStateAction.cases.Archive.make({}),
+        })
+      );
+
+      const plan = yield* Effect.flip(
+        client["constellation.plan"]({
+          commandId: CommandId.make(crypto.randomUUID()),
+          constellationId: C1,
+          operations: [],
+        })
+      );
+
+      expect([archive._tag, plan._tag]).toEqual(["NotShared", "NotShared"]);
+
+      // Its device registers for push with a ticket its own relay identity signed for this Host.
+      const keys = yield* Effect.promise(() => pushSuite.kem.generateKeyPair());
+
+      const pushKey = toBase64Url(
+        new Uint8Array(
+          yield* Effect.promise(() => pushSuite.kem.serializePublicKey(keys.publicKey))
+        )
+      );
+
+      const token = "ab".repeat(32);
+
+      const registration = (address: RelayAddress) => ({
+        token,
+        environment: "sandbox" as const,
+        pushKey,
+        ticket: signPushTicket(laptop.identity, address, "sandbox", token),
+      });
+
+      yield* client["devices.registerPush"](registration(host.status.hostAddress));
+
+      const forged = yield* Effect.flip(
+        client["devices.registerPush"](registration(laptop.address))
+      );
+
+      expect(forged).toBeInstanceOf(PushRegistrationError);
+      expect(forged).toMatchObject({ reason: "failed" });
+
+      // Muting is the Teammate's own, and only for what its Share covers.
+      yield* client["shares.mute"]({
+        target: ShareTarget.cases.Constellation.make({ constellationId: C1 }),
+        muted: true,
+      });
+
+      const elsewhere = yield* Effect.flip(
+        client["shares.mute"]({
+          target: ShareTarget.cases.Constellation.make({ constellationId: C2 }),
+          muted: true,
+        })
+      );
+
+      expect(elsewhere._tag).toBe("NotShared");
       socket.close();
     })
   );

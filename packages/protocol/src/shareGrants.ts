@@ -9,7 +9,15 @@ import { Schema } from "effect";
 import { RpcGroup, RpcMiddleware } from "effect/rpc";
 import type { Command } from "./commands.ts";
 import type { ConstellationId } from "./constellation/domain.ts";
-import { SubscribeConstellation } from "./constellation/rpc.ts";
+import {
+  ConstellationAnswer,
+  ConstellationDispatch,
+  ConstellationMessage,
+  ConstellationReview,
+  ConstellationStatus,
+  ConstellationWorkerStart,
+  SubscribeConstellation,
+} from "./constellation/rpc.ts";
 import { NotFound } from "./errors.ts";
 import { ExtensionTokenRejected, type GrantKind, NotGranted } from "./extensions.ts";
 import type { DaemonRpcTag } from "./grants.ts";
@@ -19,6 +27,7 @@ import { CommandRejected, Dispatch, GitDiff, SubscribeSession } from "./rpc.ts";
 import {
   isShareLive,
   NotShared,
+  MuteShare,
   RefreshStatement,
   type Share,
   ShareTarget,
@@ -26,6 +35,7 @@ import {
   WatchSharePresence,
 } from "./shares.ts";
 import { ReadTurns } from "./turns.ts";
+import { RegisterPush, UnregisterPush } from "./linkedDevices.ts";
 
 /**
  * `open`: any Teammate connection, whatever it touches. A Grant: within a Share holding it.
@@ -44,12 +54,29 @@ export const SHARE_RPCS = {
   "git.diff": "read",
   "constellation.subscribe": "read",
   "shares.watchPresence": "read",
-  // K2 lists a Contributor's Constellation Lead actions here (start Workers, review Claims).
+  /** Mutes the caller's own pushes about a target their Share covers. */
+  "shares.mute": "read",
+  /** The caller's own device, for Needs You about what its Contributor Shares cover. */
+  "devices.registerPush": "open",
+  "devices.unregisterPush": "open",
+  "constellation.status": "read",
+  /**
+   * What the owner does through a Constellation's Lead, by Grant: start Workers, review Claims,
+   * answer and message. Planning, pausing, completing, archiving and handing over
+   * (`constellation.plan`, `constellation.set_state`) stay the owner's. The Daemon also keeps a
+   * Teammate's Workers on this Host, in Worktrees, branches and bases it picks, and holds what starts agent work
+   * back while Turns are.
+   */
+  "constellation.dispatch": "start",
+  "constellation.worker.start": "start",
+  "constellation.review": "approve",
+  "constellation.answer": "turn",
+  "constellation.message": "turn",
 } as const satisfies Partial<Record<DaemonRpcTag, ShareAccess>>;
 
 /**
- * `turn` and `approve` entries are what a Contributor's Share allows; the Daemon still
- * refuses them to Teammates until the user gate returns (ENG-927).
+ * `turn` and `approve` entries are what a Contributor's Share allows. A Teammate's `Allow`
+ * holds for that request only: remembering it beyond the session is the owner's.
  */
 export const SHARE_COMMANDS = {
   SendTurn: "turn",
@@ -159,5 +186,14 @@ export const TeammateRpcs = RpcGroup.make(
   ReadTurns,
   GitDiff,
   SubscribeConstellation,
-  WatchSharePresence
+  WatchSharePresence,
+  MuteShare,
+  RegisterPush,
+  UnregisterPush,
+  ConstellationStatus,
+  ConstellationDispatch,
+  ConstellationWorkerStart,
+  ConstellationReview,
+  ConstellationAnswer,
+  ConstellationMessage
 ).middleware(ShareGate);

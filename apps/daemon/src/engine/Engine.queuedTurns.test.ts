@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import {
   Actor,
+  ApprovalDecision,
   type Capability,
   Command,
   DomainEvent,
@@ -9,6 +10,7 @@ import {
   Pairing,
   PairingId,
   PersonId,
+  RequestId,
   SessionId,
   SessionPlacement,
   Share,
@@ -162,8 +164,8 @@ const cancellations = (upTo: number) =>
     );
   });
 
-const rejection = (command: Command, actor: Actor = OWNER) =>
-  Effect.flip(dispatch(command, actor)).pipe(
+const rejection = (command: Command, actor: Actor = OWNER, grant: Grant | null = null) =>
+  Effect.flip(dispatch(command, actor, grant)).pipe(
     Effect.map((error) =>
       Predicate.isTagged(error, "CommandRejected") ? error.reason : error._tag
     )
@@ -602,6 +604,63 @@ describe("queued Turns in a shared session (ENG-941)", () => {
 
     expect(after.queue).toEqual([]);
     expect(after.dropped).toEqual(["The Daemon restarted"]);
+  });
+
+  test("a Teammate's approval answer starts nothing: the queue waits behind the Turn, and stays paused after an Interrupt", async () => {
+    const { driver, layer } = setup([share("Ana"), share("Bob")], true);
+
+    const ask = (requestId: RequestId) =>
+      Effect.sync(() => {
+        const harness = driver.latest(S)!;
+        harness.emit(
+          HarnessEvent.ApprovalRequested({
+            turnId: harness.turns.at(-1)!.turnId,
+            requestId,
+            kind: "command",
+            title: "Run bun test",
+            detail: null,
+            options: [],
+          })
+        );
+      });
+
+    const allow = (requestId: RequestId) =>
+      Command.cases.RespondToApproval.make({
+        sessionId: S,
+        requestId,
+        decision: ApprovalDecision.cases.Allow.make({ remember: false }),
+      });
+
+    await run(
+      layer,
+      Effect.gen(function* () {
+        yield* working(driver);
+        yield* send("from Ana", ana);
+        const first = RequestId.make("req-queue-1");
+        yield* ask(first);
+        yield* waitFor((m) => m.sessions.get(S)?.session.state === "needs-you");
+        yield* dispatch(allow(first), bob, CONTRIBUTOR);
+        yield* waitFor((m) => m.sessions.get(S)?.session.state === "working");
+
+        // Bob's answer put the first Turn back to work; Ana's still waits behind it.
+        expect(prompts(driver)).toEqual(["first"]);
+        expect(yield* queue).toEqual([["from Ana", ana]]);
+
+        const second = RequestId.make("req-queue-2");
+        yield* ask(second);
+        yield* waitFor((m) => m.sessions.get(S)?.session.state === "needs-you");
+        yield* dispatch(Command.cases.Interrupt.make({ sessionId: S }));
+        yield* waitFor((m) => m.sessions.get(S)?.session.state === "idle");
+
+        // The Interrupt withdrew the request; answering it now resumes nothing.
+        expect(yield* rejection(allow(second), bob, CONTRIBUTOR)).toBe(
+          `request ${second} is already resolved`
+        );
+        expect((yield* record).session.state).toBe("idle");
+        expect(prompts(driver)).toEqual(["first"]);
+        expect(yield* queue).toEqual([["from Ana", ana]]);
+      })
+    );
   });
 
   test("archiving a session cancels its paused queue", async () => {

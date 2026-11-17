@@ -17,6 +17,8 @@ import { Effect, Layer, PubSub, Stream } from "effect";
 import { RelayRoute } from "../linkedDevices/route.ts";
 import type { PushTarget } from "../linkedDevices/store.ts";
 import { HostPresence } from "../presence/index.ts";
+import { OWNER, ShareNotifications } from "../shares/notifications.ts";
+import type { StoredPush } from "../shares/store.ts";
 import { hold } from "./hold.ts";
 import { PushHostEvents, PushNotifier } from "./notifier.ts";
 import { patchSession } from "../store/model.ts";
@@ -38,6 +40,7 @@ import {
   snapshot,
   synchronized,
   turnEnded,
+  waitUntil,
 } from "./push.testing.ts";
 
 const unused = Effect.die("not used by the notifier");
@@ -67,6 +70,7 @@ const withNotifier = (
     readonly listed?: AgentSession;
     readonly registration?: Partial<PushRegistration>;
     readonly failure?: AttemptFailure;
+    readonly shared?: ShareNotifications["Service"];
   } = {}
 ) =>
   Effect.runPromise(
@@ -103,6 +107,8 @@ const withNotifier = (
           sendLive: () => false,
           host: { hostId: "host-1", hostName: "studio" },
           wake: (_, message) => Effect.sync(() => (woken.push(message), "sent" as const)),
+          checkPush: () => Effect.die("not used by the notifier"),
+          wakePeer: () => Effect.die("not used by the notifier"),
         });
 
         yield* Layer.build(
@@ -119,7 +125,10 @@ const withNotifier = (
                   attemptFailure: () => Effect.succeed(options.failure ?? null),
                 }),
                 Layer.succeed(RelayRoute)(route),
-                Layer.succeed(HostPresence)(presence)
+                Layer.succeed(HostPresence)(presence),
+                options.shared === undefined
+                  ? Layer.empty
+                  : Layer.succeed(ShareNotifications)(options.shared)
               )
             )
           )
@@ -331,4 +340,69 @@ test("only a Needs You is held: finished Turns and notifications at the Mac neve
     "turn-ended",
   ]);
   expect(hold([], planned()).map(({ message }) => message.requestId)).toEqual(["r1"]);
+});
+
+/** One Contributor's phone on the session; `mutedBy` muted it. `teammate` lists what reached it. */
+const sharedWith = (mutedBy: ReadonlyArray<string>) => {
+  const teammate: Array<PushMessage> = [];
+  // SAFETY: the notifier passes the target back to `wake`, which only records the message.
+  const phone = {} as StoredPush;
+
+  const shared = ShareNotifications.of({
+    register: () => unused,
+    unregister: () => unused,
+    setMuted: () => unused,
+    touchOf: (sessionId) => Effect.succeed({ sessionId, constellationId: null }),
+    muted: (person) => mutedBy.includes(person),
+    teammatesFor: () => [phone],
+    wake: (_, message) => Effect.sync(() => (teammate.push(message), "sent" as const)),
+    registered: () => 1,
+    watch: () => () => {},
+  });
+
+  return { teammate, shared };
+};
+
+test("a Contributor's phone hears of a Needs You at once while the owner sits at the Mac, and of nothing else", async () => {
+  const { teammate, shared } = sharedWith([]);
+
+  await withNotifier(
+    60_000,
+    ({ feed, presence, woken }) =>
+      Effect.gen(function* () {
+        presence.report(1, "present");
+        feed(notified("n1", false));
+        // A Secret Request is the owner's: the Teammate never hears of it.
+        feed(approvalRequested("secret1", "secret"));
+        feed(approvalRequested("r1"));
+        yield* waitUntil(() => (teammate.length > 0 ? true : undefined), "the Teammate's push");
+        yield* Effect.sleep("50 millis");
+        expect(requestIds(teammate)).toEqual(["r1"]);
+        expect(woken).toEqual([]);
+
+        presence.report(1, "away");
+        yield* Effect.sleep("50 millis");
+        expect(requestIds(woken)).toEqual(["secret1", "r1"]);
+        expect(requestIds(teammate)).toEqual(["r1"]);
+      }),
+    { shared }
+  );
+});
+
+test("the owner's mute keeps the session's pushes off the owner's devices, not the Teammate's", async () => {
+  const { teammate, shared } = sharedWith([OWNER]);
+
+  await withNotifier(
+    60_000,
+    ({ feed, woken }) =>
+      Effect.gen(function* () {
+        feed(notified("n1", false));
+        feed(approvalRequested("r1"));
+        yield* waitUntil(() => (teammate.length > 0 ? true : undefined), "the Teammate's push");
+        yield* Effect.sleep("50 millis");
+        expect(woken).toEqual([]);
+        expect(requestIds(teammate)).toEqual(["r1"]);
+      }),
+    { shared }
+  );
 });

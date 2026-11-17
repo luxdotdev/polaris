@@ -72,6 +72,8 @@ const relay = (woken: Array<PushMessage>) =>
     sendLive: () => false,
     host: { hostId: "host-1", hostName: "studio" },
     wake: (_, message) => Effect.sync(() => (woken.push(message), "sent" as const)),
+    checkPush: () => Effect.die("not used by the notifier"),
+    wakePeer: () => Effect.die("not used by the notifier"),
   });
 
 const dispatch = (command: Command) =>

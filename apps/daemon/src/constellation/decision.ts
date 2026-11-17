@@ -23,6 +23,10 @@ export class GraphDecision {
   fields() {
     return { constellationId: this.record.graph.id, revision: this.record.graph.revision + 1 };
   }
+  /** The Teammate acting as the user through a Share; null for the owner and the Lead. */
+  actor() {
+    return this.ctx.binding.kind === "user" ? (this.ctx.binding.actor ?? null) : null;
+  }
   emit(event: ConstellationEvent) {
     this.events.push(event);
     this.record = foldConstellation(this.record, event, this.ctx.now) ?? this.record;

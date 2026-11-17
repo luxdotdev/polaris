@@ -66,6 +66,11 @@ export const Capability = Schema.Literals([
    */
   "shares",
   /**
+   * Contributors (ENG-941): a Teammate answers approvals and acts through a shared Constellation's
+   * Lead, registers its devices for Needs You (`devices.registerPush`), and `shares.mute`.
+   */
+  "shares.contributor",
+  /**
    * Comments (ADR 0113): `AddComment`, `EditComment`, `ResolveComment`, `ReopenComment`, the
    * `Comment*` events, `SendFeedback.commentIds`, `Turn.commentIds` and the session snapshot's
    * `comments`. Needed on both sides: a Client without it is sent none of them.

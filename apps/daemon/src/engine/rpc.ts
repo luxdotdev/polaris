@@ -25,6 +25,7 @@ import {
 import { Context, Effect, Layer, Option, Stream } from "effect";
 import { actorOf, pairingOf } from "../extensions/connection.ts";
 import { RequestShare, teammateOf } from "../shares/connection.ts";
+import { teammateSessionFeed } from "../shares/feeds.ts";
 import { Engine } from "./Engine.ts";
 import { hostItemsFor, sessionItemsFor } from "./limitedCompat.ts";
 import { actorHostItemsFor, actorSessionItemsFor, actorTurnPageFor } from "./actorCompat.ts";
@@ -154,7 +155,9 @@ const SubscribeSessionHandler = DaemonRpcs.toLayerHandler(
         capabilities,
       });
 
-      return compat === null ? items : Stream.map(items, compat);
+      const shown = teammateOf(client) === null ? items : teammateSessionFeed(items);
+
+      return compat === null ? shown : Stream.map(shown, compat);
     };
   })
 );
