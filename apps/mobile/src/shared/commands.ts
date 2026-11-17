@@ -80,25 +80,24 @@ export interface Face {
   readonly label: string;
 }
 
-/** Who has the session open: the owner once however many devices, then each Teammate. */
+/**
+ * Who else has the session open (SS6): the owner once however many devices, then each Teammate,
+ * leaving out the viewer themself, so nothing shows when only they are there.
+ */
 export const presenceFaces = (
   entries: ReadonlyArray<SharePresenceEntry>,
   viewer: Viewer
 ): ReadonlyArray<Face> => {
+  const self = viewer.kind === "teammate" ? viewer.personId : "owner";
   const faces = new Map<string, Face>();
 
   for (const entry of entries) {
     const teammate = Predicate.isTagged(entry.actor, "Teammate") ? entry.actor : null;
     const key = teammate === null ? "owner" : teammate.personId;
-    const byline = bylineOf(entry.actor, viewer);
     const name = teammate?.name ?? (viewer.kind === "teammate" ? viewer.ownerName : "You");
 
-    if (!faces.has(key))
-      faces.set(key, {
-        key,
-        initials: byline.initials === "" ? "You" : byline.initials,
-        label: name,
-      });
+    if (key !== self && !faces.has(key))
+      faces.set(key, { key, initials: bylineOf(entry.actor, viewer).initials, label: name });
   }
 
   return [...faces.values()];

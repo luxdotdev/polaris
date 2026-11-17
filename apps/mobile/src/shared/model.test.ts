@@ -5,11 +5,12 @@ import {
   DomainEvent,
   LinkedDeviceId,
   PairingId,
+  SharePresenceEntry,
   TurnId,
 } from "@polaris/protocol";
 import { applySessionItem, type SessionFold } from "../thread/fold.ts";
 import { event, snapshot, turn } from "../thread/daemon.testing.ts";
-import { promptMessage } from "./commands.ts";
+import { presenceFaces, promptMessage } from "./commands.ts";
 import { comment, maya, onLines, onMessage, owner } from "./comments.testing.ts";
 import {
   bylineOf,
@@ -63,6 +64,36 @@ describe("bylines", () => {
     });
 
     expect(bylineOf(raycast, asMaya).label).toBe("from Raycast");
+  });
+});
+
+describe("presence (SS6)", () => {
+  const watching = (...actors: ReadonlyArray<Actor>) =>
+    actors.map(
+      (actor) =>
+        new SharePresenceEntry({ actor, avatarUrl: null, since: "2026-11-17T10:00:00.000Z" })
+    );
+
+  test("a Teammate sees the others watching, never themself", () => {
+    expect(presenceFaces(watching(owner, maya), asMaya).map((face) => face.label)).toEqual([
+      "Lucas Doell",
+    ]);
+  });
+
+  test("the owner sees the Teammates watching, never their own devices", () => {
+    const phone = Actor.cases.LinkedDevice.make({
+      deviceId: LinkedDeviceId.make("d-1"),
+      name: "iPhone",
+    });
+
+    expect(presenceFaces(watching(owner, phone, maya), OWNER).map((face) => face.label)).toEqual([
+      "Maya Chen",
+    ]);
+  });
+
+  test("nothing shows when only the viewer is watching", () => {
+    expect(presenceFaces(watching(maya), asMaya)).toEqual([]);
+    expect(presenceFaces(watching(owner), OWNER)).toEqual([]);
   });
 });
 

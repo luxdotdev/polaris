@@ -51,7 +51,7 @@ export const HeaderSharing = ({
 
   return (
     <View style={styles.headerSharing}>
-      {faces.length < 2 ? null : (
+      {faces.length === 0 ? null : (
         <View
           style={styles.faces}
           accessible
