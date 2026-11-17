@@ -190,13 +190,30 @@ const plural = (count: number, one: string) => `${count} ${one}${count === 1 ? "
 
 /** The collapsed line under a message: "2 comments · Sent with turn 25" when one Turn carried them all. */
 export const commentsLine = (comments: ReadonlyArray<Comment>, turnNumber: TurnNumber): string => {
+  const { count, sent } = commentsLineParts(comments, turnNumber);
+
+  return sent === null ? count : `${count} · ${sent}`;
+};
+
+/** The comments line in two parts: the count, and the Turn they were sent with when it is one. */
+export interface CommentsLineParts {
+  readonly count: string;
+  readonly sent: string | null;
+}
+
+/** That line's two parts, drawn in two styles (SS6): "2 comments", then "Sent with turn 25". */
+export const commentsLineParts = (
+  comments: ReadonlyArray<Comment>,
+  turnNumber: TurnNumber
+): CommentsLineParts => {
   const sent = new Set(comments.map((c) => c.sentInTurnId ?? null));
   const [only] = sent;
   const number = sent.size === 1 && only !== null ? turnNumber(only) : null;
 
-  return [plural(comments.length, "comment"), number === null ? null : `Sent with turn ${number}`]
-    .filter((part) => part !== null)
-    .join(" · ");
+  return {
+    count: plural(comments.length, "comment"),
+    sent: number === null ? null : `Sent with turn ${number}`,
+  };
 };
 
 /** Owners and Contributors send Turns; a Commenter only comments. */

@@ -14,6 +14,7 @@ import {
   authorName,
   bylineOf,
   commentsLine,
+  commentsLineParts,
   messageComments,
   stepComments,
 } from "./model.ts";
@@ -125,10 +126,12 @@ export const MessageCommentsLine = ({
   const on = messageComments(sharing.comments, itemId);
 
   if (on.length === 0) return null;
+  const line = commentsLineParts(on, sharing.turnNumber);
 
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={commentsLine(on, sharing.turnNumber)}
       style={styles.line}
       hitSlop={6}
       onPress={() =>
@@ -141,7 +144,8 @@ export const MessageCommentsLine = ({
     >
       <CommentGlyph />
       <Text style={styles.lineText} maxFontSizeMultiplier={CONTENT_TEXT_SCALE}>
-        {commentsLine(on, sharing.turnNumber)}
+        {line.count}
+        {line.sent === null ? null : <Text style={styles.lineMark}>{` · ${line.sent}`}</Text>}
       </Text>
     </Pressable>
   );
@@ -211,7 +215,8 @@ const useStyles = themedStyles((c) => ({
   cardAuthor: { fontWeight: "500", color: c.textDefault },
   cardBody: { ...mobileType.callout, color: c.textStrong },
   line: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start" },
-  lineText: { ...mobileType.footnote, color: c.textSubtle },
+  lineText: { ...mobileType.footnote, fontWeight: "500", color: c.textSubtle },
+  lineMark: { ...mobileType.index, fontWeight: "400", color: c.textFaint },
   count: { flexDirection: "row", alignItems: "center", gap: 3 },
   countText: { ...mobileType.index, color: c.textSubtle },
 }));

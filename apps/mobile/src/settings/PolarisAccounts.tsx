@@ -23,7 +23,7 @@ const chooseEmail = (accounts: PolarisAccounts, row: AccountRow) =>
   ActionSheetIOS.showActionSheetWithOptions(
     {
       title: "Commit email",
-      message: `Work you do in shared sessions as ${row.login} is credited to this address`,
+      message: `Work you do in shared sessions as @${row.login} is credited to this address`,
       options: [...row.emails, "Cancel"],
       cancelButtonIndex: row.emails.length,
     },
@@ -53,7 +53,7 @@ const accountActions = (accounts: PolarisAccounts, row: AccountRow) => {
 
   ActionSheetIOS.showActionSheetWithOptions(
     {
-      title: `${row.login} · ${row.server}`,
+      title: `@${row.login} · ${row.server}`,
       options: [...actions.map(([label]) => label), "Cancel"],
       destructiveButtonIndex: actions.length - 1,
       cancelButtonIndex: actions.length,
@@ -189,7 +189,7 @@ export const PolarisAccountsPanel = ({ accounts }: { readonly accounts: PolarisA
         <Line
           key={row.id}
           initial={row.initial}
-          title={row.login}
+          title={`@${row.login}`}
           line={`${row.server} · ${row.line}`}
           last={false}
           onPress={() => accountActions(accounts, row)}
