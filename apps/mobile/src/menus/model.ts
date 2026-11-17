@@ -318,21 +318,30 @@ export const commentMenu: Menu = [
   [{ ...item("comment", "Comment", { kind: "comment" }), symbol: "text.bubble" }],
 ];
 
-/** A finished Turn in the thread (MX-J): its receipt heads the menu, then Copy and Fork. */
+/**
+ * A finished Turn in the thread (MX-J): its receipt heads the menu, then Copy and Fork. A
+ * Teammate never gets Fork: the Host refuses ForkSession to every Share (`decideShareAccess`).
+ */
 export const turnMenu = (
   where: { readonly hostId: string; readonly sessionId: string },
-  turn: { readonly turnId: string; readonly output: string }
-): Menu => [
+  turn: { readonly turnId: string; readonly output: string },
+  viewer: "owner" | "teammate" = "owner"
+): Menu =>
   [
-    ...(turn.output === ""
-      ? []
-      : [{ ...item("copy", "Copy", { kind: "copy", text: turn.output }), symbol: "doc.on.doc" }]),
-    {
-      ...item("fork", "Fork from here", { kind: "fork", ...where, turnId: turn.turnId }),
-      symbol: "arrow.triangle.branch",
-      // ForkSession is "local" in DEVICE_COMMANDS: the Daemon refuses it from a phone.
-      subtitle: "From the desktop app for now",
-      disabled: true,
-    },
-  ],
-];
+    [
+      ...(turn.output === ""
+        ? []
+        : [{ ...item("copy", "Copy", { kind: "copy", text: turn.output }), symbol: "doc.on.doc" }]),
+      ...(viewer === "teammate"
+        ? []
+        : [
+            {
+              ...item("fork", "Fork from here", { kind: "fork", ...where, turnId: turn.turnId }),
+              symbol: "arrow.triangle.branch",
+              // ForkSession is "local" in DEVICE_COMMANDS: the Daemon refuses it from a phone.
+              subtitle: "From the desktop app for now",
+              disabled: true,
+            },
+          ]),
+    ],
+  ].filter((group) => group.length > 0);

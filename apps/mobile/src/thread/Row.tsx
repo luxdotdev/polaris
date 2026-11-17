@@ -332,6 +332,7 @@ const TurnMenu = ({
   onMenuAction,
   receiptHeight,
   onComment,
+  viewer,
   children,
 }: {
   readonly turn: TurnFacts | null;
@@ -340,10 +341,16 @@ const TurnMenu = ({
   readonly receiptHeight: number;
   /** In a shared session, the message's Comment item. */
   readonly onComment?: (() => void) | undefined;
+  /** Who is looking: a Teammate's menu leaves out what only the owner may do. */
+  readonly viewer?: "owner" | "teammate" | undefined;
   readonly children: ReactNode;
 }) => {
   const turned = turn !== null && session !== undefined && onMenuAction !== undefined;
-  const menu = [...(turned ? turnMenu(session, turn) : []), ...(onComment ? commentMenu : [])];
+
+  const menu = [
+    ...(turned ? turnMenu(session, turn, viewer) : []),
+    ...(onComment ? commentMenu : []),
+  ];
 
   if (menu.length === 0) return children;
 
@@ -390,6 +397,7 @@ const Reply = ({
       session={session}
       onMenuAction={onMenuAction}
       receiptHeight={row.receipt === null ? 0 : receiptHeight}
+      viewer={sharing?.viewer.kind}
       onComment={
         sharing === undefined
           ? undefined
@@ -495,7 +503,13 @@ const RowView = ({
       return <Reply row={row} session={session} onMenuAction={onMenuAction} sharing={sharing} />;
     case "receipt":
       return (
-        <TurnMenu turn={row.turn} session={session} onMenuAction={onMenuAction} receiptHeight={0}>
+        <TurnMenu
+          turn={row.turn}
+          session={session}
+          onMenuAction={onMenuAction}
+          receiptHeight={0}
+          viewer={sharing?.viewer.kind}
+        >
           <Text
             style={[styles.receipt, styles.reply, styles.turnEnd]}
             maxFontSizeMultiplier={CONTENT_TEXT_SCALE}
