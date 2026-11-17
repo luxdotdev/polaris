@@ -824,7 +824,7 @@ machine decides.
 | `Cancel`, `Edit` | `changeQueued` behind `queue.cancel` and `queue.edit`; `mayChange` is `mayChangeQueuedTurn` (`@polaris/protocol`) |
 | `End("completed")` | `afterTurn`, `nextQueued`: the head starts (`runQueuedTurn`), or the session goes Idle |
 | `End("interrupted")` | `afterTurn`: the session goes Idle and the queue stays, paused (`paused`) |
-| `EndBarring(people)`, `Resume(people)` | the `barred` list on `harness.turnEnded` and `queue.resume` (`engine/queueAccess.ts`: a Share ended or without `turn`, a Pairing revoked or without `turn`), and a sender without `approve` in a session that approves for itself (`queuedTurnMayStart`): their queued Turns are cancelled, the first of the rest starts |
+| `EndBarring(people)`, `Resume(people)` | the `barred` list on `harness.turnEnded` and `queue.resume` (`engine/queueAccess.ts`: a Share ended or without `turn`, a Pairing revoked or without `turn`, or in a session that approves for itself a live Share or Pairing without `approve`), and a sender who queued without `approve` in a session that approves for itself (`queuedTurnMayStart`; a Teammate's `approves` comes from their Share, `teammateApproves`): their queued Turns are cancelled, the first of the rest starts |
 | `Resume` | `ResumeQueue`, `resumeQueue`: only a paused queue; the head starts as its sender's Turn |
 | `End("failed")`, `Lose` | `dropQueue`, with a Turn in flight: a failed or limited Turn, a Harness exit, `session.fail`, `daemon.recover`, a terminal UI closing. A paused queue stays |
 | `queue`, `authorOf` | `SessionRecord.queue` (`store/queuedTurns.ts`, the `queued_turns` table), `QueuedTurn.actor` |
@@ -857,7 +857,9 @@ Turns in order with their Actors and one Idle at the end, cancel and edit rules,
 pausing the queue until a resume starts its head as its sender's Turn, a failure and a
 restart dropping the queue with its reason, a paused queue outliving a restart, and a Turn
 whose sender lost access since (a revoked Share, a Commenter, an unpaired Extension, no
-`approve` once the session approves for itself) cancelled as the next starts.
+`approve` once the session approves for itself, whether never held or lost while queued by an
+Extension or a Teammate) cancelled as the next starts, and a Teammate whose Share lacks
+`approve` queuing without it.
 
 ## Authenticated resource receipt challenges (M3.1 salvage)
 

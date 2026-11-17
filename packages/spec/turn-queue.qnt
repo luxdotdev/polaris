@@ -65,7 +65,7 @@ module turn_queue_model {
     | End(str)
     /**
      * A clean Turn end by which these Teammates lost the access they queued with: their Share
-     * ended, or the session approves for itself now and they hold no `approve`.
+     * ended, or the session approves for itself now and they held or hold no `approve`.
      */
     | EndBarring(Set[int])
     /** `ResumeQueue` on a paused queue, by which these Teammates lost their access. */

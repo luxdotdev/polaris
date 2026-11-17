@@ -75,11 +75,11 @@ const teammate = (name: string) =>
 
 const raycast = Actor.cases.Extension.make({ pairingId: PairingId.make("p1"), name: "Raycast" });
 
-const pairing = (revokedAt: string | null) =>
+const pairing = (revokedAt: string | null, grant: Grant = ["read", "turn"]) =>
   new Pairing({
     id: PairingId.make("p1"),
     name: "Raycast",
-    grant: ["read", "turn"],
+    grant,
     createdAt: "2026-01-01T00:00:00.000Z",
     lastUsedAt: null,
     revokedAt,
@@ -132,12 +132,17 @@ const setup = (shares: ReadonlyArray<Share>, onInterrupt = false) => {
     );
   };
 
+  /** The owner changes `name`'s Share to hold `grant`. */
+  const regrant = (name: string, grant: Grant) => {
+    current = current.map((s) => (s.person.name === name ? share(name, null, grant) : s));
+  };
+
   /** What the Pairing store holds from now on. */
   const paired = (now: ReadonlyArray<Pairing>) => {
     pairings = now;
   };
 
-  return { driver, layer, revoke, demote, paired };
+  return { driver, layer, revoke, demote, regrant, paired };
 };
 
 const run = <A, E>(layer: Layer.Layer<Env>, program: Effect.Effect<A, E, Env>) =>
@@ -569,6 +574,64 @@ describe("queued Turns in a shared session (ENG-941)", () => {
         expect(prompts(driver)).toEqual(["first"]);
         expect(yield* cancellations(idle.sequence)).toEqual([
           [turnId, "The session approves for itself now, and its sender can't approve"],
+        ]);
+      })
+    );
+  });
+
+  const NO_APPROVE: Grant = ["read", "comment", "turn"];
+  const autoMode = Command.cases.SetPermissionMode.make({ sessionId: S, permissionMode: "auto" });
+
+  test.each([
+    ["an Extension whose Pairing", "Its Extension may no longer approve"],
+    ["a Teammate whose Share", "Their Share no longer allows approving"],
+  ] as const)(
+    "%s loses approve while its Turn waits: it never starts once the session approves for itself",
+    async (who, reason) => {
+      const fromExtension = who.startsWith("an Extension");
+      const { driver, layer, regrant, paired } = setup([share("Ana")]);
+
+      await run(
+        layer,
+        Effect.gen(function* () {
+          paired([pairing(null, ["read", "turn", "approve"])]);
+          yield* working(driver);
+          yield* dispatch(autoMode);
+
+          const sendTurn = Command.cases.SendTurn.make({
+            sessionId: S,
+            prompt: "queued",
+            attachments: [],
+          });
+
+          if (fromExtension) yield* dispatch(sendTurn, raycast, ["read", "turn", "approve"]);
+          else yield* send("queued", ana);
+          const turnId = yield* queuedId("queued");
+
+          if (fromExtension) paired([pairing(null, ["read", "turn"])]);
+          else regrant("Ana", NO_APPROVE);
+          yield* endTurn(driver);
+          const idle = yield* waitFor((m) => m.sessions.get(S)?.session.state === "idle");
+
+          expect(prompts(driver)).toEqual(["first"]);
+          expect(yield* cancellations(idle.sequence)).toEqual([[turnId, reason]]);
+        })
+      );
+    }
+  );
+
+  test("a Teammate whose Share lacks approve queues their Turn without it, whatever Grant reached the Engine", async () => {
+    const { driver, layer } = setup([share("Ana", null, NO_APPROVE), share("Bob")]);
+
+    await run(
+      layer,
+      Effect.gen(function* () {
+        yield* working(driver);
+        yield* send("from Ana", ana);
+        yield* send("from Bob", bob);
+        expect(queueOf(yield* record).map((q) => [q.prompt, q.approves])).toEqual([
+          ["from Ana", false],
+          ["from Bob", true],
         ]);
       })
     );

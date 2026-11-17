@@ -23,7 +23,7 @@ import { Clock, Context, Effect, Layer, Option, Predicate } from "effect";
 import { sharedRevertRefusal } from "../accept/reactor.ts";
 import { ShareBook } from "../shares/identities.ts";
 import { isSessionShared } from "../shares/shared.ts";
-import { PairingBook, queueAccess } from "./queueAccess.ts";
+import { PairingBook, queueAccess, teammateApproves } from "./queueAccess.ts";
 import { CommitResult } from "../store/EventStore.ts";
 import type { ReadModel } from "../store/model.ts";
 import { decide } from "./decider.ts";
@@ -203,6 +203,20 @@ const make = Effect.gen(function* () {
       );
     });
 
+  /** For a Teammate's SendTurn: whether their live Share holds `approve`, as it may queue. */
+  const approvesNow = (command: Command, actor: Actor | undefined) =>
+    Effect.gen(function* () {
+      if (!Predicate.isTagged(command, "SendTurn") || actor === undefined) return null;
+
+      return teammateApproves(
+        yield* store.model,
+        command.sessionId,
+        Option.isSome(book) ? yield* book.value.all : null,
+        yield* Clock.currentTimeMillis,
+        actor
+      );
+    });
+
   const commitCommand: Dispatch = Effect.fn("Engine.dispatch")(function* (input: DispatchInput) {
     const { commandId, command } = input;
     yield* refuseSharedRevert(commandId, command);
@@ -215,6 +229,7 @@ const make = Effect.gen(function* () {
       extensionGrant: input.extensionGrant ?? null,
       shareRole: input.shareRole ?? null,
       shared: yield* isShared(command),
+      teammateApproves: yield* approvesNow(command, input.actor),
       barred: Predicate.isTagged(command, "ResumeQueue")
         ? yield* queueAccess(store, book, pairings, command.sessionId)
         : [],

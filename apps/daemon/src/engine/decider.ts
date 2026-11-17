@@ -62,6 +62,8 @@ export interface DecideContext {
   readonly shareRole?: ShareRole | null;
   /** For SendTurn: the session is shared, so a Turn sent with one in flight joins its queue. */
   readonly shared?: boolean;
+  /** For a Teammate's SendTurn: whether their live Share holds `approve` (`teammateApproves`). */
+  readonly teammateApproves?: boolean | null;
   /** For ResumeQueue: the queued Turns whose sender lost access since (`queueAccess.ts`). */
   readonly barred?: ReadonlyArray<BarredTurn>;
   /** Fresh ids, used only by the commands that create something. */
@@ -542,6 +544,15 @@ const compactSession = (d: Deciding, command: CommandOf<"CompactSession">): Deci
 const onSession = (d: Deciding, sessionId: SessionId, input: SessionInput): Decision =>
   d.withSession(sessionId, (record) => d.lifecycle(record, input));
 
+/** Whether a sent Turn's sender holds `approve`: a Teammate's from their Share, never by default. */
+const sendsWithApprove = (ctx: DecideContext): boolean => {
+  const granted = ctx.extensionGrant?.includes("approve");
+
+  if (Predicate.isTagged(ctx.actor, "Teammate")) return ctx.teammateApproves ?? granted ?? false;
+
+  return granted ?? true;
+};
+
 export const decide = (model: ReadModel, command: Command, ctx: DecideContext): Decision => {
   const mode =
     "sessionId" in command
@@ -584,7 +595,7 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
           type: "turn.send",
           turn: d.newTurn(record.session, c.prompt),
           queue: ctx.shared === true,
-          approves: ctx.extensionGrant == null || ctx.extensionGrant.includes("approve"),
+          approves: sendsWithApprove(ctx),
         })
       ),
     CancelQueuedTurn: (c) =>
