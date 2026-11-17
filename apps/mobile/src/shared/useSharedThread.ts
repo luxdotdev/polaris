@@ -4,12 +4,13 @@
  * connection. Nothing shows in a session that was never shared (rule/solo-is-unchanged).
  */
 import {
-  type Command,
+  Command,
   type Comment,
   type CommentAnchor,
   type SessionId,
   type SharePresenceEntry,
   ShareTarget,
+  type TurnId,
 } from "@polaris/protocol";
 import { Effect, Fiber, Predicate, Stream } from "effect";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -19,6 +20,7 @@ import { useLiveHost } from "../runtime/hosts.tsx";
 import type { SessionFold } from "../thread/fold.ts";
 import { newCommandId } from "../thread/source.ts";
 import { addComment, resolveComment, sendComments } from "./commands.ts";
+import { type QueueView, queueView } from "./queue.ts";
 import {
   OWNER,
   sendsTurns,
@@ -73,6 +75,11 @@ export interface SharedThread {
   readonly comment: (target: CommentTarget, body: string) => Promise<string | null>;
   readonly resolve: (comment: Comment, resolve: boolean) => Promise<string | null>;
   readonly send: () => Promise<string | null>;
+  /** The session's queued Turns (ENG-941), and the queue's commands. */
+  readonly queue: QueueView;
+  readonly cancelQueued: (turnId: TurnId) => Promise<string | null>;
+  readonly editQueued: (turnId: TurnId, prompt: string) => Promise<string | null>;
+  readonly resumeQueue: () => Promise<string | null>;
 }
 
 const NO_COMMENTS: ReadonlyArray<Comment> = [];
@@ -176,5 +183,10 @@ export const useSharedThread = (
     comment: (on, body) => dispatch(addComment(sessionId, on.anchor, body)),
     resolve: (comment, resolve) => dispatch(resolveComment(comment, resolve)),
     send: () => dispatch(sendComments(sessionId, unsentComments(comments))),
+    queue: queueView(fold),
+    cancelQueued: (turnId) => dispatch(Command.cases.CancelQueuedTurn.make({ sessionId, turnId })),
+    editQueued: (turnId, prompt) =>
+      dispatch(Command.cases.EditQueuedTurn.make({ sessionId, turnId, prompt })),
+    resumeQueue: () => dispatch(Command.cases.ResumeQueue.make({ sessionId })),
   };
 };

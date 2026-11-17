@@ -601,6 +601,7 @@ export const ThreadScreen = ({
           {aboveComposer}
           <Suggestions items={chips} onPick={pick} />
           <Shared.SendCommentsBar count={shared.sendable.length} onSend={shared.send} />
+          <Shared.QueuedTurns shared={shared} />
           {Shared.commenting(shared) ? (
             <Shared.SharedCommentComposer shared={shared} />
           ) : (
@@ -655,6 +656,7 @@ export const ThreadScreen = ({
           connection={connection}
           sessionId={sessionId}
           title={session.title}
+          harness={session.harness}
           sharing={sharingOpen}
           onCloseShare={() => setSharingOpen(false)}
         />
