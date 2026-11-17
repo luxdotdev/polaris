@@ -232,6 +232,16 @@ test("muting names its target, so only a Share of that target lets a Teammate mu
   });
 });
 
+test.each(["shares.create", "shares.renew"])(
+  "a Contributor whose Share covers the session still can't call %s: sharing is the owner's",
+  (rpc) => {
+    const target = ShareTarget.cases.Session.make({ sessionId: S1 });
+    const subject = subjectOf(rpc, decodeSubject({ target, id: "share_1", expiresAt: null }));
+
+    expect(request(rpc, subject, { mayAct: true })).toBeInstanceOf(NotShared);
+  }
+);
+
 test("Comments and the Contributor's own commands pass while Turns are held back", () => {
   expect(request("dispatch", dispatch("AddComment"))).toBeNull();
   expect(request("dispatch", dispatch("RenameSession"))).toBeNull();

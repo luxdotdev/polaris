@@ -177,3 +177,49 @@ test("an Invite's relay URL reaches the Teammate who accepts it; none is Polaris
     refused: ["refused", "InvalidInvite"],
   });
 }, 60_000);
+
+test("a withdrawn Invite leaves the invitee's list and can't be accepted", async () => {
+  const layer = Accounts.layer({
+    store: memoryAccountStore(),
+    fetch: (url, init) => fetch(url, init),
+    clientId: "test",
+  });
+
+  const run = <A, E>(effect: Effect.Effect<A, E, Accounts>) =>
+    Effect.runPromise(Effect.scoped(Effect.provide(effect, layer)));
+
+  const outcome = await run(
+    Effect.gen(function* () {
+      const accounts = yield* Accounts;
+      const owner = yield* accounts.signIn(team.origin, browserFor(team, "marge", 2101));
+      const teammate = yield* accounts.signIn(team.origin, browserFor(team, "homer", 2102));
+
+      const created = yield* accounts.createInvite(owner.id, {
+        inviteeLogin: "homer",
+        share: { id: crypto.randomUUID(), title: "Withdrawn", kind: "session" },
+        host: { name: "Desk", relayAddress: "relay-desk", noiseKey: randomNoiseKey() },
+        role: "contributor",
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      });
+
+      const before = yield* accounts.invites(teammate.id);
+      yield* accounts.withdrawInvite(owner.id, created);
+
+      const accept = yield* Effect.flip(
+        accounts.accept(teammate.id, created.inviteId, {
+          relayAddress: "relay-homer",
+          noiseKey: randomNoiseKey(),
+        })
+      );
+
+      const after = yield* accounts.invites(teammate.id);
+
+      const listed = (all: ReadonlyArray<{ readonly inviteId: string }>) =>
+        all.some((i) => i.inviteId === created.inviteId);
+
+      return { before: listed(before), after: listed(after), accept: accept.serverTag };
+    })
+  );
+
+  expect(outcome).toEqual({ before: true, after: false, accept: "InviteClosed" });
+}, 60_000);

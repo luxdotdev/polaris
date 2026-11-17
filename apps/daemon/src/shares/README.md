@@ -23,8 +23,11 @@ The contract with the Account Server is `apps/accounts/README.md`; the wire cont
 
 ## Lifecycle
 
-1. The owner's Client makes an Invite on the Account Server and calls `shares.create` with the
-   target, the invitee's `personId`, the issuer, the Invite's ID and the host capability. The
+1. The owner's Client (the Desktop App or a Linked Device) makes an Invite on the Account Server
+   and calls `shares.create` with the target, the invitee's `personId`, the issuer, the Invite's
+   ID and the host capability; if the Host refuses, the Client withdraws the Invite
+   (`DELETE /v1/shares/{inviteId}/devices` with the capability). Teammates and Extensions never
+   create or renew a Share. The
    Host asks the issuer once (a wrong capability is `invite`, no answer `issuer-unreachable`),
    stores the Share with the person pinned, and keeps the capability in `HostSecrets`.
 2. While the Share is live, one long-poll per Share asks its issuer for the devices that

@@ -16,15 +16,7 @@ import { themedStyles, useTheme } from "../theme/index.ts";
 import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 import { harnessLogin, loginWarning } from "./login.ts";
 import { roleWord } from "./model.ts";
-import {
-  firstName,
-  loginOf,
-  type ShareCalls,
-  shareConsequences,
-  shareFailure,
-  shareNotTaken,
-  shareSession,
-} from "./share.ts";
+import { firstName, loginOf, type ShareCalls, shareConsequences, shareSession } from "./share.ts";
 
 const ROLES: ReadonlyArray<ShareRole> = ["contributor", "commenter"];
 
@@ -42,14 +34,8 @@ const useShareCalls = (connection: HostConnection): ShareCalls => {
   return {
     person: (accountId, login) => outcome(call((a) => a.person(accountId, login))),
     invite: (accountId, invite) => outcome(call((a) => a.createInvite(accountId, invite))),
-    create: (share) =>
-      connection.run((client) =>
-        client["shares.create"](share).pipe(
-          Effect.asVoid,
-          Effect.mapError((error) => new Error(shareFailure(error, connection.name))),
-          Effect.catchDefect(() => Effect.fail(new Error(shareNotTaken(connection.name))))
-        )
-      ),
+    withdraw: (accountId, invite) => outcome(call((a) => a.withdrawInvite(accountId, invite))),
+    create: (share) => connection.run((client) => Effect.asVoid(client["shares.create"](share))),
   };
 };
 

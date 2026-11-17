@@ -1,6 +1,6 @@
 /**
  * The owner's side of sharing: an Invite on the Account Server, then the Share on the session's
- * Host (ADR 0112); the session's Shares, renewing and revoking them, and who has it open.
+ * Host, withdrawing the Invite if the Host refuses (ADR 0112); the session's Shares, renewing and revoking them, and who has it open.
  */
 import type { LiveSession } from "@polaris/client";
 import { type AccountsApi, AccountsError, workspaceAccountKey } from "@polaris/client/accounts";
@@ -130,7 +130,10 @@ export const ownerSharing = (input: OwnerInput) => {
       issuer: account.server,
       inviteId: InviteId.make(invite.inviteId),
       hostCapability: Redacted.make(invite.hostCapability),
-    });
+    }).pipe(
+      // A refused Share leaves no Invite for anyone to accept; a failed withdraw keeps the refusal.
+      Effect.tapError(() => Effect.ignore(accounts.withdrawInvite(account.id, invite)))
+    );
 
     const workspace = workspaceAccountKey(request.hostKey, request.workspaceId);
 

@@ -1,6 +1,7 @@
 /**
  * A fake Account Server as a `fetch`, enough of the contract for `Accounts`' own logic: PKCE
- * codes, `/v1/me`, statements, sign-out and the device flow. The real one is in the slow test.
+ * codes, `/v1/me`, statements, sign-out, the device flow, people, Invites and withdrawing one. The
+ * real one is in the slow test.
  */
 import { Effect, Option, Schema } from "effect";
 import type { Fetch } from "./http.ts";
@@ -44,6 +45,8 @@ export const fakeAccountServer = (
   const sessions = new Map<string, FakePerson>();
   const devices = new Map<string, FakePerson | null>();
   const calls: Array<string> = [];
+  /** Each Invite's capability, and whether it can still be accepted. */
+  const invites = new Map<string, { capability: string; live: boolean }>();
   let next = 0;
   let signedIn: FakePerson = { personId: "p1", login: "octocat" };
 
@@ -57,6 +60,36 @@ export const fakeAccountServer = (
 
   const session = (request: Request) =>
     sessions.get((request.headers.get("authorization") ?? "").replace("Bearer ", ""));
+
+  /** `DELETE /v1/shares/{inviteId}/devices` with the Invite's capability; null for any other call. */
+  const withdraw = (request: Request, path: string): Response | null => {
+    const id = /^\/v1\/shares\/([^/]+)\/devices$/.exec(path)?.[1];
+
+    if (id === undefined || request.method !== "DELETE") return null;
+    const held = invites.get(decodeURIComponent(id));
+    const capability = (request.headers.get("authorization") ?? "").replace("Capability ", "");
+
+    if (held === undefined || held.capability !== capability) return refusal("Unauthorized", 401);
+    held.live = false;
+
+    return new Response(null, { status: 204 });
+  };
+
+  /** A person lookup or a new Invite, for a signed-in session; null for any other call. */
+  const invite = (request: Request, path: string): Response | null => {
+    if (path === "/v1/people") {
+      const login = new URL(request.url).searchParams.get("login") ?? "";
+
+      return json({ personId: `id-of-${login}`, login, name: null, avatarUrl: null });
+    }
+
+    if (path !== "/v1/invites" || request.method !== "POST") return null;
+    const inviteId = `inv${++next}`;
+    const capability = `cap${next}`;
+    invites.set(inviteId, { capability, live: true });
+
+    return json({ inviteId, hostCapability: capability, relayUrl: null });
+  };
 
   const routes = async (request: Request, path: string): Promise<Response> => {
     const raw: unknown = request.method === "GET" ? {} : await request.json().catch(() => ({}));
@@ -99,9 +132,16 @@ export const fakeAccountServer = (
       return json({ access_token: token });
     }
 
+    const withdrawing = withdraw(request, path);
+
+    if (withdrawing !== null) return withdrawing;
     const person = session(request);
 
     if (person === undefined) return refusal("Unauthorized", 401);
+
+    const sharing = invite(request, path);
+
+    if (sharing !== null) return sharing;
 
     if (path === "/api/auth/sign-out") {
       sessions.delete((request.headers.get("authorization") ?? "").replace("Bearer ", ""));
@@ -156,6 +196,10 @@ export const fakeAccountServer = (
     /** The server ends every session, as a revocation or expiry does. */
     endSessions: () => sessions.clear(),
     approveDevice: (person: FakePerson) => devices.set("dc", person),
+    /** Every Invite made, withdrawn or not. */
+    invited: () => [...invites.keys()],
+    /** The Invites someone could still accept. */
+    liveInvites: () => [...invites].flatMap(([id, held]) => (held.live ? [id] : [])),
   };
 };
 
