@@ -9,6 +9,7 @@
     "start": "expo start",
     "ios": "bun scripts/buildSodium.ts && expo run:ios",
     "dev:daemon": "bun scripts/devDaemon.ts",
+    "dev:sharing": "bun scripts/devSharing.ts",
     "hermes": "bun scripts/hermes.ts",
     "hermes:build": "bun scripts/buildHermes.ts",
     "sodium:build": "bun scripts/buildSodium.ts",
