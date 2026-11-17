@@ -158,7 +158,13 @@ export const PushNotifier = Layer.effectDiscard(
       for (const push of pushes) {
         const touch = touchOf(push);
 
-        if (shared === null || touch === null || push.message.kind !== "needs-you") continue;
+        if (
+          shared === null ||
+          touch === null ||
+          push.message.kind !== "needs-you" ||
+          push.ownerOnly
+        )
+          continue;
         runFork(
           Effect.flatMap(touch, (touched) =>
             Effect.forEach(

@@ -79,9 +79,17 @@ const byKind = (
   return undefined;
 };
 
-/** Allows once, the way Polaris answers requests its permission mode lets through. */
-export const allowOnce = (options: ReadonlyArray<P.PermissionOption>): P.PermissionResponse =>
-  selected(byKind(options, "allow_once", "allow_always"));
+/**
+ * Allows once, the way Polaris answers requests its permission mode lets through; null when the
+ * agent offers no once-only allow, so the request is asked instead of allowed for good.
+ */
+export const allowOnce = (
+  options: ReadonlyArray<P.PermissionOption>
+): P.PermissionResponse | null => {
+  const once = byKind(options, "allow_once");
+
+  return once === undefined ? null : selected(once);
+};
 
 /** The agent's option a decision picks; `cancelled` when it offered none that fits. */
 export const permissionResponse = (
@@ -89,11 +97,10 @@ export const permissionResponse = (
   decision: ApprovalDecision
 ): P.PermissionResponse =>
   ApprovalDecision.match(decision, {
+    // An Allow that isn't remembered never picks allow_always: with no once-only option it cancels.
     Allow: ({ remember }) =>
       selected(
-        remember
-          ? byKind(options, "allow_always", "allow_once")
-          : byKind(options, "allow_once", "allow_always")
+        remember ? byKind(options, "allow_always", "allow_once") : byKind(options, "allow_once")
       ),
     Deny: () => selected(byKind(options, "reject_once", "reject_always")),
     // Only Secret Requests take Provided, and no Harness asks one: decline.

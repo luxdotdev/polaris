@@ -195,6 +195,14 @@ describe("actors", () => {
         );
 
         expect(remembered).toContain("a Teammate allows this request only");
+
+        // An agent's option named in text could be its always-allow: a Teammate can't pick one.
+        const named = yield* answer(
+          ApprovalDecision.cases.Answer.make({ text: "Always allow" }),
+          octocat
+        );
+
+        expect(named).toContain("an allow once or a deny");
         expect(
           yield* answer(ApprovalDecision.cases.Allow.make({ remember: false }), octocat)
         ).toBeNull();

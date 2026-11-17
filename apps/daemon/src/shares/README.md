@@ -72,8 +72,10 @@ reads and writes, every Host-wide call.
 - A Contributor answers approvals (`RespondToApproval`, the `approve` Grant). The first answer
   wins; a later one, the owner's included, is rejected as already resolved. `ApprovalResolved`
   records the Teammate Actor, and its name as `resolvedBy` for a Client that can't decode it.
-  A Teammate's `Allow` holds for that request only: `remember` or a `dataScope` is the owner's
-  (`../engine/session.approvals.ts`).
+  A Teammate's `Allow` holds for that request only: `remember` or a `dataScope` is the owner's,
+  and so is a text answer to a permission request, which could name the agent's always-allow
+  (`../engine/session.approvals.ts`). Secret Requests are the owner's alone: a Teammate can't
+  answer one, its session feed leaves them out (`feeds.ts`), and its devices get no push for one.
 - Needs You reaches the owner's Linked Devices as before (`../push/`) and, at once, the devices
   of every Contributor whose live Share lists them and covers the session with `approve`. The
   owner's presence at a Desktop App holds only the owner's pushes. A device registers over its

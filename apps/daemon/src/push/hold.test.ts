@@ -372,6 +372,8 @@ test("a Contributor's phone hears of a Needs You at once while the owner sits at
       Effect.gen(function* () {
         presence.report(1, "present");
         feed(notified("n1", false));
+        // A Secret Request is the owner's: the Teammate never hears of it.
+        feed(approvalRequested("secret1", "secret"));
         feed(approvalRequested("r1"));
         yield* waitUntil(() => (teammate.length > 0 ? true : undefined), "the Teammate's push");
         yield* Effect.sleep("50 millis");
@@ -380,7 +382,7 @@ test("a Contributor's phone hears of a Needs You at once while the owner sits at
 
         presence.report(1, "away");
         yield* Effect.sleep("50 millis");
-        expect(requestIds(woken)).toEqual(["r1"]);
+        expect(requestIds(woken)).toEqual(["secret1", "r1"]);
         expect(requestIds(teammate)).toEqual(["r1"]);
       }),
     { shared }

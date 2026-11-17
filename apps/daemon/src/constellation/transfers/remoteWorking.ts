@@ -3,6 +3,7 @@ import {
   type DomainEvent,
   type Attempt,
   type AttemptId,
+  type ConstellationId,
   type RemoteWorkerAssignment,
   type ConstellationTransferError,
 } from "@polaris/protocol";
@@ -279,9 +280,13 @@ export const remoteWorkingAttemptsLayer = <E, R>(hooks: RemoteWorkingHooks<E, R>
         Effect.forkIn(parent)
       );
 
-      const restartStartup = Effect.fnUntraced(function* (attemptId: AttemptId) {
+      const restartStartup = Effect.fnUntraced(function* (
+        constellationId: ConstellationId,
+        attemptId: AttemptId
+      ) {
+        // Only the named Constellation's worker: a Share on one never restarts another's.
         const assignment = (yield* storage.assignments.pipe(Effect.orDie)).find(
-          (a) => a.attemptId === attemptId
+          (a) => a.attemptId === attemptId && a.graph.id === constellationId
         );
 
         if (assignment === undefined) return false;

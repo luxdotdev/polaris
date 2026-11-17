@@ -61,7 +61,7 @@ ACP text chunks have no end marker, so a text item stays open until something el
 
 ## Approvals
 
-`session/request_permission` becomes Needs You unless the permission mode lets its tool kind through, in which case Polaris answers `allow_once` itself:
+`session/request_permission` becomes Needs You unless the permission mode lets its tool kind through, in which case Polaris answers `allow_once` itself (an agent that offers no `allow_once` is asked instead: Polaris never picks `allow_always` unasked):
 
 | Permission mode | Let through without asking |
 |---|---|
@@ -71,7 +71,7 @@ ACP text chunks have no end marker, so a text item stays open until something el
 | auto | those, `execute`, `fetch` |
 | full-access | everything |
 
-The approval's kind is `command` for `execute`, `file-change` for `edit`/`delete`/`move`, else `tool`; its detail is the command, the paths, or the raw input. `respond`: Allow → `allow_once` (`allow_always` when `remember`), Deny → `reject_once`, Answer → the option whose name or id matches, else `cancelled`. A denied tool call is completed as `declined`.
+The approval's kind is `command` for `execute`, `file-change` for `edit`/`delete`/`move`, else `tool`; its detail is the command, the paths, or the raw input. `respond`: Allow → `allow_once`, else `cancelled` (`allow_always` only when `remember`), Deny → `reject_once`, Answer → the option whose name or id matches, else `cancelled`. A denied tool call is completed as `declined`.
 
 The Harness's own policy still applies on its side: when a session offers modes (or a "mode" config option), the permission mode also selects the first matching id from `MODE_IDS` in `harnesses.ts` (for example `yolo` for full-access, `default` for supervised). Plan selects the agent's `plan` (or `architect`) mode; an agent without one gets its supervised mode, so the user gets supervised behaviour: Polaris asks before every edit and command, and the agent isn't told to plan. The mode ids for Gemini CLI and Copilot weren't checked against those binaries (neither is installed on the Host this was built on).
 
