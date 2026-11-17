@@ -9,6 +9,7 @@ import {
   type ApprovalDecision,
   ApprovalRequest,
   type Comment,
+  type CurrentUserTurn,
   type QueuedTurn,
   type DomainEvent,
   RequestId,
@@ -129,11 +130,29 @@ const entryOf = (turn: Turn, items: ReadonlyArray<TurnItem> = []): TurnEntry => 
   streaming: [],
 });
 
+/**
+ * The user Turn after `turn` starts, as the Daemon's `userTurnAfter` counts it: a Turn the
+ * Harness began keeps the current one. Null while the Host doesn't number user Turns.
+ */
+const userTurnAfter = (state: SessionFold, turn: Turn): CurrentUserTurn | null => {
+  const current = state.session.currentUserTurn ?? null;
+  const known = state.turns.some((entry) => entry.turn.id === turn.id);
+  const harnessStarted = turn.trigger != null || turn.idleCompaction === true;
+
+  if (current === null || known || harnessStarted) return current;
+
+  return { turnId: turn.id, number: current.number + 1, startedAt: turn.startedAt };
+};
+
 const startTurn =
   (turn: Turn): Fold =>
   (state) => ({
     ...state,
-    session: { ...state.session, turnCount: Math.max(state.session.turnCount, turn.index + 1) },
+    session: {
+      ...state.session,
+      turnCount: Math.max(state.session.turnCount, turn.index + 1),
+      currentUserTurn: userTurnAfter(state, turn),
+    },
     turns: [...state.turns.filter((entry) => entry.turn.id !== turn.id), entryOf(turn)],
   });
 
