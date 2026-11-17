@@ -8,7 +8,9 @@ import { mobileType } from "@polaris/ui/tokens";
 import { Effect, Predicate, Stream } from "effect";
 import { useEffect, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
+import { AccountsError } from "@polaris/client/accounts";
 import { type AccountsOutcome, usePolarisAccounts } from "../accounts/AccountsProvider.tsx";
+import { serverName } from "../accounts/index.ts";
 import { useRelay } from "../relay/RelayProvider.tsx";
 import type { HostConnection } from "../runtime/hostConnection.ts";
 import { InstrumentSheet, SheetHeader } from "../sheet/index.tsx";
@@ -16,7 +18,14 @@ import { themedStyles, useTheme } from "../theme/index.ts";
 import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 import { harnessLogin, loginWarning } from "./login.ts";
 import { roleWord } from "./model.ts";
-import { invitedLine, loginOf, type ShareCalls, shareConsequences, shareSession } from "./share.ts";
+import {
+  invitedLine,
+  loginOf,
+  personFailure,
+  type ShareCalls,
+  shareConsequences,
+  shareSession,
+} from "./share.ts";
 
 const ROLES: ReadonlyArray<ShareRole> = ["contributor", "commenter"];
 
@@ -29,10 +38,26 @@ const outcome = async <A,>(pending: Promise<AccountsOutcome<A>>) => {
 };
 
 const useShareCalls = (connection: HostConnection): ShareCalls => {
-  const { call } = usePolarisAccounts();
+  const { call, state } = usePolarisAccounts();
+
+  const server = (accountId: string) =>
+    serverName(state?.accounts.find((held) => held.id === accountId)?.server ?? "");
 
   return {
-    person: (accountId, login) => outcome(call((a) => a.person(accountId, login))),
+    person: (accountId, login) =>
+      outcome(
+        call((a) =>
+          a.person(accountId, login).pipe(
+            Effect.mapError(
+              (error) =>
+                new AccountsError({
+                  reason: error.reason,
+                  message: personFailure(error, login, server(accountId)),
+                })
+            )
+          )
+        )
+      ),
     invite: (accountId, invite) => outcome(call((a) => a.createInvite(accountId, invite))),
     withdraw: (accountId, invite) => outcome(call((a) => a.withdrawInvite(accountId, invite))),
     create: (share) => connection.run((client) => Effect.asVoid(client["shares.create"](share))),

@@ -3,7 +3,13 @@
  * the sharing Account's server, make the Invite there naming this Host, then record the Share on
  * the Host with the person's id pinned (`shares.create`). A refused Share withdraws its Invite.
  */
-import type { AccountRecord, CreatedInvite, NewInvite, Person } from "@polaris/client/accounts";
+import type {
+  AccountRecord,
+  AccountsError,
+  CreatedInvite,
+  NewInvite,
+  Person,
+} from "@polaris/client/accounts";
 import {
   type HarnessKind,
   PersonId,
@@ -133,6 +139,12 @@ export const shareRefusal = (refusal: HostRefusal | null, host: string): string 
     })
   );
 };
+
+/** Why looking the person up failed, as the Desktop App says it; the server's own words otherwise. */
+export const personFailure = (error: AccountsError, login: string, server: string) =>
+  error.serverTag === "PersonNotFound" || error.status === 404
+    ? `@${loginOf(login)} hasn't signed in to Polaris on ${server}, so they can't be invited from this account yet.`
+    : error.message;
 
 /** The sheet's line once the Invite is out: by GitHub login, as the sheet names people. */
 export const invitedLine = (person: Person, role: ShareRole) =>

@@ -1,8 +1,14 @@
 import { expect, test } from "bun:test";
-import type { AccountRecord } from "@polaris/client/accounts";
+import { type AccountRecord, AccountsError } from "@polaris/client/accounts";
 import { NotFound, NotGranted, SessionId, ShareRefused, ShareTarget } from "@polaris/protocol";
 import { Redacted } from "effect";
-import { type HostRefusal, invitedLine, type ShareCalls, shareSession } from "./share.ts";
+import {
+  type HostRefusal,
+  invitedLine,
+  personFailure,
+  type ShareCalls,
+  shareSession,
+} from "./share.ts";
 
 const account: AccountRecord = {
   id: "a1",
@@ -186,4 +192,17 @@ test("the sheet names who was invited by login, never by the first word of their
   const person = { personId: "p-1", login: "octocat", name: "The Octocat", avatarUrl: null };
 
   expect(invitedLine(person, "contributor")).toBe("Invited @octocat as a contributor.");
+});
+
+test("a login nobody signed in with reads as plain copy, never the server's error tag", () => {
+  const notFound = new AccountsError({
+    reason: "refused",
+    message: "PersonNotFound",
+    status: 404,
+    serverTag: "PersonNotFound",
+  });
+
+  expect(personFailure(notFound, " @octocat", "accounts.acme.dev")).toBe(
+    "@octocat hasn't signed in to Polaris on accounts.acme.dev, so they can't be invited from this account yet."
+  );
 });
