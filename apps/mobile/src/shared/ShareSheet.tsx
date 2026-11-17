@@ -16,7 +16,7 @@ import { themedStyles, useTheme } from "../theme/index.ts";
 import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
 import { harnessLogin, loginWarning } from "./login.ts";
 import { roleWord } from "./model.ts";
-import { firstName, loginOf, type ShareCalls, shareConsequences, shareSession } from "./share.ts";
+import { invitedLine, loginOf, type ShareCalls, shareConsequences, shareSession } from "./share.ts";
 
 const ROLES: ReadonlyArray<ShareRole> = ["contributor", "commenter"];
 
@@ -150,7 +150,7 @@ const ShareForm = ({
         calls
       );
 
-      setSaid(`Invited ${firstName(person)} as a ${roleWord(role).toLowerCase()}.`);
+      setSaid(invitedLine(person, role));
       setLogin("");
     } catch (error) {
       setSaid(error instanceof Error ? error.message : "The invite wasn't sent");

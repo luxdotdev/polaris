@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import type { AccountRecord } from "@polaris/client/accounts";
 import { NotFound, NotGranted, SessionId, ShareRefused, ShareTarget } from "@polaris/protocol";
 import { Redacted } from "effect";
-import { type HostRefusal, type ShareCalls, shareSession } from "./share.ts";
+import { type HostRefusal, invitedLine, type ShareCalls, shareSession } from "./share.ts";
 
 const account: AccountRecord = {
   id: "a1",
@@ -180,4 +180,10 @@ test("a withdraw that fails still shows the Host's refusal", async () => {
   const { said } = await refusedShare(new ShareRefused({ reason: "expiry" }), false);
 
   expect(said).toBe("A share lasts at most 30 days.");
+});
+
+test("the sheet names who was invited by login, never by the first word of their name", () => {
+  const person = { personId: "p-1", login: "octocat", name: "The Octocat", avatarUrl: null };
+
+  expect(invitedLine(person, "contributor")).toBe("Invited @octocat as a contributor.");
 });

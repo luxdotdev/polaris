@@ -134,8 +134,9 @@ export const shareRefusal = (refusal: HostRefusal | null, host: string): string 
   );
 };
 
-export const firstName = (person: Person) =>
-  (person.name ?? person.login).split(/\s+/)[0] ?? person.login;
+/** The sheet's line once the Invite is out: by GitHub login, as the sheet names people. */
+export const invitedLine = (person: Person, role: ShareRole) =>
+  `Invited @${person.login} as a ${role}.`;
 
 /** What the sheet says sharing allows, plainly (DESIGN.md "Share"). */
 export const shareConsequences = (
