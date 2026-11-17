@@ -28,3 +28,12 @@ test("a Daemon's own refusal still reads as its reason", () => {
     refusalText({ code: "CommandRejected", message: "CommandRejected: interrupt the turn first" })
   ).toBe("Interrupt the turn first");
 });
+
+test("an approval someone else answered first says so, without the request's id", () => {
+  expect(
+    refusalText({
+      code: "CommandRejected",
+      message: "CommandRejected: request turn_d86ba26d-item-0-approval is already resolved",
+    })
+  ).toBe("This request was already answered.");
+});

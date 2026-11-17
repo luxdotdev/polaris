@@ -17,14 +17,29 @@ import {
   setCommentResolved,
   useCommentDraft,
 } from "../../data/session.ts";
-import { actorName, commentMarks, type SessionComment } from "../../model/session.ts";
+import {
+  type ActorViewer,
+  actorName,
+  commentMarks,
+  OWN_SESSION,
+  type SessionComment,
+} from "../../model/session.ts";
 import type { SessionComments } from "./hooks.ts";
 
 const OWNER = Actor.cases.Client.make({});
 
 /** Up to two initials in a circle (remote avatars wait for the main process's cache). */
-export const PersonAvatar = ({ actor, size = 20 }: { actor: Actor; size?: 16 | 20 }) => {
-  const initials = actorName(actor)
+export const PersonAvatar = ({
+  actor,
+  size = 20,
+  viewer = OWN_SESSION,
+}: {
+  actor: Actor;
+  size?: 16 | 20;
+  /** Who is reading; your own session's when left out, which the draft's "You" uses. */
+  viewer?: ActorViewer;
+}) => {
+  const initials = actorName(actor, viewer)
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
@@ -56,9 +71,9 @@ const CommentEntry = ({ comment, scope }: { comment: SessionComment; scope: Sess
       data-comment-id={comment.id}
     >
       <div className="gap-gap flex min-w-0 items-center">
-        <PersonAvatar actor={comment.author} />
+        <PersonAvatar actor={comment.author} viewer={scope.viewer} />
         <span className="text-body text-text-strong shrink-0 font-medium">
-          {actorName(comment.author)}
+          {actorName(comment.author, scope.viewer)}
         </span>
         <span className="text-caption text-text-subtle min-w-0 truncate">
           {[age(comment.createdAt, now), ...marks].join(" · ")}

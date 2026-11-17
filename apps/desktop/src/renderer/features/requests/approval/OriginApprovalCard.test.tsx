@@ -139,7 +139,7 @@ test("the thread's card and Requests' share the scope, and answering one settles
 });
 
 test("the inbox and hover cards offer no Always allow, and Approve sends what the send needs", () => {
-  expect(offersAlwaysAllow(fresh())).toBe(false);
+  expect(offersAlwaysAllow(fresh(), false)).toBe(false);
   expect(allowFor(fresh(), false)).toEqual(
     Decisions.Allow({ remember: true, originScope: "reads-and-writes" })
   );

@@ -6,6 +6,7 @@ import {
   type ShareListing,
   type ShareLogEntry,
 } from "@polaris/protocol";
+import type { AccountRecord } from "@polaris/client/accounts";
 import { Match, Predicate } from "effect";
 import type {
   PresenceView,
@@ -13,6 +14,7 @@ import type {
   ShareView,
   SharingPersonView,
 } from "../../shared/sharingContract.ts";
+import { type SharedEntry, sharedHostKey } from "./store.ts";
 
 /** Looks up a person's avatar as a data URL, or null until it loads. */
 export type AvatarOf = (login: string, url: string | null) => string | null;
@@ -63,14 +65,61 @@ export const shareView = (listing: ShareListing, now: number, avatar: AvatarOf):
   };
 };
 
+/** Who is looking at a session's presence, and how its owner reads to them. */
+export interface PresenceViewer {
+  /** "You" on your own Host; the person who shared it on theirs. */
+  readonly owner: SharingPersonView | null;
+  /** The viewer's person on a Host shared with them; null on their own Host, where they own it. */
+  readonly teammate: { readonly personId: string | null } | null;
+}
+
+/** The viewer of `sessionId` on `hostKey`: a Teammate when the session was shared with them. */
+export const presenceViewer = (input: {
+  readonly hostKey: string;
+  readonly sessionId: string;
+  readonly shared: ReadonlyArray<SharedEntry>;
+  readonly accounts: ReadonlyArray<AccountRecord>;
+  readonly avatar: AvatarOf;
+}): PresenceViewer => {
+  const entry = input.shared.find(
+    (e) => sharedHostKey(e.host.relayAddress) === input.hostKey && e.sessionId === input.sessionId
+  );
+
+  if (entry !== undefined)
+    return {
+      owner: {
+        login: entry.owner.login,
+        name: entry.owner.name,
+        avatar: input.avatar(entry.owner.login, entry.owner.avatarUrl),
+      },
+      teammate: {
+        personId: input.accounts.find((a) => a.id === entry.accountId)?.personId ?? null,
+      },
+    };
+
+  const account = input.accounts.find((a) => a.signedOutAt === null);
+
+  return {
+    owner:
+      account === undefined
+        ? null
+        : {
+            login: account.login,
+            name: "You",
+            avatar: input.avatar(account.login, account.avatarUrl),
+          },
+    teammate: null,
+  };
+};
+
 /**
  * Who has the session open. A Teammate is named by their display name; the owner's own
- * devices fold into one "You" entry, keyed apart so a Teammate called "You" stays distinct.
+ * devices fold into one entry: "You" on their screen, their name on a Teammate's.
  */
 export const presenceViews = (
   entries: ReadonlyArray<SharePresenceEntry>,
   avatar: AvatarOf,
-  owner: SharingPersonView | null
+  viewer: PresenceViewer
 ): ReadonlyArray<PresenceView> => {
   const views: Array<PresenceView> = [];
   let ownerSeen = false;
@@ -87,6 +136,7 @@ export const presenceViews = (
           avatar: avatar(actor.name, entry.avatarUrl),
         },
         isOwner: false,
+        self: viewer.teammate !== null && viewer.teammate.personId === actor.personId,
         since: entry.since,
       });
       continue;
@@ -96,8 +146,9 @@ export const presenceViews = (
     ownerSeen = true;
     views.push({
       key: "owner",
-      person: owner ?? { login: "you", name: "You", avatar: null },
+      person: viewer.owner ?? { login: "you", name: "You", avatar: null },
       isOwner: true,
+      self: viewer.teammate === null,
       since: entry.since,
     });
   }

@@ -10,7 +10,6 @@ import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 import type { PresenceView } from "../../../../shared/sharingContract.ts";
 import { useApp } from "../../../shell/hooks.ts";
-import { usePolarisAccounts } from "../../accounts/index.ts";
 import { useIsShared, usePresence, useSharedWithMe } from "../data/feeds.ts";
 import { personName, roleLabel } from "../model/copy.ts";
 import { PersonAvatar } from "./Avatar.tsx";
@@ -67,16 +66,9 @@ const PresenceRow = ({ people }: { readonly people: ReadonlyArray<PresenceView> 
   );
 };
 
-/** Leaves out whoever is looking: the owner's own devices, and any of your Polaris accounts. */
-const useOthers = (people: ReadonlyArray<PresenceView>, owner: boolean) => {
-  const accounts = usePolarisAccounts();
-
-  return useMemo(() => {
-    const mine = new Set((accounts?.accounts ?? []).map((a) => a.login.toLowerCase()));
-
-    return people.filter((p) => !(owner && p.isOwner) && !mine.has(p.person.login.toLowerCase()));
-  }, [people, owner, accounts]);
-};
+/** Leaves out whoever is looking: the main process marks them (`PresenceView.self`). */
+const useOthers = (people: ReadonlyArray<PresenceView>) =>
+  useMemo(() => people.filter((p) => !p.self), [people]);
 
 /** Your role in a session shared with you; undefined in your own sessions. */
 export const useSharedRole = (hostKey: string, sessionId: string) =>
@@ -99,7 +91,7 @@ const RoleChip = ({ hostKey, sessionId }: ShareSheetTarget) => {
 };
 
 const TeammateShare = ({ hostKey, sessionId }: ShareSheetTarget) => {
-  const people = useOthers(usePresence(hostKey, sessionId, true), false);
+  const people = useOthers(usePresence(hostKey, sessionId, true));
 
   return (
     <>
@@ -116,7 +108,7 @@ const OwnerShare = ({
   title,
 }: ShareSheetTarget & { readonly workspaceId: string; readonly title: string }) => {
   const shared = useIsShared(hostKey, sessionId);
-  const people = useOthers(usePresence(hostKey, sessionId, shared), true);
+  const people = useOthers(usePresence(hostKey, sessionId, shared));
   const open = useStore(sheet, (s) => s.open);
   const isOpen = open?.hostKey === hostKey && open.sessionId === sessionId;
 

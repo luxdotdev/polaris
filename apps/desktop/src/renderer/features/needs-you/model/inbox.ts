@@ -53,6 +53,8 @@ export interface InboxInput {
   readonly now: number;
   /** Requests this device answered, so their resolution isn't news. */
   readonly answeredHere: ReadonlySet<string>;
+  /** Sessions shared with you as a commenter (`inboxKey`): theirs to watch, never to answer. */
+  readonly watching?: ReadonlySet<string>;
 }
 
 /** Failed first (Paper 1G2-0), then what Continue picks up, then what's in a terminal. */
@@ -123,9 +125,14 @@ interface HostInput {
   readonly into: Collected;
 }
 
+/** Archived sessions, and ones you only watch, ask nothing of you. */
+const asksYou = (hostKey: string, entry: SessionEntry, input: InboxInput) =>
+  entry.session.state !== "archived" &&
+  input.watching?.has(inboxKey(hostKey, entry.session.id)) !== true;
+
 const collectHost = ({ host, model, input, into }: HostInput) => {
   for (const entry of model.sessions.values()) {
-    if (entry.session.state === "archived") continue;
+    if (!asksYou(host.key, entry, input)) continue;
 
     const place: Place = {
       hostKey: host.key,
@@ -163,7 +170,7 @@ export const buildInbox = (input: InboxInput): Inbox => {
     collectHost({ host, model, input, into });
 
     for (const entry of model.sessions.values()) {
-      if (entry.session.state !== "archived" && needsYou(entry)) count++;
+      if (asksYou(host.key, entry, input) && needsYou(entry)) count++;
     }
   }
 

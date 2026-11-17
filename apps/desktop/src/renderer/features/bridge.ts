@@ -14,3 +14,6 @@ export const polaris = (): PolarisApi => traceRequests(standIn ?? window.polaris
 export const standInBridge = (api: PolarisApi | null) => {
   standIn = api;
 };
+
+/** False where nothing stands behind the bridge: a component mounted alone in a test. */
+export const hasBridge = (): boolean => standIn !== null || window.polaris !== undefined;

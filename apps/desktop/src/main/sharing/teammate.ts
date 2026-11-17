@@ -101,6 +101,7 @@ export const withMeView = (input: {
         },
         hostName: entry.host.name,
         role: entry.role,
+        selfPersonId: input.accounts.find((a) => a.id === entry.accountId)?.personId ?? null,
         hostOffline: offline(view),
         ended: ended(view),
       };

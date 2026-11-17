@@ -13,6 +13,7 @@ import type { InternetFetch } from "../net.ts";
 import { ownerSharing } from "./owner.ts";
 import { fileSharedStore, type SharedStore } from "./store.ts";
 import { type DeviceKeys, type InvitesByAccount, teammateSharing, withMeView } from "./teammate.ts";
+import { presenceViewer } from "./views.ts";
 import { TEAMMATE_TURN_LIMIT, teammateHostFeed, teammateHostItems } from "./teammateFeed.ts";
 import type { RelayDeviceUnavailable } from "../relayDevice.ts";
 
@@ -142,12 +143,14 @@ const make = Effect.fn("DesktopSharing.make")(function* (input: DesktopSharingIn
     scope
   );
 
-  const ownerPerson = Effect.map(accounts.list, (list) => {
-    const account = list.find((a) => a.signedOutAt === null);
-
-    return account === undefined
-      ? null
-      : { login: account.login, name: "You", avatar: avatar(account.login, account.avatarUrl) };
+  const viewer = Effect.fn("DesktopSharing.viewer")(function* (hostKey: string, sessionId: string) {
+    return presenceViewer({
+      hostKey,
+      sessionId,
+      shared: yield* SubscriptionRef.get(shared),
+      accounts: yield* accounts.list,
+      avatar,
+    });
   });
 
   return {
@@ -155,7 +158,7 @@ const make = Effect.fn("DesktopSharing.make")(function* (input: DesktopSharingIn
     view,
     presence: (hostKey: string, sessionId: SessionId) =>
       Stream.unwrap(
-        Effect.map(ownerPerson, (person) => owner.presence(hostKey, sessionId, person))
+        Effect.map(viewer(hostKey, sessionId), (who) => owner.presence(hostKey, sessionId, who))
       ),
     accept: (accountId: string, inviteId: string) =>
       Effect.tap(teammate.accept(accountId, inviteId), () => refreshInvites),

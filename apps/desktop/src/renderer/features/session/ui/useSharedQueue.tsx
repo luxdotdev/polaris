@@ -7,7 +7,7 @@ import { useMemo } from "react";
 import { Commands } from "../../../commands.ts";
 import type { SessionModel } from "../../../store/sessionModel.ts";
 import { usePolarisAccounts } from "../../accounts/index.ts";
-import { useIsShared, useOnSharedHost } from "../../sharing/index.ts";
+import { useActorViewer, useIsShared, useOnSharedHost } from "../../sharing/index.ts";
 import { send } from "../dispatch.ts";
 import { hasCapability, useHost } from "../hooks.ts";
 import { type QueueViewer, queueView } from "../model/queue.ts";
@@ -50,6 +50,7 @@ export const useSharedQueue = (
   const owned = useIsShared(hostKey, sessionId);
   const host = useHost(hostKey);
   const viewer = useViewer(teammate);
+  const names = useActorViewer(hostKey, sessionId);
   const queue = queueView(model);
 
   const shared =
@@ -59,6 +60,7 @@ export const useSharedQueue = (
     <QueuedTurns
       queue={queue}
       viewer={viewer}
+      names={names}
       onCancel={(turnId) =>
         void send(hostKey, Commands.CancelQueuedTurn({ sessionId, turnId }), "Couldn't cancel")
       }

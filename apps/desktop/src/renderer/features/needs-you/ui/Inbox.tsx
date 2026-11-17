@@ -39,6 +39,7 @@ import {
   type WaitingSession,
 } from "../model/inbox.ts";
 import { offersAlwaysAllow } from "../../data/approval/decide.ts";
+import { useOnSharedHost } from "../../sharing/index.ts";
 import { DENY_PROMPT, dryRunKicker, writeName, writeWants } from "../../data/write/model.ts";
 import {
   type ApprovalTarget,
@@ -151,6 +152,7 @@ const Waiting = ({
 }) => {
   const { selectSession } = useShellActions();
   const selection = useSelection();
+  const theirs = useOnSharedHost(item.hostKey);
   const { session } = item.entry;
   const request = item.requests[0];
   const open = () => selectSession({ hostKey: item.hostKey, sessionId: session.id });
@@ -165,7 +167,7 @@ const Waiting = ({
     onDeny: () => void deny(target),
   };
 
-  const always = offersAlwaysAllow(request);
+  const always = offersAlwaysAllow(request, theirs);
 
   if (always) answering.onAlwaysAllow = () => void approve(target, true);
 

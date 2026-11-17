@@ -91,15 +91,17 @@ export const TurnAuthor = ({
   sessionId,
   actor: sender,
 }: Where & { actor: Actor | null }) => {
-  const { shared } = useSessionComments(hostKey, sessionId);
+  const { shared, viewer } = useSessionComments(hostKey, sessionId);
 
   if (!shared) return null;
   const actor = sender ?? OWNER;
 
   return (
     <div className="gap-gap flex items-center" data-testid="turn-author">
-      <PersonAvatar actor={actor} size={16} />
-      <span className="text-caption text-text-default font-medium">{turnAuthorLabel(actor)}</span>
+      <PersonAvatar actor={actor} size={16} viewer={viewer} />
+      <span className="text-caption text-text-default font-medium">
+        {turnAuthorLabel(actor, viewer)}
+      </span>
     </div>
   );
 };
@@ -128,9 +130,9 @@ export const QuotedComments = ({
           className="rounded-row bg-surface-sunken flex min-w-0 flex-col gap-1 px-3 py-2"
         >
           <div className="gap-gap flex min-w-0 items-center">
-            <PersonAvatar actor={c.author} size={16} />
+            <PersonAvatar actor={c.author} size={16} viewer={scope.viewer} />
             <span className="text-caption text-text-strong shrink-0 font-medium">
-              {actorName(c.author)}
+              {actorName(c.author, scope.viewer)}
             </span>
             <span className={cn("text-caption text-text-subtle min-w-0 truncate")}>
               {anchorPlace(c, scope.harnessName)}

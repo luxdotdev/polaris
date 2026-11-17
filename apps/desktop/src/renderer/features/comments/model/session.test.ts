@@ -5,10 +5,12 @@ import {
   CommentAnchor,
   CommentId,
   PairingId,
+  PersonId,
   SessionId,
+  ShareId,
   TurnId,
 } from "@polaris/protocol";
-import { lineThreads, quoteRange, turnAuthorLabel } from "./session.ts";
+import { actorName, lineThreads, OWN_SESSION, quoteRange, turnAuthorLabel } from "./session.ts";
 
 const lines = (id: string, path: string, end: number, side: "new" | "old" = "new") =>
   new Comment({
@@ -59,7 +61,25 @@ describe("session Comments", () => {
       name: "Raycast",
     });
 
-    expect(turnAuthorLabel(raycast)).toBe("from Raycast");
-    expect(turnAuthorLabel(Actor.cases.Client.make({}))).toBe("You");
+    expect(turnAuthorLabel(raycast, OWN_SESSION)).toBe("from Raycast");
+    expect(turnAuthorLabel(Actor.cases.Client.make({}), OWN_SESSION)).toBe("You");
+  });
+
+  test("on a session shared with you, the owner goes by name and only your own Turns are You", () => {
+    const teammate = (personId: string, name: string) =>
+      Actor.cases.Teammate.make({
+        shareId: ShareId.make("sh1"),
+        personId: PersonId.make(personId),
+        name,
+      });
+
+    const owner = Actor.cases.Client.make({});
+    const theirs = { owner: "The Octocat", selfPersonId: "p-hubot" };
+    const actors = [owner, teammate("p-hubot", "Hubot"), teammate("p-maya", "Maya")];
+
+    expect(actors.map((a) => turnAuthorLabel(a, theirs))).toEqual(["The Octocat", "You", "Maya"]);
+    expect(actors.map((a) => actorName(a, theirs))).toEqual(["The Octocat", "You", "Maya"]);
+    // The owner's own screen: they are You, and every Teammate goes by name.
+    expect(actors.map((a) => actorName(a, OWN_SESSION))).toEqual(["You", "Hubot", "Maya"]);
   });
 });

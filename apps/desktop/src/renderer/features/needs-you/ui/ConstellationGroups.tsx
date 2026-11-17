@@ -21,6 +21,7 @@ import { sendConstellation } from "../../sessions/constellationApi.ts";
 import { retrySetup, setupExit, useConstellationActions } from "../../sessions/source.ts";
 import type { ConstellationGroup, ConstellationItem } from "../model/constellation.ts";
 import { offersAlwaysAllow } from "../../data/approval/decide.ts";
+import { useOnSharedHost } from "../../sharing/index.ts";
 import { approve, deny } from "../respond.ts";
 
 interface CardProps {
@@ -123,6 +124,7 @@ const Approval = ({ item, now }: ItemProps) => {
   const { selectSession } = useShellActions();
   const request = item.request;
   const sessionId = item.entry?.session.id;
+  const theirs = useOnSharedHost(item.hostKey ?? "");
 
   if (request === undefined || sessionId === undefined || item.hostKey === null) return null;
   const target = { hostKey: item.hostKey, sessionId, request };
@@ -146,7 +148,7 @@ const Approval = ({ item, now }: ItemProps) => {
         >
           Approve
         </Button>
-        {offersAlwaysAllow(request) ? (
+        {offersAlwaysAllow(request, theirs) ? (
           <Button size="xs" className="px-2" onClick={() => void approve(target, true)}>
             Always here
           </Button>

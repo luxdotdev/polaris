@@ -5,7 +5,7 @@
  */
 import { Button, Input } from "@polaris/ui";
 import { useState } from "react";
-import { ActorAvatar, turnAuthorLabel } from "../../comments/index.ts";
+import { type ActorViewer, ActorAvatar, turnAuthorLabel } from "../../comments/index.ts";
 import {
   mayChange,
   pausedLine,
@@ -17,6 +17,8 @@ import {
 export interface QueuedTurnsProps {
   readonly queue: QueueView;
   readonly viewer: QueueViewer;
+  /** Who is reading, for the authors' names. */
+  readonly names: ActorViewer;
   readonly onCancel: (turnId: SessionQueuedTurn["id"]) => void;
   readonly onEdit: (turnId: SessionQueuedTurn["id"], prompt: string) => void;
   /** Starts the head of a paused queue; null when the viewer may not send Turns. */
@@ -85,12 +87,12 @@ const QueuedRow = ({
       <span className={KICKER} aria-hidden={!first}>
         {first ? "QUEUED" : ""}
       </span>
-      <ActorAvatar actor={queued.actor} size={16} />
+      <ActorAvatar actor={queued.actor} size={16} viewer={props.names} />
       <span
         className="text-body text-text-strong shrink-0 font-medium"
         data-testid="queued-turn-author"
       >
-        {turnAuthorLabel(queued.actor)}
+        {turnAuthorLabel(queued.actor, props.names)}
       </span>
       {editing ? (
         <Editing

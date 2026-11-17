@@ -59,6 +59,9 @@ export const refusalText = (error: IpcError, hostKey?: string): string => {
   if (error.code === "UserAccessRequired") return userAccessText(error, hostKey);
   const text = error.message.replace(/^CommandRejected:\s*/, "").trim();
 
+  // Someone else answered first (a Teammate or another of your devices): no request id.
+  if (/^request \S+ is already resolved$/.test(text)) return "This request was already answered.";
+
   return text === "" ? error.code : text.charAt(0).toUpperCase() + text.slice(1);
 };
 

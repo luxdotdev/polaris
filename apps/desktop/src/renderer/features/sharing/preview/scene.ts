@@ -121,10 +121,10 @@ const SHARES: ReadonlyArray<ShareView> = [
 ];
 
 const PRESENCE: ReadonlyArray<PresenceView> = [
-  { key: "maya", person: maya, isOwner: false, since: minutesAgo(12) },
-  { key: "alex", person: alex, isOwner: false, since: minutesAgo(5) },
-  { key: "lucas", person: lucas, isOwner: true, since: minutesAgo(40) },
-  { key: "sam", person: sam, isOwner: false, since: minutesAgo(1) },
+  { key: "maya", person: maya, isOwner: false, self: false, since: minutesAgo(12) },
+  { key: "alex", person: alex, isOwner: false, self: false, since: minutesAgo(5) },
+  { key: "lucas", person: lucas, isOwner: true, self: true, since: minutesAgo(40) },
+  { key: "sam", person: sam, isOwner: false, self: false, since: minutesAgo(1) },
 ];
 
 const withMe = (sessionId: string): SharedWithMeView => ({
@@ -149,6 +149,7 @@ const withMe = (sessionId: string): SharedWithMeView => ({
       owner: lucas,
       hostName: "Mac Studio",
       role: "commenter",
+      selfPersonId: null,
       hostOffline: false,
       ended: false,
     },
@@ -160,6 +161,7 @@ const withMe = (sessionId: string): SharedWithMeView => ({
       owner: person("dpatel", "Dev Patel"),
       hostName: "Linux VM",
       role: "commenter",
+      selfPersonId: null,
       hostOffline: true,
       ended: false,
     },

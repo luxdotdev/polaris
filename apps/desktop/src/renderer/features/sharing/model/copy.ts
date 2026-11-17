@@ -21,9 +21,12 @@ export const roleLabel = (role: ShareRole): string =>
 /** "Alex Rivera", or "@alex" when the Account Server has no name for them. */
 export const personName = (person: SharingPersonView): string => person.name ?? `@${person.login}`;
 
-/** The first name, for the sheet's plain statements ("Alex will see everything…"). */
-export const firstName = (person: SharingPersonView): string =>
-  person.name?.split(/\s+/)[0] ?? `@${person.login}`;
+/** Who an Invite is from: the whole name, since a first word may be "The" or "Dr."; else the handle. */
+export const inviteFrom = (owner: SharingPersonView): string => {
+  const name = owner.name?.trim() ?? "";
+
+  return name === "" ? `@${owner.login}` : name;
+};
 
 /** Two letters for an avatar until its image loads: the name's initials, else the login's. */
 export const initialsOf = (person: SharingPersonView): string => {

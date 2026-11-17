@@ -6,7 +6,7 @@ import type { HostView } from "../../shared/api.ts";
 import { lookupFailure } from "./owner.ts";
 import { type SharedEntry, sharedHostKey } from "./store.ts";
 import { isRelayUrl, withMeView } from "./teammate.ts";
-import { presenceViews } from "./views.ts";
+import { presenceViewer, presenceViews } from "./views.ts";
 
 const noAvatar = () => null;
 
@@ -99,6 +99,8 @@ describe("Shared with you", () => {
       }).sessions[0];
 
     expect(at("offline", "unreachable")).toMatchObject({ hostOffline: true, ended: false });
+    // The person the Host names this user's Turns by, so the app can call them "You".
+    expect(at("connected", null)?.selfPersonId).toBe("p-a1");
     expect(at("connected", null)).toMatchObject({ hostOffline: false, ended: false });
     expect(at("needs-attention", "share-ended")).toMatchObject({ hostOffline: false, ended: true });
   });
@@ -160,12 +162,56 @@ describe("presence", () => {
         }),
       ],
       noAvatar,
-      { login: "lucas", name: "You", avatar: null }
+      presenceViewer({
+        hostKey: "local",
+        sessionId: "s1",
+        shared: [],
+        accounts: [account("a1", "lucas")],
+        avatar: noAvatar,
+      })
     );
 
-    expect(views.map((v) => [v.person.name, v.isOwner])).toEqual([
-      ["You", true],
-      ["Maya", false],
+    expect(views.map((v) => [v.person.name, v.isOwner, v.self])).toEqual([
+      ["You", true, true],
+      ["Maya", false, false],
+    ]);
+  });
+
+  test("on a session shared with you, the owner is named and you are the one left out", () => {
+    const since = "2026-11-16T00:00:00.000Z";
+
+    const teammate = (personId: string, name: string) =>
+      new SharePresenceEntry({
+        actor: Actor.cases.Teammate.make({
+          shareId: ShareId.make("sh1"),
+          personId: PersonId.make(personId),
+          name,
+        }),
+        avatarUrl: null,
+        since,
+      });
+
+    const views = presenceViews(
+      [
+        new SharePresenceEntry({ actor: Actor.cases.Client.make({}), avatarUrl: null, since }),
+        // The viewer's display name is not their login; another Teammate shares it.
+        teammate("p-a1", "Maya Okafor"),
+        teammate("p-other", "Maya Okafor"),
+      ],
+      noAvatar,
+      presenceViewer({
+        hostKey: sharedHostKey(RELAY),
+        sessionId: entry.sessionId,
+        shared: [entry],
+        accounts: [account("a1", "maya")],
+        avatar: noAvatar,
+      })
+    );
+
+    expect(views.map((v) => [v.person.login, v.person.name, v.isOwner, v.self])).toEqual([
+      ["lucas", "Lucas", true, false],
+      ["Maya Okafor", "Maya Okafor", false, true],
+      ["Maya Okafor", "Maya Okafor", false, false],
     ]);
   });
 });

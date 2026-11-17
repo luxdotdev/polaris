@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { SharedSessionView, ShareView } from "../../../../shared/sharingContract.ts";
 import {
+  inviteFrom,
   expiresAtFor,
   initialsOf,
   ownerGroups,
@@ -28,6 +29,17 @@ const share = (patch: Partial<ShareView>): ShareView => ({
 });
 
 describe("sharing copy", () => {
+  test("an Invite names its sender in full, or by handle without a name", () => {
+    const from = (name: string | null) => inviteFrom({ login: "octocat", name, avatar: null });
+
+    expect([from("The Octocat"), from("Lucas"), from(null), from("  ")]).toEqual([
+      "The Octocat",
+      "Lucas",
+      "@octocat",
+      "@octocat",
+    ]);
+  });
+
   test("a login not on the Account Server is named, with the server", () => {
     expect(shareRefusal({ code: "PersonNotFound", message: "" }, "@arikow", "Polaris Cloud")).toBe(
       "@arikow hasn't signed in to Polaris on Polaris Cloud, so they can't be invited from this account yet."
@@ -89,6 +101,7 @@ describe("sharing copy", () => {
       owner: { login: owner, name: null, avatar: null },
       hostName: "Mac Studio",
       role: "commenter",
+      selfPersonId: "p-maya",
       hostOffline: false,
       ended: false,
     });

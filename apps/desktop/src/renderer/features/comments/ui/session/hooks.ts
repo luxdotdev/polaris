@@ -3,7 +3,13 @@ import type { SessionId } from "@polaris/protocol";
 import { harnessHue } from "@polaris/ui";
 import { useMemo } from "react";
 import { useSession } from "../../../session/hooks.ts";
-import { type SessionComment, turnNumberOf, wasShared } from "../../model/session.ts";
+import { useActorViewer } from "../../../sharing/index.ts";
+import {
+  type ActorViewer,
+  type SessionComment,
+  turnNumberOf,
+  wasShared,
+} from "../../model/session.ts";
 
 export interface SessionComments {
   readonly hostKey: string;
@@ -14,6 +20,8 @@ export interface SessionComments {
   readonly turnNumber: (turnId: string | null | undefined) => number | null;
   /** "Claude Code", for "on Claude Code's message". */
   readonly harnessName: string | null;
+  /** Who is reading: names are "You" for them and no one else. */
+  readonly viewer: ActorViewer;
 }
 
 const NONE: ReadonlyArray<SessionComment> = [];
@@ -23,6 +31,7 @@ export const useSessionComments = (hostKey: string, sessionId: string): SessionC
   const model = useSession(hostKey, sessionId as SessionId);
   const comments = model.comments ?? NONE;
   const harness = model.session?.harness ?? null;
+  const viewer = useActorViewer(hostKey, sessionId);
 
   return useMemo(
     () => ({
@@ -32,7 +41,8 @@ export const useSessionComments = (hostKey: string, sessionId: string): SessionC
       shared: wasShared(model.turns, comments),
       turnNumber: turnNumberOf(model.turns),
       harnessName: harness === null ? null : harnessHue(harness).name,
+      viewer,
     }),
-    [hostKey, sessionId, comments, model.turns, harness]
+    [hostKey, sessionId, comments, model.turns, harness, viewer]
   );
 };

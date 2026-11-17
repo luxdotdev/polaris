@@ -91,6 +91,8 @@ export interface PresenceView {
   readonly person: SharingPersonView;
   /** The owner on one of their own devices. */
   readonly isOwner: boolean;
+  /** Whoever is looking: the owner on their own Host, the Teammate on someone else's. */
+  readonly self: boolean;
   readonly since: string;
 }
 
@@ -114,6 +116,8 @@ export interface SharedSessionView {
   readonly owner: SharingPersonView;
   readonly hostName: string;
   readonly role: ShareRole;
+  /** Your person on the Account it came through, as the Host names your Turns; null signed out. */
+  readonly selfPersonId: string | null;
   /** The owner's Host can't be reached; the transcript is the cached one. */
   readonly hostOffline: boolean;
   /** The Share ended (revoked or expired): the Host no longer admits this device. */

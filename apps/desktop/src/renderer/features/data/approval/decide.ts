@@ -96,13 +96,20 @@ export const allowFor = (request: ApprovalRequest, remember: boolean): ApprovalD
 };
 
 /**
- * No path offers "Always allow" for a Data Source or Origin Approval (its card chooses), write
- * or profile, nor for headed input, which the Daemon never always-allows.
+ * Whether an Allow may outlive its request. Never on a Host shared with you: a Teammate allows
+ * one request, and what is always allowed there is the owner's (`session.approvals.ts`).
  */
-export const offersAlwaysAllow = (request: ApprovalRequest) =>
+export const offersRemember = (request: ApprovalRequest, theirs: boolean) =>
+  !theirs && request.profileAttach === undefined;
+
+/**
+ * No path offers "Always allow" for a Data Source or Origin Approval (its card chooses), write
+ * or profile, nor for headed input, which the Daemon never always-allows; nor to a Teammate.
+ */
+export const offersAlwaysAllow = (request: ApprovalRequest, theirs: boolean) =>
+  offersRemember(request, theirs) &&
   !hasCard(request) &&
   request.dataWrite === undefined &&
-  request.profileAttach === undefined &&
   request.kind !== "headed-input";
 
 /** The same server, database and user, as the Daemon keys an approval. */

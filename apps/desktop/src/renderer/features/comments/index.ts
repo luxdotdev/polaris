@@ -17,7 +17,12 @@ export { SubmitReviewAction } from "./ui/SubmitReview.tsx";
 // An Agent Session's Comments (ADR 0113; DESIGN.md, Shared Sessions).
 export { openCommentDraft, useCommentDraft } from "./data/session.ts";
 
-export { type LineThread, lineThreads, turnAuthorLabel } from "./model/session.ts";
+export {
+  type ActorViewer,
+  type LineThread,
+  lineThreads,
+  turnAuthorLabel,
+} from "./model/session.ts";
 
 export { PersonAvatar as ActorAvatar } from "./ui/session/parts.tsx";
 

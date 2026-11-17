@@ -15,7 +15,7 @@ import {
 } from "@polaris/protocol";
 import { at, seq, workspace } from "../../../store/fixtures.testing.ts";
 import { applyHostItems, emptyHostModel, type HostModel } from "../../../store/hostModel.ts";
-import { ANSWERED_FOR_MS, answeredLine, buildInbox } from "./inbox.ts";
+import { ANSWERED_FOR_MS, answeredLine, buildInbox, inboxKey } from "./inbox.ts";
 import { host, hostModel, minutes, request, sessionWith } from "./inbox.testing.ts";
 import { quietFact } from "./quiet.ts";
 import { toSummary } from "./summary.ts";
@@ -60,6 +60,30 @@ describe("Needs You inbox", () => {
     expect(result.waiting[1]?.requests.map((r) => String(r.id))).toEqual(["r1", "r2"]);
     expect(result.waiting[1]).toMatchObject({ hostLabel: "Mac Studio", workspace: "proof" });
     expect(result.count).toBe(2);
+  });
+
+  test("a session shared with you asks you as a contributor, and only shows as a commenter", () => {
+    const seed = [
+      { session: sessionWith("s", { state: "needs-you" }), pending: [request("r", "s", at)] },
+    ];
+
+    const shared = (watching: ReadonlySet<string>) =>
+      buildInbox({
+        hosts: [host("local", "Mac Studio"), host("shared-abc", "Octocat's Mac Studio")],
+        models: { local: hostModel([]), "shared-abc": hostModel(seed) },
+        now,
+        answeredHere: new Set(),
+        watching,
+      });
+
+    const contributor = shared(new Set());
+    const commenter = shared(new Set([inboxKey("shared-abc", "s")]));
+
+    expect([contributor.waiting.map((w) => w.hostLabel), contributor.count]).toEqual([
+      ["Octocat's Mac Studio"],
+      1,
+    ]);
+    expect([commenter.waiting, commenter.count]).toEqual([[], 0]);
   });
 
   test("the same session id on two Hosts is two sessions", () => {

@@ -72,7 +72,7 @@ export const SendComments = ({ hostKey, sessionId }: { hostKey: string; sessionI
             >
               <span className="flex min-w-0 flex-col">
                 <span className="text-caption text-text-subtle truncate">
-                  {actorName(c.author)} {anchorPlace(c, scope.harnessName)}
+                  {actorName(c.author, scope.viewer)} {anchorPlace(c, scope.harnessName)}
                 </span>
                 <span className="truncate">{c.body}</span>
               </span>

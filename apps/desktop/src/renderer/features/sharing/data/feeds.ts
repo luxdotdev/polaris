@@ -3,12 +3,12 @@
  * session open, and which of your sessions are shared (the people glyph in their rows).
  */
 import type { SessionId } from "@polaris/protocol";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 import type { PresenceView, SharedWithMeView } from "../../../../shared/sharingContract.ts";
 import { useApp } from "../../../shell/hooks.ts";
-import { polaris } from "../../bridge.ts";
+import { hasBridge, polaris } from "../../bridge.ts";
 
 /** Invites and sessions shared with you; null until the feed's first item. */
 export const useSharedWithMe = (): SharedWithMeView | null => {
@@ -31,6 +31,68 @@ export const useSharedWithMe = (): SharedWithMeView | null => {
   }, []);
 
   return view;
+};
+
+/** How a session's names read to whoever is looking (the Comments' `ActorViewer`). */
+export interface SessionNames {
+  /** The owner's name on a session shared with you; null on your own. */
+  readonly owner: string | null;
+  /** Your person there, as the Host names your Turns; null on your own Host. */
+  readonly selfPersonId: string | null;
+}
+
+const OWN_SESSION: SessionNames = { owner: null, selfPersonId: null };
+
+/** How names read in one session: the owner's name and your person when it is shared with you. */
+export const actorViewerOf = (
+  view: SharedWithMeView | null,
+  hostKey: string,
+  sessionId: string
+): SessionNames => {
+  const session = view?.sessions.find((s) => s.hostKey === hostKey && s.sessionId === sessionId);
+
+  if (session === undefined) return OWN_SESSION;
+
+  return {
+    owner: session.owner.name ?? `@${session.owner.login}`,
+    selfPersonId: session.selfPersonId,
+  };
+};
+
+const withMe = createStore<{ readonly view: SharedWithMeView | null }>(() => ({ view: null }));
+
+let watching = false;
+
+/** One `sharing.withMe` feed for every name on screen, opened by the first to ask. */
+const watchWithMe = () => {
+  if (watching || !hasBridge()) return;
+  watching = true;
+  polaris().subscribe(
+    "sharing.withMe",
+    {},
+    {
+      items: (items) => {
+        const latest = items.at(-1);
+
+        if (latest !== undefined) withMe.setState({ view: latest });
+      },
+    }
+  );
+};
+
+/** Invites and sessions shared with you, from the one feed every surface shares. */
+export const useSharedView = (): SharedWithMeView | null => {
+  useEffect(watchWithMe, []);
+
+  return useStore(withMe, (s) => s.view);
+};
+
+/** Who is reading a session's names: you as its owner, or as a Teammate on someone else's Host. */
+export const useActorViewer = (hostKey: string, sessionId: string) => {
+  useEffect(watchWithMe, []);
+  const view = useStore(withMe, (s) => s.view);
+
+  return useMemo(() => actorViewerOf(view, hostKey, sessionId), [view, hostKey, sessionId]);
 };
 
 const NO_ONE: ReadonlyArray<PresenceView> = [];

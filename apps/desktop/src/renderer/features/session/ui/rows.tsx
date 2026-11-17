@@ -61,7 +61,8 @@ import { LimitCard, type UsageLimit } from "./LimitCard.tsx";
 import { ComputerUseRequestCard } from "./ComputerUseRequestCard.tsx";
 import { SecretCard, SettledSecretCard } from "./SecretCard.tsx";
 import { DataSourceApprovalCard } from "../../data/approval/DataSourceApprovalCard.tsx";
-import { sourceForTarget } from "../../data/approval/decide.ts";
+import { offersRemember, sourceForTarget } from "../../data/approval/decide.ts";
+import { useOnSharedHost } from "../../sharing/index.ts";
 import { askedBy, type DataSourceTarget, dataSourceTarget } from "../../data/approval/model.ts";
 import { useDataSources } from "../../data/data/hooks.tsx";
 import { OriginApprovalCard } from "../../requests/approval/OriginApprovalCard.tsx";
@@ -601,6 +602,26 @@ const Approval = ({
         onRespond={(decision) => ctx.onRespond(request, decision)}
       />
     );
+
+  const wants =
+    request.profileAttach === undefined
+      ? KIND_WANTS[request.kind]
+      : "wants to profile this Node process";
+
+  return <CommandApproval request={request} wants={wants} ctx={ctx} />;
+};
+
+/** A command, edit or tool approval: Approve, Always here unless the Host is someone else's, Deny. */
+const CommandApproval = ({
+  request,
+  wants,
+  ctx,
+}: {
+  request: ApprovalRequest;
+  wants: string;
+  ctx: RowContext;
+}) => {
+  const theirs = useOnSharedHost(ctx.diff.hostKey);
   const who = ctx.harness === null ? "The agent" : harnessHue(ctx.harness).name;
   const respond = (decision: ApprovalDecision) => ctx.onRespond(request, decision);
 
@@ -612,11 +633,11 @@ const Approval = ({
         <ApprovalCard
           harness={ctx.harness}
           title={request.title}
-          summary={`${who} ${request.profileAttach === undefined ? KIND_WANTS[request.kind] : "wants to profile this Node process"}`}
+          summary={`${who} ${wants}`}
           command={request.detail ?? request.title}
           where={ctx.where}
           onApprove={() => respond(Decisions.Allow({ remember: false }))}
-          {...(request.profileAttach === undefined
+          {...(offersRemember(request, theirs)
             ? { onAlwaysAllow: () => respond(Decisions.Allow({ remember: true })) }
             : {})}
           onDeny={() => respond(Decisions.Deny({ reason: null }))}

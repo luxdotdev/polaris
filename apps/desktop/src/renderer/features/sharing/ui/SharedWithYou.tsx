@@ -15,7 +15,7 @@ import { useNow } from "../../../shell/useNow.ts";
 import { shownState } from "../../../routes/topBar.ts";
 import { polaris } from "../../bridge.ts";
 import { useSharedWithMe } from "../data/feeds.ts";
-import { firstName, ownerGroups, roleLabel, sharedLine } from "../model/copy.ts";
+import { inviteFrom, ownerGroups, roleLabel, sharedLine } from "../model/copy.ts";
 import { PersonAvatar } from "./Avatar.tsx";
 
 const capitalized = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
@@ -83,7 +83,7 @@ const InviteCard = ({ invite }: { readonly invite: InviteView }) => {
       <PersonAvatar person={invite.owner} size={20} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="text-body text-text-default">
-          {firstName(invite.owner)} shared{" "}
+          {inviteFrom(invite.owner)} shared{" "}
           <span className="text-text-strong font-medium">{invite.title}</span> with you
         </p>
         <p className="text-caption text-text-subtle">
@@ -121,8 +121,8 @@ const SharedRow = ({ view, now }: { readonly view: SharedSessionView; readonly n
       {...buttonProps(() => selectSession({ hostKey: view.hostKey, sessionId }))}
       aria-current={selected}
       data-testid="shared-session"
+      variant="session"
       selected={selected}
-      className={cn(selected && "border-hairline bg-row-selected hover:bg-row-selected")}
       tone={gone ? "quiet" : "default"}
       leading={
         <span className={cn("flex size-4 items-center justify-center", gone && "opacity-50")}>

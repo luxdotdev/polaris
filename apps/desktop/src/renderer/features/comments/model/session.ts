@@ -24,22 +24,36 @@ export const wasShared = (
   turns.some((v) => isTeammate(v.turn.actor)) ||
   comments.some((c) => isTeammate(c.author) || isTeammate(c.resolvedBy));
 
-/** "You" for the owner's own Clients, else the Teammate's, Extension's or device's name. */
-export const actorName = (actor: Actor): string =>
+/** Who is reading the names: the owner on their own Host, or a Teammate on someone else's. */
+export interface ActorViewer {
+  /** The owner's name on a session shared with you; null on your own, where the owner is "You". */
+  readonly owner: string | null;
+  /** Your person there, so your own Turns and Comments read "You"; null on your own Host. */
+  readonly selfPersonId: string | null;
+}
+
+/** The owner looking at their own session. */
+export const OWN_SESSION: ActorViewer = { owner: null, selfPersonId: null };
+
+const teammateName = (actor: { personId: string; name: string }, viewer: ActorViewer) =>
+  viewer.selfPersonId !== null && actor.personId === viewer.selfPersonId ? "You" : actor.name;
+
+/** "You" for whoever is looking; else the owner's, Teammate's, Extension's or device's name. */
+export const actorName = (actor: Actor, viewer: ActorViewer): string =>
   Actor.match(actor, {
-    Client: () => "You",
+    Client: () => viewer.owner ?? "You",
     Extension: (a) => a.name,
     LinkedDevice: (a) => a.name,
-    Teammate: (a) => a.name,
+    Teammate: (a) => teammateName(a, viewer),
   });
 
 /** The prompt's author slot: a Teammate or the owner by name, an Extension or device as "from …". */
-export const turnAuthorLabel = (actor: Actor): string =>
+export const turnAuthorLabel = (actor: Actor, viewer: ActorViewer): string =>
   Actor.match(actor, {
-    Client: () => "You",
+    Client: () => viewer.owner ?? "You",
     Extension: (a) => `from ${a.name}`,
     LinkedDevice: (a) => `from ${a.name}`,
-    Teammate: (a) => a.name,
+    Teammate: (a) => teammateName(a, viewer),
   });
 
 /** The UI's Turn number for a Turn id ("turn 25"), or null for one not loaded. */

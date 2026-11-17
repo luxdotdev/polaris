@@ -17,9 +17,8 @@ import {
 } from "@polaris/protocol";
 import { Effect, Option, Predicate, Redacted, Schema, Stream } from "effect";
 import type { RequestInput } from "../../shared/contract.ts";
-import type { SharingPersonView } from "../../shared/sharingContract.ts";
 import type { HostDirectory } from "../hosts.ts";
-import { type AvatarOf, presenceViews, shareView } from "./views.ts";
+import { type AvatarOf, type PresenceViewer, presenceViews, shareView } from "./views.ts";
 
 /** The login hasn't signed in to Polaris on that Account Server, so it can't be invited. */
 export class PersonNotFound extends Schema.TaggedError<PersonNotFound>()("PersonNotFound", {
@@ -143,7 +142,7 @@ export const ownerSharing = (input: OwnerInput) => {
     return yield* refreshed(session)(created);
   });
 
-  const presence = (hostKey: string, sessionId: SessionId, owner: SharingPersonView | null) =>
+  const presence = (hostKey: string, sessionId: SessionId, viewer: PresenceViewer) =>
     Stream.unwrap(
       Effect.map(live(hostKey), (session) =>
         session.client["shares.watchPresence"]({ target: sessionTarget(sessionId) })
@@ -151,10 +150,10 @@ export const ownerSharing = (input: OwnerInput) => {
     ).pipe(
       Stream.flatMap((entries) =>
         Stream.concat(
-          Stream.make(presenceViews(entries, avatar, owner)),
+          Stream.make(presenceViews(entries, avatar, viewer)),
           Stream.fromEffect(input.loadAvatars).pipe(
             Stream.filter((loaded) => loaded),
-            Stream.map(() => presenceViews(entries, avatar, owner))
+            Stream.map(() => presenceViews(entries, avatar, viewer))
           )
         )
       )

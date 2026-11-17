@@ -10,7 +10,8 @@ import {
   type ConstellationInbox,
   withConstellations,
 } from "./model/constellation.ts";
-import { buildInbox, type Inbox } from "./model/inbox.ts";
+import { useSharedView } from "../sharing/index.ts";
+import { buildInbox, type Inbox, inboxKey } from "./model/inbox.ts";
 import { dismiss } from "./dismissed.ts";
 
 /** Constellation items grouped under their Leads (Paper C5). */
@@ -23,9 +24,25 @@ export const useConstellationInbox = (): ConstellationInbox => {
 };
 
 const useInboxAt = (now: number): DismissedInbox<Inbox> => {
-  const hosts = useApp((s) => s.hosts);
+  const own = useApp((s) => s.hosts);
+  const shared = useApp((s) => s.sharedHosts);
   const models = useApp((s) => s.hostModels);
+  const withMe = useSharedView();
   const answered = useSyncExternalStore(answeredHere.subscribe, answeredHere.get);
+
+  // A contributor's Needs You is theirs to answer too; a commenter's session stays out.
+  const hosts = useMemo(() => [...own, ...shared], [own, shared]);
+
+  const watching = useMemo(
+    () =>
+      new Set(
+        (withMe?.sessions ?? [])
+          .filter((s) => s.role === "commenter")
+          .map((s) => inboxKey(s.hostKey, s.sessionId))
+      ),
+    [withMe]
+  );
+
   const hidden = useSyncExternalStore(dismissed.subscribe, dismissed.get);
   const constellations = useConstellationInbox();
 
@@ -33,12 +50,12 @@ const useInboxAt = (now: number): DismissedInbox<Inbox> => {
     () =>
       applyDismissed(
         withConstellations(
-          buildInbox({ hosts, models, now, answeredHere: answered }),
+          buildInbox({ hosts, models, now, answeredHere: answered, watching }),
           constellations
         ),
         hidden
       ),
-    [hosts, models, now, answered, hidden, constellations]
+    [hosts, models, now, answered, hidden, constellations, watching]
   );
 };
 
