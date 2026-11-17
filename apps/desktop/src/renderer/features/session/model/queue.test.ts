@@ -127,8 +127,8 @@ describe("a shared session's queue in the renderer", () => {
 
     expect(view.turns.map((q) => String(q.id))).toEqual(["q1", "q2"]);
     expect(view.paused).toBe(true);
-    expect(pausedLine(view.turns.length)).toBe("Queue paused · 2 Turns");
-    expect(pausedLine(1)).toBe("Queue paused · 1 Turn");
+    expect(pausedLine(view.turns.length)).toBe("Queue paused · 2 turns");
+    expect(pausedLine(1)).toBe("Queue paused · 1 turn");
   });
 
   test("its author or the owner may change a queued Turn; another Teammate may not", () => {

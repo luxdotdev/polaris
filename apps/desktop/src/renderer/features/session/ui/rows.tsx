@@ -472,7 +472,7 @@ const DataApproval = ({
   ctx: RowContext;
 }) => {
   const { hostKey, sessionId } = ctx.diff;
-  const hostLabel = useApp((s) => s.hosts.find((h) => h.key === hostKey)?.label ?? "this Host");
+  const hostLabel = useApp((s) => s.hosts.find((h) => h.key === hostKey)?.label ?? "this host");
   const title = useApp((s) => s.hostModels[hostKey]?.sessions.get(sessionId)?.session.title ?? "");
   const sources = useDataSources({ hostKey, sessionId });
   const listed = sources.status === "ready" ? sources.value : [];
@@ -501,7 +501,7 @@ const OriginApproval = ({
   ctx: RowContext;
 }) => {
   const { hostKey, sessionId } = ctx.diff;
-  const hostLabel = useApp((s) => s.hosts.find((h) => h.key === hostKey)?.label ?? "this Host");
+  const hostLabel = useApp((s) => s.hosts.find((h) => h.key === hostKey)?.label ?? "this host");
   const title = useApp((s) => s.hostModels[hostKey]?.sessions.get(sessionId)?.session.title ?? "");
 
   return (

@@ -38,7 +38,7 @@ describe("sharing copy", () => {
   });
 
   test("a Share reads as invited until accepted, then by its expiry, then how it ended", () => {
-    expect(shareLine(share({}), NOW)).toStartWith("Invited as Commenter · not accepted yet");
+    expect(shareLine(share({}), NOW)).toStartWith("Invited as commenter · not accepted yet");
 
     const accepted = share({ log: [{ kind: "accepted", at: "", actor: null, detail: null }] });
 
@@ -70,7 +70,7 @@ describe("sharing copy", () => {
 
     expect(rows.map((r) => r.line)).toEqual([
       "Alex Rivera joined",
-      "You invited Alex Rivera as Commenter",
+      "You invited Alex Rivera as commenter",
       "You revoked Jordan Lee",
     ]);
   });

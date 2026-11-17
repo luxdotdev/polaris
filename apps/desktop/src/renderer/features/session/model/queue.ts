@@ -43,7 +43,7 @@ export const isViewer = (actor: Actor, viewer: QueueViewer): boolean => {
 export const mayChange = (queued: SessionQueuedTurn, viewer: QueueViewer): boolean =>
   viewer.kind === "owner" || isViewer(queued.actor, viewer);
 
-const turns = (n: number) => `${n} Turn${n === 1 ? "" : "s"}`;
+const turns = (n: number) => `${n} turn${n === 1 ? "" : "s"}`;
 
-/** The paused queue's line: "Queue paused · 2 Turns". */
+/** The paused queue's line: "Queue paused · 2 turns". */
 export const pausedLine = (count: number): string => `Queue paused · ${turns(count)}`;

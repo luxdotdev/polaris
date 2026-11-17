@@ -65,7 +65,7 @@ export const shareLine = (share: ShareView, now: number): string => {
 
   return joined
     ? `${role} · expires ${until(expires, now)}`
-    : `Invited as ${role} · not accepted yet · lapses ${shortDate(expires)}`;
+    : `Invited as ${share.role} · not accepted yet · lapses ${shortDate(expires)}`;
 };
 
 /** The sheet's expiry choices, in days; 7 is the default and 30 the most a Share may last. */
@@ -108,13 +108,10 @@ export const shareRefusal = (
   return error.message === "" ? `Couldn't share with ${who}.` : error.message;
 };
 
-const roleOrDetail = (detail: string | null) =>
-  detail === "contributor" || detail === "commenter" ? roleLabel(detail) : detail;
-
 /** One share log line: who did what, to whom; the Host's own entries name no actor. */
 export const logLine = (entry: ShareLogView, person: string): string => {
   const who = entry.actor ?? "Polaris";
-  const detail = roleOrDetail(entry.detail);
+  const detail = entry.detail;
 
   switch (entry.kind) {
     case "invited":
@@ -199,9 +196,9 @@ export const ownerGroups = (
 export const sharedLine = (session: SharedSessionView, state: string | null): string => {
   const role = roleLabel(session.role);
 
-  if (session.ended) return `${role} · Share ended`;
+  if (session.ended) return `${role} · share ended`;
 
-  if (session.hostOffline) return `${role} · Host offline`;
+  if (session.hostOffline) return `${role} · host offline`;
 
   return state === null ? role : `${role} · ${state}`;
 };

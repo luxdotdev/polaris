@@ -45,7 +45,7 @@ const refused = (response: Response) =>
 
       const fields = {
         reason: status === 401 ? ("signed-out" as const) : ("refused" as const),
-        message: tag ?? `the Account Server answered ${status}`,
+        message: tag ?? `the account server answered ${status}`,
         status,
       };
 
@@ -147,7 +147,7 @@ export const accountServer = (fetch: Fetch, server: string) => {
 
         return yield* new AccountsError({
           reason: "sign-in-failed",
-          message: code ?? `the Account Server answered ${response.status}`,
+          message: code ?? `the account server answered ${response.status}`,
           status: response.status,
         });
       }),

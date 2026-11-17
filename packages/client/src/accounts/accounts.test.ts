@@ -132,7 +132,7 @@ describe("signing in", () => {
     );
 
     expect(failure.reason).toBe("sign-in-failed");
-    expect(failure.message).toBe("the Account Server sent a sign-in page that isn't its own");
+    expect(failure.message).toBe("the account server sent a sign-in page that isn't its own");
     expect(state.deviceSignIn).toBeNull();
   });
 
