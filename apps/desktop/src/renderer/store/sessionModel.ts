@@ -388,6 +388,10 @@ const fold = (event: DomainEvent): Fold =>
       CommentResolved: () => same,
       CommentReopened: () => same,
       CommentOutdated: () => same,
+      // Queued Turns (ENG-954): no Client shows the queue yet.
+      TurnQueued: () => same,
+      QueuedTurnEdited: () => same,
+      QueuedTurnCancelled: () => same,
       SessionCreated:
         ({ session }): Fold =>
         (m) => ({ ...m, session }),
