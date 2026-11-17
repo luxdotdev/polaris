@@ -23,6 +23,8 @@ interface Call {
   readonly method?: "GET" | "POST" | "PUT" | "DELETE";
   readonly path: string;
   readonly token?: string;
+  /** An Invite's host capability, for the endpoints the Host's side calls. */
+  readonly capability?: string;
   readonly body?: unknown;
 }
 
@@ -53,11 +55,13 @@ const refused = (response: Response) =>
     })
   );
 
-const requestInit = ({ method = "GET", token, body }: Call): RequestInit => {
+const requestInit = ({ method = "GET", token, capability, body }: Call): RequestInit => {
   const headers = new Headers({ accept: "application/json" });
   const init: RequestInit = { method, headers };
 
   if (token !== undefined) headers.set("authorization", `Bearer ${token}`);
+
+  if (capability !== undefined) headers.set("authorization", `Capability ${capability}`);
 
   if (body !== undefined) {
     headers.set("content-type", "application/json");
@@ -172,6 +176,13 @@ export const accountServer = (fetch: Fetch, server: string) => {
         method: "POST",
         path: `/v1/invites/${encodeURIComponent(inviteId)}/decline`,
         token,
+      }),
+    /** Ends an Invite no Host recorded a Share for, so nobody can accept it. */
+    withdrawInvite: (inviteId: string, capability: string) =>
+      noContent({
+        method: "DELETE",
+        path: `/v1/shares/${encodeURIComponent(inviteId)}/devices`,
+        capability,
       }),
     signOut: (token: string) =>
       noContent({ method: "POST", path: "/api/auth/sign-out", token, body: {} }),

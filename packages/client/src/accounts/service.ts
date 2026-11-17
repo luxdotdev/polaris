@@ -355,6 +355,14 @@ const make = Effect.fn("Accounts.make")(function* (input: AccountsInput) {
       withToken(id, (server, token) => server.decline(token, inviteId)),
     createInvite: (id: string, invite: NewInvite): Effect.Effect<CreatedInvite, AccountsError> =>
       withToken(id, (server, token) => server.createInvite(token, invite)),
+    /** Withdraws an Invite the Host refused to record a Share for; its capability is the key. */
+    withdrawInvite: (
+      id: string,
+      invite: Pick<CreatedInvite, "inviteId" | "hostCapability">
+    ): Effect.Effect<void, AccountsError> =>
+      Effect.flatMap(recordOf(id), (record) =>
+        serverAt(record.server).withdrawInvite(invite.inviteId, invite.hostCapability)
+      ),
     /** The Account a Workspace is shared as, or None until its first Share sets it. */
     workspaceAccount: (workspace: string) =>
       Effect.map(SubscriptionRef.get(state), (s) =>

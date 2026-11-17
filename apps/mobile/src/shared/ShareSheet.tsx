@@ -34,13 +34,8 @@ const useShareCalls = (connection: HostConnection): ShareCalls => {
   return {
     person: (accountId, login) => outcome(call((a) => a.person(accountId, login))),
     invite: (accountId, invite) => outcome(call((a) => a.createInvite(accountId, invite))),
-    create: (share) =>
-      connection.run((client) =>
-        client["shares.create"](share).pipe(
-          Effect.asVoid,
-          Effect.mapError((error) => new Error(error.message))
-        )
-      ),
+    withdraw: (accountId, invite) => outcome(call((a) => a.withdrawInvite(accountId, invite))),
+    create: (share) => connection.run((client) => Effect.asVoid(client["shares.create"](share))),
   };
 };
 
