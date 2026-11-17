@@ -4,8 +4,9 @@
  * "Host offline". Nothing shows until something is shared (rule/solo-is-unchanged).
  */
 import { mobileFont, mobileType, mobileWeight } from "@polaris/ui/tokens";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { Pressable, Text, View } from "react-native";
+import type { HostConnection } from "../runtime/hostConnection.ts";
 import { useHostRegistry } from "../runtime/hosts.tsx";
 import { themedStyles } from "../theme/index.ts";
 import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE } from "../theme/textScale.ts";
@@ -117,6 +118,32 @@ const SharedSessionRow = ({
 };
 
 /** Under Home's own sessions; opens a shared session's thread by its Host's Share key. */
+/** The shared Hosts that can't be reached now, kept current as each connection's status changes. */
+const useOfflineHosts = (connections: ReadonlyArray<HostConnection>) => {
+  const subscribe = useCallback(
+    (listener: () => void) => {
+      const stops = connections.map((connection) => connection.subscribe(listener));
+
+      return () => stops.forEach((stop) => stop());
+    },
+    [connections]
+  );
+
+  const down = useSyncExternalStore(subscribe, () =>
+    connections
+      .flatMap((c) =>
+        c.status().state !== "connected" && c.status().attempt > 0 ? [c.hostId] : []
+      )
+      .join("\n")
+  );
+
+  return useMemo(() => {
+    const keys = new Set(down.split("\n"));
+
+    return (hostKey: string) => keys.has(hostKey);
+  }, [down]);
+};
+
 export const SharedWithYou = ({
   onOpen,
 }: {
@@ -126,15 +153,7 @@ export const SharedWithYou = ({
   const shared = useShared();
   const { shared: connections } = useHostRegistry();
 
-  const offline = useMemo(() => {
-    const down = new Set(
-      connections
-        .filter((c) => c.status().state !== "connected" && c.status().attempt > 0)
-        .map((c) => c.hostId)
-    );
-
-    return (hostKey: string) => down.has(hostKey);
-  }, [connections]);
+  const offline = useOfflineHosts(connections);
 
   const invites = inviteRows(shared.accounts, shared.invites);
   const groups = sharedGroups(shared.accepted, shared.accounts, offline);
