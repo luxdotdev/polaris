@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { expect } from "bun:test";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { sql } from "drizzle-orm";
 import { Schema } from "effect";
@@ -11,6 +11,9 @@ import {
   readJson,
   startAccounts,
 } from "./testing/harness.ts";
+import { postgresSuite } from "./testing/postgresTests.ts";
+
+const { afterAll, beforeAll, describe, test } = postgresSuite();
 
 const Statement = Schema.Struct({ jwt: Schema.String });
 

@@ -2,7 +2,7 @@
  * `Accounts` against two real Account Servers (apps/accounts, a fake GitHub, Postgres in
  * Docker): PKCE sign-in through each, then signing out of one.
  */
-import { afterAll, beforeAll, expect, test } from "bun:test";
+import { expect } from "bun:test";
 import { Effect, Layer, Option } from "effect";
 import {
   CookieJar,
@@ -13,6 +13,9 @@ import {
 } from "../../../../apps/accounts/src/testing/harness.ts";
 import { Accounts, type Authorizer } from "./service.ts";
 import { memoryAccountStore } from "./store.ts";
+import { postgresSuite } from "../../../../apps/accounts/src/testing/postgresTests.ts";
+
+const { afterAll, beforeAll, test } = postgresSuite();
 
 let work: AccountServerHarness;
 

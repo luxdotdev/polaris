@@ -1,9 +1,12 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { expect } from "bun:test";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { sql } from "drizzle-orm";
 import { Schema } from "effect";
 import { PendingInvite, ShareDevice } from "./api/definition.ts";
 import { type Accounts, randomNoiseKey, readJson, startAccounts } from "./testing/harness.ts";
+import { postgresSuite } from "./testing/postgresTests.ts";
+
+const { afterAll, beforeAll, describe, test } = postgresSuite();
 
 const owner = {
   id: 1,
