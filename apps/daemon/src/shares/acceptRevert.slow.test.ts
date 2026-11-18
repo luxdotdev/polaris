@@ -48,6 +48,7 @@ import { shareGateFor } from "./gate.ts";
 import { CommitIdentitiesLive } from "./identities.ts";
 import { type FakeIssuer, startFakeIssuer } from "./issuer.testing.ts";
 import { Shares } from "./service.ts";
+import { sharesLayer } from "./live.ts";
 import { ShareStore } from "./store.ts";
 import { ShareTargetsLive } from "./targets.ts";
 
@@ -93,7 +94,7 @@ const host = (server: FakeIssuer, repo: string) => {
     checkpoints: CheckpointsLive,
   }).pipe(Layer.provideMerge(CommitIdentitiesLive));
 
-  const shares = Shares.layer({
+  const shares = sharesLayer({
     fetch: server.fetch,
     timing: { waitS: 2, pauseMs: 5, retryMs: 20 },
   }).pipe(

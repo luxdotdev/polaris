@@ -3,7 +3,14 @@
  * viewer per open `subscribeSession` or `constellation.subscribe`, gone when it ends. Never
  * persisted, and nothing polls: the feeds' own lifetimes drive it.
  */
-import { type Actor, SharePresenceEntry, type ShareTouch } from "@polaris/protocol";
+import {
+  type Actor,
+  shareCovers,
+  SharePresenceEntry,
+  type ShareTarget,
+  type ShareTouch,
+} from "@polaris/protocol";
+import { Effect, Queue, Stream } from "effect";
 
 export interface Viewer {
   /** One entry per person: a Teammate's issuer and person, or the owner. */
@@ -58,3 +65,21 @@ export const sharePresence = (): SharePresence => {
     },
   };
 };
+
+/** Who has `target` open: the list now, then again on each change. */
+export const presenceFeed = (presence: SharePresence, target: ShareTarget) =>
+  // Sliding by one: a burst of changes reads the list once more, never once per change.
+  Stream.callback<void>(
+    (queue) =>
+      Effect.acquireRelease(
+        Effect.sync(() => {
+          const unwatch = presence.watch(() => Queue.offerUnsafe(queue, undefined));
+
+          Queue.offerUnsafe(queue, undefined);
+
+          return unwatch;
+        }),
+        (unwatch) => Effect.sync(unwatch)
+      ),
+    { bufferSize: 1, strategy: "sliding" }
+  ).pipe(Stream.map(() => presence.list((touch) => shareCovers(target, touch))));

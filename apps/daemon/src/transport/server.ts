@@ -62,8 +62,8 @@ import {
 } from "../shares/connection.ts";
 import { shareGateFor } from "../shares/gate.ts";
 import { Shares, type SharesOptions } from "../shares/service.ts";
-import { ShareNotifications } from "../shares/notifications.ts";
-import { ShareStore } from "../shares/store.ts";
+import type { ShareNotifications } from "../shares/notifications.ts";
+import { lazyShares } from "./lazyShares.ts";
 import { HostPresence, type PresenceOptions } from "../presence/index.ts";
 import type { DeviceSession } from "../linkedDevices/session.ts";
 import { LinkedDevices } from "../linkedDevices/store.ts";
@@ -208,7 +208,6 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       | RelayGuests
       | Pairings
       | ShareNotifications
-      | ShareStore
       | TeammateConnections
     >
 > =>
@@ -297,18 +296,12 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     const hostSecrets = options.secrets ?? HostSecrets.layer;
 
     // Shares and their devices (ADR 0112): the Relay route lists and admits them as guests.
+    const shareLayers = lazyShares({ path: join(root, "shares.sqlite"), shares: options.shares });
+
     const shareServices = Shares.guestsLayer.pipe(
-      Layer.provideMerge(Shares.layer(options.shares)),
+      Layer.provideMerge(shareLayers.shares),
       Layer.provideMerge(
         Layer.mergeAll(
-          ShareStore.layer(join(root, "shares.sqlite")).pipe(
-            Layer.catchTag("ShareStoreError", (error) =>
-              Layer.effect(
-                ShareStore,
-                Effect.fail(new ServiceError({ service: "transport", message: error.message }))
-              )
-            )
-          ),
           hostSecrets,
           Layer.succeed(TeammateConnections)({
             serve: (session, teammate) =>
@@ -355,7 +348,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     );
 
     // Needs You for Teammates' devices and everyone's mutes, beside the owner's pushes.
-    const deviceServices = ShareNotifications.layer.pipe(Layer.provideMerge(relayRoute));
+    const deviceServices = shareLayers.notifications.pipe(Layer.provideMerge(relayRoute));
 
     const extensionServices = Layer.mergeAll(
       deviceServices,

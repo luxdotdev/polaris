@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, expect, test } from "bun:test";
+import { expect } from "bun:test";
 import { Schema } from "effect";
 import {
   type Accounts,
@@ -7,6 +7,9 @@ import {
   readJson,
   startAccounts,
 } from "./testing/harness.ts";
+import { postgresSuite } from "./testing/postgresTests.ts";
+
+const { afterAll, beforeAll, test } = postgresSuite();
 
 const DeviceCode = Schema.Struct({
   device_code: Schema.String,

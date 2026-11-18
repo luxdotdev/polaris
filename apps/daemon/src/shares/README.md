@@ -14,12 +14,24 @@ The contract with the Account Server is `apps/accounts/README.md`; the wire cont
 | `body.ts` | An issuer's answer, read up to a byte limit and only from its own origin. |
 | `identities.ts` | Co-author trailers' names and commit emails, from the Shares (`../coAuthors/`). |
 | `devices.ts` | One poll per live Share; the devices with a statement the Host verified. |
-| `service.ts` | `Shares`: create, renew, revoke, list; the Relay route's guests; the one timer. |
+| `service.ts` | `Shares` as the Daemon reaches it: create, renew, revoke, list; the Relay route's guests. |
+| `live.ts` | `Shares` on the store: the polls, the devices, the sessions and the one timer. |
 | `gate.ts` | The Share gate in front of every RPC on a Teammate's connection. |
 | `targets.ts` | What a session touches, from the event store's model. |
 | `presence.ts` | Who has a shared target open. |
 | `notifications.ts` | `ShareNotifications`: Teammates' push registrations, everyone's mutes, who a Needs You reaches. |
+| `notificationsLive.ts` | `ShareNotifications` on the store. |
 | `rpc.ts` | `shares.*` and `account.refreshStatement`. |
+
+## Loaded on first use
+
+A Host that has never had a Share pays for none of this (`../transport/lazyShares.ts`). While
+`shares.sqlite` does not exist the server holds stand-ins: no Share is listed, no device is a relay
+peer, nobody has muted anything, and who is viewing a session is still recorded. The first
+`shares.create`, mute or other write loads `live.ts`, `store.ts`, the issuer and statement code
+and `notificationsLive.ts`, and creates the store. A start that finds the store loads them at
+once, so polls and expiries resume without a request. `rpc.ts`, a Teammate's feed filter
+(`feeds.ts`) and the co-author trailers (`../coAuthors/`) load the same way.
 
 ## Lifecycle
 

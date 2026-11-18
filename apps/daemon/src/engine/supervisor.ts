@@ -27,7 +27,7 @@ import {
   ConstellationLiveness,
   type ConstellationLivenessService,
 } from "../constellation/liveness.ts";
-import { coAuthorNote, sessionTrailers } from "../coAuthors/index.ts";
+import { CommitIdentities } from "../coAuthors/identities.ts";
 import { LiveItem } from "../store/EventStore.ts";
 import { workingTurn } from "../store/model.ts";
 import { suggestReply } from "./suggestedReplies.ts";
@@ -527,12 +527,22 @@ const make = (
               ? yield* withForkContext(session, session.parentSessionId, prompt)
               : prompt;
 
-          const trailers = yield* sessionTrailers(store, sessionId, null).pipe(
-            Effect.orElseSucceed(() => [])
-          );
+          // Co-author trailers load once the Host has had a Share; until then nobody is credited.
+          const coAuthors = (yield* (yield* CommitIdentities).any)
+            ? yield* Effect.promise(() => import("../coAuthors/index.ts"))
+            : null;
+
+          const trailers =
+            coAuthors === null
+              ? []
+              : yield* coAuthors
+                  .sessionTrailers(store, sessionId, null)
+                  .pipe(Effect.orElseSucceed(() => []));
 
           const promptInput =
-            trailers.length === 0 ? basePrompt : `${basePrompt}\n\n${coAuthorNote(trailers)}`;
+            coAuthors === null || trailers.length === 0
+              ? basePrompt
+              : `${basePrompt}\n\n${coAuthors.coAuthorNote(trailers)}`;
 
           const entry = yield* timedStart(
             openHarness(sessionId),

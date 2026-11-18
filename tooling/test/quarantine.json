@@ -1,4 +1,19 @@
 {
   "$comment": "Flaky tests the required lane skips; the nightly runs them with --quarantined. Each entry needs an issue and expires 30 days after it was added. See tooling/test/quarantine.md.",
-  "entries": []
+  "entries": [
+    {
+      "file": "apps/daemon/src/traces/instrumentation/instrumentation.test.ts",
+      "test": "compiled executable materializes the bundled register without checkout dependencies",
+      "os": ["windows"],
+      "issue": "ENG-964",
+      "added": "2026-11-18"
+    },
+    {
+      "file": "apps/daemon/src/traces/instrumentation/instrumentation.test.ts",
+      "test": "bundled Node HTTP and fetch instrumentation keeps the server and its outgoing fetch in one parented trace",
+      "os": ["windows"],
+      "issue": "ENG-964",
+      "added": "2026-11-18"
+    }
+  ]
 }

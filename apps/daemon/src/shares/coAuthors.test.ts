@@ -34,6 +34,7 @@ import { TeammateConnections } from "./connection.ts";
 import { CommitIdentitiesLive } from "./identities.ts";
 import { type FakeIssuer, startFakeIssuer } from "./issuer.testing.ts";
 import { Shares, teammateActor } from "./service.ts";
+import { sharesLayer } from "./live.ts";
 import { ShareStore } from "./store.ts";
 import { ShareTargetsLive } from "./targets.ts";
 
@@ -59,7 +60,7 @@ const host = (server: FakeIssuer, claude: ReturnType<typeof makeFakeDriver>) => 
     drivers: [claude],
   }).pipe(Layer.provideMerge(CommitIdentitiesLive));
 
-  const shares = Shares.layer({
+  const shares = sharesLayer({
     fetch: server.fetch,
     timing: { waitS: 2, pauseMs: 5, retryMs: 20 },
   }).pipe(

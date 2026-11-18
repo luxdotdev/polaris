@@ -5,7 +5,7 @@
  */
 import type { Share } from "@polaris/protocol";
 import { Context, Effect, Layer } from "effect";
-import { CommitIdentities, identitiesFromShares } from "../coAuthors/index.ts";
+import { CommitIdentities, identitiesFromShares } from "../coAuthors/identities.ts";
 
 export class ShareBook extends Context.Service<
   ShareBook,

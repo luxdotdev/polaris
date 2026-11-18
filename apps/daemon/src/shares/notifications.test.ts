@@ -29,6 +29,8 @@ import { TeammateConnections, type TeammateDevice } from "./connection.ts";
 import { type FakeDevice, type FakeIssuer, startFakeIssuer } from "./issuer.testing.ts";
 import { OWNER, personOf, ShareNotifications } from "./notifications.ts";
 import { Shares } from "./service.ts";
+import { sharesLayer } from "./live.ts";
+import { shareNotificationsLayer } from "./notificationsLive.ts";
 import { ShareStore } from "./store.ts";
 
 const S1 = SessionId.make("s1");
@@ -117,7 +119,7 @@ const onHost = <A, E>(
       return yield* program;
     }).pipe(
       Effect.provide(
-        ShareNotifications.layer.pipe(
+        shareNotificationsLayer.pipe(
           Layer.provideMerge(
             Layer.effectDiscard(
               Effect.map(Shares, (shares) =>
@@ -134,7 +136,7 @@ const onHost = <A, E>(
               )
             ).pipe(
               Layer.provideMerge(
-                Shares.layer({
+                sharesLayer({
                   fetch: server.fetch,
                   timing: { waitS: 2, pauseMs: 5, retryMs: 20 },
                   skewMs: 0,
