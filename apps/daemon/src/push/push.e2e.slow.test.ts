@@ -4,6 +4,7 @@
  * linked device registers, goes offline, gets a sealed Needs You it alone can open, and
  * answers through the relay; nothing the relay logs holds the content or the token.
  */
+import { ownError } from "../transport/userAccess.testing.ts";
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { createServer, type IncomingHttpHeaders, type ServerHttp2Stream } from "node:http2";
 import type { AddressInfo } from "node:net";
@@ -289,11 +290,11 @@ test("a Needs You reaches an offline linked device sealed, and its answer comes 
         const otherHost = yield* Effect.promise(makeDevice);
         const wrongTicket = signPushTicket(phone.identity, otherHost.address, "sandbox", TOKEN);
         expect(
-          (yield* Effect.flip(
+          (yield* ownError(
             phoneSide.client["devices.registerPush"]({ ...registration, ticket: wrongTicket })
           )).reason
         ).toBe("failed");
-        expect((yield* Effect.flip(desktop["devices.registerPush"](registration))).reason).toBe(
+        expect((yield* ownError(desktop["devices.registerPush"](registration))).reason).toBe(
           "not-a-device"
         );
 

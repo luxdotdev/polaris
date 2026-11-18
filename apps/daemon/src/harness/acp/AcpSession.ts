@@ -179,8 +179,11 @@ export const openSession = (
         return conn.respond(rpcId, { outcome: { outcome: "cancelled" } });
       translator.toolCall(turnId, params.toolCall);
 
-      if (autoAllowed(permissionMode, params.toolCall.kind))
-        return conn.respond(rpcId, allowOnce(params.options));
+      const once = autoAllowed(permissionMode, params.toolCall.kind)
+        ? allowOnce(params.options)
+        : null;
+
+      if (once !== null) return conn.respond(rpcId, once);
       const requestId = RequestId.make(crypto.randomUUID());
       pending.set(requestId, {
         rpcId,

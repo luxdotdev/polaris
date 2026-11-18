@@ -7,8 +7,10 @@ import { WorktreeSetup } from "./worktreeSetup.ts";
 import { Schema } from "effect";
 import { ApprovalDecision, PermissionMode, SessionOrigin } from "./domain.ts";
 import { HarnessKind } from "./harnesses.ts";
+import { CommentAnchor } from "./comments.ts";
 import {
   AttachmentId,
+  CommentId,
   RequestId,
   ReviewCheckoutId,
   RiskFindingId,
@@ -64,11 +66,27 @@ export const Command = Schema.TaggedUnion({
     /** The Review a Reviewer's or walkthrough's session is for; set by the Daemon only. */
     reviewSubject: Schema.optionalKey(Schema.NullOr(ReviewSubject)),
   },
+  /**
+   * A new Turn. In a shared session with a Turn in flight it joins the queue instead
+   * (`TurnQueued`, capability `session.queued-turns`) and starts when the Turns ahead end.
+   */
   SendTurn: {
     sessionId: SessionId,
     prompt: Schema.String,
     attachments: Schema.Array(AttachmentId),
   },
+  /**
+   * Take a queued Turn out of the session's queue (capability `session.queued-turns`): its
+   * author or the owner (`mayChangeQueuedTurn`). Refused once it started.
+   */
+  CancelQueuedTurn: { sessionId: SessionId, turnId: TurnId },
+  /**
+   * Start the head of a paused queue: an interrupted Turn leaves the Turns behind it queued
+   * and the session Idle until someone holding `turn` resumes it.
+   */
+  ResumeQueue: { sessionId: SessionId },
+  /** Change a queued Turn's prompt, keeping its place: its author or the owner. */
+  EditQueuedTurn: { sessionId: SessionId, turnId: TurnId, prompt: Schema.String },
   /**
    * Run `command` in the session's directory as a new Turn (capability `session.shell-command`,
    * where the Harness `runsShellCommands`): the Daemon runs it, then the agent reads its output.
@@ -157,7 +175,29 @@ export const Command = Schema.TaggedUnion({
     sessionId: SessionId,
     feedback: FeedbackBatch,
     attachments: Schema.Array(AttachmentId),
+    /**
+     * Comments of this session to send with the Turn (capability `session.comments`), after
+     * the batch's own, in this order. Refused when one is unknown or was already sent; the
+     * Turn records them (`Turn.commentIds`) and each keeps its author.
+     */
+    commentIds: Schema.optionalKey(Schema.Array(CommentId)),
   },
+
+  // ── Comments (ADR 0113; capability `session.comments`) ──
+
+  /** Add a Comment to the session. Changes no Session State and reaches no Harness. */
+  AddComment: {
+    sessionId: SessionId,
+    commentId: CommentId,
+    anchor: CommentAnchor,
+    body: Schema.String,
+  },
+  /** Change a Comment's text: its author only, and only until it is sent. */
+  EditComment: { sessionId: SessionId, commentId: CommentId, body: Schema.String },
+  /** Resolve a Comment: its author, the owner or a Contributor (`mayResolveComment`). */
+  ResolveComment: { sessionId: SessionId, commentId: CommentId },
+  /** Reopen a resolved Comment: whoever may resolve it. */
+  ReopenComment: { sessionId: SessionId, commentId: CommentId },
   /**
    * Accept the session's Turns through `throughTurnId`, a contiguous prefix
    * (capability `session.accept`). Refused with a Turn in flight or for a Turn

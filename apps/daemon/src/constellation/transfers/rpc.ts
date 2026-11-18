@@ -8,7 +8,7 @@ import { paths } from "../../paths.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { constellationRef, fetchOrigin, pushOrigin } from "../../git/constellationBundles.ts";
 import { gitText, resolveCommit } from "../../git/git.ts";
-import { ConstellationCaller } from "../rpc.ts";
+import { isUserCaller } from "../rpc.ts";
 import { ConstellationWorktrees, gitOperation, transferError } from "../worktrees.ts";
 import { ConstellationOwner } from "../runtime.ts";
 import { TransferStorage } from "./storage.ts";
@@ -75,13 +75,11 @@ const bundle = (repoPath: string, head: string, branch: string) =>
     Effect.map((exported) => ({ ...exported, branch, origin: null, transfer: "bundle" as const }))
   );
 
-const allowUser = (annotations: Context.Context<never>) => {
-  const binding = Context.getOrUndefined(annotations, ConstellationCaller);
-
-  return binding === undefined || binding.kind === "user"
+/** Fails closed: an unbound connection the user gate never admitted is not the user. */
+const allowUser = (annotations: Context.Context<never>) =>
+  isUserCaller(annotations)
     ? Effect.void
     : Effect.fail(transferError("E-AUTHORITY", "Transfers require the authenticated Desktop App"));
-};
 
 /** Mounted by L beside the graph RPCs; blobs always come from the request's existing connection. */
 export const ConstellationTransferHandlers = ConstellationTransferRpcs.toLayer(

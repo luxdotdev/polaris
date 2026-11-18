@@ -22,6 +22,7 @@ import { DuoShell } from "./duo/DuoShell.tsx";
 import { FollowedHostsProvider } from "./home/feed/useFollowedHosts.ts";
 import { useHomeHosts } from "./home/feed/useHomeHosts.ts";
 import { HomeScreen } from "./home/HomeScreen.tsx";
+import { SharedProvider, useShared } from "./shared/SharedProvider.tsx";
 import { ComposerGallery, composerGalleryOn } from "./composer/Gallery.tsx";
 import {
   ConstellationGallery,
@@ -37,6 +38,7 @@ import { LinkScreen } from "./link/LinkScreen.tsx";
 import { useLiveActivity } from "./live/useLiveActivity.ts";
 import { usePush, usePushLinks } from "./push/usePush.ts";
 import { RelayProvider, useRelay } from "./relay/RelayProvider.tsx";
+import { AccountsProvider } from "./accounts/index.ts";
 import { runSelfCheck } from "./runtime/selfCheck.ts";
 import { AcceptDemo } from "./review/accept/index.ts";
 import { ReviewGallery, reviewGalleryOn } from "./review/gallery/Gallery.tsx";
@@ -122,8 +124,11 @@ const Tabs = () => {
 const Screen = () => {
   const navigation = useNavigation();
   const relay = useRelay();
+  const shared = useShared();
   const [first] = relay.hosts;
-  const mustLink = !__DEV__ && relay.loaded && first === undefined;
+  // A Teammate signed in to a Polaris account has somewhere to go without a Host of their own.
+  const sharing = shared.accounts.length > 0 || shared.accepted.length > 0;
+  const mustLink = !__DEV__ && relay.loaded && shared.loaded && first === undefined && !sharing;
   const [pairing, setPairing] = useState(false);
 
   useEffect(() => {
@@ -285,15 +290,19 @@ export const App = () => {
           <StatusBar style="light" />
           <HostsProvider>
             <RelayProvider>
-              <FollowedHostsProvider>
-                <WidgetSync />
-                <SelfTraceSync />
-                <CheckAlive />
-                <Push />
-                <NavigationProvider>
-                  <Shell />
-                </NavigationProvider>
-              </FollowedHostsProvider>
+              <AccountsProvider>
+                <SharedProvider>
+                  <FollowedHostsProvider>
+                    <WidgetSync />
+                    <SelfTraceSync />
+                    <CheckAlive />
+                    <Push />
+                    <NavigationProvider>
+                      <Shell />
+                    </NavigationProvider>
+                  </FollowedHostsProvider>
+                </SharedProvider>
+              </AccountsProvider>
             </RelayProvider>
           </HostsProvider>
         </SafeAreaProvider>

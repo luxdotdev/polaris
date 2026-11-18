@@ -15,6 +15,12 @@ export type DiffRow =
   | { readonly kind: "line"; readonly key: string; readonly line: DiffLine }
   | { readonly kind: "note"; readonly key: string; readonly text: string }
   | { readonly kind: "foot"; readonly key: string }
+  | {
+      readonly kind: "comments";
+      readonly key: string;
+      readonly side: "new" | "old";
+      readonly line: number;
+    }
   | { readonly kind: "gap"; readonly key: string };
 
 export const ROW_HEIGHT: Record<DiffRow["kind"], number> = {
@@ -23,10 +29,34 @@ export const ROW_HEIGHT: Record<DiffRow["kind"], number> = {
   line: 20,
   note: 28,
   foot: 6,
+  comments: 120,
   gap: 12,
 };
 
-const fileBody = (file: DiffFile): ReadonlyArray<DiffRow> => {
+/** A line's place for Comments: the new side, or the old for a removed line. */
+export const lineSide = (line: DiffLine): { side: "new" | "old"; line: number } | null => {
+  if (line.newNumber !== null) return { side: "new", line: line.newNumber };
+
+  return line.oldNumber === null ? null : { side: "old", line: line.oldNumber };
+};
+
+/** Where Comment rows go: "path\0side\0line" of each thread's or draft's last line. */
+export const commentMark = (path: string, side: "new" | "old", line: number) =>
+  `${path}\u0000${side}\u0000${line}`;
+
+const commentsAfter = (
+  file: DiffFile,
+  line: DiffLine,
+  marks: ReadonlySet<string>
+): ReadonlyArray<DiffRow> => {
+  const at = lineSide(line);
+
+  if (at === null || !marks.has(commentMark(file.path, at.side, at.line))) return [];
+
+  return [{ kind: "comments", key: `comments:${commentMark(file.path, at.side, at.line)}`, ...at }];
+};
+
+const fileBody = (file: DiffFile, marks: ReadonlySet<string>): ReadonlyArray<DiffRow> => {
   if (file.binary) return [{ kind: "note", key: `${file.path}:binary`, text: "Binary file" }];
 
   if (file.hunks.length === 0)
@@ -34,17 +64,17 @@ const fileBody = (file: DiffFile): ReadonlyArray<DiffRow> => {
 
   return file.hunks.flatMap((hunk, h) => [
     { kind: "hunk" as const, key: `${file.path}:${h}`, header: hunk.header },
-    ...hunk.lines.map((line, n) => ({
-      kind: "line" as const,
-      key: `${file.path}:${h}:${n}`,
-      line,
-    })),
+    ...hunk.lines.flatMap((line, n) => [
+      { kind: "line" as const, key: `${file.path}:${h}:${n}`, line },
+      ...(marks.size === 0 ? [] : commentsAfter(file, line, marks)),
+    ]),
   ]);
 };
 
 export const diffRows = (
   files: ReadonlyArray<DiffFile>,
-  folded: ReadonlySet<string>
+  folded: ReadonlySet<string>,
+  marks: ReadonlySet<string> = new Set()
 ): ReadonlyArray<DiffRow> =>
   files.flatMap((file, n) => {
     const isFolded = folded.has(file.path);
@@ -53,5 +83,32 @@ export const diffRows = (
 
     if (isFolded) return [...gap, head];
 
-    return [...gap, head, ...fileBody(file), { kind: "foot", key: `foot:${file.path}` }];
+    return [...gap, head, ...fileBody(file, marks), { kind: "foot", key: `foot:${file.path}` }];
   });
+
+/** The tab stop `white-space: pre` uses (CSS `tab-size`'s default). */
+const TAB_SIZE = 8;
+
+// East Asian wide and fullwidth ranges and emoji drawn as emoji: two monospace cells each.
+const WIDE =
+  /[ᄀ-ᅟ⺀-〾ぁ-㏿㐀-䶿一-鿿ꀀ-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦\u{20000}-\u{3FFFD}]|\p{Emoji_Presentation}/u;
+
+/** The monospace cells a line takes unwrapped: tabs to their stop, wide characters as two. */
+export const lineColumns = (text: string): number => {
+  let columns = 0;
+
+  for (const char of text) {
+    if (char === "\t") columns += TAB_SIZE - (columns % TAB_SIZE);
+    else columns += WIDE.test(char) ? 2 : 1;
+  }
+
+  return columns;
+};
+
+/** A file's widest line in cells: how far its card scrolls sideways. */
+export const fileColumns = (file: DiffFile): number =>
+  file.hunks.reduce(
+    (widest, hunk) =>
+      hunk.lines.reduce((wide, line) => Math.max(wide, lineColumns(line.text)), widest),
+    0
+  );

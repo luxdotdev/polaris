@@ -1,3 +1,4 @@
+import { ownError } from "../../transport/userAccess.testing.ts";
 import { expect } from "bun:test";
 import { access } from "node:fs/promises";
 import { join } from "node:path";
@@ -22,7 +23,10 @@ const hello = (languageProof?: Redacted.Redacted<unknown>) => {
     capabilities: [],
   };
 
-  return languageProof === undefined ? input : { ...input, languageProof };
+  // The proof's owner is the Desktop App, which holds user access: installing is user-only.
+  return languageProof === undefined
+    ? input
+    : { ...input, languageProof, userKey: Redacted.make("a".repeat(64)) };
 };
 
 languageHostTest(
@@ -84,7 +88,7 @@ languageHostTest(
 
           expect(selected.effectiveLimit).toBe(12);
 
-          const raced = yield* Effect.flip(
+          const raced = yield* ownError(
             owned.client["languages.host.processBudget.set"]({
               expectedRevision: budget.revision,
               maxProcesses: 16,
@@ -168,7 +172,7 @@ languageHostTest(
             "Prerequisite observation is unavailable without current request authority"
           );
 
-          const installDenied = yield* Effect.flip(
+          const installDenied = yield* ownError(
             owned.client["languages.install"]({
               toolId: "shellcheck",
               version: "0.11.0",
@@ -179,13 +183,13 @@ languageHostTest(
           expect(installDenied.reason).toBe("unsupported-capability");
           expect(installDenied.message).toBe("Independent installation permission is unavailable");
 
-          const foreignCancel = yield* Effect.flip(
+          const foreignCancel = yield* ownError(
             owned.client["languages.install.cancel"]({ jobId: "foreign-job" })
           );
 
           expect(foreignCancel.reason).toBe("not-owner");
 
-          const rollbackDenied = yield* Effect.flip(
+          const rollbackDenied = yield* ownError(
             owned.client["languages.install"]({
               toolId: "shellcheck",
               version: "0.11.0",

@@ -22,6 +22,13 @@ bench Harness (the SDK's test Daemon), registers a Workspace and starts two agen
 prompt such as `bench:{"approvalEvery":1,"approvalQuestion":{"question":"…","choices":["A","B"]}}`
 makes a session ask for approval or answer, to try Home's inline replies.
 
+`dev:sharing` sets up shared sessions instead (ENG-941): a local Account Server with a fake GitHub
+(Postgres in Docker), a local relay (`POLARIS_RELAY_BIN`, or one built with cargo), this phone's
+dev Daemon, and an owner's Daemon (@octocat) that shares two sessions with @hubot. Sign the app in
+to the Account Server it prints, as @hubot. On stdin, `turn <text>` sends a Turn as the owner and
+`offline` / `online` take the owner's Host off the relay and back. Nothing reaches GitHub or
+Polaris Cloud; both Daemons keep their secrets under their own home, not the Keychain.
+
 ## Hosts and the dev bridge
 
 The app is a Client, not an Extension: every screen shares one `HostConnection` per Host

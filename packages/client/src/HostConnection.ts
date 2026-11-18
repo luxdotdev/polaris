@@ -35,6 +35,7 @@ import {
   SubscriptionRef,
 } from "effect";
 import type { RpcClientError } from "effect/rpc/RpcClientError";
+import type { RelayAddress } from "@polaris/protocol/relay";
 import {
   type ConnectionEvent,
   connectionMachine,
@@ -42,11 +43,13 @@ import {
   initialConnection,
   type ReconnectPolicy,
 } from "./connection.ts";
+import { renewStatement, statementFailure } from "./accountStatement.ts";
 import { ConnectFailure, olderSide } from "./failures.ts";
 import { type Feed, openHostFeed, openSessionFeed } from "./resume.ts";
 import {
   type ClientBlobs,
   connectRpc,
+  connectTeammateRpc,
   type DaemonClient,
   isDaemonDefect,
   type RpcConnectionOptions,
@@ -76,7 +79,21 @@ export type HostTarget = Data.TaggedEnum<{
   };
   /** A WSL 2 distro on this Windows machine (experimental; `wsl/`). */
   Wsl: { readonly distro: string };
+  /** A Host reached through the Polaris Relay (`relay/`): a Noise session to its static key. */
+  Relay: {
+    readonly relayUrl: string;
+    readonly hostAddress: RelayAddress;
+    /** The Host's Noise static public key, base64url. */
+    readonly hostNoiseKey: string;
+    /**
+     * Another person's Host: the Account this connection acts as, named in the handshake so
+     * the Host tells one device's Accounts apart (ADR 0112). Absent on the user's own Hosts.
+     */
+    readonly teammate?: { readonly issuer: string; readonly personId: string };
+  };
 }>;
+
+export type RelayTarget = Data.TaggedEnum.Value<HostTarget, "Relay">;
 
 export const HostTarget = Data.taggedEnum<HostTarget>();
 
@@ -93,6 +110,11 @@ export interface ClientIdentity {
    * make the other user-only requests. Held by the Client only, never in an agent's env.
    */
   readonly userKey?: Redacted.Redacted<string>;
+  /**
+   * A Teammate's statement from their Account Server (ADR 0112), fetched for each connection and
+   * renewed on it before it lapses: the connection then acts as that person, within their Shares.
+   */
+  readonly accountStatement?: Effect.Effect<Redacted.Redacted<string>, ConnectFailure>;
 }
 
 export { DEFAULT_POLICY, type ReconnectPolicy } from "./connection.ts";
@@ -117,6 +139,8 @@ export interface HostConnectionOptions {
   readonly rpc?: RpcConnectionOptions;
   readonly ssh?: SshOptions;
   readonly wsl?: WslConnectorOptions;
+  /** Opens a Relay target's session; from `@polaris/client/relay`, which loads libsodium. */
+  readonly relay?: (target: RelayTarget) => Connector;
 }
 
 export interface ConnectionStatus {
@@ -260,6 +284,15 @@ export const connectorFor = (options: HostConnectionOptions): Connector => {
         remoteCommand === undefined ? (options.wsl ?? {}) : { ...options.wsl, remoteCommand }
       );
     },
+    Relay: (target) =>
+      options.relay?.(target) ??
+      Effect.fail(
+        new ConnectFailure({
+          kind: "transient",
+          reason: "connection-failed",
+          detail: "this Client has no relay identity",
+        })
+      ),
   });
 };
 
@@ -310,7 +343,12 @@ export const makeHostConnection = Effect.fnUntraced(function* (
     Effect.scoped(
       Effect.gen(function* () {
         const transport = yield* connector;
-        const connection = yield* connectRpc(transport, options.rpc);
+
+        // A Teammate's requests can be refused by the Share gate, which only its group decodes.
+        const connect =
+          options.identity.accountStatement === undefined ? connectRpc : connectTeammateRpc;
+
+        const connection = yield* connect(transport, options.rpc);
         const lifetime = new AbortController();
         yield* Effect.addFinalizer(() => Effect.sync(() => lifetime.abort()));
 
@@ -331,10 +369,15 @@ export const makeHostConnection = Effect.fnUntraced(function* (
             ? tokenPayload
             : { ...tokenPayload, userKey: options.identity.userKey };
 
+        const statementPayload =
+          options.identity.accountStatement === undefined
+            ? payload
+            : { ...payload, accountStatement: yield* options.identity.accountStatement };
+
         const privatePayload =
           options.clientIdentity === undefined
-            ? payload
-            : { ...payload, languageProof: options.clientIdentity.proof };
+            ? statementPayload
+            : { ...statementPayload, languageProof: options.clientIdentity.proof };
 
         const hello = yield* connection.client.hello(privatePayload).pipe(
           Effect.timeoutOrElse({
@@ -376,6 +419,7 @@ export const makeHostConnection = Effect.fnUntraced(function* (
               })
             )
           ),
+          Effect.catchTag("StatementRejected", (error) => Effect.fail(statementFailure(error))),
           Effect.catch((error) =>
             error instanceof ConnectFailure ? Effect.fail(error) : Effect.flip(transport.diagnose)
           )
@@ -470,6 +514,13 @@ export const makeHostConnection = Effect.fnUntraced(function* (
           lastSeenAt: null,
         });
         yield* SubscriptionRef.set(live, session);
+
+        if (options.identity.accountStatement !== undefined)
+          yield* Effect.forkScoped(
+            renewStatement(options.identity.accountStatement, (statement) =>
+              connection.client["account.refreshStatement"]({ statement })
+            )
+          );
         yield* connection.roundTrip.pipe(
           Effect.flatMap((ms) => setStatus({ latencyMs: Math.round(ms) })),
           Effect.timeout(policy.helloTimeoutMs),

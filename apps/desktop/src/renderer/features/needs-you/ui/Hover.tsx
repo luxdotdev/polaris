@@ -24,6 +24,7 @@ import { modalOpen } from "../modal.ts";
 import type { WaitingSession } from "../model/inbox.ts";
 import { wantsOf } from "../model/popover.ts";
 import { offersAlwaysAllow } from "../../data/approval/decide.ts";
+import { useOnSharedHost } from "../../sharing/index.ts";
 import { dataWantsLine } from "../../data/approval/model.ts";
 import { answerDecision, questionSteps, questionViews } from "../../session/model/question.ts";
 import { askingForSecret } from "../../session/model/secret.ts";
@@ -42,6 +43,7 @@ export interface NeedsYouHoverProps {
 const Card = ({ item }: { readonly item: WaitingSession }) => {
   const now = useNow(30_000);
   const { selectSession } = useShellActions();
+  const theirs = useOnSharedHost(item.hostKey);
   const { session } = item.entry;
   const request = item.requests[0];
 
@@ -120,7 +122,9 @@ const Card = ({ item }: { readonly item: WaitingSession }) => {
           : `${where(item, null, now)} · ⎇ ${item.branch}`
       }
       onApprove={() => void approve(target, false, open)}
-      {...(offersAlwaysAllow(request) ? { onAlwaysAllow: () => void approve(target, true) } : {})}
+      {...(offersAlwaysAllow(request, theirs)
+        ? { onAlwaysAllow: () => void approve(target, true) }
+        : {})}
       onDeny={() => void deny(target, open)}
     />
   );

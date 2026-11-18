@@ -21,6 +21,7 @@ import {
   type SessionId,
   TransportError,
   Unsupported,
+  type UserAccessRequired,
 } from "@polaris/protocol";
 import {
   type Cause as CauseType,
@@ -75,12 +76,17 @@ export const hostAddressNames = (
  * Opens a byte stream to `target` on the Host's loopback and answers it as a ByteTransport:
  * `incoming` is the Host's bytes, `write` sends ours, `close` (or the scope's end) closes the
  * Daemon's socket. Fails `Unsupported` when the Daemon has no `host-address` capability, and
- * `HostAddressError` when the name is not a Host address or the loopback connect failed.
+ * `HostAddressError` when the name is not a Host address or the loopback connect failed, and
+ * `UserAccessRequired` when this Desktop App isn't enrolled on the Host.
  */
 export const openHostAddressStream = Effect.fnUntraced(function* (
   session: ByteStreamSession,
   target: HostAddressTarget
-): Effect.fn.Return<ByteTransport, HostAddressError | Unsupported | RpcClientError, Scope.Scope> {
+): Effect.fn.Return<
+  ByteTransport,
+  HostAddressError | Unsupported | RpcClientError | UserAccessRequired,
+  Scope.Scope
+> {
   if (!session.capabilities.includes("host-address"))
     return yield* new Unsupported({ capability: "host-address" });
 
@@ -89,7 +95,7 @@ export const openHostAddressStream = Effect.fnUntraced(function* (
 
   const opened = yield* Deferred.make<
     ByteStreamEndpoint,
-    HostAddressError | Unsupported | RpcClientError
+    HostAddressError | Unsupported | RpcClientError | UserAccessRequired
   >();
 
   let endpoint: ByteStreamEndpoint | null = null;
@@ -164,7 +170,7 @@ export interface BrowserStreamOffer {
    */
   readonly accept: Effect.Effect<
     ByteTransport,
-    NotFound | Unsupported | RpcClientError,
+    NotFound | Unsupported | RpcClientError | UserAccessRequired,
     Scope.Scope
   >;
   readonly refuse: Effect.Effect<void>;
@@ -176,10 +182,15 @@ export interface BrowserHost {
   /** This connection shows `sessionId`'s Browser: its streams come here. */
   readonly claim: (
     sessionId: SessionId
-  ) => Effect.Effect<void, NotFound | Unsupported | RpcClientError>;
-  readonly release: (sessionId: SessionId) => Effect.Effect<void, RpcClientError>;
-  /** Settles when the Daemon ended the hosting (the connection dropped); fails with why. */
-  readonly ended: Effect.Effect<void, RpcClientError | Unsupported>;
+  ) => Effect.Effect<void, NotFound | Unsupported | RpcClientError | UserAccessRequired>;
+  readonly release: (
+    sessionId: SessionId
+  ) => Effect.Effect<void, RpcClientError | UserAccessRequired>;
+  /**
+   * Settles when the Daemon ended the hosting (the connection dropped); fails with why,
+   * `UserAccessRequired` when this Desktop App isn't enrolled on the Host or was revoked.
+   */
+  readonly ended: Effect.Effect<void, RpcClientError | Unsupported | UserAccessRequired>;
 }
 
 interface CarriedEntry {
@@ -198,7 +209,7 @@ export const hostBrowsers = Effect.fnUntraced(function* (
   if (!session.capabilities.includes("browser.host"))
     return yield* new Unsupported({ capability: "browser.host" });
   const offers = yield* Queue.unbounded<BrowserStreamOffer, CauseType.Done>();
-  const ended = yield* Deferred.make<void, RpcClientError | Unsupported>();
+  const ended = yield* Deferred.make<void, RpcClientError | Unsupported | UserAccessRequired>();
   /** Streams offered and not yet closed; `accept` fills the endpoint in. */
   const carried = new Map<ByteStreamId, CarriedEntry>();
 

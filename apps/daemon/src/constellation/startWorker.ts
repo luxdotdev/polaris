@@ -27,7 +27,7 @@ export const startWorker = Effect.fnUntraced(function* (
   // A worker on a remote worker Host is in this Host's assignments, not its graphs.
   const started =
     (attempt !== undefined && local !== undefined && (yield* local(attempt.id))) ||
-    (remote !== undefined && (yield* remote(attemptId)));
+    (remote !== undefined && (yield* remote(constellationId, attemptId)));
 
   if (!started)
     return yield* refusal(record, [

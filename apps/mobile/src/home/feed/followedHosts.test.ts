@@ -43,7 +43,7 @@ const connectedHost = (hostId: string) => {
   const feedOnly = { subscribeHost: subscribeHost as DaemonClient["subscribeHost"] };
   // SAFETY: the host feed calls only subscribeHost; nothing else on the client is touched.
   const client = feedOnly as DaemonClient;
-  const live = { epoch: 1, client, blobs, host, capabilities: [] };
+  const live = { epoch: 1, client, blobs, host, capabilities: [], shares: [] };
 
   const status: HostStatus = {
     state: "connected",
@@ -61,6 +61,7 @@ const connectedHost = (hostId: string) => {
     hostId,
     name: hostId,
     route: "dev-bridge",
+    teammate: null,
     status: () => status,
     live: () => live,
     subscribe: () => () => {},

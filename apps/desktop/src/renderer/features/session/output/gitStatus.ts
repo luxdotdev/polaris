@@ -34,3 +34,15 @@ export const useGitFacts = (hostKey: string, cwd: string | null, tick: number): 
 
   return facts?.key === key ? facts.value : { kind: "loading" };
 };
+
+/**
+ * The rail's branch line; null leaves it out. On a Host shared with you its git status is the
+ * owner's to read, so a refusal there says nothing about the repository.
+ */
+export const branchLine = (git: GitFacts, theirs: boolean): string | null => {
+  if (git.kind === "ready") return git.branch ?? "detached HEAD";
+
+  if (theirs) return null;
+
+  return git.kind === "none" ? "Not a git repository" : "";
+};

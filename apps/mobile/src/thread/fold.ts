@@ -8,6 +8,9 @@ import {
   type AgentSession,
   type ApprovalDecision,
   ApprovalRequest,
+  type Comment,
+  type CurrentUserTurn,
+  type QueuedTurn,
   type DomainEvent,
   RequestId,
   type SessionStreamItem,
@@ -16,6 +19,8 @@ import {
   type TurnItem,
 } from "@polaris/protocol";
 import { Match, Predicate } from "effect";
+import { foldComments } from "./commentFold.ts";
+import { foldQueue } from "./queueFold.ts";
 
 export interface TurnEntry {
   readonly turn: Turn;
@@ -49,6 +54,10 @@ export interface SessionFold {
   readonly subagents: ReadonlyArray<Subagent>;
   /** Secret Requests that ended while this feed followed the session, oldest first. */
   readonly secretOutcomes: ReadonlyArray<SecretOutcome>;
+  /** The session's Comments (ADR 0113), oldest first; empty on a Host without them. */
+  readonly comments: ReadonlyArray<Comment>;
+  /** Turns waiting in a shared session's queue (ENG-941), first in first out; absent is none. */
+  readonly queuedTurns?: ReadonlyArray<QueuedTurn>;
 }
 
 type Fold = (state: SessionFold) => SessionFold;
@@ -121,11 +130,29 @@ const entryOf = (turn: Turn, items: ReadonlyArray<TurnItem> = []): TurnEntry => 
   streaming: [],
 });
 
+/**
+ * The user Turn after `turn` starts, as the Daemon's `userTurnAfter` counts it: a Turn the
+ * Harness began keeps the current one. Null while the Host doesn't number user Turns.
+ */
+const userTurnAfter = (state: SessionFold, turn: Turn): CurrentUserTurn | null => {
+  const current = state.session.currentUserTurn ?? null;
+  const known = state.turns.some((entry) => entry.turn.id === turn.id);
+  const harnessStarted = turn.trigger != null || turn.idleCompaction === true;
+
+  if (current === null || known || harnessStarted) return current;
+
+  return { turnId: turn.id, number: current.number + 1, startedAt: turn.startedAt };
+};
+
 const startTurn =
   (turn: Turn): Fold =>
   (state) => ({
     ...state,
-    session: { ...state.session, turnCount: Math.max(state.session.turnCount, turn.index + 1) },
+    session: {
+      ...state.session,
+      turnCount: Math.max(state.session.turnCount, turn.index + 1),
+      currentUserTurn: userTurnAfter(state, turn),
+    },
     turns: [...state.turns.filter((entry) => entry.turn.id !== turn.id), entryOf(turn)],
   });
 
@@ -212,13 +239,17 @@ export const applySessionItem = (
           detail.subagents.map((held) => held.subagent)
         ),
         secretOutcomes: state?.secretOutcomes ?? [],
+        comments: snapshot.comments ?? [],
+        queuedTurns: snapshot.queuedTurns ?? [],
       }),
       Event: ({ envelope }) => {
         if (state === null || envelope.sequence <= state.sequence) return state;
         // A session's feed carries only that session's events.
         const next = foldEvent(envelope.event)(state);
+        const comments = foldComments(next.comments, envelope.event, envelope.occurredAt);
+        const queuedTurns = foldQueue(next.queuedTurns ?? [], envelope.event, envelope.occurredAt);
 
-        return { ...next, sequence: envelope.sequence };
+        return { ...next, comments, queuedTurns, sequence: envelope.sequence };
       },
       Delta: ({ turnId, itemId, field, text, subagentId }) =>
         state === null || subagentId !== null || field !== "text"

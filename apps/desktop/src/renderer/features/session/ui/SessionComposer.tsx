@@ -52,6 +52,7 @@ import { RotatingVerb, useWorkingVerbs } from "../verbs/index.ts";
 import { type ComposerCommands, DraftComposer } from "./DraftComposer.tsx";
 import { useComposerCommands } from "./useComposerCommands.ts";
 import { ComposerStatus, draftCaption } from "./ComposerStatus.tsx";
+import { useSharedQueue } from "./useSharedQueue.tsx";
 import { useCompact } from "./ContextCard.tsx";
 import { NoticeStrip } from "./NoticeStrip.tsx";
 import { notices } from "../model/notices.ts";
@@ -227,6 +228,7 @@ export const SessionComposer = (props: SessionComposerProps) => {
   const history = () => sentHistory(model.turns, chrome);
 
   const change = useModelChange(props);
+  const shared = useSharedQueue(hostKey, session.id, model);
   const fastAvailable = session.harness === "codex" && hasCapability(host, "session.service-tier");
 
   const commands: ComposerCommands = useComposerCommands({
@@ -273,7 +275,9 @@ export const SessionComposer = (props: SessionComposerProps) => {
 
     if (!canQueue(mode) || (ui.draft.trim() === "" && ui.attachments.length === 0)) return;
 
-    props.outbox.queue(text, ui.attachments);
+    // In a shared session the follow-up waits in the Host's queue, in order with everyone's.
+    if (shared.queue === null) props.outbox.queue(text, ui.attachments);
+    else shared.queue(text, ui.attachments);
     patchSessionUi(uiKey, () => ({ draft: "", attachments: [] }));
   };
 
@@ -361,25 +365,28 @@ export const SessionComposer = (props: SessionComposerProps) => {
   const roster = subagentRoster(model.turns);
 
   const strip = (
-    <NoticeStrip
-      harness={harness}
-      notices={notices({
-        approvals: model.pendingApprovals,
-        working: working !== undefined,
-        todo: todoList(model.turns.at(-1)),
-        outbox: ui.outbox,
-        contextShare: contextShare(session),
-        contextDismissedAt,
-        limited: session.state === "limited",
-        resetsAt: session.limitResetsAt ?? null,
-        subagents: roster.rows,
-      })}
-      working={working}
-      onUnqueue={props.outbox.edit}
-      onCompact={compact.can ? compact.compact : null}
-      onDismissContext={setContextDismissedAt}
-      onSwitchModel={() => setPickerOpen(true)}
-    />
+    <>
+      <NoticeStrip
+        harness={harness}
+        notices={notices({
+          approvals: model.pendingApprovals,
+          working: working !== undefined,
+          todo: todoList(model.turns.at(-1)),
+          outbox: ui.outbox,
+          contextShare: contextShare(session),
+          contextDismissedAt,
+          limited: session.state === "limited",
+          resetsAt: session.limitResetsAt ?? null,
+          subagents: roster.rows,
+        })}
+        working={working}
+        onUnqueue={props.outbox.edit}
+        onCompact={compact.can ? compact.compact : null}
+        onDismissContext={setContextDismissedAt}
+        onSwitchModel={() => setPickerOpen(true)}
+      />
+      {shared.view}
+    </>
   );
 
   return (

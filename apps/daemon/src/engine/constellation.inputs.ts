@@ -1,4 +1,5 @@
 import type {
+  Actor,
   Attempt,
   ConstellationCommand,
   HostId,
@@ -9,7 +10,8 @@ import type {
 
 /** Supplied by the authenticated connection or session MCP binding, never by command arguments. */
 export type ConstellationBinding =
-  | { readonly kind: "user" }
+  /** `actor`: a Teammate acting as the user through a Share (the gate scoped the request). */
+  | { readonly kind: "user"; readonly actor?: Actor }
   | { readonly kind: "session"; readonly sessionId: SessionId };
 
 export interface ClaimProbe {

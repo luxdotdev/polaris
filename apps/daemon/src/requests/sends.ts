@@ -150,7 +150,7 @@ export const requestSendsLayerAt = (filename: string, options: RequestSendsOptio
         const startNano = nowNano();
         const started = performance.now();
 
-        const transmission = yield* Effect.promise(() =>
+        const transmission = yield* Effect.promise((signal) =>
           transmit(
             {
               method: prepared.request.method,
@@ -160,7 +160,7 @@ export const requestSendsLayerAt = (filename: string, options: RequestSendsOptio
                 ? undefined
                 : { body: prepared.request.body }),
             },
-            options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }
+            options.timeoutMs === undefined ? { signal } : { timeoutMs: options.timeoutMs, signal }
           )
         );
 

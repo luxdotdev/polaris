@@ -30,6 +30,13 @@ import {
 } from "@polaris/ui";
 import { age } from "../../../shell/copy.ts";
 import { SentAttachments } from "../../attachments/index.ts";
+import {
+  MESSAGE_ATTR,
+  MessageComments,
+  QuotedComments,
+  TURN_ATTR,
+  TurnAuthor,
+} from "../../comments/index.ts";
 import { ComputerUseApproval } from "../../computer-use/index.ts";
 import { useNow } from "../../../shell/useNow.ts";
 import { Decisions } from "../../../commands.ts";
@@ -54,7 +61,8 @@ import { LimitCard, type UsageLimit } from "./LimitCard.tsx";
 import { ComputerUseRequestCard } from "./ComputerUseRequestCard.tsx";
 import { SecretCard, SettledSecretCard } from "./SecretCard.tsx";
 import { DataSourceApprovalCard } from "../../data/approval/DataSourceApprovalCard.tsx";
-import { sourceForTarget } from "../../data/approval/decide.ts";
+import { offersRemember, sourceForTarget } from "../../data/approval/decide.ts";
+import { useOnSharedHost } from "../../sharing/index.ts";
 import { askedBy, type DataSourceTarget, dataSourceTarget } from "../../data/approval/model.ts";
 import { useDataSources } from "../../data/data/hooks.tsx";
 import { OriginApprovalCard } from "../../requests/approval/OriginApprovalCard.tsx";
@@ -272,7 +280,11 @@ const sentWhere = (ctx: RowContext) => ({
 const Prompt = ({ row, ctx }: { row: Extract<Row, { kind: "prompt" }>; ctx: RowContext }) => (
   <PromptMenu text={row.text} onFold={() => ctx.onSetTurnOpen(row.turnId, false)}>
     <div className="group/turn flex flex-col items-end gap-1.5" data-testid="prompt">
+      <TurnAuthor {...ctx.diff} actor={row.actor ?? null} />
       <SentAttachments hostKey={ctx.diff.hostKey} attachments={row.attachments} />
+      <div className="flex w-full max-w-[400px] flex-col items-end empty:hidden">
+        <QuotedComments {...ctx.diff} ids={row.commentIds ?? []} />
+      </div>
       {row.shell != null ? (
         <div className="w-full max-w-[560px]" data-testid="shell-prompt">
           <Command item={row.shell} hue={ctx.harness} own />
@@ -329,6 +341,12 @@ const ReplyTime = ({ row }: { row: Extract<Row, { kind: "item" }> }) =>
     </span>
   );
 
+/** A finished reply's ids, for selecting its text to comment on. */
+const messageAttrs = (row: Extract<Row, { kind: "item" }>): Record<string, string> =>
+  row.entry.kind === "item" && finishedMessage(row) !== null
+    ? { [MESSAGE_ATTR]: row.entry.item.id, [TURN_ATTR]: row.partId }
+    : {};
+
 /** The row's reply text, once it has finished streaming; null for every other item. */
 const finishedMessage = (row: Extract<Row, { kind: "item" }>) =>
   row.entry.kind === "item" && row.entry.item.kind === "message" && !row.entry.item.live
@@ -360,7 +378,7 @@ const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowCont
           />
         ) : null}
       </div>
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col" {...messageAttrs(row)}>
         <SessionTargetContext.Provider value={ctx.diff}>
           <EntryView
             entry={row.entry}
@@ -372,6 +390,9 @@ const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowCont
           />
         </SessionTargetContext.Provider>
         <ReplyStatsLine entry={row.entry} />
+        {finishedMessage(row) === null ? null : (
+          <MessageComments {...ctx.diff} messageId={messageAttrs(row)[MESSAGE_ATTR] ?? ""} />
+        )}
       </div>
       {row.sources === undefined ? null : (
         <div className="shrink-0">
@@ -452,7 +473,7 @@ const DataApproval = ({
   ctx: RowContext;
 }) => {
   const { hostKey, sessionId } = ctx.diff;
-  const hostLabel = useApp((s) => s.hosts.find((h) => h.key === hostKey)?.label ?? "this Host");
+  const hostLabel = useApp((s) => s.hosts.find((h) => h.key === hostKey)?.label ?? "this host");
   const title = useApp((s) => s.hostModels[hostKey]?.sessions.get(sessionId)?.session.title ?? "");
   const sources = useDataSources({ hostKey, sessionId });
   const listed = sources.status === "ready" ? sources.value : [];
@@ -481,7 +502,7 @@ const OriginApproval = ({
   ctx: RowContext;
 }) => {
   const { hostKey, sessionId } = ctx.diff;
-  const hostLabel = useApp((s) => s.hosts.find((h) => h.key === hostKey)?.label ?? "this Host");
+  const hostLabel = useApp((s) => s.hosts.find((h) => h.key === hostKey)?.label ?? "this host");
   const title = useApp((s) => s.hostModels[hostKey]?.sessions.get(sessionId)?.session.title ?? "");
 
   return (
@@ -581,6 +602,26 @@ const Approval = ({
         onRespond={(decision) => ctx.onRespond(request, decision)}
       />
     );
+
+  const wants =
+    request.profileAttach === undefined
+      ? KIND_WANTS[request.kind]
+      : "wants to profile this Node process";
+
+  return <CommandApproval request={request} wants={wants} ctx={ctx} />;
+};
+
+/** A command, edit or tool approval: Approve, Always here unless the Host is someone else's, Deny. */
+const CommandApproval = ({
+  request,
+  wants,
+  ctx,
+}: {
+  request: ApprovalRequest;
+  wants: string;
+  ctx: RowContext;
+}) => {
+  const theirs = useOnSharedHost(ctx.diff.hostKey);
   const who = ctx.harness === null ? "The agent" : harnessHue(ctx.harness).name;
   const respond = (decision: ApprovalDecision) => ctx.onRespond(request, decision);
 
@@ -592,11 +633,11 @@ const Approval = ({
         <ApprovalCard
           harness={ctx.harness}
           title={request.title}
-          summary={`${who} ${request.profileAttach === undefined ? KIND_WANTS[request.kind] : "wants to profile this Node process"}`}
+          summary={`${who} ${wants}`}
           command={request.detail ?? request.title}
           where={ctx.where}
           onApprove={() => respond(Decisions.Allow({ remember: false }))}
-          {...(request.profileAttach === undefined
+          {...(offersRemember(request, theirs)
             ? { onAlwaysAllow: () => respond(Decisions.Allow({ remember: true })) }
             : {})}
           onDeny={() => respond(Decisions.Deny({ reason: null }))}

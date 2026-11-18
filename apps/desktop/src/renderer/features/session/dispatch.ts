@@ -11,6 +11,7 @@ import { Commands, newCommandId } from "../../commands.ts";
 import { hostTextOf } from "../../store/hostKinds.ts";
 import { polaris } from "../bridge.ts";
 import { actionTraces, selfTraces } from "../selfTraces/index.ts";
+import { userAccess } from "../userAccess/store.ts";
 import { BACKGROUND_FAILED_TITLE } from "./model/backgroundFailures.ts";
 
 export type Sent = { readonly ok: true } | { readonly ok: false; readonly error: IpcError };
@@ -37,18 +38,35 @@ export const dispatch = async (hostKey: string, command: Command): Promise<Sent>
   return result.ok ? { ok: true } : { ok: false, error: result.error };
 };
 
-/** The user gate's refusal (ADR 0100): who holds user access, and how to move it here. */
+/** The user gate's refusal (ADR 0114): whether this desktop app is waiting, and who allows it. */
 const userAccessText = (error: IpcError, hostKey: string | undefined): string => {
   const host = hostTextOf(hostKey);
   const what = error.message.startsWith("dispatch:RespondToApproval") ? "approve" : "do this";
+  const state = hostKey === undefined ? undefined : userAccess.getState()[hostKey];
 
+  if (state?.standing === "waiting")
+    return `This desktop app can't ${what} on ${host} yet. Allow it from a desktop app that already uses ${host}; both show the code ${state.code ?? ""}.`;
+
+  if (state !== undefined)
+    return `This desktop app isn't allowed to ${what} on ${host}. Reconnect to ${host} to ask again.`;
+
+  // A 0.9.0 or 0.9.1 daemon, which enrols one desktop app and has no way to allow another.
   return `This desktop app can't ${what} on ${host} yet: another one holds user access. To move it here, delete ~/.polaris/user-access.json on ${host} and reconnect.`;
 };
 
 /** The Daemon's reason, first letter up: "Interrupt the Turn in flight before archiving". */
 export const refusalText = (error: IpcError, hostKey?: string): string => {
   if (error.code === "UserAccessRequired") return userAccessText(error, hostKey);
+
+  // The Share gate's refusals on someone else's Host name an RPC; say what it means instead.
+  if (error.code === "NotShared")
+    return "Only the owner can do this. It's outside what was shared with you.";
+
+  if (error.code === "NotGranted") return "Your role in this share doesn't allow this.";
   const text = error.message.replace(/^CommandRejected:\s*/, "").trim();
+
+  // Someone else answered first (a Teammate or another of your devices): no request id.
+  if (/^request \S+ is already resolved$/.test(text)) return "This request was already answered.";
 
   return text === "" ? error.code : text.charAt(0).toUpperCase() + text.slice(1);
 };

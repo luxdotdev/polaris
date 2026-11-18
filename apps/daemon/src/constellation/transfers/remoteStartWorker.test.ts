@@ -3,6 +3,7 @@ import {
   Attempt,
   CommandId,
   Constellation,
+  ConstellationId,
   ConstellationSettings,
   DomainEvent,
   HostId,
@@ -33,7 +34,8 @@ test("Start on a remote worker Host restarts a stalled worker's startup once, be
   // The Host's RPC handlers read RemoteWorkers at build; the real layer needs the Host's store.
   const workers: RemoteWorkerHooks = {
     ...fallback,
-    restartStartup: (attemptId) => real!.restartStartup!(attemptId),
+    restartStartup: (constellationId, attemptId) =>
+      real!.restartStartup!(constellationId, attemptId),
   };
 
   const resources = HostResources.of({
@@ -132,6 +134,15 @@ test("Start on a remote worker Host restarts a stalled worker's startup once, be
 
           const rpc = yield* connectFake(worker.server.socketPath);
           const start = rpc.client["constellation.worker.start"];
+
+          // Another Constellation's id never reaches this worker, whoever may act on that one.
+          const elsewhere = yield* Effect.exit(
+            start({ constellationId: ConstellationId.make("c-other"), attemptId: attempt.id })
+          );
+
+          expect(JSON.stringify(elsewhere)).toContain("E-NOT-STALLED");
+          expect(resumes).toBe(0);
+
           const result = yield* start({ constellationId: CID, attemptId: attempt.id });
           expect(result.summary).toStartWith("Starting");
           yield* wait(() => Effect.succeed(resumes === 1));

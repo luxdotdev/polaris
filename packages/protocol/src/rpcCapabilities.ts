@@ -46,6 +46,8 @@ const browser = "browser.host";
 
 const computerUse = "computer-use";
 
+const shares = "shares";
+
 export const RPC_CAPABILITIES = {
   hello: null,
   dispatch: null,
@@ -181,6 +183,7 @@ export const RPC_CAPABILITIES = {
   "remoteAccess.disable": "remote-access",
   "relayRoute.status": devices,
   "relayRoute.enable": devices,
+  "relayRoute.setUrl": "linked-devices.relay-url",
   "relayRoute.disable": devices,
   "devices.link": devices,
   "devices.awaitLink": devices,
@@ -194,6 +197,10 @@ export const RPC_CAPABILITIES = {
   "devices.registerLiveActivity": devices,
   "devices.unregisterLiveActivity": devices,
   "devices.watch": "linked-devices.presence",
+  "userAccess.watch": "user-access.enrolment",
+  "userAccess.allow": "user-access.enrolment",
+  "userAccess.deny": "user-access.enrolment",
+  "userAccess.revoke": "user-access.enrolment",
   "voice.transcribe": "voice",
   "voice.settings": "voice",
   "voice.setKey": "voice",
@@ -268,6 +275,13 @@ export const RPC_CAPABILITIES = {
   "computerUse.app": computerUse,
   "computerUse.preview.watch": "computer-use.preview",
   "computerUse.preview.latest": "computer-use.preview",
+  "shares.create": shares,
+  "shares.renew": shares,
+  "shares.revoke": shares,
+  "shares.list": shares,
+  "shares.watchPresence": shares,
+  "shares.mute": "shares.contributor",
+  "account.refreshStatement": shares,
 } as const satisfies Record<Exclude<DaemonRpcTag, LanguageRpcTag>, RpcRequirement>;
 
 const isLanguageRpc = (tag: DaemonRpcTag): tag is LanguageRpcTag =>

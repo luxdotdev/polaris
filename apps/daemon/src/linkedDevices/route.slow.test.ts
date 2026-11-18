@@ -45,6 +45,7 @@ import {
   handshake,
   link,
   makeDevice,
+  sessionMux,
   sessionTransport,
   startRelay,
   type TestDevice,
@@ -118,6 +119,8 @@ const daemon = (scope: Scope.Scope, relayLinks?: LinkTiming) =>
       handlers,
       secrets: HostSecrets.memory(),
       relayLinks,
+      // Never Polaris Cloud's: the default relay is the local one.
+      relayDefaultUrl: relay.url,
     }).pipe(Scope.provide(scope));
 
     const desktop = yield* connectRpcWith(
@@ -209,7 +212,21 @@ test("a linked device reaches the Daemon with Client power and is recorded as th
 
         expect(insecure).toMatchObject({ reason: "invalid-url" });
 
-        yield* desktop["relayRoute.enable"]({ url: relay.url });
+        // ENG-948: a URL is stored while off, null goes back to the default, and on uses it.
+        const brief = (s: RelayRouteStatus) => ({ state: s.state, url: s.url });
+        expect(brief(yield* desktop["relayRoute.status"]())).toEqual({
+          state: "off",
+          url: relay.url,
+        });
+        expect(
+          yield* Effect.flip(desktop["relayRoute.setUrl"]({ url: "ws://relay.example/v1" }))
+        ).toMatchObject({ reason: "invalid-url" });
+        const own = yield* desktop["relayRoute.setUrl"]({ url: "wss://relay.lucas.dev/v1" });
+        expect(brief(own)).toEqual({ state: "off", url: "wss://relay.lucas.dev/v1" });
+        const back = yield* desktop["relayRoute.setUrl"]({ url: null });
+        expect(brief(back)).toEqual({ state: "off", url: relay.url });
+
+        yield* desktop["relayRoute.enable"]({});
         const status = yield* waitConnected(desktop);
 
         const phone = yield* Effect.promise(makeDevice);
@@ -317,6 +334,52 @@ test("a linked device reaches the Daemon with Client power and is recorded as th
         // And the key no longer opens a session.
         expect(yield* openSession(status, phone, phone.noise, 1)).toBeNull();
         open.socket.close();
+      })
+    )
+  );
+}, 30_000);
+
+test("a Linked Device keeps one session: a new handshake from it ends the one before", async () => {
+  await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const scope = yield* Effect.scope;
+        const desktop = yield* daemon(scope);
+        yield* desktop["relayRoute.enable"]({});
+        const status = yield* waitConnected(desktop);
+        const phone = yield* Effect.promise(makeDevice);
+        yield* linkDevice(desktop, phone, "Test iPhone");
+
+        const socket = yield* Effect.promise(() => DeviceSocket.connect(relay.url, phone.identity));
+        const mux = sessionMux(socket, status.hostAddress);
+
+        // Both sessions share the device's socket, so only the Daemon can end the first.
+        const open = Effect.gen(function* () {
+          const transport = yield* Effect.promise(() =>
+            mux.open(key(status.hostNoiseKey), phone.noise)
+          );
+
+          if (transport === null) throw new Error("the linked device was refused");
+          const connection = yield* connectRpcWith(ExtensionDaemonRpcs, transport);
+          yield* connection.client.hello(hello);
+
+          return connection.client;
+        });
+
+        const answers = (client: Effect.Success<typeof open>) =>
+          client["devices.list"]().pipe(
+            Effect.timeoutOption("1 second"),
+            Effect.map(Option.isSome),
+            Effect.catch(() => Effect.succeed(false))
+          );
+
+        const first = yield* open;
+        expect(yield* answers(first)).toBe(true);
+
+        const second = yield* open;
+        expect(yield* answers(second)).toBe(true);
+        expect(yield* answers(first)).toBe(false);
+        socket.close();
       })
     )
   );

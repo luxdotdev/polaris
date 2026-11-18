@@ -26,6 +26,7 @@ import {
   type BlobId,
   type BlobSource,
   DaemonRpcs,
+  ShareGate,
   makeWire,
   type TakeStreamOptions,
   type Wire,
@@ -384,3 +385,17 @@ export const connectRpc = (
   options: RpcConnectionOptions = {}
 ): Effect.Effect<RpcConnection, never, Scope.Scope> =>
   connectRpcWith(DaemonRpcs, transport, options);
+
+/** `DaemonRpcs` as a Host serves it to a Teammate: every RPC can fail with the Share gate's refusals. */
+const TeammateDaemonRpcs = DaemonRpcs.middleware(ShareGate);
+
+/**
+ * `connectRpc` for a Teammate's connection, so `NotShared` and `NotGranted` reach the caller
+ * as failures; on the plain group they fail to decode and surface as a defect.
+ */
+export const connectTeammateRpc = (
+  transport: ByteTransport,
+  options: RpcConnectionOptions = {}
+): Effect.Effect<RpcConnection, never, Scope.Scope> =>
+  // SAFETY: the same RPCs and payloads; only the failures grow, and callers read them by tag.
+  connectRpcWith(TeammateDaemonRpcs, transport, options);

@@ -13,13 +13,17 @@ import {
   type NotFound,
   type NotGranted,
   type Grant,
+  type ShareRole,
   RiskSummaryRef,
   type Sequence,
   TurnId,
   WorkspaceId,
 } from "@polaris/protocol";
-import { Context, Effect, Layer, Option, Predicate } from "effect";
+import { Clock, Context, Effect, Layer, Option, Predicate } from "effect";
 import { sharedRevertRefusal } from "../accept/reactor.ts";
+import { ShareBook } from "../shares/identities.ts";
+import { isSessionShared } from "../shares/shared.ts";
+import { PairingBook, queueAccess, teammateApproves } from "./queueAccess.ts";
 import { CommitResult } from "../store/EventStore.ts";
 import type { ReadModel } from "../store/model.ts";
 import { decide } from "./decider.ts";
@@ -36,6 +40,8 @@ export interface DispatchInput {
   /** Who sent it (ENG-398); a token-less Client when left out. */
   readonly actor?: Actor;
   readonly extensionGrant?: Grant | null;
+  /** A Teammate's Share role on the session (`DecideContext.shareRole`). */
+  readonly shareRole?: ShareRole | null;
 }
 
 export type Dispatch = (
@@ -74,6 +80,8 @@ const make = Effect.gen(function* () {
   const rt = yield* EngineRuntime;
   const { react } = yield* Reactors;
   const { store } = rt;
+  const book = yield* Effect.serviceOption(ShareBook);
+  const pairings = yield* Effect.serviceOption(PairingBook);
 
   const resolveAttachments = (commandId: CommandId, command: Command) =>
     Effect.gen(function* () {
@@ -154,6 +162,9 @@ const make = Effect.gen(function* () {
     if (Predicate.isTagged(command, "AcceptTurns"))
       return rt.findTurn(command.sessionId, command.throughTurnId).pipe(Effect.orDie);
 
+    if (Predicate.isTagged(command, "AddComment"))
+      return rt.findTurn(command.sessionId, command.anchor.turnId).pipe(Effect.orDie);
+
     return Effect.succeed(null);
   };
 
@@ -176,6 +187,36 @@ const make = Effect.gen(function* () {
       ? store.review.riskSummary(RiskSummaryRef.cases.ById.make({ summaryId: command.summaryId }))
       : Effect.succeed(null);
 
+  /** For SendTurn: whether a live Share covers the session, so the Turn may queue. */
+  const isShared = (command: Command) =>
+    Effect.gen(function* () {
+      if (!Predicate.isTagged(command, "SendTurn") || Option.isNone(book)) return false;
+      const shares = yield* book.value.all;
+
+      if (shares.length === 0) return false;
+
+      return isSessionShared(
+        yield* store.model,
+        shares,
+        command.sessionId,
+        yield* Clock.currentTimeMillis
+      );
+    });
+
+  /** For a Teammate's SendTurn: whether their live Share holds `approve`, as it may queue. */
+  const approvesNow = (command: Command, actor: Actor | undefined) =>
+    Effect.gen(function* () {
+      if (!Predicate.isTagged(command, "SendTurn") || actor === undefined) return null;
+
+      return teammateApproves(
+        yield* store.model,
+        command.sessionId,
+        Option.isSome(book) ? yield* book.value.all : null,
+        yield* Clock.currentTimeMillis,
+        actor
+      );
+    });
+
   const commitCommand: Dispatch = Effect.fn("Engine.dispatch")(function* (input: DispatchInput) {
     const { commandId, command } = input;
     yield* refuseSharedRevert(commandId, command);
@@ -186,6 +227,12 @@ const make = Effect.gen(function* () {
       deviceLabel: input.deviceLabel,
       actor: input.actor ?? Actor.cases.Client.make({}),
       extensionGrant: input.extensionGrant ?? null,
+      shareRole: input.shareRole ?? null,
+      shared: yield* isShared(command),
+      teammateApproves: yield* approvesNow(command, input.actor),
+      barred: Predicate.isTagged(command, "ResumeQueue")
+        ? yield* queueAccess(store, book, pairings, command.sessionId)
+        : [],
       newTurnId: TurnId.make(`turn_${crypto.randomUUID()}`),
       newWorkspaceId: WorkspaceId.make(`ws_${crypto.randomUUID()}`),
       attachments: yield* resolveAttachments(commandId, command),

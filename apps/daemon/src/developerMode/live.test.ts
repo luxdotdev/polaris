@@ -1,3 +1,4 @@
+import { TEST_USER_KEY } from "../transport/userAccess.testing.ts";
 import { expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
@@ -21,7 +22,14 @@ import { scopedTempDir } from "../platform/tempDir.testing.ts";
 
 const temporary = scopedTempDir("pl-dm-", { short: true });
 
-const hello = { clientName: "fake", clientVersion: "0", deviceLabel: "test", capabilities: [] };
+// As the Desktop App: changing Developer Mode is the user's (ADR 0114).
+const hello = {
+  clientName: "fake",
+  clientVersion: "0",
+  deviceLabel: "test",
+  capabilities: [],
+  ...TEST_USER_KEY,
+};
 
 const workspace = (id: string, path: string, registeredAt: string) =>
   Workspace.make({

@@ -1,5 +1,5 @@
 /** Copies of a session or a Turn with some fields changed, for the fold and the deciders. */
-import { AgentSession, Turn } from "@polaris/protocol";
+import { AgentSession, QueuedTurn, Turn } from "@polaris/protocol";
 
 export type SessionPatch = Partial<typeof AgentSession.Type>;
 
@@ -49,8 +49,9 @@ export const patchSession = (session: AgentSession, patch: SessionPatch): AgentS
 export type TurnPatch = Partial<typeof Turn.Type>;
 
 /** A copy of `turn` with `patch` applied. */
-export const patchTurn = (turn: Turn, patch: TurnPatch): Turn =>
-  new Turn({
+/** `commentIds` is an optional key: it is kept only when the Turn has it. */
+export const patchTurn = (turn: Turn, patch: TurnPatch): Turn => {
+  const fields = {
     id: turn.id,
     sessionId: turn.sessionId,
     index: turn.index,
@@ -64,6 +65,7 @@ export const patchTurn = (turn: Turn, patch: TurnPatch): Turn =>
     serviceTier: turn.serviceTier,
     status: turn.status,
     feedback: turn.feedback,
+    actor: turn.actor,
     shellCommand: turn.shellCommand,
     idleCompaction: turn.idleCompaction,
     checkpointBefore: turn.checkpointBefore,
@@ -71,5 +73,35 @@ export const patchTurn = (turn: Turn, patch: TurnPatch): Turn =>
     checkpointAfterCommit: turn.checkpointAfterCommit,
     startedAt: turn.startedAt,
     endedAt: turn.endedAt,
-    ...patch,
-  });
+  };
+
+  return new Turn(
+    turn.commentIds === undefined
+      ? { ...fields, ...patch }
+      : { ...fields, commentIds: turn.commentIds, ...patch }
+  );
+};
+
+/** A copy of `queued` with `patch` applied; a queued `SendFeedback`'s Comments are kept. */
+export const patchQueuedTurn = (
+  queued: QueuedTurn,
+  patch: Partial<typeof QueuedTurn.Type>
+): QueuedTurn => {
+  const fields = {
+    id: queued.id,
+    sessionId: queued.sessionId,
+    prompt: queued.prompt,
+    attachments: queued.attachments,
+    actor: queued.actor,
+    queuedAt: queued.queuedAt,
+    editedAt: queued.editedAt,
+    approves: queued.approves,
+    feedback: queued.feedback,
+  };
+
+  return new QueuedTurn(
+    queued.commentIds === undefined
+      ? { ...fields, ...patch }
+      : { ...fields, commentIds: queued.commentIds, ...patch }
+  );
+};

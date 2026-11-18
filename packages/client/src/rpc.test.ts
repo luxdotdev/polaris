@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type ByteTransport, makeWire, type TransportError } from "@polaris/protocol";
+import { type ByteTransport, makeWire, NotShared, type TransportError } from "@polaris/protocol";
 import {
   type Cause,
   Effect,
@@ -13,7 +13,7 @@ import {
   Stream,
 } from "effect";
 import { RequestId, ResponseExitDieEncoded } from "effect/rpc/RpcMessage";
-import { connectRpc } from "./rpc.ts";
+import { connectRpc, connectTeammateRpc } from "./rpc.ts";
 
 /** The parts of a message from the Client that the peer looks at. */
 const Sent = Schema.Struct({
@@ -29,7 +29,10 @@ type Pipe = Queue.Queue<Uint8Array, TransportError | Cause.Done>;
  * A Client connection to a silent peer: the peer's Wire records every message
  * the Client sends and answers only when told to.
  */
-const silentPeer = (options: { readonly keepAliveStreams?: boolean } = {}) =>
+const silentPeer = (
+  options: { readonly keepAliveStreams?: boolean; readonly pingIntervalMs?: number } = {},
+  connect: typeof connectRpc = connectRpc
+) =>
   Effect.gen(function* () {
     const toPeer: Pipe = yield* Queue.unbounded<Uint8Array, TransportError | Cause.Done>();
     const toClient: Pipe = yield* Queue.unbounded<Uint8Array, TransportError | Cause.Done>();
@@ -49,7 +52,7 @@ const silentPeer = (options: { readonly keepAliveStreams?: boolean } = {}) =>
     );
 
     const transport = { ...side(toClient, toPeer), diagnose: Effect.die("unused") };
-    const connection = yield* connectRpc(transport, { pingIntervalMs: 20, ...options });
+    const connection = yield* connect(transport, { pingIntervalMs: 20, ...options });
     const pings = () => received.filter(Predicate.isTagged("Ping")).length;
 
     return { connection, peer, received, pings };
@@ -156,5 +159,52 @@ describe("keepalive", () => {
 
     expect(result.pingsBeforeLost).toBeGreaterThan(0);
     expect(Exit.isFailure(result.lost)).toBe(true);
+  });
+});
+
+// ENG-941: a Teammate's refused request reached the app as a schema defect with a stack trace.
+describe("a Teammate's connection", () => {
+  const refusal = JSON.stringify(
+    Schema.encodeSync(NotShared)(new NotShared({ what: "terminal.open" }))
+  );
+
+  const refused = (connect: typeof connectRpc) =>
+    run(
+      Effect.gen(function* () {
+        const { connection, peer, received } = yield* silentPeer({ pingIntervalMs: 2000 }, connect);
+
+        const open = yield* connection.client["terminal.open"]({
+          cwd: "/repo",
+          cols: 80,
+          rows: 24,
+          argv: null,
+        }).pipe(Effect.exit, Effect.forkScoped);
+
+        for (let waited = 0; received.length === 0 && waited < 1000; waited += 10)
+          yield* Effect.sleep(10);
+
+        const request: typeof Sent.Type = received.find((m) => Predicate.isTagged(m, "Request"))!;
+
+        // The Share gate's refusal as the Host encodes it: a failed Exit in place of the defect.
+        const died = JSON.stringify(
+          ResponseExitDieEncoded({ requestId: RequestId(request.id!), encodedDefect: null })
+        );
+
+        yield* peer.sendJson(
+          died.replace(/\{"_tag":"Die"[^}]*\}/, `{"_tag":"Fail","error":${refusal}}`)
+        );
+
+        return yield* Fiber.join(open);
+      })
+    );
+
+  test("reads the Share gate's refusal as a failure with its tag, where the owner's group can't", async () => {
+    const [teammate, owner] = [await refused(connectTeammateRpc), await refused(connectRpc)];
+
+    const failure = (exit: typeof teammate) =>
+      Exit.isFailure(exit) ? Option.getOrNull(Exit.findErrorOption(exit)) : null;
+
+    expect<unknown>(failure(teammate)).toEqual(new NotShared({ what: "terminal.open" }));
+    expect(failure(owner)).toBeNull();
   });
 });

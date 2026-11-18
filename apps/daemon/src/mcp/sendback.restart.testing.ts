@@ -3,7 +3,7 @@ import { writeFileSync } from "node:fs";
 import { connectRpc, socketTransport } from "@polaris/client";
 import { localEndpoint } from "@polaris/protocol/endpoint";
 import { DomainEvent, SessionStreamItem, type Attempt } from "@polaris/protocol";
-import { Effect, Option, Stream } from "effect";
+import { Effect, Option, Redacted, Stream } from "effect";
 import { HOST } from "../engine/constellation.testing.ts";
 
 /** Boot the production Daemon on the pending retry, using only the scripted Harness. */
@@ -61,6 +61,8 @@ export const restartForRetry = async (
             clientVersion: "0",
             deviceLabel: "test",
             capabilities: ["constellation"],
+            // As the Desktop App, which relays a worker Host's outbox (ADR 0114).
+            userKey: Redacted.make("a".repeat(64)),
           });
 
           const found = yield* client

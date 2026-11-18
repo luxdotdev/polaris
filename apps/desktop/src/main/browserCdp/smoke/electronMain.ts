@@ -6,7 +6,7 @@
 import { createInterface } from "node:readline";
 import { HostTarget, makeHostConnection } from "@polaris/client";
 import { SessionId } from "@polaris/protocol";
-import { Effect, Predicate, Schema } from "effect";
+import { Effect, Predicate, Redacted, Schema } from "effect";
 import { app, BrowserWindow, session, WebContentsView } from "electron";
 import {
   BrowserTab,
@@ -174,6 +174,8 @@ const host = Effect.gen(function* () {
       version: "0.0.0",
       deviceLabel: "smoke",
       capabilities: ["blobs", "browser.host"],
+      // The smoke's fresh Daemon enrols it on first use: hosting a Browser is the user's.
+      userKey: Redacted.make("a".repeat(64)),
     },
     target: HostTarget.Local({ socketPath: daemonSocket }),
   });

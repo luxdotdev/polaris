@@ -155,3 +155,33 @@ describe("a Secret Request's outcome", () => {
     expect(waiting === null ? "none" : latestSecretOutcome(waiting)).toBeNull();
   });
 });
+
+describe("the user Turn", () => {
+  const opened = () =>
+    snapshot([{ turn: turn(0) }], {
+      currentUserTurn: { turnId: turn(0).id, number: 1, startedAt: at },
+    });
+
+  test("moves on when a Turn starts while the thread is open, as the header shows it", () => {
+    const state = fold(
+      opened(),
+      event(2, DomainEvent.cases.TurnStarted.make({ turn: turn(1, { status: "working" }) }))
+    );
+
+    expect(state?.session.currentUserTurn?.number).toBe(2);
+  });
+
+  test("stays on the user's Turn when the Harness starts one, or the same Turn starts again", () => {
+    const harnessStarted = turn(1, { status: "working", idleCompaction: true });
+    const again = event(3, DomainEvent.cases.TurnStarted.make({ turn: turn(2) }));
+
+    const state = fold(
+      opened(),
+      event(2, DomainEvent.cases.TurnStarted.make({ turn: harnessStarted })),
+      again,
+      again
+    );
+
+    expect(state?.session.currentUserTurn?.number).toBe(2);
+  });
+});

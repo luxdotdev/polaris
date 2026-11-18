@@ -27,6 +27,7 @@ import { BrowserHosting, ByteStreamQuota, HostAddressStreams } from "../browser/
 import { newTempDir, removeTempDirSettled } from "../platform/tempDir.testing.ts";
 import { ByteStreamRpcsLive } from "./byteStreams.ts";
 import { startServer } from "./server.ts";
+import { TEST_USER_KEY } from "./userAccess.testing.ts";
 
 const MAIN = join(import.meta.dir, "..", "main.ts");
 
@@ -169,6 +170,8 @@ export const client = (
       version: "0.0.0",
       deviceLabel: options.key ?? transport,
       capabilities: options.capabilities ?? CLIENT_CAPABILITIES,
+      // Every Client here is the user's Desktop App: one key, enrolled on first use (ADR 0114).
+      ...TEST_USER_KEY,
     };
 
     const base = {
@@ -219,6 +222,8 @@ export const hardConnection = Effect.fnUntraced(function* () {
     clientVersion: "0",
     deviceLabel: "dropping",
     capabilities: CLIENT_CAPABILITIES,
+    // As the Desktop App: hosting and claiming a Browser is the user's (ADR 0114).
+    ...TEST_USER_KEY,
   });
 
   const session: ByteStreamSession = {

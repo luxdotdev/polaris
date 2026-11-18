@@ -20,6 +20,8 @@ export interface StartDaemonInput {
   readonly userHome?: string;
   /** More environment for the Daemon (a fake Harness's PATH, for one). */
   readonly env?: Readonly<Record<string, string>>;
+  /** Secrets (relay keys, Share capabilities) under its home, never the user's Keychain. */
+  readonly fileSecrets?: boolean;
 }
 
 const live = (socketPath: string) =>
@@ -91,12 +93,17 @@ export const startDaemon = async ({
   benchHarness,
   userHome,
   env = {},
+  fileSecrets = false,
 }: StartDaemonInput): Promise<TestDaemon> => {
   const socketPath = join(home, "daemon.sock");
 
   const child = spawn(
     "bun",
-    [join(REPO_ROOT, "apps/daemon/src/main.ts"), "serve", "--foreground"],
+    [
+      join(REPO_ROOT, "apps/daemon/src", fileSecrets ? "main.testing.ts" : "main.ts"),
+      "serve",
+      "--foreground",
+    ],
     {
       cwd: REPO_ROOT,
       env: testEnv(home, benchHarness, userHome, env),

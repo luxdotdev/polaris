@@ -20,7 +20,9 @@ test("older resource events decode without the additive process fields", () => {
 });
 
 test("Settings RPCs are mounted and validate capacities and defaults", () => {
-  for (const [tag, rpc] of ResourceRpcs.requests) expect(DaemonRpcs.requests.get(tag)).toBe(rpc);
+  // The user gate wraps the settings RPCs, so the mounted one is a copy with the same payload.
+  for (const [tag, rpc] of ResourceRpcs.requests)
+    expect(DaemonRpcs.requests.get(tag)?.payloadSchema).toBe(rpc.payloadSchema);
   expect(() =>
     Schema.decodeUnknownSync(DeclareHostResource.payloadSchema)({
       commandId: "c",

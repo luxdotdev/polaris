@@ -413,6 +413,98 @@ run("Extension safety", [
   "witnessRevokedClosed",
 ]);
 
+run("typecheck shares.qnt", ["typecheck", "shares.qnt"]);
+
+run("Shares and Comments scenarios", ["test", "shares.qnt", "--main=shares"]);
+
+const shares = run("Shares and Comments safety", [
+  "run",
+  "shares.qnt",
+  "--main=shares",
+  "--invariant=safety",
+  `--max-samples=${samples}`,
+  "--max-steps=40",
+  `--seed=${seed}`,
+  "--verbosity=1",
+  "--witnesses",
+  "witnessOutside",
+  "witnessNotGranted",
+  "witnessSentByAnother",
+  "witnessTeammateTurn",
+  "witnessTeammateAnswered",
+  "witnessTeammateNeedsYou",
+]);
+
+if (/was witnessed in 0 trace/.test(shares)) {
+  failed = true;
+  console.log("✗ a Shares witness was never reached: the simulation no longer covers it");
+}
+
+for (const mutant of ["unscoped", "resend", "remember", "commenters", "revert"]) {
+  const main = `shares_${mutant}_mutant`;
+  run(`Shares ${mutant} regression witness`, ["test", "shares.qnt", `--main=${main}`]);
+  run(
+    `Shares ${mutant} mutant violates safety`,
+    [
+      "run",
+      "shares.qnt",
+      `--main=${main}`,
+      "--invariant=safety",
+      `--max-samples=${samples}`,
+      "--max-steps=40",
+      `--seed=${seed}`,
+    ],
+    true
+  );
+}
+
+run("typecheck turn-queue.qnt", ["typecheck", "turn-queue.qnt"]);
+
+run("Queued Turns scenarios", ["test", "turn-queue.qnt", "--main=turn_queue"]);
+
+const turnQueue = run("Queued Turns safety", [
+  "run",
+  "turn-queue.qnt",
+  "--main=turn_queue",
+  "--invariant=safety",
+  `--max-samples=${samples}`,
+  "--max-steps=40",
+  `--seed=${seed}`,
+  "--verbosity=1",
+  "--witnesses",
+  "witnessTwoAuthorsRan",
+  "witnessCancelledByOwner",
+  "witnessCancelRefused",
+  "witnessDropped",
+  "witnessFull",
+  "witnessBarred",
+  "witnessPaused",
+  "witnessResumed",
+]);
+
+if (/was witnessed in 0 trace/.test(turnQueue)) {
+  failed = true;
+  console.log("✗ a Queued Turns witness was never reached: the simulation no longer covers it");
+}
+
+for (const mutant of ["lifo", "cancel", "keeps", "barred", "interrupt"]) {
+  const main = `turn_queue_${mutant}_mutant`;
+  run(`Queued Turns ${mutant} regression witness`, ["test", "turn-queue.qnt", `--main=${main}`]);
+  run(
+    `Queued Turns ${mutant} mutant violates safety`,
+    [
+      "run",
+      "turn-queue.qnt",
+      `--main=${main}`,
+      "--invariant=safety",
+      `--max-samples=${samples}`,
+      "--max-steps=40",
+      `--seed=${seed}`,
+    ],
+    true
+  );
+}
+
 run("typecheck languages.qnt", ["typecheck", "languages.qnt"]);
 
 run("language contract scenarios", ["test", "languages.qnt", "--main=languages_test"]);

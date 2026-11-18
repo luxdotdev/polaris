@@ -61,10 +61,13 @@ import {
 import { ResourceRequestInputs } from "./resourcesContract.ts";
 import { RemoteAccessRequestInputs } from "./remoteAccessContract.ts";
 import { LinkedDevicesRequestInputs } from "./linkedDevicesContract.ts";
+import { UserAccessRequestInputs } from "./userAccessContract.ts";
 import { VoiceRequestInputs } from "./voiceContract.ts";
 import { BrowserRequestInputs, BrowserSubscriptionInputs } from "./browserContract.ts";
 import { SecretRequestInputs } from "./secretContract.ts";
 import { GitHubRequestInputs, GitHubSubscriptionInputs } from "./githubContract.ts";
+import { AccountsRequestInputs, AccountsSubscriptionInputs } from "./accountsContract.ts";
+import { SharingRequestInputs, SharingSubscriptionInputs } from "./sharingContract.ts";
 import { GitRequestInputs, GitSubscriptionInputs } from "./gitContract.ts";
 import { SimulatorRequestInputs, SimulatorSubscriptionInputs } from "./simulatorContract.ts";
 import { BRANCH_PREFIX } from "./sessionPrefs.ts";
@@ -622,6 +625,8 @@ export const RequestInputs = {
   /** Whether Self-Traces are on now; later changes arrive as `self-traces` App events. */
   "selfTraces.state": Schema.Struct({}),
   ...GitHubRequestInputs,
+  ...AccountsRequestInputs,
+  ...SharingRequestInputs,
   ...GitRequestInputs,
   ...ConstellationRequestInputs,
   ...ConstellationDefaultsInputs,
@@ -629,6 +634,7 @@ export const RequestInputs = {
   ...ResourceRequestInputs,
   ...RemoteAccessRequestInputs,
   ...LinkedDevicesRequestInputs,
+  ...UserAccessRequestInputs,
   ...VoiceRequestInputs,
   ...BrowserRequestInputs,
   ...SecretRequestInputs,
@@ -692,11 +698,15 @@ export const SubscriptionInputs = {
   "host.stats": onHost({}),
   /** The Linked Devices with their presence, then again on every change (`devices.watch`). */
   "devices.watch": onHost({}),
+  /** This Desktop App's user access on a Host, its enrolled apps and requests (`userAccess.watch`). */
+  "userAccess.watch": onHost({}),
   /** A Risk Summary as it fills in (`review.watchRiskSummary`): the whole summary on each change. */
   "review.watchRiskSummary": onHost({ summaryId: RiskSummaryId }),
   /** An inline proposal (`inline.propose`, capability `inline.propose`); closing it cancels. */
   "inline.propose": onHost(InlineRequest.fields),
   ...GitHubSubscriptionInputs,
+  ...AccountsSubscriptionInputs,
+  ...SharingSubscriptionInputs,
   ...GitSubscriptionInputs,
   ...BrowserSubscriptionInputs,
   ...DataSubscriptionInputs,

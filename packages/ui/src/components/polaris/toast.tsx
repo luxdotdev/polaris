@@ -193,3 +193,8 @@ export function showToast({
     { duration }
   );
 }
+
+/** Takes down a toast `showToast` returned, when what it asked was answered somewhere else. */
+export const dismissToast = (id: string | number) => {
+  sonner.dismiss(id);
+};

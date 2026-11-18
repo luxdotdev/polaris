@@ -17,6 +17,7 @@ import {
   type CommandId,
   CommandRejected,
   decideTurnAccess,
+  teammateCommandRefusal,
   type Grant,
   type NotGranted,
   DomainEvent,
@@ -25,6 +26,7 @@ import {
   type RiskSummary,
   type SessionId,
   SessionPlacement,
+  type ShareRole,
   type Turn,
   type TurnId,
   Workspace,
@@ -34,6 +36,7 @@ import {
 import { Effect, Match, Predicate, Result } from "effect";
 import {
   lastTurn,
+  patchQueuedTurn,
   patchTurn,
   type ReadModel,
   type SessionRecord,
@@ -42,18 +45,28 @@ import {
 import { pickCelestial } from "../store/celestial.ts";
 import { userTurn } from "./session.turns.ts";
 import { reviewDeciders } from "./review.ts";
+import { commentDeciders } from "./comments.ts";
 import { decideSession, type SessionInput } from "./session.ts";
+import type { BarredTurn } from "./session.inputs.ts";
 
 export { stateChanged } from "./session.ts";
 
 export interface DecideContext {
   readonly commandId: CommandId;
   readonly now: string;
-  /** Label of the Client device that sent the command (for `ApprovalResolved.resolvedBy`). */
+  /** Label of the Client device that sent it (`ApprovalResolved.resolvedBy`; a Teammate's name instead). */
   readonly deviceLabel: string;
   /** Who sent it: stamped on the session starts, Turns and approvals it records. */
   readonly actor: Actor;
   readonly extensionGrant?: Grant | null;
+  /** A Teammate's Share role on the session; null for the owner's Clients (`mayResolveComment`). */
+  readonly shareRole?: ShareRole | null;
+  /** For SendTurn: the session is shared, so a Turn sent with one in flight joins its queue. */
+  readonly shared?: boolean;
+  /** For a Teammate's SendTurn: whether their live Share holds `approve` (`teammateApproves`). */
+  readonly teammateApproves?: boolean | null;
+  /** For ResumeQueue: the queued Turns whose sender lost access since (`queueAccess.ts`). */
+  readonly barred?: ReadonlyArray<BarredTurn>;
   /** Fresh ids, used only by the commands that create something. */
   readonly newTurnId: TurnId;
   readonly newWorkspaceId: WorkspaceId;
@@ -78,7 +91,7 @@ export interface DecideContext {
   readonly canCompact?: boolean;
   /**
    * The Turn the command names, looked up in memory or SQL (null if unknown):
-   * ForkSession's `fromTurnId`, AcceptTurns' `throughTurnId`.
+   * ForkSession's `fromTurnId`, AcceptTurns' `throughTurnId`, AddComment's anchor Turn.
    */
   readonly namedTurn: Turn | null;
   /** For RecordVerdict: the Risk Summary it names (null if unknown). */
@@ -136,8 +149,13 @@ const withActor = (actor: Actor, event: DomainEvent): DomainEvent =>
   Match.value(event).pipe(
     Match.tags({
       SessionCreated: (e) => DomainEvent.cases.SessionCreated.make({ ...e, actor }),
-      TurnStarted: (e) => DomainEvent.cases.TurnStarted.make({ ...e, actor }),
+      TurnStarted: (e) =>
+        DomainEvent.cases.TurnStarted.make({ turn: patchTurn(e.turn, { actor }), actor }),
       ApprovalResolved: (e) => DomainEvent.cases.ApprovalResolved.make({ ...e, actor }),
+      TurnQueued: (e) =>
+        DomainEvent.cases.TurnQueued.make({
+          turn: patchQueuedTurn(e.turn, { actor }),
+        }),
     }),
     Match.orElse((e) => e)
   );
@@ -518,13 +536,24 @@ const compactSession = (d: Deciding, command: CommandOf<"CompactSession">): Deci
 const onSession = (d: Deciding, sessionId: SessionId, input: SessionInput): Decision =>
   d.withSession(sessionId, (record) => d.lifecycle(record, input));
 
+/** Whether a sent Turn's sender holds `approve`: a Teammate's from their Share, never by default. */
+const sendsWithApprove = (ctx: DecideContext): boolean => {
+  const granted = ctx.extensionGrant?.includes("approve");
+
+  if (Predicate.isTagged(ctx.actor, "Teammate")) return ctx.teammateApproves ?? granted ?? false;
+
+  return granted ?? true;
+};
+
 export const decide = (model: ReadModel, command: Command, ctx: DecideContext): Decision => {
   const mode =
     "sessionId" in command
       ? (model.sessions.get(command.sessionId)?.session.permissionMode ?? null)
       : null;
 
-  const refusal = decideTurnAccess(ctx.extensionGrant ?? null, command, mode);
+  const refusal =
+    decideTurnAccess(ctx.extensionGrant ?? null, command, mode) ??
+    (Predicate.isTagged(ctx.actor, "Teammate") ? teammateCommandRefusal(command) : null);
 
   if (refusal !== null) return Effect.fail(refusal);
   const d = deciding(model, ctx);
@@ -556,8 +585,35 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
     StartSession: (c) => startSession(d, c),
     SendTurn: (c) =>
       d.withSession(c.sessionId, (record) =>
-        d.lifecycle(record, { type: "turn.send", turn: d.newTurn(record.session, c.prompt) })
+        d.lifecycle(record, {
+          type: "turn.send",
+          turn: d.newTurn(record.session, c.prompt),
+          queue: ctx.shared === true,
+          approves: sendsWithApprove(ctx),
+        })
       ),
+    CancelQueuedTurn: (c) =>
+      onSession(d, c.sessionId, { type: "queue.cancel", turnId: c.turnId, actor: ctx.actor }),
+    EditQueuedTurn: (c) =>
+      onSession(d, c.sessionId, {
+        type: "queue.edit",
+        turnId: c.turnId,
+        prompt: c.prompt,
+        actor: ctx.actor,
+      }),
+    // The head starts as its own sender's Turn: the one who resumed is not stamped on it.
+    ResumeQueue: (c) =>
+      d.withSession(c.sessionId, (record) => {
+        const decision = decideSession(record, {
+          type: "queue.resume",
+          barred: ctx.barred ?? [],
+          at: ctx.now,
+        });
+
+        return decision.rejection === null
+          ? d.ok(...decision.events)
+          : d.reject(decision.rejection);
+      }),
     RunShellCommand: (c) => runShellCommand(d, c),
     CompactSession: (c) => compactSession(d, c),
     Continue: (c) => onSession(d, c.sessionId, { type: "turn.continue" }),
@@ -589,7 +645,10 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
             type: "approval.respond",
             requestId: c.requestId,
             decision: c.decision,
-            resolvedBy: ctx.deviceLabel,
+            // A Client that can't decode the Teammate Actor still shows who answered.
+            resolvedBy: Predicate.isTagged(ctx.actor, "Teammate")
+              ? ctx.actor.name
+              : ctx.deviceLabel,
             actor: ctx.actor,
           }),
     RenameSession: (c) => renameSession(d, c),
@@ -604,5 +663,6 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
     OpenInTerminal: (c) => onSession(d, c.sessionId, { type: "terminal.open" }),
     ReturnFromTerminal: (c) => onSession(d, c.sessionId, { type: "terminal.return" }),
     ...reviewDeciders(d),
+    ...commentDeciders(d),
   });
 };

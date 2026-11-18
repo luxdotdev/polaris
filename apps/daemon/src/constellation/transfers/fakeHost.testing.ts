@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { AgentSession, HostStreamItem, Sequence, constellationSummaryOf } from "@polaris/protocol";
-import { Context, Effect, Layer, Predicate, Stream } from "effect";
+import { Context, Effect, Layer, Predicate, Redacted, Stream } from "effect";
 import { EventStore } from "../../store/EventStore.ts";
 import { loadHostInfo } from "../../transport/hostInfo.ts";
 import { startServer } from "../../transport/server.ts";
@@ -62,6 +62,8 @@ export const testIdentity = {
   deviceLabel: "Test Client",
   // A Windows Host answers a Client without host.any-platform as an older protocol (ADR 0059).
   capabilities: ["blobs", "constellation", "host.any-platform"],
+  // The app that relays between Hosts is the Desktop App: each fresh Host enrols it (ADR 0114).
+  userKey: Redacted.make("a".repeat(64)),
 } satisfies import("../../../../../packages/client/src/HostConnection.ts").ClientIdentity;
 
 export const fakeHost = Effect.fnUntraced(function* (
@@ -185,6 +187,7 @@ export const connectFake = Effect.fnUntraced(function* (
   | import("@polaris/protocol").LanguageIdentityError
   | import("@polaris/protocol").ExtensionTokenRejected
   | import("@polaris/protocol").ProtocolMismatch
+  | import("@polaris/protocol").StatementRejected
   | import("../../../../../packages/client/src/failures.ts").ConnectFailure
   | import("effect/rpc/RpcClientError").RpcClientError,
   import("effect").Scope.Scope
@@ -196,6 +199,7 @@ export const connectFake = Effect.fnUntraced(function* (
     clientVersion: testIdentity.version,
     deviceLabel: testIdentity.deviceLabel,
     capabilities: testIdentity.capabilities,
+    userKey: testIdentity.userKey,
   });
 
   return {

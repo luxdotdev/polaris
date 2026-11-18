@@ -14,6 +14,8 @@ const OnHost = Schema.Struct({ hostKey: HostKey });
 export const LinkedDevicesRequestInputs = {
   "relayRoute.status": OnHost,
   "relayRoute.enable": Schema.Struct({ hostKey: HostKey, url: Schema.String }),
+  /** Stores the relay without turning it on; null is Polaris Cloud's (`linked-devices.relay-url`). */
+  "relayRoute.setUrl": Schema.Struct({ hostKey: HostKey, url: Schema.NullOr(Schema.String) }),
   "relayRoute.disable": OnHost,
   "devices.list": OnHost,
   /** Opens a link on the first Host with the route on; the result holds a one-time secret. */
@@ -34,6 +36,8 @@ export const LinkedDevicesRequestInputs = {
     noiseKey: LinkedDevice.fields.noiseKey,
   }),
   "devices.unlink": Schema.Struct({ hostKey: HostKey, id: LinkedDevice.fields.id }),
+  /** This app's own relay identity, made on first use: what a Host is told to let it in. */
+  "devices.thisDevice": Schema.Struct({}),
 } as const;
 
 export type LinkedDevicesMethod = keyof typeof LinkedDevicesRequestInputs;
@@ -53,6 +57,13 @@ export interface LinkOfferView {
   readonly shareTo: ReadonlyArray<string>;
 }
 
+/** This app as a relay device: public keys only. */
+export interface ThisDeviceView {
+  readonly relayAddress: string;
+  /** The Noise static public key, base64url. */
+  readonly noiseKey: string;
+}
+
 export interface LinkResultView {
   readonly device: LinkedDeviceView;
   /** Each `shareTo` Host, and whether `devices.add` reached it. */
@@ -62,6 +73,7 @@ export interface LinkResultView {
 export type LinkedDevicesRequestOutputs = {
   readonly "relayRoute.status": RelayRouteView;
   readonly "relayRoute.enable": RelayRouteView;
+  readonly "relayRoute.setUrl": RelayRouteView;
   readonly "relayRoute.disable": RelayRouteView;
   readonly "devices.list": ReadonlyArray<LinkedDeviceView>;
   readonly "devices.startLink": LinkOfferView;
@@ -69,4 +81,5 @@ export type LinkedDevicesRequestOutputs = {
   readonly "devices.cancelLink": void;
   readonly "devices.share": LinkedDeviceView;
   readonly "devices.unlink": LinkedDeviceView;
+  readonly "devices.thisDevice": ThisDeviceView;
 };

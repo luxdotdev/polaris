@@ -120,7 +120,10 @@ const decodeScriptOverrides = Schema.decodeUnknownOption(
 export const parseScript = (prompt: string): BenchTurnScript => {
   if (!prompt.startsWith(BENCH_PROMPT_PREFIX)) return DEFAULT_SCRIPT;
 
-  return Option.match(decodeScriptOverrides(prompt.slice(BENCH_PROMPT_PREFIX.length)), {
+  // The script is the prompt's first line: a shared session's co-author note follows it.
+  const [script = ""] = prompt.slice(BENCH_PROMPT_PREFIX.length).split("\n", 1);
+
+  return Option.match(decodeScriptOverrides(script), {
     onNone: () => DEFAULT_SCRIPT,
     onSome: (overrides) => ({ ...DEFAULT_SCRIPT, ...overrides }),
   });

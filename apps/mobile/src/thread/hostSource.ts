@@ -5,6 +5,7 @@
 import type { LiveSource } from "@polaris/client/resume";
 import { Effect } from "effect";
 import type { HostConnection, LiveHost } from "../runtime/hostConnection.ts";
+import { teammateThreadSource } from "../shared/source.ts";
 import { daemonThreadSource, type ThreadClient, type ThreadSource } from "./source.ts";
 
 /** Waits for the connection's live client at `minEpoch` or later. */
@@ -30,8 +31,11 @@ export const liveSourceOf = (connection: HostConnection): LiveSource<ThreadClien
     }),
 });
 
+/** A Teammate's connection gets the shared source: only what a Share allows. */
 export const hostThreadSource = (connection: HostConnection, live: LiveHost): ThreadSource =>
-  daemonThreadSource({
-    live: liveSourceOf(connection),
-    capabilities: new Set(live.capabilities),
-  });
+  connection.teammate === null
+    ? daemonThreadSource({
+        live: liveSourceOf(connection),
+        capabilities: new Set(live.capabilities),
+      })
+    : teammateThreadSource(liveSourceOf(connection), new Set(live.capabilities));

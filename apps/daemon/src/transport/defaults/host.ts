@@ -30,6 +30,9 @@ import { deviceOf } from "../../linkedDevices/connection.ts";
 import { RelayRoute } from "../../linkedDevices/route.ts";
 import { HostPresence } from "../../presence/index.ts";
 import { RemoteAccessControl } from "../../remoteAccess/service.ts";
+import { teammateOf } from "../../shares/connection.ts";
+import { ShareNotifications } from "../../shares/notifications.ts";
+import { lazyShareHandlers } from "../lazyShares.ts";
 import { type DefaultOptions, notYet, unsupportedFeed } from "./shared.ts";
 
 const notADevice = () =>
@@ -158,6 +161,7 @@ const restartDefaults = RestartRpcs.toLayer({
 const linkedDeviceDefaults = LinkedDeviceRpcs.toLayer({
   "relayRoute.status": () => Effect.flatMap(RelayRoute, (route) => route.status),
   "relayRoute.enable": ({ url }) => Effect.flatMap(RelayRoute, (route) => route.enable(url)),
+  "relayRoute.setUrl": ({ url }) => Effect.flatMap(RelayRoute, (route) => route.setUrl(url)),
   "relayRoute.disable": () => Effect.flatMap(RelayRoute, (route) => route.disable),
   "devices.link": () => Effect.flatMap(RelayRoute, (route) => route.startLink),
   "devices.awaitLink": ({ linkId }) =>
@@ -178,6 +182,13 @@ const linkedDeviceDefaults = LinkedDeviceRpcs.toLayer({
   // A Linked Device's own connection only: the device registers itself (ADR 0083).
   "devices.registerPush": (registration, { client }) => {
     const device = deviceOf(client);
+    const teammate = teammateOf(client);
+
+    // A Teammate's device registers for the Needs You its Shares cover (ENG-941).
+    if (teammate !== null)
+      return Effect.flatMap(ShareNotifications, (shared) =>
+        shared.register(teammate, registration)
+      );
 
     return device === null
       ? Effect.fail(notADevice())
@@ -185,6 +196,10 @@ const linkedDeviceDefaults = LinkedDeviceRpcs.toLayer({
   },
   "devices.unregisterPush": (_, { client }) => {
     const device = deviceOf(client);
+    const teammate = teammateOf(client);
+
+    if (teammate !== null)
+      return Effect.flatMap(ShareNotifications, (shared) => shared.unregister(teammate));
 
     return device === null
       ? Effect.fail(notADevice())
@@ -229,7 +244,7 @@ const secretDefaults = SecretRpcs.toLayer({
     Effect.fail(new SecretRejected({ reason: "storage", message: notYet("Secret Requests") })),
 });
 
-/** Constellations, Host resources, Pairings, remote access, Linked Devices, presence, voice, secrets. */
+/** Constellations, Host resources, Pairings, remote access, Linked Devices, presence, voice, secrets, Shares. */
 export const hostDefaults = (options: DefaultOptions) =>
   Layer.mergeAll(
     constellationDefaults,
@@ -242,5 +257,6 @@ export const hostDefaults = (options: DefaultOptions) =>
     presenceDefaults,
     HostStatsRpcs.toLayer({ "host.stats.watch": unsupportedFeed("host.stats") }),
     voiceDefaults,
-    secretDefaults
+    secretDefaults,
+    lazyShareHandlers
   );

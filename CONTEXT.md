@@ -29,6 +29,10 @@ The iPhone Client (a Linked Device): for starting, continuing, and supervising A
 A Client the user links once through the Desktop App, after which it sees every Host the Desktop App knows; it reaches them through the Polaris Relay.
 _Avoid_: Pairing (that is an Extension's), paired phone
 
+**User access**:
+What a Desktop App holds on a Host once the Host has enrolled its user key: only then may it approve, send Turns, start Agent Sessions and make the other user-only requests. The first Desktop App on a Host gets it on first use; each later one asks, and a Desktop App that already holds it allows or denies the request and can revoke any of them. It covers the user's own Desktop Apps only: Extensions act through their Grant, Linked Devices through their link.
+_Avoid_: Admin, owner access, trusted device, pairing (that is an Extension's)
+
 **Polaris Relay**:
 A service that a Host's Daemon and the user's Linked Devices both reach out to, so a phone can reach a Host on another network; it carries their end-to-end encrypted traffic and wakes the phone for notifications, and can read neither.
 _Avoid_: Proxy, tunnel, server
@@ -42,7 +46,7 @@ An Extension's link to one Host, made once by the user and revocable at any time
 _Avoid_: Connection (that is a Client's), login
 
 **Grant**:
-What a Pairing allows its Extension to do on that Host: read, approve, send Turns, start Agent Sessions, or use voice. Anything outside it is refused.
+What a Pairing allows its Extension, or a Share allows its Teammate, to do on that Host: read, comment, approve, send Turns, start Agent Sessions, or use voice. Anything outside it is refused.
 _Avoid_: Permission (that is a Harness's permission mode), scope
 
 **Remote Access**:
@@ -242,6 +246,44 @@ Intent for work not yet started. In Constellations v1, a pending Task proposal s
 
 **Subagent**:
 A helper a Harness spawns inside an Agent Session; Polaris shows it under its parent and lets the user view it on its own.
+
+### Sharing
+
+**Account**:
+An optional identity for a person on one Account Server, used only for sharing and team work; it vouches for that person's devices and names their commit email, but never decides what they may do on a Host. A person may hold several (work, personal); working alone on your own Hosts needs none.
+_Avoid_: Login (that is a Harness's), user (unqualified), profile
+
+**Account Server**:
+The service an Account lives on, which vouches for its people's devices; Polaris Cloud is one, and a team can run its own. Invites reach only people on the same Account Server.
+_Avoid_: Backend, directory, auth server
+
+**Polaris Cloud**:
+The Account Server (`auth.polaris.lux.dev`) and Polaris Relay (`relay.polaris.lux.dev`) that Polaris runs, and every Client's default; a self-hosted one replaces either. Never the name of a plan.
+
+**Share**:
+One person's time-limited access to one Agent Session or one Constellation (shared through its Lead, never a single Worker) on someone else's Host, with its Grants; the owner can revoke it at any time.
+_Avoid_: Pairing (that is an Extension's), link, room, public thread
+
+**Invite**:
+The owner's offer of a Share to one named person; it becomes the Share when that person accepts, and lapses unused otherwise.
+
+**Owner**:
+The user whose Host runs a shared Agent Session or Constellation, and who creates, changes and revokes its Shares.
+
+**Teammate**:
+The person a Share is for; what they did is credited to them by name.
+_Avoid_: Guest, participant, collaborator, viewer
+
+**Contributor**:
+A Teammate whose Share holds every Grant, so they can act in the shared Agent Session or Constellation as the owner can; managing its Shares, deleting it, its terminals and editing its files stay the owner's.
+
+**Commenter**:
+A Teammate whose Share lets them watch and add Comments, but not send Turns or answer approvals.
+_Avoid_: Reviewer (that is the Harness and Model writing Risk Findings), viewer, read-only
+
+**Comment**:
+A note anchored to a diff line or a message in a shared Agent Session; it reaches the agent only when someone sends it as a Turn.
+_Avoid_: Review comment (that is GitHub's), feedback (that is the Turn it is sent in)
 
 ### Views
 

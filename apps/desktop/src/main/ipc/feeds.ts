@@ -23,6 +23,9 @@ import { toDataIpcError } from "./data.ts";
 import { tracesOpeners } from "./traces.ts";
 import { httpRequestsOpeners } from "./httpRequests.ts";
 import { githubOpeners } from "../github/ipc.ts";
+import { accountsOpeners } from "../accounts/ipc.ts";
+import { DesktopSharing } from "../sharing/index.ts";
+import { sharingOpeners } from "../sharing/ipc.ts";
 import { gitOpeners } from "./git.ts";
 import { computerUseOpeners } from "./computerUse.ts";
 import { constellationFeed } from "./constellation.ts";
@@ -87,6 +90,8 @@ const openers: Openers = {
   ...tracesOpeners,
   ...httpRequestsOpeners,
   ...githubOpeners,
+  ...accountsOpeners,
+  ...sharingOpeners,
   ...gitOpeners,
   ...computerUseOpeners,
   ...simulatorOpeners,
@@ -94,7 +99,15 @@ const openers: Openers = {
   hosts: () => Stream.unwrap(HostDirectory.useSync((dir) => SubscriptionRef.changes(dir.views))),
   machines: () =>
     Stream.unwrap(Machines.useSync((machines) => SubscriptionRef.changes(machines.views))),
-  host: ({ hostKey }) => onHost(hostKey, (connection) => connection.subscribeHost),
+  // Another person's Host refuses `subscribeHost`: its feed is built from the shared sessions.
+  host: ({ hostKey }) =>
+    Stream.unwrap(
+      DesktopSharing.useSync((sharing) =>
+        sharing.isTeammateHost(hostKey)
+          ? Stream.orDie(sharing.hostFeed(hostKey))
+          : onHost(hostKey, (connection) => connection.subscribeHost)
+      )
+    ),
   session: ({ hostKey, sessionId, turnLimit }) =>
     onHost(hostKey, (connection) => connection.subscribeSession(sessionId, { turnLimit })),
   terminal: ({ hostKey, terminalId }) =>
@@ -128,6 +141,8 @@ const openers: Openers = {
   // Ends at once, empty, on a Daemon without `host.stats`.
   "host.stats": ({ hostKey }) => onLive(hostKey, watchHostStats),
   "devices.watch": ({ hostKey }) => onLive(hostKey, (session) => session.client["devices.watch"]()),
+  "userAccess.watch": ({ hostKey }) =>
+    onLive(hostKey, (session) => session.client["userAccess.watch"]()),
   "review.watchRiskSummary": ({ hostKey, summaryId }) =>
     onLive(hostKey, (session) => session.client["review.watchRiskSummary"]({ summaryId })),
   "inline.propose": ({ hostKey, ...request }) =>

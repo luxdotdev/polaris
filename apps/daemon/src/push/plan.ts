@@ -76,6 +76,8 @@ export interface Push {
   readonly message: PushMessage;
   readonly automatic: boolean;
   readonly need: Need;
+  /** A Secret Request's: only the owner's devices hear of it, never a Teammate's. */
+  readonly ownerOnly?: boolean;
 }
 
 export interface Planned {
@@ -263,10 +265,13 @@ const applyEvent = (state: PlanState, event: DomainEvent, context: PlanContext):
             session === undefined || !state.synchronized
               ? []
               : [
-                  push(needsYou(session, request, context), {
-                    sessionId: request.sessionId,
-                    requestId: request.id,
-                  }),
+                  {
+                    ...push(needsYou(session, request, context), {
+                      sessionId: request.sessionId,
+                      requestId: request.id,
+                    }),
+                    ownerOnly: request.kind === "secret",
+                  },
                 ],
         };
       },

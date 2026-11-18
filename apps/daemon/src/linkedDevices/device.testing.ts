@@ -226,6 +226,67 @@ export const sessionTransport = (
   };
 };
 
+/**
+ * Several sessions over one device socket, as one device signed in to several Accounts has:
+ * each record goes to the session whose tag it carries. Use instead of `handshake` and
+ * `sessionTransport`, which read every record of the socket.
+ */
+export const sessionMux = (socket: DeviceSocket, hostAddress: RelayAddress) => {
+  const byTag = new Map<string, (record: Uint8Array) => void>();
+  const tagOf = (record: Uint8Array) => toBase64Url(record.subarray(1, 9));
+
+  void (async () => {
+    for (;;) {
+      const record = await socket.next(60_000);
+
+      if (record === null) return;
+      byTag.get(tagOf(record))?.(record);
+    }
+  })();
+
+  /** Handshakes with `payload` in the init; null when the host never replies (refused). */
+  const open = async (
+    hostNoiseKey: Uint8Array,
+    noise: StaticKeyPair,
+    payload?: Uint8Array,
+    waitMs = 1_500
+  ): Promise<ByteTransport | null> => {
+    const initiator = new RelayInitiator(noise, hostNoiseKey, payload);
+    const tag = toBase64Url(initiator.tag);
+
+    const reply = await new Promise<Uint8Array | null>((resolve) => {
+      byTag.set(tag, resolve);
+      setTimeout(() => resolve(null), waitMs);
+      socket.send(hostAddress, initiator.init);
+    });
+
+    if (reply === null) {
+      byTag.delete(tag);
+
+      return null;
+    }
+
+    const session = initiator.finish(reply);
+    const queue = Effect.runSync(Queue.unbounded<Uint8Array, Cause.Done>());
+    byTag.set(tag, (record) => {
+      Queue.offerUnsafe(queue, session.open(record));
+    });
+
+    return {
+      incoming: Stream.fromQueue(queue),
+      write: (bytes) =>
+        Effect.sync(() =>
+          session.seal(bytes).forEach((record) => socket.send(hostAddress, record))
+        ),
+      close: Effect.sync(() => {
+        byTag.delete(tag);
+      }),
+    };
+  };
+
+  return { open };
+};
+
 /** A free TCP port on loopback. */
 export const freePort = (): number => {
   const listener = Bun.listen({

@@ -30,6 +30,9 @@ export const COMMAND_GRANTS = {
   RunShellCommand: "client",
   CompactSession: "client",
   Steer: "turn",
+  CancelQueuedTurn: "turn",
+  ResumeQueue: "turn",
+  EditQueuedTurn: "turn",
   Interrupt: "turn",
   StopBackgroundTasks: "client",
   BackgroundCommand: "client",
@@ -47,6 +50,10 @@ export const COMMAND_GRANTS = {
   OpenInTerminal: "client",
   ReturnFromTerminal: "client",
   SendFeedback: "client",
+  AddComment: "comment",
+  EditComment: "comment",
+  ResolveComment: "comment",
+  ReopenComment: "comment",
   AcceptTurns: "client",
   LinkPullRequest: "client",
   OpenReviewCheckout: "client",
@@ -81,6 +88,7 @@ export const RPC_GRANTS = {
   "host.prepareRestart": "client",
   "relayRoute.status": "client",
   "relayRoute.enable": "client",
+  "relayRoute.setUrl": "client",
   "relayRoute.disable": "client",
   "devices.link": "client",
   "devices.awaitLink": "client",
@@ -94,6 +102,10 @@ export const RPC_GRANTS = {
   "devices.registerLiveActivity": "client",
   "devices.unregisterLiveActivity": "client",
   "devices.watch": "client",
+  "userAccess.watch": "client",
+  "userAccess.allow": "client",
+  "userAccess.deny": "client",
+  "userAccess.revoke": "client",
   "voice.transcribe": "voice",
   "voice.settings": "client",
   "voice.setKey": "client",
@@ -322,6 +334,13 @@ export const RPC_GRANTS = {
   "requests.send.get": "client",
   "requests.curl.parse": "client",
   "requests.curl.format": "client",
+  "shares.create": "client",
+  "shares.renew": "client",
+  "shares.revoke": "client",
+  "shares.list": "client",
+  "shares.watchPresence": "read",
+  "shares.mute": "client",
+  "account.refreshStatement": "open",
 } as const satisfies Record<DaemonRpcTag, RpcAccess>;
 
 const commandAccess = (tag: string): CommandAccess =>
@@ -353,6 +372,15 @@ const asksForEverything = (permissionMode: string | null) =>
 const alsoApproves = (rpc: string, command: string | null, permissionMode: string | null) =>
   rpc === "dispatch" && command === "StartSession" && !asksForEverything(permissionMode);
 
+/**
+ * Whether a queued Turn may still start: in a session that approves for itself by then, only
+ * one whose sender held `approve` (ADR 0078), as a Turn sent then would need.
+ */
+export const queuedTurnMayStart = (
+  queued: { readonly approves?: boolean | null },
+  permissionMode: string | null
+): boolean => queued.approves !== false || asksForEverything(permissionMode);
+
 /** Apply inside the commit decision, using the session's current permission mode. */
 export const decideTurnAccess = (
   grant: Grant | null,
@@ -361,7 +389,19 @@ export const decideTurnAccess = (
 ): NotGranted | null => {
   if (grant === null || permissionMode === null || asksForEverything(permissionMode)) return null;
 
-  if (!Command.isAnyOf(["SendTurn", "Steer", "Continue", "Retry"])(command)) return null;
+  // `SendFeedback` reaches here only from a Teammate: Extensions are refused it at the gate.
+  if (
+    !Command.isAnyOf([
+      "SendTurn",
+      "Steer",
+      "Continue",
+      "Retry",
+      "SendFeedback",
+      "EditQueuedTurn",
+      "ResumeQueue",
+    ])(command)
+  )
+    return null;
 
   return grant.includes("approve")
     ? null

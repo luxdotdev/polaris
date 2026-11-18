@@ -25,6 +25,7 @@ export type Pane = "session" | "new-session";
 
 /** The Settings pages (DESIGN.md, Settings); features/machines fills "hosts". */
 export type SettingsSection =
+  | "account"
   | "appearance"
   | "sessions"
   | "editor"
@@ -42,6 +43,7 @@ export type SettingsSection =
   | "about";
 
 export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
+  "account",
   "appearance",
   "sessions",
   "editor",
@@ -98,6 +100,14 @@ export interface NavState {
   readonly sessionSort: SessionSort;
   /** Counts New session requests, so a page already open focuses its prompt again. */
   readonly newSessionAsks: number;
+  /** A session shared with you, open in place of your own; the sidebar stays on yours. */
+  readonly shared: SharedSessionRef | null;
+}
+
+/** A session on another person's Host, which the Host feed of `hostKey` holds. */
+export interface SharedSessionRef {
+  readonly hostKey: string;
+  readonly sessionId: SessionId;
 }
 
 export const initialNav: NavState = {
@@ -119,6 +129,7 @@ export const initialNav: NavState = {
   collapsedHosts: [],
   sessionSort: "active",
   newSessionAsks: 0,
+  shared: null,
 };
 
 export const workspaceKey = (hostKey: string, workspaceId: string) =>
@@ -145,6 +156,8 @@ export interface Selection {
   readonly pane: Pane;
   readonly sidebar: SidebarView;
   readonly settings: SettingsRoute | null;
+  /** The shared session shown in the session pane; `sessionId` is then null. */
+  readonly shared: SharedSessionRef | null;
 }
 
 /** Sidebar order: Needs You first (rule/needs-you-is-loudest), then newest first; stable while working. */
@@ -248,8 +261,10 @@ export const resolveSelection = (raw: ResolveInput): Selection => {
   const hostKey = first?.hostKey ?? pickHost(input);
   const workspaceId = first?.workspace.id ?? pickWorkspace(input, hostKey);
 
+  const shared = nav.pane === "session" ? nav.shared : null;
+
   const sessionId =
-    hostKey === null || nav.pane === "new-session"
+    hostKey === null || nav.pane === "new-session" || shared !== null
       ? null
       : pickSession(input, hostKey, workspaceId);
 
@@ -262,5 +277,6 @@ export const resolveSelection = (raw: ResolveInput): Selection => {
     pane: nav.pane,
     sidebar: nav.sidebar,
     settings: nav.settings,
+    shared,
   };
 };

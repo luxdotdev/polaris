@@ -10,9 +10,13 @@
  * them with `EventStore.readTurns`.
  */
 import {
+  type Actor,
   type AgentSession,
   type ConstellationId,
   type ApprovalRequest,
+  type Comment,
+  type CommentId,
+  type QueuedTurn,
   DomainEvent,
   type EventEnvelope,
   type RequestId,
@@ -32,13 +36,21 @@ import {
 import { emptyResources, foldResources, type ResourcesModel } from "../resources/model.ts";
 
 import { pickCelestial } from "./celestial.ts";
+import { carriedBy, type CommentEvent, foldComment } from "./comments.ts";
+import { foldQueuedTurn, leftQueue, type QueuedTurnEvent } from "./queuedTurns.ts";
 import { foldConstellation, graphEvent, type ConstellationRecord } from "./constellation.ts";
 import { purgeWorkspace } from "./removal.ts";
 import { replyPreview } from "./replyPreview.ts";
 import { replyText, userTurnAfter } from "./userTurns.ts";
 import { patchSession, patchTurn, type SessionPatch } from "./patch.ts";
 
-export { patchSession, patchTurn, type SessionPatch, type TurnPatch } from "./patch.ts";
+export {
+  patchQueuedTurn,
+  patchSession,
+  patchTurn,
+  type SessionPatch,
+  type TurnPatch,
+} from "./patch.ts";
 
 export interface SessionRecord {
   readonly session: AgentSession;
@@ -52,6 +64,10 @@ export interface SessionRecord {
   readonly pending: ReadonlyMap<RequestId, ApprovalRequest>;
   /** Subagents still working; ended ones are in SQL (`EventStore.readSubagents`). */
   readonly subagents: ReadonlyMap<SubagentId, Subagent>;
+  /** Its Comments (ADR 0113, `comments.ts`); absent when it has none. */
+  readonly comments?: ReadonlyMap<CommentId, Comment>;
+  /** Its queued Turns in arrival order (`queuedTurns.ts`); absent when it has none. */
+  readonly queue?: ReadonlyArray<QueuedTurn>;
 }
 
 export interface ReadModel {
@@ -171,6 +187,14 @@ export const sessionOf: (event: DomainEvent) => SessionId | null =
     RiskFindingResolved: hostEvent,
     RiskSummaryEnded: hostEvent,
     VerdictRecorded: hostEvent,
+    CommentAdded: (event) => event.comment.sessionId,
+    CommentEdited: bySessionId,
+    CommentResolved: bySessionId,
+    CommentReopened: bySessionId,
+    CommentOutdated: bySessionId,
+    TurnQueued: (event) => event.turn.sessionId,
+    QueuedTurnEdited: bySessionId,
+    QueuedTurnCancelled: bySessionId,
   });
 
 /**
@@ -329,6 +353,7 @@ const updateSession = (
   const change = f(record);
 
   const next: SessionRecord = {
+    ...record,
     session: patchSession(record.session, { ...change.session, updatedAt: fold.at }),
     titleLocked: change.titleLocked ?? record.titleLocked,
     turns: change.turns ?? record.turns,
@@ -397,7 +422,7 @@ const checkpointCommit = (turn: Turn, known: Turn | undefined): string | null =>
 /** A Turn's start or end; its user-Turn number and reply preview come from the fold, not the event. */
 const recordTurn =
   (started: boolean) =>
-  ({ turn }: { readonly turn: Turn }): Reducer =>
+  ({ turn, actor }: { readonly turn: Turn; readonly actor?: Actor | null }): Reducer =>
   (fold) =>
     updateSession(fold, turn.sessionId, (r) => {
       const known = r.turns.find((t) => t.id === turn.id);
@@ -415,6 +440,8 @@ const recordTurn =
         userTurnNumber: known?.userTurnNumber ?? opened?.number ?? turn.userTurnNumber,
         replyPreview: known?.replyPreview ?? turn.replyPreview,
         checkpointAfterCommit: checkpointCommit(turn, known),
+        // Who sent it: the TurnStarted's Actor, kept through the Turn's later events.
+        actor: known?.actor ?? actor ?? turn.actor,
       });
 
       // Idle compaction's Turn leaves the reply the user last read.
@@ -494,6 +521,16 @@ const setCheckout =
   });
 
 const keep: Reducer = ({ model }) => model;
+
+const foldQueuedTurnEvent =
+  (event: QueuedTurnEvent): Reducer =>
+  ({ model, at }) =>
+    foldQueuedTurn(model, event, at);
+
+const foldCommentEvent =
+  (event: CommentEvent): Reducer =>
+  ({ model, at }) =>
+    foldComment(model, event, at);
 
 const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
   // Constellation projections are folded separately by their graph decider.
@@ -611,7 +648,12 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
     () =>
     ({ model }) =>
       model,
-  TurnStarted: recordTurn(true),
+  TurnStarted: (event) => (fold) =>
+    leftQueue(
+      carriedBy(recordTurn(true)(event)(fold), event.turn),
+      event.turn.sessionId,
+      event.turn.id
+    ),
   TurnEnded: recordTurn(false),
   TurnItemCompleted: recordReply,
   CheckpointRecorded: recordCheckpoint,
@@ -663,6 +705,14 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
   RiskFindingResolved: () => keep,
   RiskSummaryEnded: () => keep,
   VerdictRecorded: () => keep,
+  CommentAdded: foldCommentEvent,
+  CommentEdited: foldCommentEvent,
+  CommentResolved: foldCommentEvent,
+  CommentReopened: foldCommentEvent,
+  CommentOutdated: foldCommentEvent,
+  TurnQueued: foldQueuedTurnEvent,
+  QueuedTurnEdited: foldQueuedTurnEvent,
+  QueuedTurnCancelled: foldQueuedTurnEvent,
 });
 
 export const project = (model: ReadModel, envelope: EventEnvelope): ReadModel => {

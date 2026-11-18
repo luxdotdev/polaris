@@ -16,16 +16,18 @@
  */
 import {
   type Capability,
+  CommandRejected,
   DaemonRpcs,
   ExtensionDaemonRpcs,
   NotFound,
   SecretRejected,
 } from "@polaris/protocol";
-import { Context, Effect, Layer, Stream } from "effect";
+import { Context, Effect, Layer, Option, Stream } from "effect";
 import { actorOf, pairingOf } from "../extensions/connection.ts";
+import { RequestShare, teammateOf } from "../shares/connection.ts";
 import { Engine } from "./Engine.ts";
 import { hostItemsFor, sessionItemsFor } from "./limitedCompat.ts";
-import { actorHostItemsFor, actorSessionItemsFor } from "./actorCompat.ts";
+import { actorHostItemsFor, actorSessionItemsFor, actorTurnPageFor } from "./actorCompat.ts";
 import { planHostItemsFor, planSessionItemsFor } from "./planCompat.ts";
 
 /** Per-connection annotation set by the `hello` handler. */
@@ -59,12 +61,24 @@ const DispatchHandler = ExtensionDaemonRpcs.toLayerHandler(
     const engine = yield* Engine;
 
     return ({ commandId, command }, { client }) =>
-      engine.dispatch({
-        commandId,
-        command,
-        deviceLabel: Context.getOrUndefined(client.annotations, DeviceLabel) ?? UNKNOWN_DEVICE,
-        actor: actorOf(client),
-        extensionGrant: pairingOf(client)?.grant ?? null,
+      Effect.gen(function* () {
+        // A Teammate acts through the Share its gate chose, as that Share's person and Grant.
+        const share = Option.getOrNull(yield* Effect.serviceOption(RequestShare));
+
+        if (share === null && teammateOf(client) !== null)
+          return yield* new CommandRejected({
+            commandId,
+            reason: "This connection acts through a Share, and none covers the command",
+          });
+
+        return yield* engine.dispatch({
+          commandId,
+          command,
+          deviceLabel: Context.getOrUndefined(client.annotations, DeviceLabel) ?? UNKNOWN_DEVICE,
+          actor: share?.actor ?? actorOf(client),
+          extensionGrant: share?.grant ?? pairingOf(client)?.grant ?? null,
+          shareRole: share?.role ?? null,
+        });
       });
   })
 );
@@ -140,7 +154,18 @@ const SubscribeSessionHandler = DaemonRpcs.toLayerHandler(
         capabilities,
       });
 
-      return compat === null ? items : Stream.map(items, compat);
+      // Only a Teammate's feed is filtered; the filter loads with the first of them.
+      const shown =
+        teammateOf(client) === null
+          ? items
+          : Stream.unwrap(
+              Effect.map(
+                Effect.promise(() => import("../shares/feeds.ts")),
+                (feeds) => feeds.teammateSessionFeed(items)
+              )
+            );
+
+      return compat === null ? shown : Stream.map(shown, compat);
     };
   })
 );
@@ -166,13 +191,18 @@ const ReadTurnsHandler = DaemonRpcs.toLayerHandler(
   Effect.gen(function* () {
     const engine = yield* Engine;
 
-    return ({ sessionId, beforeIndex, limit }, { client }) =>
-      engine.readTurnPage({
+    return ({ sessionId, beforeIndex, limit }, { client }) => {
+      const compat = actorTurnPageFor(announcedAll(client.annotations));
+
+      const page = engine.readTurnPage({
         sessionId,
         beforeIndex,
         limit,
         subagents: announced(client.annotations, "session.subagents"),
       });
+
+      return compat === null ? page : Effect.map(page, compat);
+    };
   })
 );
 

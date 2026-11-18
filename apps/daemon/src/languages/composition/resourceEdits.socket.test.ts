@@ -1,3 +1,4 @@
+import { ownError } from "../../transport/userAccess.testing.ts";
 import { expect } from "bun:test";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
@@ -238,6 +239,8 @@ treeEditTest(
               "languages.resources.tree-v2",
             ],
             languageProof: Redacted.make(value),
+            // Both are the user's Desktop App to the user gate: this test is about the proof.
+            userKey: Redacted.make("a".repeat(64)),
           });
 
           yield* owned.client.hello(hello(proof));
@@ -315,7 +318,7 @@ treeEditTest(
                   },
                 });
 
-                const foreign = yield* Effect.flip(
+                const foreign = yield* ownError(
                   attacker.client["languages.server.respond"](response)
                 );
 

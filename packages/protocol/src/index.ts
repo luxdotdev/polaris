@@ -54,6 +54,14 @@ export * from "./events.ts";
 
 export * from "./extensions.ts";
 
+export * from "./comments.ts";
+
+export * from "./queuedTurns.ts";
+
+export * from "./shares.ts";
+
+export * from "./shareGrants.ts";
+
 export * from "./remoteAccess.ts";
 
 export * from "./restart.ts";
@@ -69,6 +77,8 @@ export * from "./rpcCapabilities.ts";
 export * from "./deviceGrants.ts";
 
 export * from "./userAccess.ts";
+
+export * from "./userAccessEnrolment.ts";
 
 export * from "./hello.ts";
 

@@ -14,7 +14,17 @@
  *
  * and `serve` composes them in one place (see `server.ts`).
  */
-import { ExtensionDaemonRpcs } from "@polaris/protocol";
+import {
+  ExtensionDaemonRpcs,
+  ExtensionTokenRejected,
+  GrantGate,
+  Hello,
+  LanguageIdentityError,
+  ProtocolMismatch,
+  ShareGate,
+  StatementRejected,
+} from "@polaris/protocol";
+import { Schema } from "effect";
 import { RpcMiddleware } from "effect/rpc";
 import type { BlobChannel } from "../services.ts";
 import type { CurrentLanguageConnection } from "./currentLanguageConnection.ts";
@@ -25,7 +35,18 @@ export class ConnectionBlobs extends RpcMiddleware.Service<
   { provides: BlobChannel | CurrentLanguageConnection | LanguageConnectionLifetime }
 >()("polaris/daemon/transport/ConnectionBlobs") {}
 
-/** Every RPC also passes the Grant gate (`extensions/connection.ts`) and the user gate (`userAccess.ts`). */
-export const ServerRpcs = ExtensionDaemonRpcs.middleware(ConnectionBlobs);
+/** `hello` as the Daemon serves it: a Teammate's can also fail with `StatementRejected` (ADR 0112). */
+export const ServerHello = Hello.setError(
+  Schema.Union([LanguageIdentityError, ExtensionTokenRejected, ProtocolMismatch, StatementRejected])
+);
+
+/**
+ * Every RPC also passes the Grant gate (`extensions/connection.ts`), the user gate
+ * (`userAccess.ts`) and the Share gate (`shares/gate.ts`), which scopes a Teammate's connection.
+ */
+export const ServerRpcs = ExtensionDaemonRpcs.omit("hello")
+  .add(ServerHello.middleware(GrantGate))
+  .middleware(ShareGate)
+  .middleware(ConnectionBlobs);
 
 export type ServerRpcs = typeof ServerRpcs;

@@ -27,6 +27,7 @@ import {
   ConstellationLiveness,
   type ConstellationLivenessService,
 } from "../constellation/liveness.ts";
+import { CommitIdentities } from "../coAuthors/identities.ts";
 import { LiveItem } from "../store/EventStore.ts";
 import { workingTurn } from "../store/model.ts";
 import { suggestReply } from "./suggestedReplies.ts";
@@ -35,8 +36,17 @@ import { isWorker, usageLimitOf } from "./limits.ts";
 import { worktreeIdFor } from "./decider.ts";
 import { contextChanged, contextUsageOf } from "./context.ts";
 import { finalReply, forkPreamble } from "./fork.ts";
-import { EngineRuntime, type EventSource, type LiveHarness, type Progress } from "./runtime.ts";
-import { deferredUserTurns, refuseUserTurn } from "./supervisor.turns.ts";
+import {
+  EngineRuntime,
+  type EventSource,
+  type LiveHarness,
+  type Progress,
+  type SignalResult,
+} from "./runtime.ts";
+import { deferredUserTurns, queuedTurnToRun, refuseUserTurn } from "./supervisor.turns.ts";
+import { ShareBook } from "../shares/identities.ts";
+import { PairingBook, queueAccess } from "./queueAccess.ts";
+import { withWorkerAdmission } from "../resources/workerAdmission.ts";
 import { HarnessTurnAliases } from "./supervisor.aliases.ts";
 import type { ShellTurn } from "./supervisor.shell.ts";
 import { DEFAULT_HARNESS_START_TIMEOUT, timedStart } from "./supervisor.start.ts";
@@ -60,7 +70,9 @@ const make = (
   attachments: ConstellationHarnessService,
   liveness: ConstellationLivenessService,
   usage: Option.Option<UsageIndex["Service"]>,
-  secrets: SecretRequests["Service"]
+  secrets: SecretRequests["Service"],
+  shares: Option.Option<ShareBook["Service"]>,
+  pairings: Option.Option<PairingBook["Service"]>
 ): Supervisor["Service"] => {
   const { store, live, progress } = rt;
   // A live secret printed by a command never reaches the log or a Client (ADR 0089).
@@ -402,19 +414,45 @@ const make = (
       });
     });
 
+  /** The machine started the head of the queue: hand it to the Harness, after this event's work. */
+  const runQueued = (sessionId: SessionId, ended: SignalResult) =>
+    Effect.gen(function* () {
+      const queued = queuedTurnToRun(sessionId, ended);
+
+      if (queued === null) return;
+
+      yield* withWorkerAdmission(
+        store,
+        sessionId,
+        rt.serially(sessionId)(deliverTurn(queued))
+      ).pipe(
+        Effect.flatMap((delivered) =>
+          delivered === undefined
+            ? rt.failSession(sessionId, "The queued Turn's worker admission was retired")
+            : Effect.void
+        ),
+        Effect.catchCause((cause) => Effect.logError("running a queued Turn failed", cause)),
+        Effect.forkIn(rt.engineScope)
+      );
+    });
+
   const onTurnEnded = (sessionId: SessionId, event: HarnessEventOf<"TurnEnded">, at: string) =>
     Effect.gen(function* () {
       rt.dropProgress(sessionId, event.turnId);
       const after = yield* rt.capture(sessionId, event.turnId, "after");
-      yield* rt.signal(sessionId, {
+
+      const ended = yield* rt.signal(sessionId, {
         type: "harness.turnEnded",
         turnId: event.turnId,
         status: event.status,
         error: redactNullable(event.error),
         checkpoint: after,
         limit: yield* limitOf(sessionId, event, at),
+        barred: yield* queueAccess(store, shares, pairings, sessionId),
         at,
       });
+
+      yield* runQueued(sessionId, ended);
     });
 
   const onWorktreeCreated = (sessionId: SessionId, path: string) =>
@@ -482,12 +520,29 @@ const make = (
           // Before opening: a Harness may report its cursor as soon as it opens.
           const session = (yield* store.model).sessions.get(sessionId)?.session;
 
-          const promptInput =
+          const basePrompt =
             session !== undefined &&
             session.parentSessionId !== null &&
             session.harnessCursor === null
               ? yield* withForkContext(session, session.parentSessionId, prompt)
               : prompt;
+
+          // Co-author trailers load once the Host has had a Share; until then nobody is credited.
+          const coAuthors = (yield* (yield* CommitIdentities).any)
+            ? yield* Effect.promise(() => import("../coAuthors/index.ts"))
+            : null;
+
+          const trailers =
+            coAuthors === null
+              ? []
+              : yield* coAuthors
+                  .sessionTrailers(store, sessionId, null)
+                  .pipe(Effect.orElseSucceed(() => []));
+
+          const promptInput =
+            coAuthors === null || trailers.length === 0
+              ? basePrompt
+              : `${basePrompt}\n\n${coAuthors.coAuthorNote(trailers)}`;
 
           const entry = yield* timedStart(
             openHarness(sessionId),
@@ -628,7 +683,9 @@ export class Supervisor extends Context.Service<
         yield* ConstellationHarness,
         yield* ConstellationLiveness,
         yield* Effect.serviceOption(UsageIndex),
-        yield* SecretRequests
+        yield* SecretRequests,
+        yield* Effect.serviceOption(ShareBook),
+        yield* Effect.serviceOption(PairingBook)
       );
     })
   );

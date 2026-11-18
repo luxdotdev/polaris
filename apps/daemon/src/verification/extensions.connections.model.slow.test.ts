@@ -78,6 +78,8 @@ const exercise = (
 
     const clients = yield* Effect.forEach([1, 2, 3], connect);
     const closed = new Set<number>();
+    // Connections whose `hello` went through: before it, the user gate refuses every Command.
+    const greeted = new Set<number>();
     const bound = new Map<number, number>();
 
     const trace: Array<ExtensionsTraceEvent> = issued.map((_, pairing) =>
@@ -102,7 +104,10 @@ const exercise = (
       const token = issued[op.pairing]?.token ?? `pol_ext_${"Z".repeat(43)}`;
 
       const payload =
-        op.pairing === 3 ? identity : { ...identity, extensionToken: Redacted.make(token) };
+        // A token-less connection is the Desktop App, which the user gate lets do everything.
+        op.pairing === 3
+          ? { ...identity, ...TEST_USER_KEY }
+          : { ...identity, extensionToken: Redacted.make(token) };
 
       const outcome = yield* client.client.hello(payload).pipe(
         Effect.match({
@@ -126,11 +131,18 @@ const exercise = (
       if (outcome === "refused") {
         closed.add(op.connection);
         yield* Effect.flip(client.lost);
-      } else if (op.pairing < 2) bound.set(op.connection, op.pairing);
+      } else {
+        greeted.add(op.connection);
+
+        if (op.pairing < 2) bound.set(op.connection, op.pairing);
+      }
     });
 
     const callStep = Effect.fn(function* (op: Step, index: number) {
       const client = clients[op.connection - 1]!;
+
+      // A Command before `hello` is the user gate's to refuse (`user-access.qnt`), not this model's.
+      if (op.need === "turn" && !greeted.has(op.connection)) return;
 
       const call = Match.value(op.need).pipe(
         Match.when("client", () => Effect.asVoid(client.client["extensions.list"]())),
@@ -141,7 +153,7 @@ const exercise = (
           Effect.asVoid(
             client.client.dispatch({
               commandId: CommandId.make(`pbt-${index}`),
-              // Interrupt needs the turn Grant but not user access (ADR 0100), so this probes the Grant gate alone.
+              // Interrupt needs the turn Grant; a token-less connection here holds user access.
               command: Command.cases.Interrupt.make({ sessionId: SessionId.make("s") }),
             })
           )

@@ -21,6 +21,7 @@ import {
 } from "../model/index.ts";
 import type { ReviewMode } from "../state.ts";
 import { approveClaim, placeOf, reviewClaim, toastRefusal } from "./claimActions.ts";
+import { reviewerNote } from "../model/reviewer.ts";
 import { TaskGlyph } from "./glyphs.tsx";
 import { CheckMark } from "./strip.tsx";
 import { EditorPlaceProvider, FileLink } from "../../editor-links/index.ts";
@@ -428,6 +429,7 @@ const ClaimHead = ({
         {attempt.state === "review" && attempt.previousClaimHead != null
           ? ` · amended from ${shortSha(attempt.previousClaimHead)}`
           : null}
+        {reviewerNote(attempt)}
       </span>
       <span className="flex-1" />
       <span className="text-code-inline text-text-subtle font-mono">

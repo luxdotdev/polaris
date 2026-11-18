@@ -1,4 +1,5 @@
 /** Real RPC framing and cancellation with a fake Query executor boundary. */
+import { TEST_USER_KEY } from "../transport/userAccess.testing.ts";
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { connectRpcWith, queryDataStream, socketTransport } from "@polaris/client";
@@ -101,6 +102,15 @@ test("F4/F6: 10k rows cross the real stream; cancellation closes the executor sc
           DaemonRpcs,
           yield* socketTransport(server.socketPath)
         );
+
+        // As the Desktop App: a query runs on the user's data source (ADR 0114).
+        yield* client.hello({
+          clientName: "test",
+          clientVersion: "0",
+          deviceLabel: "test",
+          capabilities: ["data"],
+          ...TEST_USER_KEY,
+        });
 
         const session = { client, capabilities: ["data"] as const };
 

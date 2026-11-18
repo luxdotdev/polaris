@@ -25,7 +25,10 @@ import {
 } from "../features/constellation/model/index.ts";
 
 export interface AppState {
+  /** Your Hosts: every one but those reached for sessions others shared with you. */
   readonly hosts: ReadonlyArray<HostView>;
+  /** Other people's Hosts, reached through the relay for sessions they shared with you. */
+  readonly sharedHosts: ReadonlyArray<HostView>;
   /** False until main first lists the Hosts, so "none yet" isn't read as "none at all". */
   readonly hostsListed: boolean;
   readonly hostModels: Readonly<Record<string, HostModel>>;
@@ -41,6 +44,7 @@ export interface AppState {
 
 export const initialState: AppState = {
   hosts: [],
+  sharedHosts: [],
   hostsListed: false,
   hostModels: {},
   sessions: {},
@@ -91,13 +95,14 @@ const foldGroups = <M, I>({ current, groups, apply }: GroupFold<M, I>) => {
 /** Folds one frame's updates into the state; pure, so it is unit-tested. */
 export const reduceUpdates = (state: AppState, updates: ReadonlyArray<Update>): AppState => {
   let hosts = state.hosts;
+  let sharedHosts = state.sharedHosts;
   let hostsListed = state.hostsListed;
   const hostItems: Array<{ hostKey: string; item: HostStreamItem }> = [];
   const sessionItems: Array<{ key: string; item: SessionStreamItem }> = [];
 
   for (const u of updates) {
     if (u.kind === "hosts") {
-      hosts = u.hosts;
+      ({ own: hosts, shared: sharedHosts } = partitionHosts(u.hosts, hosts, sharedHosts));
       hostsListed = true;
     } else if (u.kind === "host") hostItems.push(u);
     else sessionItems.push(u);
@@ -134,7 +139,27 @@ export const reduceUpdates = (state: AppState, updates: ReadonlyArray<Update>): 
       ),
   });
 
-  return { ...state, hosts, hostsListed, hostModels, sessions, constellations };
+  return { ...state, hosts, sharedHosts, hostsListed, hostModels, sessions, constellations };
+};
+
+/** Splits main's Host list into your Hosts and shared ones; an unchanged side keeps its array. */
+const partitionHosts = (
+  all: ReadonlyArray<HostView>,
+  own: ReadonlyArray<HostView>,
+  shared: ReadonlyArray<HostView>
+) => {
+  if (!all.some((h) => h.shared === true))
+    return { own: all, shared: shared.length === 0 ? shared : [] };
+  const nextShared = all.filter((h) => h.shared === true);
+  const nextOwn = all.filter((h) => h.shared !== true);
+
+  const same = (a: ReadonlyArray<HostView>, b: ReadonlyArray<HostView>) =>
+    a.length === b.length && a.every((h, i) => h === b[i]);
+
+  return {
+    own: same(nextOwn, own) ? own : nextOwn,
+    shared: same(nextShared, shared) ? shared : nextShared,
+  };
 };
 
 /** A Host model painted from the cache, marked so, until its live Snapshot arrives. */

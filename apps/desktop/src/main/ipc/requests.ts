@@ -33,13 +33,17 @@ import {
 } from "../../shared/contract.ts";
 import { type ClientServices, HostDirectory, toIpcError } from "../hosts.ts";
 import { revealPath } from "../reveal.ts";
+import { externalUrl } from "../../shared/externalUrl.ts";
 import { githubHandlers } from "../github/ipc.ts";
+import { sharingHandlers } from "../sharing/ipc.ts";
+import { accountsHandlers } from "../accounts/ipc.ts";
 import { gitHandlers } from "./git.ts";
 import { constellationHandlers, resourceHandlers } from "./constellation.ts";
 import { remoteAccessHandlers } from "./remoteAccess.ts";
 import type { PickedApp } from "../../shared/computerUseContract.ts";
 import { computerUseHandlers } from "./computerUse.ts";
 import { linkedDevicesHandlers } from "./linkedDevices.ts";
+import { userAccessHandlers } from "./userAccess.ts";
 import { voiceHandlers } from "./voice.ts";
 import { browserHandlers } from "../browser/ipc.ts";
 import { simulatorHandlers } from "../simulator/ipc.ts";
@@ -54,6 +58,7 @@ import { pricedStats } from "./constellationStats.ts";
 import type { SnapshotCache } from "../snapshotCache.ts";
 import { publishDirty, savedAll } from "../editorDirty.ts";
 import type { AppUpdates } from "../updates/index.ts";
+import type { DesktopRelayDevice } from "../relayDevice.ts";
 import type { PredictionBridge } from "../prediction/bridge.ts";
 
 /** What the handlers need from the app outside the Client runtime. */
@@ -67,6 +72,8 @@ export interface RequestContext {
   readonly updates: Pick<AppUpdates, "get" | "check" | "setAutomatic">;
   readonly restartToUpdate: () => void;
   readonly showAppInFinder: () => void;
+  /** This app's relay identity (`relayDevice.ts`); absent in tests that don't need it. */
+  readonly relayDevice?: Pick<DesktopRelayDevice, "publicKeys">;
   readonly settings: () => Settings;
   readonly cache: Pick<SnapshotCache, "get" | "put" | "rendererFlushed">;
   /** The price table for Usage estimates. */
@@ -266,12 +273,15 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
         })
       : Effect.fail({ code: "Unavailable", message: "Prediction settings unavailable" }),
   ...githubHandlers,
+  ...accountsHandlers,
+  ...sharingHandlers,
   ...gitHandlers,
   ...constellationHandlers,
   ...resourceHandlers,
   ...remoteAccessHandlers,
   ...computerUseHandlers,
   ...linkedDevicesHandlers,
+  ...userAccessHandlers,
   ...voiceHandlers,
   ...browserHandlers(ctx.browser),
   ...secretHandlers,
@@ -284,6 +294,12 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   "updates.setAutomatic": ({ enabled }) => Effect.sync(() => ctx.updates.setAutomatic(enabled)),
   "updates.restart": () => Effect.sync(ctx.restartToUpdate).pipe(done),
   "updates.showInFinder": () => Effect.sync(ctx.showAppInFinder).pipe(done),
+  "devices.thisDevice": () =>
+    ctx.relayDevice === undefined
+      ? Effect.fail<IpcError>({ code: "Unavailable", message: "No relay identity in this app" })
+      : ctx.relayDevice.publicKeys.pipe(
+          Effect.mapError((error): IpcError => ({ code: error._tag, message: error.message }))
+        ),
   "settings.get": () =>
     Effect.sync(() => {
       const settings = ctx.settings();
@@ -313,11 +329,18 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   "settings.setSessionDefault": ({ harness, value }) =>
     Effect.sync(() => ctx.setSessionDefault(harness, value)).pipe(done),
   "settings.setSessions": ({ patch }) => Effect.sync(() => ctx.setSessions(patch)).pipe(done),
-  "shell.openExternal": ({ url }) =>
-    Effect.tryPromise({
-      try: () => ctx.openExternal(url),
+  "shell.openExternal": ({ url }) => {
+    // Checked again here, so no path into this handler reaches the OS with another scheme.
+    const target = externalUrl(url);
+
+    if (target === null)
+      return Effect.fail<IpcError>({ code: "InvalidInput", message: "only web links open" });
+
+    return Effect.tryPromise({
+      try: () => ctx.openExternal(target),
       catch: (cause): IpcError => ({ code: "OpenFailed", message: String(cause) }),
-    }).pipe(done),
+    }).pipe(done);
+  },
   "visualization.serve": ({ document }) => Effect.sync(() => ({ url: ctx.serveFrame(document) })),
   "shell.revealInFinder": ({ hostKey, path }) =>
     HostDirectory.use((dir) => {

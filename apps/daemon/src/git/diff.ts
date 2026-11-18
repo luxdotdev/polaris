@@ -105,7 +105,23 @@ const diffWorkingTree = async (cwd: string, spec: WorkingTreeSpec) => {
   return diffTrees(root, base, snapshot.tree);
 };
 
-const diffTurn = async (cwd: string, root: string, spec: TurnSpec) => {
+export interface DiffOptions {
+  /** False: a Turn without its `after` checkpoint is not found, never the working tree. */
+  readonly workingTree?: boolean | undefined;
+}
+
+/** The tree a run of Turns ends at: its `after` checkpoint, else the working tree if allowed. */
+const afterOf = async (root: string, ref: string, options: DiffOptions) => {
+  const commit = await resolveCommit(root, ref);
+
+  if (commit !== null) return commit;
+
+  if (options.workingTree === false) throw new DiffNotFound("checkpoint", ref);
+
+  return (await snapshotWorkingTree(root))?.tree;
+};
+
+const diffTurn = async (cwd: string, root: string, spec: TurnSpec, options: DiffOptions) => {
   const before = await requireCommit(
     root,
     checkpointRef(spec.sessionId, spec.turnId, "before"),
@@ -113,9 +129,7 @@ const diffTurn = async (cwd: string, root: string, spec: TurnSpec) => {
   );
 
   // A Turn still in progress has no `after` yet: diff against the working tree now.
-  const after =
-    (await resolveCommit(root, checkpointRef(spec.sessionId, spec.turnId, "after"))) ??
-    (await snapshotWorkingTree(root))?.tree;
+  const after = await afterOf(root, checkpointRef(spec.sessionId, spec.turnId, "after"), options);
 
   if (after === undefined) throw new NotARepository(cwd);
 
@@ -123,16 +137,18 @@ const diffTurn = async (cwd: string, root: string, spec: TurnSpec) => {
 };
 
 /** A run of Turns: the first one's before-checkpoint to the last one's after (or the working tree). */
-const diffTurns = async (cwd: string, root: string, spec: TurnsSpec) => {
+const diffTurns = async (cwd: string, root: string, spec: TurnsSpec, options: DiffOptions) => {
   const before = await requireCommit(
     root,
     checkpointRef(spec.sessionId, spec.firstTurnId, "before"),
     "checkpoint"
   );
 
-  const after =
-    (await resolveCommit(root, checkpointRef(spec.sessionId, spec.lastTurnId, "after"))) ??
-    (await snapshotWorkingTree(root))?.tree;
+  const after = await afterOf(
+    root,
+    checkpointRef(spec.sessionId, spec.lastTurnId, "after"),
+    options
+  );
 
   if (after === undefined) throw new NotARepository(cwd);
 
@@ -154,10 +170,14 @@ const requireRoot = async (cwd: string): Promise<string> => {
   return root;
 };
 
-export const computeDiff = (cwd: string, spec: DiffSpec): Promise<DiffResult> =>
+export const computeDiff = (
+  cwd: string,
+  spec: DiffSpec,
+  options: DiffOptions = {}
+): Promise<DiffResult> =>
   DiffSpec.match(spec, {
     WorkingTree: (workingTree) => diffWorkingTree(cwd, workingTree),
-    Turn: async (turn) => diffTurn(cwd, await requireRoot(cwd), turn),
+    Turn: async (turn) => diffTurn(cwd, await requireRoot(cwd), turn, options),
     Range: async (range) => diffRange(await requireRoot(cwd), range),
-    Turns: async (turns) => diffTurns(cwd, await requireRoot(cwd), turns),
+    Turns: async (turns) => diffTurns(cwd, await requireRoot(cwd), turns, options),
   });

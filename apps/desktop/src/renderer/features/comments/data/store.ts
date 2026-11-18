@@ -10,6 +10,7 @@ import { createStore } from "zustand/vanilla";
 import type { PullDetailView, PullRef } from "../../../../shared/github.ts";
 import { surfaceOf, updateSurface } from "../../review/surface.ts";
 import { type DraftBatch, emptyBatch, type SentComment } from "../model/feedback.ts";
+import type { LineThread } from "../model/session.ts";
 
 /** Where the composer opens: a line range and the code it quotes. */
 export interface ComposerAnchor {
@@ -49,6 +50,11 @@ export interface SessionComments {
   readonly nextTurn: number;
   /** Comments already sent, each with its Turn ("sent with turn 25"). */
   readonly sent: ReadonlyArray<SentComment>;
+  /** The session's line Comments (ADR 0113), as threads in the diff. */
+  readonly threads?: ReadonlyArray<LineThread>;
+  /** Is or was shared: a draft can be posted as a Comment on the latest Turn. */
+  readonly shared?: boolean;
+  readonly latestTurnId?: string | null;
 }
 
 export interface CommentsState {

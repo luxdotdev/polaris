@@ -90,7 +90,10 @@ import type { RestartDaemonResult, RestartPreviewView } from "./restart.ts";
 import type { VoiceRequestOutputs } from "./voiceContract.ts";
 import type { SecretRequestOutputs } from "./secretContract.ts";
 import type { LinkedDeviceView, LinkedDevicesRequestOutputs } from "./linkedDevicesContract.ts";
+import type { UserAccessRequestOutputs, UserAccessView } from "./userAccessContract.ts";
 import type { GitHubRequestOutputs, GitHubSubscriptionItems } from "./githubContract.ts";
+import type { AccountsRequestOutputs, AccountsSubscriptionItems } from "./accountsContract.ts";
+import type { SharingRequestOutputs, SharingSubscriptionItems } from "./sharingContract.ts";
 import type { GitRequestOutputs, GitSubscriptionItems } from "./gitContract.ts";
 import type { BrowserRequestOutputs, BrowserSubscriptionItems } from "./browserContract.ts";
 import type { SimulatorRequestOutputs, SimulatorSubscriptionItems } from "./simulatorContract.ts";
@@ -211,7 +214,7 @@ export interface ConnectionStatusView {
   readonly lastSeenAt: number | null;
 }
 
-export type HostKind = "local" | "ssh" | "wsl" | "socket";
+export type HostKind = "local" | "ssh" | "wsl" | "socket" | "relay";
 
 export interface HostView {
   readonly key: string;
@@ -228,6 +231,11 @@ export interface HostView {
   /** The Daemon runs the scripted bench Harness (the dev Daemon): the proof session may run here. */
   readonly proofHarness: boolean;
   readonly status: ConnectionStatusView;
+  /**
+   * Another person's Host, reached through the relay for sessions they shared with you
+   * (`sharing.withMe`). The store keeps these out of `hosts`: they are not your machines.
+   */
+  readonly shared?: true;
 }
 
 // ── Machines ────────────────────────────────────────────────────────────────
@@ -447,12 +455,15 @@ export interface RequestOutputs
   extends
     PredictionUiOutputs,
     GitHubRequestOutputs,
+    AccountsRequestOutputs,
+    SharingRequestOutputs,
     GitRequestOutputs,
     BrowserRequestOutputs,
     ConstellationRequestOutputs,
     ResourceRequestOutputs,
     RemoteAccessRequestOutputs,
     LinkedDevicesRequestOutputs,
+    UserAccessRequestOutputs,
     VoiceRequestOutputs,
     SecretRequestOutputs,
     DataRequestOutputs,
@@ -602,6 +613,8 @@ export type TerminalItem =
 export interface SubscriptionItems
   extends
     GitHubSubscriptionItems,
+    AccountsSubscriptionItems,
+    SharingSubscriptionItems,
     GitSubscriptionItems,
     BrowserSubscriptionItems,
     DataSubscriptionItems,
@@ -625,6 +638,7 @@ export interface SubscriptionItems
   "plan-limits": Plain<PlanLimit>;
   "host.stats": typeof HostStatsItem.Encoded;
   "devices.watch": ReadonlyArray<LinkedDeviceView>;
+  "userAccess.watch": UserAccessView;
   "review.watchRiskSummary": RiskSummary;
   "inline.propose": InlineStreamItem;
   constellation: ConstellationStreamItem;

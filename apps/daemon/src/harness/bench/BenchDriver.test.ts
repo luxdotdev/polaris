@@ -23,6 +23,12 @@ describe("parseScript", () => {
     expect(parseScript("Fix the flaky test")).toEqual(DEFAULT_SCRIPT);
     expect(parseScript(`${BENCH_PROMPT_PREFIX}{not json`)).toEqual(DEFAULT_SCRIPT);
   });
+
+  test("reads the script when a shared session's co-author note follows it", () => {
+    const prompt = `${BENCH_PROMPT_PREFIX}{"items":3}\n\nAdd to any commit: Co-authored-by: Hubot <hubot@acme.example>`;
+
+    expect(parseScript(prompt).items).toBe(3);
+  });
 });
 
 describe("benchTurnEnd", () => {

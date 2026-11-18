@@ -3,8 +3,18 @@
  * Host. Sockets open on first use and stay open, so presence is known when the
  * Connection State reconnects; `close` ends them all (e.g. when the app goes away).
  */
-import { type ByteTransport, TransportError } from "@polaris/protocol";
-import { fromBase64Url, type RelayAddress, relayAddress } from "@polaris/protocol/relay";
+import {
+  type ByteTransport,
+  encodeTeammateInit,
+  PersonId,
+  TransportError,
+} from "@polaris/protocol";
+import {
+  fromBase64Url,
+  type RelayAddress,
+  relayAddress,
+  toBase64Url,
+} from "@polaris/protocol/relay";
 import {
   generateRelayIdentity,
   generateStaticKeyPair,
@@ -27,6 +37,12 @@ export interface LinkedHost {
   readonly hostNoiseKey: string;
 }
 
+/** Where a Host is reached through a relay: all a session needs, all public. */
+export type RelayHostAddress = Pick<LinkedHost, "relayUrl" | "hostAddress" | "hostNoiseKey"> & {
+  /** Who the session acts as on another person's Host; sent encrypted in the handshake. */
+  readonly teammate?: { readonly issuer: string; readonly personId: string } | undefined;
+};
+
 /** The device's two secrets: what the Keychain keeps. */
 export interface DeviceSecrets {
   /** 32-byte Ed25519 seed of the relay identity. */
@@ -41,6 +57,18 @@ export interface DeviceKeys {
   /** This device's relay address, derived from its identity. */
   readonly address: RelayAddress;
 }
+
+/** What a Host is told so it lets this device in (a link, an Invite): public keys only. */
+export interface DevicePublicKeys {
+  readonly relayAddress: RelayAddress;
+  /** The device's Noise static public key, base64url. */
+  readonly noiseKey: string;
+}
+
+export const devicePublicKeys = (keys: DeviceKeys): DevicePublicKeys => ({
+  relayAddress: keys.address,
+  noiseKey: toBase64Url(keys.noise.publicKey),
+});
 
 /** Fresh secrets for a device that has never linked. */
 export const generateDeviceSecrets = (): DeviceSecrets => ({
@@ -63,7 +91,7 @@ export interface RelayDevice {
   readonly keys: DeviceKeys;
   /** One connection's bytes to `host`: S4's HostTransport `open`. */
   readonly transport: (
-    host: LinkedHost
+    host: RelayHostAddress
   ) => Effect.Effect<ByteTransport, TransportError, Scope.Scope>;
   readonly close: () => void;
 }
@@ -108,7 +136,13 @@ export const makeRelayDevice = (
         return relaySessionTransport(
           socketFor(host.relayUrl),
           { address: host.hostAddress, noiseKey },
-          keys.noise
+          keys.noise,
+          host.teammate === undefined
+            ? undefined
+            : encodeTeammateInit({
+                issuer: host.teammate.issuer,
+                personId: PersonId.make(host.teammate.personId),
+              })
         );
       }),
     close: () => {

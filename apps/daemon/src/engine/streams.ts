@@ -3,6 +3,8 @@
  * the model's sequence as the cut: a snapshot (or a replay of the events after
  * the Client's sequence) up to the cut, `Synchronized`, then live items after it.
  */
+import { commentsOf } from "../store/comments.ts";
+import { queueOf } from "../store/queuedTurns.ts";
 import { approvalCapability } from "../store/eventCapability.ts";
 import {
   type Capability,
@@ -233,6 +235,8 @@ const make = (rt: EngineRuntime["Service"]): Streams["Service"] => {
         session: record.session,
         turns: newestWithin(yield* turnDetails([...older, ...recent], cut, withSubagents)),
         pendingApprovals: pendingFor(record, capabilities),
+        comments: capabilities.includes("session.comments") ? [...commentsOf(record).values()] : [],
+        queuedTurns: capabilities.includes("session.queued-turns") ? [...queueOf(record)] : [],
       });
     }).pipe(Effect.orDie);
 

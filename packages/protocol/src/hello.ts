@@ -9,6 +9,7 @@ import { CapabilityList } from "./capabilities.ts";
 import { HostInfo } from "./domain.ts";
 import { ExtensionTokenRejected } from "./extensions.ts";
 import { HostId } from "./ids.ts";
+import { Share, StatementRejected } from "./shares.ts";
 
 export const LanguageConnectionIdentity = Schema.Struct({
   hostId: HostId,
@@ -88,18 +89,32 @@ export const Hello = Rpc.make("hello", {
      */
     protocolVersions: Schema.optionalKey(ProtocolRange),
     /**
-     * The Desktop App's user key (ADR 0100): an enrolled key gives the connection user access,
+     * The Desktop App's user key (ADR 0114): an enrolled key gives the connection user access,
      * which approvals and the other user-only RPCs need (`userAccess.ts`). Never in an agent's env.
      */
     userKey: Schema.optionalKey(Schema.RedactedFromValue(Schema.Unknown)),
+    /**
+     * A Teammate's statement from their Account Server (a JWT, `StatementClaims`; ADR 0112): the
+     * connection then acts as that person, within their live Shares on this Host
+     * (`shareGrants.ts`), until the statement expires or `account.refreshStatement` renews it.
+     * A statement the Host does not accept fails `hello` with `StatementRejected`.
+     */
+    accountStatement: Schema.optionalKey(Schema.RedactedFromValue(Schema.String)),
   },
   success: Schema.Struct({
     host: HostInfo,
     protocolVersion: Schema.Int,
     capabilities: CapabilityList,
     languageIdentity: Schema.optionalKey(LanguageConnectionIdentity),
-    /** Whether this connection holds user access; absent from a Daemon before ENG-700. */
+    /** Whether this connection holds user access now (`userAccess.watch` follows it); absent before ENG-700. */
     userAccess: Schema.optionalKey(Schema.Boolean),
+    /** For a Teammate's connection: the person's live Shares on this Host. */
+    shares: Schema.optionalKey(Schema.Array(Share)),
   }),
-  error: Schema.Union([LanguageIdentityError, ExtensionTokenRejected, ProtocolMismatch]),
+  error: Schema.Union([
+    LanguageIdentityError,
+    ExtensionTokenRejected,
+    ProtocolMismatch,
+    StatementRejected,
+  ]),
 });

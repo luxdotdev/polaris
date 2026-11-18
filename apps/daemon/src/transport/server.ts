@@ -15,6 +15,7 @@ import {
   type ByteTransport,
   type Capability,
   GrantGate,
+  ShareGate,
   UserAccessGate,
   type HostInfo,
   type LinkedDevice,
@@ -47,7 +48,22 @@ import { Pairings } from "../extensions/pairings.ts";
 import { RemoteAccessLive } from "../extensions/remoteAccess.ts";
 import { RemoteAccessControl } from "../remoteAccess/service.ts";
 import { ConnectionDevice, deviceOf } from "../linkedDevices/connection.ts";
-import { DeviceConnections, type LinkTiming, RelayRoute } from "../linkedDevices/route.ts";
+import {
+  DeviceConnections,
+  type LinkTiming,
+  type RelayGuests,
+  RelayRoute,
+} from "../linkedDevices/route.ts";
+import {
+  ConnectionTeammate,
+  TeammateConnections,
+  type TeammateDevice,
+  teammateOf,
+} from "../shares/connection.ts";
+import { shareGateFor } from "../shares/gate.ts";
+import { Shares, type SharesOptions } from "../shares/service.ts";
+import type { ShareNotifications } from "../shares/notifications.ts";
+import { lazyShares } from "./lazyShares.ts";
 import { HostPresence, type PresenceOptions } from "../presence/index.ts";
 import type { DeviceSession } from "../linkedDevices/session.ts";
 import { LinkedDevices } from "../linkedDevices/store.ts";
@@ -64,7 +80,8 @@ import { defaultHandlers } from "./defaults/index.ts";
 import { loadHostInfo } from "./hostInfo.ts";
 import { acquireLock, type DaemonAlreadyRunning, LockError } from "./lock.ts";
 import { ConnectionBlobs, ServerRpcs } from "./rpcs.ts";
-import { openUserAccessGate } from "./userAccess.ts";
+import { tokenlessClient, userAccessGateFor } from "./userAccess.ts";
+import { ConnectionUserAccess, userAccessFile, userAccessRegistry } from "../userAccess/index.ts";
 import { listen, prepareSocketPath } from "./socket.ts";
 import { languageIdentityFor, revokeLanguageIdentity } from "./languageIdentity.ts";
 import {
@@ -78,7 +95,7 @@ import {
 } from "./languageConnectionLifetime.ts";
 
 /** Capabilities the transport itself provides. Handler modules add theirs via `capabilities`. */
-export const TRANSPORT_CAPABILITIES: ReadonlyArray<Capability> = ["blobs"];
+export const TRANSPORT_CAPABILITIES: ReadonlyArray<Capability> = ["blobs", "user-access.enrolment"];
 
 export interface ServeOptions<ROut, E, RIn> {
   /** Real handlers; any RPC they don't cover falls back to the placeholders. */
@@ -109,8 +126,12 @@ export interface ServeOptions<ROut, E, RIn> {
   readonly secrets?: Layer.Layer<HostSecrets>;
   /** For tests: link lifetime and a hold on link completion (`RelayRoute`). */
   readonly relayLinks?: LinkTiming | undefined;
+  /** The relay a Host without one stored dials; Polaris Cloud's. Tests give a local relay. */
+  readonly relayDefaultUrl?: string | undefined;
   /** For tests: a shorter presence lease (`HostPresence`). */
   readonly presence?: PresenceOptions;
+  /** For tests: the issuer's HTTP, the clock and the poll's timing (`Shares`). */
+  readonly shares?: SharesOptions | undefined;
 }
 
 export interface RunningServer {
@@ -183,6 +204,11 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       | HostSecrets
       | DeviceConnections
       | HostPresence
+      | Shares
+      | RelayGuests
+      | Pairings
+      | ShareNotifications
+      | TeammateConnections
     >
 > =>
   Effect.gen(function* () {
@@ -211,6 +237,11 @@ export const startServer = <ROut = never, E = never, RIn = never>(
     const hostInfo = yield* loadHostInfo(root, takeStopRecord(root));
     const capabilities = [...new Set([...TRANSPORT_CAPABILITIES, ...(options.capabilities ?? [])])];
 
+    const userAccess = userAccessRegistry({
+      hostId: hostInfo.hostId,
+      file: userAccessFile(root),
+    });
+
     const serialization = RpcSerialization.json;
     const encoder = serialization.makeUnsafe();
     const encodeDefect = Schema.encodeSync(serialization.codecFor(Schema.Defect()));
@@ -229,6 +260,8 @@ export const startServer = <ROut = never, E = never, RIn = never>(
         readonly tokenRequired: boolean;
         /** Over the Relay route: the Linked Device it acts as (ADR 0083). */
         readonly device: LinkedDevice | null;
+        /** Over the Relay route: the Teammate's device it acts as (ADR 0112). */
+        readonly teammate: TeammateDevice | null;
         readonly authenticated: () => void;
         rpcLimited: boolean;
         closing: boolean;
@@ -255,9 +288,38 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       | ((session: DeviceSession, device: LinkedDevice) => Effect.Effect<void>)
       | null = null;
 
-    const deviceServices = RelayRoute.layer({ root, hostInfo, links: options.relayLinks }).pipe(
+    // As `serveDevice`, for a Teammate's session.
+    let serveTeammate:
+      | ((session: DeviceSession, teammate: TeammateDevice) => Effect.Effect<void>)
+      | null = null;
+
+    const hostSecrets = options.secrets ?? HostSecrets.layer;
+
+    // Shares and their devices (ADR 0112): the Relay route lists and admits them as guests.
+    const shareLayers = lazyShares({ path: join(root, "shares.sqlite"), shares: options.shares });
+
+    const shareServices = Shares.guestsLayer.pipe(
+      Layer.provideMerge(shareLayers.shares),
       Layer.provideMerge(
         Layer.mergeAll(
+          hostSecrets,
+          Layer.succeed(TeammateConnections)({
+            serve: (session, teammate) =>
+              serveTeammate === null ? session.close : serveTeammate(session, teammate),
+          })
+        )
+      )
+    );
+
+    const relayRoute = RelayRoute.layer({
+      root,
+      hostInfo,
+      links: options.relayLinks,
+      defaultUrl: options.relayDefaultUrl,
+    }).pipe(
+      Layer.provideMerge(
+        Layer.mergeAll(
+          shareServices,
           LinkedDevices.layer(join(root, "linked-devices.sqlite")).pipe(
             Layer.catchTag("LinkedDeviceStoreError", (error) =>
               Layer.effect(
@@ -266,7 +328,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
               )
             )
           ),
-          options.secrets ?? HostSecrets.layer,
+          hostSecrets,
           Layer.succeed(HostPresence)(presence),
           Layer.succeed(DeviceConnections)({
             serve: (session, device) =>
@@ -276,17 +338,22 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       )
     );
 
+    const pairingStore = Pairings.layer(join(root, "extensions.sqlite")).pipe(
+      Layer.catchTag("PairingStoreError", (error) =>
+        Layer.effect(
+          Pairings,
+          Effect.fail(new ServiceError({ service: "transport", message: error.message }))
+        )
+      )
+    );
+
+    // Needs You for Teammates' devices and everyone's mutes, beside the owner's pushes.
+    const deviceServices = shareLayers.notifications.pipe(Layer.provideMerge(relayRoute));
+
     const extensionServices = Layer.mergeAll(
       deviceServices,
       RemoteAccessLive.pipe(Layer.provideMerge(RemoteAccessControl.layer({ root }))),
-      Pairings.layer(join(root, "extensions.sqlite")).pipe(
-        Layer.catchTag("PairingStoreError", (error) =>
-          Layer.effect(
-            Pairings,
-            Effect.fail(new ServiceError({ service: "transport", message: error.message }))
-          )
-        )
-      ),
+      pairingStore,
       Layer.succeed(ExtensionConnections)(extensionConnections)
     );
 
@@ -334,6 +401,13 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       });
     });
 
+    const transportFacts = {
+      tokenRequired: (client: Rpc.ServerClient) =>
+        connections.get(client.id)?.tokenRequired ?? options.extensionTokenRequired ?? false,
+      deviceOf: (client: Rpc.ServerClient) => connections.get(client.id)?.device ?? null,
+      teammateOf: (client: Rpc.ServerClient) => connections.get(client.id)?.teammate ?? null,
+    };
+
     const connectionMiddleware = ConnectionBlobs.of((effect, { client, rpc }) => {
       const connection = connections.get(client.id);
 
@@ -345,8 +419,18 @@ export const startServer = <ROut = never, E = never, RIn = never>(
 
       connection.clients.add(client);
 
+      // Handlers with a check of their own read the user gate's answer, live (ADR 0114).
+      if (Context.getOrUndefined(client.annotations, ConnectionUserAccess) === undefined)
+        client.annotate(ConnectionUserAccess, {
+          holds: () => userAccess.holds(client),
+          refused: () => tokenlessClient(client, transportFacts) && !userAccess.holds(client),
+        });
+
       if (connection.device !== null && deviceOf(client) === null)
         client.annotate(ConnectionDevice, connection.device);
+
+      if (connection.teammate !== null && teammateOf(client) === null)
+        client.annotate(ConnectionTeammate, connection.teammate);
 
       const current = () =>
         !connection.closing &&
@@ -401,17 +485,29 @@ export const startServer = <ROut = never, E = never, RIn = never>(
 
     yield* phase("starting the Daemon's services (event store, Engine, Constellations)");
 
+    // Built with the handlers, so the gate and they share one `Shares`.
+    const shareGate = Layer.effect(
+      ShareGate,
+      Effect.map(Shares, (shares) =>
+        shareGateFor({ shares, teammateOf: transportFacts.teammateOf, hostId: hostInfo.hostId })
+      )
+    ).pipe(Layer.provide(deviceServices));
+
     const handlers = yield* Layer.build(
-      Layer.merge(
-        defaultHandlers({ hostInfo, capabilities }).pipe(Layer.provide(extensionServices)),
+      Layer.mergeAll(
+        shareGate,
+        defaultHandlers({ hostInfo, capabilities, userAccess }).pipe(
+          Layer.provide(extensionServices)
+        ),
         // SAFETY: `handlers` is omitted only when ROut, E and RIn keep their `never` defaults.
         ((options.handlers ?? Layer.empty) as Layer.Layer<ROut, E, RIn>).pipe(
           Layer.provide(
             Layer.merge(
               BlobChannelOutsideRequest,
               Layer.mergeAll(
-                // The same layer as the transport's, so both share one Relay route (one build).
+                // The same layers as the transport's, so both share one Relay route and Pairing store.
                 deviceServices,
+                pairingStore,
                 Layer.succeed(HostLanguageEnvironment)({
                   hostId: hostInfo.hostId,
                   root: options.root ?? defaults.root,
@@ -426,12 +522,6 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       )
     );
 
-    const transportFacts = {
-      tokenRequired: (client: Rpc.ServerClient) =>
-        connections.get(client.id)?.tokenRequired ?? options.extensionTokenRequired ?? false,
-      deviceOf: (client: Rpc.ServerClient) => connections.get(client.id)?.device ?? null,
-    };
-
     // A defect fails only its own request (ADR 0064).
     yield* RpcServer.make(ServerRpcs, {
       spanPrefix: "polaris.rpc",
@@ -440,7 +530,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       Effect.provideService(RpcServer.Protocol, protocol),
       Effect.provideService(ConnectionBlobs, blobsMiddleware),
       Effect.provideService(GrantGate, grantGateFor(transportFacts)),
-      Effect.provideService(UserAccessGate, openUserAccessGate),
+      Effect.provideService(UserAccessGate, userAccessGateFor(transportFacts, userAccess)),
       Effect.provideContext(handlers),
       Effect.forkScoped
     );
@@ -451,7 +541,8 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       transport: ByteTransport,
       tokenRequired: boolean,
       authenticated = () => {},
-      device: LinkedDevice | null = null
+      device: LinkedDevice | null = null,
+      teammate: TeammateDevice | null = null
     ) =>
       Effect.scoped(
         Effect.gen(function* () {
@@ -506,9 +597,10 @@ export const startServer = <ROut = never, E = never, RIn = never>(
               })
             );
 
-          const wireOptions = tokenRequired
-            ? { ...options.wire, ...GATEWAY_WIRE_LIMITS }
-            : options.wire;
+          // A Teammate's connection is as bounded as an Extension's.
+          const limited = tokenRequired || teammate !== null;
+
+          const wireOptions = limited ? { ...options.wire, ...GATEWAY_WIRE_LIMITS } : options.wire;
 
           const wire = yield* makeWire(transport, onJson, {
             ...wireOptions,
@@ -527,8 +619,9 @@ export const startServer = <ROut = never, E = never, RIn = never>(
             close: transport.close,
             authenticated,
             device,
+            teammate,
             tokenRequired: tokenRequired || (options.extensionTokenRequired ?? false),
-            rpcLimited: tokenRequired || (options.extensionTokenRequired ?? false),
+            rpcLimited: limited || (options.extensionTokenRequired ?? false),
             closing: false,
           };
 
@@ -542,6 +635,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
                 presence.disconnect(clientId);
                 lifetimes.forEach((lifetime) => lifetime.seal());
                 clients.forEach(revokeLanguageIdentity);
+                clients.forEach(userAccess.release);
                 clients.forEach((client) => rejectConnection(client));
                 clients.clear();
               });
@@ -574,6 +668,15 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       Effect.asVoid(
         Effect.forkIn(
           serveConnection(session, false, () => {}, device).pipe(
+            Effect.ensuring(Effect.sync(() => session.end()))
+          ),
+          scope
+        )
+      );
+    serveTeammate = (session, teammate) =>
+      Effect.asVoid(
+        Effect.forkIn(
+          serveConnection(session, false, () => {}, null, teammate).pipe(
             Effect.ensuring(Effect.sync(() => session.end()))
           ),
           scope

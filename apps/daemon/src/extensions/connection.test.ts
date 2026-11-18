@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   ExtensionTokenRejected,
+  GRANT_KINDS,
   LinkedDevice,
   LinkedDeviceId,
   Pairing,
@@ -244,45 +245,89 @@ const phone = new LinkedDevice({
   unlinkedAt: null,
 });
 
+/** What the gate did with a request: let it reach its handler, or refuse it. */
+const gated = async (
+  tag: string,
+  options: { readonly device?: LinkedDevice | null; readonly client?: Rpc.ServerClient } = {}
+) => {
+  let outcome = "neither";
+
+  const handler = Effect.andThen(
+    Effect.sync(() => {
+      outcome = "ran";
+    }),
+    Effect.interrupt
+  );
+
+  await Effect.runPromise(
+    Effect.scoped(
+      Effect.exit(
+        grantGateFor({ tokenRequired: () => false, deviceOf: () => options.device ?? null })(
+          handler,
+          {
+            client: options.client ?? new Rpc.ServerClient(20),
+            rpc: Rpc.make(tag),
+            payload: undefined,
+            requestId: RequestId(1),
+            headers: Headers.empty,
+          }
+        ).pipe(
+          Effect.catchTag("NotGranted", (refusal) =>
+            Effect.sync(() => {
+              outcome = refusal._tag;
+            })
+          )
+        )
+      )
+    )
+  );
+
+  return outcome;
+};
+
 // RX2-1: an RPC added after the allowlist (or any tag it doesn't name) fails closed for a device.
 test.each(["future.newRpc", "toString", "__proto__"])(
   "a Linked Device is refused an RPC the allowlist doesn't name: %s",
   async (tag) => {
-    /** What the gate did with the request: let it reach its handler, or refuse it. */
-    const gate = async (device: LinkedDevice | null) => {
-      let outcome = "neither";
+    expect(await gated(tag)).toBe("ran");
+    expect(await gated(tag, { device: phone })).toBe("NotGranted");
+  }
+);
 
-      const handler = Effect.andThen(
-        Effect.sync(() => {
-          outcome = "ran";
-        }),
-        Effect.interrupt
-      );
+/** A connection scoped to an Extension's Pairing that holds every Grant. */
+const extension = async (id: number) => {
+  const client = new Rpc.ServerClient(id);
 
-      await Effect.runPromise(
-        Effect.scoped(
-          Effect.exit(
-            grantGateFor({ tokenRequired: () => false, deviceOf: () => device })(handler, {
-              client: new Rpc.ServerClient(20),
-              rpc: Rpc.make(tag),
-              payload: undefined,
-              requestId: RequestId(1),
-              headers: Headers.empty,
-            }).pipe(
-              Effect.catchTag("NotGranted", (refusal) =>
-                Effect.sync(() => {
-                  outcome = refusal._tag;
-                })
-              )
-            )
-          )
-        )
-      );
+  const everything = new Pairing({
+    ...Schema.encodeSync(Pairing)(raycast),
+    id: raycast.id,
+    grant: GRANT_KINDS,
+  });
 
-      return outcome;
-    };
+  await Effect.runPromise(
+    scopeConnection(client, Redacted.make("pol_ext_all")).pipe(
+      Effect.provideService(
+        Pairings,
+        Pairings.of({
+          ...revokedBetweenChecks().pairings,
+          authenticate: () => Effect.succeed(TokenCheck.cases.Valid.make({ pairing: everything })),
+        })
+      ),
+      Effect.provideService(
+        ExtensionConnections,
+        ExtensionConnections.make(() => Effect.void)
+      )
+    )
+  );
 
-    expect(await gate(null)).toBe("ran");
-    expect(await gate(phone)).toBe("NotGranted");
+  return client;
+};
+
+// The owner shares from their phone (DESIGN.md "Shared Sessions", Mobile v1); never an Extension.
+test.each(["shares.create", "shares.renew"])(
+  "a Linked Device may call %s, and an Extension with every Grant may not",
+  async (tag) => {
+    expect(await gated(tag, { device: phone })).toBe("ran");
+    expect(await gated(tag, { client: await extension(30) })).toBe("NotGranted");
   }
 );

@@ -13,6 +13,7 @@ import {
   LinkedDevice,
   type LinkedDeviceId,
   NotFound,
+  POLARIS_CLOUD_RELAY_URL,
   PushRegistrationError,
   RelayRouteError,
   RelayRouteStatus,
@@ -82,11 +83,35 @@ export class DeviceConnections extends Context.Service<
   { readonly serve: (session: DeviceSession, device: LinkedDevice) => Effect.Effect<void> }
 >()("polaris/daemon/linkedDevices/DeviceConnections") {}
 
+/**
+ * Peers the route lists and serves besides Linked Devices: Teammates' devices (ADR 0112,
+ * `../shares/`). Without it the route has none.
+ */
+export class RelayGuests extends Context.Service<
+  RelayGuests,
+  {
+    /** The relay addresses to list right now. */
+    readonly peers: () => ReadonlyArray<RelayAddress>;
+    /**
+     * The guest a proven handshake from `source` with `noiseKey` is, or null to refuse it.
+     * `payload` is the init's: who the device connects as, when it says.
+     */
+    readonly admit: (source: RelayAddress, noiseKey: string, payload: Uint8Array) => string | null;
+    readonly serve: (session: DeviceSession, guestId: string) => void;
+    readonly ended: (session: DeviceSession) => void;
+    /** Calls `listener` whenever `peers` changes; returns the unsubscribe. */
+    readonly watch: (listener: () => void) => () => void;
+  }
+>()("polaris/daemon/linkedDevices/RelayGuests") {}
+
 export class RelayRoute extends Context.Service<
   RelayRoute,
   {
     readonly status: Effect.Effect<RelayRouteStatus, RelayRouteError>;
-    readonly enable: (url: string) => Effect.Effect<RelayRouteStatus, RelayRouteError>;
+    /** Without `url`, the stored relay, or the default (Polaris Cloud's) when none is stored. */
+    readonly enable: (url?: string) => Effect.Effect<RelayRouteStatus, RelayRouteError>;
+    /** Stores `url`, or null for the default, without turning the route on. */
+    readonly setUrl: (url: string | null) => Effect.Effect<RelayRouteStatus, RelayRouteError>;
     readonly disable: Effect.Effect<RelayRouteStatus, RelayRouteError>;
     readonly startLink: Effect.Effect<LinkOffer, RelayRouteError>;
     /** Ends with NotFound when the link expires or is cancelled; interrupting it cancels it. */
@@ -131,12 +156,25 @@ export class RelayRoute extends Context.Service<
     readonly sendLive: (target: LiveTarget, slice: LiveSlice) => boolean;
     /** Seals `message` to the device and wakes it; an `unregistered` token is dropped. */
     readonly wake: (target: PushTarget, message: PushMessage) => Effect.Effect<WakeOutcome>;
+    /** Checks a relay peer's push registration as `registerPush` does: a Teammate's device. */
+    readonly checkPush: (
+      peer: RelayAddress,
+      registration: PushRegistration
+    ) => Effect.Effect<void, PushRegistrationError>;
+    /** Seals `message` to a relay peer's registration and wakes it; nothing is dropped. */
+    readonly wakePeer: (
+      peer: RelayAddress,
+      registration: PushRegistration,
+      message: PushMessage
+    ) => Effect.Effect<WakeOutcome>;
   }
 >()("polaris/daemon/linkedDevices/RelayRoute") {
   static layer(options: {
     readonly root: string;
     readonly hostInfo: HostInfo;
     readonly links?: LinkTiming | undefined;
+    /** The relay with none stored; Polaris Cloud's. Tests give a local one. */
+    readonly defaultUrl?: string | undefined;
   }) {
     return Layer.effect(RelayRoute, makeRelayRoute(options));
   }
@@ -144,14 +182,25 @@ export class RelayRoute extends Context.Service<
 
 const failed = (message: string) => new RelayRouteError({ reason: "failed", message });
 
+const invalidUrl = () =>
+  new RelayRouteError({
+    reason: "invalid-url",
+    message: "The relay URL must be wss:// (ws:// only for a relay on this machine)",
+  });
+
+/** Polaris Cloud's relay is stored as null, so a Host follows the default if it moves. */
+const stored = (url: string | null) => (url === POLARIS_CLOUD_RELAY_URL ? null : url);
+
 const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
   readonly root: string;
   readonly hostInfo: HostInfo;
   readonly links?: LinkTiming | undefined;
+  readonly defaultUrl?: string | undefined;
 }) {
   const store = yield* LinkedDevices;
   const secrets = yield* HostSecrets;
   const connections = yield* DeviceConnections;
+  const guests = Option.getOrNull(yield* Effect.serviceOption(RelayGuests));
   const context = yield* Effect.context<never>();
   const runFork = Effect.runForkWith(context);
   const links = new Map<string, OpenLink>();
@@ -160,6 +209,8 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
   const ttlMs = options.links?.ttlMs ?? LINK_TTL_MS;
   const completeWith = options.links?.completeWith ?? ((completion) => completion);
   let setting = readSetting(options.root);
+  const defaultUrl = options.defaultUrl ?? POLARIS_CLOUD_RELAY_URL;
+  const relayUrl = () => setting.url ?? defaultUrl;
   let link: RelayLink | null = null;
   let cachedKeys: HostRelayKeys | null = null;
   const pushListeners = new Set<() => void>();
@@ -244,9 +295,46 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
       : Effect.succeed(cachedKeys)
   );
 
+  const checkPush = Effect.fn("RelayRoute.checkPush")(function* (
+    peer: RelayAddress,
+    registration: PushRegistration
+  ) {
+    const loaded = yield* Effect.mapError(keys, (error) => refusePush(error.message));
+    const { ticket, environment, token } = registration;
+
+    const signed = yield* Effect.promise(() =>
+      verifyPushTicket(ticket, peer, loaded.address, environment, token)
+    );
+
+    if (!signed) return yield* refusePush("The push ticket doesn't sign this Host's address");
+    yield* validPushKey(registration.pushKey);
+  });
+
+  const wakePeer = (peer: RelayAddress, registration: PushRegistration, message: PushMessage) =>
+    Effect.gen(function* () {
+      const current = link;
+
+      if (current === null) return "unavailable" as const;
+
+      const payload = yield* Effect.promise(async () => {
+        const { sealPush } = await import("../push/seal.ts");
+
+        return sealPush(registration.pushKey, message);
+      });
+
+      // The relay closes the Host's socket on an oversized wake, ending every session (RV3).
+      if (payload.length > MAX_WAKE_PAYLOAD_CHARS) return "refused" as const;
+      const { token, environment, ticket } = registration;
+
+      return yield* Effect.promise(() =>
+        current.wake({ peer, token, environment, ticket, payload })
+      );
+    });
+
   const peers = (): ReadonlyArray<RelayAddress> => [
     ...new Set([
       ...store.linked().map((device) => device.relayAddress),
+      ...(guests?.peers() ?? []),
       ...[...links.values()].flatMap((open) => (open.listed ? [open.address] : [])),
     ]),
   ];
@@ -306,7 +394,10 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
       .linked()
       .find((candidate) => candidate.noiseKey === noiseKey && candidate.relayAddress === source);
 
-    return device === undefined ? null : { kind: "device", deviceId: device.id };
+    if (device !== undefined) return { kind: "device", deviceId: device.id };
+    const guestId = guests?.admit(source, noiseKey, payload) ?? null;
+
+    return guestId === null ? null : { kind: "guest", guestId };
   };
 
   const serve = (session: DeviceSession, deviceId: string) => {
@@ -328,6 +419,8 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
   };
 
   const ended = (session: DeviceSession) => {
+    guests?.ended(session);
+
     for (const [id, open] of connected)
       if (open.session === session) {
         connected.delete(id);
@@ -339,17 +432,18 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
     link?.stop();
     link = null;
 
-    if (!setting.enabled || setting.url === null) return;
+    if (!setting.enabled) return;
     const loaded = yield* keys;
     const { RelayLink } = yield* Effect.promise(() => import("./link.ts"));
 
     link = new RelayLink({
-      url: setting.url,
+      url: relayUrl(),
       identity: loaded.identity,
       noise: loaded.noise,
       peers,
       admit,
       serve,
+      serveGuest: guests?.serve,
       ended,
       onConnectedChange: (connected) => {
         log(connected ? "connected" : "disconnected");
@@ -367,7 +461,7 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
 
     return new RelayRouteStatus({
       state: setting.enabled ? "on" : "off",
-      url: setting.url,
+      url: relayUrl(),
       connected: link?.connected ?? false,
       hostAddress: loaded.address,
       hostNoiseKey: toBase64Url(loaded.noise.publicKey),
@@ -380,8 +474,11 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
       catch: () => failed("the Relay route setting could not be saved"),
     }).pipe(Effect.tap(() => Effect.sync(() => (setting = next))));
 
+  const unwatchGuests = guests?.watch(() => link?.peersChanged());
+
   yield* Effect.addFinalizer(() =>
     Effect.sync(() => {
+      unwatchGuests?.();
       link?.stop();
       link = null;
       links.forEach((open) => clearTimeout(open.timer));
@@ -405,20 +502,25 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
   return RelayRoute.of({
     status,
     enable: (url) =>
-      isRelayUrl(url)
-        ? save({ enabled: true, url }).pipe(Effect.andThen(start), Effect.andThen(status))
-        : Effect.fail(
-            new RelayRouteError({
-              reason: "invalid-url",
-              message: "The relay URL must be wss:// (ws:// only for a relay on this machine)",
-            })
-          ),
+      url === undefined || isRelayUrl(url)
+        ? save({ enabled: true, url: url === undefined ? setting.url : stored(url) }).pipe(
+            Effect.andThen(start),
+            Effect.andThen(status)
+          )
+        : Effect.fail(invalidUrl()),
+    setUrl: (url) =>
+      url === null || isRelayUrl(url)
+        ? save({ enabled: setting.enabled, url: stored(url) }).pipe(
+            Effect.andThen(start),
+            Effect.andThen(status)
+          )
+        : Effect.fail(invalidUrl()),
     disable: save({ enabled: false, url: setting.url }).pipe(
       Effect.andThen(start),
       Effect.andThen(status)
     ),
     startLink: Effect.gen(function* () {
-      if (!setting.enabled || setting.url === null)
+      if (!setting.enabled)
         return yield* new RelayRouteError({
           reason: "route-off",
           message: "Turn on the Relay route to link a device",
@@ -458,7 +560,7 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
         linkString: encodeLinkString({
           hostId: options.hostInfo.hostId,
           hostName: options.hostInfo.hostname,
-          relayUrl: setting.url,
+          relayUrl: relayUrl(),
           hostAddress: loaded.address,
           hostNoiseKey: toBase64Url(loaded.noise.publicKey),
           secret: toBase64Url(secret),
@@ -533,16 +635,9 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
 
       return device;
     }, Effect.uninterruptible),
+    checkPush,
     registerPush: Effect.fn("RelayRoute.registerPush")(function* (device, registration) {
-      const loaded = yield* Effect.mapError(keys, (error) => refusePush(error.message));
-      const { ticket, environment, token } = registration;
-
-      const signed = yield* Effect.promise(() =>
-        verifyPushTicket(ticket, device.relayAddress, loaded.address, environment, token)
-      );
-
-      if (!signed) return yield* refusePush("The push ticket doesn't sign this Host's address");
-      yield* validPushKey(registration.pushKey);
+      yield* checkPush(device.relayAddress, registration);
       yield* Effect.mapError(store.setPush(device.id, registration), (error) =>
         refusePush(error.message)
       );
@@ -598,25 +693,10 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
 
       return () => pushListeners.delete(listener);
     },
+    wakePeer,
     wake: ({ device, registration }, message) =>
       Effect.gen(function* () {
-        const current = link;
-
-        if (current === null) return "unavailable" as const;
-
-        const payload = yield* Effect.promise(async () => {
-          const { sealPush } = await import("../push/seal.ts");
-
-          return sealPush(registration.pushKey, message);
-        });
-
-        // The relay closes the Host's socket on an oversized wake, ending every session (RV3).
-        if (payload.length > MAX_WAKE_PAYLOAD_CHARS) return "refused" as const;
-        const { token, environment, ticket } = registration;
-
-        const outcome = yield* Effect.promise(() =>
-          current.wake({ peer: device.relayAddress, token, environment, ticket, payload })
-        );
+        const outcome = yield* wakePeer(device.relayAddress, registration, message);
 
         // APNs no longer knows the token; a registration made since then stays (RV4).
         if (outcome === "unregistered")

@@ -66,6 +66,7 @@ const withNotifier = (
         const route = RelayRoute.of({
           status: unused,
           enable: () => unused,
+          setUrl: () => unused,
           disable: unused,
           startLink: unused,
           awaitLink: () => unused,
@@ -86,6 +87,8 @@ const withNotifier = (
           sendLive: (_, slice) => (sent.push(slice), true),
           host: { hostId: "host-1", hostName: "studio" },
           wake: () => unused,
+          checkPush: () => Effect.die("not used by the notifier"),
+          wakePeer: () => Effect.die("not used by the notifier"),
         });
 
         yield* Layer.build(

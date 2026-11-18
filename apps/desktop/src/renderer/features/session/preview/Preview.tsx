@@ -57,6 +57,15 @@ import { items as itemsScene } from "./itemsScene.ts";
 import { tools as toolsScene } from "./toolsScene.ts";
 import { polarisTools, PREVIEW_NOTICE } from "./polarisScene.ts";
 import { secret } from "./secretScene.ts";
+import { SHARED_SESSION_ID, shared, sharedDraft } from "./sharedScene.ts";
+import {
+  isSharingScene,
+  SHARING_SCENES,
+  sharingAnswer,
+  sharingFeed,
+  startSharingScene,
+  teammateState,
+} from "../../sharing/preview/scene.ts";
 import { setDataOutputShown } from "../../data/output/index.ts";
 import { setTracesOutputShown } from "../../traces/output/index.ts";
 import { findTrace, fixtureSnapshot } from "../../traces/preview/fixtureApi.ts";
@@ -176,6 +185,7 @@ const SCENES = {
   visualizations,
   "visualizations-30": visualizations30,
   "traces-output": tracesOutput,
+  shared,
 } as const;
 
 const SCENE_NAMES = [
@@ -202,6 +212,7 @@ const SCENE_NAMES = [
   "visualizations",
   "visualizations-30",
   "traces-output",
+  "shared",
   "new",
   "setup",
   "none-ready",
@@ -212,6 +223,7 @@ const SCENE_NAMES = [
   "data-output",
   ...WORST_SCENES,
   ...WORST_CONVERSATION_SCENES,
+  ...SHARING_SCENES,
 ] as const;
 
 type Scene = (typeof SCENE_NAMES)[number];
@@ -358,6 +370,10 @@ const isUsage = (scene: Scene) => scene === "usage-2" || scene === "usage-3";
 
 /** The feeds the session view opens: availability and Plan Limits, sent once. */
 const feed = (scene: Scene, kind: SubscriptionKind): ReadonlyArray<unknown> => {
+  const sharing = sharingFeed(scene, kind, SHARED_SESSION_ID);
+
+  if (sharing !== null) return sharing;
+
   if (kind === "harness.availability") return [availability(scene)];
 
   if (kind === "usage" && isUsage(scene))
@@ -372,7 +388,7 @@ const feed = (scene: Scene, kind: SubscriptionKind): ReadonlyArray<unknown> => {
   return kind === "plan-limits" ? LIMITS : [];
 };
 
-const answer = (
+const answerScene = (
   scene: Scene,
   method: RequestMethod,
   input: RequestInput<RequestMethod>
@@ -430,6 +446,13 @@ const answer = (
 
   return { ok: false, error: { code: "Unsupported", message: "preview" } };
 };
+
+const answer = (
+  scene: Scene,
+  method: RequestMethod,
+  input: RequestInput<RequestMethod>
+): Result<unknown> =>
+  sharingAnswer(method, input, SHARED_SESSION_ID) ?? answerScene(scene, method, input);
 
 const images = new Map<string, Promise<Result<unknown>>>();
 
@@ -548,8 +571,10 @@ const sceneOf = (hash: string): Scene => {
 
 /** Output open on the Data tab (the Turn with the pending write) or the Traces tab. */
 const showSceneOutput = (scene: Scene, sessionId: SessionId) => {
-  if (scene !== "data-output" && scene !== "traces-output") return;
+  if (scene !== "data-output" && scene !== "traces-output" && scene !== "shared") return;
   showOutput({ hostKey: HOST, workspaceId }, sessionId);
+
+  if (scene === "shared") return sharedDraft(HOST);
 
   if (scene === "data-output") setDataOutputShown(uiKey(HOST, sessionId), true);
   else setTracesOutputShown(uiKey(HOST, sessionId), true);
@@ -559,11 +584,36 @@ const showSceneOutput = (scene: Scene, sessionId: SessionId) => {
 const modelScene = (scene: Scene): Scene => {
   if (scene === "windows") return "session";
 
+  if (isSharingScene(scene)) return "shared";
+
   return scene === "data-output" ? "data-write" : scene;
 };
 
 const previewPlatform = (scene: Scene) => {
   if (scene === "windows") setClientPlatform("win32");
+};
+
+/** The fixture store; for the Teammate's scene, the shown session moves to the owner's Host. */
+const sceneState = (
+  scene: Scene,
+  models: ReadonlyArray<SessionModel>,
+  noHost: boolean
+): AppState => {
+  if (noHost) return { ...initialState, hostsListed: true };
+  const base = stateFor(models, scene === "windows");
+  const shown = models[SCENE_NAMES.indexOf(modelScene(scene))];
+
+  return scene === "shared-teammate" && shown !== undefined
+    ? teammateState(base, shown, host)
+    : base;
+};
+
+const startSharing = (
+  scene: Scene,
+  sessionId: SessionId,
+  select: Parameters<typeof startSharingScene>[3]
+) => {
+  if (isSharingScene(scene)) startSharingScene(scene, HOST, sessionId, select);
 };
 
 /**
@@ -585,9 +635,7 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
   // No Host at all, as on a Windows PC before one is added: the first-run stage.
   const noHost = scene === "no-host";
 
-  const store = createStore<AppState>(() =>
-    noHost ? { ...initialState, hostsListed: true } : stateFor(models, scene === "windows")
-  );
+  const store = createStore<AppState>(() => sceneState(scene, models, noHost));
 
   const connection: Connection = {
     store,
@@ -633,6 +681,7 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
     (scene === "attachments" ||
       scene === "background" ||
       scene === "polaris" ||
+      scene === "shared" ||
       scene === "long") &&
     shown?.session != null
   ) {
@@ -641,7 +690,10 @@ export const mountPreview = (root: HTMLElement, hash: string) => {
     patchSessionUi(uiKey(HOST, shown.session.id), () => ({ folds }));
   }
 
-  if (shown?.session != null) showSceneOutput(scene, shown.session.id);
+  if (shown?.session != null) {
+    showSceneOutput(scene, shown.session.id);
+    startSharing(scene, shown.session.id, navigation.actions.selectSession);
+  }
 
   if (isUsage(scene)) navigation.actions.openSettings("usage");
 

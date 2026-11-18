@@ -6,6 +6,7 @@
 import { join } from "node:path";
 import {
   type Command,
+  commentsPrompt,
   DomainEvent,
   feedbackPrompt,
   JudgedFinding,
@@ -14,20 +15,31 @@ import {
   type RiskSummary,
   Verdict,
 } from "@polaris/protocol";
-import { Predicate } from "effect";
+import { Predicate, Result } from "effect";
 import { patchTurn } from "../store/model.ts";
 import { type CheckoutInput, decideCheckout } from "./checkout.ts";
+import { carriedComments } from "./comments.ts";
 import type { Decision, Deciding } from "./decider.ts";
 import { REVIEW_DIRECTORY } from "./worktrees.ts";
 
 type CommandOf<Tag extends Command["_tag"]> = Extract<Command, { _tag: Tag }>;
 
+/** The batch's own comments, then the Comments it carries, each crediting its author. */
 const sendFeedback = (d: Deciding, command: CommandOf<"SendFeedback">): Decision =>
   d.withSession(command.sessionId, (record) => {
-    const prompt = feedbackPrompt(command.feedback);
+    const ids = command.commentIds ?? [];
+    const carried = carriedComments(d, record, ids);
+
+    if (Result.isFailure(carried)) return d.reject(carried.failure);
+
+    const prompt = [feedbackPrompt(command.feedback), commentsPrompt(null, carried.success)]
+      .filter((part) => part !== "")
+      .join("\n\n");
 
     if (prompt.trim() === "") return d.reject("the feedback is empty");
-    const turn = patchTurn(d.newTurn(record.session, prompt), { feedback: command.feedback });
+
+    const sent = patchTurn(d.newTurn(record.session, prompt), { feedback: command.feedback });
+    const turn = ids.length === 0 ? sent : patchTurn(sent, { commentIds: ids });
 
     return d.lifecycle(record, { type: "turn.send", turn });
   });

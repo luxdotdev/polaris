@@ -162,7 +162,8 @@ const sameSelection = (a: Selection, b: Selection) =>
   a.sessionId === b.sessionId &&
   a.pane === b.pane &&
   a.sidebar === b.sidebar &&
-  a.settings === b.settings;
+  a.settings === b.settings &&
+  a.shared === b.shared;
 
 export interface NavigationInput {
   readonly app: AppStore;
@@ -230,6 +231,7 @@ export const createNavigation = ({
       hostKey,
       workspaceId,
       sessionId: null,
+      shared: null,
       pane: "session",
       // Edit, Data and Traces follow the Workspace: choosing another one keeps them open on it.
       mode: keepsMode(store.getState().mode),
@@ -244,6 +246,7 @@ export const createNavigation = ({
       hostKey,
       workspaceId: null,
       sessionId: null,
+      shared: null,
       pane: "session",
       settings: null,
     });
@@ -258,6 +261,7 @@ export const createNavigation = ({
       pane: "new-session",
       mode: "orchestrate",
       settings: null,
+      shared: null,
       hostKey,
       workspaceId: shown ? workspaceId : null,
       sessionId: null,
@@ -291,9 +295,11 @@ export const createNavigation = ({
   };
 
   const shown = (): Page | undefined => {
-    const { hostKey, sessionId, pane, settings, mode } = current();
+    const { hostKey, sessionId, pane, settings, mode, shared } = current();
 
     if (settings !== null) return undefined;
+
+    if (shared !== null && mode === "orchestrate") return { kind: "session", ...shared };
 
     if (mode === "review") return { kind: "review", subject: reviewRoute.getState().subject };
 
@@ -326,7 +332,21 @@ export const createNavigation = ({
     selectSession: ({ hostKey, sessionId }) => {
       const entry = app.getState().hostModels[hostKey]?.sessions.get(sessionId);
 
+      // Another person's session opens in the pane; your Host and Workspace stay chosen.
+      if (app.getState().sharedHosts.some((h) => h.key === hostKey)) {
+        set({
+          recent: withRecent(store.getState().recent, recentKey("session", hostKey, sessionId)),
+          shared: { hostKey, sessionId },
+          pane: "session",
+          mode: "orchestrate",
+          settings: null,
+        });
+
+        return;
+      }
+
       set({
+        shared: null,
         recent: withRecent(store.getState().recent, recentKey("session", hostKey, sessionId)),
         hostKey,
         sessionId,

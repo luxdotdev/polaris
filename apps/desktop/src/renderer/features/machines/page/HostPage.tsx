@@ -28,6 +28,7 @@ import { RemoteAccessCard, routesOf } from "./RemoteAccessCard.tsx";
 import { hostName, type Pill, pageLine, pill, type RestartPhase } from "./state.ts";
 import { VitalsCard } from "./VitalsCard.tsx";
 import { HostComputerUseCard, servesComputerUse } from "../../computer-use/index.ts";
+import { DesktopAppsCard, UserAccessNotice } from "../../userAccess/index.ts";
 
 const phaseOf = (state: RestartState): RestartPhase => {
   if (state.step === "restarting") return "restarting";
@@ -227,6 +228,7 @@ export const HostPage = ({ machine, now, onBack }: HostPageProps) => {
         onBack={onBack}
       />
       <NeedsYou machine={machine} now={clock} />
+      <UserAccessNotice machine={machine} />
       <VitalsCard
         stats={stats}
         connected={facts.connected}
@@ -236,6 +238,7 @@ export const HostPage = ({ machine, now, onBack }: HostPageProps) => {
       />
       {facts.connected ? <Workers machine={machine} /> : null}
       {servesComputerUse(machine) ? <HostComputerUseCard machine={machine} /> : null}
+      <DesktopAppsCard machine={machine} now={clock} />
       <SettingsGrid>
         {routes.relay || routes.tailscale ? <RemoteAccessCard machine={machine} /> : null}
         <DaemonCard

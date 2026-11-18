@@ -22,7 +22,7 @@ import type {
   Worktree,
 } from "@polaris/protocol";
 import type { UserTurn } from "../../shared/needsYou.ts";
-import { Match } from "effect";
+import { Match, Predicate } from "effect";
 import { applyResourceEvent, type HostResources, resourcesFromSnapshot } from "./hostResources.ts";
 import type { SessionData } from "./plain.ts";
 
@@ -31,6 +31,8 @@ export interface ResolvedApproval {
   readonly request: ApprovalRequest;
   /** The device label of the Client that answered first (`ApprovalResolved.resolvedBy`). */
   readonly resolvedBy: string;
+  /** The Teammate who answered, by name, in a shared session (ENG-941); null for the owner's. */
+  readonly teammate?: string | null;
   readonly decision: ApprovalDecision["_tag"];
   readonly at: string;
 }
@@ -39,6 +41,12 @@ export interface ResolvedApproval {
 const RESOLVED_KEPT = 3;
 
 /** `SessionBackgroundCommandFailed`: the command named (null: every one) and the Harness's reason. */
+/** A queued Turn the Host would not start, with why ("Their share ended"). */
+export interface QueueDrop {
+  readonly turnId: string;
+  readonly reason: string;
+}
+
 export interface BackgroundFailure {
   readonly itemId: string | null;
   readonly reason: string;
@@ -58,6 +66,8 @@ export interface SessionEntry {
   readonly lastNotification?: SessionNotification;
   /** The latest Run in background the Harness couldn't carry out, seen live; a new object each time. */
   readonly lastBackgroundFailure?: BackgroundFailure;
+  /** The latest queued Turn the Host cancelled itself, seen live; a new object each time. */
+  readonly lastQueueDrop?: QueueDrop;
   /** Subagents still working in this session. */
   readonly subagents: ReadonlyArray<Subagent>;
 }
@@ -379,13 +389,26 @@ const fold = (event: DomainEvent): Fold =>
       RiskFindingResolved: () => unchanged,
       RiskSummaryEnded: () => unchanged,
       VerdictRecorded: () => unchanged,
+      // Comments (ADR 0113) are folded once the Desktop App announces `session.comments`.
+      CommentAdded: () => unchanged,
+      CommentEdited: () => unchanged,
+      CommentResolved: () => unchanged,
+      CommentReopened: () => unchanged,
+      CommentOutdated: () => unchanged,
+      // The queue itself is folded per session (`sessionQueue.ts`); here only the Host's drops.
+      TurnQueued: () => unchanged,
+      QueuedTurnEdited: () => unchanged,
+      QueuedTurnCancelled: ({ sessionId, turnId, actor, reason }) =>
+        actor === null && reason !== null
+          ? onSession(sessionId, (entry) => ({ ...entry, lastQueueDrop: { turnId, reason } }))
+          : unchanged,
       ApprovalRequested: ({ request }) =>
         onSession(request.sessionId, (entry) => ({
           ...entry,
           pendingApprovals: [...withoutRequest(request.id)(entry).pendingApprovals, request],
         })),
       ApprovalResolved:
-        ({ sessionId, requestId, resolvedBy, decision }): Fold =>
+        ({ sessionId, requestId, resolvedBy, decision, actor }): Fold =>
         (m, at) =>
           updateSession({
             model: m,
@@ -396,7 +419,11 @@ const fold = (event: DomainEvent): Fold =>
               const next = withoutRequest(requestId)(entry);
 
               if (request === undefined) return next;
-              const resolution = { request, resolvedBy, decision: decision._tag, at };
+
+              const teammate =
+                actor != null && Predicate.isTagged(actor, "Teammate") ? actor.name : null;
+
+              const resolution = { request, resolvedBy, teammate, decision: decision._tag, at };
 
               return {
                 ...next,

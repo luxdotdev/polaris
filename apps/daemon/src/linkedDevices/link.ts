@@ -47,6 +47,8 @@ const MAX_BUFFERED_BYTES = 1024 * 1024;
 export type Admission =
   | { readonly kind: "device"; readonly deviceId: string }
   | { readonly kind: "link"; readonly complete: () => void }
+  /** A peer that is no Linked Device: a Teammate's device (`RelayGuests`). */
+  | { readonly kind: "guest"; readonly guestId: string }
   | null;
 
 export interface RelayLinkOptions {
@@ -59,6 +61,8 @@ export interface RelayLinkOptions {
   readonly admit: (source: RelayAddress, deviceKey: Uint8Array, payload: Uint8Array) => Admission;
   /** A device's new session: the Daemon serves a connection over it. */
   readonly serve: (session: DeviceSession, deviceId: string) => void;
+  /** A guest's new session; without it a guest's session is ended. */
+  readonly serveGuest?: ((session: DeviceSession, guestId: string) => void) | undefined;
   /** A device's session ended, whoever ended it. */
   readonly ended?: (session: DeviceSession) => void;
   readonly onConnectedChange: (connected: boolean) => void;
@@ -90,7 +94,8 @@ export class RelayLink {
   private attempt = 0;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private pacer: Pacer | null = null;
-  private readonly sessions = new Map<RelayAddress, DeviceSession>();
+  /** Each peer's sessions by slot: one for a device, one per identity a guest connects as. */
+  private readonly sessions = new Map<RelayAddress, Map<string, DeviceSession>>();
   /** The relay announced a push service in its challenge on this socket. */
   private push = false;
   private nextWake = 0;
@@ -142,9 +147,9 @@ export class RelayLink {
     settle?.(outcome);
   }
 
-  /** Ends the session of the device at `peer`, if it has one (unlink, presence, replace). */
+  /** Ends every session of the device at `peer` (unlink, presence, replace). */
   drop(peer: RelayAddress): void {
-    this.sessions.get(peer)?.end();
+    for (const session of this.sessions.get(peer)?.values() ?? []) session.end();
   }
 
   /** Closes the socket and every session for good. */
@@ -189,7 +194,7 @@ export class RelayLink {
 
   /** Every session ends with the socket: devices handshake again after a reconnect. */
   private disconnected(): void {
-    for (const session of this.sessions.values()) session.end();
+    for (const peer of this.sessions.keys()) this.drop(peer);
 
     for (const id of this.wakes.keys()) this.settleWake(id, "unavailable");
     this.push = false;
@@ -277,10 +282,12 @@ export class RelayLink {
   }
 
   private onRecord(source: RelayAddress, tag: Uint8Array, record: Uint8Array): void {
-    const session = this.sessions.get(source);
+    for (const session of this.sessions.get(source)?.values() ?? [])
+      if (sameTag(session.tag, tag)) {
+        session.receive(record);
 
-    if (session === undefined || !sameTag(session.tag, tag)) return;
-    session.receive(record);
+        return;
+      }
   }
 
   private onInit(source: RelayAddress, init: Uint8Array): void {
@@ -312,18 +319,29 @@ export class RelayLink {
 
     replied.catch(() => undefined);
 
-    this.sessions.get(source)?.end();
+    // A new session replaces the one in its slot; a guest's other identities keep theirs.
+    const slot = admitted.kind === "device" ? "device" : `guest ${admitted.guestId}`;
+    this.sessions.get(source)?.get(slot)?.end();
 
     const session = new DeviceSession(source, accepted.session, {
       send: (peer, records) => this.sendRecords(peer, records),
       ended: (ended) => {
-        if (this.sessions.get(ended.peer) === ended) this.sessions.delete(ended.peer);
+        const held = this.sessions.get(ended.peer);
+
+        if (held?.get(slot) === ended) held.delete(slot);
+
+        if (held?.size === 0) this.sessions.delete(ended.peer);
         this.options.ended?.(ended);
       },
     });
 
-    this.sessions.set(source, session);
-    this.options.serve(session, admitted.deviceId);
+    const held = this.sessions.get(source) ?? new Map<string, DeviceSession>();
+    held.set(slot, session);
+    this.sessions.set(source, held);
+
+    if (admitted.kind === "device") this.options.serve(session, admitted.deviceId);
+    else if (this.options.serveGuest === undefined) session.end();
+    else this.options.serveGuest(session, admitted.guestId);
   }
 
   private sendText(text: string): void {

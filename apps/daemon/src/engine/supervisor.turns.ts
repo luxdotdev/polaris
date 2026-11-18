@@ -4,8 +4,28 @@ import type { ServiceError } from "../services.ts";
 import { LiveItem } from "../store/EventStore.ts";
 import { userTurn } from "./session.turns.ts";
 import { withWorkerAdmission } from "../resources/workerAdmission.ts";
-import type { EngineRuntime } from "./runtime.ts";
+import type { EngineRuntime, SignalResult } from "./runtime.ts";
 import type { TurnToRun } from "./supervisor.ts";
+
+/** The queued Turn a `harness.turnEnded` signal started, as the supervisor runs it; null without one. */
+export const queuedTurnToRun = (sessionId: SessionId, ended: SignalResult): TurnToRun | null => {
+  const effect = ended.effects.find(
+    (e) => e !== "scheduleIdleStop" && e !== "stopHarness" && e.type === "runQueuedTurn"
+  );
+
+  if (effect === undefined || !("envelopes" in ended)) return null;
+
+  for (const { event } of ended.envelopes)
+    if (DomainEvent.guards.TurnStarted(event) && event.turn.id === effect.turnId)
+      return {
+        sessionId,
+        turnId: event.turn.id,
+        prompt: event.turn.prompt,
+        attachments: event.turn.attachments,
+      };
+
+  return null;
+};
 
 export const waitForTurnEnd = (
   rt: EngineRuntime["Service"],
@@ -71,7 +91,8 @@ const restartUserTurn = (rt: EngineRuntime["Service"], input: TurnToRun, refusal
     }));
 
     const waiting = result.effects.find(
-      (effect) => effect !== "scheduleIdleStop" && effect !== "stopHarness"
+      (effect) =>
+        effect !== "scheduleIdleStop" && effect !== "stopHarness" && effect.type === "waitForTurn"
     );
 
     const started =

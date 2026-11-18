@@ -43,10 +43,12 @@ import { holdOpenFrom, setTurnOpen, showTurnDiff, uiKey, useSessionUi } from "..
 import { ForkDialog, type ForkTarget } from "./ForkDialog.tsx";
 import type { RowContext } from "./rows.tsx";
 import { SessionComposer } from "./SessionComposer.tsx";
+import { useShareEndedNotice, useSharedRole } from "../../sharing/index.ts";
 import { SessionHeader } from "./SessionHeader.tsx";
 import { Transcript } from "./Transcript.tsx";
 import { useSessionChrome } from "../chrome.ts";
 import { EditorPlaceProvider } from "../../editor-links/index.ts";
+import { SendComments } from "../../comments/index.ts";
 
 /** The shell's session slot props (`app/slots.tsx`). */
 export interface SessionViewProps {
@@ -97,6 +99,9 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
   const model = useSession(hostKey, sessionId);
   const key = uiKey(hostKey, sessionId);
   const ui = useSessionUi(key);
+  // A Commenter comments; Turns come with the Contributor role (ENG-927).
+  const commenter = useSharedRole(hostKey, sessionId) === "commenter";
+  const ended = useShareEndedNotice(hostKey, sessionId);
   const host = useHost(hostKey);
   const { where, branch } = useWhere(hostKey, model.session);
   const [forking, setForking] = useState<ForkTarget | null>(null);
@@ -274,7 +279,15 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
             title: session.title === "" ? session.harness : session.title,
           }}
         />
-        {harness === null ? null : (
+        <div className="px-panel empty:hidden">
+          <SendComments hostKey={hostKey} sessionId={sessionId} />
+        </div>
+        {ended === null ? null : (
+          <p className="px-panel text-caption text-text-subtle pb-3" data-testid="share-ended">
+            {ended}
+          </p>
+        )}
+        {harness === null || commenter || ended !== null ? null : (
           <SessionComposer
             hostKey={hostKey}
             uiKey={key}

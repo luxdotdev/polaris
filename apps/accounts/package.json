@@ -1,0 +1,23 @@
+{
+  "name": "@polaris/accounts",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "start": "bun src/main.ts",
+    "migrate": "bun src/migrate.ts",
+    "typecheck": "bun check -p .",
+    "test": "bun ../../tooling/test/watchdog.ts"
+  },
+  "dependencies": {
+    "@better-auth/core": "1.7.25",
+    "better-auth": "1.7.25",
+    "drizzle-orm": "0.45.4",
+    "effect": "4.0.0-rc.118",
+    "jose": "6.2.12"
+  },
+  "devDependencies": {
+    "drizzle-kit": "0.31.11"
+  }
+}

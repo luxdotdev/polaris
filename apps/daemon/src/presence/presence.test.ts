@@ -11,8 +11,15 @@ import { HostSecrets } from "../secrets/index.ts";
 import { startServer } from "../transport/server.ts";
 import { HostPresence } from "./index.ts";
 import { newTempDir, removeTempDirSettled } from "../platform/tempDir.testing.ts";
+import { TEST_USER_KEY } from "../transport/userAccess.testing.ts";
 
-const hello = { clientName: "test", clientVersion: "0", deviceLabel: "test", capabilities: [] };
+const hello = {
+  clientName: "test",
+  clientVersion: "0",
+  deviceLabel: "test",
+  capabilities: [],
+  ...TEST_USER_KEY,
+};
 
 /** A Daemon with a `leaseMs` lease, the transport's own HostPresence, and a way to connect. */
 const daemon = (leaseMs: number) =>

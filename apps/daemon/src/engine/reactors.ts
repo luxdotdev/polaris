@@ -289,6 +289,10 @@ const make = Effect.gen(function* () {
               steerExisting: true,
             });
       },
+      // A queued Turn runs when the machine starts it (`runQueuedTurn`, supervisor.ts).
+      CancelQueuedTurn: () => Effect.void,
+      EditQueuedTurn: () => Effect.void,
+      ResumeQueue: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
       Continue: (command) => continueTurn(command.sessionId, committed),
       Retry: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
       RunShellCommand: (command) => runStartedTurn(command.sessionId, committed.result.envelopes),
@@ -360,6 +364,10 @@ const make = Effect.gen(function* () {
         checkouts.updated(command.checkoutId, command.discardChanges, committed.before),
       RemoveReviewCheckout: (command) => checkouts.removed(command.checkoutId),
       RecordVerdict: () => Effect.void,
+      AddComment: () => Effect.void,
+      EditComment: () => Effect.void,
+      ResolveComment: () => Effect.void,
+      ReopenComment: () => Effect.void,
     });
 
   return Reactors.of({ react });

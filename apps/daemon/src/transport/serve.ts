@@ -102,6 +102,10 @@ import { lazyUsage } from "./lazyUsage.ts";
 import { lazyVoiceHandlers } from "./lazyVoice.ts";
 import { LiveNotifierLive } from "../push/liveNotifier.ts";
 import { PushNotifierLive } from "../push/notifier.ts";
+import { CommitIdentitiesLive } from "../shares/identities.ts";
+import { ShareTargetsLive } from "../shares/targets.ts";
+import { PairingBookLive } from "../extensions/book.ts";
+import { PairingBook } from "../engine/queueAccess.ts";
 
 /** Exit status when another Daemon already holds the lock or answers on the socket. */
 export const SERVE_EXIT_ALREADY_RUNNING = 75;
@@ -209,6 +213,10 @@ export const engineServices = Layer.mergeAll(
   Layer.provideMerge(DeveloperModeLive),
   // The Simulator's hub and MCP server (ENG-829), loaded on first use; one instance with the Harnesses'.
   Layer.provideMerge(lazySimulator),
+  // Co-author trailers read Teammates' commit emails from the Shares (ENG-941).
+  Layer.provideMerge(CommitIdentitiesLive),
+  // A queued Turn's Extension is checked against the Pairings as it would start (ENG-941).
+  Layer.provideMerge(PairingBook.layer),
   Layer.provideMerge(EventStore.layerLive)
 );
 
@@ -267,7 +275,9 @@ export const daemonHandlers = Layer.mergeAll(
   lazyVoiceHandlers,
   byteStreamHandlers,
   SimulatorRpcHandlers,
-  selfTraceExport
+  selfTraceExport,
+  ShareTargetsLive,
+  PairingBookLive
 ).pipe(Layer.provide(daemonServices));
 
 /** What the lazy language handlers serve: unavailable where no language artifact runs. */
@@ -316,6 +326,9 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "host.restart",
   "linked-devices",
   "linked-devices.presence",
+  "linked-devices.relay-url",
+  "shares",
+  "shares.contributor",
   "presence",
   "voice",
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),
@@ -337,6 +350,8 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "session.turn-paging",
   "session.stop-background",
   "session.background-command",
+  "session.comments",
+  "session.queued-turns",
   "session.background-command-failed",
   "session.compaction",
   "session.notify",

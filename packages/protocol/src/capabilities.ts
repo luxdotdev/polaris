@@ -52,8 +52,36 @@ export const Capability = Schema.Literals([
   "linked-devices",
   /** `devices.watch`, and `connectedSince` on each Linked Device: which have a session now (ENG-629). */
   "linked-devices.presence",
+  /** `userAccess.*`: the Host enrols several Desktop Apps and gates user-only requests (ADR 0114). */
+  "user-access.enrolment",
+  /** `relayRoute.setUrl`: store the relay, or go back to Polaris Cloud's, without turning it on (ENG-948). */
+  "linked-devices.relay-url",
   /** A Client announces it when it decodes the `LinkedDevice` Actor; others read it as `Client`. */
   "actor.linked-device",
+  /** A Client announces it when it decodes the `Teammate` Actor; others read it as `Client`. */
+  "actor.teammate",
+  /**
+   * Shares (ADR 0112): `shares.*`, `account.refreshStatement`, and `accountStatement` and
+   * `shares` in `hello`. Advertised only when the Daemon serves them.
+   */
+  "shares",
+  /**
+   * Contributors (ENG-941): a Teammate answers approvals and acts through a shared Constellation's
+   * Lead, registers its devices for Needs You (`devices.registerPush`), and `shares.mute`.
+   */
+  "shares.contributor",
+  /**
+   * Comments (ADR 0113): `AddComment`, `EditComment`, `ResolveComment`, `ReopenComment`, the
+   * `Comment*` events, `SendFeedback.commentIds`, `Turn.commentIds` and the session snapshot's
+   * `comments`. Needed on both sides: a Client without it is sent none of them.
+   */
+  "session.comments",
+  /**
+   * Queued Turns (ENG-941): `CancelQueuedTurn`, `EditQueuedTurn`, the `TurnQueued` and
+   * `QueuedTurn*` events and the session snapshot's `queuedTurns`. A Client without it is
+   * sent none of them; its Turn sent into a shared session still queues.
+   */
+  "session.queued-turns",
   /** `voice.transcribe`, `voice.settings` and `voice.setKey` (ADR 0077). */
   "voice",
   /**

@@ -275,4 +275,11 @@ describe("a turn's menu (MX-J)", () => {
   test("a turn with nothing said offers no copy", () => {
     expect(titles(turnMenu(where, { turnId: "t-3", output: "" }))).toEqual([["Fork from here"]]);
   });
+
+  test("a Teammate is never offered Fork, which the Host refuses to every Share", () => {
+    expect(titles(turnMenu(where, { turnId: "t-3", output: "Split." }, "teammate"))).toEqual([
+      ["Copy"],
+    ]);
+    expect(turnMenu(where, { turnId: "t-3", output: "" }, "teammate")).toEqual([]);
+  });
 });

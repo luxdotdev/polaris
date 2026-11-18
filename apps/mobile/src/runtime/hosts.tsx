@@ -1,6 +1,7 @@
 /**
  * The app's Hosts as React state: one HostConnection per Host, shared by every screen. In
  * development the provider adds the dev bridge's Host from EXPO_PUBLIC_POLARIS_DEV_BRIDGE.
+ * Hosts shared with this person as a Teammate are kept apart: only their threads open them.
  */
 import { Predicate } from "effect";
 import {
@@ -15,16 +16,31 @@ import {
 import { devBridgeTransport, parseDevBridge } from "./devBridge.ts";
 import {
   type HostConnection,
+  type HostConnectionOptions,
   type HostStatus,
   type HostTransport,
   type LiveHost,
   openHostConnection,
 } from "./hostConnection.ts";
 
+/** What a Teammate's connection adds: its statement and who they are on that Host. */
+export type SharedOptions = Required<Pick<HostConnectionOptions, "accountStatement" | "teammate">>;
+
 export interface HostRegistry {
+  /** The user's own Hosts. */
   readonly hosts: ReadonlyArray<HostConnection>;
-  /** Connects to a Host; replaces any connection already open for `hostId`. */
-  readonly addHost: (hostId: string, name: string, transport: HostTransport) => void;
+  /** Hosts shared with the user as a Teammate, keyed by their Share's key. */
+  readonly shared: ReadonlyArray<HostConnection>;
+  /**
+   * Connects to a Host; replaces any connection already open for `hostId`. With `shared` it is a
+   * Teammate's connection, kept out of `hosts`.
+   */
+  readonly addHost: (
+    hostId: string,
+    name: string,
+    transport: HostTransport,
+    shared?: SharedOptions
+  ) => void;
   readonly removeHost: (hostId: string) => void;
 }
 
@@ -62,9 +78,10 @@ export const HostsProvider = ({ children }: { readonly children: ReactNode }) =>
 
   const registry = useMemo<HostRegistry>(
     () => ({
-      hosts,
-      addHost: (hostId, name, transport) => {
-        const opened = openHostConnection({ hostId, name, transport });
+      hosts: hosts.filter((h) => h.teammate === null),
+      shared: hosts.filter((h) => h.teammate !== null),
+      addHost: (hostId, name, transport, shared) => {
+        const opened = openHostConnection({ hostId, name, transport, ...shared });
 
         setHosts((open) => {
           for (const old of open) if (old.hostId === hostId) void old.close();
@@ -94,7 +111,7 @@ export const GalleryHosts = ({
   readonly children: ReactNode;
 }) => {
   const registry = useMemo<HostRegistry>(
-    () => ({ hosts, addHost: () => undefined, removeHost: () => undefined }),
+    () => ({ hosts, shared: [], addHost: () => undefined, removeHost: () => undefined }),
     [hosts]
   );
 
@@ -111,8 +128,12 @@ export const useHostRegistry = (): HostRegistry => {
 
 export const useHosts = (): ReadonlyArray<HostConnection> => useHostRegistry().hosts;
 
-export const useHost = (hostId: string): HostConnection | null =>
-  useHosts().find((h) => h.hostId === hostId) ?? null;
+/** One of the user's Hosts, or one shared with them, by its id or Share key. */
+export const useHost = (hostId: string): HostConnection | null => {
+  const { hosts, shared } = useHostRegistry();
+
+  return hosts.find((h) => h.hostId === hostId) ?? shared.find((h) => h.hostId === hostId) ?? null;
+};
 
 export const useHostStatus = (connection: HostConnection): HostStatus =>
   useSyncExternalStore(connection.subscribe, connection.status);

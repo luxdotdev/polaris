@@ -12,6 +12,16 @@ import {
 import { deferredDelivery, refusedInput } from "./session.deferred.ts";
 import { harnessTurn, takesTurn, turnRefusal } from "./session.turns.ts";
 import { modelChanged } from "./session.model.ts";
+import {
+  afterTurn,
+  changeQueue,
+  clearQueue,
+  dropQueue,
+  isPaused,
+  queueOrRefuse,
+  resumeQueue,
+} from "./session.queue.ts";
+import { type Context, type Enqueue, HANDLED, need, reject, settle } from "./session.settle.ts";
 import { DomainEvent, type SessionState, type Turn } from "@polaris/protocol";
 import { Predicate, Result } from "effect";
 import { createMachine, isUnhandled, transition, types } from "xstate";
@@ -20,7 +30,6 @@ import {
   eventSchemas,
   normalizedInput,
   isEmitted,
-  type Emitted,
   type SessionEffect,
   type SessionInput,
 } from "./session.inputs.ts";
@@ -34,81 +43,13 @@ import {
   withdrawDaemonApprovals,
   canRequestDataApproval,
 } from "./session.approvals.ts";
-import {
-  endTurn,
-  foldEach,
-  RECOVERY_REASON,
-  stateChanged,
-  withdrawPending,
-} from "./session.events.ts";
+import { endTurn, RECOVERY_REASON, withdrawPending } from "./session.events.ts";
 
 export type { SessionEffect, SessionInput } from "./session.inputs.ts";
-
-interface Context {
-  /** The folded session; null before it exists. */
-  readonly record: SessionRecord | null;
-}
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 export { stateChanged } from "./session.events.ts";
-
-const need = (context: Context): SessionRecord => {
-  if (context.record === null) throw new Error("the session machine needs a session");
-
-  return context.record;
-};
-
-type Enqueue = { emit: (emitted: Emitted) => void };
-
-/**
- * How XState v6 transition functions read here: returning `undefined` means
- * "not taken", and the event bubbles to the machine-level default; returning
- * an object (even `HANDLED`, no target) takes the transition and stops it.
- */
-const HANDLED = {};
-
-/**
- * Emit `events`, then (with `enter`) the Session State change they lead to,
- * and move to the state the fold of all of them gives. A state change
- * re-enters its state, so entry effects run for every `SessionStateChanged`.
- * With nothing to emit it is still taken (`HANDLED`).
- */
-const settle = (
-  enq: Enqueue,
-  record: SessionRecord | null,
-  events: ReadonlyArray<DomainEvent>,
-  enter?: {
-    readonly state: SessionState;
-    readonly reason?: string | null;
-    readonly resetsAt?: string | null;
-  }
-) => {
-  const sessionId =
-    record?.session.id ?? (events[0]?._tag === "SessionCreated" ? events[0].session.id : undefined);
-
-  if (sessionId === undefined) return undefined;
-
-  const all = enter
-    ? [...events, stateChanged(sessionId, enter.state, enter.reason, enter.resetsAt)]
-    : events;
-
-  if (all.length === 0) return HANDLED;
-
-  const folded = foldEach(sessionId, record ?? undefined, all);
-
-  for (const event of folded.events) enq.emit({ type: "domain", event });
-  const next = folded.record!;
-  const moved = enter !== undefined || next.session.state !== record?.session.state;
-
-  const context = { record: next };
-
-  return moved ? { target: `#${next.session.state}`, reenter: true, context } : { context };
-};
-
-const reject = (enq: Enqueue, reason: string | null) => {
-  if (reason !== null) enq.emit({ type: "rejected", reason });
-};
 
 // ── Machine ─────────────────────────────────────────────────────────────────
 
@@ -119,7 +60,8 @@ const sendTurn = (
 ) => {
   const record = need(context);
 
-  if (!takesTurn(record)) return undefined;
+  // Behind a paused queue a new Turn joins the back (`queueOrRefuse`).
+  if (!takesTurn(record) || isPaused(record)) return undefined;
 
   return settle(enq, record, [DomainEvent.cases.TurnStarted.make({ turn: event.turn })], {
     state: record.session.state === "idle" ? "working" : "starting",
@@ -186,7 +128,22 @@ const turnEnded = (
     endTurn(turn, status, event.at, event.checkpoint)
   );
 
-  return settle(enq, record, events, withState ? turnEndState(event) : undefined);
+  // A completed Turn starts the head of the queue, as if sent then; an interrupted one pauses it.
+  const next = afterTurn(record, event, withState);
+
+  events.push(...next.cancelled);
+
+  if (next.started === null)
+    return settle(enq, record, events, withState ? turnEndState(event) : undefined);
+
+  enq.emit({ type: "effect", effect: { type: "runQueuedTurn", turnId: next.started.turn.id } });
+
+  return settle(
+    enq,
+    record,
+    [...events, next.started],
+    record.session.state === "working" ? undefined : { state: "working" }
+  );
 };
 
 const turnEndState = (event: TurnEndedInput) => {
@@ -210,6 +167,7 @@ const exited = (record: SessionRecord, event: ExitedInput, enq: Enqueue, withSta
     ...endBackgroundWork(record, event.at),
     ...(turn ? [endTurn(turn, event.error ? "failed" : "interrupted", event.at)] : []),
     ...withdrawPending(record, "harness", reason),
+    ...dropQueue(record, reason),
   ];
 
   return settle(
@@ -247,6 +205,7 @@ const recover = (record: SessionRecord, event: RecoverInput, enq: Enqueue) => {
     ...endBackgroundWork(record, event.at),
     ...(turn ? [endTurn(turn, "interrupted", event.at)] : []),
     ...withdrawPending(record, "daemon", RECOVERY_REASON[stoppedFor]),
+    ...dropQueue(record, RECOVERY_REASON[stoppedFor]),
   ];
 
   if (turn !== undefined) {
@@ -312,6 +271,7 @@ const archive = ({ context, event }: { context: Context; event: { at: string } }
     [
       ...endBackgroundWork(record, event.at),
       ...withdrawPending(record, "daemon", "The session was archived"),
+      ...clearQueue(record, "The session was archived"),
     ],
     { state: "archived" }
   );
@@ -393,7 +353,10 @@ export const sessionMachine = createMachine({
         refusedInput(record, event, delivery.refusal ?? turnRefusal(record, "send"))
       );
     },
-    "turn.send": ({ context }, enq) => reject(enq, turnRefusal(need(context), "send")),
+    "turn.send": queueOrRefuse,
+    "queue.cancel": changeQueue,
+    "queue.edit": changeQueue,
+    "queue.resume": resumeQueue,
     "turn.continue": ({ context }, enq) => reject(enq, turnRefusal(need(context), "continue")),
     "turn.retry": ({ context }, enq) => reject(enq, turnRefusal(need(context), "retry")),
     "turn.steer": ({ context, event }, enq) => {
@@ -520,6 +483,7 @@ export const sessionMachine = createMachine({
       return settle(enq, record, [
         ...withdrawPending(record, "harness", "The terminal UI closed", turn.id),
         endTurn(turn, "interrupted", event.at),
+        ...dropQueue(record, "The terminal UI closed"),
       ]);
     },
     "idle.timeout": ignore,
@@ -542,6 +506,7 @@ export const sessionMachine = createMachine({
           ...endBackgroundWork(record, event.at),
           ...(turn ? [endTurn(turn, "failed", event.at)] : []),
           ...withdrawPending(record, "daemon", event.message),
+          ...dropQueue(record, event.message),
         ],
         { state: "failed", reason: event.message }
       );
@@ -632,12 +597,12 @@ export const sessionMachine = createMachine({
         working: {
           id: "working",
           on: {
-            "turn.send": ({ context }, enq) => {
+            "turn.send": ({ context, event }, enq) => {
               const record = need(context);
 
               return workingTurn(record)?.trigger != null
                 ? settle(enq, record, [])
-                : reject(enq, turnRefusal(record, "send"));
+                : queueOrRefuse({ context, event }, enq);
             },
           },
         },
@@ -787,6 +752,7 @@ export const sessionMachine = createMachine({
             ...endBackgroundWork(record, event.at),
             ...(turn ? [endTurn(turn, "interrupted", event.at)] : []),
             ...withdrawPending(record, "daemon", RECOVERY_REASON[event.stoppedFor ?? event.cause]),
+            ...dropQueue(record, RECOVERY_REASON[event.stoppedFor ?? event.cause]),
           ]);
         },
       },

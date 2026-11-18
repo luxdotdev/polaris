@@ -39,7 +39,7 @@ export class LinkedDevice extends Schema.Class<LinkedDevice>("LinkedDevice")({
 export class RelayRouteStatus extends Schema.Class<RelayRouteStatus>("RelayRouteStatus")({
   /** Whether the user turned the Relay route on for this Host. Off by default. */
   state: Schema.Literals(["on", "off"]),
-  /** The relay the Daemon dials, `wss://<relay>/v1`; null until one was set. */
+  /** The relay the Daemon dials or would dial, `wss://<relay>/v1`; Polaris Cloud's unless one was set. */
   url: Schema.NullOr(Schema.String),
   /** On, and the relay accepted the Daemon's key proof on the current socket. */
   connected: Schema.Boolean,
@@ -61,9 +61,28 @@ export const GetRelayRoute = Rpc.make("relayRoute.status", {
   error: RelayRouteError,
 });
 
-/** Turns the route on with `url`; on again replaces the URL and reconnects. */
+/** Polaris Cloud's relay: the one a Host dials unless the user gives their own (ENG-948). */
+export const POLARIS_CLOUD_RELAY_URL = "wss://relay.polaris.lux.dev/v1";
+
+/** Polaris Cloud's Account Server: the issuer Add account starts on unless the user gives their own (ENG-944). */
+export const POLARIS_CLOUD_ACCOUNTS_URL = "https://auth.polaris.lux.dev";
+
+/**
+ * Turns the route on with `url`, or with the stored relay without one (Polaris Cloud's when
+ * none is stored); on again replaces the URL and reconnects.
+ */
 export const EnableRelayRoute = Rpc.make("relayRoute.enable", {
-  payload: { url: Schema.String },
+  payload: { url: Schema.optionalKey(Schema.String) },
+  success: RelayRouteStatus,
+  error: RelayRouteError,
+});
+
+/**
+ * Stores the relay without turning the route on: `url`, or null for Polaris Cloud's. While on,
+ * the route reconnects to it. Capability `linked-devices.relay-url` (ENG-948).
+ */
+export const SetRelayUrl = Rpc.make("relayRoute.setUrl", {
+  payload: { url: Schema.NullOr(Schema.String) },
   success: RelayRouteStatus,
   error: RelayRouteError,
 });
@@ -137,7 +156,7 @@ export const UnlinkSelf = Rpc.make("devices.unlinkSelf", {
 export class PushRegistrationError extends Schema.TaggedError<PushRegistrationError>()(
   "PushRegistrationError",
   {
-    /** `not-a-device`: only a Linked Device's own connection registers for push. */
+    /** `not-a-device`: only a Linked Device's or a Teammate's own connection registers for push. */
     reason: Schema.Literals(["not-a-device", "failed"]),
     message: Schema.String,
   }
@@ -174,6 +193,7 @@ export const UnregisterLiveActivity = Rpc.make("devices.unregisterLiveActivity",
 export class LinkedDeviceRpcs extends RpcGroup.make(
   GetRelayRoute,
   EnableRelayRoute,
+  SetRelayUrl,
   DisableRelayRoute,
   StartLink,
   AwaitLink,

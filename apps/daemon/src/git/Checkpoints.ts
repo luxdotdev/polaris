@@ -10,6 +10,7 @@ import { Checkpoints, ServiceError } from "../services.ts";
 import { GitCommandError, gitText, runGitRaw } from "./git.ts";
 import { snapshotWorkingTree } from "./snapshot.ts";
 import { checkpointRef } from "./checkpointRefs.ts";
+import { changedLines } from "./changedLines.ts";
 import { finishingGit } from "./interrupt.ts";
 
 export { checkpointRef } from "./checkpointRefs.ts";
@@ -101,6 +102,17 @@ export const CheckpointsLive = Layer.succeed(
       // It writes a ref: an interrupt lets it finish.
       return yield* finishingGit({
         try: () => captureCheckpoint(options),
+        catch: (cause) =>
+          new ServiceError({
+            service: "Checkpoints",
+            message: cause instanceof Error ? cause.message : String(cause),
+            cause,
+          }),
+      });
+    }),
+    changedLines: Effect.fn("Checkpoints.changedLines")(function* (options) {
+      return yield* Effect.tryPromise({
+        try: () => changedLines(options),
         catch: (cause) =>
           new ServiceError({
             service: "Checkpoints",

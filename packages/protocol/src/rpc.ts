@@ -62,7 +62,11 @@ import {
 import { EventEnvelope } from "./events.ts";
 import { ExtensionRpcs, GrantGate, NotGranted } from "./extensions.ts";
 import { gateUserRpcs, UserAccessGate } from "./userAccess.ts";
+import { UserAccessRpcs } from "./userAccessEnrolment.ts";
 import { RemoteAccessRpcs } from "./remoteAccess.ts";
+import { Comment } from "./comments.ts";
+import { QueuedTurn } from "./queuedTurns.ts";
+import { ShareRpcs } from "./shares.ts";
 import { LinkedDeviceRpcs } from "./linkedDevices.ts";
 import { VoiceRpcs } from "./voice.ts";
 import { SecretRpcs } from "./secrets.ts";
@@ -179,6 +183,9 @@ export const SessionStreamItem = Schema.TaggedUnion({
     session: AgentSession,
     turns: Schema.Array(TurnDetail),
     pendingApprovals: Schema.Array(ApprovalRequest),
+    comments: optionalArray(Comment),
+    /** The session's queue, in order (capability `session.queued-turns`). */
+    queuedTurns: optionalArray(QueuedTurn),
   },
   Event: { envelope: EventEnvelope },
   /** Ephemeral live output for an item still in progress. Not persisted, not sequenced. */
@@ -785,18 +792,10 @@ export const DaemonRpcDefinitions = RpcGroup.make(
   .merge(VisualsRpcs, SuggestedReplyRpcs)
   .merge(GitWriteRpcs, GitWatchRpcs, GitLogRpcs, CommitMessageRpcs, OriginRpcs)
   .merge(ExtensionRpcs, RemoteAccessRpcs, LinkedDeviceRpcs, VoiceRpcs, RestartRpcs)
-  .merge(
-    SecretRpcs,
-    TerminalRpcs,
-    DataRpcs,
-    TracesRpcs,
-    TracesSettingsRpcs,
-    ProfilesRpcs,
-    TraceCompareRpcs,
-    TracingSkillRpcs
-  )
+  .merge(SecretRpcs, TerminalRpcs, DataRpcs, TracesRpcs, TracesSettingsRpcs)
+  .merge(ProfilesRpcs, TraceCompareRpcs, TracingSkillRpcs)
   .merge(BrowserStackRpcs, DeveloperModeRpcs, SelfTraceRpcs, SimulatorRpcs, RequestsRpcs)
-  .merge(ComputerUseRpcs);
+  .merge(ComputerUseRpcs, UserAccessRpcs, ShareRpcs);
 
 // A const, not a class: inferring `RpcGroup.Rpcs` from a class over the gated group is
 // too deep for the linter's single-program checker (TS2589), which types every Client as `any`.
@@ -806,7 +805,7 @@ export const DaemonRpcs = gateUserRpcs(DaemonRpcDefinitions);
  * `DaemonRpcs` as the Daemon serves it to Extensions: every RPC can fail with
  * `NotGranted` (grants.ts). The SDK's Client is built on this group so the
  * refusal decodes; the Desktop App stays on `DaemonRpcs`, which carries only the
- * user gate's `UserAccessRequired` (ADR 0100).
+ * user gate's `UserAccessRequired` (ADR 0114).
  */
 // A const, not a class: as a class its type trips type-aware lint's instantiation limit (lint-config README).
 export const ExtensionDaemonRpcs = DaemonRpcs.omit("dispatch")

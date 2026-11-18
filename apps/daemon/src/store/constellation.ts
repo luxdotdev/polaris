@@ -302,6 +302,7 @@ export const foldConstellation = (
           claimRevision: e.attemptRevision,
           previousClaimHead: amendedHead(next, e.attemptId),
           approvedByUserAt: null,
+          reviewedBy: null,
           handedUpAt: null,
           handedUpReason: null,
           nudgedAt: null,
@@ -311,7 +312,7 @@ export const foldConstellation = (
     ClaimApproved: (e) => {
       graph = new Constellation({
         ...graphData(graph),
-        attempts: patchAttempt(next, e, { approvedByUserAt: e.at }),
+        attempts: patchAttempt(next, e, { approvedByUserAt: e.at, reviewedBy: e.actor ?? null }),
       });
     },
     ClaimHandedUp: (e) => {
@@ -384,6 +385,7 @@ export const foldConstellation = (
           state: "rejected",
           rejectionReason: e.reason,
           rejectedBy: e.by ?? null,
+          reviewedBy: e.actor ?? null,
           endedAt: at,
         }),
       });

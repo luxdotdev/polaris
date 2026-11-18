@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
+  Actor,
+  PersonId,
+  ShareId,
   ApprovalDecision,
   DomainEvent,
   EventEnvelope,
@@ -12,7 +15,7 @@ import {
 } from "@polaris/protocol";
 import { at, seq, workspace } from "../../../store/fixtures.testing.ts";
 import { applyHostItems, emptyHostModel, type HostModel } from "../../../store/hostModel.ts";
-import { ANSWERED_FOR_MS, buildInbox } from "./inbox.ts";
+import { ANSWERED_FOR_MS, answeredLine, buildInbox, inboxKey } from "./inbox.ts";
 import { host, hostModel, minutes, request, sessionWith } from "./inbox.testing.ts";
 import { quietFact } from "./quiet.ts";
 import { toSummary } from "./summary.ts";
@@ -57,6 +60,30 @@ describe("Needs You inbox", () => {
     expect(result.waiting[1]?.requests.map((r) => String(r.id))).toEqual(["r1", "r2"]);
     expect(result.waiting[1]).toMatchObject({ hostLabel: "Mac Studio", workspace: "proof" });
     expect(result.count).toBe(2);
+  });
+
+  test("a session shared with you asks you as a contributor, and only shows as a commenter", () => {
+    const seed = [
+      { session: sessionWith("s", { state: "needs-you" }), pending: [request("r", "s", at)] },
+    ];
+
+    const shared = (watching: ReadonlySet<string>) =>
+      buildInbox({
+        hosts: [host("local", "Mac Studio"), host("shared-abc", "Octocat's Mac Studio")],
+        models: { local: hostModel([]), "shared-abc": hostModel(seed) },
+        now,
+        answeredHere: new Set(),
+        watching,
+      });
+
+    const contributor = shared(new Set());
+    const commenter = shared(new Set([inboxKey("shared-abc", "s")]));
+
+    expect([contributor.waiting.map((w) => w.hostLabel), contributor.count]).toEqual([
+      ["Octocat's Mac Studio"],
+      1,
+    ]);
+    expect([commenter.waiting, commenter.count]).toEqual([[], 0]);
   });
 
   test("the same session id on two Hosts is two sessions", () => {
@@ -134,6 +161,43 @@ describe("Needs You inbox", () => {
       inbox({ local: resolve("Mac mini", new Date(now - ANSWERED_FOR_MS - 1).toISOString()) })
         .answered
     ).toEqual([]);
+  });
+
+  test("a Teammate's answer names them; a device's names the device", () => {
+    const pending = request("r1", "a", minutes(59));
+
+    const base = hostModel([
+      { session: sessionWith("a", { state: "needs-you" }), pending: [pending] },
+    ]);
+
+    const maya = Actor.cases.Teammate.make({
+      shareId: ShareId.make("share-maya"),
+      personId: PersonId.make("person-maya"),
+      name: "Maya Chen",
+    });
+
+    const answered = (resolvedBy: string, actor: Actor | null) =>
+      inbox({
+        local: applyHostItems(base, [
+          H.Event.make({
+            envelope: new EventEnvelope({
+              sequence: seq(2),
+              occurredAt: minutes(59.5),
+              commandId: null,
+              event: E.ApprovalResolved.make({
+                sessionId: SessionId.make("a"),
+                requestId: RequestId.make("r1"),
+                decision: ApprovalDecision.cases.Allow.make({ remember: false }),
+                resolvedBy,
+                actor,
+              }),
+            }),
+          }),
+        ]),
+      }).answered.map((a) => answeredLine(a.resolution));
+
+    expect(answered("Maya Chen", maya)).toEqual(["Approved by Maya Chen"]);
+    expect(answered("Lucas's iPhone", null)).toEqual(["Approved on Lucas's iPhone"]);
   });
 
   test("the summary for the main process lists waiting and interrupted sessions", () => {

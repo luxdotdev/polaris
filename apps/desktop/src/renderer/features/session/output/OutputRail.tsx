@@ -34,7 +34,8 @@ import { pickBrowser } from "./browser.ts";
 import { pickSimulator } from "./simulator.ts";
 import { useSimulatorTab } from "../ui/SimulatorOutput.tsx";
 import { useHostSimulators, useSimulatorUi } from "../../simulator/index.ts";
-import { type GitFacts, useGitFacts } from "./gitStatus.ts";
+import { branchLine, type GitFacts, useGitFacts } from "./gitStatus.ts";
+import { useOnSharedHost } from "../../sharing/index.ts";
 import { RAIL_WIDTH } from "./layout.ts";
 import { useSettings } from "../../settings/index.ts";
 import { useFilesTick } from "./watch.ts";
@@ -85,12 +86,6 @@ const Fact = ({
 );
 
 export const showHint = () => commandShortcut("view.output");
-
-const branchText = (git: GitFacts) => {
-  if (git.kind === "ready") return git.branch ?? "detached HEAD";
-
-  return git.kind === "none" ? "Not a git repository" : "";
-};
 
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
@@ -188,6 +183,7 @@ export const OutputRail = ({ hostKey, sessionId }: SessionViewProps) => {
   const cwd = model.session?.cwd ?? null;
   const tick = useFilesTick(hostKey, cwd);
   const git = useGitFacts(hostKey, cwd, tick);
+  const branch = branchLine(git, useOnSharedHost(hostKey));
   const latest = model.turns.at(-1) ?? null;
   const turnId = useLiveTurn(model);
   const edits = latest?.items.some((i) => Predicate.isTagged(i, "FileChange")) ?? false;
@@ -243,18 +239,20 @@ export const OutputRail = ({ hostKey, sessionId }: SessionViewProps) => {
             </span>
           </Fact>
         )}
-        <Fact icon={<BranchIcon size={14} />}>
-          <span
-            className={cn(
-              "truncate",
-              git.kind === "ready"
-                ? "text-code-inline text-text-default font-mono"
-                : "text-caption text-text-subtle"
-            )}
-          >
-            {branchText(git)}
-          </span>
-        </Fact>
+        {branch === null ? null : (
+          <Fact icon={<BranchIcon size={14} />}>
+            <span
+              className={cn(
+                "truncate",
+                git.kind === "ready"
+                  ? "text-code-inline text-text-default font-mono"
+                  : "text-caption text-text-subtle"
+              )}
+            >
+              {branch}
+            </span>
+          </Fact>
+        )}
         {git.kind === "ready" ? (
           <button
             type="button"

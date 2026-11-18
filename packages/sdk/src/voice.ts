@@ -32,6 +32,8 @@ export const transcribeOn = <E>(
           interimText,
           finished,
         })),
+        // An Extension's or Linked Device's own gate decides; the user gate never refuses one.
+        Stream.catchTag("UserAccessRequired", (refused) => Stream.die(refused)),
         Stream.catchTag("RpcClientError", (error) =>
           Stream.fail(new HostUnreachable({ hostId: link.entry.hostId, detail: error.message }))
         )
