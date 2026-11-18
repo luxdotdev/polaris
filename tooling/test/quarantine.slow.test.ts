@@ -19,6 +19,9 @@ describe("outer", () => {
     test.todo("later");
     test.skipIf(true)("skipped if", () => expect("ran skipped if").toBe("passes"));
     describe.skipIf(true)("skipped group", () => test("inside", () => expect(1).toBe(1)));
+    test.skipIf(true).each([1])("skipped row %p", () => expect("ran row").toBe("passes"));
+    test.if(true).each([1])("kept row %p", () => expect(1).toBe(1));
+    describe.skipIf(true).each([1])("skipped rows %p", () => test("in", () => expect(1).toBe(1)));
   });
   test.each([1, 2])("row %p", () => expect("ran rows").toBe("passes"));
 });
@@ -102,6 +105,9 @@ describe("the required lane", () => {
     expect(output).toContain("(todo) outer > inner > later");
     expect(output).toContain("(skip) outer > inner > skipped if");
     expect(output).toContain("(skip) outer > inner > skipped group > inside");
+    expect(output).toContain("(skip) outer > inner > skipped row 1");
+    expect(output).toContain("(pass) outer > inner > kept row 1");
+    expect(output).toContain("(skip) outer > inner > skipped rows 1 > in");
     // The twin has the same name in another file, and still runs (and fails).
     expect(output).toContain('"ran twin"');
     expect(code).toBe(1);

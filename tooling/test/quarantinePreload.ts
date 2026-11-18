@@ -70,14 +70,27 @@ const decide = (label: string, run: () => void, skip: () => void): void => {
   skip();
 };
 
-const wrapTest =
+/** `base.each`, read only when a test calls it: `skipIf(true)` hands back `test.skip`. */
+const eachTest =
   (base: typeof test) =>
-  (label: string, fn: Body, options?: Options): void =>
+  (table: Array<Cell>) =>
+  (label: string, fn: EachBody, options?: Options): void =>
     decide(
       label,
-      () => base(label, fn, options),
-      () => test.skip(label, fn, options)
+      () => base.each(table)(label, fn, options),
+      () => test.skip.each(table)(label, fn, options)
     );
+
+const wrapTest = (base: typeof test) =>
+  Object.assign(
+    (label: string, fn: Body, options?: Options): void =>
+      decide(
+        label,
+        () => base(label, fn, options),
+        () => test.skip(label, fn, options)
+      ),
+    { each: eachTest(base) }
+  );
 
 /**
  * Bun's modifiers aren't own properties, so they're named here, on the root only: `.skip` of
@@ -89,14 +102,6 @@ const wrappedTest = Object.assign(wrapTest(test), {
   failing: test.failing,
   concurrent: test.concurrent,
   todoIf: (condition: boolean) => test.todoIf(condition),
-  each:
-    (table: Array<Cell>) =>
-    (label: string, fn: EachBody, options?: Options): void =>
-      decide(
-        label,
-        () => test.each(table)(label, fn, options),
-        () => test.skip.each(table)(label, fn, options)
-      ),
   if: (condition: boolean) => wrapTest(test.if(condition)),
   skipIf: (condition: boolean) => wrapTest(test.skipIf(condition)),
 });
@@ -119,15 +124,16 @@ const within = <Row extends ReadonlyArray<Cell>>(
   };
 };
 
-const wrapDescribe = (base: typeof describe) => (label: Label, fn: () => void) =>
-  base(label, within(label, fn));
+const wrapDescribe = (base: typeof describe) =>
+  Object.assign((label: Label, fn: () => void) => base(label, within(label, fn)), {
+    each: (table: Array<Cell>) => (label: Label, fn: Group) =>
+      base.each(table)(label, within(label, fn)),
+  });
 
 const wrappedDescribe = Object.assign(wrapDescribe(describe), {
   skip: describe.skip,
   todo: describe.todo,
   todoIf: (condition: boolean) => describe.todoIf(condition),
-  each: (table: Array<Cell>) => (label: Label, fn: Group) =>
-    describe.each(table)(label, within(label, fn)),
   if: (condition: boolean) => wrapDescribe(describe.if(condition)),
   skipIf: (condition: boolean) => wrapDescribe(describe.skipIf(condition)),
 });
