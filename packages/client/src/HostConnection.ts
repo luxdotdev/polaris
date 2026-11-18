@@ -85,6 +85,11 @@ export type HostTarget = Data.TaggedEnum<{
     readonly hostAddress: RelayAddress;
     /** The Host's Noise static public key, base64url. */
     readonly hostNoiseKey: string;
+    /**
+     * Another person's Host: the Account this connection acts as, named in the handshake so
+     * the Host tells one device's Accounts apart (ADR 0112). Absent on the user's own Hosts.
+     */
+    readonly teammate?: { readonly issuer: string; readonly personId: string };
   };
 }>;
 

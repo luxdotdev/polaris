@@ -45,6 +45,7 @@ import {
   handshake,
   link,
   makeDevice,
+  sessionMux,
   sessionTransport,
   startRelay,
   type TestDevice,
@@ -333,6 +334,52 @@ test("a linked device reaches the Daemon with Client power and is recorded as th
         // And the key no longer opens a session.
         expect(yield* openSession(status, phone, phone.noise, 1)).toBeNull();
         open.socket.close();
+      })
+    )
+  );
+}, 30_000);
+
+test("a Linked Device keeps one session: a new handshake from it ends the one before", async () => {
+  await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const scope = yield* Effect.scope;
+        const desktop = yield* daemon(scope);
+        yield* desktop["relayRoute.enable"]({});
+        const status = yield* waitConnected(desktop);
+        const phone = yield* Effect.promise(makeDevice);
+        yield* linkDevice(desktop, phone, "Test iPhone");
+
+        const socket = yield* Effect.promise(() => DeviceSocket.connect(relay.url, phone.identity));
+        const mux = sessionMux(socket, status.hostAddress);
+
+        // Both sessions share the device's socket, so only the Daemon can end the first.
+        const open = Effect.gen(function* () {
+          const transport = yield* Effect.promise(() =>
+            mux.open(key(status.hostNoiseKey), phone.noise)
+          );
+
+          if (transport === null) throw new Error("the linked device was refused");
+          const connection = yield* connectRpcWith(ExtensionDaemonRpcs, transport);
+          yield* connection.client.hello(hello);
+
+          return connection.client;
+        });
+
+        const answers = (client: Effect.Success<typeof open>) =>
+          client["devices.list"]().pipe(
+            Effect.timeoutOption("1 second"),
+            Effect.map(Option.isSome),
+            Effect.catch(() => Effect.succeed(false))
+          );
+
+        const first = yield* open;
+        expect(yield* answers(first)).toBe(true);
+
+        const second = yield* open;
+        expect(yield* answers(second)).toBe(true);
+        expect(yield* answers(first)).toBe(false);
+        socket.close();
       })
     )
   );

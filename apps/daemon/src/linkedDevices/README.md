@@ -21,7 +21,9 @@ Client power, once its Noise key is linked here (ADR 0083). The relay's contract
 
 - A handshake init is answered only when `admit` accepts it: its proven Noise key is a linked
   device's **and** it came from the relay address stored with that key, or it came from an
-  open link's address and its payload carries a valid link proof. Anything else gets no reply.
+  open link's address and its payload carries a valid link proof. Anything else gets no reply,
+  unless `RelayGuests` (a Teammate's device, `../shares/`) admits the key, the address and the
+  init's payload.
 - An accepted device gets a new connection on the same RPC server as the Unix socket, as a
   token-less Client annotated with `ConnectionDevice`; ADR 0078's token-less rule never grants
   anything on this route by itself.
@@ -66,7 +68,8 @@ The route is off by default and costs nothing then: no socket, no timers, keys n
 When on, the Daemon holds one WebSocket. Idle, it sends nothing: the relay pings and Bun
 answers. A reconnect timer exists only while disconnected; a link's expiry timer only while
 it is open. Sessions end with the socket, on `presence {online: false}`, on unlink and when
-the same device handshakes again.
+the same device handshakes again. A Linked Device has one session; a guest has one for each
+identity it connects as, and a new handshake replaces only that identity's session.
 
 ## libsodium in the compiled Daemon
 

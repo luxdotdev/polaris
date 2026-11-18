@@ -8,6 +8,7 @@ import {
   Actor,
   type ConstellationId,
   type CreateShare,
+  decodeTeammateInit,
   isShareLive,
   NotFound,
   type SessionId,
@@ -81,6 +82,21 @@ const MAX_TIMER_MS = 2 ** 31 - 1;
 const refused = (reason: ShareRefused["reason"]) => new ShareRefused({ reason });
 
 const rejected = (reason: StatementRejected["reason"]) => new StatementRejected({ reason });
+
+/** The issuer of a connection whose device key has several persons and named none of them. */
+const UNNAMED = { issuer: "" } as const;
+
+const named = (device: TeammateDevice) => device.issuer !== UNNAMED.issuer;
+
+const sameIdentity = (a: TeammateDevice) => (b: TeammateDevice) =>
+  a.issuer === b.issuer && a.personId === b.personId;
+
+/** A guest's session slot on the Relay route: the device key and who it connected as. */
+const guestIdOf = (device: TeammateDevice) =>
+  `${device.noiseKey} ${device.personId} ${device.issuer}`;
+
+/** The device key a guest ID starts with (base64url, so it holds no space). */
+const noiseKeyOf = (guestId: string) => guestId.slice(0, Math.max(0, guestId.indexOf(" ")));
 
 const sameTarget = (a: ShareTarget, b: ShareTarget) =>
   ShareTarget.match(a, {
@@ -341,8 +357,7 @@ const makeShares = Effect.fn("makeShares")(function* (options: SharesOptions) {
       const listing = listingOf(held.device);
       const lost = [...held.shares].some((id) => !listing.has(id));
 
-      if (lost || table.find(held.device.relayAddress, held.device.noiseKey) === null)
-        session.end();
+      if (lost || !vouchedFor(held.device)) session.end();
       else held.shares = listing;
     }
   };
@@ -363,16 +378,48 @@ const makeShares = Effect.fn("makeShares")(function* (options: SharesOptions) {
     arm();
   }
 
-  const admissible = (source: TeammateDevice["relayAddress"], noiseKey: string) => {
-    const device = table.find(source, noiseKey);
+  /** The persons a device key at an address may connect as: each with a live Share listing it. */
+  const identitiesOf = (source: TeammateDevice["relayAddress"], noiseKey: string) =>
+    table.identities(source, noiseKey).filter((device) => sharesOf(device).length > 0);
 
-    return device !== null && sharesOf(device).length > 0 ? device : null;
+  const vouchedFor = (device: TeammateDevice) =>
+    table.identities(device.relayAddress, device.noiseKey).some(sameIdentity(device));
+
+  /**
+   * Who a handshake is admitted as. The init's claim must be one of the key's persons; a key
+   * that names nobody is its only person, or nobody yet when it has several.
+   */
+  const admissible = (
+    source: TeammateDevice["relayAddress"],
+    noiseKey: string,
+    payload: Uint8Array
+  ): TeammateDevice | null => {
+    const held = identitiesOf(source, noiseKey);
+    const [first, ...others] = held;
+
+    if (first === undefined) return null;
+
+    return Option.match(decodeTeammateInit(payload), {
+      onSome: (claim) =>
+        held.find((d) => d.issuer === claim.issuer && d.personId === claim.personId) ?? null,
+      onNone: () => (others.length === 0 ? first : { ...first, ...UNNAMED }),
+    });
+  };
+
+  /** The device an admitted handshake's guest ID stands for, as it is listed now. */
+  const guestOf = (source: TeammateDevice["relayAddress"], guestId: string) => {
+    const held = table
+      .identities(source, noiseKeyOf(guestId))
+      .flatMap((device) => [device, { ...device, ...UNNAMED }]);
+
+    return held.find((device) => guestIdOf(device) === guestId) ?? null;
   };
 
   const serve = (session: DeviceSession, guestId: string) => {
-    const device = admissible(session.peer, guestId);
+    const device = guestOf(session.peer, guestId);
 
-    if (device === null) {
+    // The Share may have ended between the handshake and here.
+    if (device === null || (named(device) && sharesOf(device).length === 0)) {
       session.end();
 
       return;
@@ -399,6 +446,8 @@ const makeShares = Effect.fn("makeShares")(function* (options: SharesOptions) {
 
   const standing = (device: TeammateDevice) =>
     Effect.suspend(() => {
+      // A key with several persons that named none: no statement may choose one afterwards.
+      if (!named(device)) return Effect.fail(rejected("person"));
       const mine = sharesOf(device);
       const expiresAt = table.expiryOf(device);
 
@@ -589,6 +638,7 @@ const makeShares = Effect.fn("makeShares")(function* (options: SharesOptions) {
     standing,
     present: (device, statement) =>
       Effect.gen(function* () {
+        if (!named(device)) return yield* rejected("person");
         const verified = yield* verifier.verify(device.issuer, Redacted.value(statement));
 
         if (verified.noiseKey !== device.noiseKey) return yield* rejected("device");
@@ -603,7 +653,11 @@ const makeShares = Effect.fn("makeShares")(function* (options: SharesOptions) {
     every: Effect.sync(() => [...shares.values()].map(({ share }) => share)),
     guests: {
       peers: table.peers,
-      admit: (source, noiseKey) => (admissible(source, noiseKey) === null ? null : noiseKey),
+      admit: (source, noiseKey, payload) => {
+        const device = admissible(source, noiseKey, payload);
+
+        return device === null ? null : guestIdOf(device);
+      },
       serve,
       ended: (session) => {
         sessions.delete(session);

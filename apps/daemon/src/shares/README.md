@@ -38,9 +38,16 @@ The contract with the Account Server is `apps/accounts/README.md`; the wire cont
 3. The devices it kept are the Relay route's guests: listed as relay `peers`, and a Noise
    handshake is answered only for a kept key from the address the issuer listed it at. Any
    other handshake gets no reply. The first session of a device is logged `DeviceAdded`.
-4. The connection acts as a Teammate. The Share gate scopes every request (below). `hello`
-   answers the person's live Shares, and may present a statement; `account.refreshStatement`
-   presents a newer one.
+   One device may be signed in to several Accounts, so a key may be kept for several persons:
+   the handshake's init payload (`TeammateInit`, encrypted to the Host) names the issuer and
+   person it connects as, and is answered only if a live Share lists that key for that person.
+   Each identity has its own session; one never replaces another's.
+4. The connection acts as that Teammate and no other. The Share gate scopes every request
+   (below). `hello` answers the person's live Shares, and may present a statement;
+   `account.refreshStatement` presents a newer one. A statement from another issuer or for
+   another person is refused and the connection closed.
+   A Client that names nobody is the key's person when it has exactly one. With several it is
+   answered, so it can be told why, and every `hello` is refused (`person`).
 5. The connection ends, and the device is refused, when the Share is revoked (before
    `shares.revoke` answers), when it expires, when the device's statement lapses with no
    newer one from the poll or the device, or when the issuer no longer lists the device.

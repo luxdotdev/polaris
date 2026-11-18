@@ -3,7 +3,12 @@
  * Host. Sockets open on first use and stay open, so presence is known when the
  * Connection State reconnects; `close` ends them all (e.g. when the app goes away).
  */
-import { type ByteTransport, TransportError } from "@polaris/protocol";
+import {
+  type ByteTransport,
+  encodeTeammateInit,
+  PersonId,
+  TransportError,
+} from "@polaris/protocol";
 import {
   fromBase64Url,
   type RelayAddress,
@@ -33,7 +38,10 @@ export interface LinkedHost {
 }
 
 /** Where a Host is reached through a relay: all a session needs, all public. */
-export type RelayHostAddress = Pick<LinkedHost, "relayUrl" | "hostAddress" | "hostNoiseKey">;
+export type RelayHostAddress = Pick<LinkedHost, "relayUrl" | "hostAddress" | "hostNoiseKey"> & {
+  /** Who the session acts as on another person's Host; sent encrypted in the handshake. */
+  readonly teammate?: { readonly issuer: string; readonly personId: string } | undefined;
+};
 
 /** The device's two secrets: what the Keychain keeps. */
 export interface DeviceSecrets {
@@ -128,7 +136,13 @@ export const makeRelayDevice = (
         return relaySessionTransport(
           socketFor(host.relayUrl),
           { address: host.hostAddress, noiseKey },
-          keys.noise
+          keys.noise,
+          host.teammate === undefined
+            ? undefined
+            : encodeTeammateInit({
+                issuer: host.teammate.issuer,
+                personId: PersonId.make(host.teammate.personId),
+              })
         );
       }),
     close: () => {

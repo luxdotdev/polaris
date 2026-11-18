@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
   Actor,
   ConstellationId,
+  encodeTeammateInit,
   InviteId,
   type NotFound,
   PersonId,
@@ -23,7 +24,7 @@ import { Effect, Layer, Redacted, Schema } from "effect";
 import { DeviceSession } from "../linkedDevices/session.ts";
 import { tempDir } from "../platform/tempDir.testing.ts";
 import { HostSecrets } from "../secrets/index.ts";
-import { TeammateConnections } from "./connection.ts";
+import { TeammateConnections, type TeammateDevice } from "./connection.ts";
 import {
   type FakeDevice,
   type FakeIssuer,
@@ -71,8 +72,16 @@ const device = (statement?: StatementOptions): FakeDevice => ({
   statement,
 });
 
-/** Runs `program` on a Host whose Shares live under `root` and ask `server` in process. */
-const onHost = <A, E>(root: string, server: FakeIssuer, program: Effect.Effect<A, E, Shares>) =>
+/**
+ * Runs `program` on a Host whose Shares live under `root` and ask `server` in process; each
+ * Teammate it serves a connection for is added to `served`.
+ */
+const onHost = <A, E>(
+  root: string,
+  server: FakeIssuer,
+  program: Effect.Effect<A, E, Shares>,
+  served: Array<TeammateDevice> = []
+) =>
   Effect.runPromise(
     Effect.gen(function* () {
       const shares = yield* Shares;
@@ -104,7 +113,12 @@ const onHost = <A, E>(root: string, server: FakeIssuer, program: Effect.Effect<A
             Layer.mergeAll(
               ShareStore.layer(join(root, "shares.sqlite")),
               HostSecrets.memory(),
-              Layer.succeed(TeammateConnections)({ serve: () => Effect.void })
+              Layer.succeed(TeammateConnections)({
+                serve: (_session, teammate) =>
+                  Effect.sync(() => {
+                    served.push(teammate);
+                  }),
+              })
             )
           )
         )
@@ -135,12 +149,18 @@ const until = (probe: () => boolean, what: string) =>
     return yield* Effect.die(new Error(`timed out waiting for ${what}`));
   });
 
+/** A handshake whose init names nobody, as a Client before ENG-941's two Accounts sends. */
+const NO_PAYLOAD = new Uint8Array();
+
 const admits = (listed: FakeDevice) =>
   Effect.map(
     Shares,
     (shares) =>
-      shares.guests.admit(Schema.decodeSync(RelayAddress)(listed.relayAddress), listed.noiseKey) !==
-      null
+      shares.guests.admit(
+        Schema.decodeSync(RelayAddress)(listed.relayAddress),
+        listed.noiseKey,
+        NO_PAYLOAD
+      ) !== null
   );
 
 /** "accepted", a refusal's reason, or what a NotFound did not find. */
@@ -166,7 +186,10 @@ const withSession = () => {
       }
     );
 
-    shares.guests.serve(served, listed.noiseKey);
+    const guestId = shares.guests.admit(served.peer, listed.noiseKey, NO_PAYLOAD);
+
+    if (guestId === null) throw new Error("the device was not admitted");
+    shares.guests.serve(served, guestId);
 
     return served;
   };
@@ -203,7 +226,7 @@ test("a live Share lists and admits the device its issuer vouches for, and logs 
       expect(shares.guests.peers()).toEqual([Schema.decodeSync(RelayAddress)(phone.relayAddress)]);
       expect(yield* admits(phone)).toBe(true);
       // The key is admitted only from the address the issuer listed it at.
-      expect(shares.guests.admit(address(), phone.noiseKey)).toBeNull();
+      expect(shares.guests.admit(address(), phone.noiseKey, NO_PAYLOAD)).toBeNull();
 
       const [listing] = yield* shares.list(null);
 
@@ -214,6 +237,129 @@ test("a live Share lists and admits the device its issuer vouches for, and logs 
         commitEmail: "octocat@github.test",
       });
     })
+  );
+});
+
+test("a device key under two persons is admitted as the one its handshake names, and each statement reaches only its own person's Shares", async () => {
+  const server = await issuer();
+  const WORK = PersonId.make("p-work");
+  const WORK_INVITE = InviteId.make("inv_work");
+  const phone = device();
+  const at = Schema.decodeSync(RelayAddress)(phone.relayAddress);
+  server.invite(WORK_INVITE, CAPABILITY);
+
+  await onHost(
+    tempDir("pl-shares-"),
+    server,
+    Effect.gen(function* () {
+      const shares = yield* Shares;
+      const personal = yield* shares.create(invite(server), OWNER);
+
+      const work = yield* shares.create(
+        invite(server, {
+          personId: WORK,
+          inviteId: WORK_INVITE,
+          target: ShareTarget.cases.Constellation.make({
+            constellationId: ConstellationId.make("c1"),
+          }),
+        }),
+        OWNER
+      );
+
+      // One device, signed in to both Accounts: the same key and address under each person.
+      server.list(INVITE, [phone]);
+      server.list(WORK_INVITE, [{ ...phone, personId: WORK }]);
+
+      const as = (personId: PersonId, issuer = server.issuer) =>
+        shares.guests.admit(at, phone.noiseKey, encodeTeammateInit({ issuer, personId }));
+
+      yield* until(() => as(PERSON) !== null && as(WORK) !== null, "both persons to be listed");
+
+      // Each named person has its own guest; a person or issuer the key isn't listed for has none.
+      expect(as(PERSON)).not.toBe(as(WORK));
+      expect(as(PersonId.make("p-other"))).toBeNull();
+      expect(as(PERSON, "https://other.test")).toBeNull();
+
+      const device = (personId: PersonId) => ({
+        issuer: server.issuer,
+        personId,
+        noiseKey: phone.noiseKey,
+        relayAddress: at,
+      });
+
+      const statementOf = (personId: PersonId) =>
+        Effect.map(
+          Effect.promise(() => server.statement(personId, phone.noiseKey)),
+          Redacted.make
+        );
+
+      const reached = (connection: PersonId, statement: PersonId) =>
+        Effect.flatMap(statementOf(statement), (presented) =>
+          shares.present(device(connection), presented).pipe(
+            Effect.map((standing) => standing.shares.map((share) => share.id)),
+            Effect.catch((error) => Effect.succeed(error.reason))
+          )
+        );
+
+      expect(yield* reached(PERSON, PERSON)).toEqual([personal.id]);
+      expect(yield* reached(WORK, WORK)).toEqual([work.id]);
+      expect(yield* reached(PERSON, WORK)).toBe("person");
+      expect(yield* reached(WORK, PERSON)).toBe("person");
+      expect(shares.sharesOf(device(PERSON)).map((share) => share.id)).toEqual([personal.id]);
+      expect(shares.sharesOf(device(WORK)).map((share) => share.id)).toEqual([work.id]);
+    })
+  );
+});
+
+test("a handshake that names nobody on a key with two persons is admitted as neither, whatever statement it presents", async () => {
+  const server = await issuer();
+  const WORK = PersonId.make("p-work");
+  const WORK_INVITE = InviteId.make("inv_work");
+  const { listed: phone, serve } = withSession();
+  server.invite(WORK_INVITE, CAPABILITY);
+
+  const served: Array<TeammateDevice> = [];
+
+  await onHost(
+    tempDir("pl-shares-"),
+    server,
+    Effect.gen(function* () {
+      const shares = yield* Shares;
+      yield* shares.create(invite(server), OWNER);
+      yield* shares.create(invite(server, { personId: WORK, inviteId: WORK_INVITE }), OWNER);
+      server.list(INVITE, [phone]);
+      yield* until(() => shares.guests.peers().length === 1, "the first person to be listed");
+
+      // Under one person the key is that person, as before.
+      serve(shares);
+      expect(served.map((device) => device.personId)).toEqual([PERSON]);
+
+      server.list(WORK_INVITE, [{ ...phone, personId: WORK }]);
+
+      const named = () =>
+        shares.guests.admit(
+          Schema.decodeSync(RelayAddress)(phone.relayAddress),
+          phone.noiseKey,
+          encodeTeammateInit({ issuer: server.issuer, personId: WORK })
+        );
+
+      yield* until(() => named() !== null, "the second person to be listed");
+      serve(shares);
+
+      const unnamed = served.at(-1);
+
+      if (unnamed === undefined || served.length !== 2) throw new Error("no second session");
+
+      expect(shares.sharesOf(unnamed)).toEqual([]);
+      expect(yield* refusalOf(shares.standing(unnamed))).toBe("person");
+
+      for (const personId of [PERSON, WORK]) {
+        const statement = yield* Effect.promise(() => server.statement(personId, phone.noiseKey));
+
+        expect(yield* refusalOf(shares.present(unnamed, Redacted.make(statement)))).toBe("person");
+      }
+    }),
+    served
   );
 });
 

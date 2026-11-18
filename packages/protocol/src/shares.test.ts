@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Schema } from "effect";
+import { Option, Schema } from "effect";
 import { CommentAnchor, Comment, commentsPrompt, mayResolveComment } from "./comments.ts";
 import { Command } from "./commands.ts";
 import { ConstellationId } from "./constellation/domain.ts";
@@ -9,6 +9,8 @@ import { CommentId, PersonId, SessionId, ShareId, TurnId } from "./ids.ts";
 import { FeedbackBatch } from "./review.ts";
 import { decideShareAccess, SHARE_RPCS, TeammateRpcs } from "./shareGrants.ts";
 import {
+  decodeTeammateInit,
+  encodeTeammateInit,
   NotShared,
   Share,
   SHARE_ROLE_GRANTS,
@@ -16,6 +18,7 @@ import {
   SharePerson,
   type ShareRole,
   ShareTarget,
+  TEAMMATE_INIT_MAX_BYTES,
 } from "./shares.ts";
 
 const NOW = Date.parse("2026-11-16T12:00:00.000Z");
@@ -296,5 +299,25 @@ describe("Comments", () => {
         "From a message (comment by the owner)\n```\nI used a mutex\n```\nagreed",
       ].join("\n\n")
     );
+  });
+});
+
+describe("a Teammate's init payload", () => {
+  const identity = { issuer: "https://accounts.example", personId: PersonId.make("p1") };
+
+  test("names nobody when it is empty, oversized or not this payload", () => {
+    const named = encodeTeammateInit(identity);
+    const padded = new Uint8Array(TEAMMATE_INIT_MAX_BYTES + 1).fill(0x20);
+    padded.set(named);
+
+    const read = [
+      named,
+      new Uint8Array(),
+      padded,
+      new TextEncoder().encode('{"v":2,"issuer":"https://accounts.example","personId":"p1"}'),
+      new TextEncoder().encode('{"v":1,"address":"a","name":"n","proof":"p"}'),
+    ].map((payload) => Option.getOrNull(decodeTeammateInit(payload)));
+
+    expect(read).toEqual([{ v: 1, ...identity }, null, null, null, null]);
   });
 });

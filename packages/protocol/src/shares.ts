@@ -4,7 +4,7 @@
  * a Teammate's `hello` presents, and the RPCs the owner manages Shares with. What a Share's
  * Teammate may call is in `shareGrants.ts`. Capability `shares`.
  */
-import { Schema } from "effect";
+import { Option, Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
 import { ConstellationId } from "./constellation/domain.ts";
 import { NotFound, Unsupported } from "./errors.ts";
@@ -133,6 +133,38 @@ export class StatementClaims extends Schema.Class<StatementClaims>("StatementCla
   avatarUrl: Schema.NullOr(Schema.String),
   commitEmail: Schema.NullOr(Schema.String),
 }) {}
+
+/**
+ * Who a Teammate's connection acts as, sent as the payload of its Noise init (encrypted to the
+ * Host; the relay never reads it). A claim only: the Host answers when that device key is listed
+ * for that person on a live Share, and the statement in `hello` must name the same person.
+ */
+export const TeammateInit = Schema.Struct({
+  v: Schema.Literal(1),
+  /** The Account Server's origin. */
+  issuer: Schema.String,
+  personId: PersonId,
+});
+
+export type TeammateInit = typeof TeammateInit.Type;
+
+const teammateInitJson = Schema.fromJsonString(TeammateInit);
+
+const encodeTeammateInitJson = Schema.encodeSync(teammateInitJson);
+
+const decodeTeammateInitJson = Schema.decodeUnknownOption(teammateInitJson);
+
+/** The most a Teammate's init payload may weigh. */
+export const TEAMMATE_INIT_MAX_BYTES = 1024;
+
+export const encodeTeammateInit = (identity: Omit<TeammateInit, "v">): Uint8Array =>
+  new TextEncoder().encode(encodeTeammateInitJson({ v: 1, ...identity }));
+
+/** None for an empty, oversized or unreadable payload: the device named nobody. */
+export const decodeTeammateInit = (payload: Uint8Array): Option.Option<TeammateInit> =>
+  payload.byteLength === 0 || payload.byteLength > TEAMMATE_INIT_MAX_BYTES
+    ? Option.none()
+    : decodeTeammateInitJson(new TextDecoder().decode(payload));
 
 /** `hello` or `account.refreshStatement` with a statement the Host does not accept. */
 export class StatementRejected extends Schema.TaggedError<StatementRejected>()(
