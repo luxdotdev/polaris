@@ -112,6 +112,13 @@ reads and writes, every Host-wide call.
 - The issuer is pinned on the Share. Keys are fetched from `{issuer}/api/auth/jwks` only, over
   https (http only for an Account Server on this machine), cached, and refetched for an unknown
   `kid` at most every 30 seconds.
+- A cached JWKS is used for at most 15 minutes (`JWKS_MAX_AGE_MS`, a statement's lifetime), less
+  when its `Cache-Control` says so (never under 30 seconds; `no-store` and `no-cache` mean 30
+  seconds); the next verify past that refetches it, so a key the issuer removed stops being
+  trusted. Nothing refetches on a timer.
+- If that refetch fails, the cached keys stand for 5 more minutes (`JWKS_OUTAGE_GRACE_MS`),
+  retried at most every 30 seconds; past that the issuer's statements are refused as
+  `issuer-unreachable` until it answers again.
 - A statement never holds a connection for longer than `STATEMENT_LIFETIME_S`, whatever its
   `exp` says. It is refused before its `nbf`, with an `iat` ahead of the Host, or past its
   `exp`, each with 30 seconds of clock skew (`CLOCK_SKEW_MS`). Only `EdDSA` is accepted.

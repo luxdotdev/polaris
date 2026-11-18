@@ -5,7 +5,9 @@ import { type FakeIssuer, startFakeIssuer, type StatementOptions } from "./issue
 import {
   CLOCK_SKEW_MS,
   isIssuerUrl,
+  JWKS_MAX_AGE_MS,
   JWKS_MAX_BYTES,
+  JWKS_OUTAGE_GRACE_MS,
   JWKS_REFETCH_MS,
   statementVerifier,
 } from "./statement.ts";
@@ -134,6 +136,98 @@ test("a rotated key is found by refetching the JWKS, at most once per interval",
   expect(await reasonOf(verifier, rotating.issuer, rotated)).toBe("accepted");
   expect(rotating.jwksFetches()).toBe(2);
   rotating.stop();
+});
+
+const DAY_S = 24 * 3600;
+
+/** A verifier on a fake clock, whose issuer has accepted one statement signed by its first key. */
+const keyed = async () => {
+  const issuer = await startFakeIssuer();
+  const clock = { now: Date.now() };
+  const verifier = statementVerifier({ fetch: issuer.fetch, now: () => clock.now });
+  const old = await issuer.statement("p1", "k", { ttlS: DAY_S });
+
+  expect(await reasonOf(verifier, issuer.issuer, old)).toBe("accepted");
+
+  return { issuer, clock, verifier, old };
+};
+
+test("a key the issuer removed is refused once the JWKS passes its max age", async () => {
+  const { issuer, clock, verifier, old } = await keyed();
+  await issuer.rotate();
+  const rotated = await issuer.statement("p1", "k", { ttlS: DAY_S });
+
+  clock.now += JWKS_MAX_AGE_MS - 1;
+  expect(await reasonOf(verifier, issuer.issuer, old)).toBe("accepted");
+
+  clock.now += 2;
+  expect(await reasonOf(verifier, issuer.issuer, old)).toBe("signature");
+  expect(await reasonOf(verifier, issuer.issuer, rotated)).toBe("accepted");
+  expect(issuer.jwksFetches()).toBe(2);
+  issuer.stop();
+});
+
+test.each([
+  ["max-age=60", 60_000],
+  ["public, max-age=31536000", JWKS_MAX_AGE_MS],
+  ["no-store", JWKS_REFETCH_MS],
+])("a JWKS served with Cache-Control %s is fetched again after %p ms", async (header, ageMs) => {
+  const { issuer, clock, verifier, old } = await keyed();
+  issuer.jwksCacheControl = header;
+  clock.now += JWKS_MAX_AGE_MS + 1;
+  expect(await reasonOf(verifier, issuer.issuer, old)).toBe("accepted");
+  await issuer.rotate();
+
+  clock.now += ageMs - 1;
+  expect(await reasonOf(verifier, issuer.issuer, old)).toBe("accepted");
+
+  clock.now += 2;
+  expect(await reasonOf(verifier, issuer.issuer, old)).toBe("signature");
+  issuer.stop();
+});
+
+test("while the issuer is down a stale JWKS is used through the grace and no longer", async () => {
+  const { issuer, clock, verifier, old } = await keyed();
+  issuer.down = true;
+
+  clock.now += JWKS_MAX_AGE_MS + JWKS_OUTAGE_GRACE_MS - 1;
+  expect(await reasonOf(verifier, issuer.issuer, old)).toBe("accepted");
+
+  clock.now += 2;
+  expect(await reasonOf(verifier, issuer.issuer, old)).toBe("issuer-unreachable");
+
+  issuer.down = false;
+  clock.now += JWKS_REFETCH_MS;
+  expect(await reasonOf(verifier, issuer.issuer, old)).toBe("accepted");
+  issuer.stop();
+});
+
+test("a failed refetch is retried at most once per interval while the stale JWKS serves", async () => {
+  const issuer = await startFakeIssuer();
+  let now = Date.now();
+  let asked = 0;
+
+  const verifier = statementVerifier({
+    fetch: (input, init) => {
+      asked++;
+
+      return issuer.fetch(input, init);
+    },
+    now: () => now,
+  });
+
+  const old = await issuer.statement("p1", "k", { ttlS: DAY_S });
+  await reasonOf(verifier, issuer.issuer, old);
+  issuer.down = true;
+  now += JWKS_MAX_AGE_MS;
+
+  for (let i = 0; i < 5; i++) expect(await reasonOf(verifier, issuer.issuer, old)).toBe("accepted");
+  expect(asked).toBe(2);
+
+  now += JWKS_REFETCH_MS;
+  await reasonOf(verifier, issuer.issuer, old);
+  expect(asked).toBe(3);
+  issuer.stop();
 });
 
 test.each([
