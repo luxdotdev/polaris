@@ -247,7 +247,12 @@ const originsRepo = async () => {
     "export const computeTotal = (items: Array<number>) =>\n"
   );
   await git("add", "-A");
-  await git("commit", "-q", "-m", "Add computeTotal");
+  // Committed a minute after the Turn's checkpoint, as a user commits: an Origin is a Turn from before.
+  const later = new Date(Date.now() + 60_000).toISOString();
+
+  await gitText(repo, ["commit", "-q", "-m", "Add computeTotal"], {
+    env: { GIT_COMMITTER_DATE: later },
+  });
 
   return { repo, before, after: await head(), gitText };
 };
