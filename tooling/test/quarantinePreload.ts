@@ -74,7 +74,6 @@ const decide = (label: string, run: () => void, skip: () => void): void => {
 const testModifiers = (base: typeof test) => ({
   skip: base.skip,
   todo: base.todo,
-  only: base.only,
   failing: base.failing,
   concurrent: base.concurrent,
   todoIf: (condition: boolean) => base.todoIf(condition),
@@ -126,7 +125,6 @@ const wrapDescribe = (base: typeof describe) =>
   Object.assign((label: Label, fn: () => void) => base(label, within(label, fn)), {
     skip: base.skip,
     todo: base.todo,
-    only: base.only,
     todoIf: (condition: boolean) => base.todoIf(condition),
   });
 
