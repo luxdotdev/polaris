@@ -11,7 +11,7 @@ import {
   type Turn,
 } from "@polaris/protocol";
 import { Result } from "effect";
-import { patchTurn, type SessionRecord, workingTurn } from "../store/model.ts";
+import { patchQueuedTurn, patchTurn, type SessionRecord, workingTurn } from "../store/model.ts";
 import { queueOf } from "../store/queuedTurns.ts";
 import type { BarredTurn, SessionInput } from "./session.inputs.ts";
 import { type Context, type Enqueue, need, reject, settle } from "./session.settle.ts";
@@ -36,6 +36,25 @@ export const queuesTurn = (record: SessionRecord, input: SendInput): boolean =>
   (isPaused(record) && takesTurn(record)) ||
   (input.queue === true && workingTurn(record) !== undefined && QUEUES.has(record.session.state));
 
+/** `turn` as it waits: a `SendFeedback`'s batch and Comments go with it. */
+const waiting = (record: SessionRecord, turn: Turn, approves: boolean): QueuedTurn => {
+  const queued = new QueuedTurn({
+    id: turn.id,
+    sessionId: record.session.id,
+    prompt: turn.prompt,
+    attachments: turn.attachments,
+    actor: turn.actor ?? Actor.cases.Client.make({}),
+    queuedAt: turn.startedAt,
+    editedAt: null,
+    approves,
+    feedback: turn.feedback ?? null,
+  });
+
+  return turn.commentIds === undefined
+    ? queued
+    : patchQueuedTurn(queued, { commentIds: turn.commentIds });
+};
+
 /** The sent Turn joining the queue, or why it can't. The decider stamps who sent it. */
 export const queueTurn = (
   record: SessionRecord,
@@ -45,18 +64,7 @@ export const queueTurn = (
   queueOf(record).length >= QUEUE_LIMIT
     ? Result.fail(`the queue is full (${QUEUE_LIMIT} Turns); wait for one to start`)
     : Result.succeed([
-        DomainEvent.cases.TurnQueued.make({
-          turn: new QueuedTurn({
-            id: turn.id,
-            sessionId: record.session.id,
-            prompt: turn.prompt,
-            attachments: turn.attachments,
-            actor: turn.actor ?? Actor.cases.Client.make({}),
-            queuedAt: turn.startedAt,
-            editedAt: null,
-            approves,
-          }),
-        }),
+        DomainEvent.cases.TurnQueued.make({ turn: waiting(record, turn, approves) }),
       ]);
 
 const cancelledByHost = (queued: QueuedTurn, reason: string) =>
@@ -105,15 +113,18 @@ export const nextQueued = (
 
   if (head === undefined) return { cancelled, started: null };
 
-  const turn = patchTurn(
+  const sent = patchTurn(
     userTurn(record.session, {
       id: head.id,
       prompt: head.prompt,
       attachments: head.attachments,
       at,
     }),
-    { actor: head.actor }
+    { actor: head.actor, feedback: head.feedback ?? null }
   );
+
+  const turn =
+    head.commentIds === undefined ? sent : patchTurn(sent, { commentIds: head.commentIds });
 
   return { cancelled, started: DomainEvent.cases.TurnStarted.make({ turn, actor: head.actor }) };
 };

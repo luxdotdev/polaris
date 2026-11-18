@@ -5,7 +5,7 @@
  * Host-wide call stay the owner's and are never listed. Unlike `grants.ts` it is not
  * exhaustive: a new RPC or Command is refused to Teammates until someone lists it here.
  */
-import { Schema } from "effect";
+import { Predicate, Schema } from "effect";
 import { RpcGroup, RpcMiddleware } from "effect/rpc";
 import type { Command } from "./commands.ts";
 import type { ConstellationId } from "./constellation/domain.ts";
@@ -92,12 +92,30 @@ export const SHARE_COMMANDS = {
   SetModel: "contributor",
   SetPermissionMode: "contributor",
   RenameSession: "contributor",
+  /** Without `revertLaterTurns` only: a revert writes files (`teammateCommandRefusal`). */
   AcceptTurns: "contributor",
   AddComment: "comment",
   EditComment: "comment",
   ResolveComment: "comment",
   ReopenComment: "comment",
 } as const satisfies Partial<Record<Command["_tag"], Exclude<ShareAccess, "open">>>;
+
+/** Why a Teammate may not revert: it restores and deletes files in the owner's work tree. */
+export const REVERT_IS_THE_OWNERS =
+  "Only the owner can revert later turns. Accept without reverting them, or ask the owner.";
+
+/**
+ * The refusal of a Command a Teammate's Share otherwise allows, or null. `AcceptTurns` is a
+ * Contributor's only with `revertLaterTurns` false: file writes stay the owner's (ADR 0112).
+ */
+export const teammateCommandRefusal = (command: Command): NotGranted | null =>
+  Predicate.isTagged(command, "AcceptTurns") && command.revertLaterTurns
+    ? new NotGranted({
+        what: "dispatch:AcceptTurns",
+        needed: null,
+        reason: REVERT_IS_THE_OWNERS,
+      })
+    : null;
 
 /**
  * What a request touches, as the Host resolves it from the payload: its Agent Session,

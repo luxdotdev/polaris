@@ -44,7 +44,13 @@ import { replyPreview } from "./replyPreview.ts";
 import { replyText, userTurnAfter } from "./userTurns.ts";
 import { patchSession, patchTurn, type SessionPatch } from "./patch.ts";
 
-export { patchSession, patchTurn, type SessionPatch, type TurnPatch } from "./patch.ts";
+export {
+  patchQueuedTurn,
+  patchSession,
+  patchTurn,
+  type SessionPatch,
+  type TurnPatch,
+} from "./patch.ts";
 
 export interface SessionRecord {
   readonly session: AgentSession;

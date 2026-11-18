@@ -10,7 +10,7 @@ import {
   DomainEvent,
   EventEnvelope,
   HostStreamItem,
-  QueuedTurn,
+  type QueuedTurn,
   SessionStreamItem,
   type Turn,
   TurnDetail,
@@ -18,7 +18,7 @@ import {
 } from "@polaris/protocol";
 import { Predicate } from "effect";
 import { patchComment } from "../store/comments.ts";
-import { patchTurn } from "../store/patch.ts";
+import { patchQueuedTurn, patchTurn } from "../store/patch.ts";
 
 type Rewrite = (actor: Actor) => Actor;
 
@@ -34,18 +34,7 @@ const commentFor = (comment: Comment, rewrite: Rewrite): Comment => {
 const queuedFor = (queued: QueuedTurn, rewrite: Rewrite): QueuedTurn => {
   const actor = rewrite(queued.actor);
 
-  return actor === queued.actor
-    ? queued
-    : new QueuedTurn({
-        id: queued.id,
-        sessionId: queued.sessionId,
-        prompt: queued.prompt,
-        attachments: queued.attachments,
-        actor,
-        queuedAt: queued.queuedAt,
-        editedAt: queued.editedAt,
-        approves: queued.approves,
-      });
+  return actor === queued.actor ? queued : patchQueuedTurn(queued, { actor });
 };
 
 const turnFor = (turn: Turn, rewrite: Rewrite): Turn => {

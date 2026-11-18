@@ -72,15 +72,19 @@ export const actorFor = (actor: Actor, capabilities: ReadonlyArray<Capability>):
 export const EXTENSION_TOKEN_PREFIX = "pol_ext_";
 
 /**
- * An Extension asked for more than its Grant allows. `needed` names the missing
- * Grant; null when `what` is not available to Extensions at all.
+ * An Extension or a Teammate asked for more than its Grant allows. `needed` names the missing
+ * Grant; null when `what` is not available to Extensions at all, or when `reason` says why.
  */
 export class NotGranted extends Schema.TaggedError<NotGranted>()("NotGranted", {
   /** The RPC (`files.read`) or Command (`dispatch:SendTurn`) that was refused. */
   what: Schema.String,
   needed: Schema.NullOr(GrantKind),
+  /** Product copy for a refusal no Grant lifts: only the owner may (`teammateCommandRefusal`). */
+  reason: Schema.optionalKey(Schema.String),
 }) {
   override get message(): string {
+    if (this.reason !== undefined) return this.reason;
+
     return this.needed === null
       ? `${this.what} is not available to Extensions`
       : `${this.what} needs the ${this.needed} Grant`;

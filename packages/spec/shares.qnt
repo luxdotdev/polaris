@@ -19,6 +19,8 @@ module shares_model {
   const BUG_REMEMBER: bool
   /** Needs You goes to anyone a Share covers, whatever its Grant: a Commenter too. */
   const BUG_COMMENTERS: bool
+  /** A Contributor's `AcceptTurns` with `revertLaterTurns` writes the owner's files. */
+  const BUG_REVERT: bool
 
   /** The owner, on any of their own Clients; never gated by a Share. */
   pure val OWNER = 0
@@ -71,6 +73,8 @@ module shares_model {
     // Ghosts: who the last Needs You went to, and the session it was about.
     pushed: Set[int],
     pushedAbout: int,
+    // Ghost: who reverted later Turns, restoring files in the owner's work tree.
+    reverted: Set[int],
   }
   var s: State
 
@@ -122,7 +126,7 @@ module shares_model {
     now: 0, shares: Map(), statements: Map(), comments: Map(), turns: [],
     approvals: Map(), mutes: Set(),
     last: Nothing, request: { by: OWNER, session: 0, need: "" }, authored: Map(),
-    pushed: Set(), pushedAbout: 0,
+    pushed: Set(), pushedAbout: 0, reverted: Set(),
   }
 
   // ── shares.create: never a Worker's session, never past the maximum ──────
@@ -259,6 +263,23 @@ module shares_model {
     }
   }
 
+  // ── AcceptTurns: a Contributor's, but only the owner reverts (`teammateCommandRefusal`) ──
+  action acceptTurns(by: int, session: int, revert: bool): bool = {
+    val gate = decide(by, session, "contributor")
+    val ownersOnly = revert and by != OWNER and not(BUG_REVERT)
+    val outcome = if (gate != Allowed) gate else if (ownersOnly) NotGranted("owner") else Allowed
+    all {
+      present(by),
+      s' = {
+        ...s,
+        pushed: Set(),
+        reverted: if (outcome == Allowed and revert) s.reverted.union(Set(by)) else s.reverted,
+        last: outcome,
+        request: { by: by, session: session, need: "contributor" },
+      },
+    }
+  }
+
   // ── ApprovalRequested: the owner's pushes and the Contributors' (`push/notifier.ts` `fanOut`) ──
   action requestApproval(id: int, session: int): bool = all {
     not(s.approvals.keys().contains(id)),
@@ -333,6 +354,7 @@ module shares_model {
       sendFeedback(by, session, ids),
       requestApproval(approval, session),
       respond(by, approval, resolved),
+      acceptTurns(by, session, resolved),
       mute(by, target, resolved),
     }
   }
@@ -368,9 +390,11 @@ module shares_model {
   /** A Needs You reaches only the owner and Contributors, and nobody who muted its session. */
   val needsYouStaysInShare = s.pushed.forall(p =>
     (p == OWNER or approves(p, s.pushedAbout)) and not(muted(p, s.pushedAbout)))
+  /** Only the owner reverts later Turns: file writes stay the owner's (ADR 0112). */
+  val onlyTheOwnerReverts = s.reverted.forall(p => p == OWNER)
   val safety = all {
     teammatesStayInShare, connectionsAreVouched, sharesAreBounded, commentsKeepAuthor,
-    sentWithOneTurn, onlyTheOwnerRemembers, needsYouStaysInShare,
+    sentWithOneTurn, onlyTheOwnerRemembers, needsYouStaysInShare, onlyTheOwnerReverts,
   }
 
   val witnessOutside = s.last == NotShared and s.statements.keys().contains(s.request.by)
@@ -384,7 +408,7 @@ module shares_model {
 }
 
 module shares {
-  import shares_model(BUG_UNSCOPED=false, BUG_RESEND=false, BUG_REMEMBER=false, BUG_COMMENTERS=false).*
+  import shares_model(BUG_UNSCOPED=false, BUG_RESEND=false, BUG_REMEMBER=false, BUG_COMMENTERS=false, BUG_REVERT=false).*
 
   run outsideTheTargetIsRefusedTest = init
     .then(createShare(0, 1, SessionT(0), "contributor", DEFAULT_LIFETIME))
@@ -485,6 +509,15 @@ module shares {
     .then(call(1, WORKER, "approve")).expect(s.last == Allowed)
     .then(call(2, 1, "start")).expect(s.last == NotGranted("start") and safety)
 
+  run onlyTheOwnerRevertsTest = init
+    .then(createShare(0, 1, SessionT(0), "contributor", DEFAULT_LIFETIME))
+    .then(createShare(1, 2, SessionT(0), "commenter", DEFAULT_LIFETIME))
+    .then(hello(1, true)).then(hello(2, true))
+    .then(acceptTurns(1, 0, true)).expect(s.last == NotGranted("owner") and s.reverted == Set())
+    .then(acceptTurns(1, 0, false)).expect(s.last == Allowed)
+    .then(acceptTurns(2, 0, false)).expect(s.last == NotShared)
+    .then(acceptTurns(OWNER, 0, true)).expect(s.last == Allowed and s.reverted == Set(OWNER) and safety)
+
   run refusedRefreshLapsesTest = init
     .then(createShare(0, 1, SessionT(0), "contributor", MAX_LIFETIME))
     .then(hello(1, true))
@@ -494,7 +527,7 @@ module shares {
 
 /** The gate before Share-scoped admission: a Share of one session admits another. */
 module shares_unscoped_mutant {
-  import shares_model(BUG_UNSCOPED=true, BUG_RESEND=false, BUG_REMEMBER=false, BUG_COMMENTERS=false).*
+  import shares_model(BUG_UNSCOPED=true, BUG_RESEND=false, BUG_REMEMBER=false, BUG_COMMENTERS=false, BUG_REVERT=false).*
 
   run reachesAnotherSessionTest = init
     .then(createShare(0, 1, SessionT(0), "contributor", DEFAULT_LIFETIME))
@@ -504,7 +537,7 @@ module shares_unscoped_mutant {
 
 /** `SendFeedback` without the already-sent refusal: two Turns carry one Comment. */
 module shares_resend_mutant {
-  import shares_model(BUG_UNSCOPED=false, BUG_RESEND=true, BUG_REMEMBER=false, BUG_COMMENTERS=false).*
+  import shares_model(BUG_UNSCOPED=false, BUG_RESEND=true, BUG_REMEMBER=false, BUG_COMMENTERS=false, BUG_REVERT=false).*
 
   run carriesACommentTwiceTest = init
     .then(addComment(OWNER, 0, 0))
@@ -514,7 +547,7 @@ module shares_resend_mutant {
 
 /** A Teammate's Allow is remembered: it outlives the request, on the owner's Host. */
 module shares_remember_mutant {
-  import shares_model(BUG_UNSCOPED=false, BUG_RESEND=false, BUG_REMEMBER=true, BUG_COMMENTERS=false).*
+  import shares_model(BUG_UNSCOPED=false, BUG_RESEND=false, BUG_REMEMBER=true, BUG_COMMENTERS=false, BUG_REVERT=false).*
 
   run rememberedByATeammateTest = init
     .then(createShare(0, 1, SessionT(0), "contributor", DEFAULT_LIFETIME))
@@ -525,9 +558,19 @@ module shares_remember_mutant {
 
 /** Needs You ignores the Grant: a Commenter's devices are asked what they can't answer. */
 module shares_commenters_mutant {
-  import shares_model(BUG_UNSCOPED=false, BUG_RESEND=false, BUG_REMEMBER=false, BUG_COMMENTERS=true).*
+  import shares_model(BUG_UNSCOPED=false, BUG_RESEND=false, BUG_REMEMBER=false, BUG_COMMENTERS=true, BUG_REVERT=false).*
 
   run commenterIsAskedTest = init
     .then(createShare(0, 1, SessionT(0), "commenter", DEFAULT_LIFETIME))
     .then(requestApproval(0, 0)).expect(s.pushed == Set(OWNER, 1) and not(safety))
+}
+
+/** `AcceptTurns` decided by role alone: a Contributor's revert writes the owner's files. */
+module shares_revert_mutant {
+  import shares_model(BUG_UNSCOPED=false, BUG_RESEND=false, BUG_REMEMBER=false, BUG_COMMENTERS=false, BUG_REVERT=true).*
+
+  run contributorRevertsTest = init
+    .then(createShare(0, 1, SessionT(0), "contributor", DEFAULT_LIFETIME))
+    .then(hello(1, true))
+    .then(acceptTurns(1, 0, true)).expect(s.last == Allowed and not(safety))
 }

@@ -8,8 +8,9 @@ import { Predicate, Schema } from "effect";
 import { sameActor } from "./comments.ts";
 import { Attachment } from "./domain.ts";
 import { Actor } from "./extensions.ts";
-import { SessionId, Timestamp, TurnId } from "./ids.ts";
+import { CommentId, SessionId, Timestamp, TurnId } from "./ids.ts";
 import { optionalNullable } from "./models.ts";
+import { FeedbackBatch } from "./review.ts";
 
 /** A Turn waiting its turn. `id` becomes the Turn's id when it starts. */
 export class QueuedTurn extends Schema.Class<QueuedTurn>("QueuedTurn")({
@@ -23,6 +24,9 @@ export class QueuedTurn extends Schema.Class<QueuedTurn>("QueuedTurn")({
   editedAt: optionalNullable(Timestamp),
   /** False when its sender did not hold `approve` as it queued (`queuedTurnMayStart`). */
   approves: optionalNullable(Schema.Boolean),
+  /** A queued `SendFeedback`'s batch and Comments, for the Turn it starts as (`Turn.feedback`). */
+  feedback: optionalNullable(FeedbackBatch),
+  commentIds: Schema.optionalKey(Schema.Array(CommentId)),
 }) {}
 
 /** The queue's events on the session's log (`events.ts`). A queued Turn starting is its `TurnStarted`. */

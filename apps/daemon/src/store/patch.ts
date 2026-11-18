@@ -1,5 +1,5 @@
 /** Copies of a session or a Turn with some fields changed, for the fold and the deciders. */
-import { AgentSession, Turn } from "@polaris/protocol";
+import { AgentSession, QueuedTurn, Turn } from "@polaris/protocol";
 
 export type SessionPatch = Partial<typeof AgentSession.Type>;
 
@@ -79,5 +79,29 @@ export const patchTurn = (turn: Turn, patch: TurnPatch): Turn => {
     turn.commentIds === undefined
       ? { ...fields, ...patch }
       : { ...fields, commentIds: turn.commentIds, ...patch }
+  );
+};
+
+/** A copy of `queued` with `patch` applied; a queued `SendFeedback`'s Comments are kept. */
+export const patchQueuedTurn = (
+  queued: QueuedTurn,
+  patch: Partial<typeof QueuedTurn.Type>
+): QueuedTurn => {
+  const fields = {
+    id: queued.id,
+    sessionId: queued.sessionId,
+    prompt: queued.prompt,
+    attachments: queued.attachments,
+    actor: queued.actor,
+    queuedAt: queued.queuedAt,
+    editedAt: queued.editedAt,
+    approves: queued.approves,
+    feedback: queued.feedback,
+  };
+
+  return new QueuedTurn(
+    queued.commentIds === undefined
+      ? { ...fields, ...patch }
+      : { ...fields, commentIds: queued.commentIds, ...patch }
   );
 };
