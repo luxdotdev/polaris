@@ -46,7 +46,7 @@ const entry: SharedEntry = {
 };
 
 const hostView = (state: HostView["status"]["state"], reason: string | null): HostView => ({
-  key: sharedHostKey(RELAY),
+  key: sharedHostKey({ accountId: "a1", host: { relayAddress: RELAY } }),
   label: "Mac Studio",
   colour: null,
   alias: null,
@@ -200,7 +200,7 @@ describe("presence", () => {
       ],
       noAvatar,
       presenceViewer({
-        hostKey: sharedHostKey(RELAY),
+        hostKey: sharedHostKey({ accountId: "a1", host: { relayAddress: RELAY } }),
         sessionId: entry.sessionId,
         shared: [entry],
         accounts: [account("a1", "maya")],

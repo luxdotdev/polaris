@@ -82,7 +82,7 @@ export const presenceViewer = (input: {
   readonly avatar: AvatarOf;
 }): PresenceViewer => {
   const entry = input.shared.find(
-    (e) => sharedHostKey(e.host.relayAddress) === input.hostKey && e.sessionId === input.sessionId
+    (e) => sharedHostKey(e) === input.hostKey && e.sessionId === input.sessionId
   );
 
   if (entry !== undefined)

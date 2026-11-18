@@ -65,8 +65,7 @@ export const hostsToCheck = (
   hosts: ReadonlyArray<HostView>
 ): ReadonlyArray<{ readonly hostKey: string; readonly attempt: string }> =>
   hosts.flatMap((view) =>
-    offline(view) &&
-    shared.some((s) => s.endedAt === undefined && sharedHostKey(s.host.relayAddress) === view.key)
+    offline(view) && shared.some((s) => s.endedAt === undefined && sharedHostKey(s) === view.key)
       ? [{ hostKey: view.key, attempt: `${view.status.since}/${view.status.attempt}` }]
       : []
   );
@@ -104,7 +103,7 @@ export const withMeView = (input: {
   const sessions: Array<SharedSessionView> = [...input.shared]
     .toSorted((a, b) => b.acceptedAt - a.acceptedAt)
     .map((entry) => {
-      const hostKey = sharedHostKey(entry.host.relayAddress);
+      const hostKey = sharedHostKey(entry);
       const view = input.hosts.find((h) => h.key === hostKey);
 
       return {
@@ -149,15 +148,19 @@ export const teammateSharing = (input: TeammateInput) => {
       )
     );
 
-  /** One relay Host per owner's Host, connecting as the Account its first session came through. */
-  const hostEntry = (entry: SharedEntry): HostEntry | null => {
+  /**
+   * One relay Host per owner's Host and Account: the connection names that Account's person in
+   * its handshake and presents that Account's statement. Null for an Account no longer here.
+   */
+  const hostEntry = (entry: SharedEntry, held: ReadonlyArray<AccountRecord>): HostEntry | null => {
     const address = relayAddress(entry.host.relayAddress);
     const relayUrl = entry.host.relayUrl ?? input.defaultRelayUrl;
+    const account = held.find((a) => a.id === entry.accountId);
 
-    if (Option.isNone(address) || !isRelayUrl(relayUrl)) return null;
+    if (Option.isNone(address) || !isRelayUrl(relayUrl) || account === undefined) return null;
 
     return {
-      key: sharedHostKey(entry.host.relayAddress),
+      key: sharedHostKey(entry),
       label: entry.host.name,
       colour: null,
       alias: null,
@@ -166,6 +169,7 @@ export const teammateSharing = (input: TeammateInput) => {
         relayUrl,
         hostAddress: address.value,
         hostNoiseKey: entry.host.noiseKey,
+        teammate: { issuer: account.server, personId: account.personId },
       }),
       remoteCommand: null,
       simulatedLatencyMs: null,
@@ -175,9 +179,10 @@ export const teammateSharing = (input: TeammateInput) => {
 
   const connectAll = Effect.gen(function* () {
     const seen = new Set<string>();
+    const held = yield* accounts.list;
 
     for (const entry of yield* SubscriptionRef.get(shared)) {
-      const host = entry.endedAt === undefined ? hostEntry(entry) : null;
+      const host = entry.endedAt === undefined ? hostEntry(entry, held) : null;
 
       if (host === null || seen.has(host.key)) continue;
       seen.add(host.key);
@@ -226,27 +231,28 @@ export const teammateSharing = (input: TeammateInput) => {
       acceptedAt: input.now(),
     };
 
-    const known = (yield* SubscriptionRef.get(shared)).find((s) => sameHost(s, entry));
-    const key = sharedHostKey(entry.host.relayAddress);
+    const before = yield* SubscriptionRef.get(shared);
+    const known = before.find((s) => sameHost(s, entry));
+    const key = sharedHostKey(entry);
+    const added = hostEntry(entry, yield* accounts.list);
 
-    if (hostEntry(entry) === null || (known !== undefined && !sameKeys(known, entry)))
+    if (added === null || (known !== undefined && !sameKeys(known, entry)))
       return yield* new InviteRefused({
         message: "This invite names a host Polaris can't reach safely.",
       });
 
-    const next = yield* SubscriptionRef.updateAndGet(shared, (before) => [
-      ...before.filter((s) => !(s.sessionId === entry.sessionId && sameHost(s, entry))),
+    const next = yield* SubscriptionRef.updateAndGet(shared, (held) => [
+      ...held.filter((s) => !(s.sessionId === entry.sessionId && sharedHostKey(s) === key)),
       entry,
     ]);
 
     yield* store.write(next);
-    const added = hostEntry(entry);
 
-    // A Host already connected stays so; its host feed follows `shared`.
-    if (added !== null) yield* hosts.add(added);
+    // A Host already connected as this Account stays so; its host feed follows `shared`.
+    yield* hosts.add(added);
 
-    // A Host that was refusing this device (its last Share ended) is dialled again at once.
-    if (known?.endedAt !== undefined)
+    // A Host that was refusing this Account (its last Share ended) is dialled again at once.
+    if (before.some((s) => sharedHostKey(s) === key && s.endedAt !== undefined))
       yield* Effect.ignore(Effect.flatMap(hosts.connection(key), (c) => c.retryNow));
 
     return { hostKey: key, sessionId: entry.sessionId };
@@ -272,7 +278,7 @@ export const teammateSharing = (input: TeammateInput) => {
    * ones that ended. The Host stays dialled, so a new Share from it resumes the same feed.
    */
   const checkStanding = Effect.fn("Sharing.checkStanding")(function* (hostKey: string) {
-    const on = (s: SharedEntry) => sharedHostKey(s.host.relayAddress) === hostKey;
+    const on = (s: SharedEntry) => sharedHostKey(s) === hostKey;
 
     const open = (yield* SubscriptionRef.get(shared)).filter(
       (s) => on(s) && s.endedAt === undefined
@@ -302,9 +308,7 @@ export const teammateSharing = (input: TeammateInput) => {
     sessionsOn: (hostKey: string) =>
       SubscriptionRef.changes(shared).pipe(
         Stream.map((all) =>
-          all
-            .filter((s) => sharedHostKey(s.host.relayAddress) === hostKey)
-            .map((s) => SessionId.make(s.sessionId))
+          all.filter((s) => sharedHostKey(s) === hostKey).map((s) => SessionId.make(s.sessionId))
         ),
         Stream.changesWith((a, b) => a.join() === b.join())
       ),
