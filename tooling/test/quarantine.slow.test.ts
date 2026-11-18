@@ -17,6 +17,8 @@ describe("outer", () => {
     test("steady", () => expect(1).toBe(1));
     test.skip("skipped", () => expect("ran skipped").toBe("passes"));
     test.todo("later");
+    test.skipIf(true)("skipped if", () => expect("ran skipped if").toBe("passes"));
+    describe.skipIf(true)("skipped group", () => test("inside", () => expect(1).toBe(1)));
   });
   test.each([1, 2])("row %p", () => expect("ran rows").toBe("passes"));
 });
@@ -98,6 +100,8 @@ describe("the required lane", () => {
     // bun's modifiers survive the wrapper; ENG-964's Windows entries hit "test.skip is not a function".
     expect(output).toContain("(skip) outer > inner > skipped");
     expect(output).toContain("(todo) outer > inner > later");
+    expect(output).toContain("(skip) outer > inner > skipped if");
+    expect(output).toContain("(skip) outer > inner > skipped group > inside");
     // The twin has the same name in another file, and still runs (and fails).
     expect(output).toContain('"ran twin"');
     expect(code).toBe(1);
