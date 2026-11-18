@@ -6,9 +6,14 @@ import {
   CommentId,
   PersonId,
   SessionId,
+  Share,
   ShareId,
+  SharePerson,
+  ShareTarget,
   TurnId,
 } from "@polaris/protocol";
+import { Effect } from "effect";
+import { identitiesFromShares } from "./identities.ts";
 import { coAuthorTrailers, contributors, withTrailers } from "./trailers.ts";
 
 const teammate = (name: string, share = name) =>
@@ -42,7 +47,7 @@ const turn = (id: string, commentIds: ReadonlyArray<string> = []) => ({
 });
 
 describe("contributors", () => {
-  test("Turn senders and sent Comments' authors count, once per person; the owner never does", () => {
+  test("Turn senders and sent Comments' authors count, once per Share and person; the owner never does", () => {
     const ana = teammate("Ana");
     const bob = teammate("Bob");
     const anaElsewhere = teammate("Ana", "constellation");
@@ -65,8 +70,67 @@ describe("contributors", () => {
       comments
     );
 
-    expect(people.map((p) => p.name)).toEqual(["Ana", "Bob"]);
+    expect(people.map((p) => [p.name, p.shareId])).toEqual([
+      ["Ana", "share-Ana"],
+      ["Bob", "share-Bob"],
+      ["Ana", "share-constellation"],
+    ]);
     expect(contributors([turn("t1", ["c-owner"])], actors, comments)).toEqual([]);
+  });
+});
+
+describe("trailers for one person ID from two Account Servers", () => {
+  const share = (issuer: string, commitEmail: string) =>
+    new Share({
+      id: ShareId.make(`share-${issuer}`),
+      target: ShareTarget.cases.Session.make({ sessionId: SessionId.make("s") }),
+      issuer: `https://${issuer}.example`,
+      person: new SharePerson({
+        id: PersonId.make("person-1"),
+        login: issuer,
+        name: `${issuer} person`,
+        avatarUrl: null,
+        commitEmail,
+      }),
+      role: "contributor",
+      grant: ["read", "comment", "turn"],
+      createdAt: "2026-11-16T00:00:00.000Z",
+      expiresAt: "2026-11-23T00:00:00.000Z",
+      revokedAt: null,
+    });
+
+  const trailersFor = (shares: ReadonlyArray<Share>) => {
+    const actors = new Map<TurnId, Actor>(
+      shares.map((s, i) => [
+        TurnId.make(`t${i}`),
+        Actor.cases.Teammate.make({ shareId: s.id, personId: s.person.id, name: s.person.name }),
+      ])
+    );
+
+    const people = contributors(
+      shares.map((_, i) => turn(`t${i}`)),
+      actors,
+      undefined
+    );
+
+    const identities = identitiesFromShares(Effect.succeed(shares));
+
+    return coAuthorTrailers(Effect.runSync(Effect.forEach(people, identities.identify)));
+  };
+
+  test("different emails credit both people", () => {
+    expect(
+      trailersFor([share("acme", "ana@acme.example"), share("globex", "bo@globex.example")])
+    ).toEqual([
+      "Co-authored-by: acme person <ana@acme.example>",
+      "Co-authored-by: globex person <bo@globex.example>",
+    ]);
+  });
+
+  test("the same email, in any case, credits one", () => {
+    expect(trailersFor([share("acme", "ana@x.example"), share("globex", "ANA@x.example")])).toEqual(
+      ["Co-authored-by: acme person <ana@x.example>"]
+    );
   });
 });
 

@@ -81,6 +81,15 @@ export class RelaySocket {
     this.drop("the relay socket was closed");
   }
 
+  /** How many sessions and handshakes listen on this socket, across all peers. */
+  get listening(): number {
+    let count = 0;
+
+    for (const set of this.listeners.values()) count += set.size;
+
+    return count;
+  }
+
   /** A mark of what this socket has heard so far, for `heardSince`. */
   get heardMark(): number {
     return this.heard;

@@ -16,6 +16,22 @@ import {
 import { Cause, Effect, Queue, Stream } from "effect";
 import type { RelaySocket } from "./socket.ts";
 
+/** What a session uses of its relay socket; tests stand a fake relay behind it. */
+export type SessionSocket = Pick<
+  RelaySocket,
+  | "start"
+  | "isReady"
+  | "isOnline"
+  | "changed"
+  | "listen"
+  | "send"
+  | "heardMark"
+  | "heardSince"
+  | "recycle"
+  | "lastError"
+  | "listening"
+>;
+
 /** How long a session waits for the relay, the Host's presence and its handshake reply. */
 export const OPEN_TIMEOUT_MS = 10_000;
 
@@ -44,7 +60,7 @@ class Unanswered {
 }
 
 /** Waits until `ready` holds, re-checking on every socket change; false at the deadline. */
-const waitFor = async (socket: RelaySocket, ready: () => boolean, deadline: number) => {
+const waitFor = async (socket: SessionSocket, ready: () => boolean, deadline: number) => {
   while (!ready()) {
     const left = deadline - Date.now();
 
@@ -62,7 +78,7 @@ interface Pending {
 
 /** Sends the init and resolves with the session once the Host's reply for this tag arrives. */
 const handshake = (
-  socket: RelaySocket,
+  socket: SessionSocket,
   host: RelayPeer,
   noise: StaticKeyPair,
   payload: Uint8Array | undefined,
@@ -120,12 +136,13 @@ const handshake = (
  * again until the deadline, each time with a fresh handshake.
  */
 export const openSession = async (
-  socket: RelaySocket,
+  socket: SessionSocket,
   host: RelayPeer,
   noise: StaticKeyPair,
-  payload?: Uint8Array
+  payload?: Uint8Array,
+  timeoutMs = OPEN_TIMEOUT_MS
 ): Promise<RelaySession> => {
-  const deadline = Date.now() + OPEN_TIMEOUT_MS;
+  const deadline = Date.now() + timeoutMs;
   socket.start();
 
   for (;;) {
@@ -150,7 +167,7 @@ export const openSession = async (
 
 /** The session's bytes: what the Wire writes is sealed for the Host, and its records opened. */
 const sessionTransport = (
-  socket: RelaySocket,
+  socket: SessionSocket,
   host: RelayPeer,
   session: RelaySession
 ): Effect.Effect<ByteTransport, never, never> =>
@@ -200,16 +217,18 @@ const sessionTransport = (
             )
           : Effect.fail(failure("the relay session ended")),
       close: Effect.sync(() => {
-        // Closed after this session and the whole socket went quiet: the socket may be dead.
-        if (open && !socket.heardSince(lastRecord)) socket.recycle("the relay went quiet");
+        const quiet = open && !socket.heardSince(lastRecord);
         end(null);
+
+        // The socket may be dead; redial only when no other session (another Account's) is on it.
+        if (quiet && socket.listening === 0) socket.recycle("the relay went quiet");
       }),
     } satisfies ByteTransport;
   });
 
 /** A ByteTransport to `host` over `socket`; closing the scope ends the session. */
 export const relaySessionTransport = (
-  socket: RelaySocket,
+  socket: SessionSocket,
   host: RelayPeer,
   noise: StaticKeyPair,
   payload?: Uint8Array

@@ -15,7 +15,9 @@ export interface CommitIdentity {
 
 /**
  * The Teammates who contributed to `turns`, in order of first contribution: whoever sent a
- * Turn, then the authors of the Comments it carried. Watching earns nothing.
+ * Turn, then the authors of the Comments it carried. Watching earns nothing. One entry per
+ * Share and person: a Share pins its issuer, so equal person IDs from two Account Servers stay
+ * two people until `coAuthorTrailers` dedupes their resolved emails.
  */
 export const contributors = (
   turns: ReadonlyArray<Pick<Turn, "id" | "commentIds">>,
@@ -25,8 +27,10 @@ export const contributors = (
   const found = new Map<string, TeammateActor>();
 
   const add = (actor: Actor | undefined) => {
-    if (actor !== undefined && Predicate.isTagged(actor, "Teammate") && !found.has(actor.personId))
-      found.set(actor.personId, actor);
+    if (actor === undefined || !Predicate.isTagged(actor, "Teammate")) return;
+    const key = JSON.stringify([actor.shareId, actor.personId]);
+
+    if (!found.has(key)) found.set(key, actor);
   };
 
   for (const turn of turns) {
