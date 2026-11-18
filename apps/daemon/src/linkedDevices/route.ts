@@ -92,8 +92,11 @@ export class RelayGuests extends Context.Service<
   {
     /** The relay addresses to list right now. */
     readonly peers: () => ReadonlyArray<RelayAddress>;
-    /** The guest a proven handshake from `source` with `noiseKey` is, or null to refuse it. */
-    readonly admit: (source: RelayAddress, noiseKey: string) => string | null;
+    /**
+     * The guest a proven handshake from `source` with `noiseKey` is, or null to refuse it.
+     * `payload` is the init's: who the device connects as, when it says.
+     */
+    readonly admit: (source: RelayAddress, noiseKey: string, payload: Uint8Array) => string | null;
     readonly serve: (session: DeviceSession, guestId: string) => void;
     readonly ended: (session: DeviceSession) => void;
     /** Calls `listener` whenever `peers` changes; returns the unsubscribe. */
@@ -392,7 +395,7 @@ const makeRelayRoute = Effect.fn("makeRelayRoute")(function* (options: {
       .find((candidate) => candidate.noiseKey === noiseKey && candidate.relayAddress === source);
 
     if (device !== undefined) return { kind: "device", deviceId: device.id };
-    const guestId = guests?.admit(source, noiseKey) ?? null;
+    const guestId = guests?.admit(source, noiseKey, payload) ?? null;
 
     return guestId === null ? null : { kind: "guest", guestId };
   };

@@ -53,8 +53,11 @@ export interface DeviceTable {
   readonly sync: (live: ReadonlyArray<StoredShare>) => void;
   /** The relay addresses of every device with a statement that has not lapsed. */
   readonly peers: () => ReadonlyArray<RelayAddress>;
-  /** The device with this Noise key at this address, while a statement vouches for it. */
-  readonly find: (source: RelayAddress, noiseKey: string) => TeammateDevice | null;
+  /**
+   * Each person this Noise key at this address is vouched for: one device may be signed in to
+   * several Accounts, so a key is no identity until its person is named.
+   */
+  readonly identities: (source: RelayAddress, noiseKey: string) => ReadonlyArray<TeammateDevice>;
   /** The live Shares that list the device. */
   readonly sharesOf: (device: TeammateDevice) => ReadonlyArray<ShareId>;
   /** A newer statement for the device, presented on its own connection. */
@@ -232,11 +235,18 @@ export const deviceTable = (options: DeviceTableOptions): DeviceTable => {
           .map((entry) => entry.device.relayAddress)
       ),
     ],
-    find: (source, noiseKey) =>
-      entries().find(
-        (entry) =>
-          valid(entry) && entry.device.noiseKey === noiseKey && entry.device.relayAddress === source
-      )?.device ?? null,
+    identities: (source, noiseKey) => {
+      const found: Array<TeammateDevice> = [];
+
+      for (const { device, expiresAt } of entries()) {
+        const listed =
+          expiresAt > now() && device.noiseKey === noiseKey && device.relayAddress === source;
+
+        if (listed && !found.some((held) => same(held, device))) found.push(device);
+      }
+
+      return found;
+    },
     sharesOf: (device) =>
       [...devices].flatMap(([id, byKey]) => {
         const entry = byKey.get(device.noiseKey);

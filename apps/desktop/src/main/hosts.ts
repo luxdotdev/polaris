@@ -375,8 +375,10 @@ export class HostDirectory extends Context.Service<
             yield* SubscriptionRef.update(views, (current) => current.filter((v) => v.key !== key));
           });
 
+        // A Teammate's Account is part of how it connects: another Account is another person.
         const sameTransport = (a: HostEntry, b: HostEntry) =>
           Equal.equals(a.target, b.target) &&
+          a.teammate?.accountId === b.teammate?.accountId &&
           (a.remoteCommand ?? []).join(" ") === (b.remoteCommand ?? []).join(" ");
 
         // A replaced Host keeps its place in the list; a new name alone doesn't reconnect it.

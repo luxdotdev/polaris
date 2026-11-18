@@ -208,11 +208,16 @@ const sessionTransport = (
   });
 
 /** A ByteTransport to `host` over `socket`; closing the scope ends the session. */
-export const relaySessionTransport = (socket: RelaySocket, host: RelayPeer, noise: StaticKeyPair) =>
+export const relaySessionTransport = (
+  socket: RelaySocket,
+  host: RelayPeer,
+  noise: StaticKeyPair,
+  payload?: Uint8Array
+) =>
   Effect.acquireRelease(
     Effect.flatMap(
       Effect.tryPromise({
-        try: () => openSession(socket, host, noise),
+        try: () => openSession(socket, host, noise, payload),
         catch: (cause) =>
           cause instanceof TransportError ? cause : new TransportError({ message: String(cause) }),
       }),

@@ -37,8 +37,14 @@ const SharedFile = Schema.Struct({ v: Schema.Literal(1), shared: Schema.Array(Sh
 
 const decode = Schema.decodeUnknownOption(Schema.fromJsonString(SharedFile));
 
-/** The Host key a Teammate's connection to an owner's Host goes by. */
-export const sharedHostKey = (relayAddress: string) => `shared-${relayAddress}`;
+/**
+ * The Host key a Teammate's connection goes by: one per owner's Host and Account, since each
+ * Account is another person to that Host. An Account's id stands for its server and person.
+ */
+export const sharedHostKey = (entry: {
+  readonly accountId: string;
+  readonly host: { readonly relayAddress: string };
+}) => `shared-${entry.host.relayAddress}-${entry.accountId}`;
 
 export interface SharedStore {
   readonly read: Effect.Effect<ReadonlyArray<SharedEntry>>;

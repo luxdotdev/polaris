@@ -50,9 +50,11 @@ const store = sharedStore(secureStoreKeychain);
 
 const decodeAddress = Schema.decodeUnknownOption(RelayAddress);
 
+/** A session to the owner's Host as the Account at `issuer`, named in the handshake (ADR 0112). */
 const relayTransport = (
   device: () => Promise<RelayDevice>,
-  share: AcceptedShare
+  share: AcceptedShare,
+  issuer: string
 ): HostTransport => ({
   route: "relay",
   open: Effect.gen(function* () {
@@ -70,6 +72,7 @@ const relayTransport = (
       relayUrl: relayUrlOf(share.host),
       hostAddress: address,
       hostNoiseKey: share.host.noiseKey,
+      teammate: { issuer, personId: share.personId },
     });
   }),
 });
@@ -140,7 +143,9 @@ export const SharedProvider = ({ children }: { readonly children: ReactNode }) =
     for (const key of open) if (!linked.has(key)) removeHost(key);
 
     for (const [key, share] of linked) {
-      if (open.includes(key)) continue;
+      const account = signedIn.find((held) => held.id === share.accountId);
+
+      if (open.includes(key) || account === undefined) continue;
 
       const statement = async () => {
         const keys = devicePublicKeys((await device()).keys);
@@ -151,7 +156,7 @@ export const SharedProvider = ({ children }: { readonly children: ReactNode }) =
         return outcome.value;
       };
 
-      addHost(key, share.host.name, relayTransport(device, share), {
+      addHost(key, share.host.name, relayTransport(device, share, account.server), {
         accountStatement: statement,
         teammate: {
           personId: share.personId,
@@ -160,7 +165,7 @@ export const SharedProvider = ({ children }: { readonly children: ReactNode }) =
         },
       });
     }
-  }, [linked, device, call, sharedHosts, addHost, removeHost]);
+  }, [linked, signedIn, device, call, sharedHosts, addHost, removeHost]);
 
   const refresh = useCallback(async () => {
     setInvites(await invitesOf(signedIn, call));
