@@ -70,16 +70,28 @@ const decide = (label: string, run: () => void, skip: () => void): void => {
   skip();
 };
 
-const wrapTest =
-  (base: typeof test) =>
-  (label: string, fn: Body, options?: Options): void =>
-    decide(
-      label,
-      () => base(label, fn, options),
-      () => test.skip(label, fn, options)
-    );
+/** Bun's modifiers aren't own properties, so `Object.assign` would copy none of them. */
+const testModifiers = (base: typeof test) => ({
+  skip: base.skip,
+  todo: base.todo,
+  only: base.only,
+  failing: base.failing,
+  concurrent: base.concurrent,
+  todoIf: (condition: boolean) => base.todoIf(condition),
+});
 
-const wrappedTest = Object.assign(wrapTest(test), test, {
+const wrapTest = (base: typeof test) =>
+  Object.assign(
+    (label: string, fn: Body, options?: Options): void =>
+      decide(
+        label,
+        () => base(label, fn, options),
+        () => test.skip(label, fn, options)
+      ),
+    testModifiers(base)
+  );
+
+const wrappedTest = Object.assign(wrapTest(test), {
   each:
     (table: Array<Cell>) =>
     (label: string, fn: EachBody, options?: Options): void =>
@@ -110,10 +122,15 @@ const within = <Row extends ReadonlyArray<Cell>>(
   };
 };
 
-const wrapDescribe = (base: typeof describe) => (label: Label, fn: () => void) =>
-  base(label, within(label, fn));
+const wrapDescribe = (base: typeof describe) =>
+  Object.assign((label: Label, fn: () => void) => base(label, within(label, fn)), {
+    skip: base.skip,
+    todo: base.todo,
+    only: base.only,
+    todoIf: (condition: boolean) => base.todoIf(condition),
+  });
 
-const wrappedDescribe = Object.assign(wrapDescribe(describe), describe, {
+const wrappedDescribe = Object.assign(wrapDescribe(describe), {
   each: (table: Array<Cell>) => (label: Label, fn: Group) =>
     describe.each(table)(label, within(label, fn)),
   if: (condition: boolean) => wrapDescribe(describe.if(condition)),
