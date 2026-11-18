@@ -70,6 +70,12 @@ test.each([
 ])("Origins loads with %s after start and answers", (_, mode) => isolated(mode), 30000);
 
 test(
+  "a Host with no Share store loads no Share implementation until the first mute, and a restart keeps it",
+  () => isolated("shares"),
+  30000
+);
+
+test(
   "a terminal outside registered Workspaces does not initialize the trace runtime or store",
   () => isolated("unregistered-terminal"),
   30000

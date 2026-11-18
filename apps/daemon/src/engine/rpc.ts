@@ -25,7 +25,6 @@ import {
 import { Context, Effect, Layer, Option, Stream } from "effect";
 import { actorOf, pairingOf } from "../extensions/connection.ts";
 import { RequestShare, teammateOf } from "../shares/connection.ts";
-import { teammateSessionFeed } from "../shares/feeds.ts";
 import { Engine } from "./Engine.ts";
 import { hostItemsFor, sessionItemsFor } from "./limitedCompat.ts";
 import { actorHostItemsFor, actorSessionItemsFor, actorTurnPageFor } from "./actorCompat.ts";
@@ -155,7 +154,16 @@ const SubscribeSessionHandler = DaemonRpcs.toLayerHandler(
         capabilities,
       });
 
-      const shown = teammateOf(client) === null ? items : teammateSessionFeed(items);
+      // Only a Teammate's feed is filtered; the filter loads with the first of them.
+      const shown =
+        teammateOf(client) === null
+          ? items
+          : Stream.unwrap(
+              Effect.map(
+                Effect.promise(() => import("../shares/feeds.ts")),
+                (feeds) => feeds.teammateSessionFeed(items)
+              )
+            );
 
       return compat === null ? shown : Stream.map(shown, compat);
     };

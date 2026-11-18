@@ -35,6 +35,7 @@ import { Shares } from "./service.ts";
 
 type CreateInput = Parameters<Shares["Service"]["create"]>[0];
 
+import { sharesLayer } from "./live.ts";
 import { ShareStore } from "./store.ts";
 
 const OWNER = Actor.cases.Client.make({});
@@ -104,7 +105,7 @@ const onHost = <A, E>(
       return yield* program;
     }).pipe(
       Effect.provide(
-        Shares.layer({
+        sharesLayer({
           fetch: server.fetch,
           timing: { waitS: 2, pauseMs: 5, retryMs: 20 },
           skewMs: 0,

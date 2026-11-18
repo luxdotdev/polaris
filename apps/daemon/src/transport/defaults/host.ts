@@ -32,7 +32,7 @@ import { HostPresence } from "../../presence/index.ts";
 import { RemoteAccessControl } from "../../remoteAccess/service.ts";
 import { teammateOf } from "../../shares/connection.ts";
 import { ShareNotifications } from "../../shares/notifications.ts";
-import { ShareRpcsLive } from "../../shares/rpc.ts";
+import { lazyShareHandlers } from "../lazyShares.ts";
 import { type DefaultOptions, notYet, unsupportedFeed } from "./shared.ts";
 
 const notADevice = () =>
@@ -258,5 +258,5 @@ export const hostDefaults = (options: DefaultOptions) =>
     HostStatsRpcs.toLayer({ "host.stats.watch": unsupportedFeed("host.stats") }),
     voiceDefaults,
     secretDefaults,
-    ShareRpcsLive
+    lazyShareHandlers
   );

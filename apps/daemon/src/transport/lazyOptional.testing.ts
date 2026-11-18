@@ -339,6 +339,88 @@ const origins = async (first: "rpc" | "checkpoint" | "mcp") => {
   );
 };
 
+/** The Share store, the issuer polls, the statement verifier and the notification state. */
+const shareModules = () =>
+  Object.keys(require.cache)
+    .map((path) => path.replaceAll("\\", "/"))
+    .filter((path) =>
+      /\/apps\/daemon\/src\/shares\/(?:live|store|statement|issuer|body|devices|notificationsLive|rpc)\.ts$/.test(
+        path
+      )
+    );
+
+/**
+ * A Host with no Share store answers from nothing and writes none; the owner's first mute
+ * loads the Shares and is kept, and a start over that store has them loaded at once.
+ */
+const shares = async () => {
+  const { lazyShares } = await import("./lazyShares.ts");
+  const { Shares } = await import("../shares/service.ts");
+  const { OWNER, ShareNotifications } = await import("../shares/notifications.ts");
+  const { TeammateConnections } = await import("../shares/connection.ts");
+  const { RelayRoute } = await import("../linkedDevices/route.ts");
+  const { HostSecrets } = await import("../secrets/index.ts");
+  const { SessionId, ShareTarget } = await import("@polaris/protocol");
+  const path = join(root, "shares.sqlite");
+  const sessionId = SessionId.make("s-shared");
+  const touch = { sessionId, constellationId: null };
+
+  const started = () => {
+    const layers = lazyShares({ path, shares: undefined });
+
+    return layers.notifications.pipe(
+      Layer.provideMerge(layers.shares),
+      Layer.provideMerge(
+        Layer.mergeAll(
+          HostSecrets.memory(),
+          Layer.succeed(TeammateConnections)({ serve: () => Effect.void }),
+          // SAFETY: a mute neither checks nor wakes a device, so the route is never called.
+          Layer.succeed(RelayRoute)({} as (typeof RelayRoute)["Service"])
+        )
+      )
+    );
+  };
+
+  await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(started());
+        const service = Context.get(context, Shares);
+        const notifications = Context.get(context, ShareNotifications);
+
+        service.bindTargets({
+          session: (id) =>
+            Effect.succeed(id === sessionId ? { touch, cwd: root, worker: false } : null),
+          hasConstellation: () => Effect.succeed(false),
+          turn: () => Effect.succeed(null),
+        });
+
+        assert.deepEqual(yield* service.list(null), []);
+        assert.deepEqual(yield* service.every, []);
+        assert.deepEqual(service.guests.peers(), []);
+        assert.equal(notifications.muted(OWNER, touch), false);
+        assert.deepEqual(shareModules(), []);
+        assert.equal(existsSync(path), false);
+
+        yield* notifications.setMuted(OWNER, ShareTarget.cases.Session.make({ sessionId }), true);
+        assert.equal(notifications.muted(OWNER, touch), true);
+        assert.notDeepEqual(shareModules(), []);
+        assert.equal(existsSync(path), true);
+      })
+    )
+  );
+
+  await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const context = yield* Layer.build(started());
+        // No request has run: the store was there at start, so the mute is already known.
+        assert.equal(Context.get(context, ShareNotifications).muted(OWNER, touch), true);
+      })
+    )
+  );
+};
+
 const recovery = async () => {
   const { QueryLog } = await import("../data/queryLog.ts");
   const { DataDatabase } = await import("../data/database.ts");
@@ -550,6 +632,9 @@ switch (process.argv[2]) {
     break;
   case "migrations":
     await migrations();
+    break;
+  case "shares":
+    await shares();
     break;
   default:
     throw new Error("Unknown lazy-service test scenario");
