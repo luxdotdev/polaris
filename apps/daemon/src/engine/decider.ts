@@ -17,12 +17,12 @@ import {
   type CommandId,
   CommandRejected,
   decideTurnAccess,
+  teammateCommandRefusal,
   type Grant,
   type NotGranted,
   DomainEvent,
   isKnownHarness,
   NotFound,
-  QueuedTurn,
   type RiskSummary,
   type SessionId,
   SessionPlacement,
@@ -36,6 +36,7 @@ import {
 import { Effect, Match, Predicate, Result } from "effect";
 import {
   lastTurn,
+  patchQueuedTurn,
   patchTurn,
   type ReadModel,
   type SessionRecord,
@@ -153,16 +154,7 @@ const withActor = (actor: Actor, event: DomainEvent): DomainEvent =>
       ApprovalResolved: (e) => DomainEvent.cases.ApprovalResolved.make({ ...e, actor }),
       TurnQueued: (e) =>
         DomainEvent.cases.TurnQueued.make({
-          turn: new QueuedTurn({
-            id: e.turn.id,
-            sessionId: e.turn.sessionId,
-            prompt: e.turn.prompt,
-            attachments: e.turn.attachments,
-            actor,
-            queuedAt: e.turn.queuedAt,
-            editedAt: e.turn.editedAt,
-            approves: e.turn.approves,
-          }),
+          turn: patchQueuedTurn(e.turn, { actor }),
         }),
     }),
     Match.orElse((e) => e)
@@ -559,7 +551,9 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
       ? (model.sessions.get(command.sessionId)?.session.permissionMode ?? null)
       : null;
 
-  const refusal = decideTurnAccess(ctx.extensionGrant ?? null, command, mode);
+  const refusal =
+    decideTurnAccess(ctx.extensionGrant ?? null, command, mode) ??
+    (Predicate.isTagged(ctx.actor, "Teammate") ? teammateCommandRefusal(command) : null);
 
   if (refusal !== null) return Effect.fail(refusal);
   const d = deciding(model, ctx);

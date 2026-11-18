@@ -2,9 +2,10 @@
  * Queued Turns in the read model (ENG-941): each session's queue in arrival order, folded
  * from its queue events and from the `TurnStarted` of a Turn that leaves it.
  */
-import { type DomainEvent, QueuedTurn, type SessionId, type TurnId } from "@polaris/protocol";
+import type { DomainEvent, QueuedTurn, SessionId, TurnId } from "@polaris/protocol";
 import { Match } from "effect";
 import type { ReadModel, SessionRecord } from "./model.ts";
+import { patchQueuedTurn } from "./patch.ts";
 
 const NONE: ReadonlyArray<QueuedTurn> = [];
 
@@ -52,16 +53,7 @@ export const foldQueuedTurn = (model: ReadModel, event: QueuedTurnEvent, at: str
         queue.some((queued) => queued.id === e.turnId)
           ? queue.map((queued) =>
               queued.id === e.turnId
-                ? new QueuedTurn({
-                    id: queued.id,
-                    sessionId: queued.sessionId,
-                    prompt: e.prompt,
-                    attachments: queued.attachments,
-                    actor: queued.actor,
-                    queuedAt: queued.queuedAt,
-                    editedAt: at,
-                    approves: queued.approves,
-                  })
+                ? patchQueuedTurn(queued, { prompt: e.prompt, editedAt: at })
                 : queued
             )
           : queue
