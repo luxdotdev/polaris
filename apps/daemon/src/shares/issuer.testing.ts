@@ -85,6 +85,8 @@ export interface FakeIssuer {
   readonly rotate: () => Promise<void>;
   /** While true every request fails, as an unreachable server's would. */
   down: boolean;
+  /** The JWKS answer's `Cache-Control`; none unless set. */
+  jwksCacheControl: string | undefined;
   readonly stop: () => void;
 }
 
@@ -190,9 +192,13 @@ export const startFakeIssuer = async (
     if (url.pathname === "/api/auth/jwks") {
       jwksFetches++;
 
-      return Response.json({
-        keys: [{ kty: "OKP", crv: "Ed25519", alg: "EdDSA", x: signer.x, kid: signer.kid }],
-      });
+      const headers =
+        api.jwksCacheControl === undefined ? {} : { "cache-control": api.jwksCacheControl };
+
+      return Response.json(
+        { keys: [{ kty: "OKP", crv: "Ed25519", alg: "EdDSA", x: signer.x, kid: signer.kid }] },
+        { headers }
+      );
     }
 
     return url.pathname.startsWith("/v1/shares/")
@@ -235,6 +241,7 @@ export const startFakeIssuer = async (
       signer = await makeSigner(`k${Date.now()}`);
     },
     down: false,
+    jwksCacheControl: undefined,
     stop: () => {
       invites.forEach((invite) => [...invite.waiters].forEach((wake) => wake()));
       void server?.stop(true);

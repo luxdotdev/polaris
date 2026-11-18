@@ -77,12 +77,32 @@ type Reason = StatementRejected["reason"];
 /** How long an issuer's JWKS is trusted to be complete: an unknown `kid` refetches after it. */
 export const JWKS_REFETCH_MS = 30_000;
 
+/** The longest a fetched JWKS is used before it is fetched again: a statement's lifetime. */
+export const JWKS_MAX_AGE_MS = STATEMENT_LIFETIME_S * 1000;
+
+/** Past its max age, while the issuer can't be reached, a JWKS is still used this long. */
+export const JWKS_OUTAGE_GRACE_MS = 5 * 60_000;
+
 const JWKS_TIMEOUT_MS = 10_000;
 
 interface IssuerKeys {
   readonly keys: ReadonlyArray<{ readonly kid: string | null; readonly key: CryptoKey }>;
   readonly fetchedAt: number;
+  /** When the JWKS must be fetched again; its `Cache-Control` max-age, within bounds. */
+  readonly staleAt: number;
 }
+
+/** The JWKS's max age: `Cache-Control` within [`JWKS_REFETCH_MS`, `JWKS_MAX_AGE_MS`]. */
+export const jwksMaxAge = (cacheControl: string | null): number => {
+  const directives = (cacheControl ?? "").toLowerCase();
+
+  if (/\b(no-store|no-cache)\b/.test(directives)) return JWKS_REFETCH_MS;
+  const maxAge = /\bmax-age=(\d+)/.exec(directives)?.[1];
+
+  if (maxAge === undefined) return JWKS_MAX_AGE_MS;
+
+  return Math.min(Math.max(Number(maxAge) * 1000, JWKS_REFETCH_MS), JWKS_MAX_AGE_MS);
+};
 
 const text = (part: string) => Buffer.from(part, "base64url").toString("utf8");
 
@@ -115,6 +135,8 @@ export const statementVerifier = (
   const now = options.now ?? Date.now;
   const cache = new Map<string, IssuerKeys>();
   const loading = new Map<string, Promise<IssuerKeys>>();
+  /** When each issuer's last refetch failed; another waits `JWKS_REFETCH_MS`. */
+  const failedAt = new Map<string, number>();
 
   const load = async (issuer: string): Promise<IssuerKeys> => {
     const response = await request(`${issuer}/api/auth/jwks`, {
@@ -148,8 +170,16 @@ export const statementVerifier = (
         }))
     );
 
-    const loaded = { keys, fetchedAt: now() };
+    const fetchedAt = now();
+
+    const loaded = {
+      keys,
+      fetchedAt,
+      staleAt: fetchedAt + jwksMaxAge(response.headers.get("cache-control")),
+    };
+
     cache.set(issuer, loaded);
+    failedAt.delete(issuer);
 
     return loaded;
   };
@@ -165,17 +195,46 @@ export const statementVerifier = (
   const candidates = (keys: IssuerKeys, kid: string | null) =>
     keys.keys.filter((entry) => kid === null || entry.kid === kid);
 
-  /** The issuer's keys for `kid`; refetched when unknown, at most once per `JWKS_REFETCH_MS`. */
-  const keysFor = async (issuer: string, kid: string | null) => {
+  /** A stale JWKS, while the issuer is unreachable: used within the grace, refused past it. */
+  const stale = (issuer: string, kid: string | null) => {
     const cached = cache.get(issuer);
 
-    if (cached !== undefined) {
+    if (cached === undefined || now() >= cached.staleAt + JWKS_OUTAGE_GRACE_MS)
+      throw new Error("the issuer's JWKS can't be fetched");
+
+    return candidates(cached, kid);
+  };
+
+  const refetch = async (issuer: string, kid: string | null) => {
+    const failed = failedAt.get(issuer);
+
+    if (failed !== undefined && cache.has(issuer) && now() - failed < JWKS_REFETCH_MS)
+      return stale(issuer, kid);
+
+    try {
+      return candidates(await fresh(issuer), kid);
+    } catch {
+      failedAt.set(issuer, now());
+
+      return stale(issuer, kid);
+    }
+  };
+
+  /**
+   * The issuer's keys for `kid`: refetched past the JWKS's max age, and for an unknown `kid` at
+   * most once per `JWKS_REFETCH_MS`.
+   */
+  const keysFor = async (issuer: string, kid: string | null) => {
+    const cached = cache.get(issuer);
+    const at = now();
+
+    if (cached !== undefined && at < cached.staleAt) {
       const known = candidates(cached, kid);
 
-      if (known.length > 0 || now() - cached.fetchedAt < JWKS_REFETCH_MS) return known;
+      if (known.length > 0 || at - cached.fetchedAt < JWKS_REFETCH_MS) return known;
     }
 
-    return candidates(await fresh(issuer), kid);
+    return refetch(issuer, kid);
   };
 
   const signedBy = async (
