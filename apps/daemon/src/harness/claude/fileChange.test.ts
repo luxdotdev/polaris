@@ -3,7 +3,7 @@
  * (`fixtures/file-tools.json`), their input streamed in chunks the way the SDK sends it.
  */
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
@@ -232,11 +232,31 @@ describe("readPreviousFile", () => {
       writeFileSync(join(dir, "b.bin"), Buffer.from([0, 1, 2]));
       const read = readPreviousFile(dir);
 
-      expect([read("a.txt"), read("missing.txt"), read("b.bin")]).toEqual([
+      expect([read("a.txt"), read("new/missing.txt"), read("b.bin")]).toEqual([
         "hello\n",
         null,
         undefined,
       ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("never reads outside the working directory, directly or through a symlink", () => {
+    const dir = mkdtempSync(join(tmpdir(), "polaris-previous-"));
+
+    try {
+      mkdirSync(join(dir, "repo"));
+      writeFileSync(join(dir, "secret.txt"), "token\n");
+      symlinkSync(join(dir, "secret.txt"), join(dir, "repo", "link.txt"));
+      const read = readPreviousFile(join(dir, "repo"));
+
+      expect([
+        read(join(dir, "secret.txt")),
+        read("../secret.txt"),
+        read("link.txt"),
+        read(join(dir, "elsewhere.txt")),
+      ]).toEqual([undefined, undefined, undefined, undefined]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

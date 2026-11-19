@@ -12,8 +12,8 @@ import {
   TurnItem,
 } from "@polaris/protocol";
 import { Effect, Option, Schema } from "effect";
-import { readFileSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import type { ToolPayload } from "./payloads.ts";
 
 export const FILE_TOOLS = new Set(["Edit", "MultiEdit", "Write", "NotebookEdit"]);
@@ -27,19 +27,43 @@ export type ReadPrevious = (path: string) => Previous;
 /** Larger files aren't read: a Write over one shows its patch once Claude Code reports it. */
 const PREVIOUS_LIMIT = 1024 * 1024;
 
-/** `ReadPrevious` on this Host's files, relative paths from `cwd`: a text file up to 1 MB. */
+/** Whether `path` (already real) is `root` or inside it. */
+const inside = (root: string, path: string): boolean => {
+  const rel = relative(root, path);
+
+  return rel.split(sep)[0] !== ".." && !isAbsolute(rel);
+};
+
+interface RealPath {
+  readonly real: string;
+  readonly exists: boolean;
+}
+
+/** The real path of `file`, or of its nearest existing directory when it doesn't exist. */
+const realOf = (file: string): RealPath => {
+  if (existsSync(file)) return { real: realpathSync(file), exists: true };
+  const parent = dirname(file);
+
+  return parent === file ? { real: file, exists: false } : { ...realOf(parent), exists: false };
+};
+
+/**
+ * `ReadPrevious` on this Host's files: a text file up to 1 MB whose real path is inside
+ * `cwd`. Anything outside (a model-chosen `~/.ssh/...`, a symlink out) is never read.
+ */
 export const readPreviousFile =
   (cwd: string): ReadPrevious =>
   (path) => {
-    const file = resolve(cwd, path);
-
     try {
-      const stat = statSync(file, { throwIfNoEntry: false });
+      const { real, exists } = realOf(resolve(cwd, path));
 
-      if (stat === undefined) return null;
+      if (!inside(realpathSync(cwd), real)) return undefined;
+
+      if (!exists) return null;
+      const stat = statSync(real);
 
       if (!stat.isFile() || stat.size > PREVIOUS_LIMIT) return undefined;
-      const text = readFileSync(file, "utf8");
+      const text = readFileSync(real, "utf8");
 
       return text.includes("\0") ? undefined : text;
     } catch {

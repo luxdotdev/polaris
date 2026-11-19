@@ -211,8 +211,7 @@ describe("Claude driver", () => {
         turnId: T1,
         item: TurnItem.cases.FileChange.make({
           id: "tu2",
-          // The Daemon finds no file there, so the running Write already reads as a new file.
-          changes: [{ path: "/work/repo/x.ts", kind: "add" }],
+          changes: [{ path: "/work/repo/x.ts", kind: "modify" }],
           status: "running",
         }),
       }),
