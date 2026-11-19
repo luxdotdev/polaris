@@ -59,12 +59,21 @@ const listedBytes = async (exec: Run, zip: string) => {
   return listed.code === 0 && bytes !== undefined ? Number(bytes) : null;
 };
 
-/** The disk a folder takes, or null unless the scan ended cleanly: a skipped subtree is not a total. */
+/** A scan may fail this many times in a row while ditto runs, then the folder counts as unmeasurable. */
+const MISSED_SCANS = 3;
+
+/**
+ * The disk a folder takes. `clean` is false when the scan skipped something: a total it still
+ * printed is a lower bound. ditto's own temporary files vanish mid-scan, so one miss is ordinary.
+ */
 const diskOf = async (exec: Run, path: string, stop?: AbortSignal) => {
   const measured = await exec("/usr/bin/du", ["-sk", path], stop);
   const kilobytes = /^(\d+)\s/.exec(measured.stdout)?.[1];
 
-  return measured.code === 0 && kilobytes !== undefined ? Number(kilobytes) * 1024 : null;
+  return {
+    bytes: kilobytes === undefined ? null : Number(kilobytes) * 1024,
+    clean: measured.code === 0 && kilobytes !== undefined,
+  };
 };
 
 /** Resolves after `ms`, or as soon as `stop` aborts. */
@@ -82,17 +91,23 @@ const pause = (ms: number, stop: AbortSignal) =>
     );
   });
 
-/** One scan at a time while `ditto` runs; false once the folder passes `ceiling` or can't be measured. */
+/**
+ * One scan at a time while `ditto` runs. False once the folder passes `ceiling`, or once
+ * scans keep failing: a folder that can't be measured is not within its budget.
+ */
 const watched = async (exec: Run, scratch: string, ceiling: number, done: AbortSignal) => {
+  let missed = 0;
+
   for (;;) {
     await pause(WATCH_MS, done);
 
     if (done.aborted) return true;
-    const bytes = await diskOf(exec, scratch, done);
+    const scan = await diskOf(exec, scratch, done);
 
     if (done.aborted) return true;
+    missed = scan.clean ? 0 : missed + 1;
 
-    if (bytes === null || bytes > ceiling) return false;
+    if ((scan.bytes ?? 0) > ceiling || missed >= MISSED_SCANS) return false;
   }
 };
 
@@ -121,9 +136,10 @@ const unpack = async (exec: Run, zip: string, scratch: string, limit: number) =>
     done.abort();
 
     if (unpacked.code !== 0 || !(await within)) return false;
-    const bytes = await diskOf(exec, scratch);
+    // Nothing is being written any more: this scan has to end cleanly.
+    const settled = await diskOf(exec, scratch);
 
-    return bytes !== null && bytes <= ceiling;
+    return settled.clean && settled.bytes !== null && settled.bytes <= ceiling;
   } finally {
     done.abort();
   }

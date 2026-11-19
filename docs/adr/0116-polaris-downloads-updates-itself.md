@@ -49,7 +49,10 @@ from the internet.
   more, or can't be read, is refused unopened. `ditto` does not honour the sizes a zip states,
   so the folder is also measured (`du`, one scan at a time, 100 ms apart, killed when `ditto`
   ends) and `ditto` is killed once it passes twice the listed size plus 64 MiB of block
-  rounding, or 2 GiB, or can't be measured. The feed
+  rounding, or 2 GiB. A scan that exits
+  non-zero skipped something, so its total is only a lower bound: `ditto`'s own temporary files
+  vanish under a scan, so one miss is ordinary, but three in a row kill `ditto`, and the scan
+  after it ends must be clean. The feed
   names no size or hash for the zip, so the size is the server's `Content-Length`. Windows:
   the package's size and SHA-1 must equal the RELEASES entry fetched over `https`; Windows
   builds carry no Authenticode signature to check. A file that fails is deleted.

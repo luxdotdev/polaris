@@ -243,6 +243,46 @@ test.skipIf(!mac)(
     };
 
     expect(await budgeted(intact, MAX_UNPACKED_BYTES, partial)).toBe(false);
+
+    // ditto's temporary files vanish under a scan: one miss while it unpacks is ordinary.
+    let scans = 0;
+    let scannedTwice = () => {};
+
+    const twice = new Promise<void>((resolve) => {
+      scannedTwice = resolve;
+    });
+
+    const missedOnce: Run = async (file, args, stop) => {
+      const ran = await runTool(file, args, stop);
+
+      // ditto is held open until two scans ran, so both happen while it "unpacks".
+      if (file.endsWith("/ditto")) await twice;
+
+      if (!file.endsWith("/du")) return ran;
+      scans++;
+
+      if (scans === 2) scannedTwice();
+
+      return scans === 1 ? { ...ran, code: 1 } : ran;
+    };
+
+    expect(await budgeted(intact, MAX_UNPACKED_BYTES, missedOnce)).toBe(true);
+    expect(scans).toBe(3);
+
+    // Scans that never end cleanly stop the unpacking instead of letting it run on.
+    let killed = false;
+
+    const neverClean: Run = async (file, args, stop) => {
+      if (!file.endsWith("/ditto"))
+        return file.endsWith("/du") ? { code: 1, stdout: "" } : runTool(file, args, stop);
+      await new Promise((resolve) => stop?.addEventListener("abort", resolve, { once: true }));
+      killed = true;
+
+      return { code: null, stdout: "" };
+    };
+
+    expect(await budgeted(intact, MAX_UNPACKED_BYTES, neverClean)).toBe(false);
+    expect(killed).toBe(true);
     expect(await budgeted(intact, MAX_UNPACKED_BYTES, recorded(["zipinfo"]).run)).toBe(false);
     expect(await budgeted(intact, MAX_UNPACKED_BYTES, recorded().run)).toBe(true);
   },
