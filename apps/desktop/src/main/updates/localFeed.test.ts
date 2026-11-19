@@ -66,10 +66,12 @@ let dir = "";
 
 let served: LocalFeed | null = null;
 
-afterEach(() => {
-  served?.close();
+afterEach(async () => {
+  await served?.close();
   served = null;
-  rmSync(dir, { recursive: true, force: true });
+
+  if (dir !== "") rmSync(dir, { recursive: true, force: true });
+  dir = "";
 });
 
 const serve = async (platform: string, patch: Partial<OfferedUpdate> = {}) => {

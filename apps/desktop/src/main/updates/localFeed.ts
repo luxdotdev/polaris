@@ -83,7 +83,8 @@ export interface LocalFeed {
   readonly url: string;
   /** The unguessable address everything this feed serves sits under. */
   readonly root: string;
-  readonly close: () => void;
+  /** Stops serving; resolves once the package's descriptor is closed (Windows can't remove an open file). */
+  readonly close: () => Promise<void>;
 }
 
 /** Opens the staged package once, never through a symlink; null when it is not a plain file. */
@@ -171,7 +172,7 @@ export const serveLocalFeed = async (input: LocalFeedInput): Promise<LocalFeed> 
   const { address, port } = Schema.decodeUnknownSync(Address)(server.address());
   const origin = `http://${address}:${port}`;
 
-  let closed = false;
+  let closed: Promise<void> | null = null;
 
   feed = { ...input, origin, token };
 
@@ -179,11 +180,12 @@ export const serveLocalFeed = async (input: LocalFeedInput): Promise<LocalFeed> 
     url: input.platform === "win32" ? `${origin}/${token}` : `${origin}/${token}/feed`,
     root: `${origin}/${token}`,
     close: () => {
-      if (closed) return;
-      closed = true;
+      if (closed !== null) return closed;
       server.close();
       server.closeAllConnections();
-      void file.close().catch(() => undefined);
+      closed = file.close().catch(() => undefined);
+
+      return closed;
     },
   };
 };

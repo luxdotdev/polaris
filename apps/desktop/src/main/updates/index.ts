@@ -174,7 +174,7 @@ export const createAppUpdates = (input: UpdateInput) => {
 
     handover = null;
     ended?.cancelTimeout();
-    ended?.feed.close();
+    void ended?.feed.close();
 
     return ended;
   };
@@ -312,7 +312,7 @@ export const createAppUpdates = (input: UpdateInput) => {
     if (staged.ok) await nativeIdle(signal);
 
     if (disposed || staging !== mine) {
-      if (staged.ok) staged.feed.close();
+      if (staged.ok) void staged.feed.close();
 
       return;
     }
