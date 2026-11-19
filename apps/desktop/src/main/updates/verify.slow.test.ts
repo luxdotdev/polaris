@@ -234,6 +234,15 @@ test.skipIf(!mac)(
     const intact = zipOf(SIGNED, "unmeasured.zip");
 
     expect(await budgeted(intact, MAX_UNPACKED_BYTES, recorded(["du"]).run)).toBe(false);
+
+    // A scan that skipped a subtree prints a total and exits non-zero: that is not a measurement.
+    const partial: Run = async (file, args, stop) => {
+      const ran = await runTool(file, args, stop);
+
+      return file.endsWith("/du") ? { ...ran, code: 1 } : ran;
+    };
+
+    expect(await budgeted(intact, MAX_UNPACKED_BYTES, partial)).toBe(false);
     expect(await budgeted(intact, MAX_UNPACKED_BYTES, recorded(["zipinfo"]).run)).toBe(false);
     expect(await budgeted(intact, MAX_UNPACKED_BYTES, recorded().run)).toBe(true);
   },

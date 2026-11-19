@@ -59,12 +59,12 @@ const listedBytes = async (exec: Run, zip: string) => {
   return listed.code === 0 && bytes !== undefined ? Number(bytes) : null;
 };
 
-/** The disk a folder takes, or null when no total came back (the scan failed or was killed). */
+/** The disk a folder takes, or null unless the scan ended cleanly: a skipped subtree is not a total. */
 const diskOf = async (exec: Run, path: string, stop?: AbortSignal) => {
   const measured = await exec("/usr/bin/du", ["-sk", path], stop);
   const kilobytes = /^(\d+)\s/.exec(measured.stdout)?.[1];
 
-  return kilobytes === undefined ? null : Number(kilobytes) * 1024;
+  return measured.code === 0 && kilobytes !== undefined ? Number(kilobytes) * 1024 : null;
 };
 
 /** Resolves after `ms`, or as soon as `stop` aborts. */
