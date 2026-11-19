@@ -44,7 +44,6 @@ describe("About Update states", () => {
 
     expect(appUpdateRow(view({ phase: "downloading", download }))).toMatchObject({
       title: "Downloading Polaris 0.12.1",
-      glyph: "working",
       action: null,
       progress: { amount: "48 of 131 MB · 37%", fraction: (48 * MB) / (131 * MB) },
       tone: "default",
@@ -128,7 +127,7 @@ describe("About Update states", () => {
   });
   test("failures stay neutral and never promise an automatic retry with checks off", () => {
     expect(appUpdateRow(view({ phase: "failed", automatic: false }))).toMatchObject({
-      glyph: "failed",
+      title: "Couldn't check for updates",
       actionLabel: "Try again",
     });
     expect(appUpdateRow(view({ phase: "failed", automatic: false })).caption).not.toContain(
@@ -139,15 +138,24 @@ describe("About Update states", () => {
     for (const phase of ["checking", "downloading"] as const)
       expect(appUpdateRow(view({ phase })).action).toBeNull();
   });
-  test("no caption repeats the footer's last-checked time", () => {
-    const at = Date.UTC(2026, 9, 30, 14, 2);
+  test("up to date names the running version and when it was checked (Paper U1)", () => {
+    const at = new Date(2026, 10, 19, 14, 2).getTime();
 
-    for (const automatic of [true, false]) {
-      const caption = appUpdateRow(
-        view({ phase: "current", automatic, lastCheckedAt: at })
-      ).caption;
+    const row = (now: number) =>
+      appUpdateRow(view({ phase: "current", version: "0.11.0", lastCheckedAt: at }), now);
 
-      expect(caption).not.toMatch(/checked/i);
-    }
+    expect(row(at + 3 * 60 * 60_000)).toMatchObject({
+      title: "Polaris 0.11.0 is up to date",
+      caption: "Checked today at 14:02",
+      actionLabel: "Check now",
+    });
+    // Yesterday's check is not "today".
+    expect(row(at + 24 * 60 * 60_000).caption).toMatch(/^Checked \D+19 at 14:02$/);
+  });
+  test("only checking turns the spinner", () => {
+    expect(appUpdateRow(view({ phase: "checking" })).spinner).toBe(true);
+
+    for (const phase of ["idle", "current", "downloading", "ready", "failed"] as const)
+      expect(appUpdateRow(view({ phase })).spinner).toBe(false);
   });
 });

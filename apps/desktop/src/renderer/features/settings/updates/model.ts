@@ -13,7 +13,8 @@ import {
 export interface AppUpdateRow {
   readonly title: string;
   readonly caption: string;
-  readonly glyph: "working" | "check" | "star" | "folder" | "failed" | "off";
+  /** Checking: the trailing spinner (Paper U1). */
+  readonly spinner: boolean;
   readonly action: "check" | "restart" | "finder" | null;
   readonly actionLabel: string;
   /** The download's bar: "48 of 131 MB · 37%", and its share once the size is known. */
@@ -22,7 +23,7 @@ export interface AppUpdateRow {
   readonly tone: "default" | "failed";
 }
 
-const QUIET = { progress: null, tone: "default" } as const;
+const QUIET = { progress: null, tone: "default", spinner: false } as const;
 
 export const checkedAt = (at: number | null): string =>
   at === null
@@ -35,11 +36,25 @@ export const checkedAt = (at: number | null): string =>
         hour12: false,
       });
 
-const checkRow = (
-  title: string,
-  caption: string,
-  glyph: AppUpdateRow["glyph"] = "check"
-): AppUpdateRow => ({ title, caption, glyph, action: "check", actionLabel: "Check now", ...QUIET });
+const checkRow = (title: string, caption: string): AppUpdateRow => ({
+  title,
+  caption,
+  action: "check",
+  actionLabel: "Check now",
+  ...QUIET,
+});
+
+const clock = (at: number) =>
+  new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+
+/** "Checked today at 14:02" (Paper U1), or the date for an older check. */
+export const checkedCaption = (at: number, now: number): string => {
+  const day = new Date(at);
+
+  return day.toDateString() === new Date(now).toDateString()
+    ? `Checked today at ${clock(at)}`
+    : `Checked ${day.toLocaleDateString([], { month: "short", day: "numeric" })} at ${clock(at)}`;
+};
 
 const named = (version: string | null) => (version === null ? "Polaris" : `Polaris ${version}`);
 
@@ -55,11 +70,11 @@ const failedDownload = (failure: AppUpdateFailure): AppUpdateRow => {
   return {
     title: `Couldn't download ${named(failure.version)}`,
     caption: `${what}; Polaris tries again on the next check`,
-    glyph: "failed",
     action: "check",
     actionLabel: "Try again",
     progress: null,
     tone: "failed",
+    spinner: false,
   };
 };
 
@@ -71,16 +86,16 @@ const downloading = (view: AppUpdateView): AppUpdateRow => {
     title: `Downloading ${named(download?.version ?? view.availableVersion)}`,
     // Full, but Squirrel is still checking and unpacking it.
     caption: fraction === 1 ? "Verifying the download" : "In the background · nothing to do yet",
-    glyph: "working",
     action: null,
     actionLabel: "",
     progress: download === null ? null : { amount: downloadAmount(download), fraction },
     tone: "default",
+    spinner: false,
   };
 };
 
-/** The row's caption never repeats when it checked: the card's footer carries that (SR-12). */
-export const appUpdateRow = (view: AppUpdateView): AppUpdateRow => {
+/** One row per state, as Paper "Polaris — 0.11.0" U1 draws them. */
+export const appUpdateRow = (view: AppUpdateView, now: number = Date.now()): AppUpdateRow => {
   const release = named(view.availableVersion);
 
   const copy = platformCopy(view.platform);
@@ -90,10 +105,10 @@ export const appUpdateRow = (view: AppUpdateView): AppUpdateRow => {
       return {
         title: "Checking for updates…",
         caption: "Asking polaris.lux.dev for the latest release",
-        glyph: "working",
         action: null,
         actionLabel: "",
         ...QUIET,
+        spinner: true,
       };
     case "downloading":
       return downloading(view);
@@ -101,7 +116,6 @@ export const appUpdateRow = (view: AppUpdateView): AppUpdateRow => {
       return {
         title: `${named(view.readyVersion ?? view.availableVersion)} is ready`,
         caption: "Installs when you restart or quit; agent sessions keep working",
-        glyph: "star",
         action: "restart",
         actionLabel: "Restart to update",
         ...QUIET,
@@ -110,7 +124,6 @@ export const appUpdateRow = (view: AppUpdateView): AppUpdateRow => {
       return {
         title: `${release} can't install here`,
         caption: copy.install,
-        glyph: "folder",
         action: "finder",
         actionLabel: copy.reveal,
         ...QUIET,
@@ -122,7 +135,6 @@ export const appUpdateRow = (view: AppUpdateView): AppUpdateRow => {
       return {
         title: "Couldn't check for updates",
         caption: `polaris.lux.dev didn't answer · ${view.automatic ? "tries again in 6 hours" : "check again when you're ready"}`,
-        glyph: "failed",
         action: "check",
         actionLabel: "Try again",
         ...QUIET,
@@ -130,16 +142,16 @@ export const appUpdateRow = (view: AppUpdateView): AppUpdateRow => {
     case "idle":
     case "current":
       if (!view.supported)
-        return checkRow(copy.unsupported, "This build doesn't check the update feed", "off");
+        return checkRow(copy.unsupported, "This build doesn't check the update feed");
 
-      if (!view.automatic)
-        return checkRow("Automatic checks are off", `You're on ${view.version}`, "off");
+      if (!view.automatic) return checkRow("Automatic checks are off", `You're on ${view.version}`);
+
+      if (view.phase === "idle" || view.lastCheckedAt === null)
+        return checkRow("Check for a new release", "Polaris downloads updates in the background");
 
       return checkRow(
-        view.phase === "current" ? "Polaris is up to date" : "Check for a new release",
-        view.lastCheckedAt === null
-          ? "Polaris downloads updates in the background"
-          : `${view.version} is the latest release`
+        `Polaris ${view.version} is up to date`,
+        checkedCaption(view.lastCheckedAt, now)
       );
   }
 };

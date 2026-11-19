@@ -150,6 +150,16 @@ test("a download shows its amount and a bar at its share; a failed one has neith
   expect(failed.getByRole("button", { name: "Try again" })).not.toBeNull();
 });
 
+test("checking shows the spinner and offers nothing to press in the row", () => {
+  mount(view({ phase: "checking" }));
+
+  const row = within(screen.getByTestId("app-update"));
+
+  expect(row.getByText("Checking for updates…")).not.toBeNull();
+  expect(row.getByTestId("app-update-spinner")).not.toBeNull();
+  expect(row.queryByRole("button")).toBeNull();
+});
+
 test("with automatic checks off, the install ID is not sent", () => {
   mount(view({ automatic: false }));
 
