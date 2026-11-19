@@ -7,7 +7,7 @@ import {
 } from "../../browser/index.ts";
 import { setDataOutputShown } from "../../data/output/state.ts";
 import { setSimulatorShown } from "../../simulator/index.ts";
-import { isTerminalShown, type TerminalPlace } from "../../terminal/index.ts";
+import { terminalHoldsOutput, type TerminalPlace } from "../../terminal/index.ts";
 import { showSubagent, uiKey } from "../state.ts";
 import { offerOutput } from "./actions.ts";
 import { isOutputHeldClosed, isOutputOpen } from "./open.ts";
@@ -32,7 +32,7 @@ export const onAgentTab = (place: TerminalPlace, sessionId: string, subagentShow
   const key = uiKey(place.hostKey, sessionId);
 
   const outcome = agentOpened({
-    panelOpen: isOutputOpen(key) || isTerminalShown(place.hostKey, place.workspaceId),
+    panelOpen: isOutputOpen(key) || terminalHoldsOutput(place.hostKey, place.workspaceId),
     browserShown: browserUi(key).shown && !subagentShown,
     heldClosed: isOutputHeldClosed(key),
   });

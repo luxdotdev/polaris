@@ -38,6 +38,8 @@ export interface Drawer {
   readonly tabs: ReadonlyArray<TerminalTab>;
   /** Orchestrate collapsed Output over the open drawer: there it shows as the strip; Edit ignores it. */
   readonly tucked?: boolean;
+  /** Its last tab closed while it held Orchestrate's Output open: Output stays until the user hides it. */
+  readonly keepsOutput?: boolean;
 }
 
 export const SHELL_TAB = "shell";
@@ -81,7 +83,10 @@ export const patchTab = (
   tabs: drawer.tabs.map((t) => (t.key === key ? { ...t, ...patch } : t)),
 });
 
-/** Removes the tab; the neighbour to its left (else right) becomes active; the last one closes the drawer. */
+/**
+ * Removes the tab; the neighbour to its left (else right) becomes active; the last one closes
+ * the drawer, and keeps Output open if the drawer held it open.
+ */
 export const removeTab = (drawer: Drawer, key: string): Drawer => {
   const index = drawer.tabs.findIndex((t) => t.key === key);
 
@@ -93,9 +98,17 @@ export const removeTab = (drawer: Drawer, key: string): Drawer => {
     ...drawer,
     tabs,
     open: drawer.open && tabs.length > 0,
+    keepsOutput: drawer.keepsOutput === true || (tabs.length === 0 && showsInOutput(drawer)),
     active: drawer.active === key ? neighbour : drawer.active,
   };
 };
+
+/** Whether the drawer shows terminals under Orchestrate's Output, which opens for it. */
+export const showsInOutput = (drawer: Drawer) =>
+  drawer.open && drawer.tucked !== true && drawer.tabs.length > 0;
+
+/** Whether Orchestrate's Output shows as the panel for this drawer's sake. */
+export const holdsOutput = (drawer: Drawer) => showsInOutput(drawer) || drawer.keepsOutput === true;
 
 /** A tab still owns a process on the Host that `terminal.close` should end. */
 export const holdsProcess = (tab: TerminalTab) =>

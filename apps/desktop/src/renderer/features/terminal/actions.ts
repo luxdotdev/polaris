@@ -128,12 +128,16 @@ export const setDrawerHeight = (place: TerminalPlace, height: number) =>
 
 /**
  * Orchestrate collapsed Output over the open drawer: it shows as the strip
- * there and stays open in Edit; its terminals keep running.
+ * there and stays open in Edit; its terminals keep running. Output no longer stays for it.
  */
 export const tuckTerminal = (place: TerminalPlace) =>
-  updateDrawer(drawerKey(place.hostKey, place.workspaceId), (d) =>
-    d.open && d.tucked !== true ? { ...d, tucked: true } : d
-  );
+  updateDrawer(drawerKey(place.hostKey, place.workspaceId), (d) => {
+    const tuck = d.open && d.tucked !== true;
+
+    if (!tuck && d.keepsOutput !== true) return d;
+
+    return { ...d, tucked: tuck || d.tucked === true, keepsOutput: false };
+  });
 
 /**
  * Shows or hides the drawer; showing an empty one opens the Workspace's shell

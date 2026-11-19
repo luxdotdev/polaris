@@ -6,7 +6,15 @@
 import { Option, Schema } from "effect";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
-import { type Drawer, emptyDrawer, patchTab, persisted, type TabStatus } from "./model/tabs.ts";
+import {
+  type Drawer,
+  emptyDrawer,
+  holdsOutput,
+  patchTab,
+  persisted,
+  showsInOutput,
+  type TabStatus,
+} from "./model/tabs.ts";
 
 type Drawers = Readonly<Record<string, Drawer>>;
 
@@ -19,6 +27,7 @@ const Persisted = Schema.Record(
     height: Schema.Number,
     active: Schema.NullOr(Schema.String),
     tucked: Schema.optionalKey(Schema.Boolean),
+    keepsOutput: Schema.optionalKey(Schema.Boolean),
     tabs: Schema.Array(
       Schema.Struct({
         key: Schema.String,
@@ -75,15 +84,16 @@ export const updateDrawer = (key: string, update: (drawer: Drawer) => Drawer) =>
 export const useDrawer = (key: string | null): Drawer =>
   useStore(drawers, (s) => (key === null ? emptyDrawer : (s[key] ?? emptyDrawer)));
 
-/** Whether a Workspace's drawer is showing terminals in Orchestrate (the Output lane opens for it). */
-const shows = (drawer: Drawer | undefined) =>
-  drawer !== undefined && drawer.open && drawer.tucked !== true && drawer.tabs.length > 0;
-
-export const useTerminalShown = (hostKey: string, workspaceId: string): boolean =>
-  useStore(drawers, (s) => shows(s[drawerKey(hostKey, workspaceId)]));
-
+/** Whether a Workspace's drawer is showing terminals in Orchestrate. */
 export const isTerminalShown = (hostKey: string, workspaceId: string): boolean =>
-  shows(drawers.getState()[drawerKey(hostKey, workspaceId)]);
+  showsInOutput(getDrawer(drawerKey(hostKey, workspaceId)));
+
+/** Whether a Workspace's drawer holds Orchestrate's Output open: it shows, or its last tab closed there. */
+export const useTerminalHoldsOutput = (hostKey: string, workspaceId: string): boolean =>
+  useStore(drawers, (s) => holdsOutput(s[drawerKey(hostKey, workspaceId)] ?? emptyDrawer));
+
+export const terminalHoldsOutput = (hostKey: string, workspaceId: string): boolean =>
+  holdsOutput(getDrawer(drawerKey(hostKey, workspaceId)));
 
 /** A terminal exited or ended: every tab showing it says so. */
 type StatusListener = (status: TabStatus) => void;
