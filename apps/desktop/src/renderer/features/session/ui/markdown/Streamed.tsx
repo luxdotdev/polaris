@@ -1,75 +1,62 @@
 /**
- * An assistant message as Markdown (Streamdown): incomplete syntax mid-stream
- * renders as it will end, code in the code font with a copy action, Mermaid
- * and KaTeX once their plugins load, links open in the user's browser (a Host address in the
- * session's Browser), images and links naming a path open from the session's Host.
+ * An assistant message as Markdown, through Words (ADR 0115): incomplete syntax mid-stream renders
+ * as it will end, finished blocks render once, math as SVG, code in the code font with a copy
+ * action, Mermaid through Pele; links open in the user's browser (a Host address in the session's
+ * Browser), and images and links naming a path open from the session's Host.
  */
 import "./markdown.css";
-import {
-  type Components,
-  type ControlsConfig,
-  defaultComponents,
-  defaultRehypePlugins,
-  Streamdown,
-} from "streamdown";
+import type { Element } from "hast";
+import type { ComponentProps } from "react";
 import { browserLinkOf } from "../../../browser/index.ts";
 import { FileLink, useEditorPlace } from "../../../editor-links/index.ts";
 import { BrowserLink } from "./BrowserLink.tsx";
-import { COPY_CODE, COPY_TABLE } from "./copyControls.tsx";
+import { CodeBlock } from "./code/CodeBlock.tsx";
+import { COPY_TABLE } from "./copyControls.tsx";
 import { editorLinkOf, rehypeFileLinks } from "./fileLinks.ts";
 import { HostImage } from "./HostImage.tsx";
 import { type HostPaths, hostImageOf, rehypeFileImages, rehypeHostImages } from "./hostImages.ts";
 import { HostLink } from "./HostLink.tsx";
 import { hostLinkOf, rehypeFileHrefs, rehypeHostLinks } from "./hostLinks.ts";
-import { needsOf } from "./needs.ts";
 import { rehypeSoftBreaks } from "./softBreaks.ts";
-import { usePlugins } from "./plugins.ts";
-import { MERMAID_CONFIG, POLARIS_SHIKI } from "./theme.ts";
+import { type Components, Markup, type Pipeline } from "./words/Markup.tsx";
+import { useStreamBlocks } from "./words/render.ts";
+import { MATH_SCHEMA } from "./words/schema.ts";
 
-// Copy is Polaris's own CopyButton (`copyControls.tsx`), not Streamdown's.
-const CONTROLS: ControlsConfig = {
-  code: { copy: false, download: false },
-  table: { copy: false, download: false, fullscreen: false },
-  mermaid: { copy: false, download: false, fullscreen: false, panZoom: false },
-};
-
-const { raw, sanitize, harden } = defaultRehypePlugins;
-
-// Host images and links are marked between sanitizing and hardening; `<wbr>` and editor links after.
-const rehypeFor = (host: HostPaths) =>
-  [
-    raw,
-    [rehypeFileImages, host] satisfies [unknown, HostPaths],
-    [rehypeFileHrefs, host] satisfies [unknown, HostPaths],
-    sanitize,
-    [rehypeHostImages, host] satisfies [unknown, HostPaths],
-    [rehypeHostLinks, host] satisfies [unknown, HostPaths],
-    harden,
-    rehypeFileLinks,
-    rehypeSoftBreaks,
-  ].filter((plugin) => plugin !== undefined);
+// File URLs and drive paths become sanitizable paths first; Host images and links are marked after.
+const pipelineFor = (host: HostPaths): Pipeline => ({
+  before: [rehypeFileImages(host), rehypeFileHrefs(host)],
+  schema: MATH_SCHEMA,
+  after: [rehypeHostImages(host), rehypeHostLinks(host), rehypeFileLinks(), rehypeSoftBreaks()],
+});
 
 /** Drive paths are paths only on a Windows Host; on any other they stay URLs, as written. */
-const REHYPE_POSIX = rehypeFor({ windows: false });
+const PIPELINE_POSIX = pipelineFor({ windows: false });
 
-const REHYPE_WINDOWS = rehypeFor({ windows: true });
+const PIPELINE_WINDOWS = pipelineFor({ windows: true });
+
+const LINK =
+  "text-text-strong decoration-text-faint hover:decoration-text-subtle underline underline-offset-2";
+
+interface Hast {
+  readonly node?: Element;
+}
 
 const COMPONENTS: Components = {
-  ...COPY_CODE,
   ...COPY_TABLE,
-  // A path reads from the session's Host; a URL is Streamdown's own image, as it always was.
-  img: (props) => {
-    const path = hostImageOf(props.node?.properties);
+  pre: CodeBlock,
+  // A path reads from the session's Host; a URL is an ordinary image.
+  img: ({ node, ...props }: ComponentProps<"img"> & Hast) => {
+    const path = hostImageOf(node?.properties);
 
     return path === null ? (
-      <defaultComponents.img {...props} />
+      <img {...props} alt={props.alt ?? ""} />
     ) : (
       <HostImage path={path} alt={props.alt ?? ""} />
     );
   },
   // `path:line` (rehypeFileLinks) opens in the editor, a Host path as `HostLink` says, a Host
   // address (localhost) in the session's Browser, other web links in the user's browser.
-  a: ({ href, children, node }) => {
+  a: ({ href, children, node }: ComponentProps<"a"> & Hast) => {
     const target = editorLinkOf(node?.properties);
     const hostPath = hostLinkOf(node?.properties);
 
@@ -85,19 +72,14 @@ const COMPONENTS: Components = {
           path={target.path}
           line={target.line}
           column={target.column}
-          className="text-text-strong decoration-text-faint hover:decoration-text-subtle inline underline underline-offset-2"
+          className={`${LINK} inline`}
         >
           {children}
         </FileLink>
       );
 
     return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noreferrer"
-        className="text-text-strong decoration-text-faint hover:decoration-text-subtle underline underline-offset-2"
-      >
+      <a href={href} target="_blank" rel="noreferrer" className={LINK}>
         {children}
       </a>
     );
@@ -110,25 +92,17 @@ export interface StreamedProps {
 }
 
 const Streamed = ({ text, live }: StreamedProps) => {
-  const plugins = usePlugins(needsOf(text));
-  const windows = useEditorPlace()?.windows === true;
+  const { stable, pending } = useStreamBlocks(text, live);
+  const pipeline = useEditorPlace()?.windows === true ? PIPELINE_WINDOWS : PIPELINE_POSIX;
 
   return (
-    <Streamdown
-      className="polaris-md"
-      isAnimating={live}
-      plugins={plugins}
-      rehypePlugins={windows ? REHYPE_WINDOWS : REHYPE_POSIX}
-      components={COMPONENTS}
-      controls={CONTROLS}
-      tableMaxHeight={0}
-      shikiTheme={[POLARIS_SHIKI, POLARIS_SHIKI]}
-      linkSafety={{ enabled: false }}
-      lineNumbers={false}
-      {...(plugins.mermaid === undefined ? {} : { mermaid: { config: MERMAID_CONFIG } })}
-    >
-      {text}
-    </Streamdown>
+    <div className="polaris-md" data-streaming={live ? "" : undefined}>
+      {[...stable, ...pending].map((html, index) => (
+        // A block's position is its identity: blocks only append, the open end settles in place
+        // as it finishes, and a reset re-renders only the blocks whose HTML changed.
+        <Markup key={index} html={html} pipeline={pipeline} components={COMPONENTS} />
+      ))}
+    </div>
   );
 };
 

@@ -375,7 +375,7 @@ const MARKDOWN = [
   "  D -->|gap large| S[Snapshot]",
   "```",
   "",
-  "The cost is linear: $$T(n) = c \\cdot n + k$$",
+  "The cost is linear in the gap \\(n\\), with \\(k \\ll n\\) in practice: $$T(n) = c \\cdot n + k$$",
   "",
   "> Replays past 500 frames are rare in practice.",
 ].join("\n");

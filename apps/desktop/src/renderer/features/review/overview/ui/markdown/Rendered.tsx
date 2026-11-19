@@ -1,16 +1,19 @@
 /**
- * Review Markdown through Streamdown: GFM, raw HTML sanitized (`<details>` kept, comments
- * dropped), then `rehypeReview` for alerts, `diff` blocks, folded tables and path links.
- * Links into the Review go to `renderLink`; others open in the browser.
+ * Review Markdown through Words (ADR 0115): GFM with raw HTML kept and sanitized (`<details>`
+ * kept, comments dropped), then `rehypeReview` for alerts, `diff` blocks, folded tables and path
+ * links. Links into the Review go to `renderLink`; others open in the browser.
  */
 import "../../../../session/ui/markdown/markdown.css";
 import "./review-md.css";
-import { type ReactNode, useMemo } from "react";
-import { type Components, defaultRehypePlugins, Streamdown } from "streamdown";
-import { COPY_CODE } from "../../../../session/ui/markdown/copyControls.tsx";
-import { needsOf } from "../../../../session/ui/markdown/needs.ts";
-import { usePlugins } from "../../../../session/ui/markdown/plugins.ts";
-import { POLARIS_SHIKI } from "../../../../session/ui/markdown/theme.ts";
+import { type ComponentProps, type ReactNode, useMemo } from "react";
+import { CodeBlock } from "../../../../session/ui/markdown/code/CodeBlock.tsx";
+import {
+  type Components,
+  Markup,
+  type Pipeline,
+} from "../../../../session/ui/markdown/words/Markup.tsx";
+import { renderHtml } from "../../../../session/ui/markdown/words/render.ts";
+import { PROSE_SCHEMA } from "../../../../session/ui/markdown/words/schema.ts";
 import { linkOf, prepareMarkdown, type ReviewLink, rehypeReview } from "../../model/markdown.ts";
 
 export interface RenderedProps {
@@ -21,17 +24,24 @@ export interface RenderedProps {
 }
 
 const Rendered = ({ markdown, paths, renderLink }: RenderedProps) => {
-  const text = prepareMarkdown(markdown);
-  const plugins = usePlugins({ ...needsOf(text), mermaid: false, math: false });
+  const html = useMemo(
+    () => renderHtml(prepareMarkdown(markdown), { html: true, math: false }),
+    [markdown]
+  );
 
-  const rehype = useMemo(
-    () => [...Object.values(defaultRehypePlugins), rehypeReview(paths)],
+  const pipeline: Pipeline = useMemo(
+    () => ({ schema: PROSE_SCHEMA, after: [rehypeReview(paths)()] }),
     [paths]
   );
 
   const components: Components = {
-    ...COPY_CODE,
-    a: ({ href, children }) => {
+    pre: CodeBlock,
+    table: ({ node: _node, ...props }: ComponentProps<"table"> & { readonly node?: unknown }) => (
+      <div data-md="table-wrapper">
+        <table {...props} />
+      </div>
+    ),
+    a: ({ href, children }: ComponentProps<"a">) => {
       const link = linkOf(href ?? "");
 
       return link.kind === "external" ? (
@@ -50,20 +60,9 @@ const Rendered = ({ markdown, paths, renderLink }: RenderedProps) => {
   };
 
   return (
-    <Streamdown
-      className="polaris-md review-md"
-      mode="static"
-      plugins={plugins.code === undefined ? {} : { code: plugins.code }}
-      rehypePlugins={rehype}
-      components={components}
-      controls={{ code: { copy: false, download: false }, table: false }}
-      tableMaxHeight={0}
-      shikiTheme={[POLARIS_SHIKI, POLARIS_SHIKI]}
-      linkSafety={{ enabled: false }}
-      lineNumbers={false}
-    >
-      {text}
-    </Streamdown>
+    <div className="polaris-md review-md">
+      <Markup html={html} pipeline={pipeline} components={components} />
+    </div>
   );
 };
 

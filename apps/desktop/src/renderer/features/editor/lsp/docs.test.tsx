@@ -67,7 +67,7 @@ describe("language docs: hover", () => {
     expect(container.querySelector("img")).toBeNull();
     expect("__hoverInjected" in globalThis).toBe(false);
     const links = [...container.querySelectorAll("a")];
-    expect(links.map((a) => a.getAttribute("href"))).toEqual(["https://example.com/"]);
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(["https://example.com"]);
     expect(links[0]?.getAttribute("target")).toBe("_blank");
   });
 
@@ -122,7 +122,7 @@ describe("language docs: hover", () => {
 
     await waitFor(() => expect(container.querySelector("pre")).not.toBeNull());
 
-    const blocks = [...container.querySelectorAll('[data-streamdown="code-block"]')];
+    const blocks = [...container.querySelectorAll('[data-md="code-block"]')];
 
     expect(blocks).toHaveLength(1);
     expect(blocks.every((block) => (block.textContent ?? "").trim() !== "")).toBe(true);

@@ -12,7 +12,8 @@ export const APP_ORIGIN = "app://polaris";
 
 const PROD_CSP = [
   "default-src 'none'",
-  "script-src 'self'",
+  // Words (Markdown) is WebAssembly; this allows compiling it, never JavaScript eval.
+  "script-src 'self' 'wasm-unsafe-eval'",
   // Radix and sonner inject <style> elements at runtime; scripts stay strict.
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
@@ -30,7 +31,7 @@ const devCsp = (devUrl: string) =>
   [
     "default-src 'none'",
     // The React Refresh preamble Vite injects is an inline module script (dev only).
-    `script-src 'self' 'unsafe-inline' ${devUrl}`,
+    `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' ${devUrl}`,
     `style-src 'self' 'unsafe-inline' ${devUrl}`,
     `img-src 'self' data: blob: ${devUrl}`,
     `font-src 'self' ${devUrl}`,

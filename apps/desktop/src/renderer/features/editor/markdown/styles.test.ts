@@ -5,8 +5,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Streamdown } from "streamdown";
-import { PREVIEW_REHYPE, SAFE_HTML_COMPONENTS } from "./pipeline.tsx";
+import { Markup } from "../../session/ui/markdown/words/Markup.tsx";
+import { renderHtml } from "../../session/ui/markdown/words/render.ts";
+import { PREVIEW_PIPELINE, SAFE_HTML_COMPONENTS } from "./pipeline.tsx";
 
 // Another DOM test file may have unregistered happy-dom already.
 beforeAll(() => {
@@ -34,17 +35,13 @@ const SOURCE = ["# One", "## Two", "Some *em*, **strong** and `code`.", "> quote
 const rendered = () => {
   const root = document.createElement("div");
 
+  root.className = "polaris-md editor-markdown";
   root.innerHTML = renderToStaticMarkup(
-    createElement(
-      Streamdown,
-      {
-        mode: "static",
-        className: "polaris-md editor-markdown",
-        rehypePlugins: PREVIEW_REHYPE,
-        components: SAFE_HTML_COMPONENTS,
-      },
-      SOURCE
-    )
+    createElement(Markup, {
+      html: renderHtml(SOURCE, { html: true, math: false }),
+      pipeline: PREVIEW_PIPELINE,
+      components: SAFE_HTML_COMPONENTS,
+    })
   );
 
   return root;
@@ -55,9 +52,9 @@ const declares = (element: Element | null, declaration: RegExp) =>
   element !== null &&
   RULES.some((rule) => element.matches(rule.selector) && declaration.test(rule.body));
 
-describe("the Markdown preview's own rules reach Streamdown's elements", () => {
-  test("**strong** is semibold and text-strong, though Streamdown renders a span", () => {
-    const strong = rendered().querySelector('[data-streamdown="strong"]');
+describe("the Markdown preview's own rules reach Words' elements", () => {
+  test("**strong** is semibold and text-strong", () => {
+    const strong = rendered().querySelector("strong");
 
     expect(strong?.textContent).toBe("strong");
     expect(declares(strong, /font-weight:\s*600/)).toBe(true);
@@ -69,9 +66,7 @@ describe("the Markdown preview's own rules reach Streamdown's elements", () => {
 
     for (const level of ["h1", "h2"])
       expect(declares(root.querySelector(level), /font-weight:\s*600/)).toBe(true);
-    expect(declares(root.querySelector('[data-streamdown="inline-code"]'), /font-family/)).toBe(
-      true
-    );
+    expect(declares(root.querySelector("code"), /font-family/)).toBe(true);
     expect(declares(root.querySelector("blockquote"), /color:\s*var\(--color-text-subtle\)/)).toBe(
       true
     );

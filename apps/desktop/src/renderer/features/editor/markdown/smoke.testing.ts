@@ -83,16 +83,12 @@ try {
   );
 
   assert.equal(
-    initialImports.some((name) =>
-      /streamdown_(?:code|mermaid|math)|shiki|mermaid.*chunk/i.test(name)
-    ),
+    initialImports.some((name) => /highlighter|shiki|pele/i.test(name)),
     false
   );
   await page.getByRole("button", { name: "Full sample", exact: true }).click();
   await page.getByRole("heading", { name: "Unsaved preview" }).waitFor();
-  await page
-    .locator('[data-streamdown="mermaid-block"] svg[aria-roledescription]')
-    .waitFor({ timeout: 30000 });
+  await page.locator('[data-md="diagram"] svg.pele').waitFor({ timeout: 30000 });
   metrics["fixture-cold-ready-ms"] = [performance.now() - launched];
   assert.equal(await page.locator("table").count(), 1);
   assert.equal(await page.locator('input[type="checkbox"]').count(), 2);
@@ -248,7 +244,7 @@ try {
   const imports = await page.evaluate(() =>
     performance
       .getEntriesByType("resource")
-      .filter((entry) => entry.name.includes("markdown") || entry.name.includes("streamdown"))
+      .filter((entry) => entry.name.includes("markdown") || entry.name.includes("words"))
       .map((entry) => ({ name: entry.name, duration: entry.duration }))
   );
 

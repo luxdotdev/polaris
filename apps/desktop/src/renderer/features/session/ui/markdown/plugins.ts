@@ -1,48 +1,45 @@
 /**
- * Streamdown's plugins, each loaded on first need as its own chunk (Shiki,
- * Mermaid and KaTeX are most of Markdown's weight), then shared by every
- * message. Components subscribe so a message re-renders when one arrives.
+ * The code highlighter and the diagram renderer, each loaded on first need as its own chunk
+ * (Shiki and Pele are most of Markdown's weight), then shared by every view. Components subscribe,
+ * so a block re-renders when one arrives or a highlighter language finishes loading.
  */
-import type { PluginConfig } from "streamdown";
+import type { CodeHighlighterPlugin, MermaidPlugin } from "@pierre/words/html";
 import { useEffect, useSyncExternalStore } from "react";
-import type { Needs } from "./needs.ts";
 
-type Name = keyof Needs;
+export interface Plugins {
+  readonly code?: CodeHighlighterPlugin;
+  readonly mermaid?: MermaidPlugin;
+  /** Bumps when a highlighter language loads, so highlighted blocks render again. */
+  readonly version: number;
+}
 
-let loaded: PluginConfig = {};
+type Name = "code" | "mermaid";
+
+let loaded: Plugins = { version: 0 };
 
 const loading = new Set<Name>();
 
 const listeners = new Set<() => void>();
 
-const publish = (patch: PluginConfig) => {
-  loaded = { ...loaded, ...patch };
+const publish = (patch: Partial<Plugins>) => {
+  loaded = { ...loaded, ...patch, version: loaded.version + 1 };
 
   for (const listener of listeners) listener();
 };
 
-const LOADERS: Readonly<Record<Name, () => Promise<PluginConfig>>> = {
+const LOADERS: Readonly<Record<Name, () => Promise<Partial<Plugins>>>> = {
   code: async () => {
-    // Its themes come from Streamdown's `shikiTheme` (`Streamed.tsx`).
-    const { code } = await import("@streamdown/code");
+    const { createCodeHighlighter } = await import("./code/highlighter.ts");
 
-    return { code };
+    return { code: await createCodeHighlighter(() => publish({})) };
   },
   mermaid: async () => {
-    const [{ default: mermaid }, { guardedDiagrams }] = await Promise.all([
-      import("mermaid"),
+    const [pele, { guardedDiagrams }] = await Promise.all([
+      import("pele"),
       import("./diagrams.ts"),
     ]);
 
-    return { mermaid: guardedDiagrams(mermaid) };
-  },
-  math: async () => {
-    const [{ createMathPlugin }] = await Promise.all([
-      import("@streamdown/math"),
-      import("katex/dist/katex.min.css"),
-    ]);
-
-    return { math: createMathPlugin({ errorColor: "var(--color-text-subtle)" }) };
+    return { mermaid: guardedDiagrams(pele) };
   },
 };
 
@@ -60,15 +57,19 @@ const subscribe = (listener: () => void) => {
   return () => listeners.delete(listener);
 };
 
-/** The plugins loaded so far; starts loading the ones `needs` asks for. */
-export const usePlugins = ({ code, mermaid, math }: Needs): PluginConfig => {
+/** The plugins loaded so far; starts loading the ones asked for. */
+export const usePlugins = ({
+  code,
+  mermaid,
+}: {
+  readonly code: boolean;
+  readonly mermaid: boolean;
+}): Plugins => {
   useEffect(() => {
     if (code) load("code");
 
     if (mermaid) load("mermaid");
-
-    if (math) load("math");
-  }, [code, mermaid, math]);
+  }, [code, mermaid]);
 
   return useSyncExternalStore(subscribe, () => loaded);
 };

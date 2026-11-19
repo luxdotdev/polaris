@@ -1,7 +1,7 @@
 /**
- * Rehype steps that mark Markdown images naming a path (absolute, `~/…`, `file://`, or relative
+ * Hast steps that mark Markdown images naming a path (absolute, `~/…`, `file://`, or relative
  * to the session's directory) so the `img` component reads them from the session's Host. URLs
- * are left to Streamdown as before. See `HostImage.tsx`.
+ * stay ordinary images. See `HostImage.tsx`.
  */
 import { Option, Schema } from "effect";
 import type { Node } from "./softBreaks.ts";
@@ -22,7 +22,7 @@ export interface MutableElement {
   children?: Array<Node>;
 }
 
-/** What a marked image's `src` becomes, so the hardening step lets it through untouched. */
+/** What a marked image's `src` becomes, a value no URL can take. */
 export const HOST_IMAGE_SRC = "polaris-host:image";
 
 const HostImageMark = Schema.Struct({
@@ -126,7 +126,7 @@ export const rehypeFileImages =
       if (path !== null && image.properties !== undefined) image.properties["src"] = path;
     });
 
-/** After sanitizing, before hardening (which drops relative and `~` sources): marks Host images. */
+/** After sanitizing: marks Host images, which the `img` component reads from the Host. */
 export const rehypeHostImages =
   ({ windows }: HostPaths) =>
   (tree: Node) =>
@@ -138,7 +138,7 @@ export const rehypeHostImages =
       image.properties["dataHostPath"] = path;
     });
 
-/** The Host path a marked image reads; null for an image Streamdown shows itself. */
+/** The Host path a marked image reads; null for an ordinary image. */
 export const hostImageOf = (
   properties: Readonly<Record<string, PropertyValue>> | undefined
 ): string | null =>

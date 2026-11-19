@@ -1,7 +1,7 @@
 /**
- * A rehype step that turns `path:line` in assistant prose into links the `a` component opens in
+ * A hast step that turns `path:line` in assistant prose into links the `a` component opens in
  * the editor (`data-editor-*`), and inline code holding just a `path:line` too. Code blocks,
- * existing links and KaTeX are left alone. Runs after sanitizing, so its attributes stay.
+ * existing links and math (SVG) are left alone. Runs after sanitizing, so its attributes stay.
  */
 import { Option, Schema } from "effect";
 import { type FoundLocation, findLocations, wholeLocation } from "../../../editor-links/index.ts";
@@ -86,9 +86,6 @@ const linked = (value: string): ReadonlyArray<Node> => {
   return out;
 };
 
-const isKatex = (node: Element) =>
-  Array.isArray(node.properties?.["className"]) && node.properties["className"].includes("katex");
-
 const rewrite = (node: Node): ReadonlyArray<Node> => {
   if (node.type === "text" && "value" in node) return linked(node.value);
 
@@ -100,13 +97,13 @@ const rewrite = (node: Node): ReadonlyArray<Node> => {
     return whole === null ? [node] : [link(whole, [node])];
   }
 
-  if (SKIP.has(node.tagName) || isKatex(node)) return [node];
+  if (SKIP.has(node.tagName)) return [node];
   node.children = node.children.flatMap(rewrite);
 
   return [node];
 };
 
-/** The unified plugin: `rehypePlugins={[…, rehypeFileLinks]}`. */
+/** The step, as a view's pipeline lists it (`Streamed.tsx`). */
 export const rehypeFileLinks = () => (tree: Node) => {
   if ("children" in tree && Array.isArray(tree.children))
     tree.children = tree.children.flatMap(rewrite);

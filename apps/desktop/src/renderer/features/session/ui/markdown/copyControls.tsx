@@ -1,65 +1,36 @@
 /**
- * Copy for Streamdown's code blocks, Mermaid sources and tables, as the shared
- * CopyButton (DESIGN.md, Copy button). Streamdown's own copy controls write
- * with the browser clipboard API, which the Desktop App's renderer may not use.
+ * Copy for Markdown tables, as the shared CopyButton (DESIGN.md, Copy button), which writes
+ * through the Desktop App's clipboard rather than the browser's. Code blocks carry their own
+ * (`code/CodeBlock.tsx`).
  */
 import { CopyButton } from "@polaris/ui";
 import { type ComponentProps, useRef } from "react";
-import {
-  type Components,
-  defaultComponents,
-  type ExtraProps,
-  extractTableDataFromElement,
-  tableDataToMarkdown,
-} from "streamdown";
+import type { Components } from "./words/Markup.tsx";
 
-type Hast = NonNullable<ExtraProps["node"]>;
+const cell = (element: Element) =>
+  (element.textContent ?? "")
+    .trim()
+    .replaceAll("\\", "\\\\")
+    .replaceAll("|", "\\|")
+    .replaceAll("\n", " ");
 
-/** The text under a hast node, as the fence holds it. */
-const textOf = (node: Hast | Hast["children"][number] | undefined): string => {
-  if (node === undefined) return "";
+/** A rendered table as GitHub Markdown: its header row, a rule, then its body rows. */
+export const tableMarkdown = (table: HTMLTableElement): string => {
+  const rows = Array.from(table.rows, (row) => Array.from(row.cells, cell));
+  const [head = [], ...body] = rows;
+  const line = (cells: ReadonlyArray<string>) => `| ${cells.join(" | ")} |`;
 
-  if (node.type === "text") return node.value;
-
-  return "children" in node ? node.children.map(textOf).join("") : "";
+  return [line(head), line(head.map(() => "---")), ...body.map(line)].join("\n");
 };
-
-const Code = defaultComponents.code;
-
-const Table = defaultComponents.table;
-
-const CORNER = "absolute top-0.5 right-1 z-10";
-
-/** Fenced code and Mermaid sources; pair with `copy: false` in Streamdown's code controls. */
-export const COPY_CODE: Components = {
-  // Only fenced code carries `data-block`; inline code stays as Streamdown draws it.
-  code: (props) =>
-    "data-block" in props ? (
-      <div className="relative" data-copy="code">
-        <Code {...props} />
-        <CopyButton
-          variant="icon"
-          label="Copy code"
-          text={() => textOf(props.node).replace(/\n$/, "")}
-          className={CORNER}
-        />
-      </div>
-    ) : (
-      <Code {...props} />
-    ),
-};
-
-/** Tables, as Markdown; pair with `copy: false` in Streamdown's table controls. */
-export const COPY_TABLE: Components = { table: (props) => <CopyTable {...props} /> };
 
 /** A table copies as Markdown, read from what is rendered. */
-const CopyTable = (props: ComponentProps<typeof Table>) => {
+const CopyTable = (props: ComponentProps<"table">) => {
   const root = useRef<HTMLDivElement>(null);
 
   const markdown = () => {
     const table = root.current?.querySelector("table");
 
-    return table == null ? "" : tableDataToMarkdown(extractTableDataFromElement(table));
+    return table == null ? "" : tableMarkdown(table);
   };
 
   return (
@@ -68,7 +39,16 @@ const CopyTable = (props: ComponentProps<typeof Table>) => {
       <div className="flex h-7 justify-end">
         <CopyButton variant="icon" label="Copy table" text={markdown} />
       </div>
-      <Table {...props} />
+      <div data-md="table-wrapper">
+        <table {...props} />
+      </div>
     </div>
   );
+};
+
+/** Tables, as Markdown. */
+export const COPY_TABLE: Components = {
+  table: ({ node: _node, ...props }: ComponentProps<"table"> & { readonly node?: unknown }) => (
+    <CopyTable {...props} />
+  ),
 };
