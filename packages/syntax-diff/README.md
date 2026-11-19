@@ -14,6 +14,6 @@ The syntax-aware diff behind the Editor's diff tabs (DESIGN.md, Editor: diff tab
 ## Tokenizers
 
 - **TypeScript parser** (`./typescript`, `typescript-js`, TS 6 because TS 7 has no JS API): TS, TSX, JS, JSX, `.mts`/`.cts`/`.mjs`/`.cjs`, JSON and JSONC. It loads lazily through `TOKENIZERS` / `tokenizerFor(path)`, so a bundle only pays for it in the worker that imports it.
-- **Highlighter runs** (`runs.ts`): `tokensFromRuns(source, lines)` turns a highlighter's coloured spans into tokens; `fixedTokenizer` serves them to `syntaxDiff`. The Desktop App gets the runs from the Shiki highlight Pierre already runs in its worker pool (`apps/desktop/.../editor/diff/data/highlightTokens.ts`), so no second grammar set is loaded.
+- **Highlighter runs** (`runs.ts`): `tokensFromRuns(source, lines)` turns a highlighter's coloured spans into tokens; `fixedTokenizer` serves them to `syntaxDiff`. The Desktop App gets the runs from the `@pierre/highlights` pass Pierre already runs in its worker pool (`apps/desktop/.../editor/diff/data/highlightTokens.ts`), so no second highlighter is loaded.
 
 To add a language-specific tokenizer, implement `Tokenizer` and add a `TokenizerSpec` to `TOKENIZERS`.

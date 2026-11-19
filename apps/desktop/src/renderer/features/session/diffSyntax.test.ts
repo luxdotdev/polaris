@@ -2,10 +2,9 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import {
   type DiffsHighlighter,
   getSharedHighlighter,
-  registerCustomTheme,
   renderFileWithHighlighter,
 } from "@pierre/diffs";
-import { moonlitTheme, THEMES } from "../diffs/theme.ts";
+import { DIFF_HIGHLIGHTER, registerDiffThemes, THEMES } from "../diffs/theme.ts";
 import { MAX_HIGHLIGHT_LINES } from "../editor/diff/data/highlightTokens.ts";
 import {
   type DiffSyntax,
@@ -19,12 +18,11 @@ import { type DiffFile, parseUnifiedDiff } from "./model/diff.ts";
 let highlighter: DiffsHighlighter;
 
 beforeAll(async () => {
-  registerCustomTheme(THEMES.dark, () => Promise.resolve(moonlitTheme("dark")));
-  registerCustomTheme(THEMES.light, () => Promise.resolve(moonlitTheme("light")));
+  registerDiffThemes();
   highlighter = await getSharedHighlighter({
     themes: [THEMES.dark, THEMES.light],
     langs: ["typescript", "python"],
-    preferredHighlighter: "shiki-js",
+    preferredHighlighter: DIFF_HIGHLIGHTER,
   });
 
   // The first highlight per language compiles its grammar (~0.5 s, several under load).
@@ -103,9 +101,9 @@ describe("the Changes tab's syntax colours", () => {
     const file = only(MODIFIED);
 
     expect(coloured(await syntaxOf(file), file)).toEqual([
-      'context import { x } from "./x"; | keyword:import punctuation:{ punctuation:} keyword:from punctuation:" string:./x punctuation:";',
+      'context import { x } from "./x"; | keyword:import punctuation:{ punctuation:} keyword:from string:"./x" punctuation:;',
       "remove let port = 22; | keyword:let punctuation:= string:22 punctuation:;",
-      'add const port = "22"; | keyword:const punctuation:= " string:22 punctuation:";',
+      'add const port = "22"; | keyword:const punctuation:= string:"22" punctuation:;',
       "context export default port; | keyword:export default punctuation:;",
     ]);
   });

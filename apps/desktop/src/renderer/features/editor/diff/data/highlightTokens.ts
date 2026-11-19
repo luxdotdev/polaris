@@ -1,10 +1,11 @@
 /**
  * Tokens for languages the TypeScript parser doesn't read, from the highlighter the diff
- * already runs: the file is highlighted in Pierre's worker pool, with the grammars it loaded
- * to draw diffs, and its spans become tokens. No second Shiki is loaded.
+ * already runs: the file is highlighted in Pierre's worker pool, with the lexers it uses
+ * to draw diffs, and its spans become tokens. No second highlighter is loaded.
  */
 import { type FileContents, getFiletypeFromFileName } from "@pierre/diffs";
 import type { useWorkerPool } from "@pierre/diffs/react";
+import { isSupportedLanguage } from "@pierre/highlights";
 import { type SyntaxToken, tokensFromRunsInSlices } from "@polaris/syntax-diff";
 import { type HastNode, runsOfLines } from "../model/highlightRuns.ts";
 
@@ -13,11 +14,13 @@ export type HighlightPool = NonNullable<ReturnType<typeof useWorkerPool>>;
 /** Past this many lines a second highlight costs seconds and tens of MB: the line diff stands. */
 export const MAX_HIGHLIGHT_LINES = 5_000;
 
-/** The highlighter's language for `path`; null for plain text and unknown files. */
+/** The highlighter's language for `path`; null for plain text and languages it has no lexer for. */
 export const highlightLanguage = (path: string): string | null => {
   const language = getFiletypeFromFileName(path);
 
-  return language === "text" || language === "ansi" ? null : language;
+  return language === "text" || language === "ansi" || !isSupportedLanguage(language)
+    ? null
+    : language;
 };
 
 /** FNV-1a over the text: a cache key for this exact content. */
