@@ -89,18 +89,18 @@ describe("language docs: hover", () => {
   test("basedpyright's str: the signature, a rule, pydoc lines as code, then prose", async () => {
     const { container } = view(MARKDOWN.PYRIGHT_STR);
 
-    await waitFor(() => expect(container.querySelectorAll("pre")).toHaveLength(2));
+    // Shiki renders each line as its own block span, once the highlighter has loaded.
+    const lines = () =>
+      [...container.querySelectorAll("pre")].map((pre) =>
+        [...pre.querySelectorAll("code > span")].map((line) => line.textContent)
+      );
 
-    // Shiki renders each line as its own block span.
-    const [signature, pydoc] = [...container.querySelectorAll("pre")].map((pre) =>
-      [...pre.querySelectorAll("code > span")].map((line) => line.textContent)
+    await waitFor(() =>
+      expect(lines()).toEqual([
+        ['class str(object: object = "")'],
+        ["str(object='') -> str", "str(bytes_or_buffer[, encoding[, errors]]) -> str"],
+      ])
     );
-
-    expect(signature).toEqual(['class str(object: object = "")']);
-    expect(pydoc).toEqual([
-      "str(object='') -> str",
-      "str(bytes_or_buffer[, encoding[, errors]]) -> str",
-    ]);
     expect(container.querySelectorAll("hr")).toHaveLength(1);
     expect(container.querySelector("p")?.textContent).toStartWith("Create a new string object");
     expect(container.textContent).not.toContain("&gt;");

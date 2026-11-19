@@ -42,7 +42,9 @@ Two things in Polaris don't fit:
   swapped. Mermaid fences go through Words' `createMermaidPlugin` over Pele, with no images or
   links and the SVG checked to load nothing; a fence that doesn't parse shows as code.
 - **Math.** `\(…\)` and `\[…\]` become Words' `$…$` and `$$…$$`; a lone `$` stays a dollar, as
-  under Streamdown.
+  under Streamdown. Words exposes no parse tree, so Words decides what is prose: each delimiter is
+  swapped for a marker, the text rendered as it will be (math off), and only markers that come out
+  as parsed prose text change; code, links, autolinks, raw HTML and attributes stay as written.
 
 ## Consequences
 
@@ -54,8 +56,8 @@ Two things in Polaris don't fit:
   `guardedDiagrams` has checked it loads and links nothing. Its labels stay inert only because the
   pinned Pele escapes them, so any Pele upgrade must re-run the hostile-label tests in
   `session/ui/markdown/diagrams.test.ts` before it lands.
-- Ids and names keep hast-util-sanitize's `user-content-` prefix, so a document can't clobber the
-  app's elements or globals; same-document links (footnotes) are rewritten to match and scroll
+- Ids and names get a per-document prefix (`user-content-<scope>-`), so a document can't clobber the
+  app's elements, its globals or another message's footnotes; same-document links (footnotes) are rewritten to match and scroll
   within their message.
 - Words is WebAssembly, so the renderer's CSP adds `'wasm-unsafe-eval'` to `script-src`
   (`src/main/protocol.ts`): it allows compiling WebAssembly, not JavaScript `eval`.

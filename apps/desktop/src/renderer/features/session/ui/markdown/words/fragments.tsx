@@ -1,11 +1,11 @@
 /**
- * Links inside one rendered document (footnotes and their backlinks). Sanitizing prefixes ids
- * (`user-content-`, so a document can't clobber the app's); the links follow, and scroll in place.
+ * Links inside one rendered document (footnotes and their backlinks). Sanitizing prefixes ids per
+ * document (`user-content-<scope>-`): none clobbers the app's or another message's; links follow.
  */
 import { Predicate } from "effect";
 import type { Element, Root, RootContent } from "hast";
 import type { ComponentProps } from "react";
-import type { Step } from "./Markup.tsx";
+import type { Pipeline, Step } from "./Markup.tsx";
 import { PREFIX } from "./schema.ts";
 
 /** A same-document fragment: `#name`, not the Review's own `#finding=…` and `#path=…`. */
@@ -20,14 +20,27 @@ const visit = (node: Root | RootContent, element: (node: Element) => void) => {
   if ("children" in node) for (const child of node.children) visit(child, element);
 };
 
-/** `#fn-1` to `#user-content-fn-1`, as sanitizing renamed the id it points at. */
-export const prefixFragments: Step = (tree) =>
-  visit(tree, (node) => {
-    const href = node.properties["href"];
+/** `#fn-1` to `#<prefix>fn-1`, as sanitizing renamed the id it points at. */
+const prefixFragments =
+  (prefix: string): Step =>
+  (tree) =>
+    visit(tree, (node) => {
+      const href = node.properties["href"];
 
-    if (Predicate.isString(href) && isFragment(href) && !href.startsWith(`#${PREFIX}`))
-      node.properties["href"] = `#${PREFIX}${href.slice(1)}`;
-  });
+      if (Predicate.isString(href) && isFragment(href) && !href.startsWith(`#${prefix}`))
+        node.properties["href"] = `#${prefix}${href.slice(1)}`;
+    });
+
+/** The pipeline for one document: its ids and its fragment links under the document's own prefix. */
+export const scoped = (pipeline: Pipeline, scope: string): Pipeline => {
+  const prefix = `${PREFIX}${scope.replaceAll(/[^\w-]/g, "")}-`;
+
+  return {
+    ...pipeline,
+    schema: { ...pipeline.schema, clobberPrefix: prefix },
+    after: [...(pipeline.after ?? []), prefixFragments(prefix)],
+  };
+};
 
 /** Scrolls to its target inside the same rendered Markdown; the app's own hash route stays. */
 export const FragmentLink = ({ href, id, children, className }: ComponentProps<"a">) => (

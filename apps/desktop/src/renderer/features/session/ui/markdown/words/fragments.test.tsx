@@ -49,3 +49,23 @@ describe.each(VIEWS)("footnotes in %s", (_, view) => {
     expect(location.hash).toBe(hash);
   });
 });
+
+describe.each(VIEWS)("two documents in %s", (_, view) => {
+  test("each keeps its own footnote ids, so every id in the page is unique", () => {
+    const { container } = render(
+      <TooltipProvider>
+        {view(NOTE)}
+        {view(NOTE)}
+      </TooltipProvider>
+    );
+
+    const ids = Array.from(container.querySelectorAll("[id]"), (element) => element.id);
+    const [, second] = container.querySelectorAll(".polaris-md");
+
+    expect(ids).toHaveLength(4);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(follow(second?.querySelector("sup a") ?? null)).toBe(
+      second?.querySelector(".footnotes li") ?? null
+    );
+  });
+});

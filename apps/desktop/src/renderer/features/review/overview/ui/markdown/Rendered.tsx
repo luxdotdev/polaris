@@ -5,7 +5,7 @@
  */
 import "../../../../session/ui/markdown/markdown.css";
 import "./review-md.css";
-import { type ComponentProps, type ReactNode, useMemo } from "react";
+import { type ComponentProps, type ReactNode, useId, useMemo } from "react";
 import { CodeBlock } from "../../../../session/ui/markdown/code/CodeBlock.tsx";
 import {
   type Components,
@@ -15,7 +15,7 @@ import {
 import {
   FragmentLink,
   isFragment,
-  prefixFragments,
+  scoped,
 } from "../../../../session/ui/markdown/words/fragments.tsx";
 import { renderHtml } from "../../../../session/ui/markdown/words/render.ts";
 import { PROSE_SCHEMA } from "../../../../session/ui/markdown/words/schema.ts";
@@ -37,9 +37,11 @@ const Rendered = ({ markdown, paths, renderLink }: RenderedProps) => {
     [markdown]
   );
 
+  const scope = useId();
+
   const pipeline: Pipeline = useMemo(
-    () => ({ schema: PROSE_SCHEMA, after: [rehypeReview(paths)(), prefixFragments] }),
-    [paths]
+    () => scoped({ schema: PROSE_SCHEMA, after: [rehypeReview(paths)()] }, scope),
+    [paths, scope]
   );
 
   const components: Components = {

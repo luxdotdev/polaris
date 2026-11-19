@@ -18,7 +18,10 @@ export interface HtmlOptions {
 /** A whole document as HTML. */
 export const renderHtml = (markdown: string, { html, math }: HtmlOptions): string =>
   decoder.decode(
-    renderToHtml(math ? normalizeMath(markdown) : markdown, { skipHtml: !html, math })
+    renderToHtml(math ? normalizeMath(markdown, { incomplete: false, html }) : markdown, {
+      skipHtml: !html,
+      math,
+    })
   );
 
 /** Top-level elements of an HTML fragment, each as its own HTML. */
@@ -44,7 +47,10 @@ export class BlockStream {
   private stable: Array<string> = [];
 
   render(markdown: string, live: boolean): StreamBlocks {
-    const update = this.session.render(normalizeMath(markdown), { incomplete: live, math: true });
+    const update = this.session.render(normalizeMath(markdown, { incomplete: live, html: false }), {
+      incomplete: live,
+      math: true,
+    });
 
     if (update.revision !== this.revision) {
       this.stable =
