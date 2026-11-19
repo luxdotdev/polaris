@@ -57,6 +57,7 @@ const FAILURES = new Map<string, AppUpdateView["failure"]>([
   ["failed", { stage: "check", version: null, percent: null }],
   ["failed-download", { stage: "download", version: "0.5.0", percent: 61 }],
   ["failed-verify", { stage: "verify", version: "0.5.0", percent: null }],
+  ["failed-install", { stage: "install", version: "0.5.0", percent: null }],
 ]);
 
 const fixtureBridge = (hash: string): PolarisApi => {

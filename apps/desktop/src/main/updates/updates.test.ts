@@ -320,6 +320,35 @@ describe("Squirrel runs one operation at a time", () => {
     f.cleanup();
   });
 
+  test.each([
+    ["error", new Error("the quiet operation gave up")],
+    ["update-not-available", undefined],
+  ])("a late %s from the operation that went quiet leaves the retry untouched", async (...late) => {
+    const first = held();
+    const asset: Asset = { url: ZIP, bytes: bytesOf(3000) };
+    const f = fixture({ handoverTimeoutMs: 40, internet: offering(asset) }, first.native);
+
+    await f.checked();
+    expect(f.updates.get().phase).toBe("failed");
+
+    // The retry is handed over once the quiet operation's hold lapses; Squirrel is reading it.
+    const second = held();
+
+    first.native.hold = second.native.hold;
+    f.updates.check();
+    await until(() => first.native.checks === 2 && first.native.asked.length === 4);
+
+    // The first operation's error names nothing: it must not be taken for the retry's.
+    first.native.emit(...late);
+    expect(f.updates.get()).toMatchObject({ phase: "downloading", failure: null });
+    expect((await get(first.native.feed?.url ?? "")).status).toBe(200);
+
+    second.release();
+    await until(() => f.updates.get().phase === "ready");
+    expect(f.updates.get()).toMatchObject({ readyVersion: "0.5.0", failure: null });
+    f.cleanup();
+  });
+
   test("an abandoned Update that Squirrel finishes after all, with nothing newer begun, is ready", async () => {
     const { native, release: letGo } = held();
 

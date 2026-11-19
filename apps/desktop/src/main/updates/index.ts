@@ -78,32 +78,22 @@ interface Handover {
   readonly cancelTimeout: () => void;
 }
 
-/** A handover Squirrel went quiet on: it keeps Squirrel's one slot until it ends or its claim lapses. */
-interface Quiet {
-  readonly handover: Handover;
-  holds: boolean;
-  readonly cancelLapse: () => void;
-}
-
-/** Squirrel names what it finished: the zip (macOS) or the feed (Windows) under this feed's root. */
-const finished = (handover: Handover, platform: string, url: string | undefined) => {
-  // Squirrel.Windows may name nothing; then one operation at a time is the only tie.
-  if (url === undefined || url === "") return platform === "win32";
-
-  if (!`${url}/`.startsWith(`${handover.feed.root}/`)) return false;
-
-  return platform === "win32" || versionFromAsset(url) === handover.version;
-};
+/** The address Squirrel names is under this handover's own unguessable feed. */
+const names = (handover: Handover, url: string) => `${url}/`.startsWith(`${handover.feed.root}/`);
 
 export const createAppUpdates = (input: UpdateInput) => {
   const platform = input.platform ?? "darwin";
+  const windows = platform === "win32";
   const now = input.now ?? Date.now;
   const schedule = input.schedule ?? scheduleCheck;
   const abort = new AbortController();
   let cancelTimer: (() => void) | null = null;
   const handoverTimeoutMs = input.handoverTimeoutMs ?? HANDOVER_TIMEOUT_MS;
   let handover: Handover | null = null;
-  let quiet: Quiet | null = null;
+  /** Timed out and never ended, oldest first: each may still send its one terminal event. */
+  const stale: Array<Handover> = [];
+  /** Set while the newest stale operation still keeps Squirrel's one slot. */
+  let hold: (() => void) | null = null;
   let wake: (() => void) | null = null;
   let disposed = false;
 
@@ -174,33 +164,26 @@ export const createAppUpdates = (input: UpdateInput) => {
     return ended;
   };
 
-  /** The quiet operation ended, or outlived its claim: Squirrel may be given the next feed. */
+  /** The slot is free: Squirrel may be given the next feed. */
   const release = () => {
-    if (quiet !== null) quiet.holds = false;
-    quiet?.cancelLapse();
+    hold?.();
+    hold = null;
     wake?.();
   };
 
-  /** Squirrel went quiet: the Update failed, and its operation holds the slot one more timeout. */
+  /**
+   * Squirrel went quiet: the Update failed and its operation keeps the slot. A macOS completion
+   * names its feed, so there the slot frees after one more timeout. Squirrel.Windows names
+   * nothing, so there only its own terminal event (or a restart) frees it.
+   */
   const abandon = () => {
     const ended = endHandover();
 
     if (ended === null) return;
-    quiet?.cancelLapse();
-    quiet = {
-      handover: ended,
-      holds: true,
-      cancelLapse: scheduleCheck(release, handoverTimeoutMs),
-    };
-    fail({ stage: "verify", version: ended.version, percent: null });
-  };
-
-  /** `error` and `update-not-available` name nothing: they end whichever operation holds the slot. */
-  const failedHandover = () => {
-    const ended = endHandover();
-
-    if (ended === null) release();
-    else fail({ stage: "verify", version: ended.version, percent: null });
+    stale.push(ended);
+    hold?.();
+    hold = windows ? () => undefined : scheduleCheck(release, handoverTimeoutMs);
+    fail({ stage: windows ? "install" : "verify", version: ended.version, percent: null });
   };
 
   const ready = (version: string) => {
@@ -208,41 +191,63 @@ export const createAppUpdates = (input: UpdateInput) => {
     settle({ phase: "ready", readyVersion: version, failure: null });
   };
 
-  /** A quiet Update that Squirrel finished after all is ready, unless a newer try began. */
-  const finishedLate = (late: Handover) => {
-    release();
-    quiet = null;
+  /** A stale operation ended. Its Update is ready if Squirrel finished it and nothing newer began. */
+  const endStale = (ended: Handover, completed: boolean) => {
+    if (ended === stale.at(-1)) release();
+    stale.splice(stale.indexOf(ended), 1);
 
-    if (handover === null && view.phase === "failed" && view.failure?.version === late.version)
-      ready(late.version);
+    if (handover !== null || view.phase !== "failed" || view.failure?.version !== ended.version)
+      return;
+
+    if (completed) ready(ended.version);
+    // The slot is free again, so the row offers "Try again" instead of a restart.
+    else if (view.failure.stage === "install")
+      fail({ stage: "verify", version: ended.version, percent: null });
+  };
+
+  const end = (ended: Handover, completed: boolean) => {
+    if (ended !== handover) {
+      endStale(ended, completed);
+
+      return;
+    }
+
+    endHandover();
+
+    if (completed) ready(ended.version);
+    else fail({ stage: "verify", version: ended.version, percent: null });
+  };
+
+  /** Squirrel ends operations in the order it was given them: an unnamed event is the oldest's. */
+  const oldest = () => stale[0] ?? handover;
+
+  /** `error` and `update-not-available` name nothing. */
+  const failedHandover = () => {
+    const ended = oldest();
+
+    if (ended !== null) end(ended, false);
   };
 
   const downloaded = (_event: Event, _notes: string, _name: string, _date: Date, url?: string) => {
-    if (handover !== null && finished(handover, platform, url)) {
-      const { version } = handover;
+    const address = url ?? "";
+    const named = [...stale, handover].find((one) => one != null && names(one, address));
 
-      endHandover();
-      ready(version);
-
-      return;
-    }
-
-    if (quiet !== null && finished(quiet.handover, platform, url)) {
-      finishedLate(quiet.handover);
+    if (address !== "" && named != null) {
+      end(named, windows || versionFromAsset(address) === named.version);
 
       return;
     }
 
-    // It names neither: nothing proves Squirrel has the Update it was handed.
-    const ended = endHandover();
+    const ended = oldest();
 
-    if (ended !== null) fail({ stage: "verify", version: ended.version, percent: null });
+    // Only Squirrel.Windows may finish without naming what; anything else proves nothing.
+    if (ended !== null) end(ended, windows && address === "");
   };
 
-  /** Resolves once no quiet operation holds Squirrel's slot: at most one timeout away. */
+  /** Resolves once no stale operation keeps Squirrel's slot. */
   const nativeIdle = () =>
     new Promise<void>((resolve) => {
-      if (quiet?.holds !== true) {
+      if (hold === null) {
         resolve();
 
         return;
@@ -351,6 +356,9 @@ export const createAppUpdates = (input: UpdateInput) => {
     if (disposed || !view.supported || input.blocked) return view;
 
     if (["checking", "downloading", "ready"].includes(view.phase)) return view;
+
+    // Windows: a new Squirrel operation can't be told from the one that went quiet.
+    if (windows && hold !== null) return view;
 
     // Squirrel sends no custom headers; this request carries the consent-controlled telemetry.
     const headers: UpdateHeaders =

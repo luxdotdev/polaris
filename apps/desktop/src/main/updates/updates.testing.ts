@@ -83,7 +83,8 @@ export class FakeSquirrel extends EventEmitter {
       const manifest = text(await this.get(`${url}/RELEASES?id=Polaris&localVersion=1.2.2`));
       const [, file = ""] = manifest.split(" ");
       this.received = await this.get(`${url}/${file}`);
-      this.emit("update-downloaded", {}, "", "ignored", new Date(), url);
+      await this.hold;
+      this.emit("update-downloaded", {}, "", "ignored", new Date(), this.claims ?? url);
 
       return;
     }

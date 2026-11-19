@@ -61,17 +61,23 @@ from the internet.
   `Host` header is its own `127.0.0.1:<port>`, the method is GET or HEAD and the path is under
   a 192-bit random token; it serves the manifest and that one file. Squirrel verifies the
   Update again on its side.
-- **Squirrel runs one operation at a time.** A handover lasts from `checkForUpdates` to
-  Squirrel's terminal event (`update-downloaded`, `error`, `update-not-available`). Five
-  minutes without one publishes a failure and closes the feed; the quiet operation then holds
-  Squirrel's slot for five more minutes at most, or until its late event. The next verified
-  Update waits for that and is then handed over, so a Squirrel that never answers delays a
-  retry but cannot stop it. A completion makes an Update ready only when the address Squirrel
-  names is under that handover's own token and, on macOS, carries its version, so a late
-  completion is never taken for a newer handover's; Squirrel.Windows may name nothing, and
-  there the order of operations is the tie. A quiet Update that Squirrel finishes after all
-  becomes ready if nothing newer has begun. `error` names nothing: it ends the operation
-  holding the slot.
+- **Squirrel runs one operation at a time, and an event only touches the operation it can be
+  tied to.** A handover lasts from `checkForUpdates` to Squirrel's terminal event
+  (`update-downloaded`, `error`, `update-not-available`). Five minutes without one publishes a
+  failure and closes the feed, and the operation goes stale: it may still answer. A completion
+  that names an address under a handover's own token ends that handover, and makes its Update
+  ready only if, on macOS, the address carries its version. An event that names nothing ends
+  the oldest operation that may still answer, since Squirrel ends them in the order it was
+  given them; so a late event from a stale operation never readies, fails or deletes the files
+  of a newer one. A stale Update that Squirrel finishes after all becomes ready if nothing
+  newer has begun.
+- **macOS frees the slot after five more minutes; Windows does not.** On macOS a completion
+  names its feed, so the next verified Update is handed over once the stale operation ends or
+  five more minutes pass. Squirrel.Windows may name nothing it finishes, so a second operation
+  could not be told from the first: there no new operation starts until the stale one sends
+  its terminal event or Polaris restarts, checks do nothing meanwhile, and About says
+  "Couldn't install Polaris 0.12.1 · The installer didn't answer; restart Polaris to try
+  again" (`failure.stage` `install`).
 - **The state names two versions.** `readyVersion` is the Release Squirrel has staged;
   `download` is the Release being downloaded, with its byte counts. Restart, "Quit and update"
   and the K menu follow `readyVersion`, not `phase`, so a newer Release can download while an
@@ -97,7 +103,7 @@ from the internet.
   unpacked copy during the macOS check; all three are removed once Squirrel has it.
 - The feed must keep serving assets that allow a plain GET; a `Range` answer is optional, and
   without an `ETag` or `Last-Modified` a dropped download starts over.
-- After a quiet operation's claim lapses, a late `error` from it would be taken for the next
-  handover's and fail it; the retry after that works.
+- If Squirrel ever ended operations out of order, an unnamed event would be tied to the wrong
+  one; the newer handover would then time out instead of failing at once.
 - The unpacking limit can be passed by what `ditto` writes during one scan and its 100 ms gap.
 - A stable Windows build signed with Authenticode later should add that check beside SHA-1.

@@ -58,8 +58,21 @@ export const checkedCaption = (at: number, now: number): string => {
 
 const named = (version: string | null) => (version === null ? "Polaris" : `Polaris ${version}`);
 
+/** Squirrel went quiet with the Update: nothing can be handed to it again until a restart. */
+const failedInstall = (failure: AppUpdateFailure): AppUpdateRow => ({
+  title: `Couldn't install ${named(failure.version)}`,
+  caption: "The installer didn't answer; restart Polaris to try again",
+  action: null,
+  actionLabel: "",
+  progress: null,
+  tone: "failed",
+  spinner: false,
+});
+
 /** A download that failed: what happened, then that the next check tries again. */
 const failedDownload = (failure: AppUpdateFailure): AppUpdateRow => {
+  if (failure.stage === "install") return failedInstall(failure);
+
   const what =
     failure.stage === "verify"
       ? "The download didn't pass verification"

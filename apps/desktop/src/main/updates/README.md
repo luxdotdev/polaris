@@ -34,9 +34,11 @@ A file that fails is deleted and never served. The local feed binds `127.0.0.1` 
 an OS-chosen port only while Squirrel reads it, and refuses a non-loopback peer, a
 foreign `Host`, a path outside its random token and any method but GET or HEAD.
 Squirrel emits `update-downloaded` (ready, when it names this feed's file) or
-`error` (a failed download); five minutes without either is a failure too, and
-the next Update waits for that late event, five more minutes at most, before
-Squirrel gets another feed.
+`error` (a failed download); five minutes without either is a failure too. An
+event that names nothing ends the oldest operation that may still answer, never a
+newer one. On macOS the next Update waits for that late event, five more minutes
+at most; on Windows, where a completion names nothing, no new operation starts
+until it arrives or Polaris restarts, and About says so (`failure.stage` `install`).
 
 Restart goes through `app.quit()`: the first `before-quit` waits for the Editor's
 existing unsaved-edit choice, disposes the Client and notifications, then calls

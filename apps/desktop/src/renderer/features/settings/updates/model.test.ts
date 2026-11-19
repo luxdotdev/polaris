@@ -88,6 +88,13 @@ describe("About Update states", () => {
       caption: "The download didn't pass verification; Polaris tries again on the next check",
       tone: "failed",
     });
+    // Squirrel went quiet with it: only a restart frees it, so there is nothing to press.
+    expect(failed({ stage: "install", version: "0.12.1", percent: null })).toMatchObject({
+      title: "Couldn't install Polaris 0.12.1",
+      caption: "The installer didn't answer; restart Polaris to try again",
+      action: null,
+      tone: "failed",
+    });
     // A feed that didn't answer stays neutral: nothing was downloaded.
     expect(failed({ stage: "check", version: null, percent: null })).toMatchObject({
       title: "Couldn't check for updates",

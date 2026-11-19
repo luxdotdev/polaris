@@ -4,7 +4,14 @@ import { join } from "node:path";
 import { cannotInstallHere } from "./identity.ts";
 import { UPDATE_BASE_URL, versionFromAsset, versionFromNuget } from "./index.ts";
 import { revealAppPath, updatePlatform, windowsAppId } from "./platform.ts";
-import { bytesOf, fixture, serveAsset, type Asset } from "./updates.testing.ts";
+import {
+  bytesOf,
+  FakeSquirrel,
+  fixture,
+  serveAsset,
+  until,
+  type Asset,
+} from "./updates.testing.ts";
 import { verifyWindowsUpdate } from "./verify.ts";
 import { handleSquirrelStartup, repairSquirrelFirstRun, squirrelCommand } from "./squirrel.ts";
 
@@ -99,16 +106,19 @@ const offering =
     return Promise.reject(new Error("unexpected outbound request"));
   };
 
-const windows = (patch: Parameters<typeof fixture>[0] = {}) =>
-  fixture({
-    platform: "win32",
-    arch: "arm64",
-    osVersion: "10.0.26100",
-    version: "1.2.2",
-    // The real Windows check: the size and SHA-1 from RELEASES.
-    verify: verifyWindowsUpdate,
-    ...patch,
-  });
+const windows = (patch: Parameters<typeof fixture>[0] = {}, native?: FakeSquirrel) =>
+  fixture(
+    {
+      platform: "win32",
+      arch: "arm64",
+      osVersion: "10.0.26100",
+      version: "1.2.2",
+      // The real Windows check: the size and SHA-1 from RELEASES.
+      verify: verifyWindowsUpdate,
+      ...patch,
+    },
+    native ?? new FakeSquirrel("win32")
+  );
 
 test.each(["x64", "arm64"])(
   "%s: the preflight carries the headers; Squirrel gets RELEASES and the package from loopback",
@@ -231,4 +241,64 @@ test("prerelease assets and NuGet names map back to the release's semver", () =>
   expect(versionFromNuget("0.1.0-alpha1")).toBe("0.1.0-alpha.1");
   expect(versionFromNuget("0.1.0")).toBe("0.1.0");
   expect(versionFromNuget("0.1.0-alpha01")).toBeNull();
+});
+
+/** Squirrel.Windows holding its report back past the timeout, on a 1.2.3 it has fully read. */
+const quietWindows = async () => {
+  const native = new FakeSquirrel("win32");
+  let release = () => {};
+
+  native.hold = new Promise((resolve) => {
+    release = resolve;
+  });
+  // Squirrel.Windows names nothing it finishes.
+  native.claims = "";
+  const asset: Asset = { url: nupkg("arm64"), bytes: bytesOf(6000) };
+  const f = windows({ handoverTimeoutMs: 40, internet: offering("arm64", asset) }, native);
+
+  await f.checked();
+
+  return { f, native, release };
+};
+
+test("Windows: a Squirrel that went quiet gets no second operation; About asks for a restart", async () => {
+  const { f, native, release } = await quietWindows();
+
+  expect(f.updates.get()).toMatchObject({
+    phase: "failed",
+    failure: { stage: "install", version: "1.2.3" },
+    readyVersion: null,
+  });
+
+  // Long past the timeout a retry still starts nothing: its completion could not be told apart.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  const asked = f.requests.length;
+
+  f.updates.check();
+  expect(f.updates.get().phase).toBe("failed");
+  expect(f.requests).toHaveLength(asked);
+  expect(native.checks).toBe(1);
+
+  // Its unnamed completion can only be that one operation's: 1.2.3 is ready after all.
+  release();
+  await until(() => f.updates.get().phase === "ready");
+  expect(f.updates.get()).toMatchObject({ readyVersion: "1.2.3", failure: null });
+  f.cleanup();
+});
+
+test("Windows: once the quiet operation fails for good, the next check hands over again", async () => {
+  const { f, native } = await quietWindows();
+
+  native.emit("error", new Error("Squirrel gave up"));
+  expect(f.updates.get()).toMatchObject({
+    phase: "failed",
+    failure: { stage: "verify", version: "1.2.3" },
+  });
+
+  native.hold = null;
+  await f.checked();
+  await until(() => f.updates.get().phase === "ready");
+  expect(native.checks).toBe(2);
+  expect(f.updates.get().readyVersion).toBe("1.2.3");
+  f.cleanup();
 });

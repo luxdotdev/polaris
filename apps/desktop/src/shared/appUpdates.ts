@@ -10,7 +10,8 @@ export interface AppUpdateDownload {
 
 /** What went wrong last, in the user's terms; never upstream error text. */
 export interface AppUpdateFailure {
-  readonly stage: "check" | "download" | "verify";
+  /** `install`: Squirrel went quiet with the Update and can't be given another until a restart. */
+  readonly stage: "check" | "download" | "verify" | "install";
   readonly version: string | null;
   /** How far a download got before the connection dropped. */
   readonly percent: number | null;
