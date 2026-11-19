@@ -34,6 +34,7 @@ const decodeEvent = Schema.decodeUnknownSync(
       country: Schema.String,
       release_version: Schema.optional(Schema.NullOr(Schema.String)),
       update: Schema.optional(Schema.Literals(["current", "available"])),
+      channel: Schema.optional(Schema.NullOr(Schema.Literals(["stable", "nightly"]))),
       rejection: Schema.optional(Schema.Literal("invalid_version")),
       failure: Schema.optional(Schema.String),
       status_code: Schema.Number,
