@@ -26,14 +26,17 @@ launches show “Can't install here” before contacting the feed.
 
 Verification on macOS unpacks the zip with `ditto` and requires one app that passes
 `codesign --verify --deep --strict` against the running app's designated
-requirement; `ditto` is killed if the unpacked folder passes 2 GiB. On Windows the
+requirement; a zip listing more than 2 GiB is refused unopened, and `ditto` is
+killed if the folder outgrows its listing or can't be measured. The staged file is
+opened once: that descriptor is checked and served. On Windows the
 package's size and SHA-1 must equal the RELEASES entry.
 A file that fails is deleted and never served. The local feed binds `127.0.0.1` on
 an OS-chosen port only while Squirrel reads it, and refuses a non-loopback peer, a
 foreign `Host`, a path outside its random token and any method but GET or HEAD.
 Squirrel emits `update-downloaded` (ready, when it names this feed's file) or
 `error` (a failed download); five minutes without either is a failure too, and
-the next Update waits for that late event before Squirrel gets another feed.
+the next Update waits for that late event, five more minutes at most, before
+Squirrel gets another feed.
 
 Restart goes through `app.quit()`: the first `before-quit` waits for the Editor's
 existing unsaved-edit choice, disposes the Client and notifications, then calls

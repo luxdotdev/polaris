@@ -1,6 +1,6 @@
 /** Polaris downloads the Update itself, so there is progress to show (docs/adr/0116). */
 import { createHash } from "node:crypto";
-import { constants, createReadStream, rmSync } from "node:fs";
+import { constants, rmSync } from "node:fs";
 import {
   chmod,
   lstat,
@@ -306,11 +306,13 @@ export const downloadUpdate = async (input: DownloadInput): Promise<DownloadResu
   return { ok: true, path, bytes: result.received };
 };
 
-export const sha1Of = (path: string): Promise<string> =>
+/** Hashes the file as opened, whatever its path names by now. */
+export const sha1Of = (file: FileHandle): Promise<string> =>
   new Promise((resolve, reject) => {
     const hash = createHash("sha1");
 
-    createReadStream(path)
+    file
+      .createReadStream({ start: 0, autoClose: false })
       .on("data", (chunk) => hash.update(chunk))
       .on("error", reject)
       .on("end", () => resolve(hash.digest("hex")));

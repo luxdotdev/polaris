@@ -3,9 +3,15 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { crc32 } from "node:zlib";
+import { crc32, deflateRawSync } from "node:zlib";
 import { join } from "node:path";
-import { designatedRequirement, MAX_UNPACKED_BYTES, verifyMacUpdate } from "./verify.ts";
+import {
+  designatedRequirement,
+  MAX_UNPACKED_BYTES,
+  runTool,
+  verifyMacUpdate,
+  type Run,
+} from "./verify.ts";
 
 const mac = process.platform === "darwin";
 
@@ -66,6 +72,8 @@ interface Entry {
   readonly data: string;
   /** A symlink whose target is `data`. */
   readonly link?: boolean;
+  /** Deflated zeros that unpack to this many bytes, listed as ten: `data` is ignored. */
+  readonly zeros?: number;
 }
 
 const u16 = (value: number) => [value & 0xff, value >>> 8];
@@ -79,9 +87,12 @@ const zipWith = (name: string, entries: ReadonlyArray<Entry>) => {
 
   for (const entry of entries) {
     const file = [...Buffer.from(entry.name)];
-    const data = Buffer.from(entry.data);
-    const sizes = [...u32(crc32(data)), ...u32(data.length), ...u32(data.length)];
-    const head = [...u16(0), ...u16(0), ...u16(0), ...u16(0), ...sizes, ...u16(file.length)];
+    const plain = entry.zeros === undefined ? Buffer.from(entry.data) : Buffer.alloc(entry.zeros);
+    const data = entry.zeros === undefined ? plain : deflateRawSync(plain);
+    const stated = entry.zeros === undefined ? plain.length : 10;
+    const sizes = [...u32(crc32(plain)), ...u32(data.length), ...u32(stated)];
+    const method = entry.zeros === undefined ? 0 : 8;
+    const head = [...u16(0), ...u16(method), ...u16(0), ...u16(0), ...sizes, ...u16(file.length)];
     const mode = (entry.link === true ? 0o120777 : 0o100644) * 0x10000;
 
     central.push(0x50, 0x4b, 1, 2, ...u16(0x031e), ...u16(20), ...head, ...u16(0), ...u16(0));
@@ -163,14 +174,68 @@ test.skipIf(!mac)(
   60_000
 );
 
+/** The real tools, with the names of those that ran; `broken` ones return nothing. */
+const recorded = (broken: ReadonlyArray<string> = []) => {
+  const ran: Array<string> = [];
+
+  const run: Run = (file, args, stop) => {
+    const tool = file.split("/").at(-1) ?? "";
+
+    ran.push(tool);
+
+    return broken.includes(tool)
+      ? Promise.resolve({ code: null, stdout: "" })
+      : runTool(file, args, stop);
+  };
+
+  return { ran, run };
+};
+
+const budgeted = (zip: string, maxUnpackedBytes: number, run: Run) =>
+  verifyMacUpdate({ zip, scratch: join(dir, "unpacked"), bundle: SIGNED, maxUnpackedBytes, run });
+
 test.skipIf(!mac)(
-  "an Update that unpacks past the disk budget is refused, however small its zip says it is",
+  "a zip listing more than the disk budget is refused before it is unpacked",
   async () => {
     const intact = zipOf(SIGNED, "budget.zip");
+    const small = recorded();
 
-    expect(await verify(intact, SIGNED, 16 * 1024)).toBe(false);
-    expect(await verify(intact, SIGNED, 64 * 1024 * 1024)).toBe(true);
+    expect(await budgeted(intact, 16 * 1024, small.run)).toBe(false);
+    expect(small.ran).not.toContain("ditto");
+    expect(await budgeted(intact, 64 * 1024 ** 2, recorded().run)).toBe(true);
+  },
+  60_000
+);
+
+test.skipIf(!mac)(
+  "a zip that lists ten bytes and unpacks twenty megabytes is refused by what lands on disk",
+  async () => {
+    const lying = zipWith("lying.zip", [{ name: "Big.app", data: "", zeros: 20 * 1024 ** 2 }]);
+    const tools = recorded();
+
+    // One entry named like an app, so only the budget stands between it and codesign.
+    expect(await budgeted(lying, 1024 ** 2, tools.run)).toBe(false);
+    expect(tools.ran).toContain("ditto");
+    expect(tools.ran.filter((tool) => tool === "codesign")).toHaveLength(1);
+
+    // With room for it the same zip unpacks and reaches the signature check, which refuses it.
+    const roomy = recorded();
+
+    expect(await budgeted(lying, 1024 ** 3, roomy.run)).toBe(false);
+    expect(roomy.ran.filter((tool) => tool === "codesign")).toHaveLength(2);
     expect(readdirSync(dir)).not.toContain("unpacked");
+  },
+  60_000
+);
+
+test.skipIf(!mac)(
+  "an unpacking folder that can't be measured, or a zip that can't be listed, is refused",
+  async () => {
+    const intact = zipOf(SIGNED, "unmeasured.zip");
+
+    expect(await budgeted(intact, MAX_UNPACKED_BYTES, recorded(["du"]).run)).toBe(false);
+    expect(await budgeted(intact, MAX_UNPACKED_BYTES, recorded(["zipinfo"]).run)).toBe(false);
+    expect(await budgeted(intact, MAX_UNPACKED_BYTES, recorded().run)).toBe(true);
   },
   60_000
 );

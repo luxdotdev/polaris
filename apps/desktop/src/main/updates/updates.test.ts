@@ -1,5 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CHECK_INTERVAL_MS, UPDATE_BASE_URL, versionFromAsset } from "./index.ts";
@@ -108,6 +116,29 @@ describe("Polaris downloads the Update itself", () => {
       null,
       null,
     ]);
+    f.cleanup();
+  });
+
+  test("a same-size file put in the download's place during verification never reaches Squirrel", async () => {
+    const asset: Asset = { url: ZIP, bytes: bytesOf(4000) };
+
+    const f = fixture({
+      internet: offering(asset),
+      verify: (path) => {
+        renameSync(path, `${path}.verified`);
+        writeFileSync(path, bytesOf(4000).reverse());
+
+        return Promise.resolve(true);
+      },
+    });
+
+    await f.checked();
+    expect(f.updates.get()).toMatchObject({
+      phase: "failed",
+      failure: { stage: "verify", version: "0.5.0" },
+      readyVersion: null,
+    });
+    expect(f.native.checks).toBe(0);
     f.cleanup();
   });
 
@@ -268,6 +299,24 @@ describe("Squirrel runs one operation at a time", () => {
     await f.settled();
     expect(f.updates.get()).toMatchObject({ phase: "ready", readyVersion: "0.6.0" });
     expect(native.received).toEqual(six.bytes);
+    f.cleanup();
+  });
+
+  test("a Squirrel that never ends an operation holds the next Update back one timeout, no longer", async () => {
+    const { native } = held();
+    const asset: Asset = { url: ZIP, bytes: bytesOf(3000) };
+    const f = fixture({ handoverTimeoutMs: 40, internet: offering(asset) }, native);
+
+    await f.checked();
+    expect(f.updates.get()).toMatchObject({ phase: "failed", readyVersion: null });
+
+    // The first operation is never heard from again; the retry is handed over all the same.
+    native.hold = null;
+    await f.checked();
+    await until(() => f.updates.get().phase === "ready");
+    expect(native.checks).toBe(2);
+    expect(f.updates.get()).toMatchObject({ readyVersion: "0.5.0", failure: null });
+    expect(native.received).toEqual(asset.bytes);
     f.cleanup();
   });
 

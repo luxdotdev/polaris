@@ -1,8 +1,15 @@
 import { afterEach, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdtempSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { feedAnswer, serveLocalFeed, type FeedContent, type LocalFeed } from "./localFeed.ts";
+import {
+  feedAnswer,
+  openPackage,
+  serveLocalFeed,
+  stillNames,
+  type FeedContent,
+  type LocalFeed,
+} from "./localFeed.ts";
 import type { OfferedUpdate } from "./release.ts";
 import { bytesOf, get } from "./updates.testing.ts";
 
@@ -69,9 +76,12 @@ const serve = async (platform: string, patch: Partial<OfferedUpdate> = {}) => {
   dir = mkdtempSync(join(tmpdir(), "polaris-local-feed-"));
   const path = join(dir, "package");
   writeFileSync(path, bytesOf(3000));
+  const file = await openPackage(path);
+
+  if (file === null) throw new Error("the fixture package did not open");
   served = await serveLocalFeed({
     platform,
-    path,
+    file,
     bytes: 3000,
     sha1: patch.sha1 ?? null,
     update: { ...update, ...patch },
@@ -120,7 +130,7 @@ test("Windows: RELEASES names the package beside it, with the hash Squirrel chec
 });
 
 test.skipIf(process.platform === "win32")(
-  "a verified file swapped for a symlink, or for one of another size, is not served",
+  "a package is opened once, never through a symlink, and a path that names another file since is noticed",
   async () => {
     const folder = mkdtempSync(join(tmpdir(), "polaris-local-feed-"));
     const real = join(folder, "real");
@@ -128,20 +138,24 @@ test.skipIf(process.platform === "win32")(
 
     writeFileSync(real, bytesOf(3000));
     symlinkSync(real, link);
+    expect(await openPackage(link)).toBeNull();
+    expect(await openPackage(folder)).toBeNull();
 
-    const tried = (path: string, bytes: number) =>
-      serveLocalFeed({ platform: "darwin", path, bytes, sha1: null, update }).then(
-        (feed) => {
-          feed.close();
+    const file = await openPackage(real);
 
-          return "served";
-        },
-        () => "refused"
-      );
+    if (file === null) throw new Error("the fixture package did not open");
+    expect(await stillNames(real, file)).toBe(true);
 
-    expect(await tried(link, 3000)).toBe("refused");
-    expect(await tried(real, 2999)).toBe("refused");
-    expect(await tried(real, 3000)).toBe("served");
+    // A size other than the verified one is not served.
+    const short = serveLocalFeed({ platform: "darwin", file, bytes: 2999, sha1: null, update });
+
+    expect(await short.then(() => "served").catch(() => "refused")).toBe("refused");
+
+    // The same bytes under the same name, but another file.
+    renameSync(real, join(folder, "moved"));
+    writeFileSync(real, bytesOf(3000));
+    expect(await stillNames(real, file)).toBe(false);
+    await file.close();
     rmSync(folder, { recursive: true, force: true });
   }
 );

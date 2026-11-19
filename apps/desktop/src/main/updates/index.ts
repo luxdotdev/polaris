@@ -71,13 +71,18 @@ const scheduleCheck = (run: () => void, delay: number) => {
   return () => clearTimeout(timer);
 };
 
-/** One Squirrel operation, in flight from `checkForUpdates` until Squirrel's own terminal event. */
+/** One Squirrel operation, in flight from `checkForUpdates` until its terminal event or timeout. */
 interface Handover {
   readonly version: string;
   readonly feed: LocalFeed;
   readonly cancelTimeout: () => void;
-  /** Timed out: the failure is published and the feed closed, but Squirrel hasn't ended it yet. */
-  abandoned: boolean;
+}
+
+/** A handover Squirrel went quiet on: it keeps Squirrel's one slot until it ends or its claim lapses. */
+interface Quiet {
+  readonly handover: Handover;
+  holds: boolean;
+  readonly cancelLapse: () => void;
 }
 
 /** Squirrel names what it finished: the zip (macOS) or the feed (Windows) under this feed's root. */
@@ -98,6 +103,7 @@ export const createAppUpdates = (input: UpdateInput) => {
   let cancelTimer: (() => void) | null = null;
   const handoverTimeoutMs = input.handoverTimeoutMs ?? HANDOVER_TIMEOUT_MS;
   let handover: Handover | null = null;
+  let quiet: Quiet | null = null;
   let wake: (() => void) | null = null;
   let disposed = false;
 
@@ -158,71 +164,94 @@ export const createAppUpdates = (input: UpdateInput) => {
       { availableVersion: view.readyVersion, lastCheckedAt: checked() }
     );
 
-  /** Squirrel's terminal event, or disposal: its one operation is over and the next may start. */
   const endHandover = () => {
     const ended = handover;
 
     handover = null;
     ended?.cancelTimeout();
     ended?.feed.close();
-    wake?.();
 
     return ended;
   };
 
-  /** Squirrel went quiet: the Update failed, but its operation stays in flight until it ends. */
+  /** The quiet operation ended, or outlived its claim: Squirrel may be given the next feed. */
+  const release = () => {
+    if (quiet !== null) quiet.holds = false;
+    quiet?.cancelLapse();
+    wake?.();
+  };
+
+  /** Squirrel went quiet: the Update failed, and its operation holds the slot one more timeout. */
   const abandon = () => {
-    if (handover === null) return;
-    handover.abandoned = true;
-    handover.feed.close();
-    fail({ stage: "verify", version: handover.version, percent: null });
-  };
-
-  const failedHandover = () => {
-    const ended = endHandover();
-
-    if (ended?.abandoned === false)
-      fail({ stage: "verify", version: ended.version, percent: null });
-  };
-
-  /** An abandoned Update that Squirrel finished after all is ready, unless a newer try began. */
-  const stillWanted = (ended: Handover) =>
-    !ended.abandoned || (view.phase === "failed" && view.failure?.version === ended.version);
-
-  const downloaded = (_event: Event, _notes: string, _name: string, _date: Date, url?: string) => {
     const ended = endHandover();
 
     if (ended === null) return;
+    quiet?.cancelLapse();
+    quiet = {
+      handover: ended,
+      holds: true,
+      cancelLapse: scheduleCheck(release, handoverTimeoutMs),
+    };
+    fail({ stage: "verify", version: ended.version, percent: null });
+  };
 
-    if (!finished(ended, platform, url)) {
-      if (!ended.abandoned) fail({ stage: "verify", version: ended.version, percent: null });
+  /** `error` and `update-not-available` name nothing: they end whichever operation holds the slot. */
+  const failedHandover = () => {
+    const ended = endHandover();
+
+    if (ended === null) release();
+    else fail({ stage: "verify", version: ended.version, percent: null });
+  };
+
+  const ready = (version: string) => {
+    clearPending(input.pendingDir);
+    settle({ phase: "ready", readyVersion: version, failure: null });
+  };
+
+  /** A quiet Update that Squirrel finished after all is ready, unless a newer try began. */
+  const finishedLate = (late: Handover) => {
+    release();
+    quiet = null;
+
+    if (handover === null && view.phase === "failed" && view.failure?.version === late.version)
+      ready(late.version);
+  };
+
+  const downloaded = (_event: Event, _notes: string, _name: string, _date: Date, url?: string) => {
+    if (handover !== null && finished(handover, platform, url)) {
+      const { version } = handover;
+
+      endHandover();
+      ready(version);
 
       return;
     }
 
-    if (!stillWanted(ended)) return;
-    clearPending(input.pendingDir);
-    settle({ phase: "ready", readyVersion: ended.version, failure: null });
+    if (quiet !== null && finished(quiet.handover, platform, url)) {
+      finishedLate(quiet.handover);
+
+      return;
+    }
+
+    // It names neither: nothing proves Squirrel has the Update it was handed.
+    const ended = endHandover();
+
+    if (ended !== null) fail({ stage: "verify", version: ended.version, percent: null });
   };
 
-  /** True once Squirrel has no operation in flight; false if it is still busy at the limit. */
+  /** Resolves once no quiet operation holds Squirrel's slot: at most one timeout away. */
   const nativeIdle = () =>
-    new Promise<boolean>((resolve) => {
-      if (handover === null) {
-        resolve(true);
+    new Promise<void>((resolve) => {
+      if (quiet?.holds !== true) {
+        resolve();
 
         return;
       }
 
-      const done = () => {
+      wake = () => {
         wake = null;
-        cancel();
-        resolve(handover === null);
+        resolve();
       };
-
-      const cancel = scheduleCheck(done, handoverTimeoutMs);
-
-      wake = done;
     });
 
   /** Publishes the first and last byte counts, and one in between every interval. */
@@ -258,13 +287,11 @@ export const createAppUpdates = (input: UpdateInput) => {
       verify: input.verify,
     });
 
-    // Squirrel runs one operation at a time: a new feed waits for the last one's terminal event.
-    const idle = staged.ok && (await nativeIdle());
+    // Squirrel runs one operation at a time: a new feed waits for a quiet one to end or lapse.
+    if (staged.ok) await nativeIdle();
 
-    if (disposed || (staged.ok && !idle)) {
+    if (disposed) {
       if (staged.ok) staged.feed.close();
-
-      if (!disposed) fail({ stage: "verify", version: update.version, percent: null });
 
       return;
     }
@@ -279,7 +306,6 @@ export const createAppUpdates = (input: UpdateInput) => {
       version: update.version,
       feed: staged.feed,
       cancelTimeout: scheduleCheck(abandon, handoverTimeoutMs),
-      abandoned: false,
     };
 
     try {
@@ -371,6 +397,7 @@ export const createAppUpdates = (input: UpdateInput) => {
       cancelTimer?.();
       abort.abort();
       endHandover();
+      release();
       input.native.removeListener("update-not-available", failedHandover);
       input.native.removeListener("error", failedHandover);
       input.native.removeListener("update-downloaded", downloaded);

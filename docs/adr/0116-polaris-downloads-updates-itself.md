@@ -37,14 +37,19 @@ from the internet.
   an asset replaced in the meantime restarts instead of mixing two files. A partial file with
   no such name, and a server that ignores the range, start over.
 - **The pending folder is private.** It is created `0700` and refused if it is a symlink; the
-  partial file is opened without following symlinks, and the local feed opens the verified
-  file once, the same way, and serves every request from that open file.
+  partial file is opened without following symlinks. The finished file is opened once, the
+  same way: that descriptor is hashed (Windows), must still be the file its path names after
+  the check that reads the path (`ditto`, macOS; device and inode compared), and is what the
+  local feed serves every request from.
 - **Verification before Squirrel sees it.** macOS: the zip is unpacked with `ditto` and must
   hold one app whose signature is intact (`codesign --verify --deep --strict`) and satisfies
   the running app's designated requirement, the test Squirrel.Mac applies itself. `ditto`
   keeps entries that climb (`../`) or are absolute inside the folder and will not write through
-  a symlink; it does not honour the sizes a zip states, so the folder is measured every 250 ms
-  while it unpacks and `ditto` is killed past 2 GiB. The feed
+  a symlink. The unpacked app may take 2 GiB: a zip whose own listing (`zipinfo -t`) adds up to
+  more, or can't be read, is refused unopened. `ditto` does not honour the sizes a zip states,
+  so the folder is also measured (`du`, one scan at a time, 100 ms apart, killed when `ditto`
+  ends) and `ditto` is killed once it passes twice the listed size plus 64 MiB of block
+  rounding, or 2 GiB, or can't be measured. The feed
   names no size or hash for the zip, so the size is the server's `Content-Length`. Windows:
   the package's size and SHA-1 must equal the RELEASES entry fetched over `https`; Windows
   builds carry no Authenticode signature to check. A file that fails is deleted.
@@ -54,13 +59,16 @@ from the internet.
   a 192-bit random token; it serves the manifest and that one file. Squirrel verifies the
   Update again on its side.
 - **Squirrel runs one operation at a time.** A handover lasts from `checkForUpdates` to
-  Squirrel's own terminal event (`update-downloaded`, `error`, `update-not-available`). Five
-  minutes without one publishes a failure and closes the feed, but the operation stays in
-  flight: the next verified Update waits for that event (five minutes at most, then fails)
-  before Squirrel is given its feed. A completion makes an Update ready only when the address
-  Squirrel names is under that handover's own token and, on macOS, carries its version;
-  Squirrel.Windows may name nothing, and there the single operation is the tie. An abandoned
-  Update that Squirrel finishes after all becomes ready if nothing newer has begun.
+  Squirrel's terminal event (`update-downloaded`, `error`, `update-not-available`). Five
+  minutes without one publishes a failure and closes the feed; the quiet operation then holds
+  Squirrel's slot for five more minutes at most, or until its late event. The next verified
+  Update waits for that and is then handed over, so a Squirrel that never answers delays a
+  retry but cannot stop it. A completion makes an Update ready only when the address Squirrel
+  names is under that handover's own token and, on macOS, carries its version, so a late
+  completion is never taken for a newer handover's; Squirrel.Windows may name nothing, and
+  there the order of operations is the tie. A quiet Update that Squirrel finishes after all
+  becomes ready if nothing newer has begun. `error` names nothing: it ends the operation
+  holding the slot.
 - **The state names two versions.** `readyVersion` is the Release Squirrel has staged;
   `download` is the Release being downloaded, with its byte counts. Restart, "Quit and update"
   and the K menu follow `readyVersion`, not `phase`, so a newer Release can download while an
@@ -86,6 +94,7 @@ from the internet.
   unpacked copy during the macOS check; all three are removed once Squirrel has it.
 - The feed must keep serving assets that allow a plain GET; a `Range` answer is optional, and
   without an `ETag` or `Last-Modified` a dropped download starts over.
-- A Squirrel that never ends an operation blocks further Updates until Polaris restarts.
-- The unpacking limit can be passed by what `ditto` writes in one 250 ms interval.
+- After a quiet operation's claim lapses, a late `error` from it would be taken for the next
+  handover's and fail it; the retry after that works.
+- The unpacking limit can be passed by what `ditto` writes during one scan and its 100 ms gap.
 - A stable Windows build signed with Authenticode later should add that check beside SHA-1.

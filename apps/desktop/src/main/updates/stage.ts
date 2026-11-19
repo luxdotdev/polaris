@@ -1,12 +1,18 @@
 /** Download, verify, then serve one Update to Squirrel from loopback (docs/adr/0116). */
-import { rm } from "node:fs/promises";
+import { rm, type FileHandle } from "node:fs/promises";
 import { join } from "node:path";
 import { downloadUpdate, removeTree } from "./download.ts";
-import { serveLocalFeed, type LocalFeed } from "./localFeed.ts";
+import { openPackage, serveLocalFeed, stillNames, type LocalFeed } from "./localFeed.ts";
 import type { OfferedUpdate } from "./release.ts";
 import { verifyMacUpdate, verifyWindowsUpdate } from "./verify.ts";
 
-export type Verify = (path: string, update: OfferedUpdate, bytes: number) => Promise<boolean>;
+/** `file` is the download as opened; a check that must read `path` is held to the same file after. */
+export type Verify = (
+  path: string,
+  update: OfferedUpdate,
+  bytes: number,
+  file: FileHandle
+) => Promise<boolean>;
 
 export interface StageInput {
   readonly platform: string;
@@ -32,9 +38,9 @@ export type Staged =
 
 const platformVerify =
   (input: StageInput): Verify =>
-  (path, update, bytes) =>
+  (path, update, bytes, file) =>
     input.platform === "win32"
-      ? verifyWindowsUpdate(path, update, bytes)
+      ? verifyWindowsUpdate(path, update, bytes, file)
       : verifyMacUpdate({ zip: path, scratch: join(input.dir, "unpacked"), bundle: input.bundle });
 
 export const stageUpdate = async (input: StageInput): Promise<Staged> => {
@@ -60,18 +66,28 @@ export const stageUpdate = async (input: StageInput): Promise<Staged> => {
     };
 
   const verify = input.verify ?? platformVerify(input);
+  // Opened once: this descriptor is what gets verified, compared and served.
+  const file = await openPackage(downloaded.path);
+  const refused: Staged = { ok: false, stage: "verify", percent: null };
 
-  if (!(await verify(downloaded.path, input.update, downloaded.bytes))) {
-    // A file that failed its check is never a resume point.
-    await rm(downloaded.path, { force: true }).catch(() => undefined);
-
-    return { ok: false, stage: "verify", percent: null };
-  }
+  if (file === null) return refused;
 
   try {
+    const verified =
+      (await verify(downloaded.path, input.update, downloaded.bytes, file)) &&
+      (await stillNames(downloaded.path, file));
+
+    if (!verified) {
+      // A file that failed its check is never a resume point.
+      await rm(downloaded.path, { force: true }).catch(() => undefined);
+      await file.close();
+
+      return refused;
+    }
+
     const feed = await serveLocalFeed({
       platform: input.platform,
-      path: downloaded.path,
+      file,
       bytes: downloaded.bytes,
       sha1: input.update.sha1,
       update: input.update,
@@ -79,7 +95,9 @@ export const stageUpdate = async (input: StageInput): Promise<Staged> => {
 
     return { ok: true, feed };
   } catch {
-    return { ok: false, stage: "verify", percent: null };
+    await file.close().catch(() => undefined);
+
+    return refused;
   }
 };
 

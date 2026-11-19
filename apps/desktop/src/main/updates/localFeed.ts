@@ -1,7 +1,7 @@
 /** The loopback feed Squirrel installs a verified Update from (docs/adr/0116). */
 import { randomBytes } from "node:crypto";
 import { constants } from "node:fs";
-import { open } from "node:fs/promises";
+import { lstat, open, type FileHandle } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { Schema } from "effect";
 import type { OfferedUpdate } from "./release.ts";
@@ -86,9 +86,31 @@ export interface LocalFeed {
   readonly close: () => void;
 }
 
+/** Opens the staged package once, never through a symlink; null when it is not a plain file. */
+export const openPackage = async (path: string): Promise<FileHandle | null> => {
+  const nofollow = process.platform === "win32" ? 0 : constants.O_NOFOLLOW;
+  const file = await open(path, constants.O_RDONLY | nofollow).catch(() => null);
+
+  if (file === null || (await file.stat()).isFile()) return file;
+  await file.close();
+
+  return null;
+};
+
+/** The path still names the file that was opened: nothing took its place meanwhile. */
+export const stillNames = async (path: string, file: FileHandle) => {
+  const [named, opened] = await Promise.all([
+    lstat(path, { bigint: true }).catch(() => null),
+    file.stat({ bigint: true }),
+  ]);
+
+  return named !== null && named.isFile() && named.dev === opened.dev && named.ino === opened.ino;
+};
+
 export interface LocalFeedInput {
   readonly platform: string;
-  readonly path: string;
+  /** The verified package, already open; every request is served from it, and `close` closes it. */
+  readonly file: FileHandle;
   readonly bytes: number;
   readonly sha1: string | null;
   readonly update: OfferedUpdate;
@@ -98,15 +120,9 @@ export interface LocalFeedInput {
 export const serveLocalFeed = async (input: LocalFeedInput): Promise<LocalFeed> => {
   const token = randomBytes(24).toString("hex");
   let feed: FeedContent | null = null;
-  // Opened once, never through a symlink: every request is served from this same file.
-  const nofollow = process.platform === "win32" ? 0 : constants.O_NOFOLLOW;
-  const file = await open(input.path, constants.O_RDONLY | nofollow);
-  const info = await file.stat();
+  const { file } = input;
 
-  if (!info.isFile() || info.size !== input.bytes) {
-    await file.close();
-    throw new Error("the verified file changed");
-  }
+  if ((await file.stat()).size !== input.bytes) throw new Error("the verified file changed");
 
   const respond = (request: IncomingMessage, response: ServerResponse) => {
     const answer: FeedAnswer =
