@@ -222,7 +222,7 @@ try {
     "session-code",
     () =>
       page
-        .locator('[data-copy="code"]:not(:has([data-streamdown="mermaid-block"]))')
+        .locator('[data-copy="code"]:not([data-md-diagram])')
         .first()
         .getByRole("button", { name: "Copy code" }),
     (text) => text.trim().length > 0 && !text.includes("```")
@@ -238,7 +238,7 @@ try {
     "session-mermaid",
     () =>
       page
-        .locator('[data-copy="code"]:has([data-streamdown="mermaid-block"])')
+        .locator('[data-copy="code"][data-md-diagram]')
         .getByRole("button", { name: "Copy code" }),
     (text) => text.startsWith("graph LR")
   );

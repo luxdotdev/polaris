@@ -13,7 +13,7 @@ export const settingsCommands = (shell: ShellActions): CommandHandlers => ({
   },
   "updates.restart": {
     run: () => void restartToUpdate(),
-    enabled: () => updatesStore.getState().view?.phase === "ready",
+    enabled: () => updatesStore.getState().view?.readyVersion != null,
   },
   "settings.open": { run: () => shell.openSettings() },
   "settings.appearance": { run: () => shell.openSettings("appearance") },

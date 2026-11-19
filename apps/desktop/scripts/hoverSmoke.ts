@@ -186,9 +186,9 @@ const checkLook = async (page: Page) => {
   const look = Schema.decodeUnknownSync(Look)(
     await page.evaluate(`(() => {
       const root = document.querySelector(".cm-tooltip-hover");
-      const bodies = [...root.querySelectorAll('[data-streamdown="code-block-body"]')];
-      const blocks = [...root.querySelectorAll('[data-streamdown="code-block"]')];
-      const headers = [...root.querySelectorAll('[data-streamdown="code-block-header"]')];
+      const bodies = [...root.querySelectorAll('[data-md="code-block"] pre')];
+      const blocks = [...root.querySelectorAll('[data-md="code-block"]')];
+      const headers = [...root.querySelectorAll('[data-md="code-header"]')];
       return {
         code: bodies.length,
         headers: headers.filter((header) => getComputedStyle(header).display !== "none").length,

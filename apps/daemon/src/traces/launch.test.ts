@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { Options } from "@anthropic-ai/claude-agent-sdk";
-import { Effect, Schema, Stream } from "effect";
+import { Effect, Option, Schema, Stream } from "effect";
 import { TraceTurn, TurnId } from "@polaris/protocol";
 import { makeClaudeDriver } from "../harness/claude/ClaudeDriver.ts";
 import { FakeClaude, result } from "../harness/claude/fakeClaude.ts";
@@ -28,7 +28,8 @@ const instant = (offset: number) => (epoch + BigInt(offset)).toString();
 
 const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 
-const updatedCommand = Schema.decodeUnknownSync(
+/** A hook's rewritten command; none from a hook that only observes (ADR 0117's snapshots). */
+const updatedCommand = Schema.decodeUnknownOption(
   Schema.Struct({
     hookSpecificOutput: Schema.Struct({ updatedInput: Schema.Struct({ command: Schema.String }) }),
   })
@@ -106,10 +107,13 @@ test.skipIf(process.platform === "win32")(
                   )
                 );
 
-                command = updatedCommand(output).hookSpecificOutput.updatedInput.command;
+                const updated = Option.getOrNull(updatedCommand(output));
+
+                if (updated !== null) command = updated.hookSpecificOutput.updatedInput.command;
               }
             }
 
+            expect(command).not.toBe(original);
             expect(command).not.toContain("/otlp/");
 
             const child = Bun.spawn(["/bin/bash", "-c", command], {

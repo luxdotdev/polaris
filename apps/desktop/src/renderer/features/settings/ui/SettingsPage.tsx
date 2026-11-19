@@ -3,6 +3,7 @@
  * main window. A 264px nav on the ground, the page in one panel with its centred 680px column,
  * the horizon behind them; esc (outside an open menu or dialog) goes back to where the user was.
  */
+import { nightlyCore } from "../updates/model.ts";
 import {
   AsteriskIcon,
   BranchIcon,
@@ -167,8 +168,15 @@ const SettingsNav = ({ current }: { readonly current: SettingsSection }) => {
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className="flex items-baseline gap-2.5">
             About Polaris
-            <span className="font-regular font-mono text-[11px] leading-[14px] text-[light-dark(#4a4c52,var(--color-text-subtle))]">
-              {update?.version ?? version}
+            {/* A Nightly's version doesn't fit the foot; it reads "nightly" (Paper U2). */}
+            <span
+              className="font-regular font-mono text-[11px] leading-[14px] text-[light-dark(#4a4c52,var(--color-text-subtle))]"
+              title={update?.version ?? version}
+              data-testid="about-nav-version"
+            >
+              {nightlyCore(update?.version ?? version) === null
+                ? (update?.version ?? version)
+                : "nightly"}
             </span>
           </span>
           {update?.phase === "ready" ? (

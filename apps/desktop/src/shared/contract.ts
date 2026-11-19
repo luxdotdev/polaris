@@ -318,6 +318,7 @@ export const RequestInputs = {
   "updates.get": Schema.Struct({}),
   "updates.check": Schema.Struct({}),
   "updates.setAutomatic": Schema.Struct({ enabled: Schema.Boolean }),
+  "updates.setChannel": Schema.Struct({ channel: Schema.Literals(["stable", "nightly"]) }),
   "updates.restart": Schema.Struct({}),
   "updates.showInFinder": Schema.Struct({}),
   "cache.get": Schema.Struct({}),

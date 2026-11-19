@@ -143,6 +143,7 @@ jobs:
       # pbt.ts reads POLARIS_PBT_SEED; files with a fixed seed keep it. A failure replays with the seed.
       - name: Seeded run
         working-directory: apps/daemon
+        shell: bash
         env:
           POLARIS_PBT_RUNS: "500"
           POLARIS_TEST_STALL_S: "1200"
@@ -198,6 +199,7 @@ jobs:
           ref: main
           fetch-depth: 0
       - name: Merges to main with ci-bypass
+        shell: bash
         run: |
           {
             echo "### Merges to main in the last day with \`ci-bypass:\`"

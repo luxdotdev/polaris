@@ -1,14 +1,23 @@
 import { Predicate } from "effect";
 import { trackAfter, type AnalyticsOptions } from "../../../../lib/analytics";
 import { errorInfo, withWideEvent, type ErrorInfo, type WideEvent } from "../../../../lib/log";
-import { latestRelease, releaseAsset, releasesPage, type PublishedRelease } from "./releases.ts";
+import {
+  latestRelease,
+  releaseAsset,
+  releasesPage,
+  requestChannel,
+  CHANNEL_ERROR,
+  type Channel,
+  type PublishedRelease,
+} from "./releases.ts";
 import { requestFields } from "./telemetry.ts";
 import { compareVersions, parseVersion } from "./version.ts";
 
 type WideEventOptions = NonNullable<Parameters<typeof withWideEvent>[2]>;
 
 interface Dependencies {
-  latest: () => Promise<PublishedRelease | null>;
+  /** The channel's Release; downloads always ask for stable. */
+  latest: (channel: Channel) => Promise<PublishedRelease | null>;
   /** Overrides for the wide event's scheduling, emission, environment and clock (tests). */
   log?: WideEventOptions;
   /** Overrides for the Vercel Analytics event (tests). */
@@ -31,8 +40,8 @@ const UPDATE_ROUTE = "/api/update/darwin-arm64/[version]";
 const DOWNLOAD_ROUTE = "/download/mac";
 
 export function createReleaseRoutes(deps: Dependencies) {
-  async function release(event: WideEvent) {
-    const found = await deps.latest();
+  async function release(event: WideEvent, channel: Channel = "stable") {
+    const found = await deps.latest(channel);
     event.release_version = found ? found.tag_name : null;
 
     if (!found) event.failure = "no_release";
@@ -47,7 +56,7 @@ export function createReleaseRoutes(deps: Dependencies) {
     return unavailable();
   }
 
-  async function updateResponse(version: string, event: WideEvent) {
+  async function updateResponse(version: string, channel: Channel | null, event: WideEvent) {
     const caller = parseVersion(version);
 
     if (!caller) {
@@ -56,9 +65,16 @@ export function createReleaseRoutes(deps: Dependencies) {
       return Response.json({ error: "Use a valid semantic version." }, { status: 400, headers });
     }
 
-    try {
-      const latest = await release(event);
+    if (!channel) {
+      event.rejection = "invalid_channel";
 
+      return Response.json({ error: CHANNEL_ERROR }, { status: 400, headers });
+    }
+
+    try {
+      const latest = await release(event, channel);
+
+      // Never lower than the caller: a nightly caller on Stable waits for a newer Stable Release.
       if (!latest || compareVersions(caller, latest.version) >= 0) {
         event.update = "current";
 
@@ -103,9 +119,10 @@ export function createReleaseRoutes(deps: Dependencies) {
       UPDATE_ROUTE,
       async (request, event, context) => {
         const { version } = await context.params;
-        Object.assign(event, requestFields(request, "update_check", version));
+        const channel = requestChannel(request);
+        Object.assign(event, requestFields(request, "update_check", version), { channel });
 
-        return updateResponse(version, event);
+        return updateResponse(version, channel, event);
       },
       deps.log
     ),

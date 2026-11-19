@@ -53,8 +53,9 @@ test.each([
   ["1.2.3", "darwin-arm64"],
   ["1.2.3-rc.1", "linux-arm64-musl"],
   ["0.2.0", "windows-x64"],
+  ["0.11.1-nightly.20261119", "linux-x64"],
 ])(
-  "%s %s redirects to the exact Release asset, prereleases included",
+  "%s %s redirects to the exact Release asset, prereleases and nightlies included",
   async (version, platform) => {
     const { get, flush, events, tracked } = setup();
     const response = await get(version, platform, "?client=1.2.3&via=host");

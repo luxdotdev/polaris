@@ -2,7 +2,7 @@
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 import type { PolarisApi, Result } from "../../../../shared/api.ts";
-import type { AppUpdateView } from "../../../../shared/appUpdates.ts";
+import type { AppUpdateChannel, AppUpdateView } from "../../../../shared/appUpdates.ts";
 import { polaris } from "../../bridge.ts";
 
 interface UpdatesState {
@@ -57,15 +57,23 @@ export const checkForUpdates = async () => {
   applySnapshot(result, expected);
 };
 
-export const setAutomaticUpdates = async (enabled: boolean) => {
+/** One settings change at a time; its reply loses to any AppEvent that came first. */
+const changeSetting = async (request: () => Promise<Result<AppUpdateView>>) => {
   if (updatesStore.getState().changing) return;
   const expected = revision;
 
   updatesStore.setState({ changing: true, problem: null });
-  const result = await polaris().request("updates.setAutomatic", { enabled });
+  const result = await request();
   applySnapshot(result, expected);
   updatesStore.setState({ changing: false });
 };
+
+export const setAutomaticUpdates = (enabled: boolean) =>
+  changeSetting(() => polaris().request("updates.setAutomatic", { enabled }));
+
+/** Main persists the Channel and asks its feed at once. */
+export const setUpdateChannel = (channel: AppUpdateChannel) =>
+  changeSetting(() => polaris().request("updates.setChannel", { channel }));
 
 export const restartToUpdate = async () => {
   const result = await polaris().request("updates.restart", {});

@@ -2,22 +2,20 @@ import { beforeAll, describe, expect, test } from "bun:test";
 import {
   type DiffsHighlighter,
   getSharedHighlighter,
-  registerCustomTheme,
   renderFileWithHighlighter,
 } from "@pierre/diffs";
 import { fixedTokenizer, splitLines, syntaxDiff, tokensFromRuns } from "@polaris/syntax-diff";
-import { moonlitTheme, THEMES } from "../../../diffs/theme.ts";
+import { DIFF_HIGHLIGHTER, registerDiffThemes, THEMES } from "../../../diffs/theme.ts";
 import { runsOfLines } from "./highlightRuns.ts";
 
 let highlighter: DiffsHighlighter;
 
 beforeAll(async () => {
-  registerCustomTheme(THEMES.dark, () => Promise.resolve(moonlitTheme("dark")));
-  registerCustomTheme(THEMES.light, () => Promise.resolve(moonlitTheme("light")));
+  registerDiffThemes();
   highlighter = await getSharedHighlighter({
     themes: [THEMES.dark, THEMES.light],
     langs: ["python", "go", "rust", "css", "markdown"],
-    preferredHighlighter: "shiki-js",
+    preferredHighlighter: DIFF_HIGHLIGHTER,
   });
 });
 

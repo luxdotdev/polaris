@@ -1,15 +1,13 @@
 import "../../session/ui/markdown/markdown.css";
-import { COPY_CODE } from "../../session/ui/markdown/copyControls.tsx";
 import "./preview.css";
-import { useRef, useState, useMemo } from "react";
+import { type ComponentProps, useRef, useState, useMemo } from "react";
 import { Predicate } from "effect";
-import { Streamdown, type PluginConfig, type Components } from "streamdown";
-import { needsOf } from "../../session/ui/markdown/needs.ts";
-import { usePlugins } from "../../session/ui/markdown/plugins.ts";
-import { MERMAID_CONFIG, POLARIS_SHIKI } from "../../session/ui/markdown/theme.ts";
+import { CodeBlock } from "../../session/ui/markdown/code/CodeBlock.tsx";
+import { type Components, Markup } from "../../session/ui/markdown/words/Markup.tsx";
+import { renderHtml } from "../../session/ui/markdown/words/render.ts";
 import { PreviewImage } from "./Image.tsx";
 import { previewTarget, type PreviewDocument } from "./targets.ts";
-import { PREVIEW_REHYPE, SAFE_HTML_COMPONENTS } from "./pipeline.tsx";
+import { PREVIEW_PIPELINE, SAFE_HTML_COMPONENTS } from "./pipeline.tsx";
 import type { PreviewMediaPool } from "./media.ts";
 
 export interface RenderedProps {
@@ -32,13 +30,7 @@ const Rendered = ({
 }: RenderedProps) => {
   const root = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const needs = needsOf(source);
-  const plugins = usePlugins({ ...needs, math: false });
-  const enabledPlugins: PluginConfig = {};
-
-  if (needs.code && plugins.code) enabledPlugins.code = plugins.code;
-
-  if (needs.mermaid && plugins.mermaid) enabledPlugins.mermaid = plugins.mermaid;
+  const html = useMemo(() => renderHtml(source, { html: true, math: false }), [source]);
 
   const fragment = (name: string) => {
     const target = Array.from(root.current?.querySelectorAll<HTMLElement>("[id]") ?? []).find(
@@ -65,9 +57,9 @@ const Rendered = ({
     if (target.kind === "external") await openExternal(target.url);
   };
 
-  const imageComponent = useMemo<NonNullable<Components["img"]>>(
+  const imageComponent = useMemo(
     () =>
-      ({ src, alt }) => {
+      ({ src, alt }: ComponentProps<"img">) => {
         const source = Predicate.isString(src) ? src : "";
         const external = previewTarget(source, document).kind === "external";
 
@@ -86,9 +78,15 @@ const Rendered = ({
   const components: Components = useMemo(
     () => ({
       img: imageComponent,
-      ...COPY_CODE,
+      pre: CodeBlock,
+      // A wide table scrolls on its own rather than widening the page.
+      table: ({ node: _node, ...props }: ComponentProps<"table"> & { readonly node?: unknown }) => (
+        <div data-md="table-wrapper">
+          <table {...props} />
+        </div>
+      ),
       ...SAFE_HTML_COMPONENTS,
-      a: ({ href, id, children }) =>
+      a: ({ href, id, children }: ComponentProps<"a">) =>
         previewTarget(href ?? "", document).kind === "blocked" ? (
           <span id={id} tabIndex={-1}>
             {children}
@@ -113,25 +111,9 @@ const Rendered = ({
   return (
     <div ref={root}>
       {error && <p role="status">{error}</p>}
-      <Streamdown
-        className="polaris-md editor-markdown"
-        mode="static"
-        plugins={enabledPlugins}
-        rehypePlugins={PREVIEW_REHYPE}
-        components={components}
-        controls={{
-          code: { copy: false, download: false },
-          table: false,
-          mermaid: { copy: false, download: false, fullscreen: false, panZoom: false },
-        }}
-        tableMaxHeight={0}
-        shikiTheme={[POLARIS_SHIKI, POLARIS_SHIKI]}
-        mermaid={{ config: MERMAID_CONFIG }}
-        linkSafety={{ enabled: false }}
-        lineNumbers={false}
-      >
-        {source}
-      </Streamdown>
+      <div className="polaris-md editor-markdown">
+        <Markup html={html} pipeline={PREVIEW_PIPELINE} components={components} />
+      </div>
     </div>
   );
 };

@@ -126,6 +126,11 @@ export const Capability = Schema.Literals([
   "session.background-tasks",
   /** `session.turns`: older Turns a page at a time. */
   "session.turn-paging",
+  /**
+   * `FileChange` patches and the `writing` item while a file tool's input streams (ENG-979).
+   * Daemon-only: a Client without it ignores the extra fields.
+   */
+  "session.file-patches",
   /** The `StopBackgroundTasks` command. */
   "session.stop-background",
   /** The `BackgroundCommand` command, and `HarnessModels.backgroundsCommands`. */

@@ -7,7 +7,6 @@ import type {
   CodeViewItem,
   File,
   FileDiff,
-  DiffLineAnnotation,
   FileDiffContentsLoader,
   PostRenderPhase,
   SelectedLineRange,
@@ -20,7 +19,13 @@ import type { ReviewAnnotation } from "../surface.ts";
 import { revealStore } from "../surface.ts";
 import type { FindingInfo } from "../model/findings.ts";
 import { hunkLabel } from "../model/marks.ts";
-import { DIFF_CLASS, MAX_LINE_LENGTH, THEMES, useOverflow } from "../../diffs/index.ts";
+import {
+  DIFF_CLASS,
+  DIFF_HIGHLIGHTER,
+  MAX_LINE_LENGTH,
+  THEMES,
+  useOverflow,
+} from "../../diffs/index.ts";
 import { FileHeader } from "./FileHeader.tsx";
 import { FindingRow } from "./FindingRow.tsx";
 
@@ -238,6 +243,7 @@ export const DiffPane = ({
     () => ({
       theme: THEMES,
       themeType,
+      preferredHighlighter: DIFF_HIGHLIGHTER,
       diffStyle: "unified" as const,
       diffIndicators: "classic" as const,
       lineDiffType: "word-alt" as const,
@@ -306,9 +312,9 @@ export const DiffPane = ({
       options={options}
       className={`${DIFF_CLASS} px-panel min-h-0 flex-1 overflow-auto`}
       renderCustomHeader={(item) => <FileHeader id={item.id} />}
-      renderAnnotation={(
-        annotation: DiffLineAnnotation<RowMeta> | { readonly metadata: RowMeta }
-      ) => <Annotation meta={annotation.metadata} subjectKey={subjectKey} />}
+      renderAnnotation={(...[annotation]) => (
+        <Annotation meta={annotation.metadata} subjectKey={subjectKey} />
+      )}
     />
   );
 };

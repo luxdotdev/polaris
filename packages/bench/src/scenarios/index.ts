@@ -2,6 +2,7 @@ import type { Scenario } from "../types.ts";
 import { predictionContext } from "./prediction-context.ts";
 import { blobs } from "./blobs.ts";
 import { byteStreams } from "./byte-streams.ts";
+import { commands } from "./commands.ts";
 import { coldStart } from "./cold-start.ts";
 import { computerUsePreview } from "./computer-use-preview.ts";
 import { desktopIdle } from "./desktop-idle.ts";
@@ -33,6 +34,7 @@ export const SCENARIOS: ReadonlyArray<Scenario> = [
   files,
   editor,
   gitScenario,
+  commands,
   terminal,
   rules,
   desktopIdle,

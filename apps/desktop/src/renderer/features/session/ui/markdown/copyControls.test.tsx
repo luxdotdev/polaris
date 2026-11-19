@@ -3,8 +3,7 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { CopyProvider, TooltipProvider } from "@polaris/ui";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, expect, test } from "bun:test";
-import { Streamdown } from "streamdown";
-import { COPY_CODE, COPY_TABLE } from "./copyControls.tsx";
+import Streamed from "./Streamed.tsx";
 
 // Another DOM test file may have unregistered happy-dom already.
 beforeAll(() => {
@@ -39,16 +38,7 @@ const show = () => {
       }}
     >
       <TooltipProvider>
-        <Streamdown
-          mode="static"
-          components={{ ...COPY_CODE, ...COPY_TABLE }}
-          controls={{
-            code: { copy: false, download: false },
-            table: { copy: false, download: false, fullscreen: false },
-          }}
-        >
-          {MARKDOWN}
-        </Streamdown>
+        <Streamed text={MARKDOWN} live={false} />
       </TooltipProvider>
     </CopyProvider>
   );
@@ -76,9 +66,26 @@ test("a table copies as Markdown", async () => {
   expect(written[0]).toContain("| Mac Studio | 12ms |");
 });
 
-test("Streamdown's own copy controls are gone", () => {
-  const { container } = show();
+test("a table's Markdown escapes pipes in its cells", async () => {
+  const written: string[] = [];
 
-  expect(container.querySelector('[data-streamdown="code-block-actions"] button')).toBeNull();
-  expect(container.querySelector('[title="Copy Code"], [title="Copy table"]')).toBeNull();
+  const { getByRole } = render(
+    <CopyProvider
+      write={async (text) => {
+        written.push(text);
+
+        return true;
+      }}
+    >
+      <TooltipProvider>
+        <Streamed text={"| a | b |\n| --- | --- |\n| x \\| y | z |\n"} live={false} />
+      </TooltipProvider>
+    </CopyProvider>
+  );
+
+  const copy = getByRole("button", { name: "Copy table" });
+
+  fireEvent.click(copy);
+  await waitFor(() => expect(copy.getAttribute("data-copy-state")).toBe("copied"));
+  expect(written[0]).toBe("| a | b |\n| --- | --- |\n| x \\| y | z |");
 });

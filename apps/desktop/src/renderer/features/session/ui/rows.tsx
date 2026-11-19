@@ -88,6 +88,8 @@ export interface RowContext {
   /** Opens or folds a Turn; it stays so as newer Turns arrive. */
   readonly onSetTurnOpen: (turnId: string, open: boolean) => void;
   readonly onOpenDiff: (turnId: string) => void;
+  /** Opens a file in the Changes panel, from an inline edit's path. */
+  readonly onOpenFile?: (path: string) => void;
   /** Opens a Subagent in Output's Subagent tab. */
   readonly onOpenSubagent: (subagentId: string) => void;
   readonly onRespond: (request: ApprovalRequest, decision: ApprovalDecision) => void;
@@ -385,6 +387,7 @@ const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowCont
             ctx={{
               hue: ctx.harness,
               onOpenDiff: () => ctx.onOpenDiff(row.turnId),
+              onOpenFile: ctx.onOpenFile,
               onOpenSubagent: ctx.onOpenSubagent,
             }}
           />

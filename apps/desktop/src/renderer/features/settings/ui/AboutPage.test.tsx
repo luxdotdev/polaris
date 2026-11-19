@@ -1,5 +1,5 @@
 import "../../../test/dom.testing.ts";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test } from "bun:test";
 import { createStore } from "zustand/vanilla";
 import type { HostView } from "../../../../shared/api.ts";
@@ -9,6 +9,7 @@ import { hostView } from "../../../routes/fixtures.testing.ts";
 import { createNavigation } from "../../../routes/navigation.ts";
 import { AppProvider } from "../../../shell/hooks.ts";
 import { type AppState, initialState } from "../../../store/store.ts";
+import { standInBridge } from "../../bridge.ts";
 import { updatesStore } from "../updates/store.ts";
 import { DEFAULT_DEVELOPER_MODE, DeveloperMode, WorkspaceId } from "@polaris/protocol";
 import { DEFAULT_SESSION_PREFS } from "../../../../shared/sessionPrefs.ts";
@@ -27,7 +28,11 @@ const view = (patch: Partial<AppUpdateView> = {}): AppUpdateView => ({
   phase: "current",
   version: "0.5.0",
   availableVersion: null,
+  readyVersion: null,
+  download: null,
+  failure: null,
   automatic: true,
+  channel: "stable",
   lastCheckedAt: null,
   installId: "7c1e0000-0000-0000-0000-00000000a40b",
   osVersion: "27.0",
@@ -105,11 +110,56 @@ test("a daemon older than the app says it can upgrade, and the aside counts the 
   expect(navigation.store.getState().settings?.section).toBe("hosts");
 });
 
-test("the ready state offers Restart to update, and Check now waits until after the restart", () => {
-  mount(view({ phase: "ready", availableVersion: "0.5.1", lastCheckedAt: 0 }));
+test("the ready state offers Restart to update, and Check now still looks for a newer release", () => {
+  mount(
+    view({ phase: "ready", availableVersion: "0.5.1", readyVersion: "0.5.1", lastCheckedAt: 0 })
+  );
 
   expect(screen.getByRole("button", { name: "Restart to update" })).not.toBeNull();
-  expect(screen.getByRole("button", { name: "Check now" }).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: "Check now" }).hasAttribute("disabled")).toBe(false);
+});
+
+test("a download shows its amount and a bar at its share; a failed one has neither", () => {
+  const MB = 1_000_000;
+
+  mount(
+    view({
+      phase: "downloading",
+      availableVersion: "0.12.1",
+      download: { version: "0.12.1", receivedBytes: 48 * MB, totalBytes: 131 * MB },
+    })
+  );
+
+  const row = within(screen.getByTestId("app-update"));
+  const bar = row.getByRole("progressbar", { name: "Downloading Polaris 0.12.1" });
+
+  expect(row.getByText("48 of 131 MB · 37%")).not.toBeNull();
+  expect(bar.getAttribute("aria-valuenow")).toBe("37");
+  expect(row.queryByRole("button")).toBeNull();
+  cleanup();
+
+  mount(
+    view({
+      phase: "failed",
+      failure: { stage: "download", version: "0.12.1", percent: 61 },
+    })
+  );
+
+  const failed = within(screen.getByTestId("app-update"));
+
+  expect(failed.getByText("Couldn't download Polaris 0.12.1")).not.toBeNull();
+  expect(failed.queryByRole("progressbar")).toBeNull();
+  expect(failed.getByRole("button", { name: "Try again" })).not.toBeNull();
+});
+
+test("checking shows the spinner and offers nothing to press in the row", () => {
+  mount(view({ phase: "checking" }));
+
+  const row = within(screen.getByTestId("app-update"));
+
+  expect(row.getByText("Checking for updates…")).not.toBeNull();
+  expect(row.getByTestId("app-update-spinner")).not.toBeNull();
+  expect(row.queryByRole("button")).toBeNull();
 });
 
 test("with automatic checks off, the install ID is not sent", () => {
@@ -119,6 +169,46 @@ test("with automatic checks off, the install ID is not sent", () => {
 
   expect(fields.getByText("Not sent while automatic checks are off")).not.toBeNull();
   expect(fields.queryByText(/7c1e/)).toBeNull();
+});
+
+test("the Channel row matches the Channel, and choosing Nightly asks main to switch", async () => {
+  const requests: Array<{ method: string; input: unknown }> = [];
+
+  standInBridge({
+    request: (method, input) => {
+      requests.push({ method, input });
+
+      // SAFETY: the test answers only updates.setChannel, whose output is an AppUpdateView.
+      return Promise.resolve({ ok: true, value: view({ channel: "nightly" }) }) as never;
+    },
+    subscribe: () => () => undefined,
+    onAppEvent: () => () => undefined,
+  });
+  mount(view({ channel: "stable" }));
+
+  const channel = within(screen.getByTestId("app-update-channel"));
+
+  expect(screen.getByText("Stable channel")).not.toBeNull();
+  expect(
+    screen.getByText("Nightly is a prerelease built from main each night, and may break")
+  ).not.toBeNull();
+  expect(channel.getByRole("radio", { name: "Stable" }).getAttribute("aria-checked")).toBe("true");
+
+  fireEvent.click(channel.getByRole("radio", { name: "Nightly" }));
+  await waitFor(() => expect(updatesStore.getState().view?.channel).toBe("nightly"));
+  expect(requests).toEqual([{ method: "updates.setChannel", input: { channel: "nightly" } }]);
+  expect(screen.getByText("Nightly channel")).not.toBeNull();
+});
+
+test("an unsupported build can't switch Channel", () => {
+  mount(view({ supported: false }));
+
+  for (const name of ["Stable", "Nightly"])
+    expect(
+      within(screen.getByTestId("app-update-channel"))
+        .getByRole("radio", { name })
+        .hasAttribute("disabled")
+    ).toBe(true);
 });
 
 const developerSwitch = () =>

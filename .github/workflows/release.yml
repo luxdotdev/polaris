@@ -5,12 +5,46 @@ name: Release
 # branch is the only code that sees Apple credentials, and only `publish` can write the Release.
 # Every hand-off is an artifact, downloaded by the ID its upload recorded, whose SHA-256 the next
 # job checks; the signer checks its own inputs and unpacks them as hostile.
+# nightly-build.yml calls it with a nightly tag: signing in the `nightly` environment, a published
+# prerelease instead of a draft, and no SDK, Raycast or Even G2 jobs.
 on:
   push:
     tags: ["v*"]
+  workflow_call:
+    inputs:
+      tag:
+        description: "The tag to release, e.g. v0.11.1-nightly.20261119"
+        type: string
+        required: true
+      channel:
+        description: "nightly (a tag push is stable)"
+        type: string
+        required: true
+      sha:
+        description: "The tag's commit: every job builds it, and publish checks the tag still names it"
+        type: string
+        required: true
+    # A caller must pass environment secrets by name, or they are empty here (docs: reuse-workflows).
+    # Only the signing jobs read them, in their environment, which supplies the values.
+    secrets:
+      MACOS_CERT_P12:
+        required: true
+      MACOS_CERT_PASSWORD:
+        required: true
+      # Optional in sign.py, and in neither environment today.
+      MACOS_SIGNING_IDENTITY:
+        required: false
+      APPLE_API_KEY:
+        required: true
+      APPLE_API_KEY_ID:
+        required: true
+      APPLE_API_ISSUER:
+        required: true
+      APPLE_TEAM_ID:
+        required: true
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref }}
   cancel-in-progress: false
 
 permissions: {}
@@ -29,13 +63,30 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          ref: ${{ inputs.sha }}
           persist-credentials: false
       - name: Validate tag and versions
         id: metadata
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
-        # Tags: vX.Y.Z or vX.Y.Z-<alpha|beta|rc>.N (a prerelease); every release is signed.
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          RELEASE_CHANNEL: ${{ inputs.channel }}
+        # Tags: vX.Y.Z or vX.Y.Z-<alpha|beta|rc>.N (a prerelease), or a nightly's
+        # vX.Y.Z-nightly.YYYYMMDD on the nightly channel only; every release is signed.
         run: python3 -I tooling/release/metadata.py
+      # Before anything is signed: the tag still names the commit, built on a commit of main.
+      - name: Check the nightly tag and its source commit
+        if: inputs.channel == 'nightly'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          TAG_SHA: ${{ inputs.sha }}
+        run: |
+          test "$(gh api "repos/$GH_REPO/git/ref/tags/$RELEASE_TAG" --jq .object.sha)" = "$TAG_SHA"
+          source=$(gh api "repos/$GH_REPO/commits/$TAG_SHA" --jq '.parents[0].sha')
+          status=$(gh api "repos/$GH_REPO/compare/$source...main" --jq .status)
+          [[ "$status" == ahead || "$status" == identical ]]
 
   build:
     name: macOS arm64 build (no credentials)
@@ -53,6 +104,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          ref: ${{ inputs.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -97,7 +149,7 @@ jobs:
     name: Sign and notarise the Daemon and app
     needs: [metadata, build]
     runs-on: macos-15
-    environment: release
+    environment: ${{ inputs.channel == 'nightly' && 'nightly' || 'release' }}
     timeout-minutes: 60
     permissions:
       contents: read
@@ -110,9 +162,10 @@ jobs:
         shell: bash
     steps:
       # Only the reviewed signer and entitlements, from the default branch; nothing from the tag runs.
+      # A scheduled (nightly) run's event carries no repository, hence the fallback.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ github.event.repository.default_branch || 'main' }}
           path: signer
           persist-credentials: false
           sparse-checkout: |
@@ -182,6 +235,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          ref: ${{ inputs.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -248,7 +302,7 @@ jobs:
     name: Sign and notarise the installer DMG
     needs: [metadata, dmg]
     runs-on: macos-15
-    environment: release
+    environment: ${{ inputs.channel == 'nightly' && 'nightly' || 'release' }}
     timeout-minutes: 45
     permissions:
       contents: read
@@ -260,7 +314,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ github.event.repository.default_branch || 'main' }}
           path: signer
           persist-credentials: false
           sparse-checkout: tooling/release/sign.py
@@ -314,6 +368,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          ref: ${{ inputs.sha }}
           persist-credentials: false
       # Shared with windows-test-build.yml: restore the Daemon, package, smoke-test x64.
       - uses: ./.github/actions/package-windows
@@ -362,6 +417,7 @@ jobs:
   sdk:
     name: Build and pack the SDK (no credentials)
     needs: metadata
+    if: inputs.channel != 'nightly'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -376,6 +432,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          ref: ${{ inputs.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -405,6 +462,7 @@ jobs:
   npm:
     name: Publish the SDK to npm with provenance
     needs: [metadata, sdk]
+    if: inputs.channel != 'nightly'
     runs-on: ubuntu-latest
     # Its own environment, so the owner can require a reviewer before anything reaches npm.
     environment: npm
@@ -450,6 +508,7 @@ jobs:
     name: Build the Raycast extension (no credentials)
     # The standalone project installs @polaris/sdk from npm, so the SDK is published first.
     needs: [metadata, npm]
+    if: inputs.channel != 'nightly'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -462,6 +521,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          ref: ${{ inputs.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -495,7 +555,7 @@ jobs:
     name: Pack the Even G2 app (no credentials; a workflow artifact, never a Release asset)
     needs: metadata
     # The whitelist names the owner's Hosts (repository variable EVEN_G2_HOSTS); without it, no package.
-    if: vars.EVEN_G2_HOSTS != ''
+    if: vars.EVEN_G2_HOSTS != '' && inputs.channel != 'nightly'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -506,6 +566,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          ref: ${{ inputs.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -540,11 +601,13 @@ jobs:
           retention-days: 30
 
   publish:
-    name: Create the draft GitHub Release with the exact assets
+    name: Create the GitHub Release with the exact assets (a draft; a nightly is published)
     needs: [metadata, sign, sign-dmg, windows, raycast]
-    # A failed Windows or Raycast job still drafts the macOS assets and leaves the run red.
+    # A failed Windows or Raycast job still drafts the macOS assets and leaves the run red;
+    # a nightly is published at once, so it needs Windows too.
     if: >-
       always() && needs.sign.result == 'success' && needs.sign-dmg.result == 'success'
+      && (inputs.channel != 'nightly' || needs.windows.result == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -575,7 +638,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          CHANNEL: ${{ inputs.channel }}
+          TAG_SHA: ${{ inputs.sha }}
           VERSION: ${{ needs.metadata.outputs.version }}
           PRERELEASE: ${{ needs.metadata.outputs.prerelease }}
           MACOS_SHA256: ${{ needs.sign.outputs.assets }}
@@ -594,6 +659,10 @@ jobs:
             test "$listed" = "$present"
             while read -r name; do assets+=("handoff/$1/$name"); done <<< "$listed"
           }
+          if [[ "${CHANNEL:-}" == nightly && -z "$WINDOWS_SHA256" ]]; then
+            echo 'A nightly is published without a draft: it needs its Windows assets' >&2
+            exit 1
+          fi
           take macos "$MACOS_SHA256"
           take dmg "$DMG_SHA256"
           if [[ -n "$WINDOWS_SHA256" ]]; then take windows "$WINDOWS_SHA256"; fi
@@ -609,7 +678,14 @@ jobs:
           test -s "handoff/macos/polaris-daemon-$VERSION-windows-x64.tar.gz"
           test -s "handoff/macos/Polaris-$VERSION-arm64-mac.zip"
           ls handoff/*/"Polaris-$VERSION-arm64.dmg" > /dev/null
-          flags=(--draft --verify-tag --title "Polaris $VERSION")
+          # A called release built TAG_SHA: refuse if the tag has moved since.
+          if [[ -n "${TAG_SHA:-}" ]]; then
+            test "$(gh api "repos/$GH_REPO/git/ref/tags/$RELEASE_TAG" --jq .object.sha)" = "$TAG_SHA"
+          fi
+          flags=(--verify-tag --title "Polaris $VERSION")
+          if [[ -n "${TAG_SHA:-}" ]]; then flags+=(--target "$TAG_SHA"); fi
+          # A nightly publishes as a prerelease straight away; anything else waits as a draft.
+          if [[ "${CHANNEL:-}" != nightly ]]; then flags+=(--draft); fi
           if [[ "$PRERELEASE" == true ]]; then
             flags+=(--prerelease --latest=false)
           fi

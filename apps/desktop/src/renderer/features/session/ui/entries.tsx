@@ -35,6 +35,8 @@ const Chevron = ({ open }: { readonly open: boolean }) => (
 export interface EntryContext {
   readonly hue: Hue;
   readonly onOpenDiff: () => void;
+  /** Opens a file in the Changes panel; absent where Changes isn't beside it. */
+  readonly onOpenFile?: ((path: string) => void) | undefined;
   /** Opens a Subagent in Output's Subagent tab; absent where it already shows there. */
   readonly onOpenSubagent?: (subagentId: string) => void;
 }
@@ -59,7 +61,13 @@ const Run = ({ entry, ctx }: { entry: Extract<Entry, { kind: "run" }>; ctx: Cont
       {open ? (
         <div className="border-hairline mt-1 ml-1.5 flex flex-col gap-1.5 border-l pl-3.5">
           {entry.items.map((item) => (
-            <Item key={item.id} item={item} hue={ctx.hue} onOpenDiff={ctx.onOpenDiff} />
+            <Item
+              key={item.id}
+              item={item}
+              hue={ctx.hue}
+              onOpenDiff={ctx.onOpenDiff}
+              onOpenFile={ctx.onOpenFile}
+            />
           ))}
         </div>
       ) : null}
@@ -231,7 +239,14 @@ const entryId = (entry: Entry) => {
 export const EntryView = ({ entry, ctx }: { readonly entry: Entry; readonly ctx: Context }) => {
   switch (entry.kind) {
     case "item":
-      return <Item item={entry.item} hue={ctx.hue} onOpenDiff={ctx.onOpenDiff} />;
+      return (
+        <Item
+          item={entry.item}
+          hue={ctx.hue}
+          onOpenDiff={ctx.onOpenDiff}
+          onOpenFile={ctx.onOpenFile}
+        />
+      );
     case "run":
       return <Run entry={entry} ctx={ctx} />;
     case "desktop":
@@ -240,7 +255,14 @@ export const EntryView = ({ entry, ctx }: { readonly entry: Entry; readonly ctx:
           id={entry.id}
           run={entry.run}
           items={entry.items}
-          renderItem={(item) => <Item item={item} hue={ctx.hue} onOpenDiff={ctx.onOpenDiff} />}
+          renderItem={(item) => (
+            <Item
+              item={item}
+              hue={ctx.hue}
+              onOpenDiff={ctx.onOpenDiff}
+              onOpenFile={ctx.onOpenFile}
+            />
+          )}
         />
       );
     case "subagent":

@@ -53,9 +53,6 @@
   outline: 2px solid var(--color-starlight);
   outline-offset: 2px;
 }
-.editor-markdown [data-streamdown="table-wrapper"] {
-  overflow-x: auto;
-}
 @media (prefers-reduced-motion: reduce) {
   .markdown-preview {
     scroll-behavior: auto;

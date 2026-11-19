@@ -2,7 +2,10 @@ interface MarkdownNode {
   readonly type: string;
   readonly tagName?: string;
   readonly value?: string;
-  properties?: Record<string, string | number | boolean | ReadonlyArray<string | number>>;
+  properties?: Record<
+    string,
+    string | number | boolean | ReadonlyArray<string | number> | null | undefined
+  >;
   readonly children?: Array<MarkdownNode>;
 }
 

@@ -75,8 +75,12 @@ The Connection State of a Host the Client has stopped retrying, such as a machin
 A published version of Polaris: one version number shared by the Desktop App and the Daemon builds it carries.
 _Avoid_: Build (for a published version), drop
 
+**Channel**:
+The stream of Releases a Desktop App takes Updates from: Stable, or Nightly (a prerelease built from main each night); leaving Nightly never downgrades, the app waits for a newer Stable Release.
+_Avoid_: Track, ring, beta (for Nightly)
+
 **Update**:
-The Desktop App replacing itself with a newer Release.
+The Desktop App replacing itself with the newest Release on its Channel, skipping any older Release it had already downloaded.
 _Avoid_: Upgrade (for the Desktop App)
 
 **Daemon Upgrade**:

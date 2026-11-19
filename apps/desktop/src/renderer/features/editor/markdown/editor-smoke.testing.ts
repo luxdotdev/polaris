@@ -57,7 +57,7 @@ app.whenReady().then(()=>{const w=new BrowserWindow({show:false,width:1050,heigh
   assert.equal(await page.locator('[data-view="markdown"]').count(), 0);
   assert.equal(
     await page.evaluate(
-      "performance.getEntriesByType('resource').some(e=>/Rendered.tsx|streamdown|shiki|mermaid.*chunk/.test(e.name))"
+      "performance.getEntriesByType('resource').some(e=>/Rendered.tsx|pierre_words|highlighter|pele/.test(e.name))"
     ),
     false
   );

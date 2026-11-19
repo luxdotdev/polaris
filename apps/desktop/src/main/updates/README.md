@@ -10,16 +10,48 @@ Only packaged, non-dev darwin-arm64 builds check. Automatic checks default on:
 once on launch, then one unref'ed six-hour timeout. Turning them off removes the
 timeout and omits the ID on subsequent manual checks. The numeric macOS version
 comes from Electron's `process.getSystemVersion()`, never the Darwin kernel.
-`settings.json` persists `automaticAppUpdates` and `appUpdateLastCheckedAt`.
+`settings.json` persists `automaticAppUpdates`, `appUpdateLastCheckedAt` and
+`appUpdateChannel` (the Channel, `stable` unless chosen). Nightly asks the feed with
+`?channel=nightly` (`updateFeedUrl` in `platform.ts`); Stable sends no channel. Choosing
+a Channel saves it, drops a download still in progress (Squirrel's staged Update stays)
+and checks at once; an answer from the Channel just left is dropped. Back on Stable, a
+Nightly is never replaced by an older or same-core Stable: About waits for a newer one.
 A request already sent can finish after opt-out; the next request omits the ID.
 
-Native events publish checking, current, downloading, ready or neutral failure
-over typed IPC. Concurrent checks and checks while ready are ignored. Squirrel
-downloads in the background; macOS reports neither progress nor release metadata
-until download completion. The UI therefore says “Downloading Polaris” with no
-bar. The ready version comes from the contract's exact ZIP filename, because
-the Release title may be arbitrary prose. Downloads/DMG/translocated launches
-show “Can't install here” before contacting the feed.
+Polaris downloads the Update itself (ADR 0116). `index.ts` asks the feed, then
+`stage.ts` runs `download.ts` (a resumable `<userData>/pending-update/<asset>.part`
+in a `0700` folder, resumed with `If-Range`, never written past its size or 1 GiB,
+a 60-second stall limit), `verify.ts` and `localFeed.ts`. The request is
+`downloadFetch.ts`, which follows a redirect to `https` only. The state published over
+typed IPC carries `download` (version, received and total bytes, at most twice a
+second), `readyVersion` (what Squirrel has staged) and `failure` (check, download or
+verify). Restart, "Quit and update" and the K menu follow `readyVersion`.
+Concurrent checks, and checks while Squirrel reads an Update, are ignored. Checks
+continue while an Update is ready or downloading: a newer Release replaces it in the
+background (ENG-975), the older stays installable until Squirrel has the newer, and a
+newer one that fails leaves the older ready. While an older one is ready, a Release
+Squirrel refused isn't downloaded again until Polaris restarts; a still newer one is.
+`isNewer` in `version.ts` orders Releases by semver: a Nightly (`0.12.1-nightly.20261119`,
+asset `Polaris-0.12.1-nightly.20261119-arm64-mac.zip`, nupkg `…-0.12.1-nightly20261119-full`)
+ranks below its own X.Y.Z, later dates higher, and between beta and rc of the same core
+(semver's alphabetical order of `alpha`, `beta`, `nightly`, `rc`). Downloads/DMG/translocated
+launches show “Can't install here” before contacting the feed.
+
+Verification on macOS unpacks the zip with `ditto` and requires one app that passes
+`codesign --verify --deep --strict` against the running app's designated
+requirement; a zip listing more than 2 GiB is refused unopened, and `ditto` is
+killed if the folder outgrows its listing or can't be measured. The staged file is
+opened once: that descriptor is checked and served. On Windows the
+package's size and SHA-1 must equal the RELEASES entry.
+A file that fails is deleted and never served. The local feed binds `127.0.0.1` on
+an OS-chosen port only while Squirrel reads it, and refuses a non-loopback peer, a
+foreign `Host`, a path outside its random token and any method but GET or HEAD.
+Squirrel emits `update-downloaded` (ready, when it names this feed's file) or
+`error` (a failed download); five minutes without either is a failure too. An
+event that names nothing ends the oldest operation that may still answer, never a
+newer one. On macOS the next Update waits for that late event, five more minutes
+at most; on Windows, where a completion names nothing, no new operation starts
+until it arrives or Polaris restarts, and About says so (`failure.stage` `install`).
 
 Restart goes through `app.quit()`: the first `before-quit` waits for the Editor's
 existing unsaved-edit choice, disposes the Client and notifications, then calls
@@ -30,19 +62,29 @@ same update state; no notification or toast is generated.
 
 ## Verification and limits
 
-`bun test apps/desktop/src/main/updates` uses a fake feed transport with 204,
-Release JSON and ZIP bytes; it covers launch/timer scheduling, opt-out/manual
-headers, persistent identity, duplicate checks, errors and install gating.
+`bun test apps/desktop/src/main/updates` fakes the internet (the feed, and an asset
+server with Range and dropped connections) and Squirrel, which reads the real
+loopback feed over HTTP. It covers progress, resume, an oversized body, a changed
+remote file, planted symlinks, a late or mismatched completion, a failed verification, the
+feed's refusals, launch/timer scheduling, opt-out/manual headers, persistent
+identity, duplicate checks, errors and install gating. `newer.test.ts` covers ready →
+a newer Release → downloading → ready (newer), Restart during it, a failed newer download
+or handover leaving the older ready, a newer Release replacing a half-done download, and
+the skipped Release. `verify.slow.test.ts` runs
+the real `ditto` and `codesign` on ad hoc signed fixture apps, a zip with climbing,
+absolute and symlink entries, and the unpacking limit (macOS only).
 After `bun apps/desktop/scripts/build.ts --no-app`, run
 `env -u POLARIS_HANDOFF node apps/desktop/scripts/appUpdatesSmoke.ts`. It takes
-the Host's `smoke` lease and runs the production main, preload and renderer
-against a localhost feed and a stand-in native downloader. It checks actual
+the Host's `smoke` lease and runs the production main, preload and renderer.
+The fixture answers `polaris.lux.dev` from localhost with a zip of the dev app
+itself behind one `https` redirect, so the real download, `codesign` check and loopback feed run; only
+Squirrel is a stand-in, and it must be given the loopback feed. It checks actual
 headers, the same install ID and persisted opt-out across launches, menu labels,
 ⌘K, window hiding, cancelled unsaved quits and restart versus ordinary quit.
 Only the fixture overrides `app.isPackaged`; shipped code has no
 fake-feed switch. No live feed, telemetry or published Release is contacted.
-Real Squirrel signature verification, ZIP unpacking and app replacement require
-a signed installed app and are not proved by these fakes.
+Real Squirrel reading the loopback feed, its ZIP unpacking and app replacement
+require a signed installed app and are not proved by these fakes.
 
 ## Idle evidence
 
@@ -70,7 +112,7 @@ had 10.2 and 6.0 other cores busy; CPU/RSS attribution is inconclusive. The Daem
 code and benchmark fixtures are unchanged by this task. No baseline is refreshed.
 
 The updater's timer belongs only to the Desktop App, not a Daemon: at most four
-scheduled checks per day, cancelled when off or ready. Tests prove there is one
+scheduled checks per day, cancelled when off; it stays armed while an Update is ready. Tests prove there is one
 timer and no checks or timer in dev/unsupported/blocked builds. Quiet Upgrade
 captions use one-shot expiry timers only after an Upgrade, without polling.
 The `idle` scenario measures the Daemon, so it does not prove the packaged
@@ -89,16 +131,15 @@ launch check because the installer holds a file lock; the normal timer/manual
 check still works. Unpacked/zip builds are blocked unless the executable is in
 an `app-<version>` directory with readable `../Update.exe`.
 
-Electron's Windows Squirrel adapter ignores `setFeedURL` headers. An explicit
-five-second preflight fetch of RELEASES sends `X-Polaris-Windows-Version` and,
-only while automatic checks are on, the install ID. A 204 finishes as current;
-a failure is retryable; disposal prevents starting a native download. Then
-Squirrel fetches the same feed without custom headers and downloads the absolute
-validated nupkg URL. The server logs these native requests with a null install
-ID. Windows' `update-downloaded` release name is the numeric NuGet version;
-its URL is the feed directory, unlike macOS's ZIP URL.
+Electron's Windows Squirrel adapter ignores `setFeedURL` headers, so Polaris's own
+fetch of RELEASES sends `X-Polaris-Windows-Version` and, only while automatic
+checks are on, the install ID. A 204 finishes as current; a failure is retryable;
+disposal prevents a download. Polaris downloads the one full nupkg RELEASES names,
+checks its size and SHA-1, and serves Squirrel a loopback RELEASES naming the
+package beside it. The site sees no native Squirrel request any more.
 
 Windows unit tests run on macOS using injected platform, paths, updater and
 transport. They cover both architectures, maintenance/shortcuts, first run,
-preflight headers and opt-out, disposal, package parsing and install gating.
+preflight headers and opt-out, disposal, the loopback RELEASES, a SHA-1 mismatch,
+package parsing and install gating.
 Native Windows installer/update behavior is a separate verification gate.

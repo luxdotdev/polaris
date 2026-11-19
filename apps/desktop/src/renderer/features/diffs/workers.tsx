@@ -3,15 +3,12 @@
  * without it a 5,000-file Review drops one frame in five). Pierre keeps one pool for the app,
  * made by the first provider to mount with its options, and ends it when the last unmounts.
  */
-import { registerCustomTheme } from "@pierre/diffs";
 import { WorkerPoolContextProvider } from "@pierre/diffs/react";
-import PierreWorker from "@pierre/diffs/worker/worker.js?worker";
+import PierreWorker from "./pierre.worker.ts?worker";
 import { type ReactNode, useMemo } from "react";
-import { moonlitTheme, THEMES } from "./theme.ts";
+import { DIFF_HIGHLIGHTER, registerDiffThemes, THEMES } from "./theme.ts";
 
-registerCustomTheme(THEMES.dark, () => Promise.resolve(moonlitTheme("dark")));
-
-registerCustomTheme(THEMES.light, () => Promise.resolve(moonlitTheme("light")));
+registerDiffThemes();
 
 /** Review's four workers: the spike measured 50 MB more for 4 than 1, and fewer dropped frames. */
 export const POOL_SIZE = 4;
@@ -21,6 +18,7 @@ export const MAX_LINE_LENGTH = 1000;
 
 const highlighterOptions = {
   theme: THEMES,
+  preferredHighlighter: DIFF_HIGHLIGHTER,
   lineDiffType: "word-alt" as const,
   tokenizeMaxLineLength: MAX_LINE_LENGTH,
   maxLineDiffLength: MAX_LINE_LENGTH,
@@ -29,13 +27,18 @@ const highlighterOptions = {
 export interface DiffWorkersProps {
   readonly children: ReactNode;
   readonly poolSize?: number;
+  /** Makes each worker; tests pass one that fails. */
+  readonly workerFactory?: () => Worker;
 }
 
-export const DiffWorkers = ({ children, poolSize = POOL_SIZE }: DiffWorkersProps) => {
-  const poolOptions = useMemo(
-    () => ({ workerFactory: () => new PierreWorker(), poolSize }),
-    [poolSize]
-  );
+const pierreWorker = () => new PierreWorker();
+
+export const DiffWorkers = ({
+  children,
+  poolSize = POOL_SIZE,
+  workerFactory = pierreWorker,
+}: DiffWorkersProps) => {
+  const poolOptions = useMemo(() => ({ workerFactory, poolSize }), [workerFactory, poolSize]);
 
   return (
     <WorkerPoolContextProvider poolOptions={poolOptions} highlighterOptions={highlighterOptions}>

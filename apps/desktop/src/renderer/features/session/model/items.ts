@@ -2,7 +2,7 @@
  * Turn items as the conversation shows them: one shape for a completed
  * `TurnItem` and for an item still streaming (its `ItemProgress` and deltas).
  */
-import type { Attachment, ReplyStats, ToolKind, TurnItem } from "@polaris/protocol";
+import type { Attachment, FilePatch, ReplyStats, ToolKind, TurnItem } from "@polaris/protocol";
 import { Match, Predicate } from "effect";
 import { countNewlines, type LiveItem } from "../../../store/sessionModel.ts";
 import { type DesktopCall, desktopCallOf } from "./computerUse/index.ts";
@@ -29,6 +29,13 @@ import {
 export type ItemStatus = "running" | "completed" | "failed" | "declined";
 
 export type FileChangeKind = "add" | "modify" | "delete";
+
+/** One file a change touched; `patch` only from a Daemon with `session.file-patches`. */
+export interface FileChangeView {
+  readonly path: string;
+  readonly kind: FileChangeKind;
+  readonly patch?: FilePatch;
+}
 
 export interface PlanStep {
   readonly text: string;
@@ -74,11 +81,17 @@ export type ItemView =
       readonly status: ItemStatus;
       /** It moved to the background, where it keeps running as a background task. */
       readonly inBackground?: boolean;
+      /** Files the working tree had changed once it finished; names alone on a large tree. */
+      readonly changes?: ReadonlyArray<FileChangeView> | undefined;
+      /** Changed files past the listed ones. */
+      readonly moreChanges?: number | undefined;
     })
   | (Base & {
       readonly kind: "files";
-      readonly changes: ReadonlyArray<{ readonly path: string; readonly kind: FileChangeKind }>;
+      readonly changes: ReadonlyArray<FileChangeView>;
       readonly status: ItemStatus;
+      /** Running, its tool input still streaming: no patch yet ("Writing index.html"). */
+      readonly writing: boolean;
     })
   | (Base & {
       readonly kind: "tool";
@@ -319,6 +332,8 @@ const fromItem = (item: TurnItem, live: boolean): ItemView =>
         exitCode: i.exitCode,
         status: i.status,
         inBackground: Predicate.isString(i.backgroundTaskId),
+        changes: i.changes,
+        moreChanges: i.moreChanges,
       }),
       FileChange: (i): ItemView => ({
         kind: "files",
@@ -326,6 +341,7 @@ const fromItem = (item: TurnItem, live: boolean): ItemView =>
         live,
         changes: i.changes,
         status: i.status,
+        writing: i.status === "running" && i.writing === true,
       }),
       ToolCall: (i): ItemView => toolView(i, live),
       Plan: (i): ItemView => ({

@@ -21,6 +21,20 @@ export const updateFeed = (
   return `${base}/api/update/${target}/${encodeURIComponent(version)}`;
 };
 
+/** The feed request: Windows reads RELEASES; Stable sends no channel (apps/site/app/api/update). */
+export const updateFeedUrl = (
+  base: string,
+  platform: string,
+  arch: string,
+  version: string,
+  channel: "stable" | "nightly"
+): string => {
+  const feed = updateFeed(base, platform, arch, version);
+  const path = platform === "win32" ? `${feed}/RELEASES` : feed;
+
+  return channel === "nightly" ? `${path}?channel=nightly` : path;
+};
+
 export const windowsAppId = (arch: string): string => `com.squirrel.Polaris-${arch}-win.Polaris`;
 
 export const revealAppPath = (platform: string, exe: string): string =>

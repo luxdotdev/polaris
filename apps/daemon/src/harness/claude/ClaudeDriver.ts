@@ -67,6 +67,7 @@ import { ClaudeHookReceiver } from "./hooks.ts";
 import { contextWindowOf } from "./payloads.ts";
 import { titleHooks } from "./title.ts";
 import { applyClaudeTraceHooks } from "./traces.ts";
+import { applyCommandChangeHooks } from "./commandChanges.ts";
 import { Inbox } from "./inbox.ts";
 import { buildUserMessage, landedSteer, type SteerInput, type SteerSent } from "./input.ts";
 import { shellCommandMessage } from "./shellInput.ts";
@@ -87,6 +88,7 @@ import { type ClaudePlanLimits, claudePlanLimitReader } from "./planLimits.ts";
 import { usageLimitWatch } from "./usageLimit.ts";
 import { resultOutcome, type TurnOutcome } from "./outcome.ts";
 import { ReplySuggestions } from "./suggestions.ts";
+import { readPreviousFile } from "./readPrevious.ts";
 import { ClaudeTranslator } from "./translate.ts";
 import { readConfinement } from "../confinement.ts";
 import { readOnlyEnv, readOnlyOptions } from "./readOnly.ts";
@@ -224,7 +226,11 @@ const openSession = Effect.fnUntraced(function* (
     for (const e of list) emit(e);
   };
 
-  const translator = new ClaudeTranslator(options.cwd, options.resumeCursor);
+  const translator = new ClaudeTranslator(options.cwd, options.resumeCursor, undefined, {
+    readPrevious: readPreviousFile(options.cwd),
+    emit: emitAll,
+  });
+
   const inbox = new Inbox<SDKUserMessage>();
   const approvals = new Map<RequestId, PendingApproval>();
   /** Steer messages an interrupt cancelled; if Claude starts on one anyway, interrupt again. */
@@ -276,7 +282,7 @@ const openSession = Effect.fnUntraced(function* (
     // Never taken in (an interrupt recalled it): it doesn't show as part of the Turn.
     for (const [uuid, steer] of steers) if (steer.turnId === turn.turnId) steers.delete(uuid);
     emitAll(translator.closeOpenTools(turn.turnId, status === "completed" ? "failed" : "declined"));
-    translator.endTurn();
+    translator.endTurn(status);
     const limit = usageLimit.take();
     emit(
       HarnessEvent.TurnEnded({
@@ -403,6 +409,8 @@ const openSession = Effect.fnUntraced(function* (
     () => active?.turnId ?? null,
     () => permissionMode
   );
+
+  applyCommandChangeHooks(sdkOptions, options, translator, emitAll, () => active?.turnId ?? null);
 
   if (options.model !== null) sdkOptions.model = options.model;
 

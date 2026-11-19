@@ -55,7 +55,8 @@ hand-off. Workflow artifacts follow repository access rules; they are not a secr
 
 Every release is signed, prereleases too: there is no unsigned path, and `sign` fails
 without its secrets. Only `sign` and `sign-dmg` use the `release` environment, so a
-release asks its reviewer twice.
+release asks its reviewer twice. Nightlies sign in the `nightly` environment instead,
+with no reviewer (see Amendment: nightly builds).
 
 The signer uses only the Python standard library and Apple's tools (`security`,
 `codesign`, `notarytool`, `stapler`, `ditto`, `hdiutil`), and executes nothing from
@@ -106,3 +107,58 @@ These tests do not verify a live npm publisher configuration or a GitHub-hosted 
   longer uses it.
 - Three more macOS jobs per release, each re-downloading the app.
 - The workflow still only drafts the Release; a maintainer publishes it.
+
+## Amendment: nightly builds (ENG-976, 2026-11-19)
+
+A signed build of main ships each night, and nobody is awake to approve it, so its signing
+runs without a reviewer. `nightly-build.yml` (schedule and `workflow_dispatch`, main only)
+plans with `tooling/release/nightly.py`: the newest main commit whose `CI` check (the required
+lane) passed, as `vX.Y.Z-nightly.YYYYMMDD`, X.Y.Z the next patch after main's version, so the
+Stable Release supersedes it. A night with nothing new since the newest nightly is skipped. The
+`tag` job commits the version onto that commit and pushes only the tag, then calls `release.yml`
+with `channel: nightly`, the tag and the tag's commit. Every job above runs as before, checked
+out at that commit by SHA. Before anything is signed, `metadata` checks that the tag names that
+commit and that its parent (the source) is on main; `publish` checks the tag again and creates the
+Release with `--target` that commit. Moving the tag mid-run cannot swap what is built and signed.
+
+A nightly tag is never moved: the push has no force. A retry the same day reuses today's tag if it
+has no Release and its commit has the source as its only parent and exactly the tree of this
+run's own bump (content, not who made it); an unreleased tag of anything else is deleted first; a
+released one stops the run.
+`metadata.py` admits nightly tags only on that channel and never on a tag push. On the nightly
+channel `sign` and `sign-dmg` use the `nightly` environment, `publish` publishes a prerelease
+(never Latest) instead of a draft, and `sdk`, `npm`, `raycast` and `even-g2` are skipped: macOS
+and Windows only. A nightly is published at once, so it needs the Windows job too: without its
+assets the feed would offer a Release Windows can't install, and the skip rule would never rebuild
+that commit. `prune` reads every page of Releases, keeps the newest 7 nightlies, and deletes the
+rest and failed nights' tags, asking GitHub for each tag's Release before deleting it.
+
+What replaces the reviewer:
+
+- The `nightly` environment admits only `refs/heads/main` and holds the same Apple secrets as
+  `release`. A run from any other branch fails its environment check; `plan` also skips it.
+- What it signs passed main's required lane and main's review; nobody can choose a commit or
+  version by hand (`workflow_dispatch` takes no inputs).
+- The signer is still the default branch's `sign.py`, run on artifacts by ID and digest exactly as
+  for a release; the signing jobs are the same jobs. A scheduled run's event has no repository, so
+  the signer checkout falls back to `main`.
+- Only `tag`, `release` (capped for `release.yml`'s jobs) and `prune` hold `contents: write`, and
+  they run only git and the standard-library `nightly.py` from main. `release` must also grant
+  `id-token: write`, which GitHub requires of a caller whose callee declares it (the `npm` job,
+  skipped on nightlies).
+- A called workflow sees an environment secret only if its caller passes it, by name or with
+  `inherit`; unpassed, it is an empty string and no error. `release` passes exactly the Apple
+  secrets by name, never `inherit`, and `release.yml` declares each, required but for the optional
+  `MACOS_SIGNING_IDENTITY`. Only the jobs in
+  the `nightly` environment read them, and that environment supplies their values.
+- Tags pushed with the workflow token start no workflow, so a nightly tag never runs `release.yml`
+  as a stable release; one pushed by hand fails `metadata`.
+
+Consequences: a compromise of main (or of a merged dependency) is signed by morning without a
+human in between, where a release would still stop at its reviewer; that window is the cost of
+nightlies, bounded by branch protection on main. `workflows.test.ts` holds the nightly workflow to
+these rules, `shell.test.ts` runs the tag checks, and `nightly.slow.test.ts` tests `nightly.py`
+against a fake `gh` and `git`. Tag protection rules must let the workflow token push
+`v*-nightly.*` tags; a ruleset that lets only the workflow create, move or delete them closes the
+window where someone else's tag races tonight's, an owner setting. Run the workflow once by hand
+on main before its first scheduled night.

@@ -478,6 +478,7 @@ export interface RequestOutputs
   "updates.get": AppUpdateView;
   "updates.check": AppUpdateView;
   "updates.setAutomatic": AppUpdateView;
+  "updates.setChannel": AppUpdateView;
   "updates.restart": null;
   "updates.showInFinder": null;
   "cache.get": ReadonlyArray<CachedHost>;

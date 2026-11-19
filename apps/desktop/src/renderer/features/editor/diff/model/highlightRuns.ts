@@ -1,7 +1,7 @@
 /**
  * A highlighted file's lines as token runs for the syntax-aware diff. Pierre colours each
- * span with the Moonlit theme's scope group (`--color-syntax-keyword`, diffs/theme.ts), so
- * the colour names the TextMate scopes a span matched; uncoloured text is plain code.
+ * span with the Editor's syntax role (`--color-syntax-keyword`, features/highlight), so
+ * the colour names the token types a span matched; uncoloured text is plain code.
  */
 import type { TokenKind, TokenRun } from "@polaris/syntax-diff";
 
