@@ -22,6 +22,9 @@ const MacRelease = Schema.Struct({
   pub_date: Schema.optional(Schema.String),
 });
 
+/** The asset, and every address a redirect sends its download on to, is https. */
+export const isHttps = (url: string) => URL.parse(url)?.protocol === "https:";
+
 /** Only an https asset whose name carries a version is ever downloaded. */
 const asset = (url: string) => {
   if (!URL.canParse(url)) return null;

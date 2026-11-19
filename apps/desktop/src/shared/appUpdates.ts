@@ -1,6 +1,6 @@
 /** Desktop App Updates, independent of a Host's Daemon Upgrades. */
 
-/** The Release Polaris is downloading itself (docs/adr/0115). */
+/** The Release Polaris is downloading itself (docs/adr/0116). */
 export interface AppUpdateDownload {
   readonly version: string;
   readonly receivedBytes: number;

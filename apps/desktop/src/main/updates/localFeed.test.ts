@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { feedAnswer, serveLocalFeed, type FeedContent, type LocalFeed } from "./localFeed.ts";
@@ -117,4 +117,41 @@ test("Windows: RELEASES names the package beside it, with the hash Squirrel chec
 
   expect(text(releases.body)).toBe(`${sha1} ${file} 3000`);
   expect((await get(`${url}/${file}`)).body).toEqual(bytesOf(3000));
+});
+
+test.skipIf(process.platform === "win32")(
+  "a verified file swapped for a symlink, or for one of another size, is not served",
+  async () => {
+    const folder = mkdtempSync(join(tmpdir(), "polaris-local-feed-"));
+    const real = join(folder, "real");
+    const link = join(folder, "package");
+
+    writeFileSync(real, bytesOf(3000));
+    symlinkSync(real, link);
+
+    const tried = (path: string, bytes: number) =>
+      serveLocalFeed({ platform: "darwin", path, bytes, sha1: null, update }).then(
+        (feed) => {
+          feed.close();
+
+          return "served";
+        },
+        () => "refused"
+      );
+
+    expect(await tried(link, 3000)).toBe("refused");
+    expect(await tried(real, 2999)).toBe("refused");
+    expect(await tried(real, 3000)).toBe("served");
+    rmSync(folder, { recursive: true, force: true });
+  }
+);
+
+test("the package is served from the file as opened, whatever takes its place on disk", async () => {
+  const url = await serve("darwin");
+
+  rmSync(join(dir, "package"));
+  writeFileSync(join(dir, "package"), "swapped");
+  expect((await get(url.replace(/feed$/, "Polaris-0.5.0-arm64-mac.zip"))).body).toEqual(
+    bytesOf(3000)
+  );
 });

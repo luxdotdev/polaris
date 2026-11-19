@@ -13,9 +13,11 @@ comes from Electron's `process.getSystemVersion()`, never the Darwin kernel.
 `settings.json` persists `automaticAppUpdates` and `appUpdateLastCheckedAt`.
 A request already sent can finish after opt-out; the next request omits the ID.
 
-Polaris downloads the Update itself (ADR 0115). `index.ts` asks the feed, then
-`stage.ts` runs `download.ts` (a resumable `<userData>/pending-update/<asset>.part`,
-a 60-second stall limit), `verify.ts` and `localFeed.ts`. The state published over
+Polaris downloads the Update itself (ADR 0116). `index.ts` asks the feed, then
+`stage.ts` runs `download.ts` (a resumable `<userData>/pending-update/<asset>.part`
+in a `0700` folder, resumed with `If-Range`, never written past its size or 1 GiB,
+a 60-second stall limit), `verify.ts` and `localFeed.ts`. The request is
+`downloadFetch.ts`, which follows a redirect to `https` only. The state published over
 typed IPC carries `download` (version, received and total bytes, at most twice a
 second), `readyVersion` (what Squirrel has staged) and `failure` (check, download or
 verify). Restart, "Quit and update" and the K menu follow `readyVersion`.
@@ -24,12 +26,14 @@ launches show “Can't install here” before contacting the feed.
 
 Verification on macOS unpacks the zip with `ditto` and requires one app that passes
 `codesign --verify --deep --strict` against the running app's designated
-requirement. On Windows the package's size and SHA-1 must equal the RELEASES entry.
+requirement; `ditto` is killed if the unpacked folder passes 2 GiB. On Windows the
+package's size and SHA-1 must equal the RELEASES entry.
 A file that fails is deleted and never served. The local feed binds `127.0.0.1` on
 an OS-chosen port only while Squirrel reads it, and refuses a non-loopback peer, a
 foreign `Host`, a path outside its random token and any method but GET or HEAD.
-Squirrel emits `update-downloaded` (ready) or `error` (a failed download); five
-minutes without either is a failure too.
+Squirrel emits `update-downloaded` (ready, when it names this feed's file) or
+`error` (a failed download); five minutes without either is a failure too, and
+the next Update waits for that late event before Squirrel gets another feed.
 
 Restart goes through `app.quit()`: the first `before-quit` waits for the Editor's
 existing unsaved-edit choice, disposes the Client and notifications, then calls
@@ -42,15 +46,17 @@ same update state; no notification or toast is generated.
 
 `bun test apps/desktop/src/main/updates` fakes the internet (the feed, and an asset
 server with Range and dropped connections) and Squirrel, which reads the real
-loopback feed over HTTP. It covers progress, resume, a failed verification, the
+loopback feed over HTTP. It covers progress, resume, an oversized body, a changed
+remote file, planted symlinks, a late or mismatched completion, a failed verification, the
 feed's refusals, launch/timer scheduling, opt-out/manual headers, persistent
 identity, duplicate checks, errors and install gating. `verify.slow.test.ts` runs
-the real `ditto` and `codesign` on ad hoc signed fixture apps (macOS only).
+the real `ditto` and `codesign` on ad hoc signed fixture apps, a zip with climbing,
+absolute and symlink entries, and the unpacking limit (macOS only).
 After `bun apps/desktop/scripts/build.ts --no-app`, run
 `env -u POLARIS_HANDOFF node apps/desktop/scripts/appUpdatesSmoke.ts`. It takes
 the Host's `smoke` lease and runs the production main, preload and renderer.
 The fixture answers `polaris.lux.dev` from localhost with a zip of the dev app
-itself, so the real download, `codesign` check and loopback feed run; only
+itself behind one `https` redirect, so the real download, `codesign` check and loopback feed run; only
 Squirrel is a stand-in, and it must be given the loopback feed. It checks actual
 headers, the same install ID and persisted opt-out across launches, menu labels,
 ⌘K, window hiding, cancelled unsaved quits and restart versus ordinary quit.

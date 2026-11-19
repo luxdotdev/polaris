@@ -119,6 +119,7 @@ import { focusWindow } from "./notifications/focus.ts";
 import { DEEP_LINK_SCHEME, deepLinkArg } from "../shared/deepLink.ts";
 import { askToQuit, holdsQuit } from "./editorQuit.ts";
 import { createAppUpdates, type AppUpdates } from "./updates/index.ts";
+import { downloadFetch } from "./updates/downloadFetch.ts";
 import { cannotInstallHere, installId } from "./updates/identity.ts";
 import { revealAppPath, updatePlatform, windowsAppId } from "./updates/platform.ts";
 import { handleSquirrelStartup } from "./updates/squirrel.ts";
@@ -285,6 +286,7 @@ const start = async () => {
     platform: process.platform,
     firstRun: process.platform === "win32" && process.argv.includes("--squirrel-firstrun"),
     fetch: internetFetch,
+    download: downloadFetch,
     pendingDir: join(app.getPath("userData"), "pending-update"),
     bundle: revealAppPath(process.platform, process.execPath),
     arch: process.arch,

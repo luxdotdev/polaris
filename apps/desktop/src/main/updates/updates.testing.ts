@@ -43,6 +43,10 @@ export class FakeSquirrel extends EventEmitter {
   received: Uint8Array | null = null;
   asked: Array<string> = [];
   rejects = false;
+  /** Squirrel has read the package but reports it only once this resolves. */
+  hold: Promise<void> | null = null;
+  /** The address Squirrel says it finished, when not the one it read. */
+  claims: string | null = null;
   done: Promise<void> = Promise.resolve();
   constructor(readonly platform: string = "darwin") {
     super();
@@ -89,7 +93,15 @@ export class FakeSquirrel extends EventEmitter {
     );
 
     this.received = await this.get(release.url);
-    this.emit("update-downloaded", {}, release.notes, release.name, new Date(), release.url);
+    await this.hold;
+    this.emit(
+      "update-downloaded",
+      {},
+      release.notes,
+      release.name,
+      new Date(),
+      this.claims ?? release.url
+    );
   }
 }
 
@@ -104,6 +116,8 @@ export interface Asset {
   readonly delayMs?: number;
   /** The server ignores Range and sends the whole file. */
   ignoreRange?: boolean;
+  /** Names this version of the file; a resume asking for another one gets the whole file. */
+  etag?: string;
 }
 
 export const bytesOf = (length: number) =>
@@ -111,8 +125,11 @@ export const bytesOf = (length: number) =>
 
 /** A server for one asset: Range-aware, chunked, and able to drop the connection. */
 export const serveAsset = (asset: Asset, init: RequestInit): Response => {
-  const range = /^bytes=(\d+)-$/.exec(new Headers(init.headers).get("Range") ?? "");
-  const start = range === null || asset.ignoreRange === true ? 0 : Number(range[1]);
+  const asked = new Headers(init.headers);
+  const range = /^bytes=(\d+)-$/.exec(asked.get("Range") ?? "");
+  const etag = asset.etag ?? '"first"';
+  const whole = range === null || asset.ignoreRange === true || asked.get("If-Range") !== etag;
+  const start = whole ? 0 : Number(range[1]);
 
   if (start >= asset.bytes.length) return new Response(null, { status: 416 });
   const size = asset.chunk ?? 1000;
@@ -138,8 +155,9 @@ export const serveAsset = (asset: Asset, init: RequestInit): Response => {
     status: start === 0 ? 200 : 206,
     headers:
       start === 0
-        ? { "Content-Length": String(asset.bytes.length) }
+        ? { "Content-Length": String(asset.bytes.length), ETag: etag }
         : {
+            ETag: etag,
             "Content-Range": `bytes ${start}-${asset.bytes.length - 1}/${asset.bytes.length}`,
           },
   });

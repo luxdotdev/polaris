@@ -107,6 +107,9 @@ Object.defineProperty(app, 'isPackaged', { get: () => true });
 const ORIGIN = ${JSON.stringify(origin)};
 void app.whenReady().then(() => protocol.handle('https', (request) => {
   const url = new URL(request.url);
+  // The asset is sent on once, as GitHub sends a Release's download on to its storage host.
+  if (url.pathname.startsWith('/download/'))
+    return new Response(null, { status: 302, headers: { Location: 'https://polaris.lux.dev/stored' + url.pathname.slice(9) } });
   return url.origin === 'https://polaris.lux.dev'
     ? net.fetch(ORIGIN + url.pathname, { headers: request.headers, bypassCustomProtocolHandlers: true })
     : net.fetch(request, { bypassCustomProtocolHandlers: true });
@@ -233,7 +236,8 @@ const run = async (restart: boolean) => {
   assert(sized.length >= 2, "the download published progress");
   assert(sized.every((download) => download.totalBytes === zipBytes));
   assert.equal(downloads.at(-1)?.receivedBytes, zipBytes);
-  assert.equal(requests.at(-1)?.path, "/download/Polaris-0.5.0-arm64-mac.zip");
+  // The download followed the https redirect to where the asset is stored.
+  assert.equal(requests.at(-1)?.path, "/stored/Polaris-0.5.0-arm64-mac.zip");
 
   const labels = await app.evaluate(({ Menu }) =>
     Menu.getApplicationMenu()?.items[0]?.submenu?.items.map((item) => item.label)

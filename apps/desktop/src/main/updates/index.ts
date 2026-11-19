@@ -1,9 +1,10 @@
-import type { AutoUpdater } from "electron";
+import type { AutoUpdater, Event } from "electron";
 import type { AppUpdateFailure, AppUpdateView } from "../../shared/appUpdates.ts";
 import type { LocalFeed } from "./localFeed.ts";
 import { updateFeed } from "./platform.ts";
 import { macRelease, windowsRelease, type OfferedUpdate } from "./release.ts";
 import { clearPending, stageUpdate, type Verify } from "./stage.ts";
+import { versionFromAsset } from "./version.ts";
 
 export { versionFromAsset, versionFromNuget } from "./version.ts";
 
@@ -50,6 +51,10 @@ export interface UpdateInput {
   /** The platform's check of a finished download; tests replace it. */
   readonly verify?: Verify;
   readonly progressIntervalMs?: number;
+  /** Replaces `HANDOVER_TIMEOUT_MS`; tests only. */
+  readonly handoverTimeoutMs?: number;
+  /** The package's request, which refuses a redirect off https; the app passes `downloadFetch`. */
+  readonly download?: (url: string, init: RequestInit) => Promise<Response>;
   readonly save: (change: {
     automaticAppUpdates?: boolean;
     appUpdateLastCheckedAt?: number;
@@ -66,12 +71,24 @@ const scheduleCheck = (run: () => void, delay: number) => {
   return () => clearTimeout(timer);
 };
 
-/** An Update Squirrel is reading from the local feed. */
+/** One Squirrel operation, in flight from `checkForUpdates` until Squirrel's own terminal event. */
 interface Handover {
   readonly version: string;
   readonly feed: LocalFeed;
   readonly cancelTimeout: () => void;
+  /** Timed out: the failure is published and the feed closed, but Squirrel hasn't ended it yet. */
+  abandoned: boolean;
 }
+
+/** Squirrel names what it finished: the zip (macOS) or the feed (Windows) under this feed's root. */
+const finished = (handover: Handover, platform: string, url: string | undefined) => {
+  // Squirrel.Windows may name nothing; then one operation at a time is the only tie.
+  if (url === undefined || url === "") return platform === "win32";
+
+  if (!`${url}/`.startsWith(`${handover.feed.root}/`)) return false;
+
+  return platform === "win32" || versionFromAsset(url) === handover.version;
+};
 
 export const createAppUpdates = (input: UpdateInput) => {
   const platform = input.platform ?? "darwin";
@@ -79,7 +96,9 @@ export const createAppUpdates = (input: UpdateInput) => {
   const schedule = input.schedule ?? scheduleCheck;
   const abort = new AbortController();
   let cancelTimer: (() => void) | null = null;
+  const handoverTimeoutMs = input.handoverTimeoutMs ?? HANDOVER_TIMEOUT_MS;
   let handover: Handover | null = null;
+  let wake: (() => void) | null = null;
   let disposed = false;
 
   let view: AppUpdateView = {
@@ -139,29 +158,72 @@ export const createAppUpdates = (input: UpdateInput) => {
       { availableVersion: view.readyVersion, lastCheckedAt: checked() }
     );
 
+  /** Squirrel's terminal event, or disposal: its one operation is over and the next may start. */
   const endHandover = () => {
     const ended = handover;
 
     handover = null;
     ended?.cancelTimeout();
     ended?.feed.close();
+    wake?.();
 
     return ended;
+  };
+
+  /** Squirrel went quiet: the Update failed, but its operation stays in flight until it ends. */
+  const abandon = () => {
+    if (handover === null) return;
+    handover.abandoned = true;
+    handover.feed.close();
+    fail({ stage: "verify", version: handover.version, percent: null });
   };
 
   const failedHandover = () => {
     const ended = endHandover();
 
-    if (ended !== null) fail({ stage: "verify", version: ended.version, percent: null });
+    if (ended?.abandoned === false)
+      fail({ stage: "verify", version: ended.version, percent: null });
   };
 
-  const downloaded = () => {
+  /** An abandoned Update that Squirrel finished after all is ready, unless a newer try began. */
+  const stillWanted = (ended: Handover) =>
+    !ended.abandoned || (view.phase === "failed" && view.failure?.version === ended.version);
+
+  const downloaded = (_event: Event, _notes: string, _name: string, _date: Date, url?: string) => {
     const ended = endHandover();
 
     if (ended === null) return;
+
+    if (!finished(ended, platform, url)) {
+      if (!ended.abandoned) fail({ stage: "verify", version: ended.version, percent: null });
+
+      return;
+    }
+
+    if (!stillWanted(ended)) return;
     clearPending(input.pendingDir);
     settle({ phase: "ready", readyVersion: ended.version, failure: null });
   };
+
+  /** True once Squirrel has no operation in flight; false if it is still busy at the limit. */
+  const nativeIdle = () =>
+    new Promise<boolean>((resolve) => {
+      if (handover === null) {
+        resolve(true);
+
+        return;
+      }
+
+      const done = () => {
+        wake = null;
+        cancel();
+        resolve(handover === null);
+      };
+
+      const cancel = scheduleCheck(done, handoverTimeoutMs);
+
+      wake = done;
+    });
 
   /** Publishes the first and last byte counts, and one in between every interval. */
   const progress = (version: string) => {
@@ -190,14 +252,19 @@ export const createAppUpdates = (input: UpdateInput) => {
       update,
       dir: input.pendingDir,
       bundle: input.bundle,
-      fetch: input.fetch,
+      fetch: input.download ?? input.fetch,
       signal: abort.signal,
       onProgress: progress(update.version),
       verify: input.verify,
     });
 
-    if (disposed) {
+    // Squirrel runs one operation at a time: a new feed waits for the last one's terminal event.
+    const idle = staged.ok && (await nativeIdle());
+
+    if (disposed || (staged.ok && !idle)) {
       if (staged.ok) staged.feed.close();
+
+      if (!disposed) fail({ stage: "verify", version: update.version, percent: null });
 
       return;
     }
@@ -211,7 +278,8 @@ export const createAppUpdates = (input: UpdateInput) => {
     handover = {
       version: update.version,
       feed: staged.feed,
-      cancelTimeout: scheduleCheck(failedHandover, HANDOVER_TIMEOUT_MS),
+      cancelTimeout: scheduleCheck(abandon, handoverTimeoutMs),
+      abandoned: false,
     };
 
     try {

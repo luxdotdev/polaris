@@ -1,6 +1,7 @@
-/** The loopback feed Squirrel installs a verified Update from (docs/adr/0115). */
+/** The loopback feed Squirrel installs a verified Update from (docs/adr/0116). */
 import { randomBytes } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { constants } from "node:fs";
+import { open } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { Schema } from "effect";
 import type { OfferedUpdate } from "./release.ts";
@@ -80,6 +81,8 @@ const Address = Schema.Struct({ address: Schema.String, port: Schema.Number });
 export interface LocalFeed {
   /** What `autoUpdater.setFeedURL` takes on this platform. */
   readonly url: string;
+  /** The unguessable address everything this feed serves sits under. */
+  readonly root: string;
   readonly close: () => void;
 }
 
@@ -95,6 +98,15 @@ export interface LocalFeedInput {
 export const serveLocalFeed = async (input: LocalFeedInput): Promise<LocalFeed> => {
   const token = randomBytes(24).toString("hex");
   let feed: FeedContent | null = null;
+  // Opened once, never through a symlink: every request is served from this same file.
+  const nofollow = process.platform === "win32" ? 0 : constants.O_NOFOLLOW;
+  const file = await open(input.path, constants.O_RDONLY | nofollow);
+  const info = await file.stat();
+
+  if (!info.isFile() || info.size !== input.bytes) {
+    await file.close();
+    throw new Error("the verified file changed");
+  }
 
   const respond = (request: IncomingMessage, response: ServerResponse) => {
     const answer: FeedAnswer =
@@ -121,7 +133,8 @@ export const serveLocalFeed = async (input: LocalFeedInput): Promise<LocalFeed> 
 
     if (request.method === "HEAD") response.end();
     else if ("file" in answer)
-      createReadStream(input.path)
+      file
+        .createReadStream({ start: 0, autoClose: false })
         .on("error", () => response.destroy())
         .pipe(response);
     else response.end(answer.body);
@@ -129,21 +142,32 @@ export const serveLocalFeed = async (input: LocalFeedInput): Promise<LocalFeed> 
 
   const server = createServer(respond);
 
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
-  });
+  try {
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", resolve);
+    });
+  } catch (error) {
+    await file.close();
+    throw error;
+  }
 
   const { address, port } = Schema.decodeUnknownSync(Address)(server.address());
   const origin = `http://${address}:${port}`;
+
+  let closed = false;
 
   feed = { ...input, origin, token };
 
   return {
     url: input.platform === "win32" ? `${origin}/${token}` : `${origin}/${token}/feed`,
+    root: `${origin}/${token}`,
     close: () => {
+      if (closed) return;
+      closed = true;
       server.close();
       server.closeAllConnections();
+      void file.close().catch(() => undefined);
     },
   };
 };

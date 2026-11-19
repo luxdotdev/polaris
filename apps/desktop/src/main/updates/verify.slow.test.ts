@@ -3,8 +3,9 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { crc32 } from "node:zlib";
 import { join } from "node:path";
-import { designatedRequirement, verifyMacUpdate } from "./verify.ts";
+import { designatedRequirement, MAX_UNPACKED_BYTES, verifyMacUpdate } from "./verify.ts";
 
 const mac = process.platform === "darwin";
 
@@ -57,8 +58,44 @@ beforeAll(() => {
 
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-const verify = (zip: string, bundle: string) =>
-  verifyMacUpdate({ zip, scratch: join(dir, "unpacked"), bundle });
+const verify = (zip: string, bundle: string, maxUnpackedBytes = MAX_UNPACKED_BYTES) =>
+  verifyMacUpdate({ zip, scratch: join(dir, "unpacked"), bundle, maxUnpackedBytes });
+
+interface Entry {
+  readonly name: string;
+  readonly data: string;
+  /** A symlink whose target is `data`. */
+  readonly link?: boolean;
+}
+
+const u16 = (value: number) => [value & 0xff, value >>> 8];
+
+const u32 = (value: number) => [...u16(value & 0xffff), ...u16(value >>> 16)];
+
+/** A stored (uncompressed) zip written by hand, so its entry names can be hostile. */
+const zipWith = (name: string, entries: ReadonlyArray<Entry>) => {
+  const local: Array<number> = [];
+  const central: Array<number> = [];
+
+  for (const entry of entries) {
+    const file = [...Buffer.from(entry.name)];
+    const data = Buffer.from(entry.data);
+    const sizes = [...u32(crc32(data)), ...u32(data.length), ...u32(data.length)];
+    const head = [...u16(0), ...u16(0), ...u16(0), ...u16(0), ...sizes, ...u16(file.length)];
+    const mode = (entry.link === true ? 0o120777 : 0o100644) * 0x10000;
+
+    central.push(0x50, 0x4b, 1, 2, ...u16(0x031e), ...u16(20), ...head, ...u16(0), ...u16(0));
+    central.push(...u16(0), ...u16(0), ...u32(mode), ...u32(local.length), ...file);
+    local.push(0x50, 0x4b, 3, 4, ...u16(20), ...head, ...u16(0), ...file, ...data);
+  }
+
+  const end = [0x50, 0x4b, 5, 6, ...u16(0), ...u16(0), ...u16(entries.length)];
+
+  end.push(...u16(entries.length), ...u32(central.length), ...u32(local.length), ...u16(0));
+  writeFileSync(join(dir, name), Uint8Array.from([...local, ...central, ...end]));
+
+  return join(dir, name);
+};
 
 test.skipIf(!mac)("the running app's designated requirement names its signer", async () => {
   expect(await designatedRequirement(SIGNED)).toStartWith("cdhash H");
@@ -84,6 +121,55 @@ test.skipIf(!mac)(
     expect(await verify(join(dir, "garbage.zip"), SIGNED)).toBe(false);
 
     // Nothing unpacked outlives a check.
+    expect(readdirSync(dir)).not.toContain("unpacked");
+  },
+  60_000
+);
+
+test.skipIf(!mac)(
+  "entries that climb out of the folder, absolute ones and symlinks leave nothing outside it",
+  async () => {
+    const outside = join(dir, "outside");
+
+    mkdirSync(outside);
+    mkdirSync(join(dir, "nest/inner"), { recursive: true });
+
+    // ditto itself, on a zip from the same writer: the climbing entry lands inside the folder.
+    const control = zipWith("control.zip", [
+      { name: "kept.txt", data: "x" },
+      { name: "../climbed.txt", data: "x" },
+    ]);
+
+    expect(spawnSync("/usr/bin/ditto", ["-x", "-k", control, join(dir, "nest/inner")]).status).toBe(
+      0
+    );
+    expect(readdirSync(join(dir, "nest/inner")).toSorted()).toEqual(["climbed.txt", "kept.txt"]);
+    expect(readdirSync(join(dir, "nest"))).toEqual(["inner"]);
+    const before = readdirSync(dir).toSorted();
+
+    const hostile = zipWith("slip.zip", [
+      { name: "../climbed.txt", data: "x" },
+      { name: "../../climbed-twice.txt", data: "x" },
+      { name: join(outside, "absolute.txt"), data: "x" },
+      { name: "door", data: outside, link: true },
+      { name: "door/through-a-link.txt", data: "x" },
+    ]);
+
+    expect(await verify(hostile, SIGNED)).toBe(false);
+    expect(readdirSync(outside)).toEqual([]);
+    expect(readdirSync(dir).toSorted()).toEqual([...before, "slip.zip"].toSorted());
+    expect(readdirSync(join(dir, ".."))).not.toContain("climbed-twice.txt");
+  },
+  60_000
+);
+
+test.skipIf(!mac)(
+  "an Update that unpacks past the disk budget is refused, however small its zip says it is",
+  async () => {
+    const intact = zipOf(SIGNED, "budget.zip");
+
+    expect(await verify(intact, SIGNED, 16 * 1024)).toBe(false);
+    expect(await verify(intact, SIGNED, 64 * 1024 * 1024)).toBe(true);
     expect(readdirSync(dir)).not.toContain("unpacked");
   },
   60_000

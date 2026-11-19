@@ -1,4 +1,4 @@
-/** Download, verify, then serve one Update to Squirrel from loopback (docs/adr/0115). */
+/** Download, verify, then serve one Update to Squirrel from loopback (docs/adr/0116). */
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { downloadUpdate, removeTree } from "./download.ts";

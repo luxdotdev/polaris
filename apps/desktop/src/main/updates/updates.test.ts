@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CHECK_INTERVAL_MS, UPDATE_BASE_URL, versionFromAsset } from "./index.ts";
 import { cannotInstallHere, installId } from "./identity.ts";
+import { isHttps } from "./release.ts";
 import {
   bytesOf,
   FakeSquirrel,
@@ -163,6 +164,15 @@ describe("Polaris downloads the Update itself", () => {
     f.cleanup();
   });
 
+  test("a redirect of the download is followed to https only", () => {
+    expect(
+      isHttps("https://release-assets.githubusercontent.com/Polaris-0.5.0-arm64-mac.zip")
+    ).toBe(true);
+
+    for (const to of ["http://github.com/a.zip", "file:///etc/passwd", "/a.zip", "not a url"])
+      expect(isHttps(to)).toBe(false);
+  });
+
   test("an asset that isn't an https Polaris zip is never downloaded", async () => {
     for (const url of [
       "http://github.com/luxdotdev/polaris/releases/download/v0.5.0/Polaris-0.5.0-arm64-mac.zip",
@@ -188,7 +198,131 @@ describe("Polaris downloads the Update itself", () => {
     await new Promise((resolve) => setTimeout(resolve, 30));
     expect(f.native.checks).toBe(0);
     expect(f.views).toHaveLength(asked);
-    expect(readdirSync(f.pendingDir)).toEqual(["Polaris-0.5.0-arm64-mac.zip.part"]);
+    expect(readdirSync(f.pendingDir)).toEqual([
+      "Polaris-0.5.0-arm64-mac.zip.part",
+      "Polaris-0.5.0-arm64-mac.zip.part.validator",
+    ]);
+    f.cleanup();
+  });
+});
+
+describe("Squirrel runs one operation at a time", () => {
+  const ZIP6 = ZIP.replaceAll("0.5.0", "0.6.0");
+
+  /** Squirrel holding its report back, and the way to let it go. */
+  const held = () => {
+    const native = new FakeSquirrel();
+    let release = () => {};
+
+    native.hold = new Promise((resolve) => {
+      release = resolve;
+    });
+
+    return { native, release };
+  };
+
+  test("a completion arriving after the timeout never passes for the newer Update's", async () => {
+    const { native, release: letGo } = held();
+    const five: Asset = { url: ZIP, bytes: bytesOf(3000) };
+    const six: Asset = { url: ZIP6, bytes: bytesOf(4000).reverse() };
+    let offered = five;
+
+    const f = fixture(
+      {
+        handoverTimeoutMs: 150,
+        internet: (url, init) => {
+          if (url === FEED) return Promise.resolve(Response.json({ ...release, url: offered.url }));
+
+          return Promise.resolve(serveAsset(url === ZIP ? five : six, init));
+        },
+      },
+      native
+    );
+
+    // Squirrel reads 0.5.0 and goes quiet past the limit.
+    await f.checked();
+    expect(f.updates.get()).toMatchObject({
+      phase: "failed",
+      failure: { stage: "verify", version: "0.5.0" },
+    });
+
+    // 0.6.0 is downloaded and verified while Squirrel still holds 0.5.0.
+    offered = six;
+    f.updates.check();
+    await until(() => f.updates.get().download?.receivedBytes === 4000);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(native.checks).toBe(1);
+
+    const late: Array<unknown> = [];
+
+    native.once("update-downloaded", () => {
+      late.push({ ...f.updates.get(), files: readdirSync(f.pendingDir) });
+    });
+    letGo();
+    await until(() => native.checks === 2);
+    expect(late).toMatchObject([
+      { phase: "downloading", readyVersion: null, files: ["Polaris-0.6.0-arm64-mac.zip"] },
+    ]);
+
+    // Only now does Squirrel get 0.6.0's feed, still open, and its own completion makes it ready.
+    await f.settled();
+    expect(f.updates.get()).toMatchObject({ phase: "ready", readyVersion: "0.6.0" });
+    expect(native.received).toEqual(six.bytes);
+    f.cleanup();
+  });
+
+  test("an abandoned Update that Squirrel finishes after all, with nothing newer begun, is ready", async () => {
+    const { native, release: letGo } = held();
+
+    const f = fixture(
+      { handoverTimeoutMs: 30, internet: offering({ url: ZIP, bytes: bytesOf(3000) }) },
+      native
+    );
+
+    await f.checked();
+    expect(f.updates.get().phase).toBe("failed");
+    f.updates.install();
+    expect(native.installs).toBe(0);
+
+    letGo();
+    await until(() => f.updates.get().phase === "ready");
+    expect(f.updates.get()).toMatchObject({ readyVersion: "0.5.0", failure: null });
+    f.cleanup();
+  });
+
+  test.each([
+    "http://127.0.0.1:9/another-feed/Polaris-0.5.0-arm64-mac.zip",
+    "https://github.com/luxdotdev/polaris/releases/download/v0.5.0/Polaris-0.5.0-arm64-mac.zip",
+    "",
+  ])("a completion naming %p instead of this feed's zip is not ready", async (claims) => {
+    const native = new FakeSquirrel();
+    native.claims = claims;
+    const f = fixture({ internet: offering({ url: ZIP, bytes: bytesOf(3000) }) }, native);
+
+    await f.checked();
+    await native.done;
+    expect(f.updates.get()).toMatchObject({
+      phase: "failed",
+      failure: { stage: "verify", version: "0.5.0" },
+      readyVersion: null,
+    });
+    // The verified file stays: nothing proved Squirrel has it.
+    expect(readdirSync(f.pendingDir)).toEqual(["Polaris-0.5.0-arm64-mac.zip"]);
+    f.cleanup();
+  });
+
+  test("a completion for another version under this feed is not ready", async () => {
+    const native = new FakeSquirrel();
+    const f = fixture({ internet: offering({ url: ZIP, bytes: bytesOf(3000) }) }, native);
+
+    native.setFeedURL = (feed) => {
+      native.feed = feed;
+      native.claims = feed.url.replace(/feed$/, "Polaris-0.4.9-arm64-mac.zip");
+    };
+
+    await f.checked();
+    await native.done;
+    expect(f.updates.get()).toMatchObject({ phase: "failed", readyVersion: null });
     f.cleanup();
   });
 });
