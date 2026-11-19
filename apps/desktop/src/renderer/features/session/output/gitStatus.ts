@@ -5,7 +5,13 @@ import { polaris } from "../../bridge.ts";
 export type GitFacts =
   | { readonly kind: "loading" }
   | { readonly kind: "none"; readonly message: string }
-  | { readonly kind: "ready"; readonly branch: string | null; readonly changed: number };
+  | {
+      readonly kind: "ready";
+      readonly branch: string | null;
+      readonly changed: number;
+      readonly ahead: number;
+      readonly behind: number;
+    };
 
 export const useGitFacts = (hostKey: string, cwd: string | null, tick: number): GitFacts => {
   const [facts, setFacts] = useState<{ key: string; value: GitFacts } | null>(null);
@@ -21,7 +27,13 @@ export const useGitFacts = (hostKey: string, cwd: string | null, tick: number): 
         if (!live) return;
 
         const value: GitFacts = result.ok
-          ? { kind: "ready", branch: result.value.branch, changed: result.value.entries.length }
+          ? {
+              kind: "ready",
+              branch: result.value.branch,
+              changed: result.value.entries.length,
+              ahead: result.value.ahead,
+              behind: result.value.behind,
+            }
           : { kind: "none", message: result.error.message };
 
         setFacts({ key, value });
