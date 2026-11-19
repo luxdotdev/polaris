@@ -459,7 +459,8 @@ const DiffSummary = ({
   readonly state: DiffState;
   readonly onPick: (turnId: string | null) => void;
 }) => {
-  const sum = state.kind === "ready" ? totals(state.files) : null;
+  // An empty scope says so in its one line; no "0 files" beside it.
+  const sum = state.kind === "ready" && state.files.length > 0 ? totals(state.files) : null;
 
   return (
     <>
