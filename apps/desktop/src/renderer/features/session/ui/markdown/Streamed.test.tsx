@@ -64,6 +64,17 @@ describe("a streamed message", () => {
     expect(view.container.querySelector(".polaris-md")?.hasAttribute("data-streaming")).toBe(false);
   });
 
+  test("raw HTML in a reply never renders, so only Words' own math SVG does", () => {
+    const { container } = render(
+      message(
+        'Hi <svg onload="alert(1)"><image href="https://e.com/a.png"/></svg> <b id="root">x</b>',
+        false
+      )
+    );
+
+    expect(container.querySelector("svg, image, b, [id='root']")).toBeNull();
+  });
+
   test("math renders as SVG; shell variables stay text", () => {
     const { container } = render(
       message("Energy \\(E = mc^2\\) and $$\\sum_k k$$, from $HOME/$USER.", false)

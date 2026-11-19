@@ -45,6 +45,14 @@ describe("raw HTML in a Review or a document", () => {
     expect(prose(markdown)).not.toMatch(forbidden);
   });
 
+  test("ids and names are prefixed, so a document can't clobber the app's elements or globals", () => {
+    const html = prose('<div id="root">a</div>\n\n<a name="polaris">b</a>');
+
+    expect(html).toContain('id="user-content-root"');
+    expect(html).toContain('name="user-content-polaris"');
+    expect(html).not.toMatch(/(?:id|name)="(?:root|polaris)"/);
+  });
+
   test("GitHub's set stays: details, summary, sub, sup, images, task lists, footnotes", () => {
     const html = prose(
       [
@@ -67,7 +75,7 @@ describe("raw HTML in a Review or a document", () => {
     expect(html).toContain("<sup>2</sup>");
     expect(html).toContain('src="https://e.com/a.png"');
     expect(html).toMatch(/<input[^>]*type="checkbox"/);
-    expect(html).toContain('id="fn-1"');
+    expect(html).toContain('id="user-content-fn-1"');
   });
 });
 

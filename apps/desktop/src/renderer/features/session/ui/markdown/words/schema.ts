@@ -1,6 +1,6 @@
 /**
  * What rendered Markdown may hold, for every view (ADR 0115). GitHub's set (details, summary, img,
- * sub, sup, tables, task lists, footnotes), with ids kept as written and `tel:` links; never a
+ * sub, sup, tables, task lists, footnotes), ids prefixed `user-content-` and `tel:` links; never a
  * script, an event handler, a style or a `javascript:` URL. Math adds Words' own SVG elements.
  */
 import { defaultSchema, type Schema } from "hast-util-sanitize";
@@ -12,7 +12,6 @@ const BASE_PROTOCOLS = defaultSchema.protocols ?? {};
 /** Raw HTML from a Review or a document: GitHub's set. */
 export const PROSE_SCHEMA: Schema = {
   ...defaultSchema,
-  clobberPrefix: "",
   protocols: { ...BASE_PROTOCOLS, href: [...(BASE_PROTOCOLS["href"] ?? []), "tel"] },
   attributes: {
     ...BASE_ATTRIBUTES,

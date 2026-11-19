@@ -167,10 +167,12 @@ describe("language docs: hover", () => {
   test("lua-language-server's hover: the annotated signature, a rule, the description", async () => {
     const { container } = view(MARKDOWN.LUA_FUNCTION);
 
-    await waitFor(() => expect(container.querySelector("pre")).not.toBeNull());
-    expect(
-      [...container.querySelectorAll("pre code > span")].map((line) => line.textContent)
-    ).toEqual(["function greet(name: string)", "  -> string"]);
+    // The highlighter loads after the first paint; its lines are the settled state.
+    await waitFor(() =>
+      expect(
+        [...container.querySelectorAll("pre code > span")].map((line) => line.textContent)
+      ).toEqual(["function greet(name: string)", "  -> string"])
+    );
     expect(container.querySelectorAll("hr")).toHaveLength(1);
     expect(container.querySelector("p")?.textContent).toBe("Greets someone.");
   });
