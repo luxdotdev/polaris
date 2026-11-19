@@ -28,12 +28,81 @@ const MAX_EDITS = 1000;
 
 const MAX_LINES = 20_000;
 
-/** A text's lines, without their `\n`; the empty text has none. */
+/**
+ * Past this many characters of input (both sides), no line diff is built: the counts come
+ * from one linear scan (`scanCounts`), so a huge Write costs no more than reading it.
+ */
+export const FILE_PATCH_INPUT_BUDGET = 4 * FILE_PATCH_CAP;
+
+/**
+ * A text's lines, without their `\n`; the empty text has none. A last line with no `\n`
+ * keeps one as its marker (no other line holds one), so `a` and `a\n` differ, as in `diff`.
+ */
 const linesOf = (text: string): ReadonlyArray<string> => {
   if (text === "") return [];
   const lines = text.split("\n");
+  const last = lines.pop() ?? "";
 
-  return lines.at(-1) === "" ? lines.slice(0, -1) : lines;
+  if (last !== "") lines.push(`${last}\n`);
+
+  return lines;
+};
+
+/** Whether `a[as, ae)` and `b[bs, be)` hold the same text, without copying either. */
+const sameRange = (a: string, as: number, ae: number, b: string, bs: number, be: number) => {
+  if (ae - as !== be - bs) return false;
+
+  for (let i = 0; i < ae - as; i++) if (a.charCodeAt(as + i) !== b.charCodeAt(bs + i)) return false;
+
+  return true;
+};
+
+/** The end of the line starting at `from`, past its `\n`. */
+const lineEnd = (text: string, from: number) => {
+  const at = text.indexOf("\n", from);
+
+  return at === -1 ? text.length : at + 1;
+};
+
+/** The start of the line that ends at `to` (exclusive, past its `\n` when it has one). */
+const lineStart = (text: string, to: number) => text.lastIndexOf("\n", to - 2) + 1;
+
+/** Lines in `text[from, to)`, a last one without `\n` included. */
+const lineCount = (text: string, from: number, to: number) => {
+  let count = 0;
+
+  for (let at = from; at < to; at = lineEnd(text, at)) count++;
+
+  return count;
+};
+
+/**
+ * Counts in one pass, allocating nothing per line: common leading and trailing lines are
+ * skipped and every line between counts as changed, so the counts are an upper bound.
+ */
+const scanCounts = (before: string, after: string) => {
+  let head = 0;
+
+  while (head < before.length && head < after.length) {
+    const end = lineEnd(before, head);
+
+    if (!sameRange(before, head, end, after, head, lineEnd(after, head))) break;
+    head = end;
+  }
+
+  let a = before.length;
+  let b = after.length;
+
+  while (a > head && b > head) {
+    const sa = Math.max(head, lineStart(before, a));
+    const sb = Math.max(head, lineStart(after, b));
+
+    if (!sameRange(before, sa, a, after, sb, b)) break;
+    a = sa;
+    b = sb;
+  }
+
+  return { removed: lineCount(before, head, a), added: lineCount(after, head, b) };
 };
 
 type Op = { readonly kind: " " | "-" | "+"; readonly line: string };
@@ -111,8 +180,20 @@ const backtrack = (
   return ops.reverse();
 };
 
-/** The edit script of `before` to `after`: common ends trimmed, then Myers, else a whole swap. */
-const editScript = (before: ReadonlyArray<string>, after: ReadonlyArray<string>): Array<Op> => {
+/** An edit script, and how many common leading lines it left out (the same in both texts). */
+interface Script {
+  readonly ops: ReadonlyArray<Op>;
+  readonly skipped: number;
+}
+
+const context = (lines: ReadonlyArray<string>): Array<Op> =>
+  lines.map((line): Op => ({ kind: " ", line }));
+
+/**
+ * The edit script of `before` to `after`: common ends trimmed (keeping `CONTEXT` lines of
+ * each), then Myers, else a whole swap. Null when the texts are the same.
+ */
+const editScript = (before: ReadonlyArray<string>, after: ReadonlyArray<string>): Script | null => {
   let start = 0;
 
   while (start < before.length && start < after.length && before[start] === after[start]) start++;
@@ -129,17 +210,27 @@ const editScript = (before: ReadonlyArray<string>, after: ReadonlyArray<string>)
   const a = before.slice(start, before.length - end);
   const b = after.slice(start, after.length - end);
 
+  if (a.length === 0 && b.length === 0) return null;
+
   const middle = myers(a, b) ?? [
     ...a.map((line): Op => ({ kind: "-", line })),
     ...b.map((line): Op => ({ kind: "+", line })),
   ];
 
-  return [
-    ...before.slice(0, start).map((line): Op => ({ kind: " ", line })),
-    ...middle,
-    ...before.slice(before.length - end).map((line): Op => ({ kind: " ", line })),
-  ];
+  const skipped = Math.max(0, start - CONTEXT);
+  const tail = before.length - end;
+
+  return {
+    ops: [
+      ...context(before.slice(skipped, start)),
+      ...middle,
+      ...context(before.slice(tail, tail + CONTEXT)),
+    ],
+    skipped,
+  };
 };
+
+const NO_NEWLINE = "\\ No newline at end of file";
 
 /** Collects hunk text up to the cap, counting every line either way. */
 class PatchWriter {
@@ -161,10 +252,14 @@ class PatchWriter {
     }
   }
 
+  /** One line; a last line without `\n` (its marker) is followed by diff's note saying so. */
   line(kind: string, line: string): void {
     if (kind === "+") this.added++;
     else if (kind === "-") this.removed++;
-    this.write(`${kind}${line}\n`);
+
+    this.write(
+      line.endsWith("\n") ? `${kind}${line.slice(0, -1)}\n${NO_NEWLINE}\n` : `${kind}${line}\n`
+    );
   }
 
   finish(): FilePatch {
@@ -181,11 +276,11 @@ const range = (start: number, count: number) =>
   count === 1 ? `${start}` : `${count === 0 ? start - 1 : start},${count}`;
 
 /** Where each op sits: the old and new line numbers it starts at, 1-based. */
-const positions = (ops: ReadonlyArray<Op>) => {
+const positions = ({ ops, skipped }: Script) => {
   const oldAt = new Int32Array(ops.length + 1);
   const newAt = new Int32Array(ops.length + 1);
-  oldAt[0] = 1;
-  newAt[0] = 1;
+  oldAt[0] = skipped + 1;
+  newAt[0] = skipped + 1;
 
   ops.forEach((op, i) => {
     oldAt[i + 1] = oldAt[i]! + (op.kind === "+" ? 0 : 1);
@@ -196,9 +291,10 @@ const positions = (ops: ReadonlyArray<Op>) => {
 };
 
 /** Writes the ops' hunks, `CONTEXT` lines of context around each run of changes. */
-const writeHunks = (writer: PatchWriter, ops: ReadonlyArray<Op>): void => {
+const writeHunks = (writer: PatchWriter, script: Script): void => {
+  const { ops } = script;
   const changed = ops.flatMap((op, i) => (op.kind === " " ? [] : [i]));
-  const { oldAt, newAt } = positions(ops);
+  const { oldAt, newAt } = positions(script);
   let at = 0;
 
   while (at < changed.length) {
@@ -222,13 +318,31 @@ const writeHunks = (writer: PatchWriter, ops: ReadonlyArray<Op>): void => {
 };
 
 /**
- * The patch from `before` to `after` (a file's whole text, or an edited fragment of it):
- * a line diff, minimal unless the changed middles differ by over 1000 lines (or span 20,000), when the
- * middle is replaced whole (so the counts are then an upper bound).
+ * The patch from `before` to `after` (a file's whole text, or an edited fragment of it): a
+ * line diff, minimal unless the changed middles differ by over 1000 lines or span 20,000, when
+ * the middle is replaced whole. Past `FILE_PATCH_INPUT_BUDGET` characters, or 20,000 lines,
+ * it is counts only (`truncated`), from a linear scan. Either way the counts may then overcount.
  */
 export const filePatch = (before: string, after: string): FilePatch => {
+  if (before.length + after.length > FILE_PATCH_INPUT_BUDGET) {
+    const { added, removed } = scanCounts(before, after);
+
+    return countsOnlyPatch(added, removed);
+  }
+
+  const a = linesOf(before);
+  const b = linesOf(after);
+
+  if (a.length + b.length > MAX_LINES) {
+    const { added, removed } = scanCounts(before, after);
+
+    return countsOnlyPatch(added, removed);
+  }
+
   const writer = new PatchWriter();
-  writeHunks(writer, editScript(linesOf(before), linesOf(after)));
+  const script = editScript(a, b);
+
+  if (script !== null) writeHunks(writer, script);
 
   return writer.finish();
 };
@@ -250,20 +364,24 @@ export const joinFilePatches = (patches: ReadonlyArray<FilePatch>): FilePatch =>
 };
 
 /**
- * A patch from unified diff text a Harness made (Codex's `diff`, Claude Code's hunks):
- * what comes before the first hunk (file headers) and `\ No newline` markers are dropped.
+ * A patch from unified diff text a Harness made (Codex's `diff`, Claude Code's hunks): what
+ * comes before the first hunk (file headers) is dropped; `\\ No newline` notes are kept.
  */
 export const patchFromUnifiedDiff = (diff: string): FilePatch => {
   const writer = new PatchWriter();
   let inHunk = false;
 
-  for (const line of linesOf(diff)) {
-    if (line.startsWith("@@")) {
-      inHunk = true;
-      writer.write(`${line}\n`);
-    } else if (inHunk && !line.startsWith("\\")) {
-      writer.line(line[0] ?? " ", line.slice(1));
-    }
+  for (let at = 0; at < diff.length;) {
+    const end = lineEnd(diff, at);
+    const line = diff.slice(at, diff[end - 1] === "\n" ? end - 1 : end);
+    at = end;
+
+    if (line.startsWith("@@")) inHunk = true;
+
+    if (!inHunk) continue;
+
+    if (line.startsWith("@@") || line.startsWith("\\")) writer.write(`${line}\n`);
+    else writer.line(line[0] ?? " ", line.slice(1));
   }
 
   return writer.finish();

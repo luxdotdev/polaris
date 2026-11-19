@@ -12,64 +12,10 @@ import {
   TurnItem,
 } from "@polaris/protocol";
 import { Effect, Option, Schema } from "effect";
-import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
-import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import type { ToolPayload } from "./payloads.ts";
+import type { Previous } from "./readPrevious.ts";
 
 export const FILE_TOOLS = new Set(["Edit", "MultiEdit", "Write", "NotebookEdit"]);
-
-/** A file's text before a Write: null when there was no file, undefined when unknown. */
-export type Previous = string | null | undefined;
-
-/** Reads a file's current text for a Write's patch; must be cheap (bounded, synchronous). */
-export type ReadPrevious = (path: string) => Previous;
-
-/** Larger files aren't read: a Write over one shows its patch once Claude Code reports it. */
-const PREVIOUS_LIMIT = 1024 * 1024;
-
-/** Whether `path` (already real) is `root` or inside it. */
-const inside = (root: string, path: string): boolean => {
-  const rel = relative(root, path);
-
-  return rel.split(sep)[0] !== ".." && !isAbsolute(rel);
-};
-
-interface RealPath {
-  readonly real: string;
-  readonly exists: boolean;
-}
-
-/** The real path of `file`, or of its nearest existing directory when it doesn't exist. */
-const realOf = (file: string): RealPath => {
-  if (existsSync(file)) return { real: realpathSync(file), exists: true };
-  const parent = dirname(file);
-
-  return parent === file ? { real: file, exists: false } : { ...realOf(parent), exists: false };
-};
-
-/**
- * `ReadPrevious` on this Host's files: a text file up to 1 MB whose real path is inside
- * `cwd`. Anything outside (a model-chosen `~/.ssh/...`, a symlink out) is never read.
- */
-export const readPreviousFile =
-  (cwd: string): ReadPrevious =>
-  (path) => {
-    try {
-      const { real, exists } = realOf(resolve(cwd, path));
-
-      if (!inside(realpathSync(cwd), real)) return undefined;
-
-      if (!exists) return null;
-      const stat = statSync(real);
-
-      if (!stat.isFile() || stat.size > PREVIOUS_LIMIT) return undefined;
-      const text = readFileSync(real, "utf8");
-
-      return text.includes("\0") ? undefined : text;
-    } catch {
-      return undefined;
-    }
-  };
 
 interface FileCall {
   readonly id: string;
@@ -159,17 +105,30 @@ const resultPatch = (result: Result): FilePatch | null => {
     : countsOnlyPatch(result.gitDiff.additions, result.gitDiff.deletions);
 };
 
+/**
+ * An edit's patch: its strings are cut from inside the file, so when neither ends in a newline
+ * they still end whole lines (no `\\ No newline` note); a newline one side adds still shows.
+ */
+const fragmentPatch = (before: string, after: string): FilePatch => {
+  if (before.endsWith("\n") || after.endsWith("\n")) return filePatch(before, after);
+  const whole = (text: string) => (text === "" ? "" : `${text}\n`);
+
+  return filePatch(whole(before), whole(after));
+};
+
 /** The patch the tool input describes. An Edit's line numbers count from its `old_string`. */
 const inputPatch = (name: string, input: Input, previous: Previous): FilePatch | null => {
   switch (name) {
     case "Edit":
       return input.old_string === null || input.new_string === null
         ? null
-        : filePatch(input.old_string, input.new_string);
+        : fragmentPatch(input.old_string, input.new_string);
     case "MultiEdit":
       return input.edits === null
         ? null
-        : joinFilePatches(input.edits.map((edit) => filePatch(edit.old_string, edit.new_string)));
+        : joinFilePatches(
+            input.edits.map((edit) => fragmentPatch(edit.old_string, edit.new_string))
+          );
     case "Write":
       return input.content === null || previous === undefined
         ? null

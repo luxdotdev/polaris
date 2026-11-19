@@ -22,13 +22,15 @@ import type {
 import { type ReplyStats, SubagentId, type TurnId, TurnItem } from "@polaris/protocol";
 import { Option, Predicate } from "effect";
 import { ClaudeBackgroundTasks } from "./backgroundTasks.ts";
-import {
-  FILE_TOOLS,
-  FileToolStreams,
-  fileChangeItem,
-  type Previous,
-  type ReadPrevious,
-} from "./fileChange.ts";
+import { FILE_TOOLS, FileToolStreams, fileChangeItem } from "./fileChange.ts";
+import type { Previous, ReadPrevious } from "./readPrevious.ts";
+
+/** A Write's old file, read off the event loop, and where its patched item goes. */
+export interface FileReads {
+  readonly readPrevious: ReadPrevious;
+  readonly emit: (events: ReadonlyArray<HarnessEvent>) => void;
+}
+
 import { ReplyTimer } from "./replyStats.ts";
 import { toolIdentity } from "./toolIdentity.ts";
 import { computerUseCallOf, DESKTOP_MCP_NAME } from "../desktop/metadata.ts";
@@ -252,8 +254,8 @@ export class ClaudeTranslator {
     private readonly cwd: string,
     cursor: string | null = null,
     private readonly now: () => string = () => new Date().toISOString(),
-    /** Reads a file before a Write overwrites it, for its patch; none by default. */
-    private readonly readPrevious: ReadPrevious = () => undefined
+    /** Reads a file before a Write overwrites it, and emits the patched item it gives. */
+    private readonly files: FileReads | null = null
   ) {
     this.cursor = cursor;
   }
@@ -627,9 +629,13 @@ export class ClaudeTranslator {
   }
 
   private onToolUse(scope: Scope, id: string, name: string, input: ToolPayload): HarnessEvent[] {
+    this.tools.set(id, { name, input, scope });
     const path = name === "Write" ? toolFields(input).file_path : null;
-    const previous = path === null ? undefined : this.readPrevious(path);
-    this.tools.set(id, { name, input, scope, previous });
+
+    if (path !== null && this.files !== null) {
+      const { readPrevious, emit } = this.files;
+      void readPrevious(path).then((previous) => emit(this.onPrevious(id, previous)));
+    }
 
     if (name === "SubagentHandback" && scope.subagentId !== null) {
       const subagent = this.subagents.get(scope.subagentId);
@@ -655,10 +661,35 @@ export class ClaudeTranslator {
           status: "running",
           resultText: null,
           structured: null,
-          previous,
         }),
       }),
     ];
+  }
+
+  /**
+   * A Write's file as it was, once read: the running item again, with its patch. Text equal
+   * to the input means Claude Code already wrote it, so it says nothing about the old file.
+   */
+  onPrevious(id: string, previous: Previous): HarnessEvent[] {
+    const tool = this.tools.get(id);
+
+    if (tool === undefined || previous === undefined) return [];
+
+    if (previous === toolFields(tool.input).content) return [];
+    this.tools.set(id, { ...tool, previous });
+
+    const item = toolItem({
+      id,
+      name: tool.name,
+      input: tool.input,
+      cwd: this.cwd,
+      status: "running",
+      resultText: null,
+      structured: null,
+      previous,
+    });
+
+    return [ItemUpdated({ ...scoped(tool.scope), item })];
   }
 
   private onUser(

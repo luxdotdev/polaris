@@ -107,6 +107,8 @@ const ToolFields = Schema.Struct({
   subagent_type: StringOrNull,
   model: StringOrNull,
   message: StringOrNull,
+  /** A Write's text. */
+  content: StringOrNull,
 });
 
 export type ToolFields = typeof ToolFields.Type;
@@ -130,6 +132,7 @@ const NO_FIELDS: ToolFields = {
   subagent_type: null,
   model: null,
   message: null,
+  content: null,
 };
 
 const decodeToolFields = Schema.decodeUnknownOption(ToolFields);

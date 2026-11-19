@@ -3,13 +3,10 @@
  * (`fixtures/file-tools.json`), their input streamed in chunks the way the SDK sends it.
  */
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { type FilePatch, TurnId, TurnItem } from "@polaris/protocol";
 import { HarnessEvent } from "../HarnessDriver.ts";
-import { type ReadPrevious, readPreviousFile } from "./fileChange.ts";
+import type { Previous, ReadPrevious } from "./readPrevious.ts";
 import { ClaudeTranslator } from "./translate.ts";
 import recordedTools from "./fixtures/file-tools.json";
 
@@ -66,12 +63,31 @@ const streamedInput = (id: string, name: string, json: string, size: number) => 
   ];
 };
 
-const run = (frames: ReadonlyArray<SDKMessage>, readPrevious?: ReadPrevious) => {
-  const translator = new ClaudeTranslator("/repo", null, undefined, readPrevious);
+/**
+ * Each frame's events through the real translator, with what a Write's file read emitted
+ * while the frame settled (the read resolves before the next frame, as it would in time).
+ */
+const run = async (frames: ReadonlyArray<SDKMessage>, readPrevious?: ReadPrevious) => {
+  let current: Array<HarnessEvent> = [];
+  const emit = (events: ReadonlyArray<HarnessEvent>) => current.push(...events);
+  const files = readPrevious === undefined ? null : { readPrevious, emit };
+  const translator = new ClaudeTranslator("/repo", null, undefined, files);
   translator.beginTurn(TurnId.make("t1"));
+  const perFrame: Array<Array<HarnessEvent>> = [];
 
-  return frames.map((f) => translator.onMessage(f));
+  for (const f of frames) {
+    current = translator.onMessage(f);
+    await Bun.sleep(0);
+    perFrame.push(current);
+  }
+
+  return perFrame;
 };
+
+const reads =
+  (previous: Previous): ReadPrevious =>
+  () =>
+    Promise.resolve(previous);
 
 const fileItems = (events: ReadonlyArray<HarnessEvent>): Array<FileChange> =>
   events.flatMap((e) =>
@@ -87,18 +103,23 @@ const { edit, write } = recordedTools;
 
 const json = JSON.stringify;
 
+const writingPaths = (events: ReadonlyArray<HarnessEvent>) =>
+  fileItems(events).flatMap((item) => (item.writing === true ? [item.changes[0]?.path] : []));
+
+/** A Write's input JSON with `pathJson` (already JSON, escapes and all) as its path. */
+const writeJson = (pathJson: string) => `{"file_path":${pathJson},"content":"x"}`;
+
 describe("a streamed file tool call", () => {
-  test("shows one Writing item once its path has streamed, then the patch with the full input", () => {
+  test("shows one Writing item once its path has streamed, then the patch with the full input", async () => {
     const frames = [
       ...streamedInput("w1", "Write", json(write.input), 7),
       toolUse("w1", "Write", json(write.input)),
       toolResult("w1", json(write.result)),
     ];
 
-    const perFrame = run(frames, () => write.result.originalFile).map(fileItems);
-    const writing = perFrame.flat().filter((item) => item.writing === true);
+    const perFrame = (await run(frames, reads(write.result.originalFile))).map(fileItems);
 
-    expect(writing).toEqual([
+    expect(perFrame.flat().filter((item) => item.writing === true)).toEqual([
       TurnItem.cases.FileChange.make({
         id: "w1",
         changes: [{ path: "/repo/apps/desktop/scripts/test-preload.ts", kind: "modify" }],
@@ -107,22 +128,50 @@ describe("a streamed file tool call", () => {
       }),
     ]);
 
-    const [running] = perFrame.at(-2) ?? [];
+    const running = perFrame.at(-2)?.at(-1);
 
     expect(running?.writing).toBeUndefined();
     expect(patchOf(running)).toMatchObject({ added: 17, removed: 2, truncated: false });
   });
 
-  test("a file tool whose path never streams shows no Writing item", () => {
-    const events = run(streamedInput("e1", "Edit", `{"old_string":"a","new_string":"b"}`, 5));
+  test.each([
+    ["escaped quotes", `"/repo/a \\"quoted\\" name.ts"`, '/repo/a "quoted" name.ts'],
+    ["backslashes", `"C:\\\\repo\\\\src\\\\a.ts"`, "C:\\repo\\src\\a.ts"],
+    ["\\u escapes", `"/repo/\\u00e9t\\u00e9.ts"`, "/repo/été.ts"],
+    ["non-ASCII", `"/repo/日本語/ファイル 🚀.ts"`, "/repo/日本語/ファイル 🚀.ts"],
+  ])("a path with %s reads the same split at every position", async (_, pathJson, path) => {
+    const input = writeJson(pathJson);
+
+    for (let at = 1; at < input.length; at++) {
+      const events = await run(streamedInput("w1", "Write", input, at));
+
+      expect(writingPaths(events.flat())).toEqual([path]);
+    }
+  });
+
+  test("a file tool whose path never streams shows no Writing item", async () => {
+    const events = await run(streamedInput("e1", "Edit", `{"old_string":"a","new_string":"b"}`, 5));
 
     expect(events.flat()).toEqual([]);
+  });
+
+  test("past 4 KB of input without a path it stops looking", async () => {
+    const late = `{"content":"${"y".repeat(5000)}","file_path":"/repo/late.ts"}`;
+    const early = `{"content":"${"y".repeat(3000)}","file_path":"/repo/early.ts"}`;
+
+    const [lateEvents, earlyEvents] = await Promise.all([
+      run(streamedInput("w1", "Write", late, 100)),
+      run(streamedInput("w2", "Write", early, 100)),
+    ]);
+
+    expect(writingPaths(lateEvents.flat())).toEqual([]);
+    expect(writingPaths(earlyEvents.flat())).toEqual(["/repo/early.ts"]);
   });
 });
 
 describe("file tool patches", () => {
-  test("a recorded Edit takes Claude Code's own hunks, with the file's line numbers", () => {
-    const events = run([
+  test("a recorded Edit takes Claude Code's own hunks, with the file's line numbers", async () => {
+    const events = await run([
       toolUse("e1", "Edit", json(edit.input)),
       toolResult("e1", json(edit.result)),
     ]);
@@ -135,27 +184,28 @@ describe("file tool patches", () => {
     expect(patchOf(completed)).toMatchObject({ added: 5, removed: 1, truncated: false });
   });
 
-  test("a Write over an existing file diffs against what the Daemon read before it ran", () => {
-    const events = run(
+  test("a Write over an existing file diffs against what the Daemon read before it ran", async () => {
+    const events = await run(
       [
         toolUse("w1", "Write", json(write.input)),
         toolResult("w1", json({ ...write.result, structuredPatch: [] })),
       ],
-      () => write.result.originalFile
+      reads(write.result.originalFile)
     );
 
-    const [running, completed] = fileItems(events.flat());
+    const [running, read, completed] = fileItems(events.flat());
 
-    expect(running?.changes[0]?.kind).toBe("modify");
-    expect(patchOf(completed)).toEqual(patchOf(running));
+    expect(patchOf(running)).toBeUndefined();
+    expect(read?.changes[0]?.kind).toBe("modify");
+    expect(patchOf(completed)).toEqual(patchOf(read));
     expect(patchOf(completed)?.diff).toContain("+import { GlobalRegistrator }");
   });
 
-  test("a Write that creates a file is all additions, and its kind is add", () => {
+  test("a Write that creates a file is all additions, and its kind is add", async () => {
     const content = "<!doctype html>\n<h1>Hi</h1>\n";
     const input = { file_path: "/repo/index.html", content };
 
-    const events = run(
+    const events = await run(
       [
         toolUse("w1", "Write", json(input)),
         toolResult(
@@ -163,13 +213,13 @@ describe("file tool patches", () => {
           json({ type: "create", filePath: input.file_path, content, structuredPatch: [] })
         ),
       ],
-      () => null
+      reads(null)
     );
 
-    const items = fileItems(events.flat());
+    const [, read, completed] = fileItems(events.flat());
 
-    expect(items.map((item) => item.changes[0]?.kind)).toEqual(["add", "add"]);
-    expect(patchOf(items[1])).toEqual({
+    expect([read?.changes[0]?.kind, completed?.changes[0]?.kind]).toEqual(["add", "add"]);
+    expect(patchOf(completed)).toEqual({
       diff: "@@ -0,0 +1,2 @@\n+<!doctype html>\n+<h1>Hi</h1>\n",
       added: 2,
       removed: 0,
@@ -177,25 +227,48 @@ describe("file tool patches", () => {
     });
   });
 
-  test("a Write over a file the Daemon can't read has no patch until Claude Code reports one", () => {
-    const events = run([
-      toolUse("w1", "Write", json(write.input)),
-      toolResult("w1", json(write.result)),
-    ]);
+  test("a Write over a file the Daemon can't read has no patch until Claude Code reports one", async () => {
+    const events = await run(
+      [toolUse("w1", "Write", json(write.input)), toolResult("w1", json(write.result))],
+      reads(undefined)
+    );
 
-    const [running, completed] = fileItems(events.flat());
+    const [running, completed, extra] = fileItems(events.flat());
 
     expect(running?.changes[0]?.patch).toBeUndefined();
     expect(patchOf(completed)).toMatchObject({ added: 17, removed: 2 });
+    expect(extra).toBeUndefined();
   });
 
-  test("past the cap a Write carries counts only, marked truncated", () => {
+  test("a read that lands after the result, or finds the new text already written, adds nothing", async () => {
+    let resolveLate: (previous: Previous) => void = () => {};
+
+    const late = new Promise<Previous>((resolve) => (resolveLate = resolve));
+
+    const lateEvents = await run(
+      [toolUse("w1", "Write", json(write.input)), toolResult("w1", json(write.result))],
+      () => late
+    );
+
+    resolveLate("old text\n");
+    await Bun.sleep(0);
+
+    const written = await run(
+      [toolUse("w2", "Write", json(write.input))],
+      reads(write.input.content)
+    );
+
+    expect(fileItems(lateEvents.flat())).toHaveLength(2);
+    expect(fileItems(written.flat())).toHaveLength(1);
+  });
+
+  test("past the cap a Write carries counts only, marked truncated", async () => {
     // 1000 lines of 100 characters: past FILE_PATCH_CAP.
     const content = "x".repeat(99).concat("\n").repeat(1000);
     const input = { file_path: "/repo/big.txt", content };
-    const [items] = run([toolUse("w1", "Write", json(input))], () => null).map(fileItems);
+    const [items] = (await run([toolUse("w1", "Write", json(input))], reads(null))).map(fileItems);
 
-    expect(patchOf(items?.[0])).toEqual({
+    expect(patchOf(items?.at(-1))).toEqual({
       diff: "",
       added: 1000,
       removed: 0,
@@ -203,7 +276,7 @@ describe("file tool patches", () => {
     });
   });
 
-  test("a MultiEdit joins its edits' hunks into one patch of the file", () => {
+  test("a MultiEdit joins its edits' hunks into one patch of the file", async () => {
     const input = {
       file_path: "/repo/a.ts",
       edits: [
@@ -212,7 +285,7 @@ describe("file tool patches", () => {
       ],
     };
 
-    const [items] = run([toolUse("m1", "MultiEdit", json(input))]).map(fileItems);
+    const [items] = (await run([toolUse("m1", "MultiEdit", json(input))])).map(fileItems);
 
     expect(patchOf(items?.[0])).toEqual({
       diff: "@@ -1 +1 @@\n-const a = 1;\n+const a = 2;\n@@ -1 +1,2 @@\n b()\n+c()\n",
@@ -220,45 +293,5 @@ describe("file tool patches", () => {
       removed: 1,
       truncated: false,
     });
-  });
-});
-
-describe("readPreviousFile", () => {
-  test("reads a text file, says a missing one is absent, and leaves binary unknown", () => {
-    const dir = mkdtempSync(join(tmpdir(), "polaris-previous-"));
-
-    try {
-      writeFileSync(join(dir, "a.txt"), "hello\n");
-      writeFileSync(join(dir, "b.bin"), Buffer.from([0, 1, 2]));
-      const read = readPreviousFile(dir);
-
-      expect([read("a.txt"), read("new/missing.txt"), read("b.bin")]).toEqual([
-        "hello\n",
-        null,
-        undefined,
-      ]);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  test("never reads outside the working directory, directly or through a symlink", () => {
-    const dir = mkdtempSync(join(tmpdir(), "polaris-previous-"));
-
-    try {
-      mkdirSync(join(dir, "repo"));
-      writeFileSync(join(dir, "secret.txt"), "token\n");
-      symlinkSync(join(dir, "secret.txt"), join(dir, "repo", "link.txt"));
-      const read = readPreviousFile(join(dir, "repo"));
-
-      expect([
-        read(join(dir, "secret.txt")),
-        read("../secret.txt"),
-        read("link.txt"),
-        read(join(dir, "elsewhere.txt")),
-      ]).toEqual([undefined, undefined, undefined, undefined]);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
   });
 });

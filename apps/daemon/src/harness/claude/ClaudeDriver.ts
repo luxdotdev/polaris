@@ -87,7 +87,7 @@ import { type ClaudePlanLimits, claudePlanLimitReader } from "./planLimits.ts";
 import { usageLimitWatch } from "./usageLimit.ts";
 import { resultOutcome, type TurnOutcome } from "./outcome.ts";
 import { ReplySuggestions } from "./suggestions.ts";
-import { readPreviousFile } from "./fileChange.ts";
+import { readPreviousFile } from "./readPrevious.ts";
 import { ClaudeTranslator } from "./translate.ts";
 import { readConfinement } from "../confinement.ts";
 import { readOnlyEnv, readOnlyOptions } from "./readOnly.ts";
@@ -225,12 +225,10 @@ const openSession = Effect.fnUntraced(function* (
     for (const e of list) emit(e);
   };
 
-  const translator = new ClaudeTranslator(
-    options.cwd,
-    options.resumeCursor,
-    undefined,
-    readPreviousFile(options.cwd)
-  );
+  const translator = new ClaudeTranslator(options.cwd, options.resumeCursor, undefined, {
+    readPrevious: readPreviousFile(options.cwd),
+    emit: emitAll,
+  });
 
   const inbox = new Inbox<SDKUserMessage>();
   const approvals = new Map<RequestId, PendingApproval>();
