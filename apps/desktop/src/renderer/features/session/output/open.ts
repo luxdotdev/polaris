@@ -2,13 +2,17 @@
 import { Option, Schema } from "effect";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
-import { CLOSED, editOpens, type Memories, toggled } from "./memory.ts";
+import { CLOSED, editOpens, type Memories, migrate, toggled } from "./memory.ts";
 
 const STORAGE_KEY = "polaris.output.open.v1";
 
 const Persisted = Schema.Record(
   Schema.String,
-  Schema.Struct({ open: Schema.Boolean, toggled: Schema.Boolean })
+  Schema.Struct({
+    open: Schema.Boolean,
+    toggled: Schema.Boolean,
+    opened: Schema.optional(Schema.Boolean),
+  })
 );
 
 const decode = Schema.decodeUnknownOption(Schema.fromJsonString(Persisted));
@@ -20,7 +24,7 @@ const load = (): Memories => {
   try {
     const raw = storage()?.getItem(STORAGE_KEY) ?? null;
 
-    return raw === null ? {} : Option.getOrElse(decode(raw), () => ({}));
+    return raw === null ? {} : migrate(Option.getOrElse(decode(raw), () => ({})));
   } catch {
     return {};
   }
@@ -64,5 +68,5 @@ export const isOutputHeldClosed = (key: string): boolean => {
 export const setOutputOpen = (key: string, open: boolean) =>
   update((memories) => toggled(memories, key, open));
 
-/** A Turn's first edit opens Output, unless the user has chosen for this session. */
+/** The session's first edit opens Output, once, unless the user has chosen for this session. */
 export const openForEdit = (key: string) => update((memories) => editOpens(memories, key));

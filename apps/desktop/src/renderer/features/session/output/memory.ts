@@ -1,20 +1,37 @@
 /**
  * Whether Output is open, per Agent Session, kept across restarts. `toggled`
- * marks a session whose user opened or closed it themselves: from then on
- * their choice holds and a Turn's first edit no longer opens it.
+ * marks a session whose user opened or closed it themselves; `opened`, one
+ * Output has opened in once. Either way an edit no longer opens it.
  */
 
 export interface OutputMemory {
   readonly open: boolean;
   readonly toggled: boolean;
+  readonly opened: boolean;
 }
 
 export type Memories = Readonly<Record<string, OutputMemory>>;
 
+/** An entry as stored before `opened` (0.10 and older): open then means it opened. */
+export interface StoredMemory {
+  readonly open: boolean;
+  readonly toggled: boolean;
+  readonly opened?: boolean | undefined;
+}
+
 /** Sessions remembered; the least recently changed go first. */
 export const REMEMBERED = 500;
 
-export const CLOSED: OutputMemory = { open: false, toggled: false };
+export const CLOSED: OutputMemory = { open: false, toggled: false, opened: false };
+
+/** Stored entries in today's shape, the users' toggles kept. */
+export const migrate = (stored: Readonly<Record<string, StoredMemory>>): Memories =>
+  Object.fromEntries(
+    Object.entries(stored).map(([key, { open, toggled, opened }]) => [
+      key,
+      { open, toggled, opened: opened ?? (open || toggled) },
+    ])
+  );
 
 /** `key` set to `entry`, moved to the newest end, the oldest dropped past `limit`. */
 export const remember = (
@@ -30,13 +47,17 @@ export const remember = (
 
 /** The user's own toggle. */
 export const toggled = (memories: Memories, key: string, open: boolean): Memories =>
-  remember(memories, key, { open, toggled: true });
+  remember(memories, key, {
+    open,
+    toggled: true,
+    opened: open || (memories[key]?.opened ?? false),
+  });
 
-/** A Turn's first edit: opens Output unless the user has chosen for this session. */
+/** An edit (or a Lead's Constellation tab): opens Output once per session, unless the user chose. */
 export const editOpens = (memories: Memories, key: string): Memories => {
   const entry = memories[key] ?? CLOSED;
 
-  return entry.toggled || entry.open
+  return entry.toggled || entry.opened
     ? memories
-    : remember(memories, key, { open: true, toggled: false });
+    : remember(memories, key, { open: true, toggled: false, opened: true });
 };
