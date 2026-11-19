@@ -7,7 +7,7 @@ import "./diff.css";
 
 export { DiffWorkers, type DiffWorkersProps, MAX_LINE_LENGTH, POOL_SIZE } from "./workers.tsx";
 
-export { moonlitTheme, THEMES } from "./theme.ts";
+export { DIFF_HIGHLIGHTER, moonlitTheme, registerDiffThemes, THEMES } from "./theme.ts";
 
 export { useOverflow } from "./useOverflow.ts";
 
