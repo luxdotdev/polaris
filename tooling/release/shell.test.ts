@@ -207,7 +207,8 @@ printf '%s\\n' "$@" > calls
   return {
     ...f,
     handoff,
-    run: () => f.run(script("publish", "gh release create"), { ...env, ...checksums }),
+    run: (extra: Record<string, string> = {}) =>
+      f.run(script("publish", "gh release create"), { ...env, ...checksums, ...extra }),
   };
 };
 
@@ -219,6 +220,15 @@ describe("GitHub Release shell", () => {
     expect(f.calls()).toContain("handoff/dmg/Polaris-0.3.0-arm64.dmg");
     expect(f.calls().some((arg) => arg.includes("raycast"))).toBe(false);
     expect(f.calls()).toContain("--draft");
+  });
+
+  test("a nightly is published at once as a prerelease that is never Latest", () => {
+    const f = publishFixture();
+
+    expect(f.run({ CHANNEL: "nightly", PRERELEASE: "true" }).code).toBe(0);
+    expect(f.calls()).not.toContain("--draft");
+    expect(f.calls()).toContain("--prerelease");
+    expect(f.calls()).toContain("--latest=false");
   });
 
   test("a successful Raycast ZIP is included after checking its bytes", () => {

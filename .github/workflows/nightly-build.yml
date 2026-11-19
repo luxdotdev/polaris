@@ -1,0 +1,110 @@
+name: Nightly build
+
+# A signed build of main each night (ENG-976, docs/adr/0057): the newest main commit whose required
+# lane (the CI check) passed becomes vX.Y.Z-nightly.YYYYMMDD, the next patch's prerelease, so the
+# Stable Release supersedes it. release.yml builds and signs it (environment `nightly`: main only,
+# no reviewer) and publishes a prerelease, macOS and Windows only. Nights with nothing new since the
+# last nightly are skipped; the newest 7 nightlies are kept. By hand: gh workflow run nightly-build.yml
+#   plan     tooling/release/nightly.py plan: the commit, the version, or why tonight is skipped.
+#   tag      commits the version onto that commit and pushes only the tag; main never moves.
+#   release  release.yml at the tag, channel nightly.
+#   prune    deletes nightlies past the newest 7, and tags of failed nights (not tonight's).
+
+on:
+  schedule:
+    - cron: "41 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: nightly-build
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  plan:
+    name: Pick the commit and the version
+    # The nightly environment admits only main; a run from a branch does nothing.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      checks: read
+    outputs:
+      skip: ${{ steps.plan.outputs.skip }}
+      sha: ${{ steps.plan.outputs.sha }}
+      version: ${{ steps.plan.outputs.version }}
+      tag: ${{ steps.plan.outputs.tag }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+          sparse-checkout: tooling/release/nightly.py
+          sparse-checkout-cone-mode: false
+      - name: Plan tonight's nightly
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: python3 -I tooling/release/nightly.py plan | tee -a "$GITHUB_STEP_SUMMARY"
+
+  tag:
+    name: Tag the commit with the nightly version
+    needs: plan
+    if: needs.plan.outputs.skip == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+      # The tag's commit sits on main's commit (nightly.py plan reads its parent); a failed
+      # run earlier today may have left the tag, so it is replaced.
+      - name: Commit the version and push the tag
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          python3 -I tooling/release/nightly.py bump --version "$VERSION"
+          git -c user.name='github-actions[bot]' \
+            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -q -am "nightly: $VERSION"
+          git tag "$TAG"
+          git push --force origin "refs/tags/$TAG"
+
+  release:
+    name: Release
+    needs: [plan, tag]
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.plan.outputs.tag }}
+      channel: nightly
+    # A called workflow's jobs get at most these. id-token is only for release.yml's npm job,
+    # which a nightly skips; GitHub refuses the call without it. Signing secrets stay in the environment.
+    permissions:
+      contents: write
+      id-token: write
+
+  prune:
+    name: Keep the newest 7 nightlies
+    needs: [plan, release]
+    if: ${{ always() && needs.plan.result == 'success' && needs.plan.outputs.skip == 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+          sparse-checkout: tooling/release/nightly.py
+          sparse-checkout-cone-mode: false
+      - name: Delete older nightlies and failed nights' tags
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.plan.outputs.tag }}
+        run: python3 -I tooling/release/nightly.py prune --keep 7 --current "$TAG"

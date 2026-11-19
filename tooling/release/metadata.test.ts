@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 const SCRIPT = join(import.meta.dir, "metadata.py");
 
-const run = (tag: string, version: string) => {
+const run = (tag: string, version: string, channel?: string) => {
   const root = mkdtempSync(join(tmpdir(), "release-metadata-"));
 
   for (const name of ["desktop", "daemon"]) {
@@ -17,9 +17,10 @@ const run = (tag: string, version: string) => {
 
   writeFileSync(output, "");
 
-  const result = Bun.spawnSync(["python3", "-I", SCRIPT, "--root", root], {
-    env: { PATH: process.env.PATH ?? "", RELEASE_TAG: tag, GITHUB_OUTPUT: output },
-  });
+  const base = { PATH: process.env.PATH ?? "", RELEASE_TAG: tag, GITHUB_OUTPUT: output };
+  const env = channel === undefined ? base : { ...base, RELEASE_CHANNEL: channel };
+
+  const result = Bun.spawnSync(["python3", "-I", SCRIPT, "--root", root], { env });
 
   const values = Object.fromEntries(
     readFileSync(output, "utf8")
@@ -68,5 +69,42 @@ describe("release tag", () => {
 
     expect(ok).toBe(false);
     expect(error).toContain("Tag/version mismatch: desktop is 0.1.0-alpha.1");
+  });
+});
+
+describe("nightly tag", () => {
+  test("a nightly is a prerelease whose NuGet version drops the dot", () => {
+    const { ok, values } = run("v0.11.1-nightly.20261119", "0.11.1-nightly.20261119", "nightly");
+
+    expect(ok).toBe(true);
+    expect(values).toEqual({
+      version: "0.11.1-nightly.20261119",
+      nuget_version: "0.11.1-nightly20261119",
+      prerelease: "true",
+    });
+  });
+
+  test("the stable channel refuses a nightly tag", () => {
+    const { ok, error } = run("v0.11.1-nightly.20261119", "0.11.1-nightly.20261119");
+
+    expect(ok).toBe(false);
+    expect(error).toContain("Expected v<major>.<minor>.<patch>");
+  });
+
+  test.each(["v0.11.1", "v0.11.1-rc.1", "v0.11.1-nightly.1", "v0.11.1-nightly.2026111"])(
+    "the nightly channel refuses %s",
+    (tag) => {
+      const { ok, error } = run(tag, tag.slice(1), "nightly");
+
+      expect(ok).toBe(false);
+      expect(error).toContain("-nightly.YYYYMMDD on the nightly channel");
+    }
+  );
+
+  test("an unknown channel fails", () => {
+    const { ok, error } = run("v0.11.1", "0.11.1", "beta");
+
+    expect(ok).toBe(false);
+    expect(error).toContain("Unknown channel 'beta'");
   });
 });
