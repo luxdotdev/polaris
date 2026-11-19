@@ -36,6 +36,8 @@ export interface SessionUi {
   readonly folds: Folds;
   /** The Turn whose diff Output shows; null shows the whole Agent Session's. */
   readonly diffTurnId: string | null;
+  /** A file the Changes list scrolls to once it lists it (the rail's file rows); then null. */
+  readonly revealPath: string | null;
   /** The Subagent Output's Subagent tab shows; null shows Changes (or a Lead's tab). */
   readonly subagentId: string | null;
   readonly draft: string;
@@ -51,6 +53,7 @@ export interface SessionUi {
 const EMPTY: SessionUi = {
   folds: noFolds,
   diffTurnId: null,
+  revealPath: null,
   subagentId: null,
   draft: "",
   draftStatus: null,
@@ -88,6 +91,12 @@ export const holdOpenFrom = (key: string, turnId: string) =>
 
 export const showTurnDiff = (key: string, turnId: string | null) =>
   patchSessionUi(key, () => ({ diffTurnId: turnId }));
+
+/** Shows the whole session's Changes scrolled to `path`; null once the list has scrolled. */
+export const revealFile = (key: string, path: string | null) =>
+  patchSessionUi(key, () =>
+    path === null ? { revealPath: null } : { revealPath: path, diffTurnId: null }
+  );
 
 export const showSubagent = (key: string, subagentId: string | null) =>
   patchSessionUi(key, () => ({ subagentId }));

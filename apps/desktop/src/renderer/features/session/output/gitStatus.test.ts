@@ -12,7 +12,7 @@ test("a refused git status reads as no repository on your Host, and as nothing o
 
 test("a branch shows either way, and a detached HEAD says so", () => {
   expect([
-    branchLine({ kind: "ready", branch: "main", changed: 0 }, true),
-    branchLine({ kind: "ready", branch: null, changed: 0 }, false),
+    branchLine({ kind: "ready", branch: "main", changed: 0, ahead: 0, behind: 0 }, true),
+    branchLine({ kind: "ready", branch: null, changed: 0, ahead: 0, behind: 0 }, false),
   ]).toEqual(["main", "detached HEAD"]);
 });

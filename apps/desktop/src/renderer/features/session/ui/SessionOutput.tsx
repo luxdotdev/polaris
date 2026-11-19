@@ -22,7 +22,7 @@ import {
 } from "@polaris/ui";
 import { isKnownHarness, type SessionId } from "@polaris/protocol";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { lazy, type ReactNode, Suspense, useMemo, useRef, useState } from "react";
+import { lazy, type ReactNode, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { type DiffRow, diffRows, ROW_HEIGHT } from "../diffRows.ts";
 import { type DiffSyntax, lineSyntax } from "../diffSyntax.ts";
 import { isWindowsHost } from "../../../shell/hostPlatform.ts";
@@ -42,7 +42,7 @@ import { turnOpening } from "../model/conversation.ts";
 import { openingView, type TurnGroup } from "../model/turnGroups.ts";
 import { type DiffFile, firstChangedLine, totals } from "../model/diff.ts";
 import { plural } from "../model/format.ts";
-import { showSubagent, showTurnDiff, uiKey, useSessionUi } from "../state.ts";
+import { revealFile, showSubagent, showTurnDiff, uiKey, useSessionUi } from "../state.ts";
 import { type DiffState, spanRevision, useTurnDiff } from "../turnDiff.ts";
 import { hideOutput } from "../output/actions.ts";
 import { showHint } from "../output/OutputRail.tsx";
@@ -213,13 +213,20 @@ const rowPaths = (rows: ReadonlyArray<DiffRow>) => {
   });
 };
 
+/** A file to scroll to once listed (the rail's file rows), and how to say it's done. */
+export interface Reveal {
+  readonly path: string | null;
+  readonly done: () => void;
+}
+
 interface DiffListProps {
   readonly files: ReadonlyArray<DiffFile>;
   readonly folded: ReadonlySet<string>;
   readonly onFold: (path: string) => void;
+  readonly reveal?: Reveal | undefined;
 }
 
-const DiffList = ({ files, folded, onFold }: DiffListProps) => {
+const DiffList = ({ files, folded, onFold, reveal }: DiffListProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const probeRef = useRef<HTMLSpanElement>(null);
   const marks = useChangesMarks();
@@ -239,6 +246,16 @@ const DiffList = ({ files, folded, onFold }: DiffListProps) => {
     paddingEnd: 16,
     directDomUpdates: true,
   });
+
+  const revealPath = reveal?.path ?? null;
+
+  useEffect(() => {
+    if (revealPath === null) return;
+    const index = rows.findIndex((r) => r.kind === "file" && r.file.path === revealPath);
+
+    if (index >= 0) virtualizer.scrollToIndex(index, { align: "start" });
+    reveal?.done();
+  }, [revealPath, rows, virtualizer, reveal]);
 
   return (
     <div
@@ -290,7 +307,8 @@ const DiffWorkers = lazy(() =>
 
 /** A Turn's files as the Changes tab draws them, highlighted in the diffs' worker pool. */
 export const TurnChanges = (props: DiffListProps) => (
-  <Suspense fallback={<DiffList {...props} />}>
+  // The list that stays takes the reveal: the fallback's scroll is lost when it swaps.
+  <Suspense fallback={<DiffList {...props} reveal={undefined} />}>
     <DiffWorkers poolSize={OUTPUT_POOL_SIZE}>
       <DiffList {...props} />
     </DiffWorkers>
@@ -371,11 +389,13 @@ const Body = ({
   narrowed,
   folded,
   onFold,
+  reveal,
 }: {
   state: DiffState;
   narrowed: boolean;
   folded: ReadonlySet<string>;
   onFold: (path: string) => void;
+  reveal: Reveal;
 }) => {
   switch (state.kind) {
     case "loading":
@@ -395,7 +415,7 @@ const Body = ({
           text={narrowed ? "This turn changed no files" : "No changes in this session yet"}
         />
       ) : (
-        <TurnChanges files={state.files} folded={folded} onFold={onFold} />
+        <TurnChanges files={state.files} folded={folded} onFold={onFold} reveal={reveal} />
       );
   }
 };
@@ -416,6 +436,7 @@ const Changes = ({
   readonly state: DiffState;
   readonly folded: ReadonlySet<string>;
   readonly onFold: (path: string) => void;
+  readonly reveal: Reveal;
 }) =>
   current === null ? (
     <Empty title="No changes yet" fact="The session's changes show here" />
@@ -639,6 +660,11 @@ export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) 
     setFolded(next);
   };
 
+  const reveal = useMemo<Reveal>(
+    () => ({ path: ui.revealPath, done: () => revealFile(key, null) }),
+    [ui.revealPath, key]
+  );
+
   const place = placeOf(hostKey, session, isWindowsHost(host));
   const tool = toolPane({ hostKey, sessionId, session, harness, browser, simulator });
 
@@ -722,6 +748,7 @@ export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) 
               state={state}
               folded={folded}
               onFold={fold}
+              reveal={reveal}
             />
           </ChangesCommentsProvider>
         ) : (
