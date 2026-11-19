@@ -1,10 +1,19 @@
 import "../../../test/dom.testing.ts";
 // Loaded first, as the app does: SessionOutput alone enters the shell's import cycle mid-way.
 import "../../../app/slots.tsx";
-import { GitDiffSpec, Sequence, SessionId, TurnId } from "@polaris/protocol";
+import {
+  Actor,
+  Comment,
+  CommentAnchor,
+  CommentId,
+  GitDiffSpec,
+  Sequence,
+  SessionId,
+  TurnId,
+} from "@polaris/protocol";
 import { Predicate } from "effect";
 import { TooltipProvider } from "@polaris/ui";
-import { act, cleanup, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, expect, test } from "bun:test";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import { createCommandRegistry } from "../../../routes/commands.ts";
@@ -13,6 +22,7 @@ import { createNavigation } from "../../../routes/navigation.ts";
 import { AppProvider } from "../../../shell/hooks.ts";
 import { session as sessionFixture, turnWith } from "../../../store/fixtures.testing.ts";
 import { asPlain } from "../../../store/plain.ts";
+import type { SessionComment } from "../../../store/sessionComments.ts";
 import type { SessionModel, TurnView } from "../../../store/sessionModel.ts";
 import { type AppState, type Connection, initialState, sessionKey } from "../../../store/store.ts";
 import { type FakeBridge, installFakeBridge } from "../../../test/bridge.testing.ts";
@@ -39,20 +49,30 @@ const PATCH = `diff --git a/a.ts b/a.ts
 +new
 `;
 
-const turnOf = (index: number, index0 = 0): TurnView => ({
-  turn: turnWith({ id: TurnId.make(`t${index}`), index: index + index0, status: "completed" }),
+/** A finished Turn; `checkpoint` false for one the Daemon took no before-checkpoint for. */
+const turnOf = (index: number, index0 = 0, checkpoint = true): TurnView => ({
+  turn: turnWith({
+    id: TurnId.make(`t${index}`),
+    index: index + index0,
+    status: "completed",
+    checkpointBefore: checkpoint ? `refs/polaris/checkpoints/s1/t${index}/before` : null,
+  }),
   items: [],
   live: new Map(),
   subagents: [],
 });
 
-const modelOf = (turns: ReadonlyArray<TurnView>): SessionModel => ({
+const modelOf = (
+  turns: ReadonlyArray<TurnView>,
+  comments: ReadonlyArray<SessionComment> = []
+): SessionModel => ({
   // SAFETY: any positive sequence stands for a synchronized feed here.
   sequence: 1 as SessionModel["sequence"],
   synchronized: true,
   session: { ...asPlain(sessionFixture), state: "idle" },
   turns,
   pendingApprovals: [],
+  comments,
 });
 
 /** Output as the lane shows it: the panel only once it is open, as `OutputLane` does. */
@@ -60,6 +80,33 @@ const Output = ({ hostKey }: { readonly hostKey: string }) =>
   useOutputOpen(uiKey(hostKey, sessionId)) ? (
     <SessionOutput hostKey={hostKey} sessionId={sessionId} />
   ) : null;
+
+/** The session's first Turn, as the Host's oldest page has it. */
+const firstDetail = {
+  turn: turnWith({ id: t("first"), index: 0, checkpointBefore: "refs/polaris/first/before" }),
+  items: [],
+  subagents: [],
+};
+
+/** A line Comment on `turnId`'s diff, line 3 of a.ts. */
+const lineComment = (id: string, turnId: string): SessionComment =>
+  asPlain(
+    new Comment({
+      id: CommentId.make(id),
+      sessionId,
+      anchor: CommentAnchor.cases.DiffLines.make({
+        turnId: t(turnId),
+        path: "a.ts",
+        side: "new",
+        start: 3,
+        end: 3,
+        code: "keep",
+      }),
+      body: "Why this?",
+      author: Actor.cases.Client.make({}),
+      createdAt: "2026-11-19T10:00:00.000Z",
+    })
+  );
 
 let hosts = 0;
 
@@ -148,7 +195,7 @@ test("the session scope starts at its first Turn when only later Turns are loade
   bridge.answer("session.turns", () => ({
     ok: true,
     value: {
-      turns: [{ turn: turnWith({ id: TurnId.make("first"), index: 0 }), items: [], subagents: [] }],
+      turns: [firstDetail],
       sequence: Sequence.make(1),
       hasMore: false,
     },
@@ -189,4 +236,65 @@ test("a Daemon that diffs one Turn at a time keeps the latest Turn as the defaul
     GitDiffSpec.cases.Turn.make({ sessionId, turnId: t("t1") })
   );
   expect(screen.getByTestId("diff-turn").textContent).toBe("Turn 2");
+});
+
+test("a failed first-Turn fetch says the scope is partial, and Retry finds the first Turn", async () => {
+  const { screen, bridge, key } = mount(modelOf([turnOf(0, 20), turnOf(1, 20)]));
+
+  bridge.refuse("session.turns", { code: "Unavailable", message: "Host offline" });
+  act(() => openForEdit(key));
+  await settle();
+  await settle();
+
+  expect(screen.getByTestId("scope-note").textContent).toContain("showing the loaded turns only");
+  expect(bridge.sent("git.diff").at(-1)?.spec).toEqual(
+    GitDiffSpec.cases.Turns.make({ sessionId, firstTurnId: t("t0"), lastTurnId: t("t1") })
+  );
+
+  bridge.answerOk("session.turns", {
+    turns: [firstDetail],
+    sequence: Sequence.make(1),
+    hasMore: false,
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await settle();
+  await settle();
+
+  expect(screen.queryByTestId("scope-note")).toBeNull();
+  expect(bridge.sent("git.diff").at(-1)?.spec).toEqual(
+    GitDiffSpec.cases.Turns.make({ sessionId, firstTurnId: t("first"), lastTurnId: t("t1") })
+  );
+});
+
+test("the session scope starts at the earliest Turn with a checkpoint, and says so", async () => {
+  const { screen, bridge, key } = mount(modelOf([turnOf(0, 0, false), turnOf(1), turnOf(2)]));
+
+  act(() => openForEdit(key));
+  await settle();
+
+  expect(bridge.sent("git.diff").at(-1)?.spec).toEqual(
+    GitDiffSpec.cases.Turns.make({ sessionId, firstTurnId: t("t1"), lastTurnId: t("t2") })
+  );
+  expect(screen.getByTestId("scope-note").textContent).toBe(
+    "From turn 2: earlier turns have no checkpoint"
+  );
+  expect(screen.queryByText("No diff to show")).toBeNull();
+});
+
+test("the whole session places no earlier Turn's Comment, and links to its Turn", async () => {
+  const comments = [lineComment("c1", "t0"), lineComment("c2", "t0"), lineComment("c3", "t1")];
+  const { screen, key } = mount(modelOf([turnOf(0), turnOf(1)], comments));
+
+  act(() => openForEdit(key));
+  await settle();
+
+  // Turn 2 may have inserted lines above Turn 1's line 3: only Turn 2's Comment is placed.
+  expect(screen.getByTestId("comments-elsewhere").textContent).toContain(
+    "2 comments on their turn only"
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Turn 1" }));
+  await settle();
+
+  expect(screen.getByTestId("diff-turn").textContent).toBe("Turn 1");
+  expect(screen.queryByTestId("comments-elsewhere")).toBeNull();
 });

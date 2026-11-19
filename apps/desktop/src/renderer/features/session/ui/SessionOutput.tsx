@@ -31,6 +31,7 @@ import { useDiffSyntax } from "../useDiffSyntax.ts";
 import { LineCode } from "./LineCode.tsx";
 import {
   ChangesCommentsProvider,
+  CommentsElsewhere,
   CommentsRow,
   LineNumber,
   useChangesMarks,
@@ -46,7 +47,8 @@ import { type DiffState, spanRevision, useTurnDiff } from "../turnDiff.ts";
 import { hideOutput } from "../output/actions.ts";
 import { showHint } from "../output/OutputRail.tsx";
 import { useFilesTick } from "../output/watch.ts";
-import { useDiffScope } from "../output/sessionScope.ts";
+import { type ScopeNote, useDiffScope } from "../output/sessionScope.ts";
+import { ScopeNoteLine } from "../output/ScopeNote.tsx";
 import type { SessionViewProps } from "./SessionIntent.tsx";
 import { OutputTab, SubagentPane, SubagentTab, useShownSubagent } from "./SubagentOutput.tsx";
 import { EditorPlaceProvider, OpenInEditorButton } from "../../editor-links/index.ts";
@@ -401,10 +403,16 @@ const Body = ({
 /** The Changes tab's body: the session's or the chosen Turn's diff, or why there is none. */
 const Changes = ({
   current,
+  note,
+  onPick,
   ...body
 }: {
   readonly current: TurnGroup | null;
   readonly narrowed: boolean;
+  /** The whole session's: why it isn't every Turn. */
+  readonly note: ScopeNote | null;
+  /** Narrows to a Turn, from the Comments it can't place. */
+  readonly onPick: (turnId: string) => void;
   readonly state: DiffState;
   readonly folded: ReadonlySet<string>;
   readonly onFold: (path: string) => void;
@@ -412,7 +420,11 @@ const Changes = ({
   current === null ? (
     <Empty title="No changes yet" fact="The session's changes show here" />
   ) : (
-    <Body {...body} />
+    <>
+      <ScopeNoteLine note={note} />
+      {body.narrowed ? null : <CommentsElsewhere onPick={onPick} />}
+      <Body {...body} />
+    </>
   );
 
 export interface SessionOutputProps extends SessionViewProps {
@@ -581,7 +593,7 @@ export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) 
 
   const host = useHost(hostKey);
 
-  const { groups, narrowed, whole, shown, span } = useDiffScope(
+  const { groups, narrowed, whole, shown, span, note } = useDiffScope(
     hostKey,
     sessionId,
     model.turns,
@@ -589,6 +601,7 @@ export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) 
   );
 
   const current = narrowed ?? groups.at(-1) ?? null;
+  const isNarrowed = narrowed !== null;
   const free = subagent === null && !browser && !simulator;
   const dataTab = useDataTab(hostKey, sessionId, model, current, free);
   const data = dataTab.shown !== null;
@@ -694,10 +707,18 @@ export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) 
         ) : picked !== null ? (
           picked
         ) : subagent === null ? (
-          <ChangesCommentsProvider hostKey={hostKey} sessionId={sessionId} group={shown}>
+          <ChangesCommentsProvider
+            hostKey={hostKey}
+            sessionId={sessionId}
+            group={current}
+            whole={!isNarrowed}
+            groups={groups}
+          >
             <Changes
               current={current}
-              narrowed={narrowed !== null}
+              narrowed={isNarrowed}
+              note={note}
+              onPick={(id) => showTurnDiff(key, id)}
               state={state}
               folded={folded}
               onFold={fold}
