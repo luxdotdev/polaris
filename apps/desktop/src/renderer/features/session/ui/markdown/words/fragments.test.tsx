@@ -69,3 +69,13 @@ describe.each(VIEWS)("two documents in %s", (_, view) => {
     );
   });
 });
+
+describe.each(VIEWS)("a long unbroken run in %s", (_, view) => {
+  test("renders with its soft breaks, beside a footnote", () => {
+    const run = "a".repeat(200);
+    const { container } = render(<TooltipProvider>{view(`${run}\n\n${NOTE}`)}</TooltipProvider>);
+
+    expect(container.textContent).toContain(run);
+    expect(follow(container.querySelector("sup a"))).toBe(container.querySelector(".footnotes li"));
+  });
+});

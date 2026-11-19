@@ -4,6 +4,7 @@
  * run lays out in ~25 ms without the breaks, ~1 ms with them). Code blocks
  * scroll instead, and math (SVG) is left alone.
  */
+import type { Properties } from "hast";
 import { softBreaks } from "../softWrap.tsx";
 
 interface Text {
@@ -14,6 +15,7 @@ interface Text {
 interface Element {
   readonly type: "element";
   readonly tagName: string;
+  readonly properties: Properties;
   children: Array<Node>;
 }
 
@@ -32,7 +34,8 @@ const SKIP = new Set(["pre", "svg", "math", "script", "style"]);
 
 const skipped = (node: Element) => SKIP.has(node.tagName);
 
-const wbr = (): Element => ({ type: "element", tagName: "wbr", children: [] });
+// Every hast element has `properties`; later steps read them (ENG-971's fragment links).
+const wbr = (): Element => ({ type: "element", tagName: "wbr", properties: {}, children: [] });
 
 const split = (node: Node): ReadonlyArray<Node> => {
   if (!isText(node)) return [node];
