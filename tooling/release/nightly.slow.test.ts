@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, setDefaultTimeout, test } from "bun:test";
 import {
   cpSync,
   existsSync,
@@ -15,6 +15,9 @@ import { Schema } from "effect";
 const SCRIPT = join(import.meta.dir, "nightly.py");
 
 const REPO_ROOT = join(import.meta.dir, "../..");
+
+// Each test spawns python3; CI's macOS runners take over 5 s for some (ENG-976).
+setDefaultTimeout(30_000);
 
 const REPO = "luxdotdev/polaris";
 
