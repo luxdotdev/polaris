@@ -37,4 +37,4 @@ export {
 
 export { HarnessTerminal, type HarnessTerminalProps } from "./ui/HarnessTerminal.tsx";
 
-export { isTerminalShown, useTerminalShown } from "./store.ts";
+export { isTerminalShown, terminalHoldsOutput, useTerminalHoldsOutput } from "./store.ts";

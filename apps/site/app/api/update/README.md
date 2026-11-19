@@ -2,7 +2,10 @@
 
 The Desktop App checks `https://polaris.lux.dev/api/update/darwin-arm64/<version>`.
 `<version>` is the installed semantic version (no `v` prefix); prerelease and build
-identifiers are supported. Headers are optional for feed functionality:
+identifiers are supported. The optional `channel` query parameter picks the Channel:
+`?channel=nightly` for Nightly; absent or `?channel=stable` is Stable; any other value
+is a **400** with no GitHub lookup. Windows takes the same parameter on its RELEASES
+route. Headers are optional for feed functionality:
 
 | Request header | Desktop App value | Logged value |
 | --- | --- | --- |
@@ -15,7 +18,9 @@ Automatic checks off stops automatic requests and their install ID, per
 The updater task implements the settings and ID lifecycle; this route has no
 account or identity lookup. Manual checks follow the updater's consent policy.
 
-- Same or newer version (ignoring build metadata): **204**, empty body. Never downgrade.
+- Same or newer version (ignoring build metadata): **204**, empty body. Never downgrade:
+  a nightly caller on Stable (`0.11.1-nightly.20261119`) gets an Update only once a
+  Stable Release is newer than its nightly (`0.11.1`), never the older `0.11.0`.
 - Older version, including a prerelease of the current stable version: **200**,
   Squirrel.Mac JSON `{ url, name, notes, pub_date }`. `url` is the ZIP asset,
   `name` is the Release title (tag fallback), `notes` the body (empty fallback),
@@ -35,8 +40,12 @@ requests reach logging even when the Release lookup is cached.
 ## Release contract
 
 Source: GitHub's [latest-release API](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)
-for `luxdotdev/polaris`. Drafts and prereleases are excluded by GitHub and checked
-again at the JSON boundary. A stable semver tag, optionally prefixed `v`, is required.
+for `luxdotdev/polaris` on Stable. Drafts and prereleases are excluded by GitHub and checked
+again at the JSON boundary. Nightly reads the [Releases list](https://docs.github.com/en/rest/releases/releases#list-releases)
+(30 newest) and takes the highest semver among the published ones, prereleases included,
+so a Stable Release newer than every nightly reaches Nightly too. Drafts and tags
+that are not semver are skipped; the rest are validated as on Stable. Nightlies are
+`vX.Y.Z-nightly.YYYYMMDD` prereleases of the next patch (`.github/workflows/nightly-build.yml`). A stable semver tag, optionally prefixed `v`, is required.
 The exact uploaded asset names are:
 
 - Update: `Polaris-<version>-arm64-mac.zip`
@@ -47,7 +56,7 @@ Both URLs must point at that tag's asset under
 closed. Each route requires only its own asset (a 204 requires neither).
 
 Validated metadata and 404 results are cached lazily for **300 seconds per server
-instance**, shared between both routes, with concurrent lookups deduplicated.
+instance** and per Channel, shared between both routes, with concurrent lookups deduplicated.
 No timer or poll runs. A cold Vercel instance performs its own lookup; cache is
 not shared across instances. Lookup failures are not cached; no stale Release
 is served after cache expiry. GitHub requests have a five-second timeout.
@@ -79,6 +88,7 @@ to the function log as one JSON line with the ingest result (`axiom`: `ok`,
 | `install_id` | Optional UUID v4; null otherwise. |
 | `country` | Two-letter uppercase `x-vercel-ip-country` from Vercel, else null. |
 | `release_version` | Tag of the latest published Release, or null. |
+| `channel` | `stable` or `nightly` for update checks; null for an invalid `channel` (rejection `invalid_channel`). |
 | `update` | `current` or `available` for update checks. |
 | `failure` | `no_release` or `release_unavailable` (with `error`: type and HTTP status only). |
 
@@ -115,11 +125,12 @@ the shared Release cache, then stops the child and removes temporary files.
 with SHA-1, the full nupkg's absolute GitHub URL, and byte length. It loads the
 matching uploaded `Polaris-<version>-<arch>-win-RELEASES` asset and accepts
 exactly one valid full-package entry matching
-`Polaris-<arch>-win-<version>-full.nupkg`. Asset URLs use the same exact-tag,
+`Polaris-<arch>-win-<NuGet version>-full.nupkg` (the prerelease's dots dropped:
+`0.11.1-nightly20261119`). Asset URLs use the same exact-tag,
 origin, upload-state and duplicate validation as Mac assets. Older callers get
 200; same/newer callers and no release get 204; invalid versions get 400;
 malformed manifests, missing assets and upstream errors get retryable 503.
-Only published stable releases enter either platform's feed.
+Only published stable releases enter either platform's Stable feed.
 
 `/download/windows?arch=x64|arm64` redirects 307 to
 `Polaris-<version>-<arch>-win-Setup.exe`. Without an explicit architecture,

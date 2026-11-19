@@ -4,6 +4,9 @@ import {
   type DaemonBuild,
   backgroundUpgradeDue,
   buildPlatformOf,
+  DAEMON_DOWNLOAD_URL,
+  daemonArchiveName,
+  daemonDownloadUrl,
   isDevVersion,
   isPlatform,
   platformFromUname,
@@ -135,6 +138,36 @@ describe("prerelease upgrades", () => {
     );
     expect(backgroundUpgradeDue("0.1.0-alpha.1", "0.1.0-alpha.2")).toBe(true);
     expect(backgroundUpgradeDue("0.1.0-alpha.2", "0.1.0-alpha.1")).toBe(false);
+  });
+});
+
+describe("nightly builds", () => {
+  const NIGHTLY = "0.11.1-nightly.20261119";
+
+  test("sort by date, after the Stable Release they follow and before the one that supersedes them", () => {
+    expect(compareVersions("0.11.1-nightly.20261118", NIGHTLY)).toBeLessThan(0);
+    expect(compareVersions("0.11.1-nightly.20261231", "0.11.1-nightly.20270101")).toBeLessThan(0);
+    expect(compareVersions("0.11.0", NIGHTLY)).toBeLessThan(0);
+    expect(compareVersions(NIGHTLY, "0.11.1")).toBeLessThan(0);
+  });
+
+  test("are releases, not dev builds: a Host moves only forward between them", () => {
+    expect(isDevVersion(NIGHTLY)).toBe(false);
+    expect(upgradeDue("0.11.0", NIGHTLY)).toBe(true);
+    expect(upgradeDue("0.11.1-nightly.20261118", NIGHTLY)).toBe(true);
+    expect(upgradeDue(NIGHTLY, "0.11.1")).toBe(true);
+    expect(upgradeDue(NIGHTLY, "0.11.0")).toBe(false);
+    expect(upgradeDue(NIGHTLY, "0.11.1-nightly.20261118")).toBe(false);
+    expect(backgroundUpgradeDue(NIGHTLY, "0.11.0")).toBe(false);
+  });
+
+  test("download from their Release through the site, like any release", () => {
+    expect(daemonDownloadUrl(DAEMON_DOWNLOAD_URL, NIGHTLY, "linux-x64")).toBe(
+      "https://polaris.lux.dev/api/daemon/0.11.1-nightly.20261119/linux-x64"
+    );
+    expect(daemonArchiveName(NIGHTLY, "windows-x64")).toBe(
+      "polaris-daemon-0.11.1-nightly.20261119-windows-x64.tar.gz"
+    );
   });
 });
 

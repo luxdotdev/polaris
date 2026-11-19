@@ -7,7 +7,13 @@ import type { CodeViewItem } from "@pierre/diffs";
 import { CodeView, type CodeViewHandle } from "@pierre/diffs/react";
 import { reducedMotion } from "@polaris/ui";
 import { type Ref, useEffect, useImperativeHandle, useMemo, useRef } from "react";
-import { DIFF_CLASS, MAX_LINE_LENGTH, THEMES, useOverflow } from "../../../diffs/index.ts";
+import {
+  DIFF_CLASS,
+  DIFF_HIGHLIGHTER,
+  MAX_LINE_LENGTH,
+  THEMES,
+  useOverflow,
+} from "../../../diffs/index.ts";
 import type { ComposedDiff } from "../data/compose.ts";
 import type { DiffStyle } from "../model/prefs.ts";
 import type { Stop } from "../model/stops.ts";
@@ -113,6 +119,7 @@ export const DiffView = ({ composed, style, themeType, handle }: DiffViewProps) 
     () => ({
       theme: THEMES,
       themeType,
+      preferredHighlighter: DIFF_HIGHLIGHTER,
       diffStyle: style,
       diffIndicators: "classic" as const,
       lineDiffType: composed.mode === "syntax" ? ("none" as const) : ("word-alt" as const),

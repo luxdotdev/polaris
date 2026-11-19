@@ -173,10 +173,32 @@ const editorTheme = EditorView.theme({
   ".cm-vim-panel input": { color: v("text-default"), fontFamily: "var(--font-mono)" },
 });
 
+/**
+ * The Editor's syntax colours by role, as `--color-*` token names: the source of truth the
+ * Lezer style below and the highlights theme (features/highlight) both read.
+ */
+export const SYNTAX = {
+  keyword: "syntax-keyword",
+  string: "syntax-string",
+  type: "syntax-type",
+  function: "syntax-function",
+  comment: "syntax-comment",
+  punctuation: "syntax-punctuation",
+  text: "text-default",
+  strong: "text-strong",
+  quote: "text-subtle",
+  mark: "text-faint",
+} as const;
+
+/** Markdown's weights: hierarchy by weight and style, never a new hue (DESIGN.md, Editor: Code). */
+export const MARKUP_WEIGHT = { heading: 500, heading1: 700, heading2: 600, strong: 600 } as const;
+
+const colour = (role: keyof typeof SYNTAX) => v(SYNTAX[role]);
+
 /** DESIGN.md frontmatter: keyword slate, parchment strings and numbers, sage types, strong functions. */
 export const moonlit = HighlightStyle.define([
   // First, so a fence's own grammar colours its tokens over the fence's code tone.
-  { tag: t.monospace, color: v("syntax-string") },
+  { tag: t.monospace, color: colour("string") },
   {
     tag: [
       t.keyword,
@@ -190,15 +212,15 @@ export const moonlit = HighlightStyle.define([
       t.bool,
       t.tagName,
     ],
-    color: v("syntax-keyword"),
+    color: colour("keyword"),
   },
   {
     tag: [t.string, t.special(t.string), t.regexp, t.character, t.number, t.integer, t.float],
-    color: v("syntax-string"),
+    color: colour("string"),
   },
   {
     tag: [t.typeName, t.className, t.namespace, t.standard(t.tagName), t.annotation],
-    color: v("syntax-type"),
+    color: colour("type"),
   },
   {
     tag: [
@@ -207,31 +229,31 @@ export const moonlit = HighlightStyle.define([
       t.function(t.propertyName),
       t.macroName,
     ],
-    color: v("syntax-function"),
+    color: colour("function"),
   },
   {
     tag: [t.comment, t.lineComment, t.blockComment, t.docComment, t.meta],
-    color: v("syntax-comment"),
+    color: colour("comment"),
   },
   {
     tag: [t.punctuation, t.operator, t.bracket, t.separator, t.derefOperator, t.angleBracket],
-    color: v("syntax-punctuation"),
+    color: colour("punctuation"),
   },
   { tag: t.invalid, textDecoration: `underline wavy ${v("text-subtle")}` },
   // Markdown (DESIGN.md, Editor: Code): hierarchy by weight and style, never a new hue.
-  { tag: t.heading, color: v("text-strong"), fontWeight: "500" },
-  { tag: t.heading1, color: v("text-strong"), fontWeight: "700" },
-  { tag: t.heading2, color: v("text-strong"), fontWeight: "600" },
-  { tag: t.strong, color: v("text-strong"), fontWeight: "600" },
+  { tag: t.heading, color: colour("strong"), fontWeight: `${MARKUP_WEIGHT.heading}` },
+  { tag: t.heading1, color: colour("strong"), fontWeight: `${MARKUP_WEIGHT.heading1}` },
+  { tag: t.heading2, color: colour("strong"), fontWeight: `${MARKUP_WEIGHT.heading2}` },
+  { tag: t.strong, color: colour("strong"), fontWeight: `${MARKUP_WEIGHT.strong}` },
   { tag: t.emphasis, fontStyle: "italic" },
   { tag: t.strikethrough, textDecoration: "line-through" },
-  { tag: t.quote, color: v("text-subtle"), fontStyle: "italic" },
-  { tag: t.link, color: v("syntax-type"), textDecoration: "underline" },
-  { tag: t.url, color: v("syntax-string"), textDecoration: "none" },
+  { tag: t.quote, color: colour("quote"), fontStyle: "italic" },
+  { tag: t.link, color: colour("type"), textDecoration: "underline" },
+  { tag: t.url, color: colour("string"), textDecoration: "none" },
   // Last, so a mark inside a heading, link or quote stays quiet: `#`, `**`, `>`, `-`, fences, `---`.
   {
     tag: [t.processingInstruction, t.contentSeparator],
-    color: v("text-faint"),
+    color: colour("mark"),
     fontWeight: "400",
     fontStyle: "normal",
     textDecoration: "none",
@@ -241,7 +263,7 @@ export const moonlit = HighlightStyle.define([
 /** Scoped to Markdown's own tree: `labelName` is a fence's info string here, a goto label elsewhere. */
 export const moonlitMarkdown = (language: Language) =>
   syntaxHighlighting(
-    HighlightStyle.define([{ tag: t.labelName, color: v("syntax-keyword") }], { scope: language })
+    HighlightStyle.define([{ tag: t.labelName, color: colour("keyword") }], { scope: language })
   );
 
 export const editorLook: Extension = [

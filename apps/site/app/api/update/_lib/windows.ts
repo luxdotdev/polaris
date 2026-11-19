@@ -5,6 +5,9 @@ import {
   latestRelease,
   releaseAssetNamed,
   releasesPage,
+  requestChannel,
+  CHANNEL_ERROR,
+  type Channel,
   windowsAssetName,
   type PublishedRelease,
   type WindowsArch,
@@ -49,7 +52,8 @@ export const windowsDownloadArch = (request: Request): WindowsArch | null => {
 };
 
 interface Dependencies {
-  readonly latest: () => Promise<PublishedRelease | null>;
+  /** The channel's Release; downloads always ask for stable. */
+  readonly latest: (channel: Channel) => Promise<PublishedRelease | null>;
   readonly fetch?: (url: string, init: RequestInit) => Promise<Response>;
   readonly log?: NonNullable<Parameters<typeof withWideEvent>[2]>;
   /** Overrides for the Vercel Analytics event (tests). */
@@ -62,9 +66,11 @@ export const createWindowsRoutes = (deps: Dependencies) => ({
       `/api/update/win32-${arch}/[version]/RELEASES`,
       async (request, event, context) => {
         const { version } = await context.params;
+        const channel = requestChannel(request);
         Object.assign(
           event,
-          requestFields(request, "update_check", version, { platform: "win32", arch })
+          requestFields(request, "update_check", version, { platform: "win32", arch }),
+          { channel }
         );
         const caller = parseVersion(version);
 
@@ -74,8 +80,10 @@ export const createWindowsRoutes = (deps: Dependencies) => ({
             { status: 400, headers }
           );
 
+        if (!channel) return Response.json({ error: CHANNEL_ERROR }, { status: 400, headers });
+
         try {
-          const release = await deps.latest();
+          const release = await deps.latest(channel);
           event.release_version = release?.tag_name ?? null;
 
           if (!release || compareVersions(caller, release.version) >= 0) {
@@ -138,7 +146,7 @@ export const createWindowsRoutes = (deps: Dependencies) => ({
 
 async function windowsDownload(deps: Dependencies, event: WideEvent, arch: WindowsArch) {
   try {
-    const release = await deps.latest();
+    const release = await deps.latest("stable");
     event.release_version = release?.tag_name ?? null;
 
     if (!release) return releasesPage();
