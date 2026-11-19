@@ -11,6 +11,7 @@ const Step = Schema.Struct({
   if: Schema.optional(Schema.String),
   uses: Schema.optional(Schema.String),
   run: Schema.optional(Schema.String),
+  shell: Schema.optional(Schema.String),
   env: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
   with: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 });
@@ -22,10 +23,16 @@ const Job = Schema.Struct({
   if: Schema.optional(Schema.String),
   environment: Schema.optional(Schema.String),
   permissions: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  defaults: Schema.optional(
+    Schema.Struct({
+      run: Schema.optional(Schema.Struct({ shell: Schema.optional(Schema.String) })),
+    })
+  ),
   steps: Schema.Array(Step),
 });
 
 const Workflow = Schema.Struct({
+  on: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
   env: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
   permissions: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   jobs: Schema.Record(Schema.String, Job),
@@ -67,6 +74,32 @@ const SIGNING_ENVIRONMENT = "${{ inputs.channel == 'nightly' && 'nightly' || 're
 /** The default branch; a scheduled (nightly) run's event has no repository, so main. */
 const SIGNER_REF = "${{ github.event.repository.default_branch || 'main' }}";
 
+/** The Apple signing secrets: what the signing jobs read, and what a caller must pass by name. */
+const APPLE_SECRETS = [
+  "MACOS_CERT_P12",
+  "MACOS_CERT_PASSWORD",
+  "MACOS_SIGNING_IDENTITY",
+  "APPLE_API_KEY",
+  "APPLE_API_KEY_ID",
+  "APPLE_API_ISSUER",
+  "APPLE_TEAM_ID",
+];
+
+/** Every workflow and composite action, loosely: only steps, shells and defaults matter here. */
+const LooseJob = Schema.Struct({
+  defaults: Schema.optional(
+    Schema.Struct({
+      run: Schema.optional(Schema.Struct({ shell: Schema.optional(Schema.String) })),
+    })
+  ),
+  steps: Schema.optional(Schema.Array(Step)),
+});
+
+const Loose = Schema.Struct({
+  jobs: Schema.optional(Schema.Record(Schema.String, LooseJob)),
+  runs: Schema.optional(Schema.Struct({ steps: Schema.optional(Schema.Array(Step)) })),
+});
+
 /** A secret's value, as opposed to a `secrets.X != ''` presence check. */
 const SECRET_VALUE = /secrets(?:\.\w+\b(?!\s*!=)|\s*\[)/;
 
@@ -79,6 +112,31 @@ const appleJobs = () =>
 
 const writes = (job: typeof Job.Type | typeof CallerJob.Type) =>
   Object.entries(job.permissions ?? {}).filter(([, level]) => level === "write");
+
+describe("workflow shells", () => {
+  test.each(files.map((file) => [relative(GITHUB, file), file]))(
+    "%s fails a step whose piped command fails: a pipe into tee runs with pipefail",
+    (_, file) => {
+      const workflow = Schema.decodeUnknownSync(Loose)(Bun.YAML.parse(readFileSync(file, "utf8")));
+
+      const steps = [
+        ...Object.values(workflow.jobs ?? {}).flatMap((job) =>
+          (job.steps ?? []).map((step) => ({ step, shell: step.shell ?? job.defaults?.run?.shell }))
+        ),
+        ...(workflow.runs?.steps ?? []).map((step) => ({ step, shell: step.shell })),
+      ];
+
+      const unsafe = steps.flatMap(({ step, shell }) => {
+        const run = step.run ?? "";
+        const pipefail = shell === "bash" || /set -\w*o pipefail/.test(run);
+
+        return /\|\s*tee\b/.test(run) && !pipefail ? [run] : [];
+      });
+
+      expect(unsafe).toEqual([]);
+    }
+  );
+});
 
 describe("workflow supply chain", () => {
   test.each(files.map((file) => [relative(GITHUB, file), file]))(
@@ -230,7 +288,8 @@ describe("release assets", () => {
   test("failed extension jobs leave the run red but do not block the signed Release", () => {
     expect(release.jobs.publish!.needs).toContain("raycast");
     expect(release.jobs.publish!.if?.trim()).toBe(
-      "always() && needs.sign.result == 'success' && needs.sign-dmg.result == 'success'"
+      "always() && needs.sign.result == 'success' && needs.sign-dmg.result == 'success'" +
+        " && (inputs.channel != 'nightly' || needs.windows.result == 'success')"
     );
     expect(release.jobs.raycast!["continue-on-error"]).not.toBe(true);
 
@@ -265,7 +324,7 @@ describe("nightly build", () => {
     expect(nightly.jobs.plan!.if).toBe("github.ref == 'refs/heads/main'");
   });
 
-  test("reuses release.yml on the nightly channel at the planned tag, passing no secrets", () => {
+  test("reuses release.yml on the nightly channel at the tag's commit", () => {
     const call = nightly.jobs.release!;
 
     expect(call.uses).toBe("./.github/workflows/release.yml");
@@ -274,8 +333,47 @@ describe("nightly build", () => {
       channel: "nightly",
       sha: "${{ needs.tag.outputs.sha }}",
     });
-    expect(call.secrets).toBeUndefined();
-    expect(Object.values(nightly.jobs).some((job) => holdsSecrets(job))).toBe(false);
+  });
+
+  test("passes the Apple secrets by name, never inherit; release.yml requires each of them", () => {
+    expect(nightly.jobs.release!.secrets).toEqual(
+      Object.fromEntries(APPLE_SECRETS.map((name) => [name, `\${{ secrets.${name} }}`]))
+    );
+    expect(
+      Object.entries(nightly.jobs)
+        .filter(([, job]) => holdsSecrets(job))
+        .map(([name]) => name)
+    ).toEqual(["release"]);
+
+    const declared = Schema.decodeUnknownSync(
+      Schema.Struct({
+        workflow_call: Schema.Struct({
+          secrets: Schema.Record(Schema.String, Schema.Struct({ required: Schema.Boolean })),
+        }),
+      })
+    )(release.on).workflow_call.secrets;
+
+    expect(declared).toEqual(
+      Object.fromEntries(APPLE_SECRETS.map((name) => [name, { required: true }]))
+    );
+
+    for (const [, job] of appleJobs()) {
+      const used = [...JSON.stringify(job).matchAll(/secrets\.(\w+)/g)].map((match) => match[1]);
+
+      expect(used).toEqual(APPLE_SECRETS);
+    }
+  });
+
+  test("before anything is signed, metadata checks the nightly tag still names the commit, built on main", () => {
+    const steps = release.jobs.metadata!.steps;
+    const check = steps.find((step) => step.run?.includes("git/ref/tags"));
+
+    expect(check?.if).toBe("inputs.channel == 'nightly'");
+    expect(check?.shell).toBe("bash");
+    expect(check?.env?.TAG_SHA).toBe("${{ inputs.sha }}");
+    expect(check?.run).toContain("compare/$source...main");
+    expect(release.jobs.build!.needs).toBe("metadata");
+    expect(release.jobs.sign!.needs).toContain("build");
   });
 
   test("only tagging, the release and pruning write; nothing else gets a token beyond reading", () => {
@@ -288,10 +386,11 @@ describe("nightly build", () => {
   });
 
   test("a nightly tag is pushed once, never moved", () => {
-    const push = nightly.jobs.tag!.steps?.find((step) => step.run?.includes("git push"))?.run;
+    const script = readFileSync(join(import.meta.dir, "nightly.py"), "utf8");
+    const pushes = script.split("\n").filter((line) => line.includes('"push"'));
 
-    expect(push).toContain('git push origin "refs/tags/$TAG"');
-    expect(push).not.toMatch(/--force|\s-f\b|\+refs/);
+    expect(pushes).toEqual(['    git("push", "origin", f"refs/tags/{tag}")']);
+    expect(script).not.toMatch(/--force|"-f"|\+refs/);
   });
 
   test("jobs with a write token run only git and the stdlib nightly script, no packages", () => {

@@ -6,7 +6,8 @@ name: Nightly build
 # no reviewer) and publishes a prerelease, macOS and Windows only. Nights with nothing new since the
 # last nightly are skipped; the newest 7 nightlies are kept. By hand: gh workflow run nightly-build.yml
 #   plan     tooling/release/nightly.py plan: the commit, the version, or why tonight is skipped.
-#   tag      commits the version onto that commit and pushes only the tag; main never moves.
+#   tag      commits the version onto that commit and pushes only the tag (never moved; a retry
+#            reuses today's unreleased tag of the same bump); main never moves.
 #   release  release.yml at the tag's commit by SHA (publish refuses a moved tag), channel nightly.
 #   prune    deletes nightlies past the newest 7, and tags of failed nights (not tonight's).
 
@@ -47,6 +48,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+        # bash sets pipefail: a failing planner must fail here, not look like a skip.
+        shell: bash
         run: python3 -I tooling/release/nightly.py plan | tee -a "$GITHUB_STEP_SUMMARY"
 
   tag:
@@ -63,21 +66,17 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ needs.plan.outputs.sha }}
-      # The tag's commit sits on main's commit (nightly.py plan reads its parent). An existing tag
-      # is never moved: a retry the same day after a failure needs it deleted (prune does, next run).
+      # The tag's commit sits on main's commit (nightly.py plan reads its parent). A tag is never
+      # moved: today's unreleased tag of this commit's bump is reused, any other unreleased one deleted.
       - name: Commit the version and push the tag
         id: tag
         env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           VERSION: ${{ needs.plan.outputs.version }}
           TAG: ${{ needs.plan.outputs.tag }}
-        run: |
-          python3 -I tooling/release/nightly.py bump --version "$VERSION"
-          git -c user.name='github-actions[bot]' \
-            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-            commit -q -am "nightly: $VERSION"
-          git tag "$TAG"
-          git push origin "refs/tags/$TAG"
-          git log -1 --format="sha=%H" >> "$GITHUB_OUTPUT"
+          SOURCE: ${{ needs.plan.outputs.sha }}
+        run: python3 -I tooling/release/nightly.py tag --version "$VERSION" --tag "$TAG" --source "$SOURCE"
 
   release:
     name: Release
@@ -87,8 +86,18 @@ jobs:
       tag: ${{ needs.plan.outputs.tag }}
       channel: nightly
       sha: ${{ needs.tag.outputs.sha }}
+    # Environment secrets must be passed by name; their values come from the `nightly` environment,
+    # in release.yml's signing jobs only. Never `inherit`.
+    secrets:
+      MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+      MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+      MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+      APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     # A called workflow's jobs get at most these. id-token is only for release.yml's npm job,
-    # which a nightly skips; GitHub refuses the call without it. Signing secrets stay in the environment.
+    # which a nightly skips; GitHub refuses the call without it.
     permissions:
       contents: write
       id-token: write

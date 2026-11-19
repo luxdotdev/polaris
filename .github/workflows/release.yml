@@ -24,6 +24,23 @@ on:
         description: "The tag's commit: every job builds it, and publish checks the tag still names it"
         type: string
         required: true
+    # A caller must pass environment secrets by name, or they are empty here (docs: reuse-workflows).
+    # Only the signing jobs read them, in their environment, which supplies the values.
+    secrets:
+      MACOS_CERT_P12:
+        required: true
+      MACOS_CERT_PASSWORD:
+        required: true
+      MACOS_SIGNING_IDENTITY:
+        required: true
+      APPLE_API_KEY:
+        required: true
+      APPLE_API_KEY_ID:
+        required: true
+      APPLE_API_ISSUER:
+        required: true
+      APPLE_TEAM_ID:
+        required: true
 
 concurrency:
   group: release-${{ inputs.tag || github.ref }}
@@ -55,6 +72,20 @@ jobs:
         # Tags: vX.Y.Z or vX.Y.Z-<alpha|beta|rc>.N (a prerelease), or a nightly's
         # vX.Y.Z-nightly.YYYYMMDD on the nightly channel only; every release is signed.
         run: python3 -I tooling/release/metadata.py
+      # Before anything is signed: the tag still names the commit, built on a commit of main.
+      - name: Check the nightly tag and its source commit
+        if: inputs.channel == 'nightly'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          TAG_SHA: ${{ inputs.sha }}
+        run: |
+          test "$(gh api "repos/$GH_REPO/git/ref/tags/$RELEASE_TAG" --jq .object.sha)" = "$TAG_SHA"
+          source=$(gh api "repos/$GH_REPO/commits/$TAG_SHA" --jq '.parents[0].sha')
+          status=$(gh api "repos/$GH_REPO/compare/$source...main" --jq .status)
+          [[ "$status" == ahead || "$status" == identical ]]
 
   build:
     name: macOS arm64 build (no credentials)
@@ -571,9 +602,11 @@ jobs:
   publish:
     name: Create the GitHub Release with the exact assets (a draft; a nightly is published)
     needs: [metadata, sign, sign-dmg, windows, raycast]
-    # A failed Windows or Raycast job still drafts the macOS assets and leaves the run red.
+    # A failed Windows or Raycast job still drafts the macOS assets and leaves the run red;
+    # a nightly is published at once, so it needs Windows too.
     if: >-
       always() && needs.sign.result == 'success' && needs.sign-dmg.result == 'success'
+      && (inputs.channel != 'nightly' || needs.windows.result == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -625,6 +658,10 @@ jobs:
             test "$listed" = "$present"
             while read -r name; do assets+=("handoff/$1/$name"); done <<< "$listed"
           }
+          if [[ "${CHANNEL:-}" == nightly && -z "$WINDOWS_SHA256" ]]; then
+            echo 'A nightly is published without a draft: it needs its Windows assets' >&2
+            exit 1
+          fi
           take macos "$MACOS_SHA256"
           take dmg "$DMG_SHA256"
           if [[ -n "$WINDOWS_SHA256" ]]; then take windows "$WINDOWS_SHA256"; fi
@@ -645,6 +682,7 @@ jobs:
             test "$(gh api "repos/$GH_REPO/git/ref/tags/$RELEASE_TAG" --jq .object.sha)" = "$TAG_SHA"
           fi
           flags=(--verify-tag --title "Polaris $VERSION")
+          if [[ -n "${TAG_SHA:-}" ]]; then flags+=(--target "$TAG_SHA"); fi
           # A nightly publishes as a prerelease straight away; anything else waits as a draft.
           if [[ "${CHANNEL:-}" != nightly ]]; then flags+=(--draft); fi
           if [[ "$PRERELEASE" == true ]]; then

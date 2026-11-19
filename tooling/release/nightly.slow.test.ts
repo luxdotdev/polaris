@@ -30,9 +30,19 @@ if args[0] == "api":
         sys.exit(0)
     answers = json.load(open(os.path.join(os.environ["FAKE_ROOT"], "answers.json")))
     if endpoint not in answers:
-        sys.stderr.write("no fake answer for " + endpoint + "\\n")
+        sys.stderr.write("gh: Not Found (HTTP 404)\\n")
         sys.exit(1)
     print(json.dumps(answers[endpoint]))
+`;
+
+/** git records every call; HEAD is the source commit until a commit is made. */
+const FAKE_GIT = `#!/bin/bash
+set -euo pipefail
+printf 'git %s\\n' "$*" >> "$FAKE_ROOT/calls"
+case "$*" in
+  *" commit "*) touch "$FAKE_ROOT/committed" ;;
+  "rev-parse HEAD") if [[ -e "$FAKE_ROOT/committed" ]]; then echo bump; else echo c2; fi ;;
+esac
 `;
 
 const decodePackage = Schema.decodeUnknownSync(
@@ -65,6 +75,7 @@ const setup = (answers: Answers) => {
   roots.push(root);
   mkdirSync(join(root, "bin"));
   writeFileSync(join(root, "bin", "gh"), FAKE_GH, { mode: 0o755 });
+  writeFileSync(join(root, "bin", "git"), FAKE_GIT, { mode: 0o755 });
   writeFileSync(join(root, "answers.json"), JSON.stringify(answers));
   writeFileSync(join(root, "github-output"), "");
 
@@ -111,7 +122,7 @@ const main = (releases: ReadonlyArray<GitHubJson>, extra: Answers = {}) => ({
   [`repos/${REPO}/commits/c2/check-runs?check_name=CI&filter=latest`]: checks("success"),
   [`repos/${REPO}/commits/c1/check-runs?check_name=CI&filter=latest`]: checks("success"),
   [`repos/${REPO}/contents/apps/desktop/package.json?ref=c2`]: { version: "0.11.0" },
-  [`repos/${REPO}/releases?per_page=100`]: releases,
+  [`repos/${REPO}/releases?per_page=100&page=1`]: releases,
   ...extra,
 });
 
@@ -205,19 +216,32 @@ describe("nightly prune", () => {
     release(`v0.11.1-nightly.202611${String(day + 10).padStart(2, "0")}`)
   );
 
-  test("keeps the newest seven Releases and deletes the rest and orphaned nightly tags", () => {
+  /** 100 stable Releases fill page 1, so the oldest nightlies are only on page 2. */
+  const stables = Array.from({ length: 95 }, (_, n) => ({
+    tag_name: `v0.0.${n}`,
+    draft: false,
+    prerelease: false,
+  }));
+
+  test("reads every page, keeps the newest seven and deletes the rest and orphaned nightly tags", () => {
+    const newestFirst = nightlies.toReversed();
+
     const { run, calls } = setup({
-      [`repos/${REPO}/releases?per_page=100`]: [
-        ...nightlies.toReversed(),
+      [`repos/${REPO}/releases?per_page=100&page=1`]: [...newestFirst.slice(0, 5), ...stables],
+      [`repos/${REPO}/releases?per_page=100&page=2`]: [
+        ...newestFirst.slice(5),
         { tag_name: "v0.11.0", draft: false, prerelease: false },
         release("v0.11.0-nightly.20261101", true),
       ],
       [`repos/${REPO}/git/matching-refs/tags/v`]: [
         ...nightlies.map((r) => ({ ref: `refs/tags/${r.tag_name}` })),
         { ref: "refs/tags/v0.11.0" },
+        { ref: "refs/tags/v0.11.1-nightly.20261105" },
         { ref: "refs/tags/v0.11.1-nightly.20261108" },
         { ref: "refs/tags/v0.11.1-nightly.20261120" },
       ],
+      // Published, yet missing from the list: its tag stays.
+      [`repos/${REPO}/releases/tags/v0.11.1-nightly.20261105`]: release("v0.11.1-nightly.20261105"),
     });
 
     expect(run("prune", "--keep", "7", "--current", "v0.11.1-nightly.20261120").ok).toBe(true);
@@ -226,6 +250,87 @@ describe("nightly prune", () => {
       "release delete v0.11.1-nightly.20261110 --cleanup-tag --yes",
       "api -X DELETE repos/luxdotdev/polaris/git/refs/tags/v0.11.1-nightly.20261108",
     ]);
+  });
+});
+
+describe("nightly tag", () => {
+  const TAG = "v0.11.1-nightly.20261119";
+
+  const tagSetup = (answers: Answers) => {
+    const f = setup(answers);
+
+    for (const path of ["apps/desktop/package.json", "apps/daemon/package.json", "bun.lock"]) {
+      mkdirSync(join(f.root, "repo", path, ".."), { recursive: true });
+      cpSync(join(REPO_ROOT, path), join(f.root, "repo", path));
+    }
+
+    const tag = () =>
+      f.run(
+        "tag",
+        "--version",
+        TAG.slice(1),
+        "--tag",
+        TAG,
+        "--source",
+        "c2",
+        "--root",
+        join(f.root, "repo")
+      );
+
+    return { ...f, tag, git: () => f.calls().filter((call) => call.startsWith("git ")) };
+  };
+
+  const existing = (parent: string, version = TAG.slice(1)) => ({
+    [`repos/${REPO}/git/ref/tags/${TAG}`]: { object: { sha: "old", type: "commit" } },
+    [`repos/${REPO}/commits/old`]: { parents: [{ sha: parent }] },
+    [`repos/${REPO}/contents/apps/desktop/package.json?ref=old`]: { version },
+  });
+
+  test("commits the version onto the source and pushes only the tag", () => {
+    const { tag, git, outputs } = tagSetup({});
+
+    expect(tag().ok).toBe(true);
+    const [commit, ...rest] = git().filter((call) => !call.startsWith("git rev-parse"));
+
+    expect(commit).toEndWith(" commit -q -am nightly: 0.11.1-nightly.20261119");
+    expect(rest).toEqual([`git tag ${TAG}`, `git push origin refs/tags/${TAG}`]);
+    expect(outputs()).toEqual({ sha: "bump" });
+  });
+
+  test("a retry reuses today's unreleased tag of the same bump, and moves nothing", () => {
+    const { tag, git, calls, outputs } = tagSetup(existing("c2"));
+
+    expect(tag().ok).toBe(true);
+    expect(git()).toEqual([]);
+    expect(calls().some((call) => call.includes("-X DELETE"))).toBe(false);
+    expect(outputs()).toEqual({ sha: "old" });
+  });
+
+  test.each([
+    ["another source commit", existing("c1")],
+    ["another version", existing("c2", "0.11.1-nightly.20261118")],
+  ])("an unreleased tag of %s is deleted, then the tag is made afresh", (_, answers) => {
+    const { tag, git, calls, outputs } = tagSetup(answers);
+
+    expect(tag().ok).toBe(true);
+    expect(calls()).toContain(`api -X DELETE repos/${REPO}/git/refs/tags/${TAG}`);
+    expect(git()).toContain(`git push origin refs/tags/${TAG}`);
+    expect(outputs()).toEqual({ sha: "bump" });
+  });
+
+  test("a released tag is never deleted or reused", () => {
+    const { tag, calls } = tagSetup({
+      ...existing("c1"),
+      [`repos/${REPO}/releases/tags/${TAG}`]: release(TAG),
+    });
+
+    const result = tag();
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain(`${TAG} already has a Release`);
+    expect(calls().some((call) => call.includes("-X DELETE") || call.startsWith("git "))).toBe(
+      false
+    );
   });
 });
 

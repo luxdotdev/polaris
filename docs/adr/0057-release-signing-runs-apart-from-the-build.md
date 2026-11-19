@@ -115,19 +115,26 @@ runs without a reviewer. `nightly-build.yml` (schedule and `workflow_dispatch`, 
 plans with `tooling/release/nightly.py`: the newest main commit whose `CI` check (the required
 lane) passed, as `vX.Y.Z-nightly.YYYYMMDD`, X.Y.Z the next patch after main's version, so the
 Stable Release supersedes it. A night with nothing new since the newest nightly is skipped. The
-`tag` job commits the version onto that commit and pushes only the tag; it then calls
-`release.yml` with `channel: nightly`, the tag and the commit it pushed. Every job above runs as
-before, checked out at that commit by SHA, and `publish` refuses if the tag no longer names it, so
-moving the tag mid-run cannot swap what is built and signed. An existing nightly tag is never
-moved: the push has no force, and a same-day retry after a failure waits for `prune` to delete it;
+`tag` job commits the version onto that commit and pushes only the tag, then calls `release.yml`
+with `channel: nightly`, the tag and the tag's commit. Every job above runs as before, checked
+out at that commit by SHA. Before anything is signed, `metadata` checks that the tag names that
+commit and that its parent (the source) is on main; `publish` checks the tag again and creates the
+Release with `--target` that commit. Moving the tag mid-run cannot swap what is built and signed.
+
+A nightly tag is never moved: the push has no force. A retry the same day reuses today's tag if it
+has no Release and is this run's bump of the same source commit (its only parent, carrying the
+version); an unreleased tag of anything else is deleted first; a released one stops the run.
 `metadata.py` admits nightly tags only on that channel and never on a tag push. On the nightly
 channel `sign` and `sign-dmg` use the `nightly` environment, `publish` publishes a prerelease
 (never Latest) instead of a draft, and `sdk`, `npm`, `raycast` and `even-g2` are skipped: macOS
-and Windows only. `prune` keeps the newest 7 nightlies and deletes the rest and failed nights' tags.
+and Windows only. A nightly is published at once, so it needs the Windows job too: without its
+assets the feed would offer a Release Windows can't install, and the skip rule would never rebuild
+that commit. `prune` reads every page of Releases, keeps the newest 7 nightlies, and deletes the
+rest and failed nights' tags, asking GitHub for each tag's Release before deleting it.
 
 What replaces the reviewer:
 
-- The `nightly` environment admits only `refs/heads/main` and holds the same six Apple secrets as
+- The `nightly` environment admits only `refs/heads/main` and holds the same Apple secrets as
   `release`. A run from any other branch fails its environment check; `plan` also skips it.
 - What it signs passed main's required lane and main's review; nobody can choose a commit or
   version by hand (`workflow_dispatch` takes no inputs).
@@ -137,15 +144,19 @@ What replaces the reviewer:
 - Only `tag`, `release` (capped for `release.yml`'s jobs) and `prune` hold `contents: write`, and
   they run only git and the standard-library `nightly.py` from main. `release` must also grant
   `id-token: write`, which GitHub requires of a caller whose callee declares it (the `npm` job,
-  skipped on nightlies). No secrets are passed to `release.yml`; environment secrets reach only
-  the jobs in that environment.
+  skipped on nightlies).
+- A called workflow sees an environment secret only if its caller passes it, by name or with
+  `inherit`; unpassed, it is an empty string and no error. `release` passes exactly the Apple
+  secrets by name, never `inherit`, and `release.yml` declares each as required. Only the jobs in
+  the `nightly` environment read them, and that environment supplies their values.
 - Tags pushed with the workflow token start no workflow, so a nightly tag never runs `release.yml`
   as a stable release; one pushed by hand fails `metadata`.
 
 Consequences: a compromise of main (or of a merged dependency) is signed by morning without a
 human in between, where a release would still stop at its reviewer; that window is the cost of
 nightlies, bounded by branch protection on main. `workflows.test.ts` holds the nightly workflow to
-these rules, and `nightly.slow.test.ts` tests `nightly.py` against a fake `gh`. Tag protection rules
-must let the workflow token push `v*-nightly.*` tags; a ruleset that lets only the workflow create,
-move or delete them closes the window where someone else's tag races tonight's, an owner setting.
-
+these rules, `shell.test.ts` runs the tag checks, and `nightly.slow.test.ts` tests `nightly.py`
+against a fake `gh` and `git`. Tag protection rules must let the workflow token push
+`v*-nightly.*` tags; a ruleset that lets only the workflow create, move or delete them closes the
+window where someone else's tag races tonight's, an owner setting. Run the workflow once by hand
+on main before its first scheduled night.

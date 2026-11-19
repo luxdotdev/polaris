@@ -225,20 +225,39 @@ describe("GitHub Release shell", () => {
 
   const nightly = { CHANNEL: "nightly", PRERELEASE: "true", TAG_SHA: "a".repeat(40) };
 
-  test("a nightly whose tag moved after its build is never published", () => {
+  const withWindows = () => {
     const f = publishFixture();
+
+    f.handoff("windows", ["Polaris-0.3.0-x64-win-Setup.exe", "Polaris-0.3.0-x64-win-RELEASES"]);
+
+    return f;
+  };
+
+  test("a nightly whose tag moved after its build is never published", () => {
+    const f = withWindows();
 
     expect(f.run({ ...nightly, TAG_NOW: "b".repeat(40) }).code).not.toBe(0);
     expect(f.calls()).toEqual([]);
   });
 
-  test("a nightly is published at once as a prerelease that is never Latest", () => {
+  test("a nightly without its Windows assets is never published", () => {
     const f = publishFixture();
+    const result = f.run({ ...nightly, TAG_NOW: nightly.TAG_SHA });
+
+    expect(result.code).not.toBe(0);
+    expect(result.output).toContain("it needs its Windows assets");
+    expect(f.calls()).toEqual([]);
+  });
+
+  test("a nightly is published at once, at its commit, as a prerelease that is never Latest", () => {
+    const f = withWindows();
 
     expect(f.run({ ...nightly, TAG_NOW: nightly.TAG_SHA }).code).toBe(0);
     expect(f.calls()).not.toContain("--draft");
     expect(f.calls()).toContain("--prerelease");
     expect(f.calls()).toContain("--latest=false");
+    expect(f.calls()).toContain("handoff/windows/Polaris-0.3.0-x64-win-Setup.exe");
+    expect(f.calls()[f.calls().indexOf("--target") + 1]).toBe(nightly.TAG_SHA);
   });
 
   test("a successful Raycast ZIP is included after checking its bytes", () => {
@@ -265,6 +284,51 @@ describe("GitHub Release shell", () => {
     expect(f.run().code).not.toBe(0);
     expect(f.calls()).toEqual([]);
   });
+});
+
+describe("nightly tag check before signing", () => {
+  const SHA = "a".repeat(40);
+
+  const check = (env: { TAG_NOW: string; STATUS: string }) => {
+    const f = fixture();
+
+    f.executable(
+      "gh",
+      `
+printf '%s\\n' "$*" >> calls
+case "$2" in
+  repos/fixture/polaris/git/ref/tags/v0.3.1-nightly.20261119) echo "$TAG_NOW" ;;
+  repos/fixture/polaris/commits/${SHA}) echo source ;;
+  repos/fixture/polaris/compare/source...main) echo "$STATUS" ;;
+  *) echo "unexpected $2" >&2; exit 1 ;;
+esac
+`
+    );
+
+    const result = f.run(script("metadata", "git/ref/tags"), {
+      ...env,
+      GH_REPO: "fixture/polaris",
+      RELEASE_TAG: "v0.3.1-nightly.20261119",
+      TAG_SHA: SHA,
+    });
+
+    return result.code;
+  };
+
+  test.each(["ahead", "identical"])("passes when main is %s of the source commit", (status) => {
+    expect(check({ TAG_NOW: SHA, STATUS: status })).toBe(0);
+  });
+
+  test("fails when the tag has moved", () => {
+    expect(check({ TAG_NOW: "b".repeat(40), STATUS: "ahead" })).not.toBe(0);
+  });
+
+  test.each(["diverged", "behind"])(
+    "fails when the source commit is %s main, not on it",
+    (status) => {
+      expect(check({ TAG_NOW: SHA, STATUS: status })).not.toBe(0);
+    }
+  );
 });
 
 test("G2 Hosts are arguments: commas and whitespace split, shell syntax never executes or globs", () => {
