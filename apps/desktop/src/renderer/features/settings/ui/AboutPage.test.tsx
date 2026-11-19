@@ -1,5 +1,5 @@
 import "../../../test/dom.testing.ts";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, test } from "bun:test";
 import { createStore } from "zustand/vanilla";
 import type { HostView } from "../../../../shared/api.ts";
@@ -9,6 +9,7 @@ import { hostView } from "../../../routes/fixtures.testing.ts";
 import { createNavigation } from "../../../routes/navigation.ts";
 import { AppProvider } from "../../../shell/hooks.ts";
 import { type AppState, initialState } from "../../../store/store.ts";
+import { standInBridge } from "../../bridge.ts";
 import { updatesStore } from "../updates/store.ts";
 import { DEFAULT_DEVELOPER_MODE, DeveloperMode, WorkspaceId } from "@polaris/protocol";
 import { DEFAULT_SESSION_PREFS } from "../../../../shared/sessionPrefs.ts";
@@ -31,6 +32,7 @@ const view = (patch: Partial<AppUpdateView> = {}): AppUpdateView => ({
   download: null,
   failure: null,
   automatic: true,
+  channel: "stable",
   lastCheckedAt: null,
   installId: "7c1e0000-0000-0000-0000-00000000a40b",
   osVersion: "27.0",
@@ -167,6 +169,46 @@ test("with automatic checks off, the install ID is not sent", () => {
 
   expect(fields.getByText("Not sent while automatic checks are off")).not.toBeNull();
   expect(fields.queryByText(/7c1e/)).toBeNull();
+});
+
+test("the Channel row matches the Channel, and choosing Nightly asks main to switch", async () => {
+  const requests: Array<{ method: string; input: unknown }> = [];
+
+  standInBridge({
+    request: (method, input) => {
+      requests.push({ method, input });
+
+      // SAFETY: the test answers only updates.setChannel, whose output is an AppUpdateView.
+      return Promise.resolve({ ok: true, value: view({ channel: "nightly" }) }) as never;
+    },
+    subscribe: () => () => undefined,
+    onAppEvent: () => () => undefined,
+  });
+  mount(view({ channel: "stable" }));
+
+  const channel = within(screen.getByTestId("app-update-channel"));
+
+  expect(screen.getByText("Stable channel")).not.toBeNull();
+  expect(
+    screen.getByText("Nightly is a prerelease built from main each night, and may break")
+  ).not.toBeNull();
+  expect(channel.getByRole("radio", { name: "Stable" }).getAttribute("aria-checked")).toBe("true");
+
+  fireEvent.click(channel.getByRole("radio", { name: "Nightly" }));
+  await waitFor(() => expect(updatesStore.getState().view?.channel).toBe("nightly"));
+  expect(requests).toEqual([{ method: "updates.setChannel", input: { channel: "nightly" } }]);
+  expect(screen.getByText("Nightly channel")).not.toBeNull();
+});
+
+test("an unsupported build can't switch Channel", () => {
+  mount(view({ supported: false }));
+
+  for (const name of ["Stable", "Nightly"])
+    expect(
+      within(screen.getByTestId("app-update-channel"))
+        .getByRole("radio", { name })
+        .hasAttribute("disabled")
+    ).toBe(true);
 });
 
 const developerSwitch = () =>

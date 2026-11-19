@@ -298,6 +298,7 @@ const start = async () => {
       process.execPath
     ),
     automatic: settings.automaticAppUpdates ?? true,
+    channel: settings.appUpdateChannel ?? "stable",
     lastCheckedAt: settings.appUpdateLastCheckedAt ?? null,
     save: saveSettings,
     publish: (value) => {

@@ -5,14 +5,20 @@
 import { Match } from "effect";
 import {
   PixelPolarisIcon,
+  SegmentedControl,
   SettingsButton,
   SettingsCard,
   SettingsGrid,
   SettingsHostRow,
+  SettingsRow,
   SettingsToggleRow,
   SettingsWell,
 } from "@polaris/ui";
-import { downloadPercent, type AppUpdateView } from "../../../../shared/appUpdates.ts";
+import {
+  downloadPercent,
+  type AppUpdateChannel,
+  type AppUpdateView,
+} from "../../../../shared/appUpdates.ts";
 import { clientCopy } from "../../../../shared/clientCopy.ts";
 import { clientPlatform, toClientPlatform } from "../../../../shared/platform.ts";
 import { useApp, useShellActions } from "../../../shell/hooks.ts";
@@ -24,6 +30,7 @@ import {
   checkForUpdates,
   restartToUpdate,
   setAutomaticUpdates,
+  setUpdateChannel,
   showUpdateInFinder,
   useUpdates,
 } from "../updates/store.ts";
@@ -184,6 +191,38 @@ const UpdateRow = ({ view, row }: { readonly view: AppUpdateView; readonly row: 
   </div>
 );
 
+const CHANNELS: ReadonlyArray<{ readonly value: AppUpdateChannel; readonly label: string }> = [
+  { value: "stable", label: "Stable" },
+  { value: "nightly", label: "Nightly" },
+];
+
+/** Paper U2: Stable | Nightly; switching saves the Channel and checks its feed. */
+const ChannelRow = ({
+  view,
+  changing,
+}: {
+  readonly view: AppUpdateView;
+  readonly changing: boolean;
+}) => (
+  <SettingsRow
+    title="Channel"
+    caption="Nightly is a prerelease built from main each night, and may break"
+  >
+    <div data-testid="app-update-channel" data-channel={view.channel}>
+      <SegmentedControl
+        variant="well"
+        aria-label="Channel"
+        options={CHANNELS.map((option) => ({
+          ...option,
+          disabled: changing || !view.supported,
+        }))}
+        value={view.channel}
+        onValueChange={(channel) => void setUpdateChannel(channel)}
+      />
+    </div>
+  </SettingsRow>
+);
+
 const Updates = ({
   view,
   changing,
@@ -202,6 +241,8 @@ const Updates = ({
   return (
     <SettingsCard
       title="Updates"
+      data-testid="about-updates"
+      aside={view.channel === "nightly" ? "Nightly channel" : "Stable channel"}
       status={`${checked}${found}`}
       action={
         row.action === "check" ? undefined : (
@@ -215,6 +256,7 @@ const Updates = ({
       }
     >
       <SettingsWell>
+        <ChannelRow view={view} changing={changing} />
         <UpdateRow view={view} row={row} />
         <SettingsToggleRow
           title="Check for updates automatically"

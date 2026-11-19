@@ -10,7 +10,12 @@ Only packaged, non-dev darwin-arm64 builds check. Automatic checks default on:
 once on launch, then one unref'ed six-hour timeout. Turning them off removes the
 timeout and omits the ID on subsequent manual checks. The numeric macOS version
 comes from Electron's `process.getSystemVersion()`, never the Darwin kernel.
-`settings.json` persists `automaticAppUpdates` and `appUpdateLastCheckedAt`.
+`settings.json` persists `automaticAppUpdates`, `appUpdateLastCheckedAt` and
+`appUpdateChannel` (the Channel, `stable` unless chosen). Nightly asks the feed with
+`?channel=nightly` (`updateFeedUrl` in `platform.ts`); Stable sends no channel. Choosing
+a Channel saves it, drops a download still in progress (Squirrel's staged Update stays)
+and checks at once; an answer from the Channel just left is dropped. Back on Stable, a
+Nightly is never replaced by an older or same-core Stable: About waits for a newer one.
 A request already sent can finish after opt-out; the next request omits the ID.
 
 Polaris downloads the Update itself (ADR 0116). `index.ts` asks the feed, then

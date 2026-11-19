@@ -17,6 +17,9 @@ export interface AppUpdateFailure {
   readonly percent: number | null;
 }
 
+/** The Releases this app takes Updates from (CONTEXT.md, Channel); Stable unless chosen. */
+export type AppUpdateChannel = "stable" | "nightly";
+
 export interface AppUpdateView {
   readonly phase: "idle" | "checking" | "current" | "downloading" | "ready" | "blocked" | "failed";
   readonly version: string;
@@ -32,6 +35,7 @@ export interface AppUpdateView {
   readonly skipped?: string | null;
   readonly failure: AppUpdateFailure | null;
   readonly automatic: boolean;
+  readonly channel: AppUpdateChannel;
   readonly lastCheckedAt: number | null;
   readonly installId: string;
   /** The Client OS's own version (macOS 26.1, Windows 10.0.26100), for About and the update feed. */

@@ -10,6 +10,7 @@ const view = (patch: Partial<AppUpdateView> = {}): AppUpdateView => ({
   download: null,
   failure: null,
   automatic: true,
+  channel: "stable",
   lastCheckedAt: null,
   installId: "58baf1dc-3772-4353-86b3-3a8a49219521",
   osVersion: "26.1",
@@ -182,5 +183,55 @@ describe("About Update states", () => {
 
     for (const phase of ["idle", "current", "downloading", "ready", "failed"] as const)
       expect(appUpdateRow(view({ phase })).spinner).toBe(false);
+  });
+});
+
+describe("Channel rows (Paper U2)", () => {
+  const at = new Date(2026, 10, 19, 14, 2).getTime();
+  const NIGHTLY = "0.12.0-nightly.20261118";
+
+  test.each(["idle", "current"] as const)(
+    "back on Stable with a Nightly installed, %s waits for Stable and says it never downgrades",
+    (phase) => {
+      for (const automatic of [true, false])
+        expect(
+          appUpdateRow(
+            view({ phase, automatic, channel: "stable", version: NIGHTLY, lastCheckedAt: at }),
+            at
+          )
+        ).toMatchObject({
+          title: "Waiting for Stable 0.12.0",
+          caption: "Polaris never downgrades: this nightly stays until a Stable release is newer",
+          action: "check",
+          actionLabel: "Check now",
+        });
+    }
+  );
+
+  test("a Nightly on Nightly is up to date, and says when the next build lands", () => {
+    expect(
+      appUpdateRow(
+        view({ phase: "current", channel: "nightly", version: NIGHTLY, lastCheckedAt: at }),
+        at
+      )
+    ).toMatchObject({
+      title: `Polaris ${NIGHTLY} is up to date`,
+      caption: "Checked today at 14:02; the next build lands after 07:00 UTC",
+    });
+  });
+
+  test("a Stable build on Stable, or a prerelease that isn't a Nightly, never waits", () => {
+    for (const version of ["0.12.0", "0.12.0-rc.1"])
+      expect(appUpdateRow(view({ phase: "current", version, lastCheckedAt: at }), at).title).toBe(
+        `Polaris ${version} is up to date`
+      );
+  });
+
+  test("a download or a ready Update keeps its row on Stable with a Nightly installed", () => {
+    expect(
+      appUpdateRow(
+        view({ phase: "ready", channel: "stable", version: NIGHTLY, readyVersion: "0.12.0" })
+      ).title
+    ).toBe("Polaris 0.12.0 is ready");
   });
 });

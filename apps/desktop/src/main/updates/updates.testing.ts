@@ -177,7 +177,7 @@ export const fixture = (
   native = new FakeSquirrel(patch.platform)
 ) => {
   const pending = new Set<() => void>();
-  const saves: Array<{ automaticAppUpdates?: boolean; appUpdateLastCheckedAt?: number }> = [];
+  const saves: Array<Parameters<UpdateInput["save"]>[0]> = [];
   const delays: Array<number> = [];
   const views: Array<AppUpdateView> = [];
   const requests: Array<{ url: string; headers: Headers }> = [];

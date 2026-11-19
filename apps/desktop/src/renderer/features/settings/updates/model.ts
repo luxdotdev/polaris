@@ -118,7 +118,43 @@ const downloading = (view: AppUpdateView): AppUpdateRow => {
   };
 };
 
-/** One row per state, as Paper "Polaris — 0.11.0" U1 draws them. */
+/** A Nightly's own version: `0.12.0-nightly.20261118` → `0.12.0`; null for any other build. */
+export const nightlyCore = (version: string): string | null =>
+  /^(\d+\.\d+\.\d+)-nightly\.\d+$/.exec(version)?.[1] ?? null;
+
+/** The scheduled build starts at 06:41 UTC (.github/workflows/nightly-build.yml). */
+const NEXT_NIGHTLY = "the next build lands after 07:00 UTC";
+
+/** Paper U2: back on Stable with a Nightly installed; only a newer Stable Release replaces it. */
+const waitingRow = (core: string) =>
+  checkRow(
+    `Waiting for Stable ${core}`,
+    "Polaris never downgrades: this nightly stays until a Stable release is newer"
+  );
+
+/** Idle or current: up to date, or waiting on Stable, or why it can't check (Paper U1, U2). */
+const quietRow = (view: AppUpdateView, now: number): AppUpdateRow => {
+  const copy = platformCopy(view.platform);
+
+  if (!view.supported)
+    return checkRow(copy.unsupported, "This build doesn't check the update feed");
+  const core = nightlyCore(view.version);
+
+  if (view.channel === "stable" && core !== null) return waitingRow(core);
+
+  if (!view.automatic) return checkRow("Automatic checks are off", `You're on ${view.version}`);
+
+  if (view.phase === "idle" || view.lastCheckedAt === null)
+    return checkRow("Check for a new release", "Polaris downloads updates in the background");
+  const checked = checkedCaption(view.lastCheckedAt, now);
+
+  return checkRow(
+    `Polaris ${view.version} is up to date`,
+    view.channel === "nightly" ? `${checked}; ${NEXT_NIGHTLY}` : checked
+  );
+};
+
+/** One row per state, as Paper "Polaris — 0.11.0" U1 and U2 draw them. */
 export const appUpdateRow = (view: AppUpdateView, now: number = Date.now()): AppUpdateRow => {
   const release = named(view.availableVersion);
 
@@ -165,18 +201,7 @@ export const appUpdateRow = (view: AppUpdateView, now: number = Date.now()): App
       };
     case "idle":
     case "current":
-      if (!view.supported)
-        return checkRow(copy.unsupported, "This build doesn't check the update feed");
-
-      if (!view.automatic) return checkRow("Automatic checks are off", `You're on ${view.version}`);
-
-      if (view.phase === "idle" || view.lastCheckedAt === null)
-        return checkRow("Check for a new release", "Polaris downloads updates in the background");
-
-      return checkRow(
-        `Polaris ${view.version} is up to date`,
-        checkedCaption(view.lastCheckedAt, now)
-      );
+      return quietRow(view, now);
   }
 };
 

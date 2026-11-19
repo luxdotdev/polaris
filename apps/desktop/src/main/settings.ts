@@ -50,6 +50,7 @@ export const Settings = Schema.Struct({
   sshBinary: Schema.optionalKey(Schema.String.check(Schema.isMinLength(1))),
   automaticAppUpdates: Schema.optionalKey(Schema.Boolean),
   appUpdateLastCheckedAt: Schema.optionalKey(Schema.Number),
+  appUpdateChannel: Schema.optionalKey(Schema.Literals(["stable", "nightly"])),
   languageSettings: Schema.optionalKey(
     Schema.Array(LanguageSettingsRecord).check(Schema.isMaxLength(4096))
   ),

@@ -12,6 +12,7 @@ const current: AppUpdateView = {
   download: null,
   failure: null,
   automatic: true,
+  channel: "stable",
   lastCheckedAt: 1,
   installId: "58baf1dc-3772-4353-86b3-3a8a49219521",
   osVersion: "26.1",

@@ -69,7 +69,7 @@ export interface RequestContext {
   readonly predictionPlacement?: MainPredictionPlacement;
   /** A native folder picker; null when the user cancels. */
   readonly chooseFolder?: (title: string, buttonLabel: string) => Promise<string | null>;
-  readonly updates: Pick<AppUpdates, "get" | "check" | "setAutomatic">;
+  readonly updates: Pick<AppUpdates, "get" | "check" | "setAutomatic" | "setChannel">;
   readonly restartToUpdate: () => void;
   readonly showAppInFinder: () => void;
   /** This app's relay identity (`relayDevice.ts`); absent in tests that don't need it. */
@@ -292,6 +292,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   "updates.get": () => Effect.sync(ctx.updates.get),
   "updates.check": () => Effect.sync(ctx.updates.check),
   "updates.setAutomatic": ({ enabled }) => Effect.sync(() => ctx.updates.setAutomatic(enabled)),
+  "updates.setChannel": ({ channel }) => Effect.sync(() => ctx.updates.setChannel(channel)),
   "updates.restart": () => Effect.sync(ctx.restartToUpdate).pipe(done),
   "updates.showInFinder": () => Effect.sync(ctx.showAppInFinder).pipe(done),
   "devices.thisDevice": () =>

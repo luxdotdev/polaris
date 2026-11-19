@@ -60,18 +60,29 @@ const FAILURES = new Map<string, AppUpdateView["failure"]>([
   ["failed-install", { stage: "install", version: "0.5.0", percent: null }],
 ]);
 
+const Channel = Schema.Struct({ channel: Schema.Literals(["stable", "nightly"]) });
+
+/** `#updates/nightly` and `#updates/waiting`: Paper U2, on Nightly and just back on Stable. */
+const NIGHTLY_SCENES = new Set(["nightly", "waiting"]);
+
 const fixtureBridge = (hash: string): PolarisApi => {
   const scene = hash.replace(/^#updates\//, "");
   const failure = FAILURES.get(scene) ?? null;
 
   let view: AppUpdateView = {
-    phase: failure === null ? (PHASES.find((phase) => phase === scene) ?? "idle") : "failed",
-    version: "0.4.0",
+    phase:
+      failure !== null
+        ? "failed"
+        : NIGHTLY_SCENES.has(scene)
+          ? "current"
+          : (PHASES.find((phase) => phase === scene) ?? "idle"),
+    version: NIGHTLY_SCENES.has(scene) ? "0.12.0-nightly.20261118" : "0.4.0",
     availableVersion: ["ready", "downloading"].includes(scene) ? "0.5.0" : null,
     readyVersion: scene === "ready" ? "0.5.0" : null,
     download: scene === "downloading" ? DOWNLOAD : null,
     failure,
     automatic: scene !== "off",
+    channel: scene === "nightly" ? "nightly" : "stable",
     lastCheckedAt: Date.now() - 2 * 60 * 60_000,
     installId: "58baf1dc-3772-4353-86b3-3a8a49219521",
     osVersion: "26.1",
@@ -97,6 +108,11 @@ const fixtureBridge = (hash: string): PolarisApi => {
           break;
         case "updates.setAutomatic":
           publish({ automatic: Schema.decodeUnknownSync(Enabled)(input).enabled });
+          value = view;
+          break;
+        case "updates.setChannel":
+          publish({ channel: Schema.decodeUnknownSync(Channel)(input).channel, phase: "checking" });
+          setTimeout(() => publish({ phase: "current", lastCheckedAt: Date.now() }), 600);
           value = view;
           break;
         case "updates.check":

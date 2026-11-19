@@ -1,7 +1,7 @@
 import type { AutoUpdater, Event } from "electron";
-import type { AppUpdateFailure, AppUpdateView } from "../../shared/appUpdates.ts";
+import type { AppUpdateChannel, AppUpdateFailure, AppUpdateView } from "../../shared/appUpdates.ts";
 import type { LocalFeed } from "./localFeed.ts";
-import { updateFeed } from "./platform.ts";
+import { updateFeedUrl } from "./platform.ts";
 import { macRelease, windowsRelease, type OfferedUpdate } from "./release.ts";
 import { clearPending, stageUpdate, type Staged, type Verify } from "./stage.ts";
 import { isNewer, versionFromAsset } from "./version.ts";
@@ -43,6 +43,8 @@ export interface UpdateInput {
   readonly supported: boolean;
   readonly blocked: boolean;
   readonly automatic: boolean;
+  /** The persisted Channel; Stable when never chosen. */
+  readonly channel?: AppUpdateChannel;
   readonly lastCheckedAt: number | null;
   /** Where a download waits until Squirrel has it (`<userData>/pending-update`). */
   readonly pendingDir: string;
@@ -58,6 +60,7 @@ export interface UpdateInput {
   readonly save: (change: {
     automaticAppUpdates?: boolean;
     appUpdateLastCheckedAt?: number;
+    appUpdateChannel?: AppUpdateChannel;
   }) => void;
   readonly publish: (view: AppUpdateView) => void;
   readonly now?: () => number;
@@ -109,6 +112,8 @@ export const createAppUpdates = (input: UpdateInput) => {
   /** Set while the newest stale operation still keeps Squirrel's one slot. */
   let hold: (() => void) | null = null;
   const wakes = new Set<() => void>();
+  /** A download dropped by a Channel change, until it has stopped. */
+  let leaving: Promise<void> = Promise.resolve();
   let disposed = false;
 
   let view: AppUpdateView = {
@@ -119,6 +124,7 @@ export const createAppUpdates = (input: UpdateInput) => {
     download: null,
     failure: null,
     automatic: input.automatic,
+    channel: input.channel ?? "stable",
     lastCheckedAt: input.lastCheckedAt,
     installId: input.installId,
     osVersion: input.osVersion,
@@ -363,7 +369,7 @@ export const createAppUpdates = (input: UpdateInput) => {
       skipped,
       failure: null,
     });
-    mine.done = (previous?.done ?? Promise.resolve()).then(() =>
+    mine.done = (previous?.done ?? leaving).then(() =>
       signal.aborted ? undefined : download(update, mine, signal)
     );
 
@@ -402,10 +408,10 @@ export const createAppUpdates = (input: UpdateInput) => {
 
   /** The site's feed: an Update, `current` (204), or null when it couldn't be read. */
   const ask = async (headers: UpdateHeaders): Promise<OfferedUpdate | "current" | null> => {
-    const feed = updateFeed(UPDATE_BASE_URL, platform, input.arch, view.version);
+    const feed = updateFeedUrl(UPDATE_BASE_URL, platform, input.arch, view.version, view.channel);
 
     try {
-      const response = await input.fetch(platform === "win32" ? `${feed}/RELEASES` : feed, {
+      const response = await input.fetch(feed, {
         headers,
         cache: "no-store",
         signal: AbortSignal.any([abort.signal, AbortSignal.timeout(FEED_TIMEOUT_MS)]),
@@ -441,10 +447,21 @@ export const createAppUpdates = (input: UpdateInput) => {
     if (staging === null && view.readyVersion === null)
       change({ phase: "checking", availableVersion: null, failure: null });
     asking = true;
+    const channel = view.channel;
+
     void ask(headers).then((update) => {
       asking = false;
 
-      return disposed ? undefined : answered(update);
+      if (disposed) return undefined;
+
+      // The Channel changed while the feed was asked: that answer is the other Channel's.
+      if (channel !== view.channel) {
+        check();
+
+        return undefined;
+      }
+
+      return answered(update);
     });
 
     return view;
@@ -468,6 +485,33 @@ export const createAppUpdates = (input: UpdateInput) => {
       arm();
 
       return view;
+    },
+    /** Leaving a Channel drops its download in progress, then asks the new Channel's feed. */
+    setChannel: (channel: AppUpdateChannel) => {
+      if (channel === view.channel) return view;
+      input.save({ appUpdateChannel: channel });
+
+      const left = staging;
+
+      if (left !== null) {
+        // The next download waits for this one to stop and clear its files.
+        leaving = left.done;
+        left.abort.abort();
+        staging = null;
+        offered = null;
+      }
+
+      change({ channel });
+
+      if (left !== null)
+        change({
+          phase: view.readyVersion === null ? "idle" : "ready",
+          download: null,
+          replaces: null,
+          skipped: null,
+        });
+
+      return check();
     },
     install: () => {
       if (view.readyVersion !== null) input.native.quitAndInstall();
