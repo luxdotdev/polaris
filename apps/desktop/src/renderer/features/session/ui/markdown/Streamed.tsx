@@ -19,6 +19,7 @@ import { HostLink } from "./HostLink.tsx";
 import { hostLinkOf, rehypeFileHrefs, rehypeHostLinks } from "./hostLinks.ts";
 import { rehypeSoftBreaks } from "./softBreaks.ts";
 import { type Components, Markup, type Pipeline } from "./words/Markup.tsx";
+import { FragmentLink, isFragment, prefixFragments } from "./words/fragments.tsx";
 import { useStreamBlocks } from "./words/render.ts";
 import { MATH_SCHEMA } from "./words/schema.ts";
 
@@ -26,7 +27,13 @@ import { MATH_SCHEMA } from "./words/schema.ts";
 const pipelineFor = (host: HostPaths): Pipeline => ({
   before: [rehypeFileImages(host), rehypeFileHrefs(host)],
   schema: MATH_SCHEMA,
-  after: [rehypeHostImages(host), rehypeHostLinks(host), rehypeFileLinks(), rehypeSoftBreaks()],
+  after: [
+    rehypeHostImages(host),
+    rehypeHostLinks(host),
+    rehypeFileLinks(),
+    rehypeSoftBreaks(),
+    prefixFragments,
+  ],
 });
 
 /** Drive paths are paths only on a Windows Host; on any other they stay URLs, as written. */
@@ -56,7 +63,14 @@ const COMPONENTS: Components = {
   },
   // `path:line` (rehypeFileLinks) opens in the editor, a Host path as `HostLink` says, a Host
   // address (localhost) in the session's Browser, other web links in the user's browser.
-  a: ({ href, children, node }: ComponentProps<"a"> & Hast) => {
+  a: ({ href, id, children, node }: ComponentProps<"a"> & Hast) => {
+    if (isFragment(href))
+      return (
+        <FragmentLink href={href} id={id} className={LINK}>
+          {children}
+        </FragmentLink>
+      );
+
     const target = editorLinkOf(node?.properties);
     const hostPath = hostLinkOf(node?.properties);
 
@@ -79,7 +93,7 @@ const COMPONENTS: Components = {
       );
 
     return (
-      <a href={href} target="_blank" rel="noreferrer" className={LINK}>
+      <a href={href} id={id} target="_blank" rel="noreferrer" className={LINK}>
         {children}
       </a>
     );

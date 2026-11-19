@@ -42,6 +42,45 @@ describe("Pele draws a diagram, or the fence shows as code", () => {
   });
 });
 
+// No double quote: it would end a quoted label, and the fence would show as code instead.
+const HOSTILE = "<img src=x onerror=alert(1)><script>alert(2)</script><svg onload=alert(3)>";
+
+/** Every element and attribute a diagram holds, parsed as the page would (inert). */
+const parts = (html: string) => {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  const elements = [...template.content.querySelectorAll("*")];
+
+  return {
+    tags: elements.map((element) => element.tagName.toLowerCase()),
+    attributes: elements.flatMap((element) => element.getAttributeNames()),
+    text: template.content.textContent ?? "",
+  };
+};
+
+// Pele's SVG skips the hast sanitizer (trustedHtml); its escaping is what keeps labels inert.
+// Re-run these on every Pele upgrade (ADR 0115).
+describe("hostile labels draw as text, never as markup", () => {
+  test.each([
+    ["a flowchart node", `flowchart LR\n A["${HOSTILE}"] --> B`],
+    ["a flowchart edge", `flowchart LR\n A -->|"${HOSTILE}"| B`],
+    ["a sequence message", `sequenceDiagram\n A->>B: ${HOSTILE}`],
+    ["a state", `stateDiagram-v2\n s1 : ${HOSTILE}`],
+    ["a mindmap node", `mindmap\n  root(("${HOSTILE}"))`],
+  ])("%s", (_, source) => {
+    const html = guardedDiagrams(pele).render(closed(source));
+
+    expect(html).not.toBeNull();
+    const { tags, attributes, text } = parts(html ?? "");
+
+    expect(tags).not.toContain("script");
+    expect(tags).not.toContain("img");
+    expect(tags.filter((tag) => tag === "svg")).toHaveLength(1);
+    expect(attributes.filter((name) => name.startsWith("on"))).toEqual([]);
+    expect(text).toContain("alert(2)");
+  });
+});
+
 describe("a rendered diagram that would load a resource is not shown", () => {
   test.each([
     ["an image element", `<image href="${PIXEL}"/>`],

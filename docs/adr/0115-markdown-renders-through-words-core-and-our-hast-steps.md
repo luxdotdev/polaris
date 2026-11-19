@@ -50,6 +50,13 @@ Two things in Polaris don't fit:
   `streamTiming` harness): p50 0.24 ms, p95 0.85 ms, against Streamdown's 0.88 ms and 2.1 ms.
 - Words' own fade-in and caret, and its DOM patching, are not used. Raw HTML in a streamed message
   is dropped by the session (it was sanitized and shown before); Review and Preview keep it.
+- Pele's SVG does not pass through the hast sanitizer: it is rendered as trusted HTML once
+  `guardedDiagrams` has checked it loads and links nothing. Its labels stay inert only because the
+  pinned Pele escapes them, so any Pele upgrade must re-run the hostile-label tests in
+  `session/ui/markdown/diagrams.test.ts` before it lands.
+- Ids and names keep hast-util-sanitize's `user-content-` prefix, so a document can't clobber the
+  app's elements or globals; same-document links (footnotes) are rewritten to match and scroll
+  within their message.
 - Words is WebAssembly, so the renderer's CSP adds `'wasm-unsafe-eval'` to `script-src`
   (`src/main/protocol.ts`): it allows compiling WebAssembly, not JavaScript `eval`.
 - `hast-util-from-dom`, `hast-util-sanitize` and `hast-util-to-jsx-runtime` are direct, pinned

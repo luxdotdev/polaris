@@ -1,10 +1,9 @@
 /**
  * Math delimiters for Words (ADR 0115). Words reads `$…$` and `$$…$$`; assistants also write
  * `\(…\)` and `\[…\]`. A lone `$` stays a dollar, as it did under Streamdown, so `$HOME/$USER`
- * never turns into a formula. Code (fences and inline spans) is left as written.
+ * never turns into a formula. Code (fenced, indented, inline; in quotes and lists) stays as written.
  */
-
-const FENCE = /^ {0,3}(`{3,}|~{3,})/;
+import { CodeLines } from "./codeLines.ts";
 
 const INLINE_CODE = /(`+)[\s\S]*?(?<!`)\1(?!`)/g;
 
@@ -36,9 +35,8 @@ const outsideInlineCode = (text: string): string => {
 /** The text with `\(…\)` and `\[…\]` as Words' math, and lone `$` escaped, outside code. */
 export const normalizeMath = (text: string): string => {
   if (!/[$\\]/.test(text)) return text;
-  const lines = text.split("\n");
+  const lines = new CodeLines();
   const out: Array<string> = [];
-  let fence: string | null = null;
   let chunk: Array<string> = [];
 
   const flush = () => {
@@ -46,17 +44,10 @@ export const normalizeMath = (text: string): string => {
     chunk = [];
   };
 
-  for (const line of lines) {
-    const marker = FENCE.exec(line)?.[1] ?? null;
-
-    if (fence === null && marker !== null) {
+  for (const line of text.split("\n")) {
+    if (lines.isCode(line)) {
       flush();
-      fence = marker;
       out.push(line);
-    } else if (fence !== null) {
-      out.push(line);
-
-      if (marker !== null && marker[0] === fence[0] && marker.length >= fence.length) fence = null;
     } else chunk.push(line);
   }
 

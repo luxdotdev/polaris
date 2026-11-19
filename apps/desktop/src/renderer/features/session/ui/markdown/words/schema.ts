@@ -5,6 +5,9 @@
  */
 import { defaultSchema, type Schema } from "hast-util-sanitize";
 
+/** Every id and name in rendered Markdown starts with this, so none can clobber the app's. */
+export const PREFIX = "user-content-";
+
 const BASE_ATTRIBUTES = defaultSchema.attributes ?? {};
 
 const BASE_PROTOCOLS = defaultSchema.protocols ?? {};
@@ -12,6 +15,7 @@ const BASE_PROTOCOLS = defaultSchema.protocols ?? {};
 /** Raw HTML from a Review or a document: GitHub's set. */
 export const PROSE_SCHEMA: Schema = {
   ...defaultSchema,
+  clobberPrefix: PREFIX,
   protocols: { ...BASE_PROTOCOLS, href: [...(BASE_PROTOCOLS["href"] ?? []), "tel"] },
   attributes: {
     ...BASE_ATTRIBUTES,

@@ -12,9 +12,17 @@ import {
   Markup,
   type Pipeline,
 } from "../../../../session/ui/markdown/words/Markup.tsx";
+import {
+  FragmentLink,
+  isFragment,
+  prefixFragments,
+} from "../../../../session/ui/markdown/words/fragments.tsx";
 import { renderHtml } from "../../../../session/ui/markdown/words/render.ts";
 import { PROSE_SCHEMA } from "../../../../session/ui/markdown/words/schema.ts";
 import { linkOf, prepareMarkdown, type ReviewLink, rehypeReview } from "../../model/markdown.ts";
+
+const LINK =
+  "text-text-strong decoration-text-faint hover:decoration-text-subtle underline underline-offset-2";
 
 export interface RenderedProps {
   readonly markdown: string;
@@ -30,7 +38,7 @@ const Rendered = ({ markdown, paths, renderLink }: RenderedProps) => {
   );
 
   const pipeline: Pipeline = useMemo(
-    () => ({ schema: PROSE_SCHEMA, after: [rehypeReview(paths)()] }),
+    () => ({ schema: PROSE_SCHEMA, after: [rehypeReview(paths)(), prefixFragments] }),
     [paths]
   );
 
@@ -41,16 +49,18 @@ const Rendered = ({ markdown, paths, renderLink }: RenderedProps) => {
         <table {...props} />
       </div>
     ),
-    a: ({ href, children }: ComponentProps<"a">) => {
+    a: ({ href, id, children }: ComponentProps<"a">) => {
+      if (isFragment(href))
+        return (
+          <FragmentLink href={href} id={id} className={LINK}>
+            {children}
+          </FragmentLink>
+        );
+
       const link = linkOf(href ?? "");
 
       return link.kind === "external" ? (
-        <a
-          href={link.href}
-          target="_blank"
-          rel="noreferrer"
-          className="text-text-strong decoration-text-faint hover:decoration-text-subtle underline underline-offset-2"
-        >
+        <a href={link.href} id={id} target="_blank" rel="noreferrer" className={LINK}>
           {children}
         </a>
       ) : (

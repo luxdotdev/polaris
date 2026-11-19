@@ -42,7 +42,8 @@ export const fenceOf = (pre: Element | undefined): Fence => {
     : "";
 
   return {
-    code: textOf(code).replace(/\n$/, ""),
+    // Raw `<pre>` HTML (a Review, a document) may hold its text with no `<code>` inside.
+    code: (code === undefined ? textOf(pre) : textOf(code)).replace(/\n$/, ""),
     language,
     incomplete: pre?.properties["dataMarkdownIncomplete"] !== undefined,
   };
@@ -84,6 +85,8 @@ const Diagram = (fence: Shown) => {
     [mermaid, fence.code, fence.incomplete]
   );
 
+  // Pele's SVG skips the hast sanitizer: the pinned Pele's label escaping and our resource guard keep
+  // it inert. On any Pele upgrade, re-run diagrams.test.ts's hostile labels (ADR 0115).
   const drawn = useMemo(() => (svg === undefined || svg === null ? null : trustedHtml(svg)), [svg]);
 
   // Not loaded yet, or a finished diagram that doesn't parse: the source, as code.

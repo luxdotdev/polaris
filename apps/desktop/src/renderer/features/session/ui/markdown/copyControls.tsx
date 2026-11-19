@@ -35,12 +35,12 @@ const CopyTable = (props: ComponentProps<"table">) => {
 
   return (
     <div ref={root} className="relative" data-copy="table">
-      {/* Tables have no header row of their own: the button gets a strip above, never over a cell. */}
-      <div className="flex h-7 justify-end">
-        <CopyButton variant="icon" label="Copy table" text={markdown} />
-      </div>
       <div data-md="table-wrapper">
         <table {...props} />
+      </div>
+      {/* Outside the scroller, so it stays at the corner; the last header cell leaves it room. */}
+      <div data-md="table-copy">
+        <CopyButton variant="icon" label="Copy table" text={markdown} />
       </div>
     </div>
   );
