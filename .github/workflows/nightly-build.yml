@@ -7,7 +7,7 @@ name: Nightly build
 # last nightly are skipped; the newest 7 nightlies are kept. By hand: gh workflow run nightly-build.yml
 #   plan     tooling/release/nightly.py plan: the commit, the version, or why tonight is skipped.
 #   tag      commits the version onto that commit and pushes only the tag; main never moves.
-#   release  release.yml at the tag, channel nightly.
+#   release  release.yml at the tag's commit by SHA (publish refuses a moved tag), channel nightly.
 #   prune    deletes nightlies past the newest 7, and tags of failed nights (not tonight's).
 
 on:
@@ -57,13 +57,16 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: write
+    outputs:
+      sha: ${{ steps.tag.outputs.sha }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ needs.plan.outputs.sha }}
-      # The tag's commit sits on main's commit (nightly.py plan reads its parent); a failed
-      # run earlier today may have left the tag, so it is replaced.
+      # The tag's commit sits on main's commit (nightly.py plan reads its parent). An existing tag
+      # is never moved: a retry the same day after a failure needs it deleted (prune does, next run).
       - name: Commit the version and push the tag
+        id: tag
         env:
           VERSION: ${{ needs.plan.outputs.version }}
           TAG: ${{ needs.plan.outputs.tag }}
@@ -73,7 +76,8 @@ jobs:
             -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
             commit -q -am "nightly: $VERSION"
           git tag "$TAG"
-          git push --force origin "refs/tags/$TAG"
+          git push origin "refs/tags/$TAG"
+          git log -1 --format="sha=%H" >> "$GITHUB_OUTPUT"
 
   release:
     name: Release
@@ -82,6 +86,7 @@ jobs:
     with:
       tag: ${{ needs.plan.outputs.tag }}
       channel: nightly
+      sha: ${{ needs.tag.outputs.sha }}
     # A called workflow's jobs get at most these. id-token is only for release.yml's npm job,
     # which a nightly skips; GitHub refuses the call without it. Signing secrets stay in the environment.
     permissions:

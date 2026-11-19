@@ -269,7 +269,11 @@ describe("nightly build", () => {
     const call = nightly.jobs.release!;
 
     expect(call.uses).toBe("./.github/workflows/release.yml");
-    expect(call.with).toEqual({ tag: "${{ needs.plan.outputs.tag }}", channel: "nightly" });
+    expect(call.with).toEqual({
+      tag: "${{ needs.plan.outputs.tag }}",
+      channel: "nightly",
+      sha: "${{ needs.tag.outputs.sha }}",
+    });
     expect(call.secrets).toBeUndefined();
     expect(Object.values(nightly.jobs).some((job) => holdsSecrets(job))).toBe(false);
   });
@@ -281,6 +285,13 @@ describe("nightly build", () => {
         writes(job).map(([scope]) => `${name}:${scope}`)
       )
     ).toEqual(["tag:contents", "release:contents", "release:id-token", "prune:contents"]);
+  });
+
+  test("a nightly tag is pushed once, never moved", () => {
+    const push = nightly.jobs.tag!.steps?.find((step) => step.run?.includes("git push"))?.run;
+
+    expect(push).toContain('git push origin "refs/tags/$TAG"');
+    expect(push).not.toMatch(/--force|\s-f\b|\+refs/);
   });
 
   test("jobs with a write token run only git and the stdlib nightly script, no packages", () => {
@@ -306,11 +317,11 @@ describe("nightly build", () => {
       expect(release.jobs[name]!.if).toBeUndefined();
   });
 
-  test("repository code is checked out at the called tag, and metadata checks it on its channel", () => {
+  test("repository code is checked out at the tag's commit by SHA, and metadata checks it on its channel", () => {
     for (const [, job] of Object.entries(release.jobs)) {
       for (const step of job.steps) {
         if (step.uses?.startsWith("actions/checkout@") && step.with?.path !== "signer")
-          expect(step.with?.ref).toBe("${{ inputs.tag }}");
+          expect(step.with?.ref).toBe("${{ inputs.sha }}");
       }
     }
 

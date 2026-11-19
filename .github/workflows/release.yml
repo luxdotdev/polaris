@@ -20,6 +20,10 @@ on:
         description: "nightly (a tag push is stable)"
         type: string
         required: true
+      sha:
+        description: "The tag's commit: every job builds it, and publish checks the tag still names it"
+        type: string
+        required: true
 
 concurrency:
   group: release-${{ inputs.tag || github.ref }}
@@ -41,7 +45,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ inputs.sha }}
           persist-credentials: false
       - name: Validate tag and versions
         id: metadata
@@ -68,7 +72,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ inputs.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -199,7 +203,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ inputs.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -332,7 +336,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ inputs.sha }}
           persist-credentials: false
       # Shared with windows-test-build.yml: restore the Daemon, package, smoke-test x64.
       - uses: ./.github/actions/package-windows
@@ -396,7 +400,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ inputs.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -485,7 +489,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ inputs.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -530,7 +534,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ inputs.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -602,6 +606,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
           CHANNEL: ${{ inputs.channel }}
+          TAG_SHA: ${{ inputs.sha }}
           VERSION: ${{ needs.metadata.outputs.version }}
           PRERELEASE: ${{ needs.metadata.outputs.prerelease }}
           MACOS_SHA256: ${{ needs.sign.outputs.assets }}
@@ -635,6 +640,10 @@ jobs:
           test -s "handoff/macos/polaris-daemon-$VERSION-windows-x64.tar.gz"
           test -s "handoff/macos/Polaris-$VERSION-arm64-mac.zip"
           ls handoff/*/"Polaris-$VERSION-arm64.dmg" > /dev/null
+          # A called release built TAG_SHA: refuse if the tag has moved since.
+          if [[ -n "${TAG_SHA:-}" ]]; then
+            test "$(gh api "repos/$GH_REPO/git/ref/tags/$RELEASE_TAG" --jq .object.sha)" = "$TAG_SHA"
+          fi
           flags=(--verify-tag --title "Polaris $VERSION")
           # A nightly publishes as a prerelease straight away; anything else waits as a draft.
           if [[ "${CHANNEL:-}" != nightly ]]; then flags+=(--draft); fi

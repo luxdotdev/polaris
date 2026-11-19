@@ -116,7 +116,10 @@ plans with `tooling/release/nightly.py`: the newest main commit whose `CI` check
 lane) passed, as `vX.Y.Z-nightly.YYYYMMDD`, X.Y.Z the next patch after main's version, so the
 Stable Release supersedes it. A night with nothing new since the newest nightly is skipped. The
 `tag` job commits the version onto that commit and pushes only the tag; it then calls
-`release.yml` with `channel: nightly` and the tag. Every job above runs as before, at the tag;
+`release.yml` with `channel: nightly`, the tag and the commit it pushed. Every job above runs as
+before, checked out at that commit by SHA, and `publish` refuses if the tag no longer names it, so
+moving the tag mid-run cannot swap what is built and signed. An existing nightly tag is never
+moved: the push has no force, and a same-day retry after a failure waits for `prune` to delete it;
 `metadata.py` admits nightly tags only on that channel and never on a tag push. On the nightly
 channel `sign` and `sign-dmg` use the `nightly` environment, `publish` publishes a prerelease
 (never Latest) instead of a draft, and `sdk`, `npm`, `raycast` and `even-g2` are skipped: macOS
@@ -143,5 +146,6 @@ Consequences: a compromise of main (or of a merged dependency) is signed by morn
 human in between, where a release would still stop at its reviewer; that window is the cost of
 nightlies, bounded by branch protection on main. `workflows.test.ts` holds the nightly workflow to
 these rules, and `nightly.slow.test.ts` tests `nightly.py` against a fake `gh`. Tag protection rules
-must let the workflow token push `v*-nightly.*` tags, an owner setting.
+must let the workflow token push `v*-nightly.*` tags; a ruleset that lets only the workflow create,
+move or delete them closes the window where someone else's tag races tonight's, an owner setting.
 

@@ -173,6 +173,7 @@ const publishFixture = () => {
   f.executable(
     "gh",
     `
+if [[ "$1 $2" == "api repos/fixture/polaris/git/ref/tags/$RELEASE_TAG" ]]; then echo "$TAG_NOW"; exit 0; fi
 if [[ "$1" == api ]]; then echo 'HTTP 404' >&2; exit 1; fi
 test "$1 $2" = 'release create'
 printf '%s\\n' "$@" > calls
@@ -222,10 +223,19 @@ describe("GitHub Release shell", () => {
     expect(f.calls()).toContain("--draft");
   });
 
+  const nightly = { CHANNEL: "nightly", PRERELEASE: "true", TAG_SHA: "a".repeat(40) };
+
+  test("a nightly whose tag moved after its build is never published", () => {
+    const f = publishFixture();
+
+    expect(f.run({ ...nightly, TAG_NOW: "b".repeat(40) }).code).not.toBe(0);
+    expect(f.calls()).toEqual([]);
+  });
+
   test("a nightly is published at once as a prerelease that is never Latest", () => {
     const f = publishFixture();
 
-    expect(f.run({ CHANNEL: "nightly", PRERELEASE: "true" }).code).toBe(0);
+    expect(f.run({ ...nightly, TAG_NOW: nightly.TAG_SHA }).code).toBe(0);
     expect(f.calls()).not.toContain("--draft");
     expect(f.calls()).toContain("--prerelease");
     expect(f.calls()).toContain("--latest=false");
