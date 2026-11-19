@@ -102,6 +102,8 @@ export const FileChangeItem = Schema.Struct({
     Schema.Struct({
       path: Schema.String,
       kind: Schema.Struct({ type: Schema.Literals(["add", "delete", "update"]) }),
+      /** A new or deleted file's whole text; an update's unified diff hunks. */
+      diff: Schema.optional(Schema.String),
     })
   ),
   status: ItemStatus,

@@ -50,6 +50,8 @@ export * from "./hostAddress.ts";
 
 export * from "./domain.ts";
 
+export * from "./filePatch.ts";
+
 export * from "./events.ts";
 
 export * from "./extensions.ts";
