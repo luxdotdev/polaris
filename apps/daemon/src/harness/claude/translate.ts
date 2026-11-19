@@ -22,6 +22,15 @@ import type {
 import { type ReplyStats, SubagentId, type TurnId, TurnItem } from "@polaris/protocol";
 import { Option, Predicate } from "effect";
 import { ClaudeBackgroundTasks } from "./backgroundTasks.ts";
+import { FILE_TOOLS, FileToolStreams, fileChangeItem } from "./fileChange.ts";
+import type { Previous, ReadPrevious } from "./readPrevious.ts";
+
+/** A Write's old file, read off the event loop, and where its patched item goes. */
+export interface FileReads {
+  readonly readPrevious: ReadPrevious;
+  readonly emit: (events: ReadonlyArray<HarnessEvent>) => void;
+}
+
 import { ReplyTimer } from "./replyStats.ts";
 import { toolIdentity } from "./toolIdentity.ts";
 import { computerUseCallOf, DESKTOP_MCP_NAME } from "../desktop/metadata.ts";
@@ -151,9 +160,9 @@ export interface ToolCall {
   readonly resultText: string | null;
   /** The structured `tool_use_result`, when the SDK attached one. */
   readonly structured: ToolPayload;
+  /** A Write's file as it was before the call, when the Daemon read it. */
+  readonly previous?: Previous;
 }
-
-const FILE_TOOLS = new Set(["Edit", "MultiEdit", "Write", "NotebookEdit"]);
 
 /** Claude Code reports a non-zero exit only as an error result, without the code, so only a
  *  foreground Bash result that finished cleanly reads as exit 0; anything else has none. */
@@ -185,27 +194,6 @@ const commandItem = (call: ToolCall): TurnItem => {
   });
 };
 
-const fileChangeKind = (call: ToolCall, editMode: string | null) => {
-  if (toolFields(call.structured).type === "create") return "add";
-
-  return call.name === "NotebookEdit" && editMode === "delete" ? "delete" : "modify";
-};
-
-const fileChangeItem = (call: ToolCall): TurnItem => {
-  const input = toolFields(call.input);
-
-  return TurnItem.cases.FileChange.make({
-    id: call.id,
-    changes: [
-      {
-        path: input.file_path ?? input.notebook_path ?? "",
-        kind: fileChangeKind(call, input.edit_mode),
-      },
-    ],
-    status: call.status,
-  });
-};
-
 /** Build the `TurnItem` for one tool call, in any state. */
 export const toolItem = (call: ToolCall): TurnItem => {
   if (call.name === "Bash") return commandItem(call);
@@ -230,6 +218,7 @@ interface OpenTool {
   readonly name: string;
   readonly input: ToolPayload;
   readonly scope: Scope;
+  readonly previous?: Previous;
 }
 
 /** A Subagent Claude Code is running: where it belongs, and whether it runs in the background. */
@@ -259,11 +248,14 @@ export class ClaudeTranslator {
   private contextWindow: number | null = null;
   private contextUsed: number | null = null;
   private readonly replies = new ReplyTimer<Reply>();
+  private readonly fileStreams = new FileToolStreams();
 
   constructor(
     private readonly cwd: string,
     cursor: string | null = null,
-    private readonly now: () => string = () => new Date().toISOString()
+    private readonly now: () => string = () => new Date().toISOString(),
+    /** Reads a file before a Write overwrites it, and emits the patched item it gives. */
+    private readonly files: FileReads | null = null
   ) {
     this.cursor = cursor;
   }
@@ -366,6 +358,7 @@ export class ClaudeTranslator {
             status,
             resultText: null,
             structured: null,
+            previous: tool.previous,
           }),
         })
       );
@@ -521,6 +514,13 @@ export class ClaudeTranslator {
 
     if (messageId === undefined) return [];
 
+    const writing = this.fileStreams.onEvent(
+      `${messageId}:${"index" in event ? event.index : ""}`,
+      event
+    );
+
+    if (writing !== null) return [ItemUpdated({ ...scoped(scope), item: writing })];
+
     switch (event.type) {
       case "content_block_start":
         return event.content_block.type === "thinking"
@@ -630,6 +630,12 @@ export class ClaudeTranslator {
 
   private onToolUse(scope: Scope, id: string, name: string, input: ToolPayload): HarnessEvent[] {
     this.tools.set(id, { name, input, scope });
+    const path = name === "Write" ? toolFields(input).file_path : null;
+
+    if (path !== null && this.files !== null) {
+      const { readPrevious, emit } = this.files;
+      void readPrevious(path).then((previous) => emit(this.onPrevious(id, previous)));
+    }
 
     if (name === "SubagentHandback" && scope.subagentId !== null) {
       const subagent = this.subagents.get(scope.subagentId);
@@ -658,6 +664,32 @@ export class ClaudeTranslator {
         }),
       }),
     ];
+  }
+
+  /**
+   * A Write's file as it was, once read: the running item again, with its patch. Text equal
+   * to the input means Claude Code already wrote it, so it says nothing about the old file.
+   */
+  onPrevious(id: string, previous: Previous): HarnessEvent[] {
+    const tool = this.tools.get(id);
+
+    if (tool === undefined || previous === undefined) return [];
+
+    if (previous === toolFields(tool.input).content) return [];
+    this.tools.set(id, { ...tool, previous });
+
+    const item = toolItem({
+      id,
+      name: tool.name,
+      input: tool.input,
+      cwd: this.cwd,
+      status: "running",
+      resultText: null,
+      structured: null,
+      previous,
+    });
+
+    return [ItemUpdated({ ...scoped(tool.scope), item })];
   }
 
   private onUser(
@@ -706,6 +738,7 @@ export class ClaudeTranslator {
         status,
         resultText: toolResultText(block.content),
         structured,
+        previous: tool.previous,
       }),
     });
 

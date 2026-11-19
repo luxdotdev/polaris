@@ -73,6 +73,7 @@ const edit = (id: string, paths: ReadonlyArray<string>): ItemView => ({
   live: false,
   changes: paths.map((path) => ({ path, kind: "modify" as const })),
   status: "completed",
+  writing: false,
 });
 
 const message = (id: string): ItemView => ({ kind: "message", id, live: false, text: "ok" });

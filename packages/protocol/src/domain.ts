@@ -31,6 +31,7 @@ import {
 } from "./models.ts";
 import { WorktreeSetup, WorktreeSetupRun } from "./worktreeSetup.ts";
 import { SuggestedReply } from "./suggestedReply.ts";
+import { FilePatch } from "./filePatch.ts";
 import { ConstellationId } from "./constellation/domain.ts";
 import { FeedbackBatch, PullRequestRef, ReviewSubject } from "./review.ts";
 
@@ -561,13 +562,23 @@ export const TurnItem = Schema.TaggedUnion({
     /** `user`: the user's shell command, which the Daemon ran (`RunShellCommand`); null for the Harness's. */
     origin: optionalNullable(Schema.Literals(["user"])),
   },
+  /**
+   * `patch` (capability `session.file-patches`): what the change did, from the Harness's
+   * own tool input or diff; absent when unknown. `writing`: a running item whose tool input
+   * is still streaming ("Writing index.html"); its patch lands when the input completes.
+   */
   FileChange: {
     id: Schema.String,
     startedAt,
     changes: Schema.Array(
-      Schema.Struct({ path: Schema.String, kind: Schema.Literals(["add", "modify", "delete"]) })
+      Schema.Struct({
+        path: Schema.String,
+        kind: Schema.Literals(["add", "modify", "delete"]),
+        patch: Schema.optionalKey(FilePatch),
+      })
     ),
     status: Schema.Literals(["running", "completed", "failed", "declined"]),
+    writing: Schema.optionalKey(Schema.Boolean),
   },
   ToolCall: {
     id: Schema.String,
