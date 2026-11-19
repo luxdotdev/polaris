@@ -402,7 +402,7 @@ const gitConfigMode = {
   },
 };
 
-const MERMAID = /^(?:mermaid(?:\/.*)?|@streamdown\/mermaid)$/;
+const MERMAID = /^(?:mermaid(?:\/.*)?|@streamdown\/mermaid|pele(?:\/.*)?)$/;
 
 const IMAGE_MESSAGE =
   "Host or Workspace image bytes reach a decoder only after admitRaster " +
@@ -410,7 +410,7 @@ const IMAGE_MESSAGE =
   "file to allowlist.mjs saying where its bytes come from.";
 
 const MERMAID_MESSAGE =
-  "Mermaid renders only through guardedDiagrams (session/ui/markdown/diagrams.ts), via usePlugins.";
+  "Mermaid diagrams (Pele) render only through guardedDiagrams (session/ui/markdown/diagrams.ts), via usePlugins.";
 
 const isTypeOnly = (node) =>
   node.importKind === "type" ||

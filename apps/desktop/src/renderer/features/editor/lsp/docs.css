@@ -2,7 +2,7 @@
 .polaris-md.polaris-doc-md {
   line-height: 18px;
 
-  /* Streamdown's root spaces blocks 16px apart (`space-y-4`); docs sit 6px apart. */
+  /* Docs sit 6px apart. */
   & > * {
     margin-block: 0;
   }
@@ -12,29 +12,17 @@
   }
 
   /* No card, header or copy for a fence: a compact sunken surface in the editor's code font. */
-  & [data-streamdown="code-block"] {
+  & [data-md="code-block"] {
     border: 0;
     border-radius: var(--radius-control);
-    /* Streamdown sets these inline; in a tooltip an unpainted block reserves 200px of blank space. */
-    content-visibility: visible !important;
-    contain-intrinsic-size: none !important;
     margin-block: 0;
   }
 
-  & [data-streamdown="code-block-header"],
-  & [data-streamdown="code-block-actions"] {
-    display: none;
-  }
-
-  & [data-streamdown="code-block-body"] {
-    border-top: 0;
-    overflow: visible;
-    padding: 6px 8px;
-  }
-
   /* Long signatures wrap, keeping their own indentation, instead of scrolling sideways. */
-  & [data-streamdown="code-block-body"] pre {
+  & [data-md="code-block"] pre {
+    overflow: visible;
     overflow-wrap: anywhere;
+    padding: 6px 8px;
     white-space: pre-wrap;
   }
 
@@ -43,8 +31,8 @@
   }
 
   /* No semibold in docs: bold prose and bold inline code stop at 500 (DESIGN.md, Editor: Language docs). */
-  & :is(h1, h2, h3, h4, h5, h6, strong, b, [data-streamdown="strong"]),
-  & :is(strong, b, [data-streamdown="strong"]) code {
+  & :is(h1, h2, h3, h4, h5, h6, strong, b),
+  & :is(strong, b) code {
     font-weight: 500;
   }
 

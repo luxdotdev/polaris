@@ -1,61 +1,84 @@
 import "../../../../test/dom.testing.ts";
-import { strict as assert } from "node:assert";
 import { describe, expect, test } from "bun:test";
-import { renderHook, waitFor } from "@testing-library/react";
-import mermaid from "mermaid";
+import * as pele from "pele";
 import { guardedDiagrams } from "./diagrams.ts";
-import { usePlugins } from "./plugins.ts";
 
 const SVG = (body: string) => `<svg xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
 
 const PIXEL = "data:image/png;base64,iVBORw0KGgo=";
 
-/** Real Mermaid parsing, with its render (which needs a layout engine) replaced by `svg`. */
-const engine = (svg = SVG("<g/>")) => {
-  const renders: string[] = [];
+const closed = (code: string) => ({ code, language: "mermaid", isIncomplete: false });
 
-  const plugin = guardedDiagrams({
-    ...mermaid,
-    render: (_id, source) => {
-      renders.push(source);
+/** Pele's API with its render replaced by one that returns `svg`. */
+const fake = (svg: string) => guardedDiagrams({ render: () => ({ svg }) });
 
-      return Promise.resolve({ svg, diagramType: "flowchart-v2" });
-    },
+describe("Pele draws a diagram, or the fence shows as code", () => {
+  test.each([
+    "flowchart LR\n A[Start] --> B{Ok?}",
+    "sequenceDiagram\n participant A\n A->>B: hi",
+    "classDiagram\n class Animal",
+    "stateDiagram-v2\n [*] --> Idle",
+    "erDiagram\n A ||--o{ B : has",
+    "mindmap\n  root\n    child",
+  ])("an ordinary diagram draws: %s", (source) => {
+    expect(guardedDiagrams(pele).render(closed(source))).toContain("<svg");
   });
 
-  return { renders, render: (source: string) => plugin.getMermaid().render("d", source) };
-};
+  test.each([
+    ["a broken edge", "flowchart LR\n A -->"],
+    ["no diagram type", "not a diagram at all"],
+  ])("%s shows the code", (_, source) => {
+    expect(guardedDiagrams(pele).render(closed(source))).toBeNull();
+  });
 
-describe("a diagram's parsed nodes never ask for an image", () => {
   test.each([
     ["an image node", `flowchart LR\n A@{ img: "${PIXEL}" }`],
-    ["a YAML-escaped image key", `flowchart LR\n A@{ "\\x69mg": "${PIXEL}" }`],
-    ["an icon node", 'flowchart LR\n A@{ icon: "fa:user" }'],
-    ["a participant icon", 'sequenceDiagram\n participant A\n properties A: {"icon": "shot.png"}'],
+    ["a click link", 'flowchart LR\n A --> B\n click A "https://example.com"'],
     ["a directive", '%%{init: {"htmlLabels": true}}%%\nflowchart LR\n A --> B'],
-    ["front matter", "---\nconfig:\n  htmlLabels: true\n---\nflowchart LR\n A --> B"],
-  ])("%s is refused before Mermaid renders", async (_, source) => {
-    const { renders, render } = engine();
+  ])("%s draws nothing that loads or links", (_, source) => {
+    const html = guardedDiagrams(pele).render(closed(source)) ?? "";
 
-    await assert.rejects(render(source), /Diagram not shown/);
-    await render("flowchart LR\n A --> B");
-    expect(renders).toEqual(["flowchart LR\n A --> B"]);
+    expect(html).not.toMatch(/<image|<img|<a[\s>]|href=|<foreignObject/i);
   });
 });
 
-test.each([
-  "flowchart LR\n A[Start] --> B{Ok?}",
-  "sequenceDiagram\n participant A\n A->>B: hi",
-  "classDiagram\n class Animal",
-  "stateDiagram-v2\n [*] --> Idle",
-  "erDiagram\n A ||--o{ B : has",
-  "mindmap\n  root\n    child",
-  "architecture-beta\n  service db(database)[DB]",
-])("an ordinary diagram reaches Mermaid: %s", async (source) => {
-  const { renders, render } = engine();
+// No double quote: it would end a quoted label, and the fence would show as code instead.
+const HOSTILE = "<img src=x onerror=alert(1)><script>alert(2)</script><svg onload=alert(3)>";
 
-  await render(source);
-  expect(renders).toEqual([source]);
+/** Every element and attribute a diagram holds, parsed as the page would (inert). */
+const parts = (html: string) => {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  const elements = [...template.content.querySelectorAll("*")];
+
+  return {
+    tags: elements.map((element) => element.tagName.toLowerCase()),
+    attributes: elements.flatMap((element) => element.getAttributeNames()),
+    text: template.content.textContent ?? "",
+  };
+};
+
+// Pele's SVG skips the hast sanitizer (trustedHtml); its escaping is what keeps labels inert.
+// Re-run these on every Pele upgrade (ADR 0115).
+describe("hostile labels draw as text, never as markup", () => {
+  test.each([
+    ["a flowchart node", `flowchart LR\n A["${HOSTILE}"] --> B`],
+    ["a flowchart edge", `flowchart LR\n A -->|"${HOSTILE}"| B`],
+    ["a sequence message", `sequenceDiagram\n A->>B: ${HOSTILE}`],
+    ["a state", `stateDiagram-v2\n s1 : ${HOSTILE}`],
+    ["a mindmap node", `mindmap\n  root(("${HOSTILE}"))`],
+  ])("%s", (_, source) => {
+    const html = guardedDiagrams(pele).render(closed(source));
+
+    expect(html).not.toBeNull();
+    const { tags, attributes, text } = parts(html ?? "");
+
+    expect(tags).not.toContain("script");
+    expect(tags).not.toContain("img");
+    expect(tags.filter((tag) => tag === "svg")).toHaveLength(1);
+    expect(attributes.filter((name) => name.startsWith("on"))).toEqual([]);
+    expect(text).toContain("alert(2)");
+  });
 });
 
 describe("a rendered diagram that would load a resource is not shown", () => {
@@ -69,29 +92,17 @@ describe("a rendered diagram that would load a resource is not shown", () => {
     ["an escaped style URL", `<style>svg { background: \\75 rl(${PIXEL}) }</style>`],
     ["an attribute paint", `<rect fill="url('${PIXEL}')"/>`],
     ["an external use", `<use href="${PIXEL}"/>`],
-  ])("%s", async (_, body) => {
-    await assert.rejects(engine(SVG(body)).render("flowchart LR\n A --> B"), /Diagram not shown/);
+    ["an event handler", '<rect onclick="alert(1)"/>'],
+    ["a link", '<a href="https://example.com"><text>x</text></a>'],
+  ])("%s", (_, body) => {
+    expect(fake(SVG(body)).render(closed("flowchart LR\n A --> B"))).toBeNull();
   });
 
-  test("markers and links within the document still render", async () => {
+  test("markers and links within the document still render", () => {
     const svg = SVG(
       '<defs><marker id="arrow"/></defs><path style="marker-end:url(#arrow)"/><use href="#arrow"/>'
     );
 
-    expect(await engine(svg).render("flowchart LR\n A --> B")).toEqual({ svg });
+    expect(fake(svg).render(closed("flowchart LR\n A --> B"))).toContain('<marker id="arrow"/>');
   });
-});
-
-test("the plugin every Markdown view loads is the guarded one", async () => {
-  const { result } = renderHook(() => usePlugins({ code: false, mermaid: true, math: false }));
-
-  await waitFor(() => expect(result.current.mermaid).not.toBeUndefined(), { timeout: 10_000 });
-  const plugin = result.current.mermaid;
-
-  assert(plugin !== undefined);
-
-  await assert.rejects(
-    plugin.getMermaid().render("hover", `flowchart LR\n A@{ "\\x69mg": "${PIXEL}" }`),
-    /Diagram not shown/
-  );
 });

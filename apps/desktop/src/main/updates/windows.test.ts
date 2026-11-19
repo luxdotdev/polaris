@@ -1,10 +1,18 @@
 import { expect, test } from "bun:test";
-import { EventEmitter } from "node:events";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
-import type { FeedURLOptions } from "electron";
 import { cannotInstallHere } from "./identity.ts";
-import { createAppUpdates, versionFromAsset, versionFromNuget, type UpdateInput } from "./index.ts";
-import { revealAppPath, updateFeed, updatePlatform, windowsAppId } from "./platform.ts";
+import { UPDATE_BASE_URL, versionFromAsset, versionFromNuget } from "./index.ts";
+import { revealAppPath, updatePlatform, windowsAppId } from "./platform.ts";
+import {
+  bytesOf,
+  FakeSquirrel,
+  fixture,
+  serveAsset,
+  until,
+  type Asset,
+} from "./updates.testing.ts";
+import { verifyWindowsUpdate } from "./verify.ts";
 import { handleSquirrelStartup, repairSquirrelFirstRun, squirrelCommand } from "./squirrel.ts";
 
 const exe = "C:\\Users\\me\\AppData\\Local\\Polaris-arm64-win\\app-1.2.3\\Polaris.exe";
@@ -79,120 +87,135 @@ test("installed Squirrel layout permits updates; unpacked and zip layouts are bl
   expect(windowsAppId("arm64")).toBe("com.squirrel.Polaris-arm64-win.Polaris");
 });
 
-class Updater extends EventEmitter {
-  getFeedURL() {
-    return this.feed?.url ?? "";
-  }
-  feed: FeedURLOptions | null = null;
-  checks = 0;
-  installs = 0;
-  setFeedURL(feed: FeedURLOptions) {
-    this.feed = feed;
-  }
-  checkForUpdates() {
-    this.checks++;
-  }
-  quitAndInstall() {
-    this.installs++;
-  }
-}
+const RELEASES = (arch: string) => `${UPDATE_BASE_URL}/api/update/win32-${arch}/1.2.2/RELEASES`;
 
-const fixture = (patch: Partial<UpdateInput> = {}) => {
-  const native = new Updater();
-  const requests: Array<{ url: string; init: RequestInit }> = [];
-  const pending = new Set<() => void>();
+const nupkg = (arch: string) =>
+  `https://github.com/luxdotdev/polaris/releases/download/v1.2.3/Polaris-${arch}-win-1.2.3-full.nupkg`;
 
-  const updates = createAppUpdates({
-    native,
-    platform: "win32",
-    arch: "arm64",
-    osVersion: "10.0.26100",
-    version: "1.2.2",
-    installId: "58baf1dc-3772-4353-86b3-3a8a49219521",
-    supported: true,
-    blocked: false,
-    automatic: true,
-    lastCheckedAt: null,
-    save() {},
-    publish() {},
-    fetch: async (url, init) => {
-      requests.push({ url, init });
+const sha1 = (bytes: Uint8Array) => createHash("sha1").update(bytes).digest("hex");
 
-      return new Response("fake RELEASES");
+/** The site's RELEASES for 1.2.3, and GitHub serving the package it names. */
+const offering =
+  (arch: string, asset: Asset, hash = sha1(asset.bytes)) =>
+  (url: string, init: RequestInit) => {
+    if (url === RELEASES(arch))
+      return Promise.resolve(new Response(`${hash} ${asset.url} ${asset.bytes.length}`));
+
+    if (url === asset.url) return Promise.resolve(serveAsset(asset, init));
+
+    return Promise.reject(new Error("unexpected outbound request"));
+  };
+
+const windows = (patch: Parameters<typeof fixture>[0] = {}, native?: FakeSquirrel) =>
+  fixture(
+    {
+      platform: "win32",
+      arch: "arm64",
+      osVersion: "10.0.26100",
+      version: "1.2.2",
+      // The real Windows check: the size and SHA-1 from RELEASES.
+      verify: verifyWindowsUpdate,
+      ...patch,
     },
-    schedule: (run) => {
-      pending.add(run);
+    native ?? new FakeSquirrel("win32")
+  );
 
-      return () => {
-        pending.delete(run);
-      };
-    },
-    ...patch,
+test.each(["x64", "arm64"])(
+  "%s: the preflight carries the headers; Squirrel gets RELEASES and the package from loopback",
+  async (arch) => {
+    const asset: Asset = { url: nupkg(arch), bytes: bytesOf(6000) };
+    const f = windows({ arch, internet: offering(arch, asset) });
+
+    f.updates.start();
+    await f.settled();
+    await f.native.done;
+    expect(f.requests.map((r) => r.url)).toEqual([RELEASES(arch), asset.url]);
+    expect(f.requests[0]?.headers.get("X-Polaris-Windows-Version")).toBe("10.0.26100");
+    expect(f.requests[0]?.headers.get("X-Polaris-Install-ID")).toBe(f.updates.get().installId);
+    expect(f.requests[0]?.headers.has("X-Polaris-macOS-Version")).toBe(false);
+    expect(f.updates.get()).toMatchObject({ platform: "win32", osVersion: "10.0.26100" });
+    expect(f.views.find((view) => view.download !== null)?.download).toEqual({
+      version: "1.2.3",
+      receivedBytes: 0,
+      totalBytes: 6000,
+    });
+
+    // Squirrel asked 127.0.0.1 for RELEASES, then for the package named beside it.
+    expect(f.native.feed?.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/[0-9a-f]{48}$/);
+    expect(f.native.asked.map((url) => url.replace(f.native.feed?.url ?? "", ""))).toEqual([
+      "/RELEASES?id=Polaris&localVersion=1.2.2",
+      `/Polaris-${arch}-win-1.2.3-full.nupkg`,
+    ]);
+    expect(f.native.received).toEqual(asset.bytes);
+    expect(f.updates.get()).toMatchObject({ phase: "ready", readyVersion: "1.2.3" });
+    f.updates.install();
+    expect(f.native.installs).toBe(1);
+    f.cleanup();
+  }
+);
+
+test("a package whose SHA-1 or size differs from RELEASES never reaches Squirrel", async () => {
+  const asset: Asset = { url: nupkg("arm64"), bytes: bytesOf(6000) };
+  const f = windows({ internet: offering("arm64", asset, "0".repeat(40)) });
+
+  await f.checked();
+  expect(f.updates.get()).toMatchObject({
+    phase: "failed",
+    failure: { stage: "verify", version: "1.2.3" },
   });
-
-  return { updates, native, requests, pending };
-};
-
-test.each(["x64", "arm64"])("%s update feed and Windows native version metadata", async (arch) => {
-  const { updates, native, requests } = fixture({ arch });
-  updates.start();
-  updates.check();
-  await Promise.resolve();
-  expect(native.checks).toBe(1);
-  expect(native.feed?.url).toBe(updateFeed("https://polaris.lux.dev", "win32", arch, "1.2.2"));
-  expect(requests).toHaveLength(1);
-  expect(requests[0]?.url).toBe(`${native.feed?.url}/RELEASES`);
-  const headers = new Headers(requests[0]?.init.headers);
-  expect(headers.get("X-Polaris-Windows-Version")).toBe("10.0.26100");
-  expect(headers.get("X-Polaris-Install-ID")).toBe(updates.get().installId);
-  expect(headers.has("X-Polaris-macOS-Version")).toBe(false);
-  expect(updates.get()).toMatchObject({ platform: "win32", osVersion: "10.0.26100" });
-  expect("macOSVersion" in updates.get()).toBe(false);
-  native.emit("update-downloaded", {}, "notes", "1.2.3", new Date(), native.feed?.url);
-  expect(updates.get().availableVersion).toBe("1.2.3");
-  updates.install();
-  expect(native.installs).toBe(1);
-  updates.dispose();
+  expect(f.native.checks).toBe(0);
+  f.cleanup();
 });
 
 test("first launch avoids Squirrel's file lock, opt-out manual check omits identity", async () => {
-  const { updates, native, requests, pending } = fixture({ firstRun: true });
-  updates.start();
-  expect(requests).toHaveLength(0);
-  expect(pending.size).toBe(1);
-  updates.setAutomatic(false);
-  updates.check();
-  await Promise.resolve();
-  expect(new Headers(requests[0]?.init.headers).has("X-Polaris-Install-ID")).toBe(false);
-  expect(native.checks).toBe(1);
-  expect(pending.size).toBe(0);
-  updates.dispose();
+  const f = windows({ firstRun: true });
+  f.updates.start();
+  expect(f.requests).toHaveLength(0);
+  expect(f.pending.size).toBe(1);
+  f.updates.setAutomatic(false);
+  await f.checked();
+  expect(f.requests[0]?.headers.has("X-Polaris-Install-ID")).toBe(false);
+  expect(f.pending.size).toBe(0);
+  f.cleanup();
 });
 
 test("preflight current/failure and disposal never trigger a native download", async () => {
-  for (const status of [204, 503]) {
-    const { updates, native } = fixture({ fetch: async () => new Response(null, { status }) });
-    updates.check();
-    await Promise.resolve();
-    expect(updates.get().phase).toBe(status === 204 ? "current" : "failed");
-    expect(native.checks).toBe(0);
-    updates.dispose();
+  const answers: ReadonlyArray<readonly [Response, "current" | "failed"]> = [
+    [new Response(null, { status: 204 }), "current"],
+    [new Response(null, { status: 503 }), "failed"],
+    [new Response("not a RELEASES line"), "failed"],
+    [
+      new Response(`${"a".repeat(40)} ${nupkg("arm64")} 10
+${"b".repeat(40)} ${nupkg("x64")} 10`),
+      "failed",
+    ],
+  ];
+
+  for (const [response, phase] of answers) {
+    const f = windows({ internet: () => Promise.resolve(response) });
+    await f.checked();
+    expect(f.updates.get().phase).toBe(phase);
+    expect(f.requests).toHaveLength(1);
+    expect(f.native.checks).toBe(0);
+    f.cleanup();
   }
 
   let respond: (response: Response) => void = () => {};
 
-  const { updates, native } = fixture({
-    fetch: () =>
+  const f = windows({
+    internet: () =>
       new Promise((resolve) => {
         respond = resolve;
       }),
   });
 
-  updates.check();
-  updates.dispose();
-  respond(new Response("fake RELEASES"));
-  await Promise.resolve();
-  expect(native.checks).toBe(0);
+  f.updates.check();
+  f.updates.dispose();
+  respond(new Response(`${"a".repeat(40)} ${nupkg("arm64")} 10`));
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(f.requests).toHaveLength(1);
+  expect(f.native.checks).toBe(0);
+  f.cleanup();
 });
 
 test("platform support and Windows asset versions exclude other builds", () => {
@@ -218,4 +241,64 @@ test("prerelease assets and NuGet names map back to the release's semver", () =>
   expect(versionFromNuget("0.1.0-alpha1")).toBe("0.1.0-alpha.1");
   expect(versionFromNuget("0.1.0")).toBe("0.1.0");
   expect(versionFromNuget("0.1.0-alpha01")).toBeNull();
+});
+
+/** Squirrel.Windows holding its report back past the timeout, on a 1.2.3 it has fully read. */
+const quietWindows = async () => {
+  const native = new FakeSquirrel("win32");
+  let release = () => {};
+
+  native.hold = new Promise((resolve) => {
+    release = resolve;
+  });
+  // Squirrel.Windows names nothing it finishes.
+  native.claims = "";
+  const asset: Asset = { url: nupkg("arm64"), bytes: bytesOf(6000) };
+  const f = windows({ handoverTimeoutMs: 40, internet: offering("arm64", asset) }, native);
+
+  await f.checked();
+
+  return { f, native, release };
+};
+
+test("Windows: a Squirrel that went quiet gets no second operation; About asks for a restart", async () => {
+  const { f, native, release } = await quietWindows();
+
+  expect(f.updates.get()).toMatchObject({
+    phase: "failed",
+    failure: { stage: "install", version: "1.2.3" },
+    readyVersion: null,
+  });
+
+  // Long past the timeout a retry still starts nothing: its completion could not be told apart.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  const asked = f.requests.length;
+
+  f.updates.check();
+  expect(f.updates.get().phase).toBe("failed");
+  expect(f.requests).toHaveLength(asked);
+  expect(native.checks).toBe(1);
+
+  // Its unnamed completion can only be that one operation's: 1.2.3 is ready after all.
+  release();
+  await until(() => f.updates.get().phase === "ready");
+  expect(f.updates.get()).toMatchObject({ readyVersion: "1.2.3", failure: null });
+  f.cleanup();
+});
+
+test("Windows: once the quiet operation fails for good, the next check hands over again", async () => {
+  const { f, native } = await quietWindows();
+
+  native.emit("error", new Error("Squirrel gave up"));
+  expect(f.updates.get()).toMatchObject({
+    phase: "failed",
+    failure: { stage: "verify", version: "1.2.3" },
+  });
+
+  native.hold = null;
+  await f.checked();
+  await until(() => f.updates.get().phase === "ready");
+  expect(native.checks).toBe(2);
+  expect(f.updates.get().readyVersion).toBe("1.2.3");
+  f.cleanup();
 });

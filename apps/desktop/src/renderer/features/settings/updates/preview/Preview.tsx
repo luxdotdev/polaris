@@ -47,13 +47,30 @@ const developerModes = (dev: boolean) => ({
   pi: developerMode(false, dev ? 1 : 0, null),
 });
 
+const MB = 1_000_000;
+
+/** Paper U1's figures: 48 of 131 MB. */
+const DOWNLOAD = { version: "0.5.0", receivedBytes: 48 * MB, totalBytes: 131 * MB };
+
+/** `#updates/failed-download` and `#updates/failed-verify`: the two ways a download fails. */
+const FAILURES = new Map<string, AppUpdateView["failure"]>([
+  ["failed", { stage: "check", version: null, percent: null }],
+  ["failed-download", { stage: "download", version: "0.5.0", percent: 61 }],
+  ["failed-verify", { stage: "verify", version: "0.5.0", percent: null }],
+  ["failed-install", { stage: "install", version: "0.5.0", percent: null }],
+]);
+
 const fixtureBridge = (hash: string): PolarisApi => {
   const scene = hash.replace(/^#updates\//, "");
+  const failure = FAILURES.get(scene) ?? null;
 
   let view: AppUpdateView = {
-    phase: PHASES.find((phase) => phase === scene) ?? "idle",
+    phase: failure === null ? (PHASES.find((phase) => phase === scene) ?? "idle") : "failed",
     version: "0.4.0",
-    availableVersion: scene === "ready" ? "0.5.0" : null,
+    availableVersion: ["ready", "downloading"].includes(scene) ? "0.5.0" : null,
+    readyVersion: scene === "ready" ? "0.5.0" : null,
+    download: scene === "downloading" ? DOWNLOAD : null,
+    failure,
     automatic: scene !== "off",
     lastCheckedAt: Date.now() - 2 * 60 * 60_000,
     installId: "58baf1dc-3772-4353-86b3-3a8a49219521",
@@ -83,19 +100,37 @@ const fixtureBridge = (hash: string): PolarisApi => {
           value = view;
           break;
         case "updates.check":
-          publish({ phase: "checking" });
-          setTimeout(() => publish({ phase: "downloading" }), 250);
+          publish({ phase: "checking", failure: null });
+
+          // A fake download in ten steps, so the bar can be watched moving.
+          for (let step = 0; step <= 10; step++)
+            setTimeout(
+              () =>
+                publish({
+                  phase: "downloading",
+                  availableVersion: "0.5.0",
+                  download: { ...DOWNLOAD, receivedBytes: step * 13.1 * MB },
+                }),
+              250 + step * 300
+            );
           setTimeout(
-            () => publish({ phase: "ready", availableVersion: "0.5.0", lastCheckedAt: Date.now() }),
-            500
+            () =>
+              publish({
+                phase: "ready",
+                readyVersion: "0.5.0",
+                download: null,
+                lastCheckedAt: Date.now(),
+              }),
+            3800
           );
           value = view;
           break;
         case "updates.restart":
           publish({
             phase: "current",
-            version: view.availableVersion ?? view.version,
+            version: view.readyVersion ?? view.version,
             availableVersion: null,
+            readyVersion: null,
           });
           break;
         case "updates.showInFinder":

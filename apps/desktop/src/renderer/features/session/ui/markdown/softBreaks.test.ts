@@ -3,10 +3,9 @@ import { type Node, rehypeSoftBreaks } from "./softBreaks.ts";
 
 const text = (value: string): Node => ({ type: "text", value });
 
-const el = (tagName: string, children: Array<Node>, className?: Array<string>): Node => ({
+const el = (tagName: string, children: Array<Node>): Node => ({
   type: "element",
   tagName,
-  properties: className === undefined ? {} : { className },
   children,
 });
 
@@ -32,10 +31,10 @@ describe("soft breaks in Markdown", () => {
     expect(childPieces(p)).toEqual([64, "wbr", 64, "wbr", 2]);
   });
 
-  test("code blocks and KaTeX are left alone", () => {
+  test("code blocks and math are left alone", () => {
     const long = "y".repeat(130);
     const pre = el("pre", [el("code", [text(long)])]);
-    const math = el("span", [text(long)], ["katex"]);
+    const math = el("svg", [el("text", [text(long)])]);
 
     expect(run({ type: "root", children: [pre, math] })).toEqual({
       type: "root",

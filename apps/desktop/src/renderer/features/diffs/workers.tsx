@@ -27,13 +27,18 @@ const highlighterOptions = {
 export interface DiffWorkersProps {
   readonly children: ReactNode;
   readonly poolSize?: number;
+  /** Makes each worker; tests pass one that fails. */
+  readonly workerFactory?: () => Worker;
 }
 
-export const DiffWorkers = ({ children, poolSize = POOL_SIZE }: DiffWorkersProps) => {
-  const poolOptions = useMemo(
-    () => ({ workerFactory: () => new PierreWorker(), poolSize }),
-    [poolSize]
-  );
+const pierreWorker = () => new PierreWorker();
+
+export const DiffWorkers = ({
+  children,
+  poolSize = POOL_SIZE,
+  workerFactory = pierreWorker,
+}: DiffWorkersProps) => {
+  const poolOptions = useMemo(() => ({ workerFactory, poolSize }), [workerFactory, poolSize]);
 
   return (
     <WorkerPoolContextProvider poolOptions={poolOptions} highlighterOptions={highlighterOptions}>

@@ -1,7 +1,7 @@
 /**
- * Review Markdown on top of Streamdown's GFM: GitHub alerts (`> [!WARNING]`), `diff` blocks
+ * Review Markdown on top of Words' GFM: GitHub alerts (`> [!WARNING]`), `diff` blocks
  * drawn like the diff viewer, long tables folded, and paths and findings as links into
- * Changes. A rehype step after sanitizing, so it only reshapes what is already safe.
+ * Changes. A hast step after sanitizing, so it only reshapes what is already safe.
  */
 
 interface Text {

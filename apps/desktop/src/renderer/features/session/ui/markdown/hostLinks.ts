@@ -1,5 +1,5 @@
 /**
- * Rehype steps that mark Markdown links naming a path (absolute, `~/…`, `file://`, or relative to
+ * Hast steps that mark Markdown links naming a path (absolute, `~/…`, `file://`, or relative to
  * the session's directory) so the `a` component opens them on the session's Host: an image in the
  * viewer, any other file in the editor. URLs are left as they were. See `HostLink.tsx`.
  */
@@ -14,7 +14,7 @@ import {
 } from "./hostImages.ts";
 import type { Node } from "./softBreaks.ts";
 
-/** What a marked link's `href` becomes, so the hardening step lets it through untouched. */
+/** What a marked link's `href` becomes, a value no URL can take. */
 export const HOST_LINK_HREF = "polaris-host:link";
 
 const HostLinkMark = Schema.Struct({
@@ -46,7 +46,7 @@ export const rehypeFileHrefs =
       if (path !== null && link.properties !== undefined) link.properties["href"] = path;
     });
 
-/** After sanitizing, before hardening (which would send a path to the window as a URL). */
+/** After sanitizing: marks Host links. */
 export const rehypeHostLinks =
   ({ windows }: HostPaths) =>
   (tree: Node) =>

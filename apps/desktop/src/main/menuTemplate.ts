@@ -8,7 +8,7 @@ import type { AppEvent, Appearance, Density, ThemeSource } from "../shared/api.t
 import { isBare, keyPlatformOf, parseChord } from "../shared/chord.ts";
 import { keymapFor, type MenuName } from "../shared/keymap.ts";
 import { WORD_WRAP } from "../shared/keymapView.ts";
-import type { AppUpdateView } from "../shared/appUpdates.ts";
+import { downloadLine, type AppUpdateView } from "../shared/appUpdates.ts";
 import type { ClientPlatform } from "../shared/platform.ts";
 
 export interface MenuInput {
@@ -87,20 +87,22 @@ const devTools: MenuItemConstructorOptions = {
   label: "Toggle developer tools",
 };
 
+/** Restart once an Update is staged; a download's progress as a line, since a menu has no bar. */
 export const updateMenuItem = (
   input: Pick<MenuInput, "updates" | "checkUpdates" | "restartToUpdate">
 ): MenuItemConstructorOptions => {
-  const ready = input.updates.phase === "ready";
+  const { readyVersion, download, phase, supported } = input.updates;
+
+  if (readyVersion !== null)
+    return { label: `Restart to update to ${readyVersion}`, click: input.restartToUpdate };
+
+  if (phase === "downloading" && download !== null)
+    return { label: downloadLine(download), enabled: false };
 
   return {
-    label: ready
-      ? `Restart to update${input.updates.availableVersion === null ? "" : ` to ${input.updates.availableVersion}`}`
-      : "Check for updates…",
-    enabled:
-      ready ||
-      (input.updates.supported &&
-        !["checking", "downloading", "blocked"].includes(input.updates.phase)),
-    click: ready ? input.restartToUpdate : input.checkUpdates,
+    label: "Check for updates…",
+    enabled: supported && !["checking", "downloading", "blocked"].includes(phase),
+    click: input.checkUpdates,
   };
 };
 
@@ -124,7 +126,10 @@ const appMenu = (input: TemplateInput): MenuItemConstructorOptions => ({
     { role: "hideOthers" },
     { role: "unhide" },
     { type: "separator" },
-    { role: "quit", label: input.updates.phase === "ready" ? "Quit and update" : "Quit Polaris" },
+    {
+      role: "quit",
+      label: input.updates.readyVersion !== null ? "Quit and update" : "Quit Polaris",
+    },
   ],
 });
 
@@ -215,7 +220,7 @@ const windowsTemplate = (input: TemplateInput): Items => [
       { type: "separator" },
       ...commandItems("App", input),
       { type: "separator" },
-      { role: "quit", label: input.updates.phase === "ready" ? "Exit and update" : "Exit" },
+      { role: "quit", label: input.updates.readyVersion !== null ? "Exit and update" : "Exit" },
     ],
   },
   { role: "editMenu", label: "&Edit" },

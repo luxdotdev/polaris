@@ -187,7 +187,7 @@ test.each([
   expect(status.textContent).toBe(`Shell mode strip · ${reason}`);
 });
 
-test("an https image is Streamdown's own, never read from the Host", async () => {
+test("an https image is an ordinary image, never read from the Host", async () => {
   const bridge = installFakeBridge();
   const view = render(message("![badge](https://example.com/badge.png)", freshHost()));
 
