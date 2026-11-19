@@ -31,7 +31,9 @@ export const commandChangeFields = (found: CommandChanges | undefined) => {
 export class CommandChangeJoin<Completed> {
   private readonly tracked = new Set<string>();
   private readonly early = new Map<string, CommandChanges>();
-  private readonly completed = new Map<string, Completed>();
+  private completed = new Map<string, Completed>();
+  /** Calls of the Turn that ended last, completed and still waiting for their changes. */
+  private late = new Map<string, Completed>();
 
   /** The call's working tree is being snapshotted: its changes will follow. */
   track(id: string): void {
@@ -51,8 +53,9 @@ export class CommandChangeJoin<Completed> {
 
   /** The call's changes arrived: the completed call to send again with them, when it was first. */
   onChanges(id: string, changes: CommandChanges | null): Completed | null {
-    const completed = this.completed.get(id) ?? null;
+    const completed = this.completed.get(id) ?? this.late.get(id) ?? null;
     this.completed.delete(id);
+    this.late.delete(id);
 
     if (completed !== null)
       return changes === null || changes.changes.length === 0 ? null : completed;
@@ -65,11 +68,15 @@ export class CommandChangeJoin<Completed> {
     return null;
   }
 
-  /** The Turn ended: whatever was still waiting is dropped. */
-  clear(): void {
+  /**
+   * The Turn ended. A call that completed keeps waiting for its changes, until the next Turn
+   * ends; one that never completed is dropped.
+   */
+  endTurn(): void {
     this.tracked.clear();
     this.early.clear();
-    this.completed.clear();
+    this.late = this.completed;
+    this.completed = new Map();
   }
 }
 
@@ -80,7 +87,10 @@ const BashInput = Schema.Struct({
 
 const decodeBash = Schema.decodeUnknownOption(BashInput);
 
-/** How long the next model call waits for a command's changes; they still land when later. */
+/**
+ * How long the next model call waits for a command's changes. Later ones still land, on a
+ * Turn that has ended too: the call completes again with them.
+ */
 const AFTER_WAIT_MS = 2_000;
 
 const within = <A>(work: Promise<A>, ms: number): Promise<void> =>
@@ -97,6 +107,8 @@ const within = <A>(work: Promise<A>, ms: number): Promise<void> =>
 interface CommandItems {
   readonly trackCommand: (id: string) => void;
   readonly onCommandChanges: (id: string, changes: CommandChanges | null) => Array<HarnessEvent>;
+  /** Aborts when the Turn in flight is interrupted or fails: its snapshots end with it. */
+  readonly commandSignal: () => AbortSignal;
 }
 
 /**
@@ -117,7 +129,7 @@ export const applyCommandChangeHooks = (
   const deliver = (id: string, changes: CommandChanges | null) =>
     emit(items.onCommandChanges(id, changes));
 
-  const before: HookCallback = async (input) => {
+  const before: HookCallback = async (input, _id, hook) => {
     if (input.hook_event_name !== "PreToolUse") return {};
     const bash = Option.getOrNull(decodeBash(input.tool_input));
 
@@ -126,28 +138,35 @@ export const applyCommandChangeHooks = (
 
     items.trackCommand(input.tool_use_id);
 
-    await snapshots.started(input.tool_use_id, {
-      cwd: session.cwd,
-      sessionId: session.sessionId,
-      turnId: currentTurn(),
-    });
+    const scope = { cwd: session.cwd, sessionId: session.sessionId, turnId: currentTurn() };
+    const signal = AbortSignal.any([hook.signal, items.commandSignal()]);
+    await snapshots.started(input.tool_use_id, scope, signal);
 
     return {};
   };
 
-  const after: HookCallback = async (input) => {
+  const after: HookCallback = async (input, _id, hook) => {
     if (input.hook_event_name !== "PostToolUse" && input.hook_event_name !== "PostToolUseFailure")
       return {};
     const id = input.tool_use_id;
     // On a tree too large to snapshot quickly, the names follow without holding the Turn.
     const wait = snapshots.isPrecise(id) ? AFTER_WAIT_MS : 0;
 
-    const delivered = snapshots.ended(id).then(
+    // The hook's own signal counts only while Claude Code still waits for the hook.
+    const waiting = new AbortController();
+    const cancel = () => waiting.abort();
+    hook.signal.addEventListener("abort", cancel, { once: true });
+
+    if (hook.signal.aborted) cancel();
+    const signal = AbortSignal.any([waiting.signal, items.commandSignal()]);
+
+    const delivered = snapshots.ended(id, signal).then(
       (changes) => deliver(id, changes),
       () => deliver(id, null)
     );
 
     if (wait > 0) await within(delivered, wait);
+    hook.signal.removeEventListener("abort", cancel);
 
     return {};
   };

@@ -254,6 +254,7 @@ export class ClaudeTranslator {
   private readonly replies = new ReplyTimer<Reply>();
   private readonly fileStreams = new FileToolStreams();
   private readonly commandChanges = new CommandChangeJoin<{ scope: Scope; call: ToolCall }>();
+  private commandTurn = new AbortController();
 
   constructor(
     private readonly cwd: string,
@@ -308,9 +309,15 @@ export class ClaudeTranslator {
     return Date.parse(this.now());
   }
 
-  endTurn(): void {
+  endTurn(status: "completed" | "interrupted" | "failed" = "completed"): void {
     this.turnId = null;
-    this.commandChanges.clear();
+    this.commandChanges.endTurn();
+
+    if (status !== "completed") {
+      this.commandTurn.abort();
+      this.commandTurn = new AbortController();
+    }
+
     this.streamMessageIds.delete("");
 
     // A background Subagent may still be delivering blocks.
@@ -703,11 +710,16 @@ export class ClaudeTranslator {
     this.commandChanges.track(id);
   }
 
-  /** A Bash call's changes, read after its result: the call completes again, with them. */
+  /** Aborts when the Turn in flight is interrupted or fails. */
+  commandSignal(): AbortSignal {
+    return this.commandTurn.signal;
+  }
+
+  /** A Bash call's changes, read after its result: the call completes again, with them, in its own Turn. */
   onCommandChanges(id: string, changes: CommandChanges | null): HarnessEvent[] {
     const done = this.commandChanges.onChanges(id, changes);
 
-    if (done === null || changes === null || done.scope.turnId !== this.turnId) return [];
+    if (done === null || changes === null) return [];
 
     return [ItemCompleted({ ...scoped(done.scope), item: toolItem({ ...done.call, changes }) })];
   }

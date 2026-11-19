@@ -3,13 +3,26 @@ import { CommandChangeJoin } from "./commandChanges.ts";
 
 const changes = { changes: [{ path: "/w/a.ts", kind: "modify" as const }], more: 0 };
 
-test("changes read after the Turn ended are dropped with the Turn", () => {
+test("a completed call waits for its changes through one Turn's end, not through two", () => {
   const join = new CommandChangeJoin<string>();
-  join.track("call");
+  join.track("late");
+  join.track("lost");
+  join.onResult("late", "late call");
+  join.onResult("lost", "lost call");
+  join.endTurn();
 
-  expect(join.onResult("call", "completed")).toBeUndefined();
-  join.clear();
-  expect(join.onChanges("call", changes)).toBeNull();
+  expect(join.onChanges("late", changes)).toBe("late call");
+  join.endTurn();
+  expect(join.onChanges("lost", changes)).toBeNull();
+});
+
+test("a call the Turn's end found without a result is dropped", () => {
+  const join = new CommandChangeJoin<string>();
+  join.track("open");
+  join.endTurn();
+
+  expect(join.onChanges("open", changes)).toBeNull();
+  expect(join.onResult("open", "completed")).toBeUndefined();
 });
 
 test("a command that changed nothing doesn't complete again", () => {

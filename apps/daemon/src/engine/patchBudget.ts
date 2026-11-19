@@ -15,7 +15,12 @@ const withChanges = (item: Patched, changes: NonNullable<Patched["changes"]>): T
     ? TurnItem.cases.FileChange.make({ ...item, changes })
     : TurnItem.cases.CommandExecution.make({ ...item, changes });
 
+/** Ended Turns remembered, so an item of one that completes late (ADR 0117) opens no budget. */
+const ENDED_KEPT = 256;
+
 export class TurnPatchBudgets {
+  private readonly ended = new Set<string>();
+
   /** What each item of a Turn spent: one that completes again spends anew, not twice. */
   private readonly used = new Map<string, Map<string, number>>();
 
@@ -25,7 +30,9 @@ export class TurnPatchBudgets {
 
     if (item.changes === undefined) return item;
     const spent = this.used.get(turn) ?? new Map<string, number>();
-    this.used.set(turn, spent);
+
+    // An ended Turn's late item is cut against a budget of its own, which isn't kept.
+    if (!this.ended.has(turn)) this.used.set(turn, spent);
     spent.delete(item.id);
     let used = 0;
 
@@ -57,5 +64,8 @@ export class TurnPatchBudgets {
   /** The Turn ended: its budget goes. */
   end(turn: string): void {
     this.used.delete(turn);
+    this.ended.add(turn);
+
+    if (this.ended.size > ENDED_KEPT) this.ended.delete(this.ended.values().next().value!);
   }
 }

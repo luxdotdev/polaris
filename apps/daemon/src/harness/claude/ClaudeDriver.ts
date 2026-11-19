@@ -282,7 +282,7 @@ const openSession = Effect.fnUntraced(function* (
     // Never taken in (an interrupt recalled it): it doesn't show as part of the Turn.
     for (const [uuid, steer] of steers) if (steer.turnId === turn.turnId) steers.delete(uuid);
     emitAll(translator.closeOpenTools(turn.turnId, status === "completed" ? "failed" : "declined"));
-    translator.endTurn();
+    translator.endTurn(status);
     const limit = usageLimit.take();
     emit(
       HarnessEvent.TurnEnded({

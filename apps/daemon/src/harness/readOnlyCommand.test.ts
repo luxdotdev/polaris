@@ -12,6 +12,10 @@ const reads = [
   "cd apps/daemon && git show HEAD --stat",
   "find . -name '*.ts' -newer package.json",
   "sort names.txt | cut -d, -f1",
+  // Quotes are removed as the shell removes them.
+  "'ls'",
+  "grep 'a|b; c && d' notes.txt",
+  'rg "sort -o" docs',
 ];
 
 const writes = [
@@ -28,6 +32,15 @@ const writes = [
   "sort --output=names.txt names.txt",
   "git diff --output=changes.patch",
   "rg --pre ./convert pattern",
+  // A quoted flag is the same flag.
+  "find . -name '*.tmp' '-delete'",
+  "sort '-o' out in",
+  'find . "-exec" rm {} +',
+  "sort -'o' out in",
+  "sort -uo out in",
+  "git diff '--output=changes.patch'",
+  "'rm' -rf build",
+  "ls 'unclosed",
   "git checkout main",
   "git -C other status",
   "git stash",
@@ -37,7 +50,6 @@ const writes = [
   "FOO=1 ls",
   "ls & rm x",
   "cat a\nrm b",
-  "'ls'",
   "bun test",
   "make",
   "ls;",

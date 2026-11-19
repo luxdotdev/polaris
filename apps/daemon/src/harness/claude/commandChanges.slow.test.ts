@@ -74,19 +74,24 @@ interface RunOptions {
   readonly resultFirst?: boolean;
   /** The result reaches the translator after that hook returned, before the changes are read. */
   readonly late?: boolean;
+  /** With `late`: the Turn ends this way before the snapshot after the command is taken. */
+  readonly turnEnds?: "completed" | "interrupted";
 }
 
 /** A session in `repo`: `run` takes one Bash call through the hooks and gives its items. */
 const sessionIn = (repo: string, options: { readonly budgetMs?: number } = {}) => {
   let snapshots = 0;
+  /** While set, snapshots wait for it. */
+  let held: PromiseWithResolvers<void> | null = null;
 
   const tracker = new CommandSnapshots({
     // Patches need the snapshot before the command inside the budget, whatever else runs.
     budgetMs: options.budgetMs ?? 60_000,
-    snapshot: (cwd) => {
+    snapshot: async (cwd, signal) => {
       snapshots++;
+      await held?.promise;
 
-      return snapshotTree(cwd);
+      return snapshotTree(cwd, signal);
     },
   });
 
@@ -108,6 +113,7 @@ const sessionIn = (repo: string, options: { readonly budgetMs?: number } = {}) =
 
         return translator.onCommandChanges(id, changes);
       },
+      commandSignal: () => translator.commandSignal(),
     },
     (completed) => events.push(...completed),
     () => turnId,
@@ -143,10 +149,19 @@ const sessionIn = (repo: string, options: { readonly budgetMs?: number } = {}) =
     await Promise.all([sh(repo, command), how.during?.()]);
 
     if (how.resultFirst === true) events.push(...translator.onMessage(toolResult(id)));
+
+    if (how.turnEnds !== undefined) held = Promise.withResolvers();
     await hooks("PostToolUse", id, input);
 
     // The model's next call isn't held for a large tree's names: they follow the result.
     if (how.late === true) events.push(...translator.onMessage(toolResult(id)));
+
+    if (how.turnEnds !== undefined) {
+      translator.endTurn(how.turnEnds);
+      translator.beginTurn(TurnId.make("t2"));
+      held?.resolve();
+    }
+
     await delivered.get(id)?.promise;
 
     if (how.resultFirst !== true && how.late !== true)
@@ -161,7 +176,11 @@ const sessionIn = (repo: string, options: { readonly budgetMs?: number } = {}) =
     );
   };
 
-  return { run, snapshots: () => snapshots };
+  /** The Turn each completion of a command was sent in. */
+  const turns = () =>
+    events.flatMap((event) => (Predicate.isTagged(event, "ItemCompleted") ? [event.turnId] : []));
+
+  return { run, turns, snapshots: () => snapshots };
 };
 
 const PYTHON_EDIT = `python3 - <<'EOF'
@@ -367,6 +386,39 @@ test.skipIf(!unix)(
     ]);
     // The second command wasn't held for a snapshot before it: only the one after.
     expect(session.snapshots() - taken).toBe(1);
+  },
+  HEAVY_GIT_MS
+);
+
+test.skipIf(!unix)(
+  "a Turn that ends before its last command's snapshot still gets that command's files, in its own Turn",
+  async () => {
+    const repo = await makeRepo({ "README.md": "hello\n" });
+    const session = sessionIn(repo, { budgetMs: 0 });
+    await captureCheckpoint({ cwd: repo, sessionId, turnId, label: "before" });
+
+    const items = await session.run("echo last > last.txt", { late: true, turnEnds: "completed" });
+
+    expect(items.map((item) => item.changes)).toEqual([
+      undefined,
+      [{ path: join(repo, "last.txt"), kind: "add" }],
+    ]);
+    // The next Turn has begun: the command completes again in the Turn it ran in.
+    expect(session.turns()).toEqual([turnId, turnId]);
+  },
+  HEAVY_GIT_MS
+);
+
+test.skipIf(!unix)(
+  "an interrupted Turn ends its commands' snapshots: nothing is added to the command",
+  async () => {
+    const repo = await makeRepo({ "README.md": "hello\n" });
+    const session = sessionIn(repo, { budgetMs: 0 });
+    await captureCheckpoint({ cwd: repo, sessionId, turnId, label: "before" });
+
+    const items = await session.run("echo cut > cut.txt", { late: true, turnEnds: "interrupted" });
+
+    expect(items.map((item) => item.changes)).toEqual([undefined]);
   },
   HEAVY_GIT_MS
 );

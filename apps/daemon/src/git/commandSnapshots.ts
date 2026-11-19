@@ -23,7 +23,11 @@ export interface CommandSnapshotOptions {
   /** A snapshot slower than this stops snapshots of that tree for `retryMs`. */
   readonly offMs?: number;
   readonly retryMs?: number;
-  readonly snapshot?: (cwd: string) => Promise<TreeSnapshot | null>;
+  /** A snapshot not done this long after it was asked for is ended, its git with it. */
+  readonly hardMs?: number;
+  /** Snapshots of one worktree that may run or wait at once; one past them isn't taken. */
+  readonly maxPending?: number;
+  readonly snapshot?: (cwd: string, signal: AbortSignal) => Promise<TreeSnapshot | null>;
   readonly now?: () => number;
 }
 
@@ -33,6 +37,10 @@ export const COMMAND_SNAPSHOT_BUDGET_MS = 400;
 const OFF_MS = 2_500;
 
 const RETRY_MS = 10 * 60_000;
+
+const HARD_MS = 5_000;
+
+const MAX_PENDING = 8;
 
 /** Commands that started and never ended (declined, lost) are forgotten past this many. */
 const MAX_OPEN = 256;
@@ -46,24 +54,37 @@ interface TreeState {
   retryAt: number;
   /** The last tree snapshotted here, and the Turn it was taken in. */
   last: { readonly tree: string; readonly turn: string | null } | null;
+  /** Snapshots asked for and not settled yet. */
+  pending: number;
 }
 
 interface Open {
   readonly scope: CommandScope;
   readonly state: TreeState;
   /** The snapshot before the command; null when none was started. */
-  readonly before: Promise<TreeSnapshot | null> | null;
+  readonly before: Taking | null;
   /** Whether `before` finished before the command was let go. */
   timely: boolean;
 }
 
+/** A snapshot under way: `stop` ends its git, or drops it while it waits its turn. */
+interface Taking {
+  readonly done: Promise<TreeSnapshot | null>;
+  readonly stop: () => void;
+}
+
 const decoder = new TextDecoder();
+
+const REF_TIMEOUT_MS = 10_000;
 
 /** The tree of the Turn's `before` checkpoint; null when there is none (yet). */
 const turnBeforeTree = async (root: string, scope: CommandScope): Promise<string | null> => {
   if (scope.turnId === null) return null;
   const ref = checkpointRef(scope.sessionId, scope.turnId, "before");
-  const found = await runGitRaw(root, ["rev-parse", "--verify", "--quiet", `${ref}^{tree}`]);
+
+  const found = await runGitRaw(root, ["rev-parse", "--verify", "--quiet", `${ref}^{tree}`], {
+    timeoutMs: REF_TIMEOUT_MS,
+  });
 
   return found.code === 0 ? decoder.decode(found.stdout).trim() || null : null;
 };
@@ -75,7 +96,9 @@ export class CommandSnapshots {
   private readonly budgetMs: number;
   private readonly offMs: number;
   private readonly retryMs: number;
-  private readonly snapshot: (cwd: string) => Promise<TreeSnapshot | null>;
+  private readonly hardMs: number;
+  private readonly maxPending: number;
+  private readonly snapshot: (cwd: string, signal: AbortSignal) => Promise<TreeSnapshot | null>;
   private readonly now: () => number;
   private readonly trees = new Map<string, TreeState>();
   private readonly open = new Map<string, Open>();
@@ -84,6 +107,8 @@ export class CommandSnapshots {
     this.budgetMs = options.budgetMs ?? COMMAND_SNAPSHOT_BUDGET_MS;
     this.offMs = options.offMs ?? OFF_MS;
     this.retryMs = options.retryMs ?? RETRY_MS;
+    this.hardMs = options.hardMs ?? HARD_MS;
+    this.maxPending = options.maxPending ?? MAX_PENDING;
     this.snapshot = options.snapshot ?? snapshotTree;
     this.now = options.now ?? Date.now;
   }
@@ -97,7 +122,7 @@ export class CommandSnapshots {
     const known = this.trees.get(cwd);
 
     if (known !== undefined) return known;
-    const state: TreeState = { mode: "patches", retryAt: 0, last: null };
+    const state: TreeState = { mode: "patches", retryAt: 0, last: null, pending: 0 };
     this.trees.set(cwd, state);
 
     return state;
@@ -115,22 +140,53 @@ export class CommandSnapshots {
     }
   }
 
-  private take(state: TreeState, cwd: string): Promise<TreeSnapshot | null> {
-    return this.snapshot(cwd).then(
-      (snapshot) => {
-        this.measure(state, snapshot);
+  private turnOff(state: TreeState): void {
+    state.mode = "off";
+    state.retryAt = this.now() + this.retryMs;
+  }
 
-        return snapshot;
-      },
-      () => null
-    );
+  /**
+   * One snapshot, ended (its git killed) when `signal` aborts, `stop` is called or `hardMs`
+   * pass: a hung git holds no later snapshot of the tree. Null when it failed or was ended.
+   */
+  private take(state: TreeState, cwd: string, signal: AbortSignal | undefined): Taking {
+    if (state.pending >= this.maxPending || signal?.aborted === true)
+      return { done: Promise.resolve(null), stop: () => {} };
+    const stopped = new AbortController();
+    const stop = () => stopped.abort();
+
+    const hard = setTimeout(() => {
+      this.turnOff(state);
+      stop();
+    }, this.hardMs);
+
+    signal?.addEventListener("abort", stop, { once: true });
+    state.pending += 1;
+
+    const done = this.snapshot(cwd, stopped.signal)
+      .then(
+        (snapshot) => {
+          if (!stopped.signal.aborted) this.measure(state, snapshot);
+
+          return stopped.signal.aborted ? null : snapshot;
+        },
+        () => null
+      )
+      .finally(() => {
+        clearTimeout(hard);
+        signal?.removeEventListener("abort", stop);
+        state.pending -= 1;
+      });
+
+    return { done, stop };
   }
 
   /**
    * Before the command runs: resolves once the tree is snapshotted, or after the budget,
-   * whichever is first, so a command never waits longer than that.
+   * whichever is first, so a command never waits longer than that. A snapshot that is late
+   * is ended there: only one that finished in time is compared with.
    */
-  async started(id: string, scope: CommandScope): Promise<void> {
+  async started(id: string, scope: CommandScope, signal?: AbortSignal): Promise<void> {
     const state = this.stateOf(scope.cwd);
 
     if (state.mode === "off") {
@@ -139,7 +195,7 @@ export class CommandSnapshots {
       state.mode = "names";
     }
 
-    if (this.open.size >= MAX_OPEN) this.open.delete(this.open.keys().next().value!);
+    if (this.open.size >= MAX_OPEN) this.forget(this.open.keys().next().value!);
 
     if (state.mode === "names") {
       this.open.set(id, { scope, state, before: null, timely: false });
@@ -147,7 +203,7 @@ export class CommandSnapshots {
       return;
     }
 
-    const before = this.take(state, scope.cwd);
+    const before = this.take(state, scope.cwd, signal);
     const entry: Open = { scope, state, before, timely: false };
     this.open.set(id, entry);
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -156,12 +212,20 @@ export class CommandSnapshots {
       timer = setTimeout(() => resolve("late"), this.budgetMs);
     });
 
-    const first = await Promise.race([before, late]);
+    const first = await Promise.race([before.done, late]);
     clearTimeout(timer);
     entry.timely = first !== "late" && first !== null;
 
-    // The command now runs while the snapshot does: its own changes may be in that tree.
-    if (first === "late" && state.mode === "patches") state.mode = "names";
+    if (first !== "late") return;
+    before.stop();
+
+    if (state.mode === "patches") state.mode = "names";
+  }
+
+  /** The command will not end here (declined, its Turn gone): its snapshot is ended. */
+  forget(id: string): void {
+    this.open.get(id)?.before?.stop();
+    this.open.delete(id);
   }
 
   /** Whether the command's changes come from snapshots of its own: worth a short wait. */
@@ -173,14 +237,14 @@ export class CommandSnapshots {
    * After the command ended: what the working tree gained, lost or had rewritten meanwhile.
    * Null when no snapshots were taken around it, or there is nothing to compare with.
    */
-  async ended(id: string): Promise<TreeChanges | null> {
+  async ended(id: string, signal?: AbortSignal): Promise<TreeChanges | null> {
     const entry = this.open.get(id);
 
     if (entry === undefined) return null;
     this.open.delete(id);
     const { scope, state } = entry;
-    const before = await entry.before;
-    const after = await this.take(state, scope.cwd);
+    const before = entry.timely && entry.before !== null ? await entry.before.done : null;
+    const after = await this.take(state, scope.cwd, signal).done;
 
     if (after === null) return null;
     const turn = turnKey(scope);
@@ -188,7 +252,7 @@ export class CommandSnapshots {
     state.last = { tree: after.tree, turn };
 
     try {
-      if (entry.timely && before !== null)
+      if (before !== null)
         return await treeChanges(after.root, before.tree, after.tree, { patches: true });
 
       // Names from the Turn's own diff: against its last snapshot, else its `before` checkpoint.
