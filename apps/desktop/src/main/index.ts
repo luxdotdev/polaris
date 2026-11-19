@@ -272,7 +272,7 @@ const start = async () => {
     updateSettings((current) => ({ ...current, ...patch }));
 
   const restartToUpdate = () => {
-    if (updates?.get().phase !== "ready") return;
+    if (updates?.get().readyVersion == null) return;
     restartForUpdate = true;
     app.quit();
   };
@@ -285,6 +285,8 @@ const start = async () => {
     platform: process.platform,
     firstRun: process.platform === "win32" && process.argv.includes("--squirrel-firstrun"),
     fetch: internetFetch,
+    pendingDir: join(app.getPath("userData"), "pending-update"),
+    bundle: revealAppPath(process.platform, process.execPath),
     arch: process.arch,
     supported: app.isPackaged && !dev && updatePlatform(process.platform, process.arch) !== null,
     blocked: cannotInstallHere(
@@ -801,7 +803,7 @@ const cleanUpAndQuit = () => {
     predictionOutcomes?.close(),
     hostAddresses?.dispose(),
   ]).then(() => {
-    if (restartForUpdate && updates?.get().phase === "ready") updates.install();
+    if (restartForUpdate && updates?.get().readyVersion != null) updates.install();
     else app.quit();
   });
 };

@@ -15,7 +15,7 @@ import {
   SettingsToggleRow,
   SettingsWell,
 } from "@polaris/ui";
-import type { AppUpdateView } from "../../../../shared/appUpdates.ts";
+import { downloadPercent, type AppUpdateView } from "../../../../shared/appUpdates.ts";
 import { clientCopy } from "../../../../shared/clientCopy.ts";
 import { clientPlatform, toClientPlatform } from "../../../../shared/platform.ts";
 import { useApp, useShellActions } from "../../../shell/hooks.ts";
@@ -124,35 +124,76 @@ const Header = ({ version, platform }: { readonly version: string; readonly plat
   </header>
 );
 
+/** The download's share as a 4px Starlight bar; only its transform moves (DESIGN.md, Performance). */
+const DownloadBar = ({
+  fraction,
+  label,
+}: {
+  readonly fraction: number;
+  readonly label: string;
+}) => (
+  <div
+    role="progressbar"
+    aria-label={label}
+    aria-valuemin={0}
+    aria-valuemax={100}
+    aria-valuenow={downloadPercent(fraction)}
+    className="bg-fill-selected h-1 overflow-clip rounded-[2px]"
+    data-testid="app-update-progress"
+  >
+    <div
+      className="bg-starlight h-full w-full origin-left transition-transform duration-200 ease-out motion-reduce:transition-none"
+      style={{ transform: `scaleX(${fraction})` }}
+    />
+  </div>
+);
+
 const UpdateRow = ({ view, row }: { readonly view: AppUpdateView; readonly row: AppUpdateRow }) => (
   <div
-    className="px-panel gap-gap flex items-center py-[calc(var(--spacing-gap)+4px)]"
+    className="px-panel flex flex-col gap-3 py-[calc(var(--spacing-gap)+4px)]"
     data-testid="app-update"
     data-update={view.phase}
   >
-    <span className="shrink-0" aria-hidden>
-      <Glyph kind={row.glyph} />
-    </span>
-    <div className="flex min-w-0 flex-1 flex-col gap-0.5" role="status">
-      <span className="text-body text-text-default truncate">{row.title}</span>
-      <span className="text-caption text-text-subtle truncate">{row.caption}</span>
-    </div>
-    <div className="gap-gap flex shrink-0 items-center">
-      {view.phase === "ready" && view.availableVersion !== null ? (
-        <SettingsButton variant="ghost" onClick={() => releaseNotes(view.availableVersion ?? "")}>
-          Release notes
-        </SettingsButton>
-      ) : null}
-      {row.action === null ? null : (
-        <SettingsButton
-          variant={row.action === "restart" ? "primary" : "secondary"}
-          disabled={row.action === "check" && !view.supported}
-          onClick={() => void ACTIONS[row.action ?? "check"]()}
+    <div className="gap-gap flex items-center">
+      <span className="shrink-0" aria-hidden>
+        <Glyph kind={row.glyph} />
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5" role="status">
+        <span
+          className={`text-body truncate ${row.tone === "failed" ? "text-failed-text" : "text-text-default"}`}
         >
-          {row.actionLabel}
-        </SettingsButton>
+          {row.title}
+        </span>
+        <span className="text-caption text-text-subtle truncate">{row.caption}</span>
+      </div>
+      {row.progress === null ? null : (
+        <span
+          className="text-text-subtle shrink-0 font-mono text-[12px] leading-4 tabular-nums"
+          data-testid="app-update-amount"
+        >
+          {row.progress.amount}
+        </span>
       )}
+      <div className="gap-gap flex shrink-0 items-center empty:hidden">
+        {view.phase === "ready" && view.readyVersion !== null ? (
+          <SettingsButton variant="ghost" onClick={() => releaseNotes(view.readyVersion ?? "")}>
+            Release notes
+          </SettingsButton>
+        ) : null}
+        {row.action === null ? null : (
+          <SettingsButton
+            variant={row.action === "restart" ? "primary" : "secondary"}
+            disabled={row.action === "check" && !view.supported}
+            onClick={() => void ACTIONS[row.action ?? "check"]()}
+          >
+            {row.actionLabel}
+          </SettingsButton>
+        )}
+      </div>
     </div>
+    {row.progress === null || row.progress.fraction === null ? null : (
+      <DownloadBar fraction={row.progress.fraction} label={row.title} />
+    )}
   </div>
 );
 

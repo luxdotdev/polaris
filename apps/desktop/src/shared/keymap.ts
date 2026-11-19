@@ -124,7 +124,8 @@ export type ContextValue =
   | "typescriptChoice"
   | "pythonInterpreter"
   | "sqlDialect"
-  | "updateVersion";
+  | "updateVersion"
+  | "updateProgress";
 
 export interface CommandContext {
   readonly keys: ReadonlySet<ContextKey>;

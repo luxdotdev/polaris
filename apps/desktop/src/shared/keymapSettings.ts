@@ -45,7 +45,8 @@ export const SETTINGS_BINDINGS: ReadonlyArray<KeyBinding> = [
     id: "updates.check",
     title: "Check for updates",
     keys: [],
-    palette: SETTINGS(["update", "release", "version"]),
+    // Empty unless an Update is downloading: "Downloading Polaris 0.12.1 · 48 of 131 MB · 37%".
+    palette: { ...SETTINGS(["update", "release", "version"]), detail: "{updateProgress}" },
   },
   {
     id: "updates.restart",

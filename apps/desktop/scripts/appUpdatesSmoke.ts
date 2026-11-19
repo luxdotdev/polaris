@@ -1,16 +1,26 @@
-/** Real main/preload/renderer with a local fake feed and a stand-in Squirrel downloader. */
+/** Real main/preload/renderer, download, verification and loopback feed; only Squirrel is a stand-in. */
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createServer } from "node:http";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  createReadStream,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { type ElectronApplication } from "playwright-core";
+import { dirname, join } from "node:path";
+import { type ElectronApplication, type Page } from "playwright-core";
 import { Schema } from "effect";
 import { scriptedElectron as electron, electronBinary, OUT_DIR } from "./lib/electron.ts";
 import { startDaemon } from "./lib/daemon.ts";
 import { MOCK_KEYCHAIN } from "./lib/githubFlow.ts";
 import { takeScriptLease } from "../../../tooling/leases.ts";
 import type { PolarisApi } from "../src/shared/api.ts";
+import type { AppUpdateView } from "../src/shared/appUpdates.ts";
 
 declare const window: { readonly polaris: PolarisApi };
 
@@ -20,7 +30,24 @@ const root = mkdtempSync(join(tmpdir(), "polaris-app-update-smoke-"));
 
 const entry = join(OUT_DIR, "main", "app-update-smoke.mjs");
 
-const Receipt = Schema.Struct({ installs: Schema.Number, downloaded: Schema.Boolean });
+const Receipt = Schema.Struct({
+  installs: Schema.Number,
+  downloaded: Schema.Boolean,
+  loopback: Schema.Boolean,
+});
+
+// The Update is the running dev app itself: signed ad hoc, so it meets its own requirement.
+const bundle = join(dirname(electronBinary()), "../..");
+
+const zipPath = join(root, "Polaris-0.5.0-arm64-mac.zip");
+
+assert.equal(
+  spawnSync("/usr/bin/ditto", ["-c", "-k", "--keepParent", bundle, zipPath]).status,
+  0,
+  "ditto could not archive the dev app"
+);
+
+const zipBytes = statSync(zipPath).size;
 
 const requests: Array<{
   path: string;
@@ -39,7 +66,8 @@ const server = createServer((request, response) => {
   });
 
   if (path.endsWith(".zip")) {
-    response.end(Buffer.from([80, 75, 3, 4]));
+    response.writeHead(200, { "Content-Length": zipBytes });
+    createReadStream(zipPath).pipe(response);
 
     return;
   }
@@ -54,7 +82,7 @@ const server = createServer((request, response) => {
   response.setHeader("Content-Type", "application/json");
   response.end(
     JSON.stringify({
-      url: `${origin}/Polaris-0.5.0-arm64-mac.zip`,
+      url: "https://polaris.lux.dev/download/Polaris-0.5.0-arm64-mac.zip",
       name: "October release",
       notes: "fake",
       pub_date: "2026-10-02T00:00:00Z",
@@ -68,34 +96,38 @@ const address = Schema.decodeUnknownSync(Schema.Struct({ port: Schema.Number }))
 
 const origin = `http://127.0.0.1:${address.port}`;
 
-// This fixture replaces native networking only; the bundled production main and IPC run unchanged.
+// This fixture answers polaris.lux.dev from the local server and stands in for Squirrel only;
+// the bundled production main downloads, verifies and serves the loopback feed unchanged.
 writeFileSync(
   entry,
   `
-import { app, autoUpdater } from 'electron';
+import { app, autoUpdater, net, protocol } from 'electron';
 import { writeFileSync } from 'node:fs';
 Object.defineProperty(app, 'isPackaged', { get: () => true });
-let feed; let downloaded = false; let installs = 0;
+const ORIGIN = ${JSON.stringify(origin)};
+void app.whenReady().then(() => protocol.handle('https', (request) => {
+  const url = new URL(request.url);
+  return url.origin === 'https://polaris.lux.dev'
+    ? net.fetch(ORIGIN + url.pathname, { headers: request.headers, bypassCustomProtocolHandlers: true })
+    : net.fetch(request, { bypassCustomProtocolHandlers: true });
+}));
+let feed; let downloaded = false; let loopback = false; let installs = 0;
 autoUpdater.setFeedURL = (value) => { feed = value; };
 autoUpdater.checkForUpdates = () => {
-  autoUpdater.emit('checking-for-update');
   void (async () => {
     const url = new URL(feed.url);
-    if (url.origin !== 'https://polaris.lux.dev') throw new Error('unexpected feed origin');
-    const response = await fetch(${JSON.stringify(origin)} + url.pathname, { headers: feed.headers });
-    if (response.status === 204) { autoUpdater.emit('update-not-available'); return; }
-    const release = await response.json();
-    if (!release.url.startsWith(${JSON.stringify(origin)} + '/')) throw new Error('unexpected ZIP origin');
-    autoUpdater.emit('update-available');
+    if (url.hostname !== '127.0.0.1' || url.origin === ORIGIN) throw new Error('not the loopback feed');
+    const release = await (await fetch(feed.url)).json();
+    if (!release.url.startsWith(url.origin + '/')) throw new Error('unexpected ZIP origin');
     const zip = await fetch(release.url);
-    const bytes = new Uint8Array(await zip.arrayBuffer());
-    if (bytes[0] !== 80 || bytes[1] !== 75) throw new Error('invalid fake ZIP');
-    downloaded = true;
+    const bytes = (await zip.arrayBuffer()).byteLength;
+    if (!zip.ok || bytes !== ${zipBytes}) throw new Error('the loopback feed served another file');
+    downloaded = true; loopback = true;
     autoUpdater.emit('update-downloaded', {}, release.notes, release.name, new Date(release.pub_date), release.url);
-  })().catch(() => autoUpdater.emit('error', new Error('fake feed failed')));
+  })().catch(() => autoUpdater.emit('error', new Error('fake Squirrel failed')));
 };
 autoUpdater.quitAndInstall = () => { if (!downloaded) throw new Error('not downloaded'); installs++; app.quit(); };
-app.on('quit', () => writeFileSync(process.env.POLARIS_UPDATE_RECEIPT, JSON.stringify({ installs, downloaded })));
+app.on('quit', () => writeFileSync(process.env.POLARIS_UPDATE_RECEIPT, JSON.stringify({ installs, downloaded, loopback })));
 await import('./index.js');
 `
 );
@@ -108,6 +140,21 @@ writeFileSync(
 const daemon = await startDaemon({ home: join(root, "daemon"), benchHarness: true });
 
 let app: ElectronApplication | null = null;
+
+/** Polls main's update state from here: a page-side async predicate is truthy as a Promise. */
+const updatesReach = async (page: Page, reached: (view: AppUpdateView) => boolean) => {
+  let last = "no answer";
+
+  for (let waited = 0; waited < 120_000; waited += 100) {
+    const result = await page.evaluate(() => window.polaris.request("updates.get", {}));
+
+    if (result.ok && reached(result.value)) return;
+    last = JSON.stringify(result.ok ? result.value : result.error);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  throw new Error(`the update state never arrived; last: ${last}`);
+};
 
 const run = async (restart: boolean) => {
   const userData = join(root, "app-data");
@@ -139,21 +186,13 @@ const run = async (restart: boolean) => {
   console.log("App update smoke: window opened");
 
   if (!restart) {
-    await page.waitForFunction(async () => {
-      const result = await window.polaris.request("updates.get", {});
-
-      return result.ok && !result.value.automatic && result.value.phase === "idle";
-    });
+    await updatesReach(page, (view) => !view.automatic && view.phase === "idle");
     assert.equal(requests.length, before);
     assert.equal(readFileSync(join(userData, "install-id"), "utf8").trim(), requests[0]?.id);
     await page.evaluate(() => window.polaris.request("updates.check", {}));
   }
 
-  await page.waitForFunction(async () => {
-    const result = await window.polaris.request("updates.get", {});
-
-    return result.ok && result.value.phase === "current";
-  });
+  await updatesReach(page, (view) => view.phase === "current");
   assert.equal(requests[before]?.path, "/api/update/darwin-arm64/0.4.0");
   console.log("App update smoke: launch check current");
 
@@ -167,19 +206,34 @@ const run = async (restart: boolean) => {
   assert.equal(requests[0]?.id, readFileSync(join(userData, "install-id"), "utf8").trim());
   await page.evaluate(() => window.polaris.request("updates.setAutomatic", { enabled: false }));
   await page.evaluate(() => window.polaris.request("updates.check", {}));
-  await page.waitForFunction(async () => {
-    const r = await window.polaris.request("updates.get", {});
-
-    return r.ok && r.value.phase === "current";
-  });
+  await updatesReach(page, (view) => view.phase === "current");
   assert.equal(requests[before + 1]?.id, undefined);
   offer = true;
-  await page.evaluate(() => window.polaris.request("updates.check", {}));
-  await page.waitForFunction(async () => {
-    const r = await window.polaris.request("updates.get", {});
 
-    return r.ok && r.value.phase === "ready" && r.value.availableVersion === "0.5.0";
+  // Every download state main publishes while the real download, verification and handover run.
+  const seen = await page.evaluateHandle(() => {
+    const downloads: Array<{ receivedBytes: number; totalBytes: number | null }> = [];
+
+    window.polaris.onAppEvent((event) => {
+      if (event.kind === "updates" && event.updates.download !== null)
+        downloads.push(event.updates.download);
+    });
+
+    return downloads;
   });
+
+  await page.evaluate(() => window.polaris.request("updates.check", {}));
+  await updatesReach(page, (view) => view.phase === "ready" && view.readyVersion === "0.5.0");
+
+  const downloads = await seen.jsonValue();
+
+  // macOS's feed names no size: the total is unknown until the asset's server answers.
+  const sized = downloads.filter((download) => download.totalBytes !== null);
+
+  assert(sized.length >= 2, "the download published progress");
+  assert(sized.every((download) => download.totalBytes === zipBytes));
+  assert.equal(downloads.at(-1)?.receivedBytes, zipBytes);
+  assert.equal(requests.at(-1)?.path, "/download/Polaris-0.5.0-arm64-mac.zip");
 
   const labels = await app.evaluate(({ Menu }) =>
     Menu.getApplicationMenu()?.items[0]?.submenu?.items.map((item) => item.label)
@@ -232,6 +286,7 @@ const run = async (restart: boolean) => {
   );
 
   assert.equal(receipt.downloaded, true);
+  assert.equal(receipt.loopback, true);
   assert.equal(receipt.installs, restart ? 1 : 0);
   console.log(
     `App update smoke: ${restart ? "restart" : "quit without relaunch"}, cancel unsaved quit, hide window, ID opt-out: ok`
