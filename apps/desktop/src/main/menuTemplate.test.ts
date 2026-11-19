@@ -4,9 +4,19 @@ import type { AppUpdateView } from "../shared/appUpdates.ts";
 import type { ClientPlatform } from "../shared/platform.ts";
 import { menuTemplate, type TemplateInput } from "./menuTemplate.ts";
 
+const MB = 1_000_000;
+
 const updates = (phase: AppUpdateView["phase"]): AppUpdateView =>
-  // SAFETY: the template reads only phase, supported and availableVersion.
-  ({ phase, supported: true, availableVersion: "1.2.0" }) as AppUpdateView;
+  // SAFETY: the template reads only phase, supported, readyVersion and download.
+  ({
+    phase,
+    supported: true,
+    readyVersion: phase === "ready" ? "1.2.0" : null,
+    download:
+      phase === "downloading"
+        ? { version: "0.12.1", receivedBytes: 48 * MB, totalBytes: 131 * MB }
+        : null,
+  }) as AppUpdateView;
 
 const input = (
   platform: ClientPlatform,
@@ -32,7 +42,7 @@ const labels = (items: ReadonlyArray<MenuItemConstructorOptions>) =>
   items.map((item) => item.label ?? item.role ?? item.type);
 
 const submenu = (items: ReadonlyArray<MenuItemConstructorOptions>, label: string) => {
-  const found = items.find((item) => item.label === label)?.submenu;
+  const found = items.find((item) => item.label === label || item.role === label)?.submenu;
 
   // SAFETY: the template builds every submenu as an array of options.
   return (found ?? []) as ReadonlyArray<MenuItemConstructorOptions>;
@@ -79,6 +89,26 @@ describe("menuTemplate", () => {
     const file = submenu(menuTemplate(input("win32", "ready")), "&File");
 
     expect(file.at(-1)?.label).toBe("Exit and update");
+  });
+
+  test("a download shows its progress as a disabled line; a staged Update offers the restart", () => {
+    const item = (platform: ClientPlatform, phase: AppUpdateView["phase"]) =>
+      platform === "win32"
+        ? submenu(menuTemplate(input(platform, phase)), "&Help").at(-4)
+        : submenu(menuTemplate(input(platform, phase)), "appMenu")[1];
+
+    for (const platform of ["darwin", "win32"] as const) {
+      expect(item(platform, "downloading")).toMatchObject({
+        label: "Downloading Polaris 0.12.1 · 48 of 131 MB · 37%",
+        enabled: false,
+      });
+      expect(item(platform, "ready")).toMatchObject({ label: "Restart to update to 1.2.0" });
+      expect(item(platform, "ready")?.enabled).not.toBe(false);
+      expect(item(platform, "checking")).toMatchObject({
+        label: "Check for updates…",
+        enabled: false,
+      });
+    }
   });
 
   test("Windows ends Help with the update check, About, then developer tools", () => {

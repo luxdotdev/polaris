@@ -27,6 +27,9 @@ const view = (patch: Partial<AppUpdateView> = {}): AppUpdateView => ({
   phase: "current",
   version: "0.5.0",
   availableVersion: null,
+  readyVersion: null,
+  download: null,
+  failure: null,
   automatic: true,
   lastCheckedAt: null,
   installId: "7c1e0000-0000-0000-0000-00000000a40b",
@@ -106,10 +109,55 @@ test("a daemon older than the app says it can upgrade, and the aside counts the 
 });
 
 test("the ready state offers Restart to update, and Check now waits until after the restart", () => {
-  mount(view({ phase: "ready", availableVersion: "0.5.1", lastCheckedAt: 0 }));
+  mount(
+    view({ phase: "ready", availableVersion: "0.5.1", readyVersion: "0.5.1", lastCheckedAt: 0 })
+  );
 
   expect(screen.getByRole("button", { name: "Restart to update" })).not.toBeNull();
   expect(screen.getByRole("button", { name: "Check now" }).hasAttribute("disabled")).toBe(true);
+});
+
+test("a download shows its amount and a bar at its share; a failed one has neither", () => {
+  const MB = 1_000_000;
+
+  mount(
+    view({
+      phase: "downloading",
+      availableVersion: "0.12.1",
+      download: { version: "0.12.1", receivedBytes: 48 * MB, totalBytes: 131 * MB },
+    })
+  );
+
+  const row = within(screen.getByTestId("app-update"));
+  const bar = row.getByRole("progressbar", { name: "Downloading Polaris 0.12.1" });
+
+  expect(row.getByText("48 of 131 MB · 37%")).not.toBeNull();
+  expect(bar.getAttribute("aria-valuenow")).toBe("37");
+  expect(row.queryByRole("button")).toBeNull();
+  cleanup();
+
+  mount(
+    view({
+      phase: "failed",
+      failure: { stage: "download", version: "0.12.1", percent: 61 },
+    })
+  );
+
+  const failed = within(screen.getByTestId("app-update"));
+
+  expect(failed.getByText("Couldn't download Polaris 0.12.1")).not.toBeNull();
+  expect(failed.queryByRole("progressbar")).toBeNull();
+  expect(failed.getByRole("button", { name: "Try again" })).not.toBeNull();
+});
+
+test("checking shows the spinner and offers nothing to press in the row", () => {
+  mount(view({ phase: "checking" }));
+
+  const row = within(screen.getByTestId("app-update"));
+
+  expect(row.getByText("Checking for updates…")).not.toBeNull();
+  expect(row.getByTestId("app-update-spinner")).not.toBeNull();
+  expect(row.queryByRole("button")).toBeNull();
 });
 
 test("with automatic checks off, the install ID is not sent", () => {

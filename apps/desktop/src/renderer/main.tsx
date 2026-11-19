@@ -11,6 +11,7 @@ import {
   settingsCommands,
   settingsStore,
 } from "./features/settings/index.ts";
+import { updateValues } from "./features/settings/updates/model.ts";
 import { connectUpdates, updatesStore } from "./features/settings/updates/store.ts";
 import { createOnboarding } from "./features/onboarding/index.ts";
 import { installPalette } from "./features/palette/index.ts";
@@ -76,11 +77,7 @@ commands.contribute(workspaceCommands({ app: connection.store.getState, navigati
 
 commands.contribute(arcadeCommands());
 
-commands.provide(() => {
-  const version = updatesStore.getState().view?.availableVersion;
-
-  return version == null ? {} : { values: { updateVersion: version } };
-});
+commands.provide(() => ({ values: updateValues(updatesStore.getState().view) }));
 
 installPalette({ commands, actions: navigation.actions, storage });
 

@@ -1,10 +1,25 @@
-import type { AutoUpdater } from "electron";
-import type { AppUpdateView } from "../../shared/appUpdates.ts";
+import type { AutoUpdater, Event } from "electron";
+import type { AppUpdateFailure, AppUpdateView } from "../../shared/appUpdates.ts";
+import type { LocalFeed } from "./localFeed.ts";
 import { updateFeed } from "./platform.ts";
+import { macRelease, windowsRelease, type OfferedUpdate } from "./release.ts";
+import { clearPending, stageUpdate, type Verify } from "./stage.ts";
+import { versionFromAsset } from "./version.ts";
+
+export { versionFromAsset, versionFromNuget } from "./version.ts";
 
 export const UPDATE_BASE_URL = "https://polaris.lux.dev";
 
 export const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+/** The feed looks a Release up on GitHub before it answers. */
+const FEED_TIMEOUT_MS = 15_000;
+
+/** Squirrel reads the Update from loopback and unpacks it; longer than this is a failure. */
+const HANDOVER_TIMEOUT_MS = 5 * 60_000;
+
+/** Progress reaches About, the native menu and the K menu at most this often. */
+const PROGRESS_INTERVAL_MS = 500;
 
 type UpdateHeaders = {
   "X-Polaris-macOS-Version"?: string;
@@ -22,13 +37,24 @@ export interface UpdateInput {
   readonly osVersion: string;
   readonly platform?: string;
   readonly firstRun?: boolean;
-  /** The Windows preflight's request; the app passes `internetFetch`. */
+  /** The feed check and the download; the app passes `internetFetch`. */
   readonly fetch: (url: string, init: RequestInit) => Promise<Response>;
   readonly arch: string;
   readonly supported: boolean;
   readonly blocked: boolean;
   readonly automatic: boolean;
   readonly lastCheckedAt: number | null;
+  /** Where a download waits until Squirrel has it (`<userData>/pending-update`). */
+  readonly pendingDir: string;
+  /** The running app, whose signer a macOS Update must share. */
+  readonly bundle: string;
+  /** The platform's check of a finished download; tests replace it. */
+  readonly verify?: Verify;
+  readonly progressIntervalMs?: number;
+  /** Replaces `HANDOVER_TIMEOUT_MS`; tests only. */
+  readonly handoverTimeoutMs?: number;
+  /** The package's request, which refuses a redirect off https; the app passes `downloadFetch`. */
+  readonly download?: (url: string, init: RequestInit) => Promise<Response>;
   readonly save: (change: {
     automaticAppUpdates?: boolean;
     appUpdateLastCheckedAt?: number;
@@ -45,46 +71,39 @@ const scheduleCheck = (run: () => void, delay: number) => {
   return () => clearTimeout(timer);
 };
 
-const CORE = String.raw`(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)`;
+/** One Squirrel operation, in flight from `checkForUpdates` until its terminal event or timeout. */
+interface Handover {
+  readonly version: string;
+  readonly feed: LocalFeed;
+  readonly cancelTimeout: () => void;
+}
 
-const PRERELEASE = String.raw`(?:alpha|beta|rc)`;
-
-const assetVersion = new RegExp(
-  String.raw`\/Polaris-(${CORE}(?:-${PRERELEASE}\.(?:0|[1-9]\d*))?)(?:-arm64-mac\.zip|-(?:x64|arm64)-win-Setup\.exe)$`
-);
-
-const nugetVersion = new RegExp(String.raw`^(${CORE})(?:-(${PRERELEASE})(0|[1-9]\d*))?$`);
-
-/** A Squirrel NuGet version (`1.2.3-alpha1`) as the release's semver (`1.2.3-alpha.1`). */
-export const versionFromNuget = (name: string): string | null => {
-  const match = nugetVersion.exec(name);
-
-  if (!match) return null;
-
-  return match[2] === undefined ? match[1]! : `${match[1]}-${match[2]}.${match[3]}`;
-};
-
-/** The asset name is authoritative; a Release title can be arbitrary prose. */
-export const versionFromAsset = (url: string): string | null => {
-  const asset = assetVersion.exec(url)?.[1];
-
-  if (asset !== undefined) return asset;
-  const nupkg = /\/Polaris-(?:x64|arm64)-win-([^/]+)-full\.nupkg$/.exec(url)?.[1];
-
-  return nupkg === undefined ? null : versionFromNuget(nupkg);
-};
+/** The address Squirrel names is under this handover's own unguessable feed. */
+const names = (handover: Handover, url: string) => `${url}/`.startsWith(`${handover.feed.root}/`);
 
 export const createAppUpdates = (input: UpdateInput) => {
   const platform = input.platform ?? "darwin";
+  const windows = platform === "win32";
   const now = input.now ?? Date.now;
   const schedule = input.schedule ?? scheduleCheck;
+  const abort = new AbortController();
   let cancelTimer: (() => void) | null = null;
+  const handoverTimeoutMs = input.handoverTimeoutMs ?? HANDOVER_TIMEOUT_MS;
+  let handover: Handover | null = null;
+  /** Timed out and never ended, oldest first: each may still send its one terminal event. */
+  const stale: Array<Handover> = [];
+  /** Set while the newest stale operation still keeps Squirrel's one slot. */
+  let hold: (() => void) | null = null;
+  let wake: (() => void) | null = null;
   let disposed = false;
 
   let view: AppUpdateView = {
     phase: input.supported && input.blocked ? "blocked" : "idle",
     version: input.version,
     availableVersion: null,
+    readyVersion: null,
+    download: null,
+    failure: null,
     automatic: input.automatic,
     lastCheckedAt: input.lastCheckedAt,
     installId: input.installId,
@@ -100,56 +119,6 @@ export const createAppUpdates = (input: UpdateInput) => {
     input.publish(view);
   };
 
-  const check = (): AppUpdateView => {
-    if (disposed || !view.supported || input.blocked) return view;
-
-    if (["checking", "downloading", "ready"].includes(view.phase)) return view;
-
-    const headers: UpdateHeaders =
-      platform === "win32"
-        ? { "X-Polaris-Windows-Version": view.osVersion }
-        : { "X-Polaris-macOS-Version": view.osVersion };
-
-    if (view.automatic) headers["X-Polaris-Install-ID"] = view.installId;
-
-    change({ phase: "checking", availableVersion: null });
-
-    const url = updateFeed(UPDATE_BASE_URL, platform, input.arch, view.version);
-
-    const nativeCheck = () => {
-      if (disposed) return;
-      input.native.setFeedURL({
-        url,
-        headers,
-      });
-      input.native.checkForUpdates();
-    };
-
-    try {
-      if (platform === "win32") {
-        // Squirrel ignores custom headers; the preflight carries the consent-controlled telemetry.
-        void input
-          .fetch(`${url}/RELEASES`, {
-            headers,
-            cache: "no-store",
-            signal: AbortSignal.timeout(5_000),
-          })
-          .then((response) => {
-            if (disposed) return;
-
-            if (response.status === 204) finish("current");
-            else if (response.ok) nativeCheck();
-            else finish("failed");
-          })
-          .catch(() => finish("failed"));
-      } else nativeCheck();
-    } catch {
-      finish("failed");
-    }
-
-    return view;
-  };
-
   const arm = () => {
     cancelTimer?.();
     cancelTimer = null;
@@ -163,38 +132,254 @@ export const createAppUpdates = (input: UpdateInput) => {
     }, CHECK_INTERVAL_MS);
   };
 
-  const finish = (
-    phase: "current" | "failed" | "ready",
-    availableVersion: string | null = null
-  ) => {
-    if (disposed) return;
+  /** The feed answered (or didn't): the moment "last checked" names. */
+  const checked = () => {
     const lastCheckedAt = now();
     input.save({ appUpdateLastCheckedAt: lastCheckedAt });
-    change({ phase, availableVersion, lastCheckedAt });
+
+    return lastCheckedAt;
+  };
+
+  const settle = (patch: Partial<AppUpdateView>) => {
+    change({ download: null, ...patch });
     arm();
   };
 
-  const checking = () => change({ phase: "checking" });
-  const available = () => change({ phase: "downloading" });
-  const current = () => finish("current");
-  const failed = () => finish("failed");
+  const fail = (failure: AppUpdateFailure, patch: Partial<AppUpdateView> = {}) =>
+    settle({ phase: "failed", failure, ...patch });
 
-  const downloaded = (
-    _event: Electron.Event,
-    _notes: string,
-    name: string,
-    _date: Date,
-    url: string
-  ) =>
-    finish(
-      "ready",
-      (platform === "win32" ? versionFromNuget(name) : null) ?? versionFromAsset(url)
+  const failedCheck = () =>
+    fail(
+      { stage: "check", version: null, percent: null },
+      { availableVersion: view.readyVersion, lastCheckedAt: checked() }
     );
 
-  input.native.on("checking-for-update", checking);
-  input.native.on("update-available", available);
-  input.native.on("update-not-available", current);
-  input.native.on("error", failed);
+  const endHandover = () => {
+    const ended = handover;
+
+    handover = null;
+    ended?.cancelTimeout();
+    ended?.feed.close();
+
+    return ended;
+  };
+
+  /** The slot is free: Squirrel may be given the next feed. */
+  const release = () => {
+    hold?.();
+    hold = null;
+    wake?.();
+  };
+
+  /**
+   * Squirrel went quiet: the Update failed and its operation keeps the slot. A macOS completion
+   * names its feed, so there the slot frees after one more timeout. Squirrel.Windows names
+   * nothing, so there only its own terminal event (or a restart) frees it.
+   */
+  const abandon = () => {
+    const ended = endHandover();
+
+    if (ended === null) return;
+    stale.push(ended);
+    hold?.();
+    hold = windows ? () => undefined : scheduleCheck(release, handoverTimeoutMs);
+    fail({ stage: windows ? "install" : "verify", version: ended.version, percent: null });
+  };
+
+  const ready = (version: string) => {
+    clearPending(input.pendingDir);
+    settle({ phase: "ready", readyVersion: version, failure: null });
+  };
+
+  /** A stale operation ended. Its Update is ready if Squirrel finished it and nothing newer began. */
+  const endStale = (ended: Handover, completed: boolean) => {
+    if (ended === stale.at(-1)) release();
+    stale.splice(stale.indexOf(ended), 1);
+
+    if (handover !== null || view.phase !== "failed" || view.failure?.version !== ended.version)
+      return;
+
+    if (completed) ready(ended.version);
+    // The slot is free again, so the row offers "Try again" instead of a restart.
+    else if (view.failure.stage === "install")
+      fail({ stage: "verify", version: ended.version, percent: null });
+  };
+
+  const end = (ended: Handover, completed: boolean) => {
+    if (ended !== handover) {
+      endStale(ended, completed);
+
+      return;
+    }
+
+    endHandover();
+
+    if (completed) ready(ended.version);
+    else fail({ stage: "verify", version: ended.version, percent: null });
+  };
+
+  /** Squirrel ends operations in the order it was given them: an unnamed event is the oldest's. */
+  const oldest = () => stale[0] ?? handover;
+
+  /** `error` and `update-not-available` name nothing. */
+  const failedHandover = () => {
+    const ended = oldest();
+
+    if (ended !== null) end(ended, false);
+  };
+
+  const downloaded = (_event: Event, _notes: string, _name: string, _date: Date, url?: string) => {
+    const address = url ?? "";
+    const named = [...stale, handover].find((one) => one != null && names(one, address));
+
+    if (address !== "" && named != null) {
+      end(named, windows || versionFromAsset(address) === named.version);
+
+      return;
+    }
+
+    const ended = oldest();
+
+    // Only Squirrel.Windows may finish without naming what; anything else proves nothing.
+    if (ended !== null) end(ended, windows && address === "");
+  };
+
+  /** Resolves once no stale operation keeps Squirrel's slot. */
+  const nativeIdle = () =>
+    new Promise<void>((resolve) => {
+      if (hold === null) {
+        resolve();
+
+        return;
+      }
+
+      wake = () => {
+        wake = null;
+        resolve();
+      };
+    });
+
+  /** Publishes the first and last byte counts, and one in between every interval. */
+  const progress = (version: string) => {
+    const interval = input.progressIntervalMs ?? PROGRESS_INTERVAL_MS;
+    let last = Number.NEGATIVE_INFINITY;
+
+    return (receivedBytes: number, totalBytes: number | null) => {
+      const at = Date.now();
+
+      if (receivedBytes !== totalBytes && at - last < interval) return;
+      last = at;
+      change({ download: { version, receivedBytes, totalBytes } });
+    };
+  };
+
+  const stage = async (update: OfferedUpdate) => {
+    change({
+      phase: "downloading",
+      availableVersion: update.version,
+      download: { version: update.version, receivedBytes: 0, totalBytes: update.bytes },
+      lastCheckedAt: checked(),
+    });
+
+    const staged = await stageUpdate({
+      platform,
+      update,
+      dir: input.pendingDir,
+      bundle: input.bundle,
+      fetch: input.download ?? input.fetch,
+      signal: abort.signal,
+      onProgress: progress(update.version),
+      verify: input.verify,
+    });
+
+    // Squirrel runs one operation at a time: a new feed waits for a quiet one to end or lapse.
+    if (staged.ok) await nativeIdle();
+
+    if (disposed) {
+      if (staged.ok) staged.feed.close();
+
+      return;
+    }
+
+    if (!staged.ok) {
+      fail({ stage: staged.stage, version: update.version, percent: staged.percent });
+
+      return;
+    }
+
+    handover = {
+      version: update.version,
+      feed: staged.feed,
+      cancelTimeout: scheduleCheck(abandon, handoverTimeoutMs),
+    };
+
+    try {
+      input.native.setFeedURL({ url: staged.feed.url });
+      input.native.checkForUpdates();
+    } catch {
+      failedHandover();
+    }
+  };
+
+  const ask = async (headers: UpdateHeaders) => {
+    const feed = updateFeed(UPDATE_BASE_URL, platform, input.arch, view.version);
+
+    const response = await input.fetch(platform === "win32" ? `${feed}/RELEASES` : feed, {
+      headers,
+      cache: "no-store",
+      signal: AbortSignal.any([abort.signal, AbortSignal.timeout(FEED_TIMEOUT_MS)]),
+    });
+
+    if (disposed) return;
+
+    if (response.status === 204) {
+      settle({
+        phase: "current",
+        availableVersion: view.readyVersion,
+        failure: null,
+        lastCheckedAt: checked(),
+      });
+
+      return;
+    }
+
+    const parse = platform === "win32" ? windowsRelease : macRelease;
+    const update = response.ok ? parse(await response.text()) : null;
+
+    if (disposed) return;
+
+    if (update === null) failedCheck();
+    else await stage(update);
+  };
+
+  const check = (): AppUpdateView => {
+    if (disposed || !view.supported || input.blocked) return view;
+
+    if (["checking", "downloading", "ready"].includes(view.phase)) return view;
+
+    // Windows: a new Squirrel operation can't be told from the one that went quiet.
+    if (windows && hold !== null) return view;
+
+    // Squirrel sends no custom headers; this request carries the consent-controlled telemetry.
+    const headers: UpdateHeaders =
+      platform === "win32"
+        ? { "X-Polaris-Windows-Version": view.osVersion }
+        : { "X-Polaris-macOS-Version": view.osVersion };
+
+    if (view.automatic) headers["X-Polaris-Install-ID"] = view.installId;
+
+    change({ phase: "checking", availableVersion: view.readyVersion, failure: null });
+    void ask(headers).catch(() => {
+      if (view.phase === "checking") failedCheck();
+      else if (view.phase === "downloading")
+        fail({ stage: "download", version: view.download?.version ?? null, percent: null });
+    });
+
+    return view;
+  };
+
+  input.native.on("update-not-available", failedHandover);
+  input.native.on("error", failedHandover);
   input.native.on("update-downloaded", downloaded);
 
   return {
@@ -213,15 +398,16 @@ export const createAppUpdates = (input: UpdateInput) => {
       return view;
     },
     install: () => {
-      if (view.phase === "ready") input.native.quitAndInstall();
+      if (view.readyVersion !== null) input.native.quitAndInstall();
     },
     dispose: () => {
       disposed = true;
       cancelTimer?.();
-      input.native.removeListener("checking-for-update", checking);
-      input.native.removeListener("update-available", available);
-      input.native.removeListener("update-not-available", current);
-      input.native.removeListener("error", failed);
+      abort.abort();
+      endHandover();
+      release();
+      input.native.removeListener("update-not-available", failedHandover);
+      input.native.removeListener("error", failedHandover);
       input.native.removeListener("update-downloaded", downloaded);
     },
   };

@@ -4,9 +4,6 @@
  */
 import { Match } from "effect";
 import {
-  Dither,
-  FolderIcon,
-  PixelCheckIcon,
   PixelPolarisIcon,
   SettingsButton,
   SettingsCard,
@@ -15,7 +12,7 @@ import {
   SettingsToggleRow,
   SettingsWell,
 } from "@polaris/ui";
-import type { AppUpdateView } from "../../../../shared/appUpdates.ts";
+import { downloadPercent, type AppUpdateView } from "../../../../shared/appUpdates.ts";
 import { clientCopy } from "../../../../shared/clientCopy.ts";
 import { clientPlatform, toClientPlatform } from "../../../../shared/platform.ts";
 import { useApp, useShellActions } from "../../../shell/hooks.ts";
@@ -31,31 +28,26 @@ import {
   useUpdates,
 } from "../updates/store.ts";
 
-const Glyph = ({ kind }: { readonly kind: AppUpdateRow["glyph"] }) => {
-  switch (kind) {
-    case "working":
-      return <Dither hue="starlight" size={16} />;
-    case "check":
-      return <PixelCheckIcon size={16} className="text-text-subtle" />;
-    case "star":
-      return <PixelPolarisIcon size={16} className="text-starlight" />;
-    case "folder":
-      return <FolderIcon size={16} className="text-text-subtle" />;
-    case "failed":
-      return (
-        <span
-          aria-hidden
-          className="text-caption text-text-subtle grid size-4 place-items-center rounded-full border"
-        >
-          !
-        </span>
-      );
-    case "off":
-      return (
-        <span aria-hidden className="border-text-subtle size-4 rounded-full border border-dashed" />
-      );
-  }
-};
+/** Checking: a 14px ring with a quarter arc in text-subtle, turning (Paper U1); still under Reduce Motion. */
+const Spinner = () => (
+  <svg
+    aria-hidden
+    width="14"
+    height="14"
+    viewBox="0 0 16 16"
+    className="shrink-0 animate-spin motion-reduce:animate-none"
+    data-testid="app-update-spinner"
+  >
+    <circle cx="8" cy="8" r="6" fill="none" stroke="var(--color-hairline)" strokeWidth="1.6" />
+    <path
+      d="M8 2a6 6 0 0 1 6 6"
+      fill="none"
+      stroke="var(--color-text-subtle)"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+    />
+  </svg>
+);
 
 const ACTIONS = { check: checkForUpdates, restart: restartToUpdate, finder: showUpdateInFinder };
 
@@ -124,22 +116,53 @@ const Header = ({ version, platform }: { readonly version: string; readonly plat
   </header>
 );
 
-const UpdateRow = ({ view, row }: { readonly view: AppUpdateView; readonly row: AppUpdateRow }) => (
+/** The download's share as a 4px Starlight bar; only its transform moves (DESIGN.md, Performance). */
+const DownloadBar = ({
+  fraction,
+  label,
+}: {
+  readonly fraction: number;
+  readonly label: string;
+}) => (
   <div
-    className="px-panel gap-gap flex items-center py-[calc(var(--spacing-gap)+4px)]"
-    data-testid="app-update"
-    data-update={view.phase}
+    role="progressbar"
+    aria-label={label}
+    aria-valuemin={0}
+    aria-valuemax={100}
+    aria-valuenow={downloadPercent(fraction)}
+    className="bg-hairline h-1 overflow-clip rounded-[2px]"
+    data-testid="app-update-progress"
   >
-    <span className="shrink-0" aria-hidden>
-      <Glyph kind={row.glyph} />
-    </span>
-    <div className="flex min-w-0 flex-1 flex-col gap-0.5" role="status">
-      <span className="text-body text-text-default truncate">{row.title}</span>
-      <span className="text-caption text-text-subtle truncate">{row.caption}</span>
-    </div>
-    <div className="gap-gap flex shrink-0 items-center">
-      {view.phase === "ready" && view.availableVersion !== null ? (
-        <SettingsButton variant="ghost" onClick={() => releaseNotes(view.availableVersion ?? "")}>
+    <div
+      className="bg-starlight h-full w-full origin-left transition-transform duration-200 ease-out motion-reduce:transition-none"
+      style={{ transform: `scaleX(${fraction})` }}
+    />
+  </div>
+);
+
+/** U1's row: a medium title over a caption, then the amount, the spinner or the actions; the bar below. */
+const UpdateRow = ({ view, row }: { readonly view: AppUpdateView; readonly row: AppUpdateRow }) => (
+  <div className="p-panel flex flex-col" data-testid="app-update" data-update={view.phase}>
+    <div className="flex items-center gap-3">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5" role="status">
+        <span
+          className={`text-body truncate font-medium ${row.tone === "failed" ? "text-failed-text" : "text-text-strong"}`}
+        >
+          {row.title}
+        </span>
+        <span className="text-caption text-text-subtle truncate">{row.caption}</span>
+      </div>
+      {row.progress === null ? null : (
+        <span
+          className="text-caption text-text-subtle shrink-0 font-mono tabular-nums"
+          data-testid="app-update-amount"
+        >
+          {row.progress.amount}
+        </span>
+      )}
+      {row.spinner ? <Spinner /> : null}
+      {view.phase === "ready" && view.readyVersion !== null ? (
+        <SettingsButton variant="ghost" onClick={() => releaseNotes(view.readyVersion ?? "")}>
           Release notes
         </SettingsButton>
       ) : null}
@@ -153,6 +176,11 @@ const UpdateRow = ({ view, row }: { readonly view: AppUpdateView; readonly row: 
         </SettingsButton>
       )}
     </div>
+    {row.progress === null || row.progress.fraction === null ? null : (
+      <div className="pt-3">
+        <DownloadBar fraction={row.progress.fraction} label={row.title} />
+      </div>
+    )}
   </div>
 );
 
