@@ -243,6 +243,9 @@ export class CommandSnapshots {
     if (entry === undefined) return null;
     this.open.delete(id);
     const { scope, state } = entry;
+
+    // Turned off while the command ran (a snapshot was ended at the hard limit): none after it.
+    if (state.mode === "off") return null;
     const before = entry.timely && entry.before !== null ? await entry.before.done : null;
     const after = await this.take(state, scope.cwd, signal).done;
 

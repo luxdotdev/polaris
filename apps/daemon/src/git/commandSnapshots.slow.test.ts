@@ -126,16 +126,17 @@ test.skipIf(!unix)(
   async () => {
     const repo = await makeRepo({ "README.md": "hello\n" });
     const git = hangGit();
-    const snapshots = new CommandSnapshots({ budgetMs: 100, hardMs: 400 });
-
-    // The command is let go after its budget; the snapshot after it hangs to the hard limit.
-    await snapshots.started("c1", scope(repo));
+    // The budget doesn't end this one: the hard limit does.
+    const snapshots = new CommandSnapshots({ budgetMs: 60_000, hardMs: 2_000 });
+    const held = snapshots.started("c1", scope(repo));
+    await until(() => git.pids().length === 2);
+    await held;
     await until(() => !git.pids().some(alive));
 
-    expect(await snapshots.ended("c1")).toBeNull();
-    expect(git.pids().length).toBe(4);
-    expect(git.pids().some(alive)).toBe(false);
     expect(snapshots.modeOf(repo)).toBe("off");
+    // No snapshot after the command either: no second git hangs.
+    expect(await snapshots.ended("c1")).toBeNull();
+    expect(git.pids().length).toBe(2);
   },
   HEAVY_GIT_MS
 );
