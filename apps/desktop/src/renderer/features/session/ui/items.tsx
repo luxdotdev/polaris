@@ -6,6 +6,7 @@
 import { CopyButton, PixelFailedIcon } from "@polaris/ui";
 import { type ItemView } from "../model/items.ts";
 import { Command } from "./command.tsx";
+import { CommandChanges } from "./commandChanges.tsx";
 import { FileChanges } from "./fileEdits/index.ts";
 import { type Hue } from "./marks.tsx";
 import { Markdown } from "./markdown/index.tsx";
@@ -64,7 +65,14 @@ export const Item = ({ item, hue, onOpenDiff, onOpenFile }: ItemProps) => {
     case "reasoning":
       return <Reasoning item={item} hue={hue} />;
     case "command":
-      return <Command item={item} hue={hue} />;
+      return item.changes === undefined || item.changes.length === 0 ? (
+        <Command item={item} hue={hue} />
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          <Command item={item} hue={hue} />
+          <CommandChanges item={item} hue={hue} onOpenFile={onOpenFile} onOpenDiff={onOpenDiff} />
+        </div>
+      );
     case "files":
       return (
         <FileChanges

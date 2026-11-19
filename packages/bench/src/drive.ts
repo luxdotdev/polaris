@@ -15,6 +15,7 @@ import {
   SessionPlacement,
   type SessionState,
   SessionStreamItem,
+  TurnItem,
   type WorkspaceId,
 } from "@polaris/protocol";
 import { Duration, Effect, Option, type Scope, Stream } from "effect";
@@ -31,6 +32,7 @@ export interface TurnScript {
   readonly deltaIntervalMs?: number;
   readonly approvalEvery?: number;
   readonly touchFiles?: number;
+  readonly shellCommands?: number;
   readonly itemBytes?: number;
   readonly startDelayMs?: number;
   readonly subagents?: number;
@@ -116,6 +118,8 @@ export interface SessionWatch {
   }>;
   /** Arrival time of the last TurnItemCompleted. */
   lastItemAt: number;
+  /** Each completed command: its output and how many files it reports changed. */
+  readonly commands: Array<{ readonly output: string; readonly changed: number }>;
   snapshotAt: number | null;
   synchronizedAt: number | null;
   /** Items in the first snapshot. */
@@ -205,8 +209,11 @@ const eventHandler = (ctx: WatchContext) => {
 
         return Effect.void;
       },
-      TurnItemCompleted: () => {
+      TurnItemCompleted: ({ item }) => {
         watch.lastItemAt = ctx.at;
+
+        if (TurnItem.guards.CommandExecution(item))
+          watch.commands.push({ output: item.output, changed: item.changes?.length ?? 0 });
 
         return Effect.void;
       },
@@ -283,6 +290,7 @@ export const watchSession = (
       lastSequence: 0,
       turnEndedSequences: [],
       checkpoints: [],
+      commands: [],
       lastItemAt: 0,
       snapshotAt: null,
       synchronizedAt: null,

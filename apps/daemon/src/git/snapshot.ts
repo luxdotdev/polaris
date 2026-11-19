@@ -11,6 +11,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { gitText, mayBeInWorkTree, nativePath, resolveHead, runGitRaw } from "./git.ts";
 import { holdsNoGitlinks } from "./indexFile.ts";
+import { underSignal } from "./interrupt.ts";
 
 export interface Snapshot {
   /** The repository top level the snapshot was taken from. */
@@ -27,6 +28,8 @@ interface Repo {
   readonly userIndex: string;
   /** Polaris's own index for this worktree: `<git dir>/polaris/index`. */
   readonly ownIndex: string;
+  /** The index per-command snapshots keep (ADR 0117): `<git dir>/polaris/command-index`. */
+  readonly commandIndex: string;
   /** An object name's bytes in this repository's indexes; null when git didn't say (before 2.25). */
   readonly hashBytes: number | null;
 }
@@ -73,15 +76,20 @@ const discover = async (cwd: string): Promise<Repo | null> => {
     "index",
     "--git-path",
     "polaris/index",
+    "--git-path",
+    "polaris/command-index",
     "--show-object-format",
   ]).catch(() => null);
 
   if (result === null || result.code !== 0) return null;
-  const [top, userIndex, ownIndex, format] = decoder.decode(result.stdout).split("\n");
 
-  if (!top || !userIndex || !ownIndex) return null;
+  const [top, userIndex, ownIndex, commandIndex, format] = decoder
+    .decode(result.stdout)
+    .split("\n");
+
+  if (!top || !userIndex || !ownIndex || !commandIndex) return null;
   const hashBytes = HASH_BYTES.get(format ?? "") ?? null;
-  const repo = { root: nativePath(top), userIndex, ownIndex, hashBytes };
+  const repo = { root: nativePath(top), userIndex, ownIndex, commandIndex, hashBytes };
   repos.set(cwd, repo);
 
   return repo;
@@ -193,30 +201,30 @@ const addAndWriteTree = async (repo: Repo, index: string, config: ReadonlyArray<
  * which files count as tracked (and so are kept even if ignored) always
  * follows the user's index, as with a fresh copy.
  */
-const ownIndexTree = async (repo: Repo): Promise<string> => {
+const ownIndexTree = async (repo: Repo, index: string): Promise<string> => {
   const seed = await signature(repo.userIndex);
 
-  if (seeds.get(repo.ownIndex) !== seed || !existsSync(repo.ownIndex)) {
-    seeds.delete(repo.ownIndex);
-    await mkdir(dirname(repo.ownIndex), { recursive: true });
-    await rm(repo.ownIndex, { force: true });
+  if (seeds.get(index) !== seed || !existsSync(index)) {
+    seeds.delete(index);
+    await mkdir(dirname(index), { recursive: true });
+    await rm(index, { force: true });
 
-    if (seed !== null) await copyUserIndex(repo.userIndex, repo.ownIndex);
+    if (seed !== null) await copyUserIndex(repo.userIndex, index);
   }
 
-  const lock = `${repo.ownIndex}.lock`;
+  const lock = `${index}.lock`;
   const lockStat = await stat(lock).catch(() => null);
 
   if (lockStat !== null && Date.now() - lockStat.mtimeMs > STALE_LOCK_MS) {
     await rm(lock, { force: true });
   }
 
-  const { tree, rewritten } = await addAndWriteTree(repo, repo.ownIndex, OWN_INDEX_CONFIG);
+  const { tree, rewritten } = await addAndWriteTree(repo, index, OWN_INDEX_CONFIG);
 
   // An index left as it was gave its cached tree, which gc may have pruned (ADR 0109):
   // a missing tree throws and takes the fallback.
   if (!rewritten) await gitText(repo.root, ["cat-file", "-e", `${tree}^{tree}`]);
-  seeds.set(repo.ownIndex, seed);
+  seeds.set(index, seed);
 
   return tree;
 };
@@ -236,34 +244,71 @@ const tempIndexTree = async (repo: Repo): Promise<string> => {
   }
 };
 
-const snapshotRepo = async (repo: Repo): Promise<Snapshot> => {
-  const [tree, head] = await Promise.all([
-    serialized(repo.ownIndex, () =>
-      ownIndexTree(repo).catch(async () => {
-        // Our own index is only a cache: drop it and take this snapshot the slow way.
-        seeds.delete(repo.ownIndex);
-        await rm(repo.ownIndex, { force: true }).catch(() => {});
+/**
+ * The tree of `repo`'s working tree through `index`, one at a time per index, and how long
+ * its turn took. Once `signal` has aborted it throws: before it starts, without running git.
+ */
+const repoTree = (
+  repo: Repo,
+  index: string,
+  signal?: AbortSignal
+): Promise<{ readonly tree: string; readonly ms: number }> => {
+  if (signal?.aborted === true) return Promise.reject(signal.reason);
+  let begun = false;
 
-        return tempIndexTree(repo);
-      })
-    ),
+  const turn = serialized(index, async () => {
+    signal?.throwIfAborted();
+    begun = true;
+    const started = performance.now();
+
+    const tree = await ownIndexTree(repo, index).catch(async (cause: unknown) => {
+      if (signal?.aborted === true) {
+        // git was ended and has exited: a lock it left is nobody's. The index stays warm.
+        await rm(`${index}.lock`, { force: true }).catch(() => {});
+
+        throw cause;
+      }
+
+      // Our own index is only a cache: drop it and take this snapshot the slow way.
+      seeds.delete(index);
+      await rm(index, { force: true }).catch(() => {});
+
+      return tempIndexTree(repo);
+    });
+
+    return { tree, ms: performance.now() - started };
+  });
+
+  if (signal === undefined) return turn;
+
+  // One still waiting its turn leaves at once; one that began ends when its git has.
+  return new Promise((resolve, reject) => {
+    const leave = () => {
+      if (!begun) reject(signal.reason);
+    };
+
+    signal.addEventListener("abort", leave, { once: true });
+    void turn.then(resolve, reject).finally(() => signal.removeEventListener("abort", leave));
+  });
+};
+
+const snapshotRepo = async (repo: Repo): Promise<Snapshot> => {
+  const [{ tree }, head] = await Promise.all([
+    repoTree(repo, repo.ownIndex),
     resolveHead(repo.root),
   ]);
 
   return { root: repo.root, tree, head };
 };
 
-/**
- * Snapshots the working tree of the repository containing `cwd`. Returns null
- * outside git repositories.
- */
-export const snapshotWorkingTree = async (cwd: string): Promise<Snapshot | null> => {
+/** `take` on the repository containing `cwd`, looked up again once if it moved; null outside git. */
+const inRepo = async <A>(cwd: string, take: (repo: Repo) => Promise<A>): Promise<A | null> => {
   const repo = await discover(cwd);
 
   if (repo === null) return null;
 
   try {
-    return await snapshotRepo(repo);
+    return await take(repo);
   } catch (cause) {
     // The repository may have moved or gone: look again once.
     repos.delete(cwd);
@@ -273,8 +318,37 @@ export const snapshotWorkingTree = async (cwd: string): Promise<Snapshot | null>
 
     if (again.root === repo.root && again.ownIndex === repo.ownIndex) throw cause;
 
-    return snapshotRepo(again);
+    return take(again);
   }
+};
+
+/**
+ * Snapshots the working tree of the repository containing `cwd`. Returns null
+ * outside git repositories.
+ */
+export const snapshotWorkingTree = (cwd: string): Promise<Snapshot | null> =>
+  inRepo(cwd, snapshotRepo);
+
+export interface TreeSnapshot {
+  readonly root: string;
+  readonly tree: string;
+  /** How long the snapshot itself took, without its wait behind others of this worktree. */
+  readonly ms: number;
+}
+
+/**
+ * The working tree's tree alone (no HEAD: one git fewer), for per-command snapshots (ADR 0117).
+ * Through an index of their own, so a Turn's checkpoints never queue behind them. Aborting
+ * `signal` ends its git, or drops it while it still waits its turn; it then rejects.
+ */
+export const snapshotTree = (cwd: string, signal?: AbortSignal): Promise<TreeSnapshot | null> => {
+  const take = () =>
+    inRepo(cwd, async (repo) => ({
+      root: repo.root,
+      ...(await repoTree(repo, repo.commandIndex, signal)),
+    }));
+
+  return signal === undefined ? take() : underSignal(signal, take);
 };
 
 /** Forgets cached repository paths and seeds (tests). */

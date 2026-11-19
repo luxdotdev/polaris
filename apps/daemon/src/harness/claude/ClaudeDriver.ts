@@ -67,6 +67,7 @@ import { ClaudeHookReceiver } from "./hooks.ts";
 import { contextWindowOf } from "./payloads.ts";
 import { titleHooks } from "./title.ts";
 import { applyClaudeTraceHooks } from "./traces.ts";
+import { applyCommandChangeHooks } from "./commandChanges.ts";
 import { Inbox } from "./inbox.ts";
 import { buildUserMessage, landedSteer, type SteerInput, type SteerSent } from "./input.ts";
 import { shellCommandMessage } from "./shellInput.ts";
@@ -281,7 +282,7 @@ const openSession = Effect.fnUntraced(function* (
     // Never taken in (an interrupt recalled it): it doesn't show as part of the Turn.
     for (const [uuid, steer] of steers) if (steer.turnId === turn.turnId) steers.delete(uuid);
     emitAll(translator.closeOpenTools(turn.turnId, status === "completed" ? "failed" : "declined"));
-    translator.endTurn();
+    translator.endTurn(status);
     const limit = usageLimit.take();
     emit(
       HarnessEvent.TurnEnded({
@@ -408,6 +409,8 @@ const openSession = Effect.fnUntraced(function* (
     () => active?.turnId ?? null,
     () => permissionMode
   );
+
+  applyCommandChangeHooks(sdkOptions, options, translator, emitAll, () => active?.turnId ?? null);
 
   if (options.model !== null) sdkOptions.model = options.model;
 
