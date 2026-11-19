@@ -354,7 +354,9 @@ describe("nightly build", () => {
     )(release.on).workflow_call.secrets;
 
     expect(declared).toEqual(
-      Object.fromEntries(APPLE_SECRETS.map((name) => [name, { required: true }]))
+      Object.fromEntries(
+        APPLE_SECRETS.map((name) => [name, { required: name !== "MACOS_SIGNING_IDENTITY" }])
+      )
     );
 
     for (const [, job] of appleJobs()) {

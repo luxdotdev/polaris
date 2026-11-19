@@ -42,6 +42,7 @@ printf 'git %s\\n' "$*" >> "$FAKE_ROOT/calls"
 case "$*" in
   *" commit "*) touch "$FAKE_ROOT/committed" ;;
   "rev-parse HEAD") if [[ -e "$FAKE_ROOT/committed" ]]; then echo bump; else echo c2; fi ;;
+  "rev-parse HEAD^{tree}") echo bump-tree ;;
 esac
 `;
 
@@ -280,11 +281,13 @@ describe("nightly tag", () => {
     return { ...f, tag, git: () => f.calls().filter((call) => call.startsWith("git ")) };
   };
 
-  const existing = (parent: string, version = TAG.slice(1)) => ({
+  const existing = (parent: string, tree = "bump-tree") => ({
     [`repos/${REPO}/git/ref/tags/${TAG}`]: { object: { sha: "old", type: "commit" } },
-    [`repos/${REPO}/commits/old`]: { parents: [{ sha: parent }] },
-    [`repos/${REPO}/contents/apps/desktop/package.json?ref=old`]: { version },
+    [`repos/${REPO}/git/commits/old`]: { parents: [{ sha: parent }], tree: { sha: tree } },
   });
+
+  const pushed = (calls: Array<string>) =>
+    calls.some((call) => call.startsWith("git tag ") || call.startsWith("git push "));
 
   test("commits the version onto the source and pushes only the tag", () => {
     const { tag, git, outputs } = tagSetup({});
@@ -297,18 +300,18 @@ describe("nightly tag", () => {
     expect(outputs()).toEqual({ sha: "bump" });
   });
 
-  test("a retry reuses today's unreleased tag of the same bump, and moves nothing", () => {
+  test("a retry reuses today's unreleased tag with this bump's exact tree, and moves nothing", () => {
     const { tag, git, calls, outputs } = tagSetup(existing("c2"));
 
     expect(tag().ok).toBe(true);
-    expect(git()).toEqual([]);
+    expect(pushed(git())).toBe(false);
     expect(calls().some((call) => call.includes("-X DELETE"))).toBe(false);
     expect(outputs()).toEqual({ sha: "old" });
   });
 
   test.each([
     ["another source commit", existing("c1")],
-    ["another version", existing("c2", "0.11.1-nightly.20261118")],
+    ["the right parent but any other change in its tree", existing("c2", "tampered-tree")],
   ])("an unreleased tag of %s is deleted, then the tag is made afresh", (_, answers) => {
     const { tag, git, calls, outputs } = tagSetup(answers);
 
@@ -328,9 +331,8 @@ describe("nightly tag", () => {
 
     expect(result.ok).toBe(false);
     expect(result.error).toContain(`${TAG} already has a Release`);
-    expect(calls().some((call) => call.includes("-X DELETE") || call.startsWith("git "))).toBe(
-      false
-    );
+    expect(calls().some((call) => call.includes("-X DELETE"))).toBe(false);
+    expect(pushed(calls())).toBe(false);
   });
 });
 

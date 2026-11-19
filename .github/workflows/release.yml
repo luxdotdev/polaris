@@ -31,8 +31,9 @@ on:
         required: true
       MACOS_CERT_PASSWORD:
         required: true
+      # Optional in sign.py, and in neither environment today.
       MACOS_SIGNING_IDENTITY:
-        required: true
+        required: false
       APPLE_API_KEY:
         required: true
       APPLE_API_KEY_ID:

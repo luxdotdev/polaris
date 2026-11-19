@@ -6,8 +6,9 @@
          nightly Release was built from that commit, or when today's nightly is published.
          Writes skip, reason, sha, version and tag to $GITHUB_OUTPUT.
   tag    commits the version onto --source and pushes only the tag, writing its commit as sha
-         to $GITHUB_OUTPUT. An existing tag is never moved: an unreleased tag of this very bump
-         (a retry) is reused, any other unreleased one deleted first, a released one refused.
+         to $GITHUB_OUTPUT. An existing tag is never moved: an unreleased one whose commit has
+         --source as its only parent and the very tree of this bump (a retry) is reused, any
+         other unreleased one deleted first, a released one refused.
   bump   sets the Desktop App's and the Daemon's version (and bun.lock's record of them).
   prune  keeps the newest --keep nightly Releases and deletes the other nightly Releases and
          unreleased nightly tags, except --current (a failed run's tag stays until the next run).
@@ -149,8 +150,11 @@ def bump(root: Path, version: str) -> None:
         )
 
 
-def reusable_tag(repo: str, tag: str, version: str, source: str) -> str | None:
-    """The commit of an unreleased `tag` made by this bump of `source`; deletes any other."""
+def reusable_tag(repo: str, tag: str, source: str, tree: str) -> str | None:
+    """An unreleased `tag` whose commit is exactly this bump: `source`'s only child with `tree`.
+
+    Content, not provenance, decides: any other change in the tree means it is deleted.
+    """
     existing = gh_json_or_none(f"repos/{repo}/git/ref/tags/{tag}")
     if existing is None:
         return None
@@ -158,24 +162,26 @@ def reusable_tag(repo: str, tag: str, version: str, source: str) -> str | None:
         raise SystemExit(f"{tag} already has a Release")
     sha = existing["object"]["sha"]
     if existing["object"]["type"] == "commit":
-        parents = [parent["sha"] for parent in gh_json(f"repos/{repo}/commits/{sha}")["parents"]]
-        if parents == [source] and desktop_version(repo, sha) == version:
-            print(f"Reusing {tag} at {sha}: an earlier run's bump of {source}")
+        commit = gh_json(f"repos/{repo}/git/commits/{sha}")
+        parents = [parent["sha"] for parent in commit["parents"]]
+        if parents == [source] and commit["tree"]["sha"] == tree:
+            print(f"Reusing {tag} at {sha}: the same tree as this bump of {source}")
             return sha
     subprocess.run(["gh", "api", "-X", "DELETE", f"repos/{repo}/git/refs/tags/{tag}"], check=True)
-    print(f"Deleted unreleased {tag} at {sha}: not this run's bump of {source}")
+    print(f"Deleted unreleased {tag} at {sha}: not this bump of {source}")
     return None
 
 
 def make_tag(repo: str, root: Path, version: str, tag: str, source: str) -> str:
-    sha = reusable_tag(repo, tag, version, source)
-    if sha is not None:
-        return sha
     git = lambda *args: subprocess.run(["git", *args], cwd=root, check=True, capture_output=True, text=True)
     if git("rev-parse", "HEAD").stdout.strip() != source:
         raise SystemExit(f"The checkout is not {source}")
     bump(root, version)
     git(*BOT, "commit", "-q", "-am", f"nightly: {version}")
+    tree = git("rev-parse", "HEAD^{tree}").stdout.strip()
+    sha = reusable_tag(repo, tag, source, tree)
+    if sha is not None:
+        return sha
     git("tag", tag)
     git("push", "origin", f"refs/tags/{tag}")
     return git("rev-parse", "HEAD").stdout.strip()

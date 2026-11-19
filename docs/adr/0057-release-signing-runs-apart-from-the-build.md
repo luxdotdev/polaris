@@ -122,8 +122,9 @@ commit and that its parent (the source) is on main; `publish` checks the tag aga
 Release with `--target` that commit. Moving the tag mid-run cannot swap what is built and signed.
 
 A nightly tag is never moved: the push has no force. A retry the same day reuses today's tag if it
-has no Release and is this run's bump of the same source commit (its only parent, carrying the
-version); an unreleased tag of anything else is deleted first; a released one stops the run.
+has no Release and its commit has the source as its only parent and exactly the tree of this
+run's own bump (content, not who made it); an unreleased tag of anything else is deleted first; a
+released one stops the run.
 `metadata.py` admits nightly tags only on that channel and never on a tag push. On the nightly
 channel `sign` and `sign-dmg` use the `nightly` environment, `publish` publishes a prerelease
 (never Latest) instead of a draft, and `sdk`, `npm`, `raycast` and `even-g2` are skipped: macOS
@@ -147,7 +148,8 @@ What replaces the reviewer:
   skipped on nightlies).
 - A called workflow sees an environment secret only if its caller passes it, by name or with
   `inherit`; unpassed, it is an empty string and no error. `release` passes exactly the Apple
-  secrets by name, never `inherit`, and `release.yml` declares each as required. Only the jobs in
+  secrets by name, never `inherit`, and `release.yml` declares each, required but for the optional
+  `MACOS_SIGNING_IDENTITY`. Only the jobs in
   the `nightly` environment read them, and that environment supplies their values.
 - Tags pushed with the workflow token start no workflow, so a nightly tag never runs `release.yml`
   as a stable release; one pushed by hand fails `metadata`.
