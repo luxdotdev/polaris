@@ -44,4 +44,37 @@ describe("a Turn's patch budget", () => {
     budgets.end("s:t1");
     expect(kept(budgets.take("s:t1", change("d", 1000)))?.truncated).toBe(false);
   });
+
+  test("a command's changes spend the same budget, and completing again doesn't spend twice", () => {
+    const budgets = new TurnPatchBudgets();
+    const patch = filePatch("", `${"x".repeat(63)}\n`.repeat(1000));
+    const fit = Math.floor(TURN_PATCH_BUDGET / patch.diff.length);
+
+    const command = (id: string) =>
+      TurnItem.cases.CommandExecution.make({
+        id,
+        command: "python3 edit.py",
+        cwd: "/w",
+        output: "",
+        exitCode: 0,
+        status: "completed",
+        changes: [{ path: `${id}.ts`, kind: "add", patch }],
+      });
+
+    const patchOf = (item: TurnItem) =>
+      TurnItem.guards.CommandExecution(item) ? item.changes?.[0]?.patch : undefined;
+
+    // The same command completes again (its result came before its snapshot): spent once.
+    for (let i = 0; i < fit * 2; i++) budgets.take("s:t1", command("again"));
+
+    for (let i = 1; i < fit; i++) budgets.take("s:t1", command(`c${i}`));
+
+    expect(patchOf(budgets.take("s:t1", command("again")))?.truncated).toBe(false);
+    expect(patchOf(budgets.take("s:t1", command("over")))).toEqual({
+      diff: "",
+      added: 1000,
+      removed: 0,
+      truncated: true,
+    });
+  });
 });

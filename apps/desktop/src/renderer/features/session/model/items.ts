@@ -81,6 +81,10 @@ export type ItemView =
       readonly status: ItemStatus;
       /** It moved to the background, where it keeps running as a background task. */
       readonly inBackground?: boolean;
+      /** Files the working tree had changed once it finished; names alone on a large tree. */
+      readonly changes?: ReadonlyArray<FileChangeView> | undefined;
+      /** Changed files past the listed ones. */
+      readonly moreChanges?: number | undefined;
     })
   | (Base & {
       readonly kind: "files";
@@ -328,6 +332,8 @@ const fromItem = (item: TurnItem, live: boolean): ItemView =>
         exitCode: i.exitCode,
         status: i.status,
         inBackground: Predicate.isString(i.backgroundTaskId),
+        changes: i.changes,
+        moreChanges: i.moreChanges,
       }),
       FileChange: (i): ItemView => ({
         kind: "files",

@@ -236,34 +236,36 @@ const tempIndexTree = async (repo: Repo): Promise<string> => {
   }
 };
 
-const snapshotRepo = async (repo: Repo): Promise<Snapshot> => {
-  const [tree, head] = await Promise.all([
-    serialized(repo.ownIndex, () =>
-      ownIndexTree(repo).catch(async () => {
-        // Our own index is only a cache: drop it and take this snapshot the slow way.
-        seeds.delete(repo.ownIndex);
-        await rm(repo.ownIndex, { force: true }).catch(() => {});
+/** The tree of `repo`'s working tree, one at a time per index, and how long its turn took. */
+const repoTree = (repo: Repo): Promise<{ readonly tree: string; readonly ms: number }> =>
+  serialized(repo.ownIndex, async () => {
+    const started = performance.now();
 
-        return tempIndexTree(repo);
-      })
-    ),
-    resolveHead(repo.root),
-  ]);
+    const tree = await ownIndexTree(repo).catch(async () => {
+      // Our own index is only a cache: drop it and take this snapshot the slow way.
+      seeds.delete(repo.ownIndex);
+      await rm(repo.ownIndex, { force: true }).catch(() => {});
+
+      return tempIndexTree(repo);
+    });
+
+    return { tree, ms: performance.now() - started };
+  });
+
+const snapshotRepo = async (repo: Repo): Promise<Snapshot> => {
+  const [{ tree }, head] = await Promise.all([repoTree(repo), resolveHead(repo.root)]);
 
   return { root: repo.root, tree, head };
 };
 
-/**
- * Snapshots the working tree of the repository containing `cwd`. Returns null
- * outside git repositories.
- */
-export const snapshotWorkingTree = async (cwd: string): Promise<Snapshot | null> => {
+/** `take` on the repository containing `cwd`, looked up again once if it moved; null outside git. */
+const inRepo = async <A>(cwd: string, take: (repo: Repo) => Promise<A>): Promise<A | null> => {
   const repo = await discover(cwd);
 
   if (repo === null) return null;
 
   try {
-    return await snapshotRepo(repo);
+    return await take(repo);
   } catch (cause) {
     // The repository may have moved or gone: look again once.
     repos.delete(cwd);
@@ -273,9 +275,27 @@ export const snapshotWorkingTree = async (cwd: string): Promise<Snapshot | null>
 
     if (again.root === repo.root && again.ownIndex === repo.ownIndex) throw cause;
 
-    return snapshotRepo(again);
+    return take(again);
   }
 };
+
+/**
+ * Snapshots the working tree of the repository containing `cwd`. Returns null
+ * outside git repositories.
+ */
+export const snapshotWorkingTree = (cwd: string): Promise<Snapshot | null> =>
+  inRepo(cwd, snapshotRepo);
+
+export interface TreeSnapshot {
+  readonly root: string;
+  readonly tree: string;
+  /** How long the snapshot itself took, without its wait behind others of this worktree. */
+  readonly ms: number;
+}
+
+/** The working tree's tree alone (no HEAD: one git fewer), for per-command snapshots (ADR 0117). */
+export const snapshotTree = (cwd: string): Promise<TreeSnapshot | null> =>
+  inRepo(cwd, async (repo) => ({ root: repo.root, ...(await repoTree(repo)) }));
 
 /** Forgets cached repository paths and seeds (tests). */
 export const resetSnapshotCaches = (): void => {

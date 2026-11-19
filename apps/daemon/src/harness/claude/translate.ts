@@ -22,6 +22,7 @@ import type {
 import { type ReplyStats, SubagentId, type TurnId, TurnItem } from "@polaris/protocol";
 import { Option, Predicate } from "effect";
 import { ClaudeBackgroundTasks } from "./backgroundTasks.ts";
+import { type CommandChanges, CommandChangeJoin, commandChangeFields } from "./commandChanges.ts";
 import { FILE_TOOLS, FileToolStreams, fileChangeItem } from "./fileChange.ts";
 import type { Previous, ReadPrevious } from "./readPrevious.ts";
 
@@ -162,6 +163,8 @@ export interface ToolCall {
   readonly structured: ToolPayload;
   /** A Write's file as it was before the call, when the Daemon read it. */
   readonly previous?: Previous;
+  /** What a Bash call changed in the working tree, when the Daemon snapshotted around it. */
+  readonly changes?: CommandChanges;
 }
 
 /** Claude Code reports a non-zero exit only as an error result, without the code, so only a
@@ -191,6 +194,7 @@ const commandItem = (call: ToolCall): TurnItem => {
     exitCode: commandExitCode(call, result),
     status: call.status,
     backgroundTaskId: result.backgroundTaskId,
+    ...commandChangeFields(call.changes),
   });
 };
 
@@ -249,6 +253,7 @@ export class ClaudeTranslator {
   private contextUsed: number | null = null;
   private readonly replies = new ReplyTimer<Reply>();
   private readonly fileStreams = new FileToolStreams();
+  private readonly commandChanges = new CommandChangeJoin<{ scope: Scope; call: ToolCall }>();
 
   constructor(
     private readonly cwd: string,
@@ -305,6 +310,7 @@ export class ClaudeTranslator {
 
   endTurn(): void {
     this.turnId = null;
+    this.commandChanges.clear();
     this.streamMessageIds.delete("");
 
     // A background Subagent may still be delivering blocks.
@@ -692,6 +698,20 @@ export class ClaudeTranslator {
     return [ItemUpdated({ ...scoped(tool.scope), item })];
   }
 
+  /** A Bash call's working tree is being snapshotted (ADR 0117): its changes will follow. */
+  trackCommand(id: string): void {
+    this.commandChanges.track(id);
+  }
+
+  /** A Bash call's changes, read after its result: the call completes again, with them. */
+  onCommandChanges(id: string, changes: CommandChanges | null): HarnessEvent[] {
+    const done = this.commandChanges.onChanges(id, changes);
+
+    if (done === null || changes === null || done.scope.turnId !== this.turnId) return [];
+
+    return [ItemCompleted({ ...scoped(done.scope), item: toolItem({ ...done.call, changes }) })];
+  }
+
   private onUser(
     content: SDKUserMessage["message"]["content"],
     structured: SDKUserMessage["tool_use_result"]
@@ -728,18 +748,25 @@ export class ClaudeTranslator {
 
     this.replies.requested(tool.scope.subagentId ?? "", this.nowMs());
 
+    const call: ToolCall = {
+      id,
+      name: tool.name,
+      input: tool.input,
+      cwd: this.cwd,
+      status,
+      resultText: toolResultText(block.content),
+      structured,
+      previous: tool.previous,
+    };
+
+    const changes =
+      tool.name === "Bash"
+        ? this.commandChanges.onResult(id, { scope: tool.scope, call })
+        : undefined;
+
     const completed = ItemCompleted({
       ...scoped(tool.scope),
-      item: toolItem({
-        id,
-        name: tool.name,
-        input: tool.input,
-        cwd: this.cwd,
-        status,
-        resultText: toolResultText(block.content),
-        structured,
-        previous: tool.previous,
-      }),
+      item: toolItem(changes === undefined ? call : { ...call, changes }),
     });
 
     // A foreground Subagent ends with its Agent call; a background one with its notification.

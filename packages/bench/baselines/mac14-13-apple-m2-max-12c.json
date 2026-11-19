@@ -37,7 +37,8 @@
       "desktop-idle",
       "review",
       "usage",
-      "usage-contention"
+      "usage-contention",
+      "commands"
     ]
   },
   "scenarios": {
@@ -3473,6 +3474,129 @@
         "run 3: 1200 modules (10.8 MB) over bridge, one stream each, 6 at a time; roundTrip pings every 20 ms, 32 of them during the reload"
       ],
       "durationMs": 7923.775332999998
+    },
+    "commands": {
+      "metrics": {
+        "command_before_ms": {
+          "value": 126.95222949999993,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [
+            126.95222949999993,
+            120.71887500000003,
+            136.88585399999965
+          ],
+          "min": 120.71887500000003,
+          "max": 136.88585399999965
+        },
+        "command_before_p95_ms": {
+          "value": 151.2634579999999,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [
+            151.2634579999999,
+            140.78895799999918,
+            174.04562499999975
+          ],
+          "min": 140.78895799999918,
+          "max": 174.04562499999975
+        },
+        "command_after_ms": {
+          "value": 158.4655625000005,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [
+            158.4655625000005,
+            144.33874949999972,
+            166.94643799999994
+          ],
+          "min": 144.33874949999972,
+          "max": 166.94643799999994
+        },
+        "command_after_p95_ms": {
+          "value": 179.81037500000002,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [
+            179.81037500000002,
+            173.85924999999952,
+            238.91637499999888
+          ],
+          "min": 173.85924999999952,
+          "max": 238.91637499999888
+        },
+        "commands_turn_ms": {
+          "value": 12131.360666999986,
+          "unit": "ms",
+          "kind": "time",
+          "better": "lower",
+          "runs": [
+            12131.360666999986,
+            11591.544792,
+            13274.737083999993
+          ],
+          "min": 11591.544792,
+          "max": 13274.737083999993
+        },
+        "cpu_avg_pct": {
+          "value": 575.7557776659885,
+          "unit": "%",
+          "kind": "cpu",
+          "better": "lower",
+          "info": true,
+          "runs": [
+            577.7145770116351,
+            575.7557776659885,
+            521.6033472245247
+          ],
+          "min": 521.6033472245247,
+          "max": 577.7145770116351
+        },
+        "rss_peak_mib": {
+          "value": 249.703125,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "info": true,
+          "runs": [
+            249.703125,
+            273.953125,
+            222.046875
+          ],
+          "min": 222.046875,
+          "max": 273.953125
+        },
+        "footprint_peak_mib": {
+          "value": 128.42313385009766,
+          "unit": "MiB",
+          "kind": "memory",
+          "better": "lower",
+          "tolerance": {
+            "relative": 0.25,
+            "absolute": 10
+          },
+          "runs": [
+            117.34498596191406,
+            128.42313385009766,
+            140.23558807373047
+          ],
+          "min": 117.34498596191406,
+          "max": 140.23558807373047
+        }
+      },
+      "notes": [
+        "50000 files; one Turn of 40 shell commands, each appending to one of 10 files",
+        "snapshot mode after each command: patches"
+      ],
+      "durationMs": 80642.30095799999
     }
   }
 }

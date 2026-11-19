@@ -47,6 +47,9 @@ import {
 import { benchDraftReply, isAcceptDraftPrompt } from "./accept.ts";
 import { benchReviewReply, isReviewerPrompt } from "./review.ts";
 import { benchBreakdown } from "./context.ts";
+import { commandSnapshots } from "../../git/commandSnapshots.ts";
+import { executableOf } from "../../platform/executable.ts";
+import { childEnv } from "../../service/childEnv.ts";
 import { runSubagent } from "./subagent.ts";
 import { isPreambleProbe, isToolProbe, preambleProbe, toolProbe } from "./preamble.ts";
 import { steerItem } from "../userMessage.ts";
@@ -77,6 +80,12 @@ const BenchTurnScriptSchema = Schema.Struct({
   ),
   /** Files written under `<cwd>/polaris-bench/` during the Turn, so checkpoints see changes. */
   touchFiles: Schema.Number,
+  /**
+   * Real shell commands run after the items, each appending to a file under
+   * `<cwd>/polaris-bench/` between the working-tree snapshots of ADR 0117; each one's
+   * output is its timings as JSON (`ShellCommandTimings`).
+   */
+  shellCommands: Schema.Number,
   /** Minimum text size of each completed message, reasoning and command item (padded). */
   itemBytes: Schema.Number,
   /** Wait before the Turn starts, e.g. to model a Harness thinking. */
@@ -103,6 +112,7 @@ export const DEFAULT_SCRIPT: BenchTurnScript = {
   approvalQuestion: null,
   approvalApp: null,
   touchFiles: 0,
+  shellCommands: 0,
   itemBytes: 0,
   startDelayMs: 0,
   subagents: 0,
@@ -227,6 +237,54 @@ const touchFiles = (cwd: string, turnId: TurnId, count: number): ReadonlyArray<s
     writeFileSync(join(cwd, path), `${turnId} ${f}\n`.repeat(20));
 
     return path;
+  });
+};
+
+/** What a scripted shell command's `output` holds, as JSON. */
+export interface ShellCommandTimings {
+  /** How long the command waited for the snapshot before it. */
+  readonly beforeMs: number;
+  /** The snapshot after it, the diff of the two trees, and the patches. */
+  readonly afterMs: number;
+  readonly mode: "patches" | "names" | "off";
+}
+
+const shellCommand = async (
+  options: Pick<OpenOptions, "cwd" | "sessionId">,
+  turnId: TurnId,
+  n: number
+): Promise<TurnItem> => {
+  const id = `${turnId}-shell-${n}`;
+  const command = `mkdir -p polaris-bench && echo '${turnId} ${n}' >> polaris-bench/script-${n % 10}.txt`;
+  const startedAt = new Date().toISOString();
+  const started = performance.now();
+  await commandSnapshots.started(id, { cwd: options.cwd, sessionId: options.sessionId, turnId });
+  const ran = performance.now();
+
+  const shell = Bun.spawn([executableOf("sh"), "-c", command], {
+    cwd: options.cwd,
+    env: childEnv(),
+  });
+
+  const exitCode = await shell.exited;
+  const ended = performance.now();
+  const found = await commandSnapshots.ended(id);
+
+  const timings: ShellCommandTimings = {
+    beforeMs: ran - started,
+    afterMs: performance.now() - ended,
+    mode: commandSnapshots.modeOf(options.cwd),
+  };
+
+  return TurnItem.cases.CommandExecution.make({
+    id,
+    startedAt,
+    command,
+    cwd: options.cwd,
+    output: JSON.stringify(timings),
+    exitCode,
+    status: exitCode === 0 ? "completed" : "failed",
+    changes: found?.changes ?? [],
   });
 };
 
@@ -388,6 +446,11 @@ const openBenchSession = Effect.fn("BenchDriver.open")(function* (options: OpenO
       const files = touchFiles(options.cwd, turnId, script.touchFiles);
 
       for (let i = 0; i < script.items; i++) yield* runItem(script, turnId, i, files);
+
+      for (let n = 0; n < script.shellCommands; n++) {
+        const item = yield* Effect.promise(() => shellCommand(options, turnId, n));
+        yield* emit(HarnessEvent.ItemCompleted({ turnId, item }));
+      }
 
       for (let n = 0; n < script.subagents; n++) yield* runSubagent(emit, turnId, n);
 
