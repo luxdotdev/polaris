@@ -1,12 +1,12 @@
 /**
- * Showing and hiding Output for a session. A showing terminal drawer keeps
- * Output open, so hiding Output tucks the drawer to its strip (Edit still shows it).
+ * Showing and hiding Output for a session. A showing terminal drawer, or one whose last tab
+ * closed there, keeps Output open, so hiding Output tucks the drawer (Edit still shows it).
  */
 import {
-  isTerminalShown,
   type TerminalPlace,
+  terminalHoldsOutput,
   tuckTerminal,
-  useTerminalShown,
+  useTerminalHoldsOutput,
 } from "../../terminal/index.ts";
 import { showSubagent, uiKey } from "../state.ts";
 import { isOutputOpen, openForEdit, setOutputOpen, useOutputOpen } from "./open.ts";
@@ -32,7 +32,7 @@ export const openSubagent = (place: TerminalPlace, sessionId: string, subagentId
 export const toggleOutput = (place: TerminalPlace, sessionId: string) => {
   const shown =
     isOutputOpen(uiKey(place.hostKey, sessionId)) ||
-    isTerminalShown(place.hostKey, place.workspaceId);
+    terminalHoldsOutput(place.hostKey, place.workspaceId);
 
   if (shown) hideOutput(place, sessionId);
   else setOutputOpen(uiKey(place.hostKey, sessionId), true);
@@ -41,7 +41,7 @@ export const toggleOutput = (place: TerminalPlace, sessionId: string) => {
 /** Whether Output shows as a panel (else the rail). */
 export const useOutputShown = (place: TerminalPlace, sessionId: string): boolean => {
   const open = useOutputOpen(uiKey(place.hostKey, sessionId));
-  const terminal = useTerminalShown(place.hostKey, place.workspaceId);
+  const terminal = useTerminalHoldsOutput(place.hostKey, place.workspaceId);
 
   return open || terminal;
 };

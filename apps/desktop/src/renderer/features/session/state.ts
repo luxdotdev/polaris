@@ -34,7 +34,7 @@ export interface PickedElement {
 
 export interface SessionUi {
   readonly folds: Folds;
-  /** The Turn whose diff Output shows; null follows the latest Turn. */
+  /** The Turn whose diff Output shows; null shows the whole Agent Session's. */
   readonly diffTurnId: string | null;
   /** The Subagent Output's Subagent tab shows; null shows Changes (or a Lead's tab). */
   readonly subagentId: string | null;
