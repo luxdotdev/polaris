@@ -91,14 +91,25 @@ const failedDownload = (failure: AppUpdateFailure): AppUpdateRow => {
   };
 };
 
+/** Paper U1: why this Release and not the one before it. */
+const downloadingCaption = (view: AppUpdateView, version: string | null) => {
+  if (view.replaces != null && version !== null)
+    return `${version} came out, so it replaces ${view.replaces}`;
+
+  if (view.skipped != null) return `The newest release; ${view.skipped} is skipped`;
+
+  return "In the background · nothing to do yet";
+};
+
 const downloading = (view: AppUpdateView): AppUpdateRow => {
   const download = view.download;
   const fraction = download === null ? null : downloadFraction(download);
+  const version = download?.version ?? view.availableVersion;
 
   return {
-    title: `Downloading ${named(download?.version ?? view.availableVersion)}`,
+    title: `Downloading ${named(version)}`,
     // Full, but Squirrel is still checking and unpacking it.
-    caption: fraction === 1 ? "Verifying the download" : "In the background · nothing to do yet",
+    caption: fraction === 1 ? "Verifying the download" : downloadingCaption(view, version),
     action: null,
     actionLabel: "",
     progress: download === null ? null : { amount: downloadAmount(download), fraction },

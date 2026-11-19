@@ -3,8 +3,8 @@ import type { AppUpdateFailure, AppUpdateView } from "../../shared/appUpdates.ts
 import type { LocalFeed } from "./localFeed.ts";
 import { updateFeed } from "./platform.ts";
 import { macRelease, windowsRelease, type OfferedUpdate } from "./release.ts";
-import { clearPending, stageUpdate, type Verify } from "./stage.ts";
-import { versionFromAsset } from "./version.ts";
+import { clearPending, stageUpdate, type Staged, type Verify } from "./stage.ts";
+import { isNewer, versionFromAsset } from "./version.ts";
 
 export { versionFromAsset, versionFromNuget } from "./version.ts";
 
@@ -78,6 +78,13 @@ interface Handover {
   readonly cancelTimeout: () => void;
 }
 
+/** One download, from the feed's answer until its handover or its end; a newer one replaces it. */
+interface Staging {
+  readonly version: string;
+  readonly abort: AbortController;
+  done: Promise<void>;
+}
+
 /** The address Squirrel names is under this handover's own unguessable feed. */
 const names = (handover: Handover, url: string) => `${url}/`.startsWith(`${handover.feed.root}/`);
 
@@ -90,11 +97,16 @@ export const createAppUpdates = (input: UpdateInput) => {
   let cancelTimer: (() => void) | null = null;
   const handoverTimeoutMs = input.handoverTimeoutMs ?? HANDOVER_TIMEOUT_MS;
   let handover: Handover | null = null;
+  let staging: Staging | null = null;
+  /** A feed request is in flight. */
+  let asking = false;
+  /** The newest Release a check has offered, which a newer one may pass over. */
+  let offered: string | null = null;
   /** Timed out and never ended, oldest first: each may still send its one terminal event. */
   const stale: Array<Handover> = [];
   /** Set while the newest stale operation still keeps Squirrel's one slot. */
   let hold: (() => void) | null = null;
-  let wake: (() => void) | null = null;
+  const wakes = new Set<() => void>();
   let disposed = false;
 
   let view: AppUpdateView = {
@@ -123,8 +135,8 @@ export const createAppUpdates = (input: UpdateInput) => {
     cancelTimer?.();
     cancelTimer = null;
 
-    if (disposed || !view.supported || input.blocked || !view.automatic || view.phase === "ready")
-      return;
+    // Checks continue while an Update is ready: a newer Release replaces it (ENG-975).
+    if (disposed || !view.supported || input.blocked || !view.automatic) return;
     cancelTimer = schedule(() => {
       cancelTimer = null;
       check();
@@ -141,18 +153,13 @@ export const createAppUpdates = (input: UpdateInput) => {
   };
 
   const settle = (patch: Partial<AppUpdateView>) => {
-    change({ download: null, ...patch });
+    change({ download: null, replaces: null, skipped: null, ...patch });
     arm();
   };
 
+  /** A Release Squirrel already has stays ready, and installable, through a newer one's failure. */
   const fail = (failure: AppUpdateFailure, patch: Partial<AppUpdateView> = {}) =>
-    settle({ phase: "failed", failure, ...patch });
-
-  const failedCheck = () =>
-    fail(
-      { stage: "check", version: null, percent: null },
-      { availableVersion: view.readyVersion, lastCheckedAt: checked() }
-    );
+    settle({ phase: view.readyVersion === null ? "failed" : "ready", failure, ...patch });
 
   const endHandover = () => {
     const ended = handover;
@@ -168,7 +175,8 @@ export const createAppUpdates = (input: UpdateInput) => {
   const release = () => {
     hold?.();
     hold = null;
-    wake?.();
+
+    for (const wake of wakes) wake();
   };
 
   /**
@@ -196,8 +204,7 @@ export const createAppUpdates = (input: UpdateInput) => {
     if (ended === stale.at(-1)) release();
     stale.splice(stale.indexOf(ended), 1);
 
-    if (handover !== null || view.phase !== "failed" || view.failure?.version !== ended.version)
-      return;
+    if (handover !== null || staging !== null || view.failure?.version !== ended.version) return;
 
     if (completed) ready(ended.version);
     // The slot is free again, so the row offers "Try again" instead of a restart.
@@ -244,28 +251,34 @@ export const createAppUpdates = (input: UpdateInput) => {
     if (ended !== null) end(ended, windows && address === "");
   };
 
-  /** Resolves once no stale operation keeps Squirrel's slot. */
-  const nativeIdle = () =>
+  /** Resolves once no stale operation keeps Squirrel's slot, or the download is replaced. */
+  const nativeIdle = (signal: AbortSignal) =>
     new Promise<void>((resolve) => {
-      if (hold === null) {
+      if (hold === null || signal.aborted) {
         resolve();
 
         return;
       }
 
-      wake = () => {
-        wake = null;
+      const wake = () => {
+        wakes.delete(wake);
+        signal.removeEventListener("abort", wake);
         resolve();
       };
+
+      wakes.add(wake);
+      signal.addEventListener("abort", wake);
     });
 
   /** Publishes the first and last byte counts, and one in between every interval. */
-  const progress = (version: string) => {
+  const progress = (version: string, mine: Staging) => {
     const interval = input.progressIntervalMs ?? PROGRESS_INTERVAL_MS;
     let last = Number.NEGATIVE_INFINITY;
 
     return (receivedBytes: number, totalBytes: number | null) => {
       const at = Date.now();
+
+      if (staging !== mine) return;
 
       if (receivedBytes !== totalBytes && at - last < interval) return;
       last = at;
@@ -273,33 +286,28 @@ export const createAppUpdates = (input: UpdateInput) => {
     };
   };
 
-  const stage = async (update: OfferedUpdate) => {
-    change({
-      phase: "downloading",
-      availableVersion: update.version,
-      download: { version: update.version, receivedBytes: 0, totalBytes: update.bytes },
-      lastCheckedAt: checked(),
-    });
-
+  const download = async (update: OfferedUpdate, mine: Staging, signal: AbortSignal) => {
     const staged = await stageUpdate({
       platform,
       update,
       dir: input.pendingDir,
       bundle: input.bundle,
       fetch: input.download ?? input.fetch,
-      signal: abort.signal,
-      onProgress: progress(update.version),
+      signal,
+      onProgress: progress(update.version, mine),
       verify: input.verify,
-    });
+    }).catch((): Staged => ({ ok: false, stage: "download", percent: null }));
 
     // Squirrel runs one operation at a time: a new feed waits for a quiet one to end or lapse.
-    if (staged.ok) await nativeIdle();
+    if (staged.ok) await nativeIdle(signal);
 
-    if (disposed) {
+    if (disposed || staging !== mine) {
       if (staged.ok) staged.feed.close();
 
       return;
     }
+
+    staging = null;
 
     if (!staged.ok) {
       fail({ stage: staged.stage, version: update.version, percent: staged.percent });
@@ -321,41 +329,94 @@ export const createAppUpdates = (input: UpdateInput) => {
     }
   };
 
-  const ask = async (headers: UpdateHeaders) => {
-    const feed = updateFeed(UPDATE_BASE_URL, platform, input.arch, view.version);
+  /** Downloads the offered Release; one still downloading waits to stop first, then its files go. */
+  const stage = (update: OfferedUpdate) => {
+    const previous = staging;
+    const replaces = previous?.version ?? view.readyVersion;
 
-    const response = await input.fetch(platform === "win32" ? `${feed}/RELEASES` : feed, {
-      headers,
-      cache: "no-store",
-      signal: AbortSignal.any([abort.signal, AbortSignal.timeout(FEED_TIMEOUT_MS)]),
+    const skipped =
+      offered !== null && offered !== replaces && isNewer(offered, view.version) ? offered : null;
+
+    const mine: Staging = {
+      version: update.version,
+      abort: new AbortController(),
+      done: Promise.resolve(),
+    };
+
+    const signal = AbortSignal.any([abort.signal, mine.abort.signal]);
+
+    previous?.abort.abort();
+    staging = mine;
+    offered = update.version;
+    change({
+      phase: "downloading",
+      availableVersion: update.version,
+      download: { version: update.version, receivedBytes: 0, totalBytes: update.bytes },
+      replaces,
+      skipped,
+      failure: null,
     });
+    mine.done = (previous?.done ?? Promise.resolve()).then(() =>
+      signal.aborted ? undefined : download(update, mine, signal)
+    );
 
-    if (disposed) return;
+    return mine.done;
+  };
 
-    if (response.status === 204) {
-      settle({
-        phase: "current",
-        availableVersion: view.readyVersion,
-        failure: null,
-        lastCheckedAt: checked(),
-      });
+  /** The feed's answer. Only a Release newer than the one downloading or ready is downloaded. */
+  const answered = (update: OfferedUpdate | "current" | null) => {
+    const lastCheckedAt = checked();
+    const newest = staging?.version ?? handover?.version ?? view.readyVersion;
 
-      return;
+    // Squirrel takes one Update at a time; a newer one waits for the next check.
+    if (
+      handover === null &&
+      update !== null &&
+      update !== "current" &&
+      isNewer(update.version, newest ?? view.version)
+    ) {
+      change({ lastCheckedAt });
+
+      return stage(update);
     }
 
-    const parse = platform === "win32" ? windowsRelease : macRelease;
-    const update = response.ok ? parse(await response.text()) : null;
+    // A download or a ready Update keeps its row whatever this check found.
+    if (newest !== null) change({ lastCheckedAt });
+    else if (update === null)
+      fail(
+        { stage: "check", version: null, percent: null },
+        { availableVersion: null, lastCheckedAt }
+      );
+    else settle({ phase: "current", availableVersion: null, failure: null, lastCheckedAt });
 
-    if (disposed) return;
+    return Promise.resolve();
+  };
 
-    if (update === null) failedCheck();
-    else await stage(update);
+  /** The site's feed: an Update, `current` (204), or null when it couldn't be read. */
+  const ask = async (headers: UpdateHeaders): Promise<OfferedUpdate | "current" | null> => {
+    const feed = updateFeed(UPDATE_BASE_URL, platform, input.arch, view.version);
+
+    try {
+      const response = await input.fetch(platform === "win32" ? `${feed}/RELEASES` : feed, {
+        headers,
+        cache: "no-store",
+        signal: AbortSignal.any([abort.signal, AbortSignal.timeout(FEED_TIMEOUT_MS)]),
+      });
+
+      if (response.status === 204) return "current";
+      const parse = platform === "win32" ? windowsRelease : macRelease;
+
+      return response.ok ? parse(await response.text()) : null;
+    } catch {
+      return null;
+    }
   };
 
   const check = (): AppUpdateView => {
     if (disposed || !view.supported || input.blocked) return view;
 
-    if (["checking", "downloading", "ready"].includes(view.phase)) return view;
+    // One feed request at a time, and none while Squirrel reads an Update.
+    if (asking || handover !== null) return view;
 
     // Windows: a new Squirrel operation can't be told from the one that went quiet.
     if (windows && hold !== null) return view;
@@ -368,11 +429,14 @@ export const createAppUpdates = (input: UpdateInput) => {
 
     if (view.automatic) headers["X-Polaris-Install-ID"] = view.installId;
 
-    change({ phase: "checking", availableVersion: view.readyVersion, failure: null });
-    void ask(headers).catch(() => {
-      if (view.phase === "checking") failedCheck();
-      else if (view.phase === "downloading")
-        fail({ stage: "download", version: view.download?.version ?? null, percent: null });
+    // A download in progress or a ready Update keeps its row while the feed is asked.
+    if (staging === null && view.readyVersion === null)
+      change({ phase: "checking", availableVersion: null, failure: null });
+    asking = true;
+    void ask(headers).then((update) => {
+      asking = false;
+
+      return disposed ? undefined : answered(update);
     });
 
     return view;

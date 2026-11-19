@@ -242,9 +242,15 @@ export const fixture = (
     requests,
     tick,
     pendingDir: join(home, "pending-update"),
-    /** Starts a check and waits until it is neither checking nor downloading. */
+    /** Starts a check and waits for its answer, then until nothing is checking or downloading. */
     checked: async () => {
+      const asked = requests.length;
+      const published = views.length;
+
       updates.check();
+
+      // A check behind a ready Update publishes nothing until the feed answers.
+      if (requests.length > asked) await until(() => views.length > published);
       await until(() => !busy());
     },
     settled: () => until(() => !busy()),

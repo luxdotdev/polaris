@@ -206,7 +206,7 @@ const Updates = ({
       action={
         row.action === "check" ? undefined : (
           <SettingsButton
-            disabled={working || view.phase === "ready" || !view.supported}
+            disabled={working || !view.supported}
             onClick={() => void checkForUpdates()}
           >
             Check now

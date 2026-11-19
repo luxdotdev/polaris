@@ -82,6 +82,14 @@ from the internet.
   `download` is the Release being downloaded, with its byte counts. Restart, "Quit and update"
   and the K menu follow `readyVersion`, not `phase`, so a newer Release can download while an
   older one stays installable (ENG-975) without another change to the state.
+- **Only the newest Release is downloaded (ENG-975).** Checks continue while an Update is
+  ready or downloading; their feed request leaves the row as it is. A Release newer than the
+  one downloading or ready is downloaded in the background (a half-done older download is
+  stopped and its files go); one that isn't newer changes nothing. Once Squirrel finishes the
+  newer one it is `readyVersion`; until then Restart installs the older. A newer one that fails
+  leaves the older ready, with the failure kept. `replaces` and `skipped` let About say why.
+  No check runs while Squirrel reads an Update. Whether real Squirrel accepts a second
+  operation after one is staged is unproven here (ENG-985); if it refuses, the older stays ready.
 - **Failures are in the user's terms**: `failure` says check, download (with how far it got)
   or verify, never upstream text. About says "Couldn't download Polaris 0.12.1".
 

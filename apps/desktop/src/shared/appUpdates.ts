@@ -26,6 +26,10 @@ export interface AppUpdateView {
   readonly readyVersion: string | null;
   /** May name a newer Release than `readyVersion` while that one waits. */
   readonly download: AppUpdateDownload | null;
+  /** While downloading: the ready or half-downloaded Release this download replaces. */
+  readonly replaces?: string | null;
+  /** While downloading: a Release found earlier that never became ready and is passed over. */
+  readonly skipped?: string | null;
   readonly failure: AppUpdateFailure | null;
   readonly automatic: boolean;
   readonly lastCheckedAt: number | null;

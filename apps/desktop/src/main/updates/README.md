@@ -21,7 +21,10 @@ a 60-second stall limit), `verify.ts` and `localFeed.ts`. The request is
 typed IPC carries `download` (version, received and total bytes, at most twice a
 second), `readyVersion` (what Squirrel has staged) and `failure` (check, download or
 verify). Restart, "Quit and update" and the K menu follow `readyVersion`.
-Concurrent checks and checks while ready are ignored. Downloads/DMG/translocated
+Concurrent checks, and checks while Squirrel reads an Update, are ignored. Checks
+continue while an Update is ready or downloading: a newer Release replaces it in the
+background (ENG-975), the older stays installable until Squirrel has the newer, and a
+newer one that fails leaves the older ready. `isNewer` in `version.ts` orders Releases. Downloads/DMG/translocated
 launches show “Can't install here” before contacting the feed.
 
 Verification on macOS unpacks the zip with `ditto` and requires one app that passes
@@ -54,7 +57,10 @@ server with Range and dropped connections) and Squirrel, which reads the real
 loopback feed over HTTP. It covers progress, resume, an oversized body, a changed
 remote file, planted symlinks, a late or mismatched completion, a failed verification, the
 feed's refusals, launch/timer scheduling, opt-out/manual headers, persistent
-identity, duplicate checks, errors and install gating. `verify.slow.test.ts` runs
+identity, duplicate checks, errors and install gating. `newer.test.ts` covers ready →
+a newer Release → downloading → ready (newer), Restart during it, a failed newer download
+or handover leaving the older ready, a newer Release replacing a half-done download, and
+the skipped Release. `verify.slow.test.ts` runs
 the real `ditto` and `codesign` on ad hoc signed fixture apps, a zip with climbing,
 absolute and symlink entries, and the unpacking limit (macOS only).
 After `bun apps/desktop/scripts/build.ts --no-app`, run
@@ -96,7 +102,7 @@ had 10.2 and 6.0 other cores busy; CPU/RSS attribution is inconclusive. The Daem
 code and benchmark fixtures are unchanged by this task. No baseline is refreshed.
 
 The updater's timer belongs only to the Desktop App, not a Daemon: at most four
-scheduled checks per day, cancelled when off or ready. Tests prove there is one
+scheduled checks per day, cancelled when off; it stays armed while an Update is ready. Tests prove there is one
 timer and no checks or timer in dev/unsupported/blocked builds. Quiet Upgrade
 captions use one-shot expiry timers only after an Upgrade, without polling.
 The `idle` scenario measures the Daemon, so it does not prove the packaged

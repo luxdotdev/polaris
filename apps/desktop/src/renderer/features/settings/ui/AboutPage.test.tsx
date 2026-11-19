@@ -108,13 +108,13 @@ test("a daemon older than the app says it can upgrade, and the aside counts the 
   expect(navigation.store.getState().settings?.section).toBe("hosts");
 });
 
-test("the ready state offers Restart to update, and Check now waits until after the restart", () => {
+test("the ready state offers Restart to update, and Check now still looks for a newer release", () => {
   mount(
     view({ phase: "ready", availableVersion: "0.5.1", readyVersion: "0.5.1", lastCheckedAt: 0 })
   );
 
   expect(screen.getByRole("button", { name: "Restart to update" })).not.toBeNull();
-  expect(screen.getByRole("button", { name: "Check now" }).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: "Check now" }).hasAttribute("disabled")).toBe(false);
 });
 
 test("a download shows its amount and a bar at its share; a failed one has neither", () => {

@@ -69,6 +69,24 @@ describe("About Update states", () => {
       ).progress?.amount
     ).toBe("131 of 131 MB · 99%");
   });
+
+  test.each([
+    [{}, "In the background · nothing to do yet"],
+    [{ skipped: "0.12.0" }, "The newest release; 0.12.0 is skipped"],
+    [{ replaces: "0.12.1", readyVersion: "0.12.1" }, "0.12.2 came out, so it replaces 0.12.1"],
+    [{ replaces: "0.12.1", skipped: "0.12.0" }, "0.12.2 came out, so it replaces 0.12.1"],
+  ] as const)(
+    "a download of the newest Release says what it passes over (%p)",
+    (patch, caption) => {
+      const download = { version: "0.12.2", receivedBytes: 9 * MB, totalBytes: 131 * MB };
+
+      expect(appUpdateRow(view({ phase: "downloading", download, ...patch }))).toMatchObject({
+        title: "Downloading Polaris 0.12.2",
+        caption,
+        action: null,
+      });
+    }
+  );
   test("a failed download says what happened, in the failed colour, and can be retried", () => {
     const failed = (failure: AppUpdateView["failure"]) =>
       appUpdateRow(view({ phase: "failed", failure }));

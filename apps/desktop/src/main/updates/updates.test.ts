@@ -445,7 +445,7 @@ describe("Desktop App Updates", () => {
     f.cleanup();
   });
 
-  test("busy/ready checks are deduplicated; no install until Squirrel has the Update", async () => {
+  test("busy checks are deduplicated; ready keeps checking but never downloads the same Release again", async () => {
     const f = fixture({ internet: offering({ url: ZIP, bytes: bytesOf(3000) }) });
     f.updates.start();
     f.updates.check();
@@ -454,9 +454,17 @@ describe("Desktop App Updates", () => {
     await f.settled();
     await f.native.done;
     expect(f.updates.get().phase).toBe("ready");
-    expect(f.pending.size).toBe(0);
-    f.updates.check();
     expect(f.requests.filter((r) => r.url === FEED)).toHaveLength(1);
+
+    // The six-hour timer stays armed while ready, and its check finds nothing newer.
+    expect(f.pending.size).toBe(1);
+    f.tick();
+    await until(() => f.requests.filter((r) => r.url === FEED).length === 2);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(f.requests.filter((r) => r.url === ZIP)).toHaveLength(1);
+    expect(f.native.checks).toBe(1);
+    expect(f.updates.get()).toMatchObject({ phase: "ready", readyVersion: "0.5.0" });
+    expect(f.pending.size).toBe(1);
     f.updates.install();
     expect(f.native.installs).toBe(1);
     f.cleanup();
