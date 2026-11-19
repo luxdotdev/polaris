@@ -1,8 +1,8 @@
 /**
- * A rehype step that puts a `<wbr>` every 64 characters inside long unbroken
+ * A hast step that puts a `<wbr>` every 64 characters inside long unbroken
  * runs of prose and inline code, as `softWrap` does for plain text (a 6 KB
  * run lays out in ~25 ms without the breaks, ~1 ms with them). Code blocks
- * scroll instead, and KaTeX's output is left alone.
+ * scroll instead, and math (SVG) is left alone.
  */
 import { softBreaks } from "../softWrap.tsx";
 
@@ -14,7 +14,6 @@ interface Text {
 interface Element {
   readonly type: "element";
   readonly tagName: string;
-  readonly properties?: { readonly className?: unknown };
   children: Array<Node>;
 }
 
@@ -31,9 +30,7 @@ const isText = (node: Node): node is Text => node.type === "text";
 
 const SKIP = new Set(["pre", "svg", "math", "script", "style"]);
 
-const skipped = (node: Element) =>
-  SKIP.has(node.tagName) ||
-  (Array.isArray(node.properties?.className) && node.properties.className.includes("katex"));
+const skipped = (node: Element) => SKIP.has(node.tagName);
 
 const wbr = (): Element => ({ type: "element", tagName: "wbr", children: [] });
 
@@ -59,7 +56,7 @@ const walk = (node: Node) => {
   for (const child of parent.children) walk(child);
 };
 
-/** The unified plugin: `rehypePlugins={[…, rehypeSoftBreaks]}`. */
+/** The step, as a view's pipeline lists it (`Streamed.tsx`). */
 export const rehypeSoftBreaks = () => (tree: Node) => {
   walk(tree);
 };

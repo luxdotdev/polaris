@@ -1,14 +1,10 @@
 /**
- * The one Mermaid plugin every renderer view uses (transcript, language-server docs, the editor's
- * Markdown preview). Diagram source comes from a Host, so a render loads no image: strict security,
- * plain-text labels, no source configuration, no image or icon on a parsed node, and no resource
- * reference in the SVG it returns.
+ * The one Mermaid plugin every renderer view uses: Pele through Words' `createMermaidPlugin`.
+ * Diagram source comes from a Host, so a render loads nothing: Pele draws no image or link, and an
+ * SVG that would still reference a resource is refused. Refused or unparseable, it shows as code.
  */
-import type { Mermaid, MermaidConfig } from "mermaid";
-import type { DiagramPlugin } from "streamdown";
-import { Option, Schema } from "effect";
-
-export type DiagramEngine = Pick<Mermaid, "initialize" | "parse" | "render" | "mermaidAPI">;
+import type { MermaidPlugin } from "@pierre/words/html";
+import { createMermaidPlugin, type MermaidRenderer } from "@pierre/words/mermaid";
 
 export class UnsafeDiagram extends Error {
   constructor(reason: string) {
@@ -16,49 +12,6 @@ export class UnsafeDiagram extends Error {
     this.name = "UnsafeDiagram";
   }
 }
-
-const DEFAULTS: MermaidConfig = {
-  startOnLoad: false,
-  theme: "default",
-  fontFamily: "monospace",
-  suppressErrorRendering: true,
-};
-
-/** HTML labels would build elements (an `<img>` among them) from label text. */
-const pinned = (config: MermaidConfig): MermaidConfig => ({
-  ...DEFAULTS,
-  ...config,
-  securityLevel: "strict",
-  htmlLabels: false,
-  flowchart: { ...config.flowchart, htmlLabels: false },
-});
-
-/** The methods of Mermaid's diagram databases that return what can carry an image; they vary by diagram. */
-export interface DiagramData {
-  /** Flowchart, kanban, mindmap and the other unified-layout diagrams: nodes with `img`/`icon`. */
-  readonly getData?: () => { readonly nodes: ReadonlyArray<object> };
-  /** Sequence diagrams: participants with `properties.icon`. */
-  readonly getActors?: () => ReadonlyMap<string, object>;
-}
-
-/** Absent, or empty: what an `img`, `icon` or participant icon holds when it loads nothing. */
-const Nothing = Schema.optional(Schema.NullOr(Schema.Literal("")));
-
-const decodeLayout = Schema.decodeUnknownOption(
-  Schema.Struct({ nodes: Schema.Array(Schema.Struct({ img: Nothing, icon: Nothing })) })
-);
-
-const decodeActors = Schema.decodeUnknownOption(
-  Schema.ReadonlyMap(
-    Schema.String,
-    Schema.Struct({ properties: Schema.optional(Schema.NullOr(Schema.Struct({ icon: Nothing }))) })
-  )
-);
-
-/** Whether a parsed diagram would load an image: a layout node or participant names one, or can't be read. */
-export const parsedLoads = (db: DiagramData): boolean =>
-  (db.getData !== undefined && Option.isNone(decodeLayout(db.getData()))) ||
-  (db.getActors !== undefined && Option.isNone(decodeActors(db.getActors())));
 
 const IMAGE_ELEMENTS = new Set([
   "image",
@@ -72,6 +25,7 @@ const IMAGE_ELEMENTS = new Set([
   "object",
   "embed",
   "script",
+  "foreignobject",
 ]);
 
 const REFERENCE_ATTRIBUTES = new Set(["href", "xlink:href", "src", "srcset", "poster", "data"]);
@@ -108,10 +62,14 @@ const elementResource = (element: Element): string | null => {
 
   if (name === "style" && cssLoads(element.textContent ?? "")) return "its styles load a resource";
 
+  if (name === "a") return "it links";
+
   for (const attribute of element.attributes) {
+    if (attribute.name.toLowerCase().startsWith("on")) return `<${name}> handles events`;
+
     const reference = REFERENCE_ATTRIBUTES.has(attribute.name.toLowerCase());
 
-    if (reference && name !== "a" && !attribute.value.trim().startsWith("#"))
+    if (reference && !attribute.value.trim().startsWith("#"))
       return `<${name}> references a resource`;
 
     if (cssLoads(attribute.value)) return `<${name}> loads a resource`;
@@ -135,61 +93,40 @@ export const renderedResource = (svg: string): string | null => {
   return null;
 };
 
-let queue: Promise<unknown> = Promise.resolve();
+/** Pele's options: no images, no links, text measured in the app's own type. */
+export interface DiagramOptions {
+  readonly fontFamily: string;
+  readonly fontFamilyMono: string;
+  readonly images: false;
+  readonly links: false;
+}
 
-/** Mermaid keeps some diagrams' databases per module, so checks and renders never interleave. */
-const serial = <A>(task: () => Promise<A>): Promise<A> => {
-  const run = queue.then(task, task);
-  queue = run.catch(() => undefined);
-
-  return run;
+export const DIAGRAM_OPTIONS: DiagramOptions = {
+  // `--font-sans` and `--font-mono` (tokens.css): Pele measures text with them before CSS applies.
+  fontFamily:
+    'system-ui, -apple-system, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", sans-serif',
+  fontFamilyMono:
+    'ui-monospace, "SF Mono", SFMono-Regular, Menlo, "Cascadia Mono", Consolas, monospace',
+  images: false,
+  links: false,
 };
 
-export const guardedDiagrams = (mermaid: DiagramEngine): DiagramPlugin => {
-  let config = pinned({});
-  let ready = false;
+/** Pele's render, refusing any SVG that would load a resource (the plugin then shows the code). */
+export const guardedRenderer = <Options>(
+  pele: MermaidRenderer<Options>
+): MermaidRenderer<Options> => ({
+  render(source, options) {
+    const out = pele.render(source, options);
+    const reason = renderedResource(out.svg);
 
-  const check = async (source: string) => {
-    if (Object.keys((await mermaid.parse(source)).config).length > 0)
-      throw new UnsafeDiagram("it sets its own configuration");
+    if (reason !== null) throw new UnsafeDiagram(reason);
 
-    const { db } = await mermaid.mermaidAPI.getDiagramFromText(source);
+    return out;
+  },
+});
 
-    // SAFETY: each method is checked before it's called, and what it returns is decoded before use.
-    if (parsedLoads(db as DiagramData))
-      throw new UnsafeDiagram("a node or participant has an image");
-  };
-
-  // Method syntax: Streamdown's structural config type is wider than Mermaid's; Polaris passes Mermaid's.
-  const engine = {
-    initialize(next: MermaidConfig) {
-      config = pinned(next);
-      mermaid.initialize(config);
-      ready = true;
-    },
-    render(id: string, source: string) {
-      return serial(async () => {
-        if (!ready) engine.initialize(config);
-
-        await check(source);
-        const { svg } = await mermaid.render(id, source);
-        const reason = renderedResource(svg);
-
-        if (reason !== null) throw new UnsafeDiagram(reason);
-
-        return { svg };
-      });
-    },
-  };
-
-  return {
-    name: "mermaid",
-    type: "diagram",
-    language: "mermaid",
-    getMermaid(next?: MermaidConfig) {
-      if (next !== undefined) engine.initialize(next);
-
-      return engine;
-    },
-  };
-};
+export const guardedDiagrams = <Options extends Partial<DiagramOptions>>(
+  pele: MermaidRenderer<Options>
+): MermaidPlugin =>
+  // SAFETY: Pele's RenderOptions accept every field of DiagramOptions.
+  createMermaidPlugin(guardedRenderer(pele), DIAGRAM_OPTIONS as Options);

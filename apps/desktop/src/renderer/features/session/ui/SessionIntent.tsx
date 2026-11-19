@@ -24,6 +24,7 @@ import { useHost, useSession, hasCapability } from "../hooks.ts";
 import { waitingFor } from "../model/background.ts";
 import { subagentRoster } from "../model/subagents.ts";
 import { openSubagent } from "../output/actions.ts";
+import { openAtFile } from "../output/rail/open.ts";
 import { conversationRows } from "../model/conversation.ts";
 import { copyableOutput, groupOf, groupTurns, turnNumber } from "../model/turnGroups.ts";
 import { copyWithToast } from "../../../shell/menu/index.ts";
@@ -200,6 +201,7 @@ export const SessionIntent = ({ hostKey, sessionId }: SessionViewProps) => {
     diff: { hostKey, cwd: session.cwd, sessionId },
     onSetTurnOpen: (turnId, open) => setTurnOpen(key, turnId, open),
     onOpenDiff: (turnId) => showTurnDiff(key, turnId),
+    onOpenFile: (path) => openAtFile(hostKey, sessionId, path),
     onOpenSubagent: (id) =>
       openSubagent({ hostKey, workspaceId: session.workspaceId }, sessionId, id),
     onRespond: (request: ApprovalRequest, decision: ApprovalDecision) =>

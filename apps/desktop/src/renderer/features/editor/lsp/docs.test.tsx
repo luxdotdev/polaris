@@ -67,7 +67,7 @@ describe("language docs: hover", () => {
     expect(container.querySelector("img")).toBeNull();
     expect("__hoverInjected" in globalThis).toBe(false);
     const links = [...container.querySelectorAll("a")];
-    expect(links.map((a) => a.getAttribute("href"))).toEqual(["https://example.com/"]);
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(["https://example.com"]);
     expect(links[0]?.getAttribute("target")).toBe("_blank");
   });
 
@@ -89,18 +89,18 @@ describe("language docs: hover", () => {
   test("basedpyright's str: the signature, a rule, pydoc lines as code, then prose", async () => {
     const { container } = view(MARKDOWN.PYRIGHT_STR);
 
-    await waitFor(() => expect(container.querySelectorAll("pre")).toHaveLength(2));
+    // Shiki renders each line as its own block span, once the highlighter has loaded.
+    const lines = () =>
+      [...container.querySelectorAll("pre")].map((pre) =>
+        [...pre.querySelectorAll("code > span")].map((line) => line.textContent)
+      );
 
-    // Shiki renders each line as its own block span.
-    const [signature, pydoc] = [...container.querySelectorAll("pre")].map((pre) =>
-      [...pre.querySelectorAll("code > span")].map((line) => line.textContent)
+    await waitFor(() =>
+      expect(lines()).toEqual([
+        ['class str(object: object = "")'],
+        ["str(object='') -> str", "str(bytes_or_buffer[, encoding[, errors]]) -> str"],
+      ])
     );
-
-    expect(signature).toEqual(['class str(object: object = "")']);
-    expect(pydoc).toEqual([
-      "str(object='') -> str",
-      "str(bytes_or_buffer[, encoding[, errors]]) -> str",
-    ]);
     expect(container.querySelectorAll("hr")).toHaveLength(1);
     expect(container.querySelector("p")?.textContent).toStartWith("Create a new string object");
     expect(container.textContent).not.toContain("&gt;");
@@ -122,7 +122,7 @@ describe("language docs: hover", () => {
 
     await waitFor(() => expect(container.querySelector("pre")).not.toBeNull());
 
-    const blocks = [...container.querySelectorAll('[data-streamdown="code-block"]')];
+    const blocks = [...container.querySelectorAll('[data-md="code-block"]')];
 
     expect(blocks).toHaveLength(1);
     expect(blocks.every((block) => (block.textContent ?? "").trim() !== "")).toBe(true);
@@ -167,10 +167,12 @@ describe("language docs: hover", () => {
   test("lua-language-server's hover: the annotated signature, a rule, the description", async () => {
     const { container } = view(MARKDOWN.LUA_FUNCTION);
 
-    await waitFor(() => expect(container.querySelector("pre")).not.toBeNull());
-    expect(
-      [...container.querySelectorAll("pre code > span")].map((line) => line.textContent)
-    ).toEqual(["function greet(name: string)", "  -> string"]);
+    // The highlighter loads after the first paint; its lines are the settled state.
+    await waitFor(() =>
+      expect(
+        [...container.querySelectorAll("pre code > span")].map((line) => line.textContent)
+      ).toEqual(["function greet(name: string)", "  -> string"])
+    );
     expect(container.querySelectorAll("hr")).toHaveLength(1);
     expect(container.querySelector("p")?.textContent).toBe("Greets someone.");
   });

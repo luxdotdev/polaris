@@ -231,10 +231,10 @@ try {
       return { weight: style.fontWeight, style: style.fontStyle, family: style.fontFamily };
     })()`);
 
-  assert.equal((await previewLook('[data-streamdown="strong"]')).weight, "600");
+  assert.equal((await previewLook("strong")).weight, "600");
   assert.equal((await previewLook("h1")).weight, "600");
   assert.equal((await previewLook("em")).style, "italic");
-  assert.match((await previewLook('[data-streamdown="inline-code"]')).family, /mono/i);
+  assert.match((await previewLook(":not(pre) > code")).family, /mono/i);
   await appearance(page, "dark");
   await page.screenshot({ path: join(evidence, "preview-follows-dark.png") });
   console.log("⇧⌘V renders, and the preview follows the active Markdown file");

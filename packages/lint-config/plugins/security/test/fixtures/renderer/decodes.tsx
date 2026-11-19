@@ -10,7 +10,7 @@ export const planted = async (bytes: Uint8Array, img: HTMLImageElement) => {
   await createImageBitmap(blob);
   document.createElement("img");
   new ImageDecoder({ data: bytes, type: "image/gif" });
-  await import("@streamdown/mermaid");
+  await import("pele");
 
   return mermaid;
 };

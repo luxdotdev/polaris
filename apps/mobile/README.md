@@ -218,7 +218,7 @@ probe that tries `fetch`, an image, WebRTC and navigating away, and a nested-fra
 
 ## Markdown
 
-`src/markdown/` draws agent messages as Markdown, as the Desktop App does with Streamdown: marked's
+`src/markdown/` draws agent messages as Markdown, as the Desktop App does with Words: marked's
 lexer (GFM), with remend closing what a stream left open (`**bol`, an unterminated fence), mapped to
 `Text` and `View` in Midnight. Text only grows at its end, so the blocks before the last are kept and
 only the open block is lexed again; a parse is cached by its text, so a finished message scrolled

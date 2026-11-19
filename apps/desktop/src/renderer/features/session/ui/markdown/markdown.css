@@ -54,8 +54,7 @@
     color: var(--color-text-subtle);
   }
 
-  /* Streamdown renders `**` as a span whose `font-semibold` the token scale doesn't define. */
-  & :is(strong, [data-streamdown="strong"]) {
+  & :is(strong, b) {
     color: var(--color-text-strong);
     font-weight: 600;
   }
@@ -72,7 +71,7 @@
     margin-block: 12px;
   }
 
-  & [data-streamdown="inline-code"] {
+  & :not(pre) > code {
     background: var(--color-surface-sunken);
     border-radius: 4px;
     font-family: var(--font-mono);
@@ -80,77 +79,146 @@
     padding: 1px 4px;
   }
 
-  & [data-streamdown="code-block"],
-  & [data-streamdown="mermaid-block"] {
+  & [data-md="code-block"] {
     background: var(--color-surface-sunken);
     border: 1px solid var(--color-hairline);
     border-radius: var(--radius-row);
-    gap: 0;
     margin-block: 8px;
-    padding: 0;
+    overflow: hidden;
   }
 
-  & [data-streamdown="code-block-header"] {
+  & [data-md="code-header"] {
+    align-items: center;
+    border-bottom: 1px solid var(--color-hairline);
     color: var(--color-text-subtle);
+    display: flex;
     font-size: var(--text-caption);
     height: 28px;
-    padding-inline: 8px;
+    justify-content: space-between;
+    padding-inline: 8px 2px;
   }
 
-  & [data-streamdown="code-block-body"] {
-    background: transparent;
-    border: 0;
-    border-top: 1px solid var(--color-hairline);
-    border-radius: 0;
+  & [data-md="code-block"] pre {
     font-family: var(--font-mono);
     font-size: var(--text-code-inline);
     line-height: var(--text-code-inline--line-height);
+    overflow-x: auto;
     padding: 8px 12px;
+    white-space: pre;
   }
 
-  & [data-streamdown="code-block-body"] :is(pre, code) {
-    background: transparent;
+  & [data-md="code-block"] pre code {
     font-family: inherit;
     font-size: inherit;
   }
 
-  & [data-streamdown="code-block-actions"] {
-    background: transparent;
-    border: 0;
-    backdrop-filter: none;
-  }
-
-  & [data-streamdown="mermaid"] {
+  /* Pele's diagram on the tokens; the SVG is inline, so it follows the theme without re-rendering. */
+  & [data-md="diagram"] {
+    --pele-bg: var(--color-surface-sunken);
+    --pele-fg: var(--color-text-default);
+    --pele-muted: var(--color-text-subtle);
+    --pele-line: var(--color-text-subtle);
+    --pele-surface: var(--color-surface-raised);
+    --pele-surface-alt: var(--color-bg);
+    --pele-border: var(--color-text-faint);
+    --pele-accent: var(--color-starlight);
+    --pele-font: var(--font-sans);
+    --pele-radius: 4px;
+    display: flex;
+    justify-content: center;
+    overflow-x: auto;
     padding: 12px;
   }
 
-  & [data-streamdown="table-wrapper"] {
+  /* Copy table: top right inside the border, over the header row, on hover or focus. */
+  & [data-md="table-copy"] {
+    opacity: 0;
+    position: absolute;
+    right: 3px;
+    top: 3px;
+  }
+
+  & [data-copy="table"]:is(:hover, :focus-within) [data-md="table-copy"] {
+    opacity: 1;
+  }
+
+  & [data-copy="table"] th:last-child {
+    padding-right: 36px;
+  }
+
+  & [data-md="table-wrapper"] {
+    border: 1px solid var(--color-hairline);
     border-radius: var(--radius-row);
-    margin-block: 8px;
+    overflow-x: auto;
   }
 
-  & [data-streamdown="table"] {
+  & table {
+    border-collapse: collapse;
     font-size: var(--text-caption);
+    width: 100%;
   }
 
-  & :is([data-streamdown="table-header-cell"], [data-streamdown="table-cell"]) {
+  & :is(th, td) {
     border-color: var(--color-hairline);
+    border-style: solid;
+    border-width: 0 0 1px;
     padding: 4px 8px;
     text-align: left;
   }
 
-  & [data-streamdown="table-header"] {
+  & tr:last-child > td {
+    border-bottom: 0;
+  }
+
+  & thead {
     background: var(--color-surface-sunken);
     color: var(--color-text-subtle);
   }
 
-  & .katex {
-    font-size: 1.05em;
+  & :is(th, td)[align="center"] {
+    text-align: center;
   }
 
-  & .katex-display {
-    margin-block: 8px;
+  & :is(th, td)[align="right"] {
+    text-align: right;
+  }
+
+  & li:has(> input[type="checkbox"]) {
+    list-style: none;
+    margin-left: -18px;
+  }
+
+  & input[type="checkbox"] {
+    margin-right: 6px;
+    vertical-align: -1px;
+  }
+
+  & :is(sup, sub) {
+    font-size: 0.75em;
+  }
+
+  & .footnotes {
+    border-top: 1px solid var(--color-hairline);
+    color: var(--color-text-subtle);
+    font-size: var(--text-caption);
+    padding-top: 8px;
+  }
+
+  /* Words' formulas: SVG in the system math font; a wide one scrolls rather than overflows. */
+  & p > svg[role="img"][style*="display:block"] {
+    max-width: 100%;
     overflow-x: auto;
-    overflow-y: hidden;
+  }
+
+  /* While a message streams: a steady caret after the last words (only the dither loops). */
+  &[data-streaming] > :is(p, h1, h2, h3, h4, h5, h6):last-child::after,
+  &[data-streaming] > :is(ul, ol):last-child > li:last-child::after {
+    background: var(--color-text-faint);
+    content: "";
+    display: inline-block;
+    height: 1em;
+    margin-left: 2px;
+    vertical-align: -2px;
+    width: 0.45em;
   }
 }
