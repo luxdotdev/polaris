@@ -1,7 +1,7 @@
 /**
  * Output collapsed (DESIGN.md, Output): a 240px rail of facts about the
  * session's Workspace, so the conversation gets the room. The session's
- * first edit in a Turn opens the panel; so do the chevron, the changes row,
+ * first edit opens the panel, once; so do the chevron, the changes row,
  * the Browser and Simulator rows, and ⌘⌥B.
  */
 import {

@@ -1,6 +1,6 @@
 /**
- * Output for one Agent Session (artboard 5's Changes tab): the chosen Turn's diff (every
- * Turn the Harness started in it included) as file cards, virtualized by line. A light
+ * Output for one Agent Session (artboard 5's Changes tab): the whole session's diff, or the
+ * chosen Turn's (every Turn the Harness started in it included), as file cards, virtualized by line. A light
  * unified renderer: code coloured by the syntax tokens from Pierre's worker pool
  * (useDiffSyntax.ts), drawn plain until ready; no word highlights, which stay in Review.
  * A chosen Subagent adds its tab after Changes (`SubagentOutput.tsx`) and shows in place.
@@ -38,13 +38,7 @@ import {
 import { fileCardId, FileScrollbar, useFileScroll } from "./FileScrollbar.tsx";
 import type { FileScroll } from "../fileScroll.ts";
 import { turnOpening } from "../model/conversation.ts";
-import {
-  groupOf,
-  groupSpan,
-  groupTurns,
-  openingView,
-  type TurnGroup,
-} from "../model/turnGroups.ts";
+import { openingView, type TurnGroup } from "../model/turnGroups.ts";
 import { type DiffFile, firstChangedLine, totals } from "../model/diff.ts";
 import { plural } from "../model/format.ts";
 import { showSubagent, showTurnDiff, uiKey, useSessionUi } from "../state.ts";
@@ -52,6 +46,7 @@ import { type DiffState, spanRevision, useTurnDiff } from "../turnDiff.ts";
 import { hideOutput } from "../output/actions.ts";
 import { showHint } from "../output/OutputRail.tsx";
 import { useFilesTick } from "../output/watch.ts";
+import { useDiffScope } from "../output/sessionScope.ts";
 import type { SessionViewProps } from "./SessionIntent.tsx";
 import { OutputTab, SubagentPane, SubagentTab, useShownSubagent } from "./SubagentOutput.tsx";
 import { EditorPlaceProvider, OpenInEditorButton } from "../../editor-links/index.ts";
@@ -300,25 +295,36 @@ export const TurnChanges = (props: DiffListProps) => (
   </Suspense>
 );
 
-/** One entry per shown Turn; its diff covers the Turns the Harness started in it. */
+/** The Turn menu's entry for the whole session. */
+const ALL_TURNS = "all";
+
+/** All turns, then one entry per shown Turn; a Turn's diff covers the Turns the Harness started in it. */
 const TurnMenu = ({
   groups,
-  current,
+  narrowed,
+  whole,
   onPick,
 }: {
   readonly groups: ReadonlyArray<TurnGroup>;
-  readonly current: TurnGroup;
-  readonly onPick: (turnId: string) => void;
+  /** The Turn picked; null shows the whole session. */
+  readonly narrowed: TurnGroup | null;
+  /** The Host can diff the whole session. */
+  readonly whole: boolean;
+  readonly onPick: (turnId: string | null) => void;
 }) => (
   <DropdownMenu>
     <DropdownMenuTrigger asChild>
       <Button variant="ghost" size="sm" data-testid="diff-turn">
-        Turn {current.number}
+        {narrowed === null ? "All turns" : `Turn ${narrowed.number}`}
         <ChevronDownIcon size={10} />
       </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end">
-      <DropdownMenuRadioGroup value={current.id} onValueChange={onPick}>
+      <DropdownMenuRadioGroup
+        value={narrowed?.id ?? ALL_TURNS}
+        onValueChange={(id) => onPick(id === ALL_TURNS ? null : id)}
+      >
+        {whole ? <DropdownMenuRadioItem value={ALL_TURNS}>All turns</DropdownMenuRadioItem> : null}
         {groups.toReversed().map((g) => (
           <DropdownMenuRadioItem key={g.id} value={g.id}>
             <span className="tabular">Turn {g.number}</span>
@@ -351,12 +357,21 @@ const Empty = ({ title, fact }: { title: string; fact?: string }) => (
   </div>
 );
 
+/** Nothing changed in the scope shown: one line, so the panel keeps its place and calm. */
+const NoChanges = ({ text }: { text: string }) => (
+  <p className="text-caption text-text-subtle px-4 py-3" data-testid="diff-empty">
+    {text}
+  </p>
+);
+
 const Body = ({
   state,
+  narrowed,
   folded,
   onFold,
 }: {
   state: DiffState;
+  narrowed: boolean;
   folded: ReadonlySet<string>;
   onFold: (path: string) => void;
 }) => {
@@ -374,25 +389,28 @@ const Body = ({
       );
     case "ready":
       return state.files.length === 0 ? (
-        <Empty title="This turn changed no files" />
+        <NoChanges
+          text={narrowed ? "This turn changed no files" : "No changes in this session yet"}
+        />
       ) : (
         <TurnChanges files={state.files} folded={folded} onFold={onFold} />
       );
   }
 };
 
-/** The Changes tab's body: the chosen Turn's diff, or why there is none. */
+/** The Changes tab's body: the session's or the chosen Turn's diff, or why there is none. */
 const Changes = ({
   current,
   ...body
 }: {
   readonly current: TurnGroup | null;
+  readonly narrowed: boolean;
   readonly state: DiffState;
   readonly folded: ReadonlySet<string>;
   readonly onFold: (path: string) => void;
 }) =>
   current === null ? (
-    <Empty title="No changes yet" fact="Each turn's diff shows here" />
+    <Empty title="No changes yet" fact="The session's changes show here" />
   ) : (
     <Body {...body} />
   );
@@ -427,23 +445,27 @@ export const DataOutputTab = ({
     </OutputTab>
   ) : null;
 
-/** The header's diff controls: which Turn, and its file and line counts. */
+/** The header's diff controls: all turns or which Turn, and its file and line counts. */
 const DiffSummary = ({
   groups,
-  current,
+  narrowed,
+  whole,
   state,
   onPick,
 }: {
   readonly groups: ReadonlyArray<TurnGroup>;
-  readonly current: TurnGroup | null;
+  readonly narrowed: TurnGroup | null;
+  readonly whole: boolean;
   readonly state: DiffState;
-  readonly onPick: (turnId: string) => void;
+  readonly onPick: (turnId: string | null) => void;
 }) => {
   const sum = state.kind === "ready" ? totals(state.files) : null;
 
   return (
     <>
-      {current === null ? null : <TurnMenu groups={groups} current={current} onPick={onPick} />}
+      {groups.length === 0 ? null : (
+        <TurnMenu groups={groups} narrowed={narrowed} whole={whole} onPick={onPick} />
+      )}
       {sum === null ? null : (
         <>
           <span className="text-caption text-text-subtle tabular">
@@ -556,8 +578,16 @@ export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) 
   const browser = useBrowserShown(hostKey, sessionId, subagent !== null);
   const simulator = useSimulatorShown(hostKey, sessionId, subagent !== null) && !browser;
 
-  const groups = groupTurns(model.turns);
-  const current = groupOf(groups, ui.diffTurnId) ?? groups.at(-1) ?? null;
+  const host = useHost(hostKey);
+
+  const { groups, narrowed, whole, shown, span } = useDiffScope(
+    hostKey,
+    sessionId,
+    model.turns,
+    ui.diffTurnId
+  );
+
+  const current = narrowed ?? groups.at(-1) ?? null;
   const free = subagent === null && !browser && !simulator;
   const dataTab = useDataTab(hostKey, sessionId, model, current, free);
   const data = dataTab.shown !== null;
@@ -574,8 +604,8 @@ export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) 
     hostKey,
     cwd ?? "",
     sessionId,
-    current === null || !onChanges ? null : groupSpan(current),
-    current === null ? "" : spanRevision(current.views, files)
+    span === null || !onChanges ? null : span,
+    shown === null ? "" : spanRevision(shown.views, files)
   );
 
   const close = () => showSubagent(key, null);
@@ -595,7 +625,7 @@ export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) 
     setFolded(next);
   };
 
-  const place = placeOf(hostKey, session, isWindowsHost(useHost(hostKey)));
+  const place = placeOf(hostKey, session, isWindowsHost(host));
   const tool = toolPane({ hostKey, sessionId, session, harness, browser, simulator });
 
   return (
@@ -642,7 +672,8 @@ export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) 
           {onChanges ? (
             <DiffSummary
               groups={groups}
-              current={current}
+              narrowed={narrowed}
+              whole={whole}
               state={state}
               onPick={(id) => showTurnDiff(key, id)}
             />
@@ -662,8 +693,14 @@ export const SessionOutput = ({ hostKey, sessionId, tabs }: SessionOutputProps) 
         ) : picked !== null ? (
           picked
         ) : subagent === null ? (
-          <ChangesCommentsProvider hostKey={hostKey} sessionId={sessionId} group={current}>
-            <Changes current={current} state={state} folded={folded} onFold={fold} />
+          <ChangesCommentsProvider hostKey={hostKey} sessionId={sessionId} group={shown}>
+            <Changes
+              current={current}
+              narrowed={narrowed !== null}
+              state={state}
+              folded={folded}
+              onFold={fold}
+            />
           </ChangesCommentsProvider>
         ) : (
           <SubagentPane
