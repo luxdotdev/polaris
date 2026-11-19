@@ -25,6 +25,7 @@ stream.dispose(); // when the block goes
 
 - `highlightToHtml(code, lang, theme)`: `lang` is a name or alias (`ts`, `typescript`, `py`…); anything unknown, or empty, draws as plain text. Highlights writes its answer into Wasm memory that the next call overwrites; this decodes it to a string first, so the result is yours to keep.
 - `CodeStream`: wraps Highlights' `StreamTokenizer`. Each `update` tokenizes only what's new, keeps lexer state across chunks (a comment opened on one line colours the next), and returns every completed line. Text that no longer starts with what it saw (an edited message) starts over. The `<pre>`, background and line breaks are the caller's.
+- Markdown code blocks (`session/ui/markdown/code`) use `CodeStream` while a fence streams and whole-code tokens once it closes; both give the same line HTML, so finishing a fence leaves its lines' DOM in place. A tail ending in a CR whose LF hasn't arrived is drawn without it.
 - `lineToHtml(tokens)`: one line of Highlights tokens as escaped spans.
 - `highlightLanguage(lang)`: the `Lang` Highlights uses for a name, or `"text"`.
 

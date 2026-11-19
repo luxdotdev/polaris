@@ -85,7 +85,10 @@ export class CodeStream {
   #state(): CodeStreamState {
     const lastBreak = this.#seen.lastIndexOf("\n");
 
-    return { lines: this.#lines, tail: this.#ended ? "" : this.#seen.slice(lastBreak + 1) };
+    if (this.#ended) return { lines: this.#lines, tail: "" };
+
+    // A CR whose LF hasn't arrived yet isn't drawn.
+    return { lines: this.#lines, tail: this.#seen.slice(lastBreak + 1).replace(/\r$/, "") };
   }
 
   /** The whole code so far; returns every completed line and the unfinished tail. */

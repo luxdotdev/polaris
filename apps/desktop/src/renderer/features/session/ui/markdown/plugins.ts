@@ -1,37 +1,36 @@
 /**
  * The code highlighter and the diagram renderer, each loaded on first need as its own chunk
- * (Shiki and Pele are most of Markdown's weight), then shared by every view. Components subscribe,
- * so a block re-renders when one arrives or a highlighter language finishes loading.
+ * (Highlights' Wasm and Pele are most of Markdown's weight), then shared by every view.
+ * Components subscribe, so a block re-renders when one arrives.
  */
-import type { CodeHighlighterPlugin, MermaidPlugin } from "@pierre/words/html";
+import type { MermaidPlugin } from "@pierre/words/html";
 import { useEffect, useSyncExternalStore } from "react";
+import type { CodeHighlighter } from "./code/highlighter.ts";
 
 export interface Plugins {
-  readonly code?: CodeHighlighterPlugin;
+  readonly code?: CodeHighlighter;
   readonly mermaid?: MermaidPlugin;
-  /** Bumps when a highlighter language loads, so highlighted blocks render again. */
-  readonly version: number;
 }
 
 type Name = "code" | "mermaid";
 
-let loaded: Plugins = { version: 0 };
+let loaded: Plugins = {};
 
 const loading = new Set<Name>();
 
 const listeners = new Set<() => void>();
 
 const publish = (patch: Partial<Plugins>) => {
-  loaded = { ...loaded, ...patch, version: loaded.version + 1 };
+  loaded = { ...loaded, ...patch };
 
   for (const listener of listeners) listener();
 };
 
 const LOADERS: Readonly<Record<Name, () => Promise<Partial<Plugins>>>> = {
   code: async () => {
-    const { createCodeHighlighter } = await import("./code/highlighter.ts");
+    const { codeHighlighter } = await import("./code/highlighter.ts");
 
-    return { code: await createCodeHighlighter(() => publish({})) };
+    return { code: codeHighlighter };
   },
   mermaid: async () => {
     const [pele, { guardedDiagrams }] = await Promise.all([

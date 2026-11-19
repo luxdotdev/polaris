@@ -83,7 +83,7 @@ try {
   );
 
   assert.equal(
-    initialImports.some((name) => /highlighter|shiki|pele/i.test(name)),
+    initialImports.some((name) => /highlighter|pele/i.test(name)),
     false
   );
   await page.getByRole("button", { name: "Full sample", exact: true }).click();

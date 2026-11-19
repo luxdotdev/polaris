@@ -1,11 +1,13 @@
 /**
  * A fenced code block in any Markdown view: a header with its language and the shared
- * CopyButton, then the code, highlighted once the highlighter loads (`highlighter.ts`). A
- * `mermaid` fence draws its diagram with Pele, or shows as code when it doesn't parse.
+ * CopyButton, then the code, highlighted once the highlighter loads (`highlighter.ts`). While a
+ * fence streams, completed lines highlight as they arrive and the unfinished line shows as text.
+ * A `mermaid` fence draws its diagram with Pele, or shows as code when it doesn't parse.
  */
 import { CopyButton } from "@polaris/ui";
 import type { Element, ElementContent } from "hast";
-import { useMemo } from "react";
+import { Fragment, memo, useEffect, useMemo } from "react";
+import type { CodeHighlighter } from "./highlighter.ts";
 import { usePlugins } from "../plugins.ts";
 import { trustedHtml } from "../words/Markup.tsx";
 
@@ -42,7 +44,8 @@ export const fenceOf = (pre: Element | undefined): Fence => {
     : "";
 
   return {
-    // Raw `<pre>` HTML (a Review, a document) may hold its text with no `<code>` inside.
+    // Raw `<pre>` HTML (a Review, a document) may hold its text with no `<code>` inside. An open
+    // fence always ends in a newline from Words, so its last line stays unfinished until the next.
     code: (code === undefined ? textOf(pre) : textOf(code)).replace(/\n$/, ""),
     language,
     incomplete: pre?.properties["dataMarkdownIncomplete"] !== undefined,
@@ -56,21 +59,59 @@ const Header = ({ language, code }: { readonly language: string; readonly code: 
   </div>
 );
 
-const Code = ({ code, language, incomplete, chrome }: Shown) => {
-  // Re-renders when a language loads; finished blocks come from the highlighter's cache.
-  const html =
-    usePlugins({ code: true, mermaid: false }).code?.highlight({
-      code,
-      language,
-      isIncomplete: incomplete,
-    }) ?? null;
+/** One highlighted line; unchanged lines keep their DOM while the block streams. */
+const Line = memo(({ html }: { readonly html: string }) => (
+  <span className="line">{trustedHtml(html)}</span>
+));
+
+interface Highlighted {
+  readonly lines: ReadonlyArray<string>;
+  readonly tail: string;
+}
+
+/** The fence's lines as HTML and its unfinished tail; a streaming fence tokenizes only what's new. */
+const useHighlighted = (
+  highlighter: CodeHighlighter | undefined,
+  { code, language, incomplete }: Fence
+): Highlighted | null => {
+  const stream = useMemo(
+    () => (incomplete ? highlighter?.stream(language) : undefined),
+    [highlighter, language, incomplete]
+  );
+
+  useEffect(() => () => stream?.dispose(), [stream]);
+
+  if (highlighter === undefined) return null;
+
+  // The stream's state follows `code` alone, so a render React discards changes nothing.
+  return stream === undefined
+    ? { lines: highlighter.lines(code, language), tail: "" }
+    : stream.update(code);
+};
+
+const Code = (fence: Shown) => {
+  const { code: highlighter } = usePlugins({ code: true, mermaid: false });
+  const highlighted = useHighlighted(highlighter, fence);
 
   return (
     <div data-md="code-block" data-copy="code">
-      {chrome ? <Header language={language} code={code} /> : null}
+      {fence.chrome ? <Header language={fence.language} code={fence.code} /> : null}
       <pre>
-        {/* The highlighter returns escaped HTML (`highlighter.ts`). */}
-        <code>{html === null ? code : trustedHtml(html)}</code>
+        <code>
+          {highlighted === null
+            ? fence.code
+            : highlighted.lines.map((html, at) => (
+                // Lines only append while a fence streams, so a line's index is its identity.
+                // oxlint-disable-next-line react/no-array-index-key -- see above
+                <Fragment key={at}>
+                  {at > 0 ? "\n" : null}
+                  <Line html={html} />
+                </Fragment>
+              ))}
+          {highlighted === null || highlighted.tail === ""
+            ? null
+            : `${highlighted.lines.length > 0 ? "\n" : ""}${highlighted.tail}`}
+        </code>
       </pre>
     </div>
   );

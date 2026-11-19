@@ -56,6 +56,7 @@ import {
 import { items as itemsScene } from "./itemsScene.ts";
 import { tools as toolsScene } from "./toolsScene.ts";
 import { polarisTools, PREVIEW_NOTICE } from "./polarisScene.ts";
+import { codeStreamDone, codeStreaming } from "./codeStreamScene.ts";
 import { secret } from "./secretScene.ts";
 import { SHARED_SESSION_ID, shared, sharedDraft } from "./sharedScene.ts";
 import {
@@ -176,6 +177,8 @@ const SCENES = {
   failed,
   long,
   markdown,
+  "code-stream": codeStreaming,
+  "code-stream-done": codeStreamDone,
   steer,
   attachments,
   subagents,
@@ -203,6 +206,8 @@ const SCENE_NAMES = [
   "failed",
   "long",
   "markdown",
+  "code-stream",
+  "code-stream-done",
   "steer",
   "attachments",
   "subagents",

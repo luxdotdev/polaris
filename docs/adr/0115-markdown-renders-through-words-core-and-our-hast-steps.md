@@ -37,9 +37,11 @@ Two things in Polaris don't fit:
 - **One block per React key.** A streamed message renders each top-level block as its own memoised
   `Markup`, keyed by its position, so finished blocks never re-render and the open end settles in
   place. Our own CSS caret marks the open end: steady, since only the Working dither loops (DESIGN.md).
-- **One code block.** Every view draws fences with `code/CodeBlock.tsx`; highlighting sits behind
-  `createCodeHighlighter` (Shiki today, shaped as Words' `CodeHighlighterPlugin`) so it can be
-  swapped. Mermaid fences go through Words' `createMermaidPlugin` over Pele, with no images or
+- **One code block.** Every view draws fences with `code/CodeBlock.tsx`, highlighted by
+  `@pierre/highlights` in the Editor's colours (`code/highlighter.ts` over `features/highlight`,
+  ENG-972). An open fence streams through `CodeStream`: completed lines highlight once and keep their
+  DOM, and the last line stays plain text until the next starts, since Words ends an open fence with
+  a newline whether or not the line is done. Mermaid fences go through Words' `createMermaidPlugin` over Pele, with no images or
   links and the SVG checked to load nothing; a fence that doesn't parse shows as code.
 - **Math.** `\(…\)` and `\[…\]` become Words' `$…$` and `$$…$$`; a lone `$` stays a dollar, as
   under Streamdown. Words exposes no parse tree, so Words decides what is prose: each delimiter is
