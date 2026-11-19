@@ -152,8 +152,21 @@ describe("filePatch", () => {
     expect(patch).toEqual({ diff: "", added: 1, removed: 1, truncated: true });
   });
 
+  test.each([
+    ["the first line changed", (t: string) => `X${t.slice(1)}`, 1, 1],
+    ["a middle line changed", (t: string) => `${t.slice(0, 400_000)}X${t.slice(400_001)}`, 1, 1],
+    ["the last line changed", (t: string) => `${t.slice(0, -2)}X\n`, 1, 1],
+    ["a line appended without a newline", (t: string) => `${t}tail`, 1, 0],
+    ["the last newline dropped", (t: string) => t.slice(0, -1), 1, 1],
+    ["nothing changed", (t: string) => t, 0, 0],
+  ])("past the budget the counts are exact for %s", (_, edit, added, removed) => {
+    const before = Array.from({ length: 300_000 }, (_, i) => `${i % 10}\n`).join("");
+
+    expect(filePatch(before, edit(before))).toEqual({ diff: "", added, removed, truncated: true });
+  });
+
   test("the worst diff under the budget stays bounded", () => {
-    // Two unrelated texts just under the budget: Myers stops at 1000 edits and swaps the middle.
+    // Two unrelated texts just under the budget: Myers is skipped or stops at 500 edits; the middle is swapped.
     const side = (tag: string) => Array.from({ length: 9000 }, (_, i) => `${tag}${i}\n`).join("");
 
     const [before, after] = [side("a"), side("b")];

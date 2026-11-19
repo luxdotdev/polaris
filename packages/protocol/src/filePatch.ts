@@ -24,7 +24,7 @@ export const FILE_PATCH_CAP = 64 * 1024;
 const CONTEXT = 3;
 
 /** Past this many edits, or lines, between the trimmed middles, the middle is replaced whole. */
-const MAX_EDITS = 1000;
+const MAX_EDITS = 500;
 
 const MAX_LINES = 20_000;
 
@@ -48,15 +48,6 @@ const linesOf = (text: string): ReadonlyArray<string> => {
   return lines;
 };
 
-/** Whether `a[as, ae)` and `b[bs, be)` hold the same text, without copying either. */
-const sameRange = (a: string, as: number, ae: number, b: string, bs: number, be: number) => {
-  if (ae - as !== be - bs) return false;
-
-  for (let i = 0; i < ae - as; i++) if (a.charCodeAt(as + i) !== b.charCodeAt(bs + i)) return false;
-
-  return true;
-};
-
 /** The end of the line starting at `from`, past its `\n`. */
 const lineEnd = (text: string, from: number) => {
   const at = text.indexOf("\n", from);
@@ -64,45 +55,87 @@ const lineEnd = (text: string, from: number) => {
   return at === -1 ? text.length : at + 1;
 };
 
-/** The start of the line that ends at `to` (exclusive, past its `\n` when it has one). */
-const lineStart = (text: string, to: number) => text.lastIndexOf("\n", to - 2) + 1;
-
 /** Lines in `text[from, to)`, a last one without `\n` included. */
 const lineCount = (text: string, from: number, to: number) => {
   let count = 0;
 
-  for (let at = from; at < to; at = lineEnd(text, at)) count++;
+  for (let at = from; at < to; count++) {
+    const next = text.indexOf("\n", at);
+    at = next === -1 ? to : next + 1;
+  }
 
   return count;
 };
 
 /**
- * Counts in one pass, allocating nothing per line: common leading and trailing lines are
- * skipped and every line between counts as changed, so the counts are an upper bound.
+ * How many characters `a` and `b` share, `at(i)` the i-th from the start or end: whole blocks
+ * compared natively, halving at a difference, the last few one by one.
+ */
+const common = (
+  limit: number,
+  same: (from: number, to: number) => boolean,
+  at: (i: number) => [number, number]
+) => {
+  let done = 0;
+  let step = 4096;
+
+  while (done < limit) {
+    const end = Math.min(limit, done + step);
+
+    if (same(done, end)) {
+      done = end;
+      step *= 2;
+    } else if (end - done > 32) {
+      step = Math.ceil((end - done) / 2);
+    } else {
+      for (; done < end; done++) {
+        const [x, y] = at(done);
+
+        if (x !== y) return done;
+      }
+    }
+  }
+
+  return done;
+};
+
+/**
+ * Counts in one pass that keeps no line: the common head and tail (whole lines) are skipped and
+ * every line between counts as changed, so the counts are an upper bound.
  */
 const scanCounts = (before: string, after: string) => {
-  let head = 0;
+  const shorter = Math.min(before.length, after.length);
 
-  while (head < before.length && head < after.length) {
-    const end = lineEnd(before, head);
+  const prefix = common(
+    shorter,
+    (from, to) => before.substring(from, to) === after.substring(from, to),
+    (i) => [before.charCodeAt(i), after.charCodeAt(i)]
+  );
 
-    if (!sameRange(before, head, end, after, head, lineEnd(after, head))) break;
-    head = end;
+  const head = before.lastIndexOf("\n", prefix - 1) + 1;
+
+  const tailOf = (text: string, from: number, to: number) =>
+    text.substring(text.length - to, text.length - from);
+
+  let suffix = common(
+    shorter - head,
+    (from, to) => tailOf(before, from, to) === tailOf(after, from, to),
+    (i) => [before.charCodeAt(before.length - 1 - i), after.charCodeAt(after.length - 1 - i)]
+  );
+
+  // The tail starts a line in both: right after a newline, or after the first one inside it.
+  const startsLine = (text: string) =>
+    text.length - suffix === head || text[text.length - suffix - 1] === "\n";
+
+  if (!(startsLine(before) && startsLine(after))) {
+    const newline = before.indexOf("\n", before.length - suffix);
+    suffix = newline === -1 ? 0 : before.length - newline - 1;
   }
 
-  let a = before.length;
-  let b = after.length;
-
-  while (a > head && b > head) {
-    const sa = Math.max(head, lineStart(before, a));
-    const sb = Math.max(head, lineStart(after, b));
-
-    if (!sameRange(before, sa, a, after, sb, b)) break;
-    a = sa;
-    b = sb;
-  }
-
-  return { removed: lineCount(before, head, a), added: lineCount(after, head, b) };
+  return {
+    removed: lineCount(before, head, before.length - suffix),
+    added: lineCount(after, head, after.length - suffix),
+  };
 };
 
 type Op = { readonly kind: " " | "-" | "+"; readonly line: string };
@@ -116,7 +149,8 @@ const myers = (a: ReadonlyArray<string>, b: ReadonlyArray<string>): Array<Op> | 
   const n = a.length;
   const m = b.length;
 
-  if (n + m > MAX_LINES) return null;
+  // At least |n - m| edits, so past the bound there's no search; one side empty needs none.
+  if (n + m > MAX_LINES || Math.abs(n - m) > MAX_EDITS || n === 0 || m === 0) return null;
   const max = Math.min(n + m, MAX_EDITS);
   const offset = max + 1;
   const at = (k: number) => offset + k;
@@ -319,7 +353,7 @@ const writeHunks = (writer: PatchWriter, script: Script): void => {
 
 /**
  * The patch from `before` to `after` (a file's whole text, or an edited fragment of it): a
- * line diff, minimal unless the changed middles differ by over 1000 lines or span 20,000, when
+ * line diff, minimal unless the changed middles differ by over 500 lines or span 20,000, when
  * the middle is replaced whole. Past `FILE_PATCH_INPUT_BUDGET` characters, or 20,000 lines,
  * it is counts only (`truncated`), from a linear scan. Either way the counts may then overcount.
  */
