@@ -4,7 +4,7 @@
  * made by the first provider to mount with its options, and ends it when the last unmounts.
  */
 import { WorkerPoolContextProvider } from "@pierre/diffs/react";
-import PierreWorker from "@pierre/diffs/worker/worker.js?worker";
+import PierreWorker from "./pierre.worker.ts?worker";
 import { type ReactNode, useMemo } from "react";
 import { DIFF_HIGHLIGHTER, registerDiffThemes, THEMES } from "./theme.ts";
 
