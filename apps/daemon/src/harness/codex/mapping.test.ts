@@ -137,16 +137,20 @@ describe("thread items", () => {
     );
   });
 
-  test("file changes map update to modify", () => {
+  test("file changes map update to modify, each with the patch its diff describes", () => {
     expect(
       item({
         type: "fileChange",
         id: "f",
         status: "inProgress",
         changes: [
-          { path: "a.ts", kind: { type: "add" }, diff: "" },
-          { path: "b.ts", kind: { type: "update", move_path: null }, diff: "" },
-          { path: "c.ts", kind: { type: "delete" }, diff: "" },
+          { path: "a.ts", kind: { type: "add" }, diff: "export const a = 1;\n" },
+          {
+            path: "b.ts",
+            kind: { type: "update", move_path: null },
+            diff: "@@ -1,2 +1,2 @@\n-const b = 1;\n+const b = 2;\n export { b };\n",
+          },
+          { path: "c.ts", kind: { type: "delete" }, diff: "x\ny\n" },
         ],
       })
     ).toEqual(
@@ -154,10 +158,49 @@ describe("thread items", () => {
         id: "f",
         status: "running",
         changes: [
-          { path: "a.ts", kind: "add" },
-          { path: "b.ts", kind: "modify" },
-          { path: "c.ts", kind: "delete" },
+          {
+            path: "a.ts",
+            kind: "add",
+            patch: {
+              diff: "@@ -0,0 +1 @@\n+export const a = 1;\n",
+              added: 1,
+              removed: 0,
+              truncated: false,
+            },
+          },
+          {
+            path: "b.ts",
+            kind: "modify",
+            patch: {
+              diff: "@@ -1,2 +1,2 @@\n-const b = 1;\n+const b = 2;\n export { b };\n",
+              added: 1,
+              removed: 1,
+              truncated: false,
+            },
+          },
+          {
+            path: "c.ts",
+            kind: "delete",
+            patch: { diff: "@@ -1,2 +0,0 @@\n-x\n-y\n", added: 0, removed: 2, truncated: false },
+          },
         ],
+      })
+    );
+  });
+
+  test("a file change without a diff (an older Codex) has no patch", () => {
+    expect(
+      item({
+        type: "fileChange",
+        id: "f",
+        status: "completed",
+        changes: [{ path: "a.ts", kind: { type: "add" } }],
+      })
+    ).toEqual(
+      TurnItem.cases.FileChange.make({
+        id: "f",
+        status: "completed",
+        changes: [{ path: "a.ts", kind: "add" }],
       })
     );
   });

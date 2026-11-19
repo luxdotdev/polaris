@@ -6,6 +6,8 @@ import {
   ApprovalDecision,
   type Attachment,
   type AttachmentId,
+  filePatch,
+  patchFromUnifiedDiff,
   type PermissionMode,
   TurnItem,
 } from "@polaris/protocol";
@@ -127,6 +129,24 @@ export const turnInput = (
 // ---------------------------------------------------------------------------
 // Items
 
+type CodexFileChange = (typeof P.FileChangeItem.Type)["changes"][number];
+
+/** One Codex file change, with the patch its `diff` describes (ENG-979). */
+const fileChangeOf = (change: CodexFileChange) => {
+  const kind: "add" | "delete" | "modify" =
+    change.kind.type === "update" ? "modify" : change.kind.type;
+
+  if (change.diff === undefined) return { path: change.path, kind };
+
+  const patch = Match.value(change.kind.type).pipe(
+    Match.when("add", () => filePatch("", change.diff ?? "")),
+    Match.when("delete", () => filePatch(change.diff ?? "", "")),
+    Match.orElse(() => patchFromUnifiedDiff(change.diff ?? ""))
+  );
+
+  return { path: change.path, kind, patch };
+};
+
 const { AssistantMessage, CommandExecution, FileChange, Plan, Reasoning, ToolCall } =
   TurnItem.cases;
 
@@ -214,10 +234,7 @@ const itemMappers = new Map<string, ItemMapper>([
       "changes" in item
         ? FileChange.make({
             id: item.id,
-            changes: item.changes.map((change) => ({
-              path: change.path,
-              kind: change.kind.type === "update" ? "modify" : change.kind.type,
-            })),
+            changes: item.changes.map(fileChangeOf),
             status: itemStatus(item.status),
           })
         : null,

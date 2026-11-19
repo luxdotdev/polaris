@@ -50,6 +50,7 @@ import { withWorkerAdmission } from "../resources/workerAdmission.ts";
 import { HarnessTurnAliases } from "./supervisor.aliases.ts";
 import type { ShellTurn } from "./supervisor.shell.ts";
 import { DEFAULT_HARNESS_START_TIMEOUT, timedStart } from "./supervisor.start.ts";
+import { TurnPatchBudgets } from "./patchBudget.ts";
 import { shortHostName } from "../service/hostName.ts";
 
 type HarnessEventOf<Tag extends HarnessEvent["_tag"]> = Extract<HarnessEvent, { _tag: Tag }>;
@@ -75,6 +76,7 @@ const make = (
   pairings: Option.Option<PairingBook["Service"]>
 ): Supervisor["Service"] => {
   const { store, live, progress } = rt;
+  const patchBudgets = new TurnPatchBudgets();
   // A live secret printed by a command never reaches the log or a Client (ADR 0089).
   const redact = secrets.files.redact;
   const redactText = secrets.files.redactText;
@@ -286,7 +288,7 @@ const make = (
             DomainEvent.cases.TurnItemCompleted.make({
               sessionId,
               turnId: e.turnId,
-              item: redact(e.item),
+              item: redact(patchBudgets.take(`${sessionId}:${e.turnId}`, e.item)),
               subagentId: e.subagentId ?? null,
             }),
           ]);
@@ -439,6 +441,7 @@ const make = (
   const onTurnEnded = (sessionId: SessionId, event: HarnessEventOf<"TurnEnded">, at: string) =>
     Effect.gen(function* () {
       rt.dropProgress(sessionId, event.turnId);
+      patchBudgets.end(`${sessionId}:${event.turnId}`);
       const after = yield* rt.capture(sessionId, event.turnId, "after");
 
       const ended = yield* rt.signal(sessionId, {

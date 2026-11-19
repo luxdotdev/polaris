@@ -1,0 +1,101 @@
+{
+  "_comment": "Recorded Claude Code tool calls (tool_use input and tool_use_result) on Polaris's own files; paths rewritten to /repo.",
+  "edit": {
+    "input": {
+      "replace_all": false,
+      "file_path": "/repo/CONTEXT.md",
+      "old_string": "**Update**:\nThe Desktop App replacing itself with a newer Release.\n_Avoid_: Upgrade (for the Desktop App)",
+      "new_string": "**Channel**:\nThe stream of Releases a Desktop App takes Updates from: Stable, or Nightly (a prerelease built from main each night); leaving Nightly never downgrades, the app waits for a newer Stable Release.\n_Avoid_: Track, ring, beta (for Nightly)\n\n**Update**:\nThe Desktop App replacing itself with the newest Release on its Channel, skipping any older Release it had already downloaded.\n_Avoid_: Upgrade (for the Desktop App)"
+    },
+    "result": {
+      "filePath": "/repo/CONTEXT.md",
+      "oldString": "**Update**:\nThe Desktop App replacing itself with a newer Release.\n_Avoid_: Upgrade (for the Desktop App)",
+      "newString": "**Channel**:\nThe stream of Releases a Desktop App takes Updates from: Stable, or Nightly (a prerelease built from main each night); leaving Nightly never downgrades, the app waits for a newer Stable Release.\n_Avoid_: Track, ring, beta (for Nightly)\n\n**Update**:\nThe Desktop App replacing itself with the newest Release on its Channel, skipping any older Release it had already downloaded.\n_Avoid_: Upgrade (for the Desktop App)",
+      "originalFile": null,
+      "structuredPatch": [
+        {
+          "oldStart": 71,
+          "oldLines": 8,
+          "newStart": 71,
+          "newLines": 12,
+          "lines": [
+            " A published version of Polaris: one version number shared by the Desktop App and the Daemon builds it carries.",
+            " _Avoid_: Build (for a published version), drop",
+            " ",
+            "+**Channel**:",
+            "+The stream of Releases a Desktop App takes Updates from: Stable, or Nightly (a prerelease built from main each night); leaving Nightly never downgrades, the app waits for a newer Stable Release.",
+            "+_Avoid_: Track, ring, beta (for Nightly)",
+            "+",
+            " **Update**:",
+            "-The Desktop App replacing itself with a newer Release.",
+            "+The Desktop App replacing itself with the newest Release on its Channel, skipping any older Release it had already downloaded.",
+            " _Avoid_: Upgrade (for the Desktop App)",
+            " ",
+            " **Daemon Upgrade**:"
+          ]
+        }
+      ],
+      "userModified": false,
+      "replaceAll": false,
+      "contentNotInModelContext": true
+    }
+  },
+  "write": {
+    "input": {
+      "file_path": "/repo/apps/desktop/scripts/test-preload.ts",
+      "content": "/**\n * Desktop test preload: the Client's copy reads as macOS on every runner, Vite's `?worker`\n * imports load as a Worker that can't start (tests parse on the main thread), and happy-dom\n * never replaces Bun's fetch primitives, which main-process tests serve and read.\n */\nimport { GlobalRegistrator } from \"@happy-dom/global-registrator\";\nimport { plugin } from \"bun\";\nimport { join } from \"node:path\";\nimport { pinTestPlatform } from \"../src/shared/platform.ts\";\n\npinTestPlatform(\"darwin\");\n\nplugin({\n  name: \"vite-worker-stub\",\n  setup(build) {\n    build.onResolve({ filter: /\\?worker$/ }, () => ({\n      path: join(import.meta.dir, \"testWorkerStub.ts\"),\n    }));\n  },\n});\n\nconst native = {\n  fetch: globalThis.fetch,\n  Request: globalThis.Request,\n  Response: globalThis.Response,\n  Headers: globalThis.Headers,\n};\nconst register = GlobalRegistrator.register.bind(GlobalRegistrator);\n\nGlobalRegistrator.register = (...args: Parameters<typeof GlobalRegistrator.register>) => {\n  register(...args);\n  Object.assign(globalThis, native);\n};\n"
+    },
+    "result": {
+      "type": "update",
+      "filePath": "/repo/apps/desktop/scripts/test-preload.ts",
+      "content": "/**\n * Desktop test preload: the Client's copy reads as macOS on every runner, Vite's `?worker`\n * imports load as a Worker that can't start (tests parse on the main thread), and happy-dom\n * never replaces Bun's fetch primitives, which main-process tests serve and read.\n */\nimport { GlobalRegistrator } from \"@happy-dom/global-registrator\";\nimport { plugin } from \"bun\";\nimport { join } from \"node:path\";\nimport { pinTestPlatform } from \"../src/shared/platform.ts\";\n\npinTestPlatform(\"darwin\");\n\nplugin({\n  name: \"vite-worker-stub\",\n  setup(build) {\n    build.onResolve({ filter: /\\?worker$/ }, () => ({\n      path: join(import.meta.dir, \"testWorkerStub.ts\"),\n    }));\n  },\n});\n\nconst native = {\n  fetch: globalThis.fetch,\n  Request: globalThis.Request,\n  Response: globalThis.Response,\n  Headers: globalThis.Headers,\n};\nconst register = GlobalRegistrator.register.bind(GlobalRegistrator);\n\nGlobalRegistrator.register = (...args: Parameters<typeof GlobalRegistrator.register>) => {\n  register(...args);\n  Object.assign(globalThis, native);\n};\n",
+      "structuredPatch": [
+        {
+          "oldStart": 1,
+          "oldLines": 7,
+          "newStart": 1,
+          "newLines": 9,
+          "lines": [
+            " /**",
+            "- * Desktop test preload: the Client's copy reads as macOS on every runner, and Vite's",
+            "- * `?worker` imports load as a Worker that can't start (tests parse on the main thread).",
+            "+ * Desktop test preload: the Client's copy reads as macOS on every runner, Vite's `?worker`",
+            "+ * imports load as a Worker that can't start (tests parse on the main thread), and happy-dom",
+            "+ * never replaces Bun's fetch primitives, which main-process tests serve and read.",
+            "  */",
+            "+import { GlobalRegistrator } from \"@happy-dom/global-registrator\";",
+            " import { plugin } from \"bun\";",
+            " import { join } from \"node:path\";",
+            " import { pinTestPlatform } from \"../src/shared/platform.ts\";"
+          ]
+        },
+        {
+          "oldStart": 16,
+          "oldLines": 3,
+          "newStart": 18,
+          "newLines": 16,
+          "lines": [
+            "     }));",
+            "   },",
+            " });",
+            "+",
+            "+const native = {",
+            "+  fetch: globalThis.fetch,",
+            "+  Request: globalThis.Request,",
+            "+  Response: globalThis.Response,",
+            "+  Headers: globalThis.Headers,",
+            "+};",
+            "+const register = GlobalRegistrator.register.bind(GlobalRegistrator);",
+            "+",
+            "+GlobalRegistrator.register = (...args: Parameters<typeof GlobalRegistrator.register>) => {",
+            "+  register(...args);",
+            "+  Object.assign(globalThis, native);",
+            "+};"
+          ]
+        }
+      ],
+      "originalFile": "/**\n * Desktop test preload: the Client's copy reads as macOS on every runner, and Vite's\n * `?worker` imports load as a Worker that can't start (tests parse on the main thread).\n */\nimport { plugin } from \"bun\";\nimport { join } from \"node:path\";\nimport { pinTestPlatform } from \"../src/shared/platform.ts\";\n\npinTestPlatform(\"darwin\");\n\nplugin({\n  name: \"vite-worker-stub\",\n  setup(build) {\n    build.onResolve({ filter: /\\?worker$/ }, () => ({\n      path: join(import.meta.dir, \"testWorkerStub.ts\"),\n    }));\n  },\n});\n",
+      "userModified": false
+    }
+  }
+}
