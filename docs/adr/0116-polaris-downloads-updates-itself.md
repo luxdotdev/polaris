@@ -89,7 +89,10 @@ from the internet.
   newer one it is `readyVersion`; until then Restart installs the older. A newer one that fails
   leaves the older ready, with the failure kept. `replaces` and `skipped` let About say why.
   No check runs while Squirrel reads an Update. Whether real Squirrel accepts a second
-  operation after one is staged is unproven here (ENG-985); if it refuses, the older stays ready.
+  operation after one is staged is unproven here (ENG-985); if it refuses, the older stays ready
+  and that Release isn't downloaded again this run (a still newer one is). Releases are ordered
+  by semver, Nightlies (`X.Y.Z-nightly.YYYYMMDD`) included: below their own X.Y.Z, by date
+  among themselves, and between `beta` and `rc` of the same core, as semver orders the names.
 - **Failures are in the user's terms**: `failure` says check, download (with how far it got)
   or verify, never upstream text. About says "Couldn't download Polaris 0.12.1".
 

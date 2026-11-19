@@ -24,7 +24,12 @@ verify). Restart, "Quit and update" and the K menu follow `readyVersion`.
 Concurrent checks, and checks while Squirrel reads an Update, are ignored. Checks
 continue while an Update is ready or downloading: a newer Release replaces it in the
 background (ENG-975), the older stays installable until Squirrel has the newer, and a
-newer one that fails leaves the older ready. `isNewer` in `version.ts` orders Releases. Downloads/DMG/translocated
+newer one that fails leaves the older ready. While an older one is ready, a Release
+Squirrel refused isn't downloaded again until Polaris restarts; a still newer one is.
+`isNewer` in `version.ts` orders Releases by semver: a Nightly (`0.12.1-nightly.20261119`,
+asset `Polaris-0.12.1-nightly.20261119-arm64-mac.zip`, nupkg `…-0.12.1-nightly20261119-full`)
+ranks below its own X.Y.Z, later dates higher, and between beta and rc of the same core
+(semver's alphabetical order of `alpha`, `beta`, `nightly`, `rc`). Downloads/DMG/translocated
 launches show “Can't install here” before contacting the feed.
 
 Verification on macOS unpacks the zip with `ditto` and requires one app that passes

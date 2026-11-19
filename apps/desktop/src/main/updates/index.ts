@@ -102,6 +102,8 @@ export const createAppUpdates = (input: UpdateInput) => {
   let asking = false;
   /** The newest Release a check has offered, which a newer one may pass over. */
   let offered: string | null = null;
+  /** Releases Squirrel refused this run; while an older one is ready, they aren't downloaded again. */
+  const refused = new Set<string>();
   /** Timed out and never ended, oldest first: each may still send its one terminal event. */
   const stale: Array<Handover> = [];
   /** Set while the newest stale operation still keeps Squirrel's one slot. */
@@ -213,6 +215,8 @@ export const createAppUpdates = (input: UpdateInput) => {
   };
 
   const end = (ended: Handover, completed: boolean) => {
+    if (!completed) refused.add(ended.version);
+
     if (ended !== handover) {
       endStale(ended, completed);
 
@@ -315,17 +319,20 @@ export const createAppUpdates = (input: UpdateInput) => {
       return;
     }
 
-    handover = {
+    const started: Handover = {
       version: update.version,
       feed: staged.feed,
       cancelTimeout: scheduleCheck(abandon, handoverTimeoutMs),
     };
 
+    handover = started;
+
     try {
       input.native.setFeedURL({ url: staged.feed.url });
       input.native.checkForUpdates();
     } catch {
-      failedHandover();
+      // The call that threw is this operation's end, whatever older one may still answer.
+      end(started, false);
     }
   };
 
@@ -373,7 +380,8 @@ export const createAppUpdates = (input: UpdateInput) => {
       handover === null &&
       update !== null &&
       update !== "current" &&
-      isNewer(update.version, newest ?? view.version)
+      isNewer(update.version, newest ?? view.version) &&
+      !(view.readyVersion !== null && refused.has(update.version))
     ) {
       change({ lastCheckedAt });
 

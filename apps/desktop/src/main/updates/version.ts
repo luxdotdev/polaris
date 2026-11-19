@@ -1,6 +1,7 @@
 const CORE = String.raw`(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)`;
 
-const PRERELEASE = String.raw`(?:alpha|beta|rc)`;
+/** Hand-cut prereleases, and a Nightly's build date (`0.12.1-nightly.20261119`, docs/adr/0057). */
+const PRERELEASE = String.raw`(?:alpha|beta|rc|nightly)`;
 
 const assetVersion = new RegExp(
   String.raw`\/Polaris-(${CORE}(?:-${PRERELEASE}\.(?:0|[1-9]\d*))?)(?:-arm64-mac\.zip|-(?:x64|arm64)-win-Setup\.exe)$`
@@ -8,7 +9,7 @@ const assetVersion = new RegExp(
 
 const nugetVersion = new RegExp(String.raw`^(${CORE})(?:-(${PRERELEASE})(0|[1-9]\d*))?$`);
 
-/** A Squirrel NuGet version (`1.2.3-alpha1`) as the release's semver (`1.2.3-alpha.1`). */
+/** A Squirrel NuGet version (`1.2.3-alpha1`, `1.2.3-nightly20261119`) as the release's semver. */
 export const versionFromNuget = (name: string): string | null => {
   const match = nugetVersion.exec(name);
 
@@ -27,20 +28,26 @@ export const versionFromAsset = (url: string): string | null => {
   return nupkg === undefined ? null : versionFromNuget(nupkg);
 };
 
+/** Semver's own order of these identifiers; a Release ranks above all of its prereleases. */
 const PRERELEASE_RANK = new Map([
   ["alpha", 0],
   ["beta", 1],
-  ["rc", 2],
+  ["nightly", 2],
+  ["rc", 3],
 ]);
 
-/** `1.2.3` → [1, 2, 3, 3, 0]; a prerelease ranks below its release (`-alpha.1` → […, 0, 1]). */
+const RELEASE_RANK = 4;
+
+/** `1.2.3` → [1, 2, 3, 4, 0]; `1.2.3-nightly.20261119` → [1, 2, 3, 2, 20261119]. */
 const rank = (version: string): ReadonlyArray<number> | null => {
-  const match = /^(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta|rc)\.(\d+))?$/.exec(version);
+  const match = /^(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta|rc|nightly)\.(\d+))?$/.exec(version);
 
   if (match === null) return null;
 
   const pre =
-    match[4] === undefined ? [3, 0] : [PRERELEASE_RANK.get(match[4]) ?? 0, Number(match[5])];
+    match[4] === undefined
+      ? [RELEASE_RANK, 0]
+      : [PRERELEASE_RANK.get(match[4]) ?? 0, Number(match[5])];
 
   return [Number(match[1]), Number(match[2]), Number(match[3]), ...pre];
 };
