@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { DomainEvent, SuggestedReplySettings, type Turn } from "@polaris/protocol";
-import { Effect, Layer, Stream, SubscriptionRef } from "effect";
+import { Context, Deferred, Effect, Layer, Stream, SubscriptionRef } from "effect";
 import { Availability } from "../harness/availability/Availability.ts";
 import { tempDir } from "../platform/tempDir.testing.ts";
 import { EventStore } from "../store/EventStore.ts";
@@ -23,7 +23,6 @@ const finished = (t: Turn) => [
 
 test("the fallback starts when the preference is turned on after start-up", async () => {
   const asked: Array<string> = [];
-  const offered: Array<string> = [];
 
   const backend: ReplyBackend = (harness) =>
     Effect.sync(() => {
@@ -34,12 +33,13 @@ test("the fallback starts when the preference is turned on after start-up", asyn
 
   const program = Effect.gen(function* () {
     const ref = yield* SubscriptionRef.make(settings(false));
+    const offered = yield* Deferred.make<string>();
 
     const lazy = lazySuggestedRepliesWith(
       {
         changes: SubscriptionRef.changes(ref),
         settings: SubscriptionRef.get(ref),
-        offer: (_, turnId) => Effect.sync(() => void offered.push(turnId)),
+        offer: (_, turnId) => Deferred.succeed(offered, turnId).pipe(Effect.asVoid),
       },
       { backend }
     );
@@ -52,12 +52,13 @@ test("the fallback starts when the preference is turned on after start-up", asyn
 
     const layer = lazy.pipe(Layer.provideMerge(store), Layer.provide(availability));
 
-    yield* Effect.scoped(
+    return yield* Effect.scoped(
       Effect.gen(function* () {
         const built = yield* Layer.build(layer);
+        const events = Context.get(built, EventStore);
 
-        const commit = (events: ReadonlyArray<DomainEvent>) =>
-          commitAll(events).pipe(Effect.provideContext(built));
+        const commit = (batch: ReadonlyArray<DomainEvent>) =>
+          commitAll(batch).pipe(Effect.provideContext(built));
 
         yield* commit([
           DomainEvent.cases.WorkspaceRegistered.make({ workspace }),
@@ -66,19 +67,22 @@ test("the fallback starts when the preference is turned on after start-up", asyn
           ...finished(turn(1)),
         ]);
 
+        const followedWhileOff = yield* events.subscriberCount;
+
         yield* SubscriptionRef.set(ref, settings(true));
 
-        // The writer loads in the background: Turns that end before it follows the log are missed.
-        for (let next = 2; next < 200 && offered.length === 0; next++) {
-          yield* commit(finished(turn(next)));
-          yield* Effect.sleep("10 millis");
-        }
+        // The writer loads in the background; a Turn that ends once it follows the log is offered.
+        while ((yield* events.subscriberCount) === 0) yield* Effect.sleep(1);
+        yield* commit(finished(turn(2)));
+
+        return { followedWhileOff, offered: yield* Deferred.await(offered) };
       })
     );
   });
 
-  await Effect.runPromise(program);
+  const { followedWhileOff, offered } = await Effect.runPromise(program);
 
+  expect(followedWhileOff).toBe(0);
   expect(asked).toEqual(["codex"]);
-  expect(offered).toHaveLength(1);
+  expect(offered).toBe(turn(2).id);
 });
