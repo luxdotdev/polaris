@@ -37,6 +37,21 @@ describe("the editor's terminal morph", () => {
     expect(splitAt(280, 1.01)).toMatchObject({ lift: 292, edge: 18, top: 12, bottom: 12 });
   });
 
+  test("with no strip, the terminal rises from the column's foot and never touches the card", () => {
+    for (const split of [0, 0.1, 0.5, 0.9, 1]) {
+      const at = splitAt(280, split, false);
+      const terminalTop = 280 - at.drop;
+
+      expect(at.lift - terminalTop).toBeCloseTo(6 * split, 6);
+    }
+
+    expect(280 - splitAt(280, 0, false).drop).toBe(0);
+  });
+
+  test("with no strip, the card's foot keeps its round corners all the way", () => {
+    for (const split of [0, 0.5, 1]) expect(splitAt(280, split, false).edge).toBe(18);
+  });
+
   test("the spring runs from the given split to rest", () => {
     const steps = springSteps(286, 0);
 

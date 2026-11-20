@@ -1,8 +1,8 @@
 /**
- * The Editor's column (DESIGN.md, Chrome redesign → Editor; Paper X-I Variant C): the editor
- * card, and when the terminal shows, the terminal card and the status strip under it, 6px apart.
- * Hidden, the status is the editor card's foot row and the Terminal chip floats over the code.
- * The change between the two is a morph (`morph.ts`).
+ * A pane with its Workspace's terminal as a card under it (DESIGN.md, Chrome redesign → Editor;
+ * Paper X-I Variant C), 6px apart. In the Editor the status row is the card's foot while the
+ * terminal hides and a strip under it while it shows; New session and the Workspace stage have
+ * none. Hidden, the Terminal chip floats at the card's bottom right. The change is a morph.
  */
 import { cn, Kbd, Panel, TerminalIcon } from "@polaris/ui";
 import { Component, createRef, type ReactNode, type RefObject } from "react";
@@ -129,12 +129,15 @@ class MorphColumn extends Component<MorphProps, NoState> {
   }
 }
 
-export interface EditorColumnProps {
+export interface TerminalColumnProps {
   readonly dock: RefObject<HTMLDivElement | null>;
   readonly hostKey: string;
   readonly workspaceId: string;
   readonly children: ReactNode;
-  readonly status: ReactNode;
+  /** The status row's items; omitted, the column has no status row. */
+  readonly status?: ReactNode;
+  /** The card's test id. */
+  readonly cardTestId: string;
   /** The terminal card's body while it shows, else null. */
   readonly terminal: ReactNode;
   /** The terminal is hidden but `terminal` is still passed, while it leaves. Default false. */
@@ -144,17 +147,19 @@ export interface EditorColumnProps {
 }
 
 /** The column's layout alone, so fixtures can show it with a stand-in terminal. */
-export const EditorColumn = ({
+export const TerminalColumn = ({
   dock,
   hostKey,
   workspaceId,
   children,
   status,
+  cardTestId,
   terminal,
   leaving = false,
   chip,
-}: EditorColumnProps) => {
+}: TerminalColumnProps) => {
   const strip = terminal !== null;
+  const row = status !== undefined;
 
   return (
     <MorphColumn
@@ -164,12 +169,12 @@ export const EditorColumn = ({
       hostKey={hostKey}
       workspaceId={workspaceId}
     >
-      <Panel className="min-w-0 flex-1" data-testid="editor-card" data-morph="card">
+      <Panel className="min-w-0 flex-1" data-testid={cardTestId} data-morph="card">
         <div className="relative flex min-h-0 flex-1 flex-col">
           {children}
           {strip ? null : chip}
         </div>
-        {strip ? null : <StatusRow placement="foot">{status}</StatusRow>}
+        {strip || !row ? null : <StatusRow placement="foot">{status}</StatusRow>}
       </Panel>
       {strip ? (
         <>
@@ -178,23 +183,42 @@ export const EditorColumn = ({
               {terminal}
             </Panel>
           </div>
-          <StatusRow placement="strip">{status}</StatusRow>
+          {row ? <StatusRow placement="strip">{status}</StatusRow> : null}
         </>
       ) : null}
     </MorphColumn>
   );
 };
 
-export const TerminalPanels = ({ hostKey, workspaceId, children, status }: TerminalPanelsProps) => {
+export type EditorColumnProps = Omit<TerminalColumnProps, "cardTestId"> & {
+  readonly status: ReactNode;
+};
+
+/** The Editor's column: the editor card with the status row. */
+export const EditorColumn = (props: EditorColumnProps) => (
+  <TerminalColumn {...props} cardTestId="editor-card" />
+);
+
+interface LiveColumnProps {
+  readonly hostKey: string;
+  readonly workspaceId: string;
+  readonly children: ReactNode;
+  readonly status?: ReactNode;
+  readonly cardTestId: string;
+}
+
+/** The column on the Workspace's own terminal drawer. */
+const LiveColumn = ({ hostKey, workspaceId, children, status, cardTestId }: LiveColumnProps) => {
   const { dock, shown, toggle, count, drawerProps } = useTerminalDock(hostKey, workspaceId);
   const leaving = useTerminalLeaving(shown);
 
   return (
-    <EditorColumn
+    <TerminalColumn
       dock={dock}
       hostKey={hostKey}
       workspaceId={workspaceId}
       status={status}
+      cardTestId={cardTestId}
       leaving={leaving}
       terminal={
         (shown || leaving) && drawerProps !== null ? (
@@ -204,6 +228,24 @@ export const TerminalPanels = ({ hostKey, workspaceId, children, status }: Termi
       chip={drawerProps === null ? null : <TerminalChip onToggle={toggle} count={count} />}
     >
       {children}
-    </EditorColumn>
+    </TerminalColumn>
   );
 };
+
+export const TerminalPanels = (props: TerminalPanelsProps) => (
+  <LiveColumn {...props} cardTestId="editor-card" />
+);
+
+export interface PaneTerminalProps {
+  readonly hostKey: string;
+  readonly workspaceId: string;
+  /** The pane's body, filling the card. */
+  readonly children: ReactNode;
+}
+
+/** A Workspace pane with no status row (New session, the Workspace stage) and its terminal. */
+export const PaneTerminal = ({ hostKey, workspaceId, children }: PaneTerminalProps) => (
+  <LiveColumn hostKey={hostKey} workspaceId={workspaceId} cardTestId="pane-card">
+    {children}
+  </LiveColumn>
+);

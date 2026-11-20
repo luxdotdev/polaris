@@ -10,7 +10,7 @@ import { useRef } from "react";
 import { slots } from "../app/slots.tsx";
 import { HostStage } from "../features/empty/index.ts";
 import { useStage, WaitingStage } from "../features/onboarding/index.ts";
-import { TerminalDock } from "../features/terminal/index.ts";
+import { PaneTerminal } from "../features/terminal/index.ts";
 import { useApp, useSelection, useShellActions } from "./hooks.ts";
 import { OutputLane } from "./OutputLane.tsx";
 
@@ -19,6 +19,23 @@ const Pane = ({ children }: { readonly children: React.ReactNode }) => (
   <Panel asChild className="mb-2 min-w-0 flex-1">
     <section>{children}</section>
   </Panel>
+);
+
+/** A Workspace's pane with its terminal card rising under it, as in the Editor. */
+const WorkspacePane = ({
+  hostKey,
+  workspaceId,
+  children,
+}: {
+  readonly hostKey: string;
+  readonly workspaceId: string;
+  readonly children: React.ReactNode;
+}) => (
+  <section className="mb-2 flex min-h-0 min-w-0 flex-1">
+    <PaneTerminal hostKey={hostKey} workspaceId={workspaceId}>
+      {children}
+    </PaneTerminal>
+  </section>
 );
 
 /** A session shared with you: the owner's Workspace is known only by its id in the session. */
@@ -59,24 +76,22 @@ export const Columns = () => {
 
   if (pane === "new-session") {
     return (
-      <Pane>
+      <WorkspacePane hostKey={hostKey} workspaceId={workspaceId}>
         <slots.NewSession
           hostKey={hostKey}
           workspaceId={workspaceId}
           onStarted={(id: SessionId) => selectSession({ hostKey, sessionId: id })}
           onCancel={closeNewSession}
         />
-      </Pane>
+      </WorkspacePane>
     );
   }
 
   if (sessionId === null) {
     return (
-      <Pane>
-        <TerminalDock hostKey={hostKey} workspaceId={workspaceId}>
-          <slots.NoSession hostKey={hostKey} workspaceId={workspaceId} />
-        </TerminalDock>
-      </Pane>
+      <WorkspacePane hostKey={hostKey} workspaceId={workspaceId}>
+        <slots.NoSession hostKey={hostKey} workspaceId={workspaceId} />
+      </WorkspacePane>
     );
   }
 

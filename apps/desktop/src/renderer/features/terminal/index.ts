@@ -1,12 +1,14 @@
 /**
  * The terminal feature: a drawer of Daemon terminals per Workspace (xterm.js
  * on WebGL, fed by the `terminal` feed), and the "Open in terminal" hand-off.
- * The shell wraps a pane in `TerminalDock`; other features run commands in it.
+ * The shell wraps a pane in `TerminalDock` or `PaneTerminal`; other features run commands in it.
  */
 export { TerminalDock, type TerminalDockProps } from "./ui/TerminalDock.tsx";
 
 export {
   EditorColumn,
+  PaneTerminal,
+  type PaneTerminalProps,
   TerminalChip,
   TerminalPanels,
   type TerminalPanelsProps,

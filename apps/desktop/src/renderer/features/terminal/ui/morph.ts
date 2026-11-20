@@ -1,6 +1,6 @@
 /**
- * The Editor's terminal morph (DESIGN.md, Motion → Morphs): the editor card's foot divides into
- * the terminal card and the status strip, and joins back when the terminal hides.
+ * The terminal morph (DESIGN.md, Motion → Morphs): a card's foot divides into the terminal card
+ * (and, in the Editor, the status strip under it), and joins back when the terminal hides.
  */
 import { MORPH_EASE, MORPH_MS, reducedMotion } from "@polaris/ui";
 
@@ -21,7 +21,10 @@ const STRIP_RADIUS = 12;
 const MAX_OVERSHOOT = 4;
 
 /** The well's clip while a morph plays: open above and beside, cut at the strip's top edge. */
-const CUT = `inset(-24px -2px -${GAP}px -2px)`;
+const cut = (below: number) => `inset(-24px -2px -${below}px -2px)`;
+
+/** How far under the well the terminal starts: the strip's top edge, or the column's foot. */
+const belowWell = (strip: boolean) => (strip ? GAP : 0);
 
 const SAMPLES = MORPH_EASE.slice("linear(".length, -1).split(",").map(Number);
 
@@ -38,13 +41,18 @@ export interface Split {
   readonly bottom: number;
 }
 
-export const splitAt = (height: number, split: number): Split => {
+/**
+ * Without a strip the terminal rises from the column's foot, and the stand-in edge is the joined
+ * card's own foot, so it keeps the card's radius throughout.
+ */
+export const splitAt = (height: number, split: number, strip = true): Split => {
   const progress = Math.min(1, Math.max(0, split));
+  const below = belowWell(strip);
 
   return {
-    drop: (height + GAP) * (1 - split),
-    lift: (height + 2 * GAP) * progress,
-    edge: CARD_RADIUS * progress,
+    drop: (height + below) * (1 - split),
+    lift: (height + GAP + below) * progress,
+    edge: strip ? CARD_RADIUS * progress : CARD_RADIUS,
     top: STRIP_RADIUS * progress,
     bottom: CARD_RADIUS - (CARD_RADIUS - STRIP_RADIUS) * progress,
   };
@@ -68,7 +76,8 @@ export interface Parts {
   readonly card: HTMLElement;
   readonly well: HTMLElement;
   readonly terminal: HTMLElement;
-  readonly strip: HTMLElement;
+  /** Null in a column with no status strip. */
+  readonly strip: HTMLElement | null;
   readonly fill: HTMLElement;
 }
 
@@ -83,16 +92,15 @@ export const partsIn = (root: HTMLElement): Parts | null => {
   const strip = part(root, "strip");
   const fill = part(root, "fill");
 
-  if (card === null || well === null || terminal === null || strip === null || fill === null)
-    return null;
+  if (card === null || well === null || terminal === null || fill === null) return null;
 
   return { card, well, terminal, strip, fill };
 };
 
 const px = (value: number) => `${Math.round(value * 100) / 100}px`;
 
-const keyframes = (height: number, steps: readonly number[]) => {
-  const at = steps.map((step) => splitAt(height, step));
+const keyframes = (height: number, steps: readonly number[], strip: boolean) => {
+  const at = steps.map((step) => splitAt(height, step, strip));
 
   return {
     terminal: at.map((a) => ({ transform: `translateY(${px(a.drop)})` })),
@@ -115,28 +123,32 @@ const stop = (element: HTMLElement) => {
 };
 
 /** The split the column is at now, read from where the terminal card is painted. */
-const splitNow = ({ terminal }: Parts) => {
-  const travel = terminal.offsetHeight + GAP;
+const splitNow = ({ terminal, strip }: Parts) => {
+  const travel = terminal.offsetHeight + belowWell(strip !== null);
   const dropped = new DOMMatrixReadOnly(getComputedStyle(terminal).transform).m42;
 
   return Math.min(1, Math.max(0, 1 - dropped / travel));
 };
 
+const moving = ({ well, terminal, strip, fill }: Parts) =>
+  strip === null ? [well, terminal, fill] : [well, terminal, strip, fill];
+
 const play = (parts: Parts, steps: readonly number[], timing: KeyframeAnimationOptions) => {
   const { card, well, terminal, strip, fill } = parts;
   const height = terminal.offsetHeight;
-  const frames = keyframes(height, steps);
+  const below = belowWell(strip !== null);
+  const frames = keyframes(height, steps, strip !== null);
 
-  for (const element of [well, terminal, strip, fill]) stop(element);
+  for (const element of moving(parts)) stop(element);
 
-  // The fill spans from inside the editor card's bottom corners down to the strip's top.
+  // The fill spans from inside the card's bottom corners down to the strip's top (or the foot).
   fill.style.top = `${card.offsetTop + card.offsetHeight - CARD_RADIUS}px`;
-  fill.style.height = `${CARD_RADIUS + 2 * GAP + height}px`;
+  fill.style.height = `${CARD_RADIUS + GAP + below + height}px`;
 
   fill.animate(frames.fill, timing);
-  well.animate([{ clipPath: CUT }, { clipPath: CUT }], timing);
+  well.animate([{ clipPath: cut(below) }, { clipPath: cut(below) }], timing);
   terminal.animate(frames.terminal, timing);
-  strip.animate(frames.strip, timing);
+  strip?.animate(frames.strip, timing);
 };
 
 const fade = (element: Element) =>
@@ -151,10 +163,10 @@ export const playDivide = (parts: Parts, fresh: boolean) => {
   if (!canMorph(parts.terminal)) return;
 
   if (reducedMotion()) {
-    for (const element of [parts.well, parts.terminal, parts.strip, parts.fill]) stop(element);
+    for (const element of moving(parts)) stop(element);
 
     if (fresh) {
-      fade(parts.strip);
+      if (parts.strip !== null) fade(parts.strip);
       fade(parts.terminal);
     }
 
@@ -163,7 +175,7 @@ export const playDivide = (parts: Parts, fresh: boolean) => {
 
   const from = fresh ? 0 : splitNow(parts);
 
-  play(parts, springSteps(parts.terminal.offsetHeight + GAP, from), {
+  play(parts, springSteps(parts.terminal.offsetHeight + belowWell(parts.strip !== null), from), {
     duration: MORPH_MS,
     easing: "linear",
   });
