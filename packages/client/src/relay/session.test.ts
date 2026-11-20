@@ -18,11 +18,15 @@ const read = new TextDecoder();
 
 const key = (tag: Uint8Array) => Buffer.from(tag).toString("hex");
 
-/** A relay socket with the Host behind it: answers handshakes, keeps what each session sent. */
+/**
+ * A relay socket with the Host behind it: answers handshakes, keeps what each session sent.
+ * A `silent` relay drops everything, probes included; a `refusing` Host ignores handshakes.
+ */
 class FakeRelay implements SessionSocket {
   readonly isReady = true;
   lastError = "";
   silent = false;
+  refusing = false;
   readonly recycled: Array<string> = [];
   readonly received = new Map<string, Array<string>>();
   private heard = 0;
@@ -33,10 +37,6 @@ class FakeRelay implements SessionSocket {
 
   get heardMark() {
     return this.heard;
-  }
-
-  get listening() {
-    return this.listeners.size;
   }
 
   start() {}
@@ -56,7 +56,9 @@ class FakeRelay implements SessionSocket {
     return () => void this.listeners.delete(listener);
   }
 
-  recycle(reason: string) {
+  /** A live relay answers the socket's probe, so only a silent one is recycled. */
+  suspect(reason: string) {
+    if (!this.silent) return;
     this.recycled.push(reason);
 
     for (const listener of this.listeners) listener.lost(reason);
@@ -85,6 +87,7 @@ class FakeRelay implements SessionSocket {
     const { type, tag } = readRecord(record);
 
     if (type === RecordType.Init) {
+      if (this.refusing) return;
       const { session, reply } = acceptHandshake(this.hostKeys, record, () => true);
       this.sessions.set(key(tag), session);
       queueMicrotask(() => this.deliver(reply));
@@ -163,15 +166,35 @@ describe("relay sessions sharing one socket", () => {
     await work.close();
   });
 
-  test("the last session closing on a quiet socket recycles it", async () => {
+  test("a session closing on a socket gone silent recycles it", async () => {
     const { relay, connect } = await setup();
     const only = await connect();
     relay.fromHost(only.sessionKey, "hello");
     await next(only.transport);
+    relay.silent = true;
 
     await only.close();
 
     expect(relay.recycled).toEqual(["the relay went quiet"]);
+  });
+
+  test("a handshake the Host refuses leaves the other Account's live session working", async () => {
+    const { relay, host, connect } = await setup();
+    const work = await connect();
+    relay.refusing = true;
+
+    const failed = await openSession(relay, host, generateStaticKeyPair(), undefined, 50).then(
+      () => null,
+      (error: Error) => error.message
+    );
+
+    expect(failed).toBe("the Host did not answer the handshake");
+    expect(relay.recycled).toEqual([]);
+    relay.fromHost(work.sessionKey, "still here");
+    expect(await next(work.transport)).toEqual(["still here"]);
+    await Effect.runPromise(work.transport.write(text.encode("request")));
+    expect(relay.received.get(work.sessionKey)).toEqual(["request"]);
+    await work.close();
   });
 
   test("a handshake the relay never answers recycles the socket, ending the other live session", async () => {
