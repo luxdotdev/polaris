@@ -16,7 +16,7 @@ export function Scene({ className, children, ...props }: HTMLAttributes<HTMLDivE
     <div
       data-slot="scene"
       className={cn(
-        "pixelated relative isolate overflow-hidden bg-(image:--scene) bg-cover bg-fixed bg-bottom",
+        "pixelated relative isolate overflow-hidden bg-(image:--scene) bg-fixed bg-no-repeat [background-position:var(--scene-art-x)_100%] [background-size:var(--scene-art-w)_auto]",
         className
       )}
       {...props}

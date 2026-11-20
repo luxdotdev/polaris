@@ -8,9 +8,19 @@ export const sceneMapOf = (scene: HTMLElement): SceneMap | null => {
   return isSceneName(kind) ? SCENES[kind] : null;
 };
 
-/** Where the art lands: covering the window from its foot, as `bg-fixed` places it. */
-export const windowCover = (map: SceneMap): Cover =>
-  cover(window.innerWidth, window.innerHeight, map.width, map.height);
+/** The stage's box (assets.css): the window less the sidebar's `--scene-inset-x` and the bars' `-y`. */
+const inset = (root: CSSStyleDeclaration, name: string) =>
+  Number.parseFloat(root.getPropertyValue(name)) || 0;
+
+/** Where the art lands, in window coordinates: covering the stage's box from its foot, as assets.css places it. */
+export const windowCover = (map: SceneMap): Cover => {
+  const root = getComputedStyle(document.documentElement);
+  const left = inset(root, "--scene-inset-x");
+  const top = inset(root, "--scene-inset-y");
+  const at = cover(window.innerWidth - left, window.innerHeight - top, map.width, map.height);
+
+  return { scale: at.scale, x: at.x + left, y: at.y + top };
+};
 
 /**
  * The scene's art as background size and position for `target`, laid out as the scene's own

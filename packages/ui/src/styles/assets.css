@@ -3,6 +3,19 @@
  * the horizon draws under text) and dither halos.
  * Images can't be light-dark() pairs, so each theme scope sets the variables.
  */
+
+/*
+ * A scene covers the stage's box (the window less the sidebar and the bars) from its foot, pinned to
+ * the window (DESIGN.md, One landscape); scene/art.ts reads the same insets. Scenes are 16:10.
+ */
+:root {
+  --scene-inset-x: 296px;
+  --scene-inset-y: 96px;
+  --scene-art-w: max(100vw - var(--scene-inset-x), (100vh - var(--scene-inset-y)) * 1.6);
+  --scene-art-x: calc(
+    var(--scene-inset-x) + (100vw - var(--scene-inset-x) - var(--scene-art-w)) / 2
+  );
+}
 :root,
 [data-theme="dark"],
 [data-theme="midnight"] {

@@ -15,7 +15,7 @@ export function Horizon({ className, ...props }: HTMLAttributes<HTMLDivElement>)
       aria-hidden="true"
       data-slot="horizon"
       className={cn(
-        "pixelated pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-[40vh] bg-(image:--scene-foot) bg-cover bg-fixed bg-bottom bg-no-repeat select-none [mask-image:linear-gradient(to_top,#000_72%,transparent)]",
+        "pixelated pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-[40vh] bg-(image:--scene-foot) bg-fixed [background-position:var(--scene-art-x)_100%] [background-size:var(--scene-art-w)_auto] bg-repeat-x select-none [mask-image:linear-gradient(to_top,#000_72%,transparent)]",
         className
       )}
       {...props}
