@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { reducedMotion } from "../../../lib/motion";
 import type { Pixel } from "./actors";
 import { type Cover, cover, toScene } from "./geometry";
-import { SCENES, type SceneMap } from "./map";
+import { isSceneName, SCENES, type SceneMap } from "./map";
 import { frameKey, SceneMotion } from "./motion";
 
 declare global {
@@ -31,7 +31,7 @@ const REST_AFTER_MS = 180_000;
 const sceneKind = (scene: HTMLElement): SceneMap | null => {
   const kind = getComputedStyle(scene).getPropertyValue("--scene-kind").trim();
 
-  return kind === "night" || kind === "dawn" ? SCENES[kind] : null;
+  return isSceneName(kind) ? SCENES[kind] : null;
 };
 
 /**

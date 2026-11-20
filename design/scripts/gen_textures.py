@@ -1,4 +1,4 @@
-"""Generate Polaris's pixel textures: night/dawn scenes, watercolour washes, dither halos.
+"""Generate Polaris's pixel textures: night/midnight/dawn scenes, watercolour washes, dither halos.
 
 Deterministic. Requires numpy and pillow:
     uv run --with numpy --with pillow design/scripts/gen_textures.py
@@ -62,18 +62,29 @@ def scene(w,h,sky,hills,star,night=True,seed=1,name='scene'):
             c=hexc('#E8EEFF') if b>0.85 else hexc('#8A96B8') if b>0.4 else hexc('#4A5578')
             stars.append((x,y,tohex(c),tohex(img[y,x])))
             img[y,x]=c
-    # Polaris
     px,py=int(w*0.72),int(h*0.18)
-    halo=np.exp(-(((xs-px)**2+(ys-py)**2)/(2*(h*0.07)**2)))
+    draw_polaris(img,px,py,star)
+    prof,skyline=draw_hills(img,hills)
+    motion=star_motion(img,stars,px,py,skyline)
+    return img, prof.astype(int), motion
+
+def draw_polaris(img,px,py,star,radius=0.07,density=0.55):
+    """Polaris: a dithered halo and a four-point glint."""
+    h,w=img.shape[:2]
+    ys,xs=np.mgrid[0:h,0:w]
+    halo=np.exp(-(((xs-px)**2+(ys-py)**2)/(2*(h*radius)**2)))
     hc=hexc(star)
-    mask=halo*0.55>B8[ys%8,xs%8]
+    mask=halo*density>B8[ys%8,xs%8]
     img[mask]=img[mask]*0.55+hc*0.45
     for d in range(-4,5):
         a=1-abs(d)/5
         for (x,y) in ((px+d,py),(px,py+d)):
             img[y,x]=img[y,x]*(1-a)+np.array([245,248,255])*a
     for (x,y) in ((px-1,py-1),(px+1,py-1),(px-1,py+1),(px+1,py+1)): img[y,x]=img[y,x]*0.5+hc*0.5
-    # hills
+
+def draw_hills(img,hills):
+    """Hill layers back to front, pines on the nearest two; returns the nearest profile and the sky line."""
+    h,w=img.shape[:2]
     skyline=np.full(w,h)
     for i,(col,base,amp,sd) in enumerate(hills):
         prof=base*h + amp*h*(noise2(w,1,40,sd+i)[0]-0.5) + amp*0.35*h*(noise2(w,1,9,sd+10+i)[0]-0.5)
@@ -91,12 +102,77 @@ def scene(w,h,sky,hills,star,night=True,seed=1,name='scene'):
                     y=top-th+k
                     img[y,max(0,x-half):x+half+1]=hexc(col)
                     for xx in range(max(0,x-half),min(w,x+half+1)): skyline[xx]=min(skyline[xx],y)
-    # a star survives where nothing (Polaris's halo, a hill) was drawn over it
+    return prof,skyline
+
+def star_motion(img,stars,px,py,skyline):
+    """The motion map: a star survives where nothing (Polaris's halo, a hill) was drawn over it."""
+    h,w=img.shape[:2]
     seen={}
     for x,y,c,under in stars:
         if tohex(img[y,x])==c: seen[(x,y)]=(x,y,c,under)
-    motion={'width':w,'height':h,'polaris':[px,py],'stars':[list(v) for v in seen.values()],'skyline':[int(v) for v in skyline]}
-    return img, prof.astype(int), motion
+    return {'width':w,'height':h,'polaris':[px,py],'stars':[list(v) for v in seen.values()],'skyline':[int(v) for v in skyline]}
+
+# Midnight's sky: black, a galactic band rising from the horizon through Polaris, a few distant
+# galaxies and a faint nebula; every hue kept dark so the Harness tiles stay the strongest colour.
+def tint(img,v,hue,levels=(0.18,0.36,0.58,0.82),peak=1.0):
+    """Adds hue over img in a few dithered steps of the intensity field v (0..1)."""
+    h,w=img.shape[:2]
+    ys,xs=np.mgrid[0:h,0:w]
+    n=len(levels); s=np.clip(v,0,1)*n; lo=np.floor(s); fr=s-lo
+    idx=np.where(fr>B8[ys%8,xs%8],lo+1,lo).clip(0,n).astype(int)
+    a=np.array([0]+list(levels))[idx]*peak
+    return img+hexc(hue)[None,None,:]*a[...,None]
+
+def warp(w,h,seed,scale=1.0):
+    """fbm sampled through a second fbm, for cloud-like nebula shapes."""
+    ys,xs=np.mgrid[0:h,0:w]
+    a=fbm(w,h,seed,(48,24,12,6)); b=fbm(w,h,seed+50,(48,24,12,6))
+    xi=np.clip((xs+(a-0.5)*60*scale).astype(int),0,w-1); yi=np.clip((ys+(b-0.5)*40*scale).astype(int),0,h-1)
+    return fbm(w,h,seed+100,(32,16,8,4))[yi,xi]
+
+def galaxy(img,cx,cy,rx,ry,ang,hue,core,arms=True,peak=0.9):
+    """A small tilted galaxy: a dithered disc (with two arms) and a bright core."""
+    h,w=img.shape[:2]
+    ys,xs=np.mgrid[0:h,0:w]
+    c,s=math.cos(ang),math.sin(ang)
+    dx=xs-cx; dy=ys-cy; u=(dx*c+dy*s)/rx; v=(-dx*s+dy*c)/ry
+    r=np.sqrt(u*u+v*v); th=np.arctan2(v,u)
+    f=np.exp(-r*r*2.2)
+    if arms: f=f*0.55+0.45*np.exp(-r*1.6)*(0.5+0.5*np.cos(2*th-r*5.5))*(r<1.2)
+    img=tint(img,f*0.95,hue,peak=peak)
+    return tint(img,np.exp(-r*r*18),core,peak=1.0)
+
+def midnight_scene(w,h,hills,star,seed=17):
+    """Midnight's night: as scene() returns (image, ground, motion)."""
+    ys,xs=np.mgrid[0:h,0:w]
+    img=quant(ys/(h*0.8)+(fbm(w,h,seed)-0.5)*0.15,['#000000','#000000','#040508'],xs,ys)
+    d=(ys-(h*0.95-xs*0.62))/22.0
+    band=np.exp(-d*d)*(0.6+0.4*fbm(w,h,90,(30,15,7)))
+    u=xs*0.85+ys*0.53
+    lanes=0.5*fbm(w,h,91,(18,9,4))+0.5*noise2(w*3,h,14,93)[ys,np.clip(u.astype(int),0,w*3-1)]
+    img=tint(img,band*0.85,'#2B2546')
+    img=tint(img,(band-0.45).clip(0)*1.8*(lanes>0.42),'#6E4C78',peak=0.48)
+    core=np.exp(-(((xs-120)/55)**2+((ys-150)/30)**2))*band
+    img=tint(img,(core*1.4).clip(0,1)*(lanes>0.38),'#D9A877',levels=(0.12,0.28,0.45,0.65),peak=0.36)
+    img[(lanes<0.33)&(band>0.3)]*=0.35
+    neb=warp(w,h,61)*np.exp(-(((xs-305)/40)**2+((ys-128)/18)**2))*1.7
+    img=tint(img,((neb-0.5)*2).clip(0,1),'#1E4A5A',peak=0.7)
+    img=tint(img,((neb-0.75)*3).clip(0,1),'#7A3A5E',peak=0.6)
+    # stars gather along the band; each is a star-palette colour so it can twinkle
+    dense=(0.3+band*0.85).clip(0,1)
+    r=random.Random(7); stars=[]
+    for _ in range(int(w*h*0.016)):
+        x=r.randrange(w); y=r.randrange(int(h*0.7))
+        if r.random()>dense[y,x]: continue
+        b=r.random(); c='#E8EEFF' if b>0.88 else '#8A96B8' if b>0.45 else '#4A5578'
+        stars.append((x,y,c,tohex(img[y,x]))); img[y,x]=hexc(c)
+    img=galaxy(img,74,44,20,7,-0.35,'#8F86B8','#F3E6CC')
+    img=galaxy(img,40,100,7,3,0.5,'#B88FA6','#F6E2D2',peak=0.7)
+    img=galaxy(img,150,20,5,2,0.2,'#C8A27F','#F3E6CC',arms=False,peak=0.6)
+    px,py=int(w*0.78),int(h*0.16)
+    draw_polaris(img,px,py,star,radius=0.06,density=0.5)
+    prof,skyline=draw_hills(img,hills)
+    return img, prof.astype(int), star_motion(img,stars,px,py,skyline)
 
 def save(img,name,s,sub):
     im=Image.fromarray(np.clip(img,0,255).astype('uint8'))
@@ -139,6 +215,12 @@ CABIN_NIGHT = {
     "D": "#0D1120",  # door
     "d": "#9C7A48",  # light through the door gap
     "F": "#1C2238",  # stone foundation
+}
+# The cabin under Midnight: near-black timber against black hills, the same lamp.
+CABIN_MIDNIGHT = {
+    **CABIN_NIGHT,
+    "R": "#0B0B0E", "H": "#34363E", "C": "#17181C", "S": "#3A3C44",
+    "W": "#141519", "P": "#0E0F12", "D": "#0B0C0F", "F": "#1A1B20",
 }
 # The same cabin at dawn: warm timber, a paler roof, and the lamp still on.
 CABIN_DAWN = {
@@ -212,6 +294,11 @@ def main():
     save(night,'scene-night.png',4,'scenes')
     # A meteor is the star palette: a white head and a tail that cools into the sky.
     save_motion(night_motion, night_cabin, 'scene-night.json', {'kind': 'night', 'meteor': ['#E8EEFF', '#BCD3FF', '#8A96B8', '#4A5578']})
+    midnight, midnight_ground, midnight_motion = midnight_scene(W,H,
+        [('#0A0B0F',0.70,0.18,3),('#07080B',0.78,0.14,5),('#040406',0.86,0.10,9)],'#BCD3FF')
+    midnight_cabin = place_cabin(midnight, midnight_ground, int(W * 0.14), int(W * 0.34), CABIN_MIDNIGHT)
+    save(midnight,'scene-midnight.png',4,'scenes')
+    save_motion(midnight_motion, midnight_cabin, 'scene-midnight.json', {'kind': 'night', 'meteor': ['#E8EEFF', '#BCD3FF', '#8A96B8', '#4A5578']})
     dawn,dawn_ground,dawn_motion=scene(W,H,['#C9D8F2','#D8E1F4','#E9E6F0','#F6E4DA','#FBE3CC','#FCE9D2'],
         [('#B7C9A8',0.70,0.18,3),('#9DB78F',0.78,0.14,5),('#7FA074',0.86,0.10,9)],'#FFFFFF',False,12)
     # meadow flowers

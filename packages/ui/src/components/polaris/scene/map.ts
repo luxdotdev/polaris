@@ -4,6 +4,7 @@
  * smoke, and the colours a meteor or a bird is drawn in. Coordinates are scene pixels.
  */
 import dawn from "../../../../../../design/assets/scenes/scene-dawn.json";
+import midnight from "../../../../../../design/assets/scenes/scene-midnight.json";
 import night from "../../../../../../design/assets/scenes/scene-night.json";
 
 export type Point = readonly [x: number, y: number];
@@ -81,7 +82,13 @@ const sceneMap = (json: SceneJson): SceneMap => ({
   bird: json.bird ?? null,
 });
 
-export const SCENES: Readonly<Record<SceneMap["kind"], SceneMap>> = {
+/** Each scene by its `--scene-kind`: Moonlit's night, Midnight's night, and the dawn. */
+export const SCENES = {
   night: sceneMap(night),
+  midnight: sceneMap(midnight),
   dawn: sceneMap(dawn),
-};
+} as const satisfies Readonly<Record<string, SceneMap>>;
+
+export type SceneName = keyof typeof SCENES;
+
+export const isSceneName = (name: string): name is SceneName => Object.hasOwn(SCENES, name);
