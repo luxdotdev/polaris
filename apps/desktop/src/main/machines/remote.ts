@@ -15,11 +15,12 @@ import {
   platformFromUname,
   probeHost,
   shScript,
+  Ssh,
   startCommand,
   taskConflictOf,
   type WindowsShell,
 } from "@polaris/client/install";
-import { Effect, Match, Option, Predicate, Schema } from "effect";
+import { Effect, Layer, Match, Option, Predicate, Schema } from "effect";
 import type { ChildProcessApi } from "@polaris/client/process";
 import type { DaemonBuilds } from "./builds.ts";
 import type { InstallOutcome, InstallWork } from "./installFlow.ts";
@@ -116,6 +117,21 @@ const planThisPc = Effect.fn("planThisPc")(function* (home: string, input: PlanI
   } satisfies Planned;
 });
 
+/** Local service installs leave the shell command to the Desktop's explicit choice. */
+const installTransport = (channel: HostChannel) =>
+  channel.kind !== "local"
+    ? channel.ssh
+    : Layer.effect(
+        Ssh,
+        Effect.map(Ssh, (ssh) =>
+          Ssh.of({
+            ...ssh,
+            exec: (alias, command, options) =>
+              ssh.exec(alias, `POLARIS_INSTALL_COMMAND=0 ${command}`, options),
+          })
+        )
+      ).pipe(Layer.provide(channel.ssh));
+
 /** Get the build onto the Host (upload, or a download there or here), check it, and run `polaris install|upgrade`. */
 export const applyWork = (
   channel: HostChannel,
@@ -129,7 +145,7 @@ export const applyWork = (
     return applyWindowsLocal(home, work, local.processes, options.replaceTask === true);
 
   return Effect.map(
-    applyPlan(channel.alias, work, options).pipe(Effect.provide(channel.ssh)),
+    applyPlan(channel.alias, work, options).pipe(Effect.provide(installTransport(channel))),
     (applied): InstallOutcome =>
       Match.value(applied).pipe(
         Match.tagsExhaustive({
@@ -164,7 +180,9 @@ export const startDaemon = Effect.fn("startDaemon")(function* (
 
   const result = yield* channel.exec(
     windowsShell === null
-      ? shScript('"$HOME/.polaris/bin/current/polaris" install --json')
+      ? shScript(
+          `${channel.kind === "local" ? "POLARIS_INSTALL_COMMAND=0 " : ""}"$HOME/.polaris/bin/current/polaris" install --json`
+        )
       : startCommand(replaceTask)
   );
 
