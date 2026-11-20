@@ -27,9 +27,8 @@ export type SessionSocket = Pick<
   | "send"
   | "heardMark"
   | "heardSince"
-  | "recycle"
+  | "suspect"
   | "lastError"
-  | "listening"
 >;
 
 /** How long a session waits for the relay, the Host's presence and its handshake reply. */
@@ -118,8 +117,8 @@ const handshake = (
     timer = setTimeout(
       () =>
         settle(() => {
-          // Not a word from the relay since the init: the socket itself may be dead.
-          if (!socket.heardSince(mark)) socket.recycle("the relay stopped answering");
+          // Not a word from the relay since the init: the socket may be dead, or the Host refused.
+          if (!socket.heardSince(mark)) socket.suspect("the relay stopped answering");
           pending.reject(new Unanswered(failure("the Host did not answer the handshake"), false));
         }),
       Math.max(0, deadline - Date.now())
@@ -220,8 +219,8 @@ const sessionTransport = (
         const quiet = open && !socket.heardSince(lastRecord);
         end(null);
 
-        // The socket may be dead; redial only when no other session (another Account's) is on it.
-        if (quiet && socket.listening === 0) socket.recycle("the relay went quiet");
+        // The socket may be dead; it is redialled only if the relay doesn't answer a probe either.
+        if (quiet) socket.suspect("the relay went quiet");
       }),
     } satisfies ByteTransport;
   });
@@ -231,12 +230,13 @@ export const relaySessionTransport = (
   socket: SessionSocket,
   host: RelayPeer,
   noise: StaticKeyPair,
-  payload?: Uint8Array
+  payload?: Uint8Array,
+  timeoutMs = OPEN_TIMEOUT_MS
 ) =>
   Effect.acquireRelease(
     Effect.flatMap(
       Effect.tryPromise({
-        try: () => openSession(socket, host, noise, payload),
+        try: () => openSession(socket, host, noise, payload, timeoutMs),
         catch: (cause) =>
           cause instanceof TransportError ? cause : new TransportError({ message: String(cause) }),
       }),

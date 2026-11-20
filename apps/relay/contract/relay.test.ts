@@ -145,6 +145,18 @@ describe("relay", () => {
     expect(host.controls().some((m) => m.t === "presence")).toBe(false);
   });
 
+  test("a device's empty forward to itself is answered unreachable: the Client's liveness probe", async () => {
+    relay = startTestRelay();
+    const p = await pair();
+    const device = await connectDevice(p);
+
+    device.sendRecord(p.device.address, new Uint8Array(0));
+    expect(await device.control("unreachable")).toEqual({
+      t: "unreachable",
+      peer: p.device.address,
+    });
+  });
+
   test("two hosts cannot reach each other, even when one lists the other", async () => {
     relay = startTestRelay();
     const a = await identify();
