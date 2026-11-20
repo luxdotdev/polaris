@@ -3,6 +3,7 @@ import {
   AttemptProgress,
   ConstellationProposal,
   type WorkerLiveness,
+  type ConstellationEvent,
   type ConstellationId,
   ConstellationStreamItem,
   type Sequence,
@@ -56,7 +57,9 @@ export const subscribeConstellation = (
   id: ConstellationId,
   after: Sequence | null,
   liveness?: ConstellationLivenessService,
-  branches?: BranchStatusService
+  branches?: BranchStatusService,
+  /** Whether the Client decodes an event (`eventCapability`); one it can't is left out. */
+  decodes: (event: ConstellationEvent) => boolean = () => true
 ) =>
   Stream.unwrap(
     Effect.gen(function* () {
@@ -123,7 +126,7 @@ export const subscribeConstellation = (
         for (const envelope of replay) {
           const event = graphEvent(envelope.event);
 
-          if (event !== null)
+          if (event !== null && decodes(event))
             head.push(
               ConstellationStreamItem.cases.Event.make({
                 envelope: {
@@ -156,7 +159,7 @@ export const subscribeConstellation = (
             return Result.failVoid;
           const event = graphEvent(item.envelope.event);
 
-          return event === null
+          return event === null || !decodes(event)
             ? Result.failVoid
             : Result.succeed(
                 ConstellationStreamItem.cases.Event.make({
