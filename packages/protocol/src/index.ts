@@ -151,3 +151,5 @@ export * from "./origins.ts";
 export * from "./schemaDiff.ts";
 
 export * from "./settings.ts";
+
+export * from "./commandAnnotations.ts";
