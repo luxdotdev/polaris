@@ -66,6 +66,10 @@ export const COMMAND_GRANTS = {
 /** `dispatch` itself is decided per Command (`COMMAND_GRANTS`). */
 export const RPC_GRANTS = {
   hello: "open",
+  "settings.list": "read",
+  "settings.describe": "read",
+  "settings.get": "read",
+  "settings.set": "client",
   dispatch: "open",
   subscribeHost: "read",
   subscribeSession: "read",

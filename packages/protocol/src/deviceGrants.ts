@@ -58,6 +58,10 @@ const isDeviceStateAction = (action: SetConstellationStateAction | null) =>
 
 /** `dispatch` itself is decided per Command (`DEVICE_COMMANDS`). */
 export const DEVICE_RPCS = {
+  "settings.list": "device",
+  "settings.describe": "device",
+  "settings.get": "device",
+  "settings.set": "device",
   hello: "device",
   dispatch: "device",
   subscribeHost: "device",

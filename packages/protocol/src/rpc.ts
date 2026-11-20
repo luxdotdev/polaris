@@ -1,3 +1,4 @@
+import { SettingsRpcs } from "./settings.ts";
 /**
  * Portions adapted from pingdotgg/t3code@de251fc (MIT): resumable sequenced subscriptions.
  */
@@ -792,7 +793,7 @@ export const DaemonRpcDefinitions = RpcGroup.make(
   .merge(VisualsRpcs, SuggestedReplyRpcs)
   .merge(GitWriteRpcs, GitWatchRpcs, GitLogRpcs, CommitMessageRpcs, OriginRpcs)
   .merge(ExtensionRpcs, RemoteAccessRpcs, LinkedDeviceRpcs, VoiceRpcs, RestartRpcs)
-  .merge(SecretRpcs, TerminalRpcs, DataRpcs, TracesRpcs, TracesSettingsRpcs)
+  .merge(SecretRpcs, TerminalRpcs, DataRpcs, TracesRpcs, TracesSettingsRpcs, SettingsRpcs)
   .merge(ProfilesRpcs, TraceCompareRpcs, TracingSkillRpcs)
   .merge(BrowserStackRpcs, DeveloperModeRpcs, SelfTraceRpcs, SimulatorRpcs, RequestsRpcs)
   .merge(ComputerUseRpcs, UserAccessRpcs, ShareRpcs);

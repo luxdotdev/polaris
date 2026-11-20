@@ -49,6 +49,10 @@ const computerUse = "computer-use";
 const shares = "shares";
 
 export const RPC_CAPABILITIES = {
+  "settings.list": null,
+  "settings.describe": null,
+  "settings.get": null,
+  "settings.set": null,
   hello: null,
   dispatch: null,
   subscribeHost: null,
