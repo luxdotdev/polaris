@@ -33,7 +33,7 @@
     "test": {
       "dependsOn": ["^build"],
       "env": ["POLARIS_PBT_*", "POLARIS_EXPECT_ELEVATED"],
-      "passThroughEnv": ["POLARIS_TEST_PARALLEL", "CI", "GITHUB_STEP_SUMMARY"]
+      "passThroughEnv": ["POLARIS_TEST_PARALLEL", "POLARIS_RELAY_BIN", "CI", "GITHUB_STEP_SUMMARY"]
     },
     "dev": { "cache": false, "persistent": true },
     "bench": {
