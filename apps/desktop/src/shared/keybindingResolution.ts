@@ -26,9 +26,10 @@ export const resolveKeybindings = (
   platform: KeyPlatform
 ) => {
   const owners = new Map<string, CommandId>();
+  const actions = new Map<string, KeyBinding>(defaults.map((binding) => [binding.id, binding]));
 
   for (const [id, key] of Object.entries(overrides)) {
-    const action = defaults.find((b) => b.id === id);
+    const action = actions.get(id);
 
     if (action && key !== null) owners.set(platformChordKey(parseChord(key), platform), action.id);
   }

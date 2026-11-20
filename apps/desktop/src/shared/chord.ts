@@ -132,6 +132,10 @@ export const matches = (
 };
 
 const GLYPHS = new Map<string, string>([
+  ["Semicolon", ";"],
+  ["Quote", "'"],
+  ["Equal", "="],
+  ["Backslash", "\\"],
   ["ArrowUp", "↑"],
   ["ArrowDown", "↓"],
   ["ArrowLeft", "←"],

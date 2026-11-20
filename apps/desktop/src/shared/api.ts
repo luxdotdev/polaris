@@ -154,6 +154,7 @@ export const CHANNELS = {
   selfSpans: "polaris:selfSpans",
   /** renderer → main, `send(crash, RendererCrash)`: to the crash log (shared/crash.ts). */
   crash: "polaris:crash",
+  keybindingRecording: "polaris:keybinding-recording",
 } as const;
 
 /** A failure crossing IPC: the tagged error's tag and message, nothing that can't be cloned. */
@@ -773,6 +774,8 @@ export interface PolarisApi {
   /** The Client's OS from `process.platform`; read it through `clientPlatform()` (shared/platform.ts). */
   readonly platform?: string;
   readonly languages?: LanguageApi;
+  /** Ignore native menu accelerators only while the shortcut recorder is open. */
+  readonly setKeybindingRecording?: (active: boolean) => Promise<boolean>;
   /** Absent in previews and older preloads. */
   readonly spelling?: SpellingApi;
   readonly notify?: <M extends PredictionNotification>(
