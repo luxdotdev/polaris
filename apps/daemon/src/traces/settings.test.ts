@@ -63,7 +63,7 @@ test("settings patches persist independently and never persist collector headers
         });
       }).pipe(Effect.provide(layer))
     );
-    expect(await readFile(join(root, "settings.json"), "utf8")).not.toContain("private-value");
+    expect(await readFile(join(root, "host-settings.json"), "utf8")).not.toContain("private-value");
     await Effect.runPromise(
       Effect.gen(function* () {
         const settings = yield* TraceSettings;

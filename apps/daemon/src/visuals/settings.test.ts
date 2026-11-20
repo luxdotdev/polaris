@@ -23,7 +23,7 @@ test("a saved level reaches every reader of the file, so a session opened later 
     expect((await Effect.runPromise(visualsFile(path).settings)).level).toBe("off");
   }));
 
-test("a missing or unreadable file is rich", () =>
+test("a missing store is rich and migration never rereads the legacy file", () =>
   withPath(async (path) => {
     expect((await Effect.runPromise(visualsFile(path).settings)).level).toBe("rich");
 
@@ -31,5 +31,5 @@ test("a missing or unreadable file is rich", () =>
       visualsFile(path).setSettings(VisualsSettings.make({ level: "simple" }))
     );
     writeFileSync(path, '{"level":"loud"}');
-    expect((await Effect.runPromise(visualsFile(path).settings)).level).toBe("rich");
+    expect((await Effect.runPromise(visualsFile(path).settings)).level).toBe("simple");
   }));

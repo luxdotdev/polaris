@@ -1,12 +1,12 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { readTraces, writeTraces, subscribeSettings, storeForLegacy } from "../settings/index.ts";
+import { join } from "node:path";
 import { Context, Effect, Layer, Schema, Option } from "effect";
 import {
   TraceSettingsError,
   WorkspaceTracesSettings,
   WorkspaceTracesSettingsUpdate,
   type DetectedTraceExporter,
-  type WorkspaceId,
+  WorkspaceId,
 } from "@polaris/protocol";
 import { realpath } from "node:fs/promises";
 import { TraceSessions } from "./sessions.ts";
@@ -26,7 +26,7 @@ import type { IngestContext } from "./ingest.ts";
 
 const SavedSettings = Schema.Record(Schema.String, WorkspaceTracesSettingsUpdate);
 
-const decodeSaved = Schema.decodeUnknownSync(Schema.fromJsonString(SavedSettings));
+const decodeSaved = Schema.decodeUnknownSync(SavedSettings);
 
 const unavailable = () =>
   new TraceSettingsError({
@@ -126,7 +126,7 @@ export class TraceSettings extends Context.Service<
         const sessions = yield* Effect.serviceOption(TraceSessions);
         const latestCheckout = new Map<WorkspaceId, string>();
         const applications = new Set<string>();
-        let saved: typeof SavedSettings.Type | null = null;
+        let memory: typeof SavedSettings.Type = {};
         const launches = new Map<string, ExporterDetection>();
         const latest = new Map<WorkspaceId, ExporterDetection>();
 
@@ -141,14 +141,26 @@ export class TraceSettings extends Context.Service<
         const generations = new Map<WorkspaceId, number>();
         const listeners = new Set<(id: WorkspaceId) => void>();
 
-        const load = () => {
-          saved ??=
-            filename !== null && existsSync(filename)
-              ? decodeSaved(readFileSync(filename, "utf8"))
-              : {};
+        const load = () => (filename === null ? memory : decodeSaved(readTraces(filename)));
 
-          return saved;
-        };
+        if (filename !== null) {
+          const stop = subscribeSettings(storeForLegacy(filename), (keys) => {
+            if (!keys.includes("traces.workspaces")) return;
+
+            const ids = new Set([
+              ...generations.keys(),
+              ...Object.keys(load()).map((id) => WorkspaceId.make(id)),
+            ]);
+
+            for (const id of ids) {
+              generations.set(id, (generations.get(id) ?? 0) + 1);
+
+              for (const listener of listeners) listener(id);
+            }
+          });
+
+          yield* Effect.addFinalizer(() => Effect.sync(stop));
+        }
 
         const policy = (id: WorkspaceId, detection: ExporterDetection): TracePolicy => {
           const value = load()[id] ?? {};
@@ -332,14 +344,8 @@ export class TraceSettings extends Context.Service<
               try: () => {
                 const next = { ...load(), [id]: { ...load()[id], ...update } };
 
-                if (filename !== null) {
-                  mkdirSync(dirname(filename), { recursive: true, mode: 0o700 });
-                  const temporary = `${filename}.${crypto.randomUUID()}.tmp`;
-                  writeFileSync(temporary, JSON.stringify(next), { mode: 0o600, flag: "wx" });
-                  renameSync(temporary, filename);
-                }
-
-                saved = next;
+                if (filename !== null) writeTraces(filename, next);
+                else memory = next;
                 generations.set(id, (generations.get(id) ?? 0) + 1);
 
                 if (update.forwarding === false || update.forwardTo !== undefined)

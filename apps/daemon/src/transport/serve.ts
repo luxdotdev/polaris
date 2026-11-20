@@ -1,3 +1,4 @@
+import { SettingsRpcHandlers } from "../settings/rpc.ts";
 import { SuggestedReplyPreference } from "../engine/suggestedReplyPreference.ts";
 import { lazySuggestedReplies } from "../suggestedReply/lazy.ts";
 import { lazyData, lazyDataHandlers } from "./lazyData.ts";
@@ -251,6 +252,7 @@ export const daemonHandlers = Layer.mergeAll(
   CommitMessageRpcsLive,
   EngineRpcHandlers,
   VisualsRpcHandlers,
+  SettingsRpcHandlers,
   DeveloperModeRpcHandlers,
   lazyComputerUseHandlers,
   RestartRpcHandlers,

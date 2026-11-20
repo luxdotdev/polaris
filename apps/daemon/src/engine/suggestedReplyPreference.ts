@@ -1,53 +1,33 @@
+import { readGroup, writeGroup } from "../settings/index.ts";
 /**
  * The Host's Suggested Reply preference (ENG-884, ADR 0106), in
  * `~/.polaris/suggested-replies.json`: read by the RPCs, the Harness drivers and the
  * fallback writer, and resolved against the Harnesses ready on this Host.
  */
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import {
   AUTO_SUGGESTED_REPLY_FALLBACKS,
-  DEFAULT_SUGGESTED_REPLY_SETTINGS,
   FileError,
   HostHarnesses,
   ResolvedSuggestedReplyFallback,
   type SuggestedReplyFallback,
   SuggestedReplySettings,
 } from "@polaris/protocol";
-import { Context, Effect, Layer, Option, Schema, type Stream, SubscriptionRef } from "effect";
+import { Context, Effect, Layer, Option, type Stream, SubscriptionRef } from "effect";
 import { Availability } from "../harness/availability/Availability.ts";
 import { paths } from "../paths.ts";
 
-const SettingsJson = Schema.fromJsonString(SuggestedReplySettings);
-
-const decode = Schema.decodeUnknownOption(SettingsJson);
-
-const encode = Schema.encodeSync(SettingsJson);
-
-/** The settings file, or the defaults when it is missing or unreadable. */
 export const loadSuggestedReplySettings = (path: string) =>
-  Effect.promise(() => readFile(path, "utf8").catch(() => null)).pipe(
-    Effect.map((text) =>
-      text === null
-        ? DEFAULT_SUGGESTED_REPLY_SETTINGS
-        : Option.getOrElse(decode(text), () => DEFAULT_SUGGESTED_REPLY_SETTINGS)
-    )
-  );
+  Effect.sync(() => readGroup(path, "sessions.suggestedReplies"));
 
-/** Written to a temporary file and renamed, so a crash never leaves half a file. */
 const saveSettings = (path: string, settings: SuggestedReplySettings) =>
-  Effect.tryPromise({
-    try: async () => {
-      await mkdir(dirname(path), { recursive: true });
-      const temporary = `${path}.${process.pid}.tmp`;
-      await writeFile(temporary, encode(settings));
-      await rename(temporary, path);
-    },
+  Effect.try({
+    try: () => writeGroup(path, "sessions.suggestedReplies", settings),
     catch: (cause) =>
       new FileError({
         path,
         code: "EIO",
-        message: `Could not save the Suggested Reply settings: ${String(cause)}`,
+        message: `Could not save host settings: ${String(cause)}`,
       }),
   });
 

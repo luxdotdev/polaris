@@ -1,3 +1,4 @@
+import { readGroup, writeGroup } from "../settings/index.ts";
 /**
  * Staged attachments: bytes a Client sends with a Turn, written on the Host so
  * the Harness can read them by path.
@@ -43,16 +44,6 @@ export interface AttachmentSettings {
   /** Per-Workspace overrides of `default`. */
   readonly workspaces: Readonly<Record<string, CleanupPolicy>>;
 }
-
-/** The settings file: either field may be missing, and falls back to its default. */
-const decodeSettingsFile = Schema.decodeUnknownSync(
-  Schema.fromJsonString(
-    Schema.Struct({
-      default: Schema.optionalKey(CleanupPolicy),
-      workspaces: Schema.optionalKey(Schema.Record(Schema.String, CleanupPolicy)),
-    })
-  )
-);
 
 export const defaultAttachmentSettings: AttachmentSettings = {
   default: { kind: "on-archive" },
@@ -273,18 +264,10 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
         (file) => Effect.promise(() => file.close())
       );
 
-    let settings: AttachmentSettings = yield* Effect.promise(async () => {
-      try {
-        const parsed = decodeSettingsFile(await readFile(settingsPath, "utf8"));
-
-        return { ...defaultAttachmentSettings, ...parsed };
-      } catch {
-        return defaultAttachmentSettings;
-      }
-    });
+    const settings = () => readGroup(settingsPath, "attachments");
 
     const policyFor = (workspaceId: string): CleanupPolicy =>
-      settings.workspaces[workspaceId] ?? settings.default;
+      settings().workspaces[workspaceId] ?? settings().default;
 
     /** Directory of every staged attachment (`…/<attachment id>`), by owner directory. */
     const attachmentDirs = async (): Promise<Array<string>> => {
@@ -485,14 +468,10 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
     };
 
     const maintenance = AttachmentMaintenance.of({
-      settings: Effect.sync(() => settings),
+      settings: Effect.sync(settings),
       setSettings: (next) =>
-        Effect.tryPromise({
-          try: async () => {
-            await mkdir(join(settingsPath, ".."), { recursive: true });
-            await writeFile(settingsPath, JSON.stringify(next, null, 2));
-            settings = next;
-          },
+        Effect.try({
+          try: () => writeGroup(settingsPath, "attachments", next),
           catch: toServiceError("saving attachment settings"),
         }),
       usage: Effect.tryPromise({
@@ -542,10 +521,10 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
     ) {
       yield* maintenance.clearNow({ workspaceId });
 
-      if (settings.workspaces[workspaceId] === undefined) return;
-      const { [workspaceId]: _removed, ...workspaces } = settings.workspaces;
+      if (settings().workspaces[workspaceId] === undefined) return;
+      const { [workspaceId]: _removed, ...workspaces } = settings().workspaces;
 
-      yield* maintenance.setSettings({ ...settings, workspaces });
+      yield* maintenance.setSettings({ default: settings().default, workspaces });
     });
 
     const sweepMs = options.sweepMs ?? 60 * 60 * 1000;

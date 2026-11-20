@@ -6,7 +6,7 @@ import { Effect } from "effect";
 import { ConstellationDefaultsPath, getDefaults, setDefaults } from "./defaults.ts";
 import { newTempDir, removeTempDir } from "../platform/tempDir.testing.ts";
 
-test("Host defaults round-trip atomically and tolerate missing or invalid settings", async () => {
+test("Host defaults round-trip atomically and ignore changes to migrated files", async () => {
   const dir = newTempDir("c1-defaults-");
   const path = join(dir, "settings.json");
 
@@ -18,7 +18,7 @@ test("Host defaults round-trip atomically and tolerate missing or invalid settin
         yield* setDefaults(settings);
         expect(yield* getDefaults).toEqual(settings);
         writeFileSync(path, "broken");
-        expect((yield* getDefaults).branchPrefix).toBeUndefined();
+        expect((yield* getDefaults).branchPrefix).toBe("team");
       }).pipe(Effect.provideService(ConstellationDefaultsPath, path))
     );
   } finally {
