@@ -35,7 +35,17 @@ const authorize = (script: string): Promise<void> =>
       "/usr/bin/osascript",
       ["-e", `do shell script ${JSON.stringify(script)} with administrator privileges`],
       { timeout: 120_000 },
-      (error) => (error === null ? resolve() : reject(error))
+      (error, _stdout, stderr) => {
+        if (error === null) resolve();
+        else
+          reject(
+            new Error(
+              stderr.includes("(-128)")
+                ? "Administrator authorization was canceled"
+                : "Couldn't change /usr/local/bin/polaris. Check administrator access and try again."
+            )
+          );
+      }
     );
   });
 
