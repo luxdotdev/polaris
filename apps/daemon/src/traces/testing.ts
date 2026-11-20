@@ -7,7 +7,7 @@ import { traceReceiver } from "./receiver.ts";
 import { TraceRuntime } from "./runtime.ts";
 import { TraceSessions } from "./sessions.ts";
 import { TraceSettings } from "./settings.ts";
-import { ForwardQueue } from "./forwardQueue.ts";
+import { ForwardQueue, type ForwardQueueOptions } from "./forwardQueue.ts";
 import { TraceStore } from "./store.ts";
 import type { TraceWorkerOptions } from "./workerClient.ts";
 import type { ExportTraces } from "./otlp.ts";
@@ -118,6 +118,8 @@ export interface FixtureOptions extends TraceWorkerOptions {
   readonly owner?: (port: number) => Promise<string | null>;
   /** The Engine's read-only sessions (a Reviewer's); none when omitted. */
   readonly readOnly?: (sessionId: SessionId) => boolean;
+  /** The forward queue's limits; retries every 30 ms by default. */
+  readonly forwardQueue?: ForwardQueueOptions;
 }
 
 export const withTraceFixture = async (
@@ -161,7 +163,7 @@ export const withTraceFixture = async (
     })
   );
 
-  const forwarding = new ForwardQueue({ retryMs: 30 });
+  const forwarding = new ForwardQueue(options.forwardQueue ?? { retryMs: 30 });
 
   const layer = TraceRuntime.layerAt(join(root, "tokens.json"), port).pipe(
     Layer.provideMerge(TraceStore.layerAt(join(root, "traces.sqlite"), options)),
