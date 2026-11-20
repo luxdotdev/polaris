@@ -29,6 +29,13 @@ export interface Chord {
 }
 
 const NAMED = new Map<string, string>([
+  [";", "Semicolon"],
+  ["'", "Quote"],
+  ["=", "Equal"],
+  ["-", "Minus"],
+  ["\\", "Backslash"],
+  ["Home", "Home"],
+  ["End", "End"],
   ["/", "Slash"],
   [".", "Period"],
   [",", "Comma"],
