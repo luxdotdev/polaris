@@ -276,6 +276,10 @@ export interface HostDirectoryInput {
   readonly developerModeLease?: boolean;
   readonly inspection?: (sessions: Stream.Stream<LiveSession | null>) => Effect.Effect<void>;
   /** Serves the Host's Browser streams on each live session (`browserCdp/`, ENG-616). */
+  readonly clientSettings?: (
+    hostKey: string,
+    sessions: Stream.Stream<LiveSession | null>
+  ) => Effect.Effect<void>;
   readonly browserHost?: (
     hostKey: string,
     sessions: Stream.Stream<LiveSession | null>
@@ -352,6 +356,7 @@ export class HostDirectory extends Context.Service<
     inspection,
     browserHost,
     sessionDefaultsHost,
+    clientSettings,
     rpc,
     relay,
   }: HostDirectoryInput) =>
@@ -472,8 +477,13 @@ export class HostDirectory extends Context.Service<
               )
             );
 
+            const settings =
+              own === undefined || clientSettings === undefined
+                ? Effect.void
+                : clientSettings(entry.key, own);
+
             const tracker = yield* Effect.all(
-              [track, report, lease, developerMode, browsers, sessionDefaults, inspect],
+              [track, report, lease, developerMode, browsers, sessionDefaults, inspect, settings],
               {
                 concurrency: "unbounded",
                 discard: true,

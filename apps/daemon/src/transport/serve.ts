@@ -1,4 +1,5 @@
 import { SettingsRpcHandlers } from "../settings/rpc.ts";
+import { ClientSettings, ClientSettingsRpcHandlers } from "../clientSettings/index.ts";
 import { SuggestedReplyPreference } from "../engine/suggestedReplyPreference.ts";
 import { lazySuggestedReplies } from "../suggestedReply/lazy.ts";
 import { lazyData, lazyDataHandlers } from "./lazyData.ts";
@@ -215,6 +216,7 @@ export const engineServices = Layer.mergeAll(
   // The live Developer Mode: what `selfTraceExport`, Traces and Data see (ENG-709).
   Layer.provideMerge(DeveloperModeLive),
   Layer.provideMerge(DesktopInspection.layer),
+  Layer.provideMerge(ClientSettings.layer),
   // The Simulator's hub and MCP server (ENG-829), loaded on first use; one instance with the Harnesses'.
   Layer.provideMerge(lazySimulator),
   // Co-author trailers read Teammates' commit emails from the Shares (ENG-941).
@@ -258,6 +260,7 @@ export const daemonHandlers = Layer.mergeAll(
   SettingsRpcHandlers,
   DeveloperModeRpcHandlers,
   InspectionRpcHandlers,
+  ClientSettingsRpcHandlers,
   lazyComputerUseHandlers,
   RestartRpcHandlers,
   ContinuityRpcsLive.pipe(Layer.provide(Continuity.layer)),
@@ -337,6 +340,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "shares",
   "shares.contributor",
   "presence",
+  "client-settings",
   "voice",
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),
   "harness.availability",

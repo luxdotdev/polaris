@@ -492,6 +492,9 @@ export interface RequestOutputs
   "settings.setDensity": null;
   "settings.setAppearance": null;
   "settings.getSessionDefaults": SessionDefaults;
+  "clientSettings.set": null;
+  "clientSettings.undo": null;
+  "clientSettings.activity": null;
   "settings.setSessionDefault": null;
   "settings.setSessions": null;
   "shell.openExternal": null;
@@ -671,6 +674,19 @@ export interface SubscriptionListener<A> {
 export type Route = "orchestrate" | "review" | "edit" | "data" | "traces" | "requests";
 
 export type AppEvent =
+  | {
+      readonly kind: "client-settings-changed";
+      readonly requestId: string;
+      readonly key: string;
+      readonly value: import("@polaris/protocol").ClientSettingChange["value"];
+      readonly previousValue: import("@polaris/protocol").ClientSettingChange["value"];
+    }
+  | {
+      readonly kind: "client-prediction";
+      readonly enabled: boolean;
+      readonly configured: boolean;
+      readonly clientEndpoints: import("./predictionPlacement.ts").PredictionClientEndpoints;
+    }
   | {
       readonly kind: "prediction-settings";
       readonly hostKey: string;

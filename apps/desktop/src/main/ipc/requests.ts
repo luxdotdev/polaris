@@ -1,5 +1,6 @@
 import { loadSessionDefaults, migrateSessionDefaults } from "../hostSessionDefaults.ts";
 import type { CommandInstaller } from "../commandInstall.ts";
+import type { ClientSettingsBridge } from "../clientSettings.ts";
 /**
  * The handlers behind `window.polaris.request`: one per method, each taking the
  * decoded input and returning a structured-clone-friendly output. Blobs the
@@ -81,6 +82,7 @@ export interface RequestContext {
   readonly cache: Pick<SnapshotCache, "get" | "put" | "rendererFlushed">;
   /** The price table for Usage estimates. */
   readonly prices: Prices;
+  readonly clientSettings?: ClientSettingsBridge;
   readonly setAppearance: (patch: Partial<Appearance>) => void;
   readonly publishSessionDefaults?: (hostKey: string, defaults: SessionDefaults) => void;
   readonly setSessions: (patch: SessionPrefsPatch) => void;
@@ -345,6 +347,24 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   "cache.get": () => Effect.sync(() => ctx.cache.get()),
   "cache.put": ({ host }) => Effect.sync(() => ctx.cache.put(host)).pipe(done),
   "cache.flushed": ({ id }) => Effect.sync(() => ctx.cache.rendererFlushed(id)).pipe(done),
+  "clientSettings.set": ({ key, value }) =>
+    Effect.try({
+      try: () => {
+        if (ctx.clientSettings === undefined) throw new Error("Client Settings unavailable");
+        ctx.clientSettings.apply(key, value);
+      },
+      catch: (e): IpcError => ({ code: "ClientSettings", message: String(e) }),
+    }).pipe(done),
+  "clientSettings.undo": ({ requestId }) =>
+    Effect.try({
+      try: () => {
+        if (ctx.clientSettings === undefined) throw new Error("Client Settings unavailable");
+        ctx.clientSettings.undo(requestId);
+      },
+      catch: (e): IpcError => ({ code: "ClientSettings", message: String(e) }),
+    }).pipe(done),
+  "clientSettings.activity": (value) =>
+    Effect.sync(() => ctx.clientSettings?.activity(value)).pipe(done),
   "settings.setTheme": ({ theme }) => Effect.sync(() => ctx.setAppearance({ theme })).pipe(done),
   "settings.setDensity": ({ density }) =>
     Effect.sync(() => ctx.setAppearance({ density })).pipe(done),

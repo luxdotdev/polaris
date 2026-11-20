@@ -1,3 +1,7 @@
+import {
+  connectClientSettingNotices,
+  reportClientSettingsActivity,
+} from "./features/settings/clientSettings.ts";
 import "./styles.css";
 import { createRoot } from "react-dom/client";
 import { App } from "./app/App.tsx";
@@ -158,6 +162,10 @@ settingsStore.subscribe((state, prev) => {
 });
 
 connectSettings(api);
+
+connectClientSettingNotices(api);
+
+reportClientSettingsActivity(api, navigation.store);
 
 connectHostDeveloperModes(api);
 

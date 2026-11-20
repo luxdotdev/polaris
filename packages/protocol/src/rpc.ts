@@ -40,6 +40,7 @@ import { InspectionRpcs } from "./inspection.ts";
 import { DeveloperModeRpcs } from "./developerMode.ts";
 import { SelfTraceRpcs } from "./selfTraces.ts";
 import { ContinuityRpcs } from "./continuity.ts";
+import { ClientSettingsRpcs } from "./clientSettings.ts";
 import { PresenceRpcs } from "./presence.ts";
 import { DataRpcs } from "./data.ts";
 import { REQUESTS_RPC_TAGS, RequestsRpcs } from "./requests.ts";
@@ -776,7 +777,7 @@ export const DaemonRpcDefinitions = RpcGroup.make(
   .merge(ConstellationHostRpcs, ResourceRpcs, EditorFileRpcs)
   .merge(LanguageRpcs, PredictionRpcs, SessionTurnRpcs)
   .merge(AutoArchiveRpcs, IdleCompactionRpcs, ContinuityRpcs, PresenceRpcs, HostStatsRpcs)
-  .merge(VisualsRpcs, SuggestedReplyRpcs, InspectionRpcs)
+  .merge(VisualsRpcs, SuggestedReplyRpcs, InspectionRpcs, ClientSettingsRpcs)
   .merge(GitWriteRpcs, GitWatchRpcs, GitLogRpcs, CommitMessageRpcs, OriginRpcs)
   .merge(ExtensionRpcs, RemoteAccessRpcs, LinkedDeviceRpcs, VoiceRpcs, RestartRpcs)
   .merge(SecretRpcs, TerminalRpcs, DataRpcs, TracesRpcs, TracesSettingsRpcs, SettingsRpcs)

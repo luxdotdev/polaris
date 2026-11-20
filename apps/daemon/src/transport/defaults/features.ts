@@ -1,3 +1,4 @@
+import { ClientSettingsRpcs, ClientSettingsError } from "@polaris/protocol";
 import {
   BrowserStackRpcs,
   ComputerUseRpcs,
@@ -116,6 +117,22 @@ const computerUseDefaults = ComputerUseRpcs.toLayer({
 export const featureDefaults = Layer.mergeAll(
   LanguageRpcs.toLayer(languageDefaults),
   predictionDefaults,
+  ClientSettingsRpcs.toLayer({
+    "clientSettings.list": () =>
+      Effect.fail(new ClientSettingsError({ message: "no Client connected" })),
+    "clientSettings.describe": () =>
+      Effect.fail(new ClientSettingsError({ message: "no Client connected" })),
+    "clientSettings.get": () =>
+      Effect.fail(new ClientSettingsError({ message: "no Client connected" })),
+    "clientSettings.set": () =>
+      Effect.fail(new ClientSettingsError({ message: "no Client connected" })),
+    "clientSettings.connect": () =>
+      Stream.fail(new ClientSettingsError({ message: "no Client connected" })),
+    "clientSettings.publish": () =>
+      Effect.fail(new ClientSettingsError({ message: "no Client connected" })),
+    "clientSettings.complete": () =>
+      Effect.fail(new ClientSettingsError({ message: "no Client connected" })),
+  }),
   BrowserStackRpcs.toLayer(browserDefaults),
   dataDefaults,
   traceDefaults,

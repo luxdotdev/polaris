@@ -248,6 +248,7 @@ export const Capability = Schema.Literals([
   "session.continuity",
   /** `presence.report`: a Desktop App's presence holds this Host's pushes to Linked Devices. */
   "presence",
+  "client-settings",
   "terminal",
   /** `terminal.attachBinary`: terminal output as raw bytes on the blob channel, not base64 JSON. */
   "terminal.binary",

@@ -1,3 +1,4 @@
+import type { ClientSettingsTools } from "../tools/clientSettings.ts";
 /**
  * What the session tools read from the owning Daemon: another session's Turns
  * (`read_worker`, the history tools) and a session's background commands (`wait_for_command`).
@@ -72,6 +73,7 @@ export {
 } from "./origins.ts";
 
 export interface SessionTools {
+  readonly clientSettings?: ClientSettingsTools;
   readonly profiles?: ProfileSessionTools;
   readonly traces?: TraceSessionTools;
   readonly data?: DataSessionTools;
