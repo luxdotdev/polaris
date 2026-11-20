@@ -140,6 +140,9 @@ Relay sockets drop: networks change, the relay redeploys, phones sleep. Parties 
 - Treat `presence {online: false}` and their own reconnects as the end of every session with
   that peer. The device starts a new handshake when it sees the host online. The host drops
   sessions it holds for a device that went offline or reconnected.
+- Probe a socket that seems dead before dropping it: a forward to the party's own address,
+  even an empty one, is always answered with `unreachable`. A Host that refuses a handshake is
+  silent too, so silence alone doesn't prove the socket dead (ENG-968).
 - Not resend records across sessions. The protocol layer above resumes (`packages/client`'s
   resume) as it does after any dropped connection.
 
