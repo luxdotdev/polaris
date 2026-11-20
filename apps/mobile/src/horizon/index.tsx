@@ -1,30 +1,40 @@
 /**
- * The horizon (DESIGN.md, Mobile chrome redesign): the shared pixel ridges, stars and Moonlit's moon
- * at the foot of a top-level screen, cropped to its width at 1:1, under a scroll-edge fade that
- * covers the content scrolling behind it. Static: no timers, no time-of-day lighting (as the Desktop).
+ * The horizon (DESIGN.md, Mobile chrome redesign): the theme's foot scene, the Desktop App's window
+ * foot, at a top-level screen's foot, one image pixel to a device pixel, fading in over its top so
+ * the content scrolling behind fades out. Static: no timers, no time-of-day lighting.
  */
-import { MOON, MOON_HALO, RIDGES } from "@polaris/ui/horizon";
 import type { ReactNode } from "react";
-import { StyleSheet, useWindowDimensions, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Defs, G, LinearGradient, Path, Rect, Stop } from "react-native-svg";
-import { useTheme } from "../theme";
 import {
-  cropLeft,
-  HORIZON_HEIGHT,
-  MOON_TOP,
-  moonLeft,
-  PALETTES,
-  RIDGE_TOP,
-  SKY_TOP,
-  splitHex,
-  starsFor,
-} from "./scene.ts";
+  Dimensions,
+  Image,
+  type ImageSourcePropType,
+  PixelRatio,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import Svg, { Defs, Image as SvgImage, LinearGradient, Mask, Rect, Stop } from "react-native-svg";
+import midnightFoot from "../../../../design/assets/scenes/scene-midnight-foot.png";
+import nightFoot from "../../../../design/assets/scenes/scene-night-foot.png";
+import { type ThemeName, useTheme } from "../theme";
+import { footFrame, footLayout, HORIZON_HEIGHT, previewTop } from "./scene.ts";
 
 export { HORIZON_HEIGHT } from "./scene.ts";
 
-/** How far above the foot the moon's top stands: a list that ends here never runs under it. */
-export const HORIZON_CLEAR = HORIZON_HEIGHT - MOON_TOP;
+/** Moonlit draws the Desktop App's night scene, Midnight its midnight scene (no dawn: no light theme). */
+export const FOOT_SCENES: Readonly<Record<ThemeName, ImageSourcePropType>> = {
+  midnight: midnightFoot,
+  moonlit: nightFoot,
+};
+
+const deviceLayout = footLayout(Dimensions.get("window").width, PixelRatio.get());
+
+/** Where the highest hill's top falls in the horizon's box on this iPhone. */
+export const RIDGE_TOP = deviceLayout.ridgeTop;
+
+/** How far above the foot the scene starts to show: a list that ends here never runs under it. */
+export const HORIZON_CLEAR = Math.ceil(HORIZON_HEIGHT - deviceLayout.fadeTop);
 
 const EDGE_FADE = 32;
 
@@ -47,79 +57,79 @@ export const EdgeFade = () => {
   );
 };
 
-/** Scroll content's bottom padding: MX-C rests the last row 140pt up, clear of the tab pill and ridge. */
+/** Scroll content's bottom padding: MX-C rests the last row 140pt up, clear of the tab pill and hills. */
 export const HORIZON_INSET = 140;
 
-const Gradients = ({
-  ground,
-  glow,
-}: {
-  readonly ground: string;
-  readonly glow: readonly [string, string];
-}) => {
-  const [foot, mid] = [splitHex(glow[0]), splitHex(glow[1])];
-
-  return (
-    <Defs>
-      <LinearGradient id="hz-fade" x1="0" y1="0" x2="0" y2="1">
-        <Stop offset="0" stopColor={ground} stopOpacity={0} />
-        <Stop offset="1" stopColor={ground} stopOpacity={1} />
-      </LinearGradient>
-      <LinearGradient id="hz-glow" x1="0" y1="1" x2="0" y2="0">
-        <Stop offset="0" stopColor={foot.color} stopOpacity={foot.opacity} />
-        <Stop offset="0.45" stopColor={mid.color} stopOpacity={mid.opacity} />
-        <Stop offset="1" stopColor={mid.color} stopOpacity={0} />
-      </LinearGradient>
-    </Defs>
-  );
-};
-
-const HALO = splitHex("#D9DEE833");
-
-const Moon = ({ width }: { readonly width: number }) => (
-  <G transform={`translate(${moonLeft(width)} ${MOON_TOP})`}>
-    <Path d={MOON_HALO} fill={HALO.color} fillOpacity={HALO.opacity} />
-    {MOON.map(([fill, d]) => (
-      <Path key={fill} d={d} fill={fill} />
-    ))}
-  </G>
-);
-
-/**
- * The scene alone, absolutely placed at its parent's foot; it takes no touches. `moon={false}`
- * leaves Moonlit's moon out where it would draw over text.
- */
-export const Horizon = ({ moon = true }: { readonly moon?: boolean }) => {
+/** The scene alone, absolutely placed at its parent's foot; it takes no touches. */
+export const Horizon = () => {
   const { width } = useWindowDimensions();
-  const { name, colours } = useTheme();
-  const palette = PALETTES[name];
+  const { name } = useTheme();
+  const foot = footLayout(width, PixelRatio.get());
 
   return (
     <View pointerEvents="none" style={[styles.horizon, { width }]}>
       <Svg width={width} height={HORIZON_HEIGHT}>
-        <Gradients ground={colours.ground} glow={palette.glow} />
-        <Rect width={width} height={HORIZON_HEIGHT} fill="url(#hz-fade)" />
-        <Rect y={SKY_TOP} width={width} height={HORIZON_HEIGHT - SKY_TOP} fill="url(#hz-glow)" />
-        <G transform={`translate(0 ${SKY_TOP})`}>
-          {starsFor(name, width).map((star) => (
-            <Rect
-              key={`${star.x},${star.y}`}
-              x={star.x}
-              y={star.y}
-              width={star.size}
-              height={star.size}
-              fill={palette.star}
-              fillOpacity={star.opacity}
-            />
-          ))}
-        </G>
-        {palette.moon && moon ? <Moon width={width} /> : null}
-        <G transform={`translate(${-cropLeft(width)} ${RIDGE_TOP})`}>
-          <Path d={RIDGES[0]} fill={palette.back} />
-          <Path d={RIDGES[1]} fill={palette.front} />
-        </G>
+        <Defs>
+          <LinearGradient
+            id="hz-fade"
+            gradientUnits="userSpaceOnUse"
+            x1="0"
+            y1={foot.fadeTop}
+            x2="0"
+            y2={foot.fadeBottom}
+          >
+            <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0} />
+            <Stop offset="1" stopColor="#FFFFFF" stopOpacity={1} />
+          </LinearGradient>
+          <Mask
+            id="hz-mask"
+            maskUnits="userSpaceOnUse"
+            x={0}
+            y={0}
+            width={width}
+            height={HORIZON_HEIGHT}
+          >
+            <Rect width={width} height={HORIZON_HEIGHT} fill="url(#hz-fade)" />
+          </Mask>
+        </Defs>
+        <SvgImage
+          href={FOOT_SCENES[name]}
+          x={foot.left}
+          y={foot.top}
+          width={foot.width}
+          height={foot.height}
+          preserveAspectRatio="none"
+          mask="url(#hz-mask)"
+        />
       </Svg>
     </View>
+  );
+};
+
+export interface FootSceneProps {
+  readonly theme: ThemeName;
+  /** The parent's size, in points. */
+  readonly width: number;
+  readonly height: number;
+  /** How far down the parent the highest hill stands. */
+  readonly sky: number;
+}
+
+/**
+ * A theme's foot scene filling its parent, centred, one image pixel to a device pixel; its colours
+ * are that theme's whichever theme is active.
+ */
+export const FootScene = ({ theme, width, height, sky }: FootSceneProps) => {
+  const ratio = PixelRatio.get();
+  const frame = footFrame(width, ratio);
+  const top = previewTop(frame, ratio, height, sky);
+
+  return (
+    <Image
+      source={FOOT_SCENES[theme]}
+      resizeMode="stretch"
+      style={[styles.scene, { left: frame.left, top, width: frame.width, height: frame.height }]}
+    />
   );
 };
 
@@ -152,4 +162,5 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   edge: { position: "absolute", left: 0, right: 0, bottom: 0, height: EDGE_FADE },
   horizon: { position: "absolute", left: 0, bottom: 0, height: HORIZON_HEIGHT, overflow: "hidden" },
+  scene: { position: "absolute" },
 });

@@ -7,8 +7,7 @@ import { mobileType } from "@polaris/ui/tokens";
 import { useState } from "react";
 import { ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { HORIZON_HEIGHT } from "../horizon/index.tsx";
-import { RIDGE_TOP } from "../horizon/scene.ts";
+import { HORIZON_HEIGHT, RIDGE_TOP } from "../horizon/index.tsx";
 import { useRelay } from "../relay/RelayProvider.tsx";
 import { CHROME_TEXT_SCALE } from "../theme/textScale.ts";
 import { themedStyles } from "../theme/index.ts";
@@ -17,7 +16,7 @@ import { type LinkingState, PAIRING_COPY, ScanSheetView, useLinking } from "./Sc
 import { Sky } from "./Sky.tsx";
 import { STAR_SIZE } from "./Star.tsx";
 
-/** MX-AH: the star rests at most 300pt down and clear of the scan step's ridge by 24pt. */
+/** MX-AH: the star rests at most 300pt down and clear of the scan step's hills by 24pt. */
 const STAR_LOWEST = 300;
 
 const RIDGE_GAP = 24;
@@ -57,7 +56,7 @@ export const Pairing = ({ linking, onCancel }: PairingProps) => {
 
   const shows = skyShows({
     sheetTop: height - lift,
-    headingBottom,
+    ridgeTop: RIDGE_TOP,
     starBottom: starTop + STAR_SIZE,
   });
 
@@ -68,7 +67,6 @@ export const Pairing = ({ linking, onCancel }: PairingProps) => {
         starTop={starTop}
         lift={lift}
         star={shows.star}
-        moon={shows.moon}
         hosts={step.kind === "linked" ? step.hosts : undefined}
       />
       <ScrollView

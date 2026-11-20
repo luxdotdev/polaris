@@ -7,7 +7,6 @@ import { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Svg, { Path, Rect } from "react-native-svg";
 import { Horizon, HORIZON_HEIGHT } from "../horizon/index.tsx";
-import { PALETTES } from "../horizon/scene.ts";
 import { CHROME_TEXT_SCALE } from "../theme/textScale.ts";
 import { themedStyles, useReducedMotion, useTheme } from "../theme/index.ts";
 import type { StarLight } from "./model.ts";
@@ -32,6 +31,11 @@ const STARS: ReadonlyArray<readonly [number, number, number, number]> = [
 ];
 
 const STARS_TOP = 60;
+
+/** The still stars' light; Moonlit dims them to 70%. */
+const STAR_FILL = "#BCD3FF";
+
+const STAR_OPACITY = { midnight: 1, moonlit: 0.7 } as const;
 
 const PAPER_WIDTH = 393;
 
@@ -88,7 +92,7 @@ const Machine = ({ name, mac }: { readonly name: string; readonly mac: boolean }
   );
 };
 
-/** The hosts spread along the ridge, clear of Moonlit's moon at the right. */
+/** The hosts spread along the ridge, 48pt in from either side. */
 const Machines = ({
   hosts,
   width,
@@ -146,15 +150,13 @@ export interface SkyProps {
   readonly lift: number;
   /** Once linked, every host, the Mac first. */
   readonly hosts?: ReadonlyArray<string> | undefined;
-  /** Each gives way when room is short (`skyShows`). */
+  /** Gives way when room is short (`skyShows`). */
   readonly star?: boolean;
-  readonly moon?: boolean;
 }
 
-export const Sky = ({ light, starTop, lift, hosts, star = true, moon = true }: SkyProps) => {
+export const Sky = ({ light, starTop, lift, hosts, star = true }: SkyProps) => {
   const { width } = useWindowDimensions();
   const { name } = useTheme();
-  const palette = PALETTES[name];
   const translateY = useLift(lift);
 
   return (
@@ -167,13 +169,13 @@ export const Sky = ({ light, starTop, lift, hosts, star = true, moon = true }: S
             y={y}
             width={size}
             height={size}
-            fill={palette.star}
-            fillOpacity={opacity * palette.starOpacity}
+            fill={STAR_FILL}
+            fillOpacity={opacity * STAR_OPACITY[name]}
           />
         ))}
       </Svg>
       <Animated.View style={[fixed.horizon, { transform: [{ translateY }] }]}>
-        <Horizon moon={moon} />
+        <Horizon />
         {hosts === undefined || hosts.length === 0 ? null : (
           <Machines hosts={hosts} width={width} />
         )}

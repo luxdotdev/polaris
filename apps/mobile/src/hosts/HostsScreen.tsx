@@ -214,7 +214,7 @@ const LINK_ANOTHER_CAPTION = "Its hosts join this list";
 
 const LINK_ANOTHER_FOOTNOTE = "On that Mac, open Polaris → Settings → Devices for the code.";
 
-/** The list ends above the moon (DESIGN.md: no row sits on the horizon); this lifts its last row past the fade. */
+/** The list ends where the scene starts (DESIGN.md: no row sits on the horizon); this lifts its last row past the fade. */
 const LIST_FOOT = 40;
 
 /** Room under the last row for the development toggle that stands at the list's foot. */

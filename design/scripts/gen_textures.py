@@ -3,9 +3,10 @@
 Deterministic. Requires numpy and pillow:
     uv run --with numpy --with pillow design/scripts/gen_textures.py
 Writes into design/assets/{scenes,washes,halos}. Each scene also gets a map (scene-*.json) of
-what its ambient motion animates: stars, the sky line, the cabin's lamp, door gap and smoke.
+what its ambient motion animates: stars, the sky line, the cabin's lamp, door gap and smoke, and
+a foot (scene-*-foot.png): the same scene made legible under text, for the window's foot.
 """
-import numpy as np, random, math, json
+import numpy as np, random, math, json, re
 from PIL import Image
 import os
 ASSETS=os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','assets')
@@ -174,6 +175,52 @@ def midnight_scene(w,h,hills,star,seed=17):
     prof,skyline=draw_hills(img,hills)
     return img, prof.astype(int), star_motion(img,stars,px,py,skyline)
 
+# The foot: a scene as the window's foot draws it, under sidebar text (rule/scene-text-contrast).
+# Every colour clears 4.5:1 against the theme's text and Session State words, from DESIGN.md.
+DESIGN=os.path.join(os.path.dirname(os.path.abspath(__file__)),'..','..','DESIGN.md')
+FOOT_TEXT=('text-strong','text-default','text-subtle','starlight-text','needs-you-text',
+           'failed-text','shell-text','accepted-text')
+def foot_text(theme):
+    src=open(DESIGN).read()
+    return [hexc(re.search(rf'^\s+{t}-{theme}: "(#[0-9A-Fa-f]{{6}})"',src,re.M).group(1)) for t in FOOT_TEXT]
+def lum(c):
+    c=np.asarray(c,float)/255; l=np.where(c<=0.04045,c/12.92,((c+0.055)/1.055)**2.4)
+    return l[...,0]*0.2126+l[...,1]*0.7152+l[...,2]*0.0722
+def legible(c,text):
+    lb,lt=lum(c),lum(np.array(text))
+    return ((np.maximum(lb,lt)+0.05)/(np.minimum(lb,lt)+0.05)).min()>=4.5
+OK1=np.array([[0.4122214708,0.5363325363,0.0514459929],[0.2119034982,0.6806995451,0.1073969566],[0.0883024619,0.2817188376,0.6299787005]])
+OK2=np.array([[0.2104542553,0.7936177850,-0.0040720468],[1.9779984951,-2.4285922050,0.4505937099],[0.0259040371,0.7827717662,-0.8086757660]])
+def to_oklab(c):
+    c=np.asarray(c,float)/255; l=np.where(c<=0.04045,c/12.92,((c+0.055)/1.055)**2.4)
+    return OK2@np.cbrt(OK1@l)
+def from_oklab(o):
+    l=np.clip(np.linalg.inv(OK1)@(np.linalg.solve(OK2,o)**3),0,1)
+    return np.round(255*np.where(l<=0.0031308,l*12.92,1.055*l**(1/2.4)-0.055))
+def remap(img,f):
+    a=np.clip(np.round(img),0,255); out=a.copy()
+    for c in np.unique(a.reshape(-1,3),axis=0): out[(a==c).all(-1)]=f(c)
+    return out
+def foot_dark(img,toward):
+    # Dark text needs dark ground: only what's too bright (stars, glow, dust) dims toward the clearing.
+    text,g=foot_text('dark'),hexc(toward)
+    def f(c):
+        for t in np.linspace(0,1,201):
+            m=np.round(c+(g-c)*t)
+            if legible(m,text): return m
+        return g
+    return remap(img,f)
+def foot_light(img):
+    # Light text needs pale ground: OKLab lightness compressed into the legible band, hue kept and
+    # chroma at 60% (full chroma that pale reads lime), so the hills keep their layers as a mist.
+    text=foot_text('light'); a=np.clip(np.round(img),0,255)
+    cols=[c for c in np.unique(a.reshape(-1,3),axis=0)]; oks=[to_oklab(c) for c in cols]
+    lo=min(o[0] for o in oks)
+    for Lt in np.linspace(0.8,1,201):
+        mapped={tuple(c):from_oklab(np.array([Lt+(o[0]-lo)*(1-Lt)/(1-lo),o[1]*0.6,o[2]*0.6])) for c,o in zip(cols,oks)}
+        if all(legible(m,text) for m in mapped.values()): return remap(img,lambda c:mapped[tuple(c)])
+    raise ValueError('no legible foot')
+
 def save(img,name,s,sub):
     im=Image.fromarray(np.clip(img,0,255).astype('uint8'))
     up(im,s).save(OUTP(sub,name))
@@ -292,12 +339,14 @@ def main():
     night, night_ground, night_motion = night
     night_cabin = place_cabin(night, night_ground, int(W * 0.14), int(W * 0.34), CABIN_NIGHT)
     save(night,'scene-night.png',4,'scenes')
+    save(foot_dark(night,'#070912'),'scene-night-foot.png',4,'scenes')
     # A meteor is the star palette: a white head and a tail that cools into the sky.
     save_motion(night_motion, night_cabin, 'scene-night.json', {'kind': 'night', 'meteor': ['#E8EEFF', '#BCD3FF', '#8A96B8', '#4A5578']})
     midnight, midnight_ground, midnight_motion = midnight_scene(W,H,
         [('#0A0B0F',0.70,0.18,3),('#07080B',0.78,0.14,5),('#040406',0.86,0.10,9)],'#BCD3FF')
     midnight_cabin = place_cabin(midnight, midnight_ground, int(W * 0.14), int(W * 0.34), CABIN_MIDNIGHT)
     save(midnight,'scene-midnight.png',4,'scenes')
+    save(foot_dark(midnight,'#000000'),'scene-midnight-foot.png',4,'scenes')
     save_motion(midnight_motion, midnight_cabin, 'scene-midnight.json', {'kind': 'night', 'meteor': ['#E8EEFF', '#BCD3FF', '#8A96B8', '#4A5578']})
     dawn,dawn_ground,dawn_motion=scene(W,H,['#C9D8F2','#D8E1F4','#E9E6F0','#F6E4DA','#FBE3CC','#FCE9D2'],
         [('#B7C9A8',0.70,0.18,3),('#9DB78F',0.78,0.14,5),('#7FA074',0.86,0.10,9)],'#FFFFFF',False,12)
@@ -308,6 +357,7 @@ def main():
         dawn[y,x]=hexc(r.choice(['#F4D35E','#FFFFFF','#F2B5C4']))
     dawn_cabin = place_cabin(dawn, dawn_ground, int(W * 0.14), int(W * 0.34), CABIN_DAWN)
     save(dawn,'scene-dawn.png',4,'scenes')
+    save(foot_light(dawn),'scene-dawn-foot.png',4,'scenes')
     # Birds at dawn are distant silhouettes in the cabin's roof brown.
     save_motion(dawn_motion, dawn_cabin, 'scene-dawn.json', {'kind': 'dawn', 'bird': CABIN_DAWN['R']})
 

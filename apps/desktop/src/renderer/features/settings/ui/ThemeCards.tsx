@@ -98,7 +98,7 @@ const Miniature = ({ sky }: { readonly sky: Sky }) => (
         <MiniSidebar />
         <MiniPanel />
       </div>
-      <Horizon />
+      <Horizon className="h-2/5" />
     </div>
   </div>
 );
@@ -131,9 +131,13 @@ const DARK_CARDS: ReadonlyArray<DarkCard> = [
   {
     value: "moonlit",
     name: "Moonlit",
-    caption: "Today's dark, softer charcoal. A moon in the sky.",
+    caption: "Today's dark, softer charcoal. Stars over the hills.",
   },
-  { value: "midnight", name: "Midnight", caption: "Pure black for OLED. A new-moon sky." },
+  {
+    value: "midnight",
+    name: "Midnight",
+    caption: "Pure black for OLED. Galaxies in a new-moon sky.",
+  },
 ];
 
 const CARD = "rounded-card flex cursor-default overflow-clip border bg-panel text-left";

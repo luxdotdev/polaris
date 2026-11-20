@@ -1,5 +1,5 @@
-// The horizon strip along W2's foot (Paper MX-AX): the near ridge of the home screen's horizon,
-// cut to the widget, in the theme's far-ridge colour.
+// The horizon strip along W2's foot (Paper MX-AX): a ridge cut to the widget in the foot scene's
+// far-hill colour, the hills Home's horizon draws.
 import SwiftUI
 
 /// MX-AX's ridge in its 393-wide scene: [to x, top y] steps from x = 0, tops in the 44pt strip.
@@ -36,6 +36,6 @@ struct HorizonStrip: View {
   let palette: ThemePalette
 
   var body: some View {
-    Ridge().fill(palette.ridgeBack.color).frame(height: 44).clipped()
+    Ridge().fill(palette.hillFar.color).frame(height: 44).clipped()
   }
 }

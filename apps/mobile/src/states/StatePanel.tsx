@@ -6,8 +6,8 @@ import { mobileFont, mobileType } from "@polaris/ui/tokens";
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
-import { Horizon, HORIZON_HEIGHT } from "../horizon/index.tsx";
-import { PALETTES } from "../horizon/scene.ts";
+import { Horizon, HORIZON_HEIGHT, RIDGE_TOP } from "../horizon/index.tsx";
+import { HILLS } from "../horizon/scene.ts";
 import { themedStyles, useTheme } from "../theme/index.ts";
 import { CHROME_TEXT_SCALE, CONTENT_TEXT_SCALE, CONTROL_TEXT_SCALE } from "../theme/textScale.ts";
 
@@ -43,18 +43,18 @@ export type StatePanelProps = Common &
 export const STATE_HORIZON_TOP = 96;
 
 /** Where the celestials stand on the ridge, from the scene's top. */
-const CELESTIAL_TOP = 118;
+const CELESTIAL_TOP = RIDGE_TOP - 10;
 
 const CELESTIAL_OPACITY = 0.35;
 
-/** How far under the ridge its colour lasts before it is the ground. */
+/** How far under the scene its nearest hill's colour lasts before it is the ground. */
 const FADE_HEIGHT = 180;
 
 const fadeStyles = StyleSheet.create({
   fade: { position: "absolute", top: 0, left: 0, height: FADE_HEIGHT },
 });
 
-/** The front ridge's colour fading into the ground under the copy. */
+/** The nearest hill's colour fading into the ground under the copy. */
 const Fade = () => {
   const { name, colours } = useTheme();
   const { width } = useWindowDimensions();
@@ -64,7 +64,7 @@ const Fade = () => {
       <Svg width={width} height={FADE_HEIGHT}>
         <Defs>
           <LinearGradient id="state-fade" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={PALETTES[name].front} />
+            <Stop offset="0" stopColor={HILLS[name].near} />
             <Stop offset="1" stopColor={colours.ground} />
           </LinearGradient>
         </Defs>

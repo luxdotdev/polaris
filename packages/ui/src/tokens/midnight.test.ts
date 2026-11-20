@@ -160,7 +160,7 @@ describe("midnight", () => {
     const assets = read("../styles/assets.css");
 
     const sky =
-      /\{\s*--scene: url\("[^"]*scene-midnight\.png"\);\s*--scene-kind: midnight;\s*--scene-clearing: #000000;/;
+      /\{\s*--scene: url\("[^"]*scene-midnight\.png"\);\s*--scene-foot: url\("[^"]*scene-midnight-foot\.png"\);\s*--scene-kind: midnight;\s*--scene-clearing: #000000;/;
 
     expect(assets).toMatch(
       new RegExp(

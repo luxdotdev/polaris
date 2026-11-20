@@ -6,7 +6,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PALETTES } from "../src/horizon/scene.ts";
+import { HILLS } from "../src/horizon/scene.ts";
 
 // Apple-only frameworks: Linux toolchains have swiftc but no SwiftUI, CryptoKit or os.
 const swiftc = process.platform === "darwin" ? Bun.which("swiftc") : null;
@@ -39,12 +39,12 @@ beforeAll(() => {
 afterAll(() => rmSync(directory, { recursive: true, force: true }));
 
 test.skipIf(swiftc === null).each(["midnight", "moonlit"] as const)(
-  "W2 draws its horizon in %s's ridge colour",
+  "W2 draws its horizon in %s's far-hill colour",
   (name) => {
     const run = Bun.spawnSync([driver, name, "-"]);
     // SAFETY: the driver prints JSON encoded from its `samples`, a [String: String].
     const samples = JSON.parse(run.stdout.toString()) as { readonly ridge: string };
 
-    expect(samples.ridge).toBe(PALETTES[name].back.toLowerCase());
+    expect(samples.ridge).toBe(HILLS[name].far.toLowerCase());
   }
 );
