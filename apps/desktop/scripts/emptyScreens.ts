@@ -2,8 +2,8 @@
 /**
  * Screenshots of the empty states and the terminal drawer, from a fresh
  * Daemon: the Host with no workspaces, a workspace with no sessions, the
- * drawer, nothing needs you, and the modes that arrive later. Every theme and
- * density; compare with Paper 57Q-1, VG-0 and 5SH-1.
+ * drawer (also under New session), nothing needs you, and the modes that
+ * arrive later. Every theme and density; compare with Paper 57Q-1, VG-0 and 5SH-1.
  *
  *   node scripts/emptyScreens.ts --out <dir> [--build]
  */
@@ -115,6 +115,30 @@ try {
   );
   await page.waitForTimeout(800);
   await shoot(page, "terminal-drawer");
+
+  // New session keeps the Workspace's terminal under it; Esc in the shell stays with the shell.
+  await page.getByTestId("stage-new-session").click();
+  await page.getByTestId("new-session").waitFor({ timeout: 10_000 });
+  await page.waitForTimeout(600);
+  await shoot(page, "new-session-terminal");
+  await page.getByTestId("terminal-surface").click();
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+
+  if ((await page.getByTestId("new-session").count()) === 0)
+    throw new Error("Esc in the terminal left the new-session page");
+
+  // zsh reads that Esc as Meta's prefix; ⌃C clears it before anything else is typed.
+  await page.keyboard.press("Control+C");
+
+  await page.keyboard.press("Control+Backquote");
+  await page.getByTestId("terminal-toggle").waitFor();
+  await page.waitForTimeout(400);
+  await shoot(page, "new-session");
+  await page.keyboard.press("Control+Backquote");
+  await page.getByTestId("terminal-surface").waitFor();
+  await page.waitForTimeout(600);
+  await page.getByTestId("terminal-surface").click();
   await page.keyboard.type("exit\n");
   await page.getByTestId("terminal-ended").waitFor({ timeout: 10_000 });
   await shoot(page, "terminal-ended");

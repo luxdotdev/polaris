@@ -34,6 +34,24 @@ const sceneKind = (scene: HTMLElement): SceneMap | null => {
   return kind === "night" || kind === "dawn" ? SCENES[kind] : null;
 };
 
+/**
+ * How far the art reaches below the scene: to the foot of its frame (`data-scene-frame`), so a
+ * card that shortens over a terminal crops the art rather than moving it.
+ */
+const reachBelow = (scene: HTMLElement) => {
+  const frame = scene.closest<HTMLElement>("[data-scene-frame]");
+
+  if (frame === null) return 0;
+
+  return Math.max(0, frame.getBoundingClientRect().bottom - scene.getBoundingClientRect().bottom);
+};
+
+/** The background placed as the canvas is, when a frame stretches the art past the scene. */
+const placeArt = (scene: HTMLElement, at: Cover, map: SceneMap, framed: boolean) => {
+  scene.style.backgroundSize = framed ? `${map.width * at.scale}px ${map.height * at.scale}px` : "";
+  scene.style.backgroundPosition = framed ? `${at.x}px ${at.y}px` : "";
+};
+
 /** The scene's content (headline, setup card) as scene-pixel boxes that visitors keep clear of. */
 const contentBoxes = (scene: HTMLElement, layer: HTMLElement, at: Cover) => {
   const origin = scene.getBoundingClientRect();
@@ -105,7 +123,10 @@ const runScene = (layer: HTMLElement, canvas: HTMLCanvasElement, scene: HTMLElem
     clear();
 
     if (map === undefined) return;
-    at = cover(width, height, map.width, map.height);
+    const framed = scene.closest("[data-scene-frame]") !== null;
+
+    at = cover(width, height + reachBelow(scene), map.width, map.height);
+    placeArt(scene, at, map, framed);
     canvas.width = map.width;
     canvas.height = map.height;
     canvas.style.width = `${map.width * at.scale}px`;
@@ -179,6 +200,9 @@ const runScene = (layer: HTMLElement, canvas: HTMLCanvasElement, scene: HTMLElem
   sizes.observe(scene);
 
   for (const child of scene.children) if (child !== canvas) sizes.observe(child);
+  const frame = scene.closest("[data-scene-frame]");
+
+  if (frame !== null) sizes.observe(frame);
   themes.observe(document.documentElement, {
     attributeFilter: ["data-theme", "data-reduce-motion"],
   });
