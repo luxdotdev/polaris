@@ -325,9 +325,11 @@ README (`@polaris/relay`).
 
 `bun run --cwd apps/relay test` runs the contract suite. Every test starts the release binary
 as a process, configures it through this README's environment variables, and reads its log
-lines from stdout. cargo builds the binary on first use (`contract/testing/binary.ts`);
-`POLARIS_RELAY_BIN` names one built elsewhere, as CI does. The Daemon's and the Mobile App's
-relay tests start the same binary, so they need cargo as well.
+lines from stdout. cargo builds the binary on first use (`contract/testing/binary.ts`), one
+process at a time behind a lock file, since a first build may install the pinned toolchain;
+`POLARIS_RELAY_BIN` names one built elsewhere, as CI does (turbo's `test` task passes it
+through). The Daemon's and the Mobile App's relay tests start the same binary, so they need
+cargo as well.
 
 - `relay.test.ts`: two parties handshake and exchange protocol frames through a real relay
   socket, with checks that nothing they handed the relay and nothing it logged holds the
