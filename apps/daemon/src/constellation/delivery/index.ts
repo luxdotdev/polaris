@@ -20,7 +20,8 @@ import { graphEvent } from "../../store/constellation.ts";
 import { ConstellationOwner } from "../runtime.ts";
 import { ConstellationLiveness } from "../liveness.ts";
 import { performHandover } from "../handover/index.ts";
-import { digestDelay } from "./format.ts";
+import { digestWindow, type DigestWindow } from "./format.ts";
+import { nextDigest, type DigestSchedule } from "./schedule.ts";
 import { commitJournal } from "./journal.ts";
 import { deliverDigest, deliverLocalInput, nudgeSilentWorker } from "./local.ts";
 import { settleFailedWorker } from "./failures.ts";
@@ -39,6 +40,8 @@ interface Timer {
   due: boolean;
   fiber?: Fiber.Fiber<void> | undefined;
 }
+
+interface DigestTimer extends Timer, DigestSchedule {}
 
 interface Job {
   readonly key: string;
@@ -59,7 +62,7 @@ const make = Effect.gen(function* () {
   >();
 
   const gate = yield* Semaphore.make(1);
-  const timers = new Map<ConstellationId, Timer>();
+  const timers = new Map<ConstellationId, DigestTimer>();
   /** One wake per Constellation, when its next held wait runs out (ENG-742). */
   const waitTimers = new Map<ConstellationId, Timer>();
   /** Expired waits already handed to the nudge, by `[attemptId, turnId]`. */
@@ -263,41 +266,54 @@ const make = Effect.gen(function* () {
       record.graph.state === "running" ? nextWaitExpiry(record, model.sessions, source) : null,
       now
     );
-    const delay = digestDelay(record, model.sessions, source);
+    const window = digestWindow(record, model.sessions, source);
 
-    if (delay === null || record.graph.state !== "running" || record.handoverRequest !== null) {
+    if (window === null || record.graph.state !== "running" || record.handoverRequest !== null) {
       yield* cancelTimer(id);
 
       return;
     }
 
+    yield* armDigest(id, window, now);
+  });
+
+  /** The one digest wake per Constellation; a delivered window ends it. */
+  const armDigest = Effect.fnUntraced(function* (
+    id: ConstellationId,
+    window: DigestWindow,
+    now: number
+  ) {
     const existing = timers.get(id);
 
-    // A delivered window ends; what arrives next coalesces afresh instead of riding the old timer.
-    if (existing?.due) {
-      if (yield* deliverDigest(id).pipe(Effect.provide(dependencies))) timers.delete(id);
+    // A due window delivers now, or stays due for the busy Lead's boundary (TurnEnded refreshes).
+    if (existing?.due !== true) {
+      const next = nextDigest(existing, window, now);
 
-      return;
+      if (next === null) return;
+      yield* cancelTimer(id);
+      const timer: DigestTimer = { ...next, due: next.at <= now };
+      timers.set(id, timer);
+
+      if (!timer.due) {
+        timer.fiber = yield* Effect.sleep(next.at - now).pipe(
+          Effect.andThen(
+            Effect.gen(function* () {
+              if (timers.get(id) !== timer) return;
+              timer.due = true;
+              timer.fiber = undefined;
+              yield* gate.withPermits(1)(refresh(id));
+            })
+          ),
+          Effect.catchCause((cause) => Effect.logError("Lead digest remains queued", cause)),
+          Effect.forkIn(scope)
+        );
+
+        return;
+      }
     }
 
-    const at = now + delay;
-
-    if (existing !== undefined && existing.at <= at) return;
-    yield* cancelTimer(id);
-    const timer: Timer = { at, due: false };
-    timers.set(id, timer);
-    timer.fiber = yield* Effect.sleep(delay).pipe(
-      Effect.andThen(
-        Effect.gen(function* () {
-          if (timers.get(id) !== timer) return;
-          timer.due = true;
-          timer.fiber = undefined;
-          yield* gate.withPermits(1)(refresh(id));
-        })
-      ),
-      Effect.catchCause((cause) => Effect.logError("Lead digest remains queued", cause)),
-      Effect.forkIn(scope)
-    );
+    // A delivered window ends; what arrives next coalesces afresh instead of riding the old timer.
+    if (yield* deliverDigest(id).pipe(Effect.provide(dependencies))) timers.delete(id);
   });
 
   const flush = Effect.fn("ConstellationDelivery.flush")(function* () {
@@ -417,4 +433,4 @@ export {
 
 export { applyWorkerDelivery } from "./turns.ts";
 
-export { digestPrompt, digestDelay } from "./format.ts";
+export { digestPrompt, digestWindow } from "./format.ts";

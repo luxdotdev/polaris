@@ -368,8 +368,9 @@ The relay resolves the owner's live Connection when acknowledging a worker recei
 Blocked Attempts skip nudging; a second silent end queues `Stopped` for the Lead.
 
 C1-L implements the delivery runner under `apps/daemon/src/constellation/delivery`,
-with timers only for pending Lead-worthy updates (20 s Claims / 5 s blocking Lead
-questions). Queued IDs and `LeadNotified` commit with the Session-machine Turn;
+with timers only for pending Lead-worthy updates: a 2 s burst debounce, restarted by
+each new item and capped 20 s after the window opened; blocking Lead questions skip
+the debounce (ENG-1011). The model abstracts this wall-clock timing. Queued IDs and `LeadNotified` commit with the Session-machine Turn;
 worker approvals and questions to the user never wake the Lead. A Lead that is
 Working on a Harness that can steer receives the digest as a steer into its live
 Turn (`LeadNotified.steered`, committed with the machine's `turn.steer` decision

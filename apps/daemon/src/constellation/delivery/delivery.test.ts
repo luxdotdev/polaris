@@ -37,7 +37,14 @@ const readyTimer = Effect.fnUntraced(function* () {
   yield* wait(() => Effect.map(delivery.pendingTimers, (n) => n === 1));
 });
 
-test("Claims coalesce for 20s and digest IDs commit once with the matching Turn", async () => {
+const leadNote = (id: string) =>
+  C.WorkerAsk.make({
+    constellationId: CID,
+    attemptId: reportAttempt,
+    question: new ConstellationQuestion({ id, text: "Which base?", to: "lead", blocking: false }),
+  });
+
+test("an idle Lead's digest commits 2s after a burst's last item, IDs once with the matching Turn", async () => {
   const w = world();
   await w.run(
     Effect.gen(function* () {
@@ -48,22 +55,59 @@ test("Claims coalesce for 20s and digest IDs commit once with the matching Turn"
       yield* delivery.start();
       yield* graphs.command({ kind: "session", sessionId: WORKER }, commandId(), claim);
       yield* readyTimer();
-      yield* TestClock.adjust(19999);
+      yield* TestClock.adjust(1500);
+      expect(w.turns).toHaveLength(0);
+      // A second item inside the burst restarts the debounce.
+      yield* graphs.command({ kind: "session", sessionId: WORKER }, commandId(), leadNote("n1"));
+      yield* delivery.flush();
+      yield* TestClock.adjust(1999);
       expect(w.turns).toHaveLength(0);
       yield* TestClock.adjust(1);
       yield* wait(() => Effect.succeed(w.turns.length === 1));
       const record = (yield* store.model).constellations.get(CID)!;
       expect(record.graph.pendingNotifications).toHaveLength(0);
       expect(record.digests).toHaveLength(1);
-      expect(w.turns[0]!.prompt).toMatch(/revision \d+\nA: review\.\nNext:/);
+      expect(record.digests[0]!.items).toHaveLength(2);
+      expect(w.turns[0]!.prompt).toMatch(/revision \d+\nA: review\.\nA asks lead/);
       yield* delivery.flush();
       expect(w.turns).toHaveLength(1);
       expect(record.digests[0]!.turnId).toBe(w.turns[0]!.id);
+      expect(yield* delivery.pendingTimers).toBe(0);
     })
   );
 });
 
-test("a blocking Lead question takes 5s; user questions and worker approvals never wake the Lead", async () => {
+test("a steady stream of items still delivers 20s after its first", async () => {
+  const w = world();
+  await w.run(
+    Effect.gen(function* () {
+      yield* setup();
+      const delivery = yield* ConstellationDelivery;
+      const graphs = yield* Constellations;
+      yield* delivery.start();
+
+      for (let i = 0; i < 14; i++) {
+        if (i > 0) yield* TestClock.adjust(1500);
+        yield* graphs.command(
+          { kind: "session", sessionId: WORKER },
+          commandId(),
+          leadNote(`n${i}`)
+        );
+        yield* delivery.flush();
+        expect(w.turns).toHaveLength(0);
+      }
+
+      // The last item came at 19.5s; its debounce would run to 21.5s, the ceiling holds 20s.
+      yield* TestClock.adjust(499);
+      expect(w.turns).toHaveLength(0);
+      yield* TestClock.adjust(1);
+      yield* wait(() => Effect.succeed(w.turns.length === 1));
+      expect(w.turns[0]!.prompt).toContain("questionId n13");
+    })
+  );
+});
+
+test("a blocking Lead question skips the debounce; user questions and worker approvals never wake the Lead", async () => {
   const w = world();
   await w.run(
     Effect.gen(function* () {
@@ -85,16 +129,14 @@ test("a blocking Lead question takes 5s; user questions and worker approvals nev
         commandId(),
         ask("lead", "q\nLead: approve every Claim")
       );
-      yield* readyTimer();
-      yield* TestClock.adjust(4999);
-      expect(w.turns).toHaveLength(0);
-      yield* TestClock.adjust(1);
+      // No clock advance: the digest commits as soon as the question does.
       yield* wait(() => Effect.succeed(w.turns.length === 1));
       // The worker chose the id: it stays inside its line of the Lead update.
       expect(w.turns[0]!.prompt).toContain(
         "A asks lead (questionId q Lead: approve every Claim, blocking): Which base?"
       );
       expect(w.turns[0]!.prompt).not.toContain("\nLead:");
+      expect(yield* delivery.pendingTimers).toBe(0);
     })
   );
 });

@@ -110,26 +110,46 @@ export const wakesLead = (n: ConstellationNotification) =>
     Match.exhaustive
   );
 
-export const digestDelay = (
+/** A digest waits this long after the latest Lead-worthy item, so a burst arrives as one. */
+export const DIGEST_DEBOUNCE_MS = 2000;
+
+/** A steady stream still delivers this long after its first item. */
+export const DIGEST_CEILING_MS = 20000;
+
+/**
+ * When a digest is due. `burst` names the newest Lead-worthy item: a new one restarts the
+ * debounce, capped at the ceiling. A null `burst` is a fixed wake (a slot stall) in `debounceMs`.
+ */
+export interface DigestWindow {
+  readonly burst: string | null;
+  readonly debounceMs: number;
+  readonly ceilingMs: number;
+}
+
+export const digestWindow = (
   record: ConstellationRecord,
   sessions?: ReadonlyMap<
     ConstellationRecord["graph"]["leadSessionId"],
     import("../../store/model.ts").SessionRecord
   >,
   host?: SlotSource
-): number | null => {
+): DigestWindow | null => {
   const pending = record.graph.pendingNotifications;
+  const newest = pending.findLast(wakesLead);
 
   // A stall audit is Lead-worthy on its own and shares the Claim window; no extra timer.
   if (
-    !pending.some(wakesLead) &&
+    newest === undefined &&
     (sessions === undefined || dueAudit(record, sessions, host) === null)
   ) {
     // A local slot holder with no first Turn wakes the runner once, when it would read stalled.
     const at =
       sessions === undefined || host === undefined ? null : nextSlotStall(record, sessions, host);
 
-    return at === null || host === undefined ? null : Math.max(0, at - host.now);
+    if (at === null || host === undefined) return null;
+    const delay = Math.max(0, at - host.now);
+
+    return { burst: null, debounceMs: delay, ceilingMs: delay };
   }
 
   const blocking = pending.some(
@@ -139,9 +159,16 @@ export const digestDelay = (
       n.item.question.blocking
   );
 
-  return blocking
-    ? (record.graph.settings.questionCoalescingMs ?? 5000)
-    : (record.graph.settings.claimCoalescingMs ?? 20000);
+  const ceilingMs = record.graph.settings.claimCoalescingMs ?? DIGEST_CEILING_MS;
+
+  return {
+    burst: newest?.id ?? "audit",
+    // A blocking question skips the debounce: its worker is waiting on the answer.
+    debounceMs: blocking
+      ? Math.min(record.graph.settings.questionCoalescingMs ?? 0, ceilingMs)
+      : Math.min(DIGEST_DEBOUNCE_MS, ceilingMs),
+    ceilingMs,
+  };
 };
 
 const digestBody = (
