@@ -274,6 +274,8 @@ export interface HarnessDriver {
     readonly liveCoAttach: boolean;
     /** The Harness can change a session's Model between Turns (`SetModel`). */
     readonly switchModel: boolean;
+    /** The driver attaches the Constellation MCP and instructions (`OpenOptions.constellations`). */
+    readonly constellations?: boolean;
     /** The Harness can stop its background tasks (`StopBackgroundTasks`). */
     readonly stopBackground?: boolean;
     /** The Harness can move a running command into the background (`BackgroundCommand`). */

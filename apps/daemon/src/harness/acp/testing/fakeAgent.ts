@@ -1,7 +1,8 @@
 /**
  * A scriptable ACP agent for tests, run as its own process on stdio like a real
  * Harness. `FAKE_ACP_SCENARIO` names a JSON `Scenario`; every message it
- * receives is appended to `FAKE_ACP_LOG` as one JSON line.
+ * receives is appended to `FAKE_ACP_LOG` as one JSON line; an `mcp` step's outcome is logged
+ * as a `fake/mcp` message.
  */
 import { appendFileSync, readFileSync } from "node:fs";
 import { Option, Predicate, Schema } from "effect";
@@ -19,6 +20,8 @@ const Step = Schema.Union([
   Schema.Struct({ waitForCancel: Schema.Literal(true) }),
   /** Exits the process. */
   Schema.Struct({ exit: Schema.Int }),
+  /** Lists the tools of the first `http` MCP server it was given and calls one. */
+  Schema.Struct({ mcp: Schema.Struct({ tool: Schema.String, arguments: Json }) }),
 ]);
 
 export const Scenario = Schema.Struct({
@@ -76,10 +79,61 @@ const log = process.env.FAKE_ACP_LOG;
 /** The session the agent serves: its own, or the one a client resumed. */
 let sessionId = scenario.sessionId ?? "fake-session";
 
+const HttpServer = Schema.Struct({ type: Schema.Literal("http"), url: Schema.String });
+
+const decodeServers = Schema.decodeUnknownOption(Schema.Array(Schema.Unknown));
+
+const decodeHttp = Schema.decodeUnknownOption(HttpServer);
+
+/** The `http` MCP server URLs the last `session/new`, `load` or `resume` carried. */
+let mcpUrls: ReadonlyArray<string> = [];
+
+const adoptServers = (message: Received) => {
+  const servers = Option.getOrElse(decodeServers(message.params?.mcpServers), () => []);
+
+  mcpUrls = servers.flatMap((server) =>
+    Option.match(decodeHttp(server), { onNone: () => [], onSome: (http) => [http.url] })
+  );
+};
+
 const adopt = (message: Received) => {
   const resumed = message.params?.sessionId;
 
   if (Predicate.isString(resumed)) sessionId = resumed;
+  adoptServers(message);
+};
+
+/** One MCP request as a stateless streamable-HTTP client sends it. */
+const mcpRequest = async (url: string, id: number, method: string, params: typeof Json.Type) => {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+    body: JSON.stringify({ jsonrpc: "2.0", id, method, params }),
+  });
+
+  return response.json();
+};
+
+const mcpStep = async (step: { readonly tool: string; readonly arguments: typeof Json.Type }) => {
+  const url = mcpUrls[0];
+
+  const outcome =
+    url === undefined
+      ? { error: "no http MCP server" }
+      : {
+          initialize: await mcpRequest(url, 1, "initialize", {
+            protocolVersion: "2025-06-18",
+            capabilities: {},
+            clientInfo: { name: "fake-acp", version: "1" },
+          }),
+          list: await mcpRequest(url, 2, "tools/list", {}),
+          call: await mcpRequest(url, 3, "tools/call", {
+            name: step.tool,
+            arguments: step.arguments,
+          }),
+        };
+
+  if (log) appendFileSync(log, `${JSON.stringify({ method: "fake/mcp", params: outcome })}\n`);
 };
 
 const send = (message: Outgoing) => {
@@ -115,6 +169,7 @@ const runStep = async (step: Step): Promise<string | null> => {
   else if ("permission" in step)
     await request("session/request_permission", { sessionId, ...step.permission });
   else if ("waitForCancel" in step) return waitForCancel();
+  else if ("mcp" in step) await mcpStep(step.mcp);
   else process.exit(step.exit);
 
   return null;
@@ -149,10 +204,12 @@ const handlers = {
       id: m.id,
       result: scenario.initialize ?? { protocolVersion: 1, agentCapabilities: {} },
     }),
-  "session/new": (m) =>
-    scenario.newSessionError
-      ? send({ id: m.id, error: scenario.newSessionError })
-      : send({ id: m.id, result: { sessionId, ...scenario.setup } }),
+  "session/new": (m) => {
+    adoptServers(m);
+
+    if (scenario.newSessionError) send({ id: m.id, error: scenario.newSessionError });
+    else send({ id: m.id, result: { sessionId, ...scenario.setup } });
+  },
   "session/load": (m) => {
     adopt(m);
 

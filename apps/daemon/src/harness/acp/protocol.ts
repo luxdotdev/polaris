@@ -63,6 +63,10 @@ export const InitializeResponse = Schema.Struct({
       sessionCapabilities: Schema.optional(
         Schema.Struct({ resume: Capability, close: Capability })
       ),
+      /** Which MCP transports `session/new` accepts beside stdio. */
+      mcpCapabilities: Schema.optional(
+        Schema.NullOr(Schema.Struct({ http: Schema.optional(Schema.Boolean) }))
+      ),
     })
   ),
   agentInfo: Schema.optional(
@@ -351,3 +355,6 @@ conforms<Conforms<Omit<Update<"tool_call">, "_meta" | "sessionUpdate">, typeof T
 conforms<Conforms<Acp.SessionConfigSelectOption["value"], typeof SelectOption.fields.value>>();
 
 conforms<Conforms<Acp.SessionConfigOption["id"], typeof ConfigOption.fields.id>>();
+
+/** An MCP server `session/new`, `session/load` and `session/resume` hand the agent. */
+export type McpServer = Acp.McpServer;

@@ -131,8 +131,7 @@ const make = (
       const driver = yield* rt.registry.get(record.session.harness);
       const readOnly = Option.isSome(policy) && policy.value.readOnly(sessionId);
 
-      const supportsConstellations =
-        record.session.harness === "codex" || record.session.harness === "claude";
+      const supportsConstellations = driver.capabilities.constellations === true;
 
       const attachment = yield* attachments.open(sessionId, readOnly || !supportsConstellations);
       const scope = yield* Scope.make();

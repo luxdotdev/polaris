@@ -10,4 +10,5 @@ export const CLAUDE_CAPABILITIES = {
   backgroundCommand: true,
   shellCommand: true,
   compact: true,
+  constellations: true,
 } as const satisfies HarnessDriver["capabilities"];

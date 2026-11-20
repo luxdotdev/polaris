@@ -1,7 +1,7 @@
 import type { OpenOptions } from "../../harness/HarnessDriver.ts";
 import { visualizeGuidance } from "@polaris/visualization";
 
-export const POLARIS_PREAMBLE_VERSION = 4;
+export const POLARIS_PREAMBLE_VERSION = 5;
 
 type InstructionOptions = Pick<OpenOptions, "readOnly" | "constellation" | "constellations">;
 
@@ -64,4 +64,4 @@ export const polarisInstructions = (options: InstructionOptions): string =>
     .join("\n\n");
 
 export const polarisContextWithoutTools = () =>
-  `${polarisPreamble({})}\nConstellations need Codex or Claude Code.`;
+  `${polarisPreamble({})}\nConstellations need Codex, Claude Code or an ACP Harness that takes HTTP MCP servers.`;

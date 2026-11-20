@@ -44,6 +44,7 @@ export const DRIVER_CAPABILITIES = {
     switchModel: true,
     stopBackground: true,
     compact: true,
+    constellations: true,
   },
   claude: {
     steer: true,
@@ -54,6 +55,7 @@ export const DRIVER_CAPABILITIES = {
     backgroundCommand: true,
     shellCommand: true,
     compact: true,
+    constellations: true,
   },
   opencode: {
     steer: true,
@@ -62,8 +64,8 @@ export const DRIVER_CAPABILITIES = {
     switchModel: true,
     compact: true,
   },
-  gemini: { steer: false, liveCoAttach: false, switchModel: true },
-  copilot: { steer: false, liveCoAttach: false, switchModel: true },
+  gemini: { steer: false, liveCoAttach: false, switchModel: true, constellations: true },
+  copilot: { steer: false, liveCoAttach: false, switchModel: true, constellations: true },
   bench: { steer: true, steerAttachments: true, liveCoAttach: true, switchModel: true },
 } as const satisfies Record<KnownHarnessKind | "bench", HarnessDriver["capabilities"]>;
 
