@@ -9,7 +9,7 @@
  */
 import { EventEmitter } from "node:events";
 import { type ByteTransport, readEvents, writeEvents } from "@polaris/protocol";
-import type { SocketHandler } from "bun";
+import type { Socket, SocketHandler } from "bun";
 import { Effect, Exit, type Scope } from "effect";
 
 type Callback = (error?: Error | null) => void;
@@ -155,13 +155,13 @@ export const toTransport = (stream: BunSocketStream): ByteTransport => ({
 
 /** Socket handlers that hand every opened connection to `onOpen` as a `BunSocketStream`. */
 export const streamHandlers = (
-  onOpen: (stream: BunSocketStream) => void
+  onOpen: (stream: BunSocketStream, socket: Socket<BunSocketStream | undefined>) => void
 ): SocketHandler<BunSocketStream | undefined> => ({
   binaryType: "uint8array",
   open(socket) {
     const stream = new BunSocketStream(socket);
     socket.data = stream;
-    onOpen(stream);
+    onOpen(stream, socket);
   },
   data(socket, data) {
     socket.data?.emit("data", data);
@@ -185,9 +185,9 @@ export const streamHandlers = (
  * transport's reader is attached in `open`, before any data can arrive.
  */
 export const socketHandlers = (
-  onConnection: (transport: ByteTransport) => void
+  onConnection: (transport: ByteTransport, socket: Socket<BunSocketStream | undefined>) => void
 ): SocketHandler<BunSocketStream | undefined> =>
-  streamHandlers((stream) => onConnection(toTransport(stream)));
+  streamHandlers((stream, socket) => onConnection(toTransport(stream), socket));
 
 /** How a loopback connect failed, in `HostAddressFailure`'s terms. */
 export type ConnectFailureKind = "refused" | "unreachable" | "timeout";

@@ -19,6 +19,14 @@ import {
 import { type BunSocketStream, socketHandlers } from "./bunSocket.ts";
 import { DaemonAlreadyRunning, LockError } from "./lock.ts";
 import { listenPipe, PipeUnavailable, probePipe } from "./windowsPipe/index.ts";
+import { harnessProcesses } from "../harness/processIdentity.ts";
+import { type Actor, userActor } from "./actor.ts";
+import { peerPid } from "./peerCredentials.ts";
+
+const localActors = new WeakMap<ByteTransport, Actor>();
+
+export const localActorOf = (transport: ByteTransport): Actor =>
+  localActors.get(transport) ?? userActor;
 
 /** True when something accepts connections on `path`. */
 export const probeSocket = (path: string, timeoutMs = 1000): Effect.Effect<boolean> =>
@@ -135,7 +143,16 @@ export const listen = Effect.fnUntraced(function* (
   if (isPipePath(path)) return yield* listenOnPipe(path);
   const connections = yield* Queue.unbounded<ByteTransport>();
 
-  const handlers = socketHandlers((transport) => {
+  const handlers = socketHandlers((transport, socket) => {
+    try {
+      localActors.set(transport, harnessProcesses.actorFor(peerPid(socket)));
+    } catch {
+      // Missing credentials or an unreadable ancestry must never become user authority.
+      socket.terminate();
+
+      return;
+    }
+
     Queue.offerUnsafe(connections, transport);
   });
 

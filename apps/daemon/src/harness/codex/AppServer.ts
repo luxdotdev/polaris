@@ -23,6 +23,7 @@
  * `polaris uninstall` stops it (`stopAppServer`).
  */
 import { harnessEnv } from "../environment.ts";
+import { harnessProcesses } from "../processIdentity.ts";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Effect, Option, Schema, type Scope, Semaphore } from "effect";
@@ -358,12 +359,43 @@ export const stopAppServer = (options: {
     return { stopped };
   });
 
+/** Restore attribution before the lazy driver loads: detached servers survive a Daemon restart. */
+export const registerExistingAppServer = (stateFile: string): (() => void) => {
+  if (windows) return () => {};
+
+  const state = readAppServerState(stateFile);
+
+  if (state === null || !isOurAppServer(state.pid, endpointOf(state, stateFile))) return () => {};
+
+  return harnessProcesses.register(state.pid, {
+    kind: "agentUnattributed",
+    harnessServer: "Codex",
+  });
+};
+
 export const acquireAppServer = (
   options: AppServerOptions
 ): Effect.Effect<AppServer, never, Scope.Scope> =>
   Effect.gen(function* () {
     const lock = yield* Semaphore.make(1);
     const stateFile = options.stateFile ?? defaultStateFile(options.socketPath);
+    let unregister = () => {};
+
+    yield* Effect.addFinalizer(() => Effect.sync(() => unregister()));
+
+    const registerServer = (pid: number) => {
+      if (windows) return;
+      unregister();
+      unregister = harnessProcesses.register(pid, {
+        kind: "agentUnattributed",
+        harnessServer: "Codex",
+      });
+    };
+
+    const inherited = readAppServerState(stateFile);
+
+    if (inherited !== null && isOurAppServer(inherited.pid, endpointOf(inherited, stateFile)))
+      registerServer(inherited.pid);
     const logFile = options.logFile ?? defaultLogFile(options.socketPath);
     const versionOf = options.codexVersion ?? installedCodexVersion;
     const systemdRun = options.systemdRun === undefined ? detectSystemdRun() : options.systemdRun;
@@ -437,6 +469,8 @@ export const acquireAppServer = (
               ),
         catch: (cause) => codexError("Failed to start codex app-server", cause),
       });
+
+      registerServer(pid);
 
       const started = {
         pid,

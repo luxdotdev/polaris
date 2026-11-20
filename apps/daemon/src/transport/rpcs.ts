@@ -21,6 +21,7 @@ import {
   Hello,
   LanguageIdentityError,
   ProtocolMismatch,
+  NotGranted,
   ShareGate,
   StatementRejected,
 } from "@polaris/protocol";
@@ -29,11 +30,18 @@ import { RpcMiddleware } from "effect/rpc";
 import type { BlobChannel } from "../services.ts";
 import type { CurrentLanguageConnection } from "./currentLanguageConnection.ts";
 import type { LanguageConnectionLifetime } from "./languageConnectionLifetime.ts";
+import type { ConnectionActor } from "./actor.ts";
 
 export class ConnectionBlobs extends RpcMiddleware.Service<
   ConnectionBlobs,
-  { provides: BlobChannel | CurrentLanguageConnection | LanguageConnectionLifetime }
->()("polaris/daemon/transport/ConnectionBlobs") {}
+  {
+    provides:
+      | BlobChannel
+      | CurrentLanguageConnection
+      | LanguageConnectionLifetime
+      | ConnectionActor;
+  }
+>()("polaris/daemon/transport/ConnectionBlobs", { error: NotGranted }) {}
 
 /** `hello` as the Daemon serves it: a Teammate's can also fail with `StatementRejected` (ADR 0112). */
 export const ServerHello = Hello.setError(
