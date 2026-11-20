@@ -275,18 +275,20 @@ const useModels = (hostKey: string | null, harness: string): ReadonlyArray<Model
 const Defaults = ({
   harness,
   modelHost,
+  hostLabel,
 }: {
   readonly harness: string;
   /** A host where the harness is ready, to list its models; null leaves Default only. */
-  readonly modelHost: string | null;
+  readonly modelHost: string;
+  readonly hostLabel: string;
 }) => {
-  const current = useSessionDefault(harness) ?? NONE;
+  const current = useSessionDefault(harness, modelHost) ?? NONE;
   const models = useModels(modelHost, harness);
   const model = models.find((m) => m.id === current.model);
   const efforts = model?.efforts ?? [];
 
   const save = (patch: Partial<SessionDefault>) =>
-    setSessionDefault(harness, { ...current, ...patch });
+    setSessionDefault(modelHost, harness, { ...current, ...patch });
 
   // The picker's shortlist (its newest four); a saved model outside it stays shown.
   const { top } = shortlist(harness, models);
@@ -300,7 +302,9 @@ const Defaults = ({
 
   return (
     <SettingsWell>
-      <Kicker className="px-panel text-text-subtle pt-2.5 pb-1">New sessions start with</Kicker>
+      <Kicker className="px-panel text-text-subtle pt-2.5 pb-1">
+        New sessions on {hostLabel} start with
+      </Kicker>
       <SettingsSelectRow
         title="Model"
         value={current.model ?? DEFAULT}
@@ -373,7 +377,16 @@ const HarnessCard = ({
         )
       }
     >
-      <Defaults harness={group.kind} modelHost={group.rows.find((r) => r.ready)?.hostKey ?? null} />
+      {group.rows
+        .filter((row) => row.ready)
+        .map((row) => (
+          <Defaults
+            key={row.hostKey}
+            harness={group.kind}
+            modelHost={row.hostKey}
+            hostLabel={row.hostLabel}
+          />
+        ))}
     </SettingsCard>
   );
 };

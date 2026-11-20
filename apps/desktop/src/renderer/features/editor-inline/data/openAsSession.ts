@@ -47,7 +47,8 @@ export const openAsSession = async (
   });
 
   const permissionMode: PermissionMode =
-    settingsStore.getState().sessionDefaults[request.harness]?.permissionMode ?? "supervised";
+    settingsStore.getState().sessionDefaults[hostKey]?.[request.harness]?.permissionMode ??
+    "supervised";
 
   const started = await send(
     hostKey,

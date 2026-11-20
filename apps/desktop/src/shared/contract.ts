@@ -329,7 +329,9 @@ export const RequestInputs = {
   "settings.setDensity": Schema.Struct({ density: Density }),
   "settings.setAppearance": Schema.Struct({ patch: AppearancePatch }),
   /** Null clears the Harness's defaults. */
+  "settings.getSessionDefaults": Schema.Struct({ hostKey: Schema.String }),
   "settings.setSessionDefault": Schema.Struct({
+    hostKey: Schema.String,
     harness: HarnessKind,
     value: Schema.NullOr(SessionDefault),
   }),

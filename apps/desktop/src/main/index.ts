@@ -1,3 +1,4 @@
+import { followSessionDefaults } from "./hostSessionDefaults.ts";
 import { writeSecret } from "./secretClipboard.ts";
 import { createMainPredictionPlacement } from "./prediction/placement.ts";
 import { PredictionSettings } from "./prediction/preferences.ts";
@@ -37,7 +38,7 @@ import {
   shell,
 } from "electron";
 import type { UserPresence } from "@polaris/protocol";
-import { type AppEvent, type Appearance, CHANNELS, type SessionDefault } from "../shared/api.ts";
+import { type AppEvent, type Appearance, CHANNELS } from "../shared/api.ts";
 import {
   clientIdentity,
   HostDirectory,
@@ -316,19 +317,6 @@ const start = async () => {
     applyAppearance();
   };
 
-  const setSessionDefault = (harness: string, value: SessionDefault | null) => {
-    const others = Object.entries(settings.sessionDefaults ?? {}).filter(([k]) => k !== harness);
-
-    const sessionDefaults = Object.fromEntries(
-      value === null ? others : [...others, [harness, value]]
-    );
-
-    saveSettings({ sessionDefaults });
-    const event: AppEvent = { kind: "session-defaults", sessionDefaults };
-
-    for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
-  };
-
   const setSessions = (patch: SessionPrefsPatch) => {
     const { newWorktree: _legacy, ...rest } = settings;
 
@@ -501,6 +489,13 @@ const start = async () => {
       relay: device.connector,
       presence: SubscriptionRef.changes(presence),
       developerModeLease: dev,
+      sessionDefaultsHost: (hostKey, sessions) =>
+        followSessionDefaults(sessions, settings.sessionDefaults ?? {}, (sessionDefaults) => {
+          const event: AppEvent = { kind: "session-defaults", hostKey, sessionDefaults };
+
+          for (const win of BrowserWindow.getAllWindows())
+            win.webContents.send(CHANNELS.app, event);
+        }),
       entries: hostEntries({
         local: localDaemon,
         remotes: settings.hosts ?? [],
@@ -638,7 +633,6 @@ const start = async () => {
       cache,
       prices: openPrices(app.getPath("userData")),
       setAppearance,
-      setSessionDefault,
       setSessions,
       openExternal: (url) => shell.openExternal(url),
       serveFrame: (document) => frames.serve(document),

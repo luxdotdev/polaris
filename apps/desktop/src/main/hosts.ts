@@ -279,6 +279,10 @@ export interface HostDirectoryInput {
     hostKey: string,
     sessions: Stream.Stream<LiveSession | null>
   ) => Effect.Effect<void>;
+  readonly sessionDefaultsHost?: (
+    hostKey: string,
+    sessions: Stream.Stream<LiveSession | null>
+  ) => Effect.Effect<void>;
   /** Every connection's RPC options, e.g. whether requests carry trace context. */
   readonly rpc?: HostConnectionOptions["rpc"];
   /** Opens Hosts reached through a relay, as this app's relay device (`relayDevice.ts`). */
@@ -345,6 +349,7 @@ export class HostDirectory extends Context.Service<
     presence,
     developerModeLease,
     browserHost,
+    sessionDefaultsHost,
     rpc,
     relay,
   }: HostDirectoryInput) =>
@@ -438,6 +443,11 @@ export class HostDirectory extends Context.Service<
                 ? Effect.void
                 : browserHost(entry.key, own);
 
+            const sessionDefaults =
+              sessionDefaultsHost === undefined || own === undefined
+                ? Effect.void
+                : sessionDefaultsHost(entry.key, own);
+
             const track = changes.pipe(
               Stream.runForEach(() =>
                 Effect.gen(function* () {
@@ -457,10 +467,13 @@ export class HostDirectory extends Context.Service<
               )
             );
 
-            const tracker = yield* Effect.all([track, report, lease, developerMode, browsers], {
-              concurrency: "unbounded",
-              discard: true,
-            }).pipe(Effect.forkIn(scope));
+            const tracker = yield* Effect.all(
+              [track, report, lease, developerMode, browsers, sessionDefaults],
+              {
+                concurrency: "unbounded",
+                discard: true,
+              }
+            ).pipe(Effect.forkIn(scope));
 
             trackers.set(entry.key, tracker);
           });

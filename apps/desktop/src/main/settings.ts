@@ -68,7 +68,7 @@ export const Settings = Schema.Struct({
   codeFont: Schema.optionalKey(CodeFont),
   codeFontSize: Schema.optionalKey(CodeFontSize),
   wordWrap: Schema.optionalKey(Schema.Boolean),
-  /** By Harness kind. */
+  /** Legacy only: imported by each Host on first connect; new choices live on that Host. */
   sessionDefaults: Schema.optionalKey(Schema.Record(Schema.String, SessionDefault)),
   /** Settings → Sessions; each missing field takes its default. */
   sessions: Schema.optionalKey(SessionPrefsPatch),

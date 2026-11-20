@@ -1,3 +1,4 @@
+import { loadSessionDefaults } from "../hostSessionDefaults.ts";
 /**
  * The handlers behind `window.polaris.request`: one per method, each taking the
  * decoded input and returning a structured-clone-friendly output. Blobs the
@@ -21,7 +22,6 @@ import type {
   FileWriteView,
   Appearance,
   FileContentView,
-  SessionDefault,
   IpcError,
   RequestOutput,
 } from "../../shared/api.ts";
@@ -79,7 +79,6 @@ export interface RequestContext {
   /** The price table for Usage estimates. */
   readonly prices: Prices;
   readonly setAppearance: (patch: Partial<Appearance>) => void;
-  readonly setSessionDefault: (harness: string, value: SessionDefault | null) => void;
   readonly setSessions: (patch: SessionPrefsPatch) => void;
   readonly openExternal: (url: string) => Promise<void>;
   /** Holds a Visualization's frame document; the URL serves it once (`frames.ts`). */
@@ -307,7 +306,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
 
       return {
         ...appearanceOf(settings),
-        sessionDefaults: settings.sessionDefaults ?? {},
+        sessionDefaults: {},
         sessions: sessionPrefsOf(settings),
         version: ctx.appVersion,
         developmentBuild: ctx.developmentBuild,
@@ -327,8 +326,21 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   "settings.setDensity": ({ density }) =>
     Effect.sync(() => ctx.setAppearance({ density })).pipe(done),
   "settings.setAppearance": ({ patch }) => Effect.sync(() => ctx.setAppearance(patch)).pipe(done),
-  "settings.setSessionDefault": ({ harness, value }) =>
-    Effect.sync(() => ctx.setSessionDefault(harness, value)).pipe(done),
+  "settings.getSessionDefaults": ({ hostKey }) =>
+    onLive(hostKey, (session) => loadSessionDefaults(session.client)),
+  "settings.setSessionDefault": ({ hostKey, harness, value }) =>
+    onLive(hostKey, (session) =>
+      Effect.gen(function* () {
+        const fields = value ?? { model: null, effort: null, permissionMode: "supervised" };
+
+        for (const [field, settingValue] of Object.entries(fields)) {
+          yield* session.client["settings.set"]({
+            key: `sessions.defaults.${harness}.${field}`,
+            value: settingValue,
+          });
+        }
+      })
+    ).pipe(done),
   "settings.setSessions": ({ patch }) => Effect.sync(() => ctx.setSessions(patch)).pipe(done),
   "shell.openExternal": ({ url }) => {
     // Checked again here, so no path into this handler reaches the OS with another scheme.

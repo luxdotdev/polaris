@@ -1,3 +1,4 @@
+import { useHostSessionDefaults } from "../../settings/store.ts";
 /**
  * The new-session page (DESIGN.md, New session; Paper artboard 4): the scene,
  * where it runs, the composer and the Harness choice. Sends `StartSession`,
@@ -187,7 +188,7 @@ export const NewSessionPage = ({
   const { options, loading } = useAvailability(hostKey);
   const signIn = useSignIn(hostKey);
   const [permissionPick, setPermissionMode] = useState<PermissionMode | null>(null);
-  const defaults = useSettings((s) => s.sessionDefaults);
+  const defaults = useHostSessionDefaults(hostKey);
   const prefs = useSettings((s) => s.sessions);
   const [placement, setPlacement] = useState<PlacementChoice | null>(null);
   // Chosen up front so the branch the composer shows is the one the session gets.
