@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { ConstellationRejected, ConstellationFinding, type VisualsLevel } from "@polaris/protocol";
 import type { McpBinding } from "../../mcp/binding.ts";
 import {
-  constellationTools,
+  availableConstellationTools,
   errorResult,
   type BoundTool,
   type ConstellationCommands,
@@ -16,6 +16,7 @@ export interface ConstellationAttachment {
   readonly instructions: string;
   readonly url: string;
   readonly tools: ReadonlyArray<BoundTool>;
+  readonly listTools?: () => Promise<ReadonlyArray<BoundTool>>;
   /** The Visuals setting as the session opened (`rich` when absent); `off` drops `visualize`. */
   readonly visuals?: VisualsLevel;
 }
@@ -48,28 +49,38 @@ export const attachConstellation = Effect.fn("attachConstellation")(function* (
 
   const options = { visualize: visuals !== "off" };
 
-  // The listed catalog is fixed; each call runs against the binding as it stands now.
-  const tools = constellationTools(binding, commands, started, options).map((tool): BoundTool => ({
-    ...tool,
-    call: async (input, signal) => {
-      const current = await Effect.runPromise(tokens.authenticate(token));
+  const listTools = async (): Promise<ReadonlyArray<BoundTool>> => {
+    const current = await Effect.runPromise(tokens.authenticate(token));
 
-      const bound =
-        current === null
-          ? undefined
-          : constellationTools(current, commands, started, options).find(
-              (t) => t.name === tool.name
-            );
+    if (current === null) return [];
 
-      return bound === undefined ? revoked() : bound.call(input, signal);
-    },
-  }));
+    return (await availableConstellationTools(current, commands, started, options)).map(
+      (tool): BoundTool => ({
+        ...tool,
+        call: async (input, signal) => {
+          const current = await Effect.runPromise(tokens.authenticate(token));
+
+          const bound =
+            current === null
+              ? undefined
+              : (await availableConstellationTools(current, commands, started, options)).find(
+                  (t) => t.name === tool.name
+                );
+
+          return bound === undefined ? revoked() : bound.call(input, signal);
+        },
+      })
+    );
+  };
+
+  const tools = yield* Effect.promise(listTools);
 
   return {
     sessionId: binding.sessionId,
     instructions: constellationInstructions(binding),
     url: `${origin}/mcp/${token}${visuals === "off" ? "?visuals=off" : ""}`,
     tools,
+    listTools,
     visuals,
   } satisfies ConstellationAttachment;
 });

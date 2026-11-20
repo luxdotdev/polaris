@@ -338,6 +338,8 @@ export const USER_RPCS = {
   "developerMode.setWorkspace": "user",
   "developerMode.lease": "user",
   "developerMode.watch": "any",
+  "inspection.watch": "user",
+  "inspection.respond": "user",
   "traces.ingestSelf": "user",
   "traces.installSkill": "user",
   "requests.watch": "any",

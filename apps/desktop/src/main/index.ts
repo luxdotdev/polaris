@@ -50,6 +50,7 @@ import {
 } from "./hosts.ts";
 import { Effect, Layer, Option, SubscriptionRef } from "effect";
 import { type PresenceWatch, watchPresence } from "./presence/index.ts";
+import { serveInspection } from "./inspection.ts";
 import { hostDeveloperModes } from "./developerMode/index.ts";
 import { followFocus, followReviewRequests, githubLayer } from "./github/electron.ts";
 import { legacyTokens } from "./github/store.ts";
@@ -501,6 +502,7 @@ const start = async () => {
       relay: device.connector,
       presence: SubscriptionRef.changes(presence),
       developerModeLease: dev,
+      inspection: serveInspection,
       entries: hostEntries({
         local: localDaemon,
         remotes: settings.hosts ?? [],

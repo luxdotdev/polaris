@@ -37,6 +37,8 @@ import { installDebugHooks, reportStartupModules } from "../debug.ts";
 import { Engine } from "../engine/Engine.ts";
 import { EngineRpcHandlers } from "../engine/rpc.ts";
 import { VisualsRpcHandlers } from "../visuals/index.ts";
+import { DesktopInspection } from "../mcp/inspection/relay.ts";
+import { InspectionRpcHandlers } from "../mcp/inspection/rpc.ts";
 import { DeveloperModeLive, DeveloperModeRpcHandlers } from "../developerMode/index.ts";
 import { RestartRpcHandlers } from "../engine/restartRpc.ts";
 import { Continuity, ContinuityRpcsLive } from "../continuity/index.ts";
@@ -211,6 +213,7 @@ export const engineServices = Layer.mergeAll(
   Layer.provideMerge(ReviewerSessions.layer),
   // The live Developer Mode: what `selfTraceExport`, Traces and Data see (ENG-709).
   Layer.provideMerge(DeveloperModeLive),
+  Layer.provideMerge(DesktopInspection.layer),
   // The Simulator's hub and MCP server (ENG-829), loaded on first use; one instance with the Harnesses'.
   Layer.provideMerge(lazySimulator),
   // Co-author trailers read Teammates' commit emails from the Shares (ENG-941).
@@ -252,6 +255,7 @@ export const daemonHandlers = Layer.mergeAll(
   EngineRpcHandlers,
   VisualsRpcHandlers,
   DeveloperModeRpcHandlers,
+  InspectionRpcHandlers,
   lazyComputerUseHandlers,
   RestartRpcHandlers,
   ContinuityRpcsLive.pipe(Layer.provide(Continuity.layer)),
@@ -305,6 +309,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "commit.suggest-message",
   "approval.secret",
   "developer-mode",
+  "developer-mode.inspection",
   "data",
   "data.writes",
   "data.schemaDiff",
