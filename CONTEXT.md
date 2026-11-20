@@ -46,8 +46,16 @@ An Extension's link to one Host, made once by the user and revocable at any time
 _Avoid_: Connection (that is a Client's), login
 
 **Grant**:
-What a Pairing allows its Extension, or a Share allows its Teammate, to do on that Host: read, comment, approve, send Turns, start Agent Sessions, or use voice. Anything outside it is refused.
+What a Pairing allows its Extension, a Share allows its Teammate, or the user allows an Agent Session's agents to do on that Host: read, comment, approve, send Turns, start Agent Sessions, change settings, or use voice. Anything outside it is refused; an Agent Session asks for more through an Approval.
 _Avoid_: Permission (that is a Harness's permission mode), scope
+
+**Host Settings**:
+The settings a Host's Daemon keeps and applies to the work on that Host, such as the Harness and Model new Agent Sessions start with; the user and permitted agents change them from any Client.
+_Avoid_: Daemon config, preferences
+
+**Client Settings**:
+The settings one Client keeps for itself on its device, such as theme, density, fonts and keybindings; an agent's change to them is applied by that Client and can be undone there.
+_Avoid_: Preferences, app settings (unqualified)
 
 **Remote Access**:
 A Host the user has made reachable from their other devices, over Tailscale (for Extensions) or the Polaris Relay (for Linked Devices); each route is off until the user turns it on.
@@ -120,6 +128,10 @@ _Avoid_: Project, folder, repo (when meaning the registered directory)
 **Agent Session**:
 One durable conversation with one Harness in one Workspace, as supervised by Polaris; it outlives the Harness process and Daemon restarts, and never changes Harness.
 _Avoid_: Thread, chat, run
+
+**Starter**:
+Who started an Agent Session: the user, another Agent Session, an Extension, or the CLI; recorded when it starts and never changed. An Agent Session started by another counts against its Starter's limit on running sessions.
+_Avoid_: Origin (that is the session that wrote code), parent (that is a Subagent's or a Task's), creator, requester
 
 **Worktree**:
 A git worktree of a Workspace, tracked by Polaris wherever it lives on disk (whether Polaris, the user, or a Harness created it) and shown under the Agent Session that created it.
