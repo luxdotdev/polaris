@@ -33,6 +33,7 @@ export class ForwardQueue {
   get stats() {
     return {
       queued: this.pending.length,
+      sending: this.active !== null,
       bytes: this.bytes,
       dropped: this.dropped,
       failed: this.failed,
