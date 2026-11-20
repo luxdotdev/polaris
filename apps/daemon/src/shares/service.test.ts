@@ -54,12 +54,24 @@ afterEach(() => {
   servers.splice(0).forEach((server) => server.stop());
 });
 
-const issuer = async () => {
-  const server = await startFakeIssuer();
+const issuer = async (now?: () => number) => {
+  const server = await startFakeIssuer({ now });
   servers.push(server);
   server.invite(INVITE, CAPABILITY);
 
   return server;
+};
+
+/** A clock that moves only when told, from a whole second so a statement's `exp` lands exactly. */
+const frozenClock = () => {
+  let at = Math.ceil(Date.now() / 1000) * 1000;
+
+  return {
+    now: () => at,
+    advance: (ms: number) => {
+      at += ms;
+    },
+  };
 };
 
 const key = () => randomBytes(32).toString("base64url");
@@ -107,6 +119,7 @@ const onHost = <A, E>(
       Effect.provide(
         sharesLayer({
           fetch: server.fetch,
+          now: server.now,
           timing: { waitS: 2, pauseMs: 5, retryMs: 20 },
           skewMs: 0,
         }).pipe(
@@ -140,15 +153,42 @@ const invite = (server: FakeIssuer, fields: Partial<CreateInput> = {}) => ({
   ...fields,
 });
 
+/** Fails a wait that outlasts this, under bun's 5 s test timeout so the message names it. */
+const within =
+  (what: string) =>
+  <A, E, R>(wait: Effect.Effect<A, E, R>) =>
+    wait.pipe(
+      Effect.timeoutOrElse({
+        duration: "4 seconds",
+        orElse: () => Effect.die(new Error(`timed out waiting for ${what}`)),
+      })
+    );
+
+/** Polls a probe with no event to wait on. */
 const until = (probe: () => boolean, what: string) =>
   Effect.gen(function* () {
-    for (let i = 0; i < 300; i++) {
-      if (probe()) return;
-      yield* Effect.sleep("5 millis");
-    }
+    while (!probe()) yield* Effect.sleep("5 millis");
+  }).pipe(within(what));
 
-    return yield* Effect.die(new Error(`timed out waiting for ${what}`));
-  });
+/**
+ * Waits for the Host to list `count` peers, checked each time its peers change; it resumes
+ * after the Host's settle returns, not inside its listener.
+ */
+const peersReach = (count: number, what: string) =>
+  Effect.flatMap(Shares, (shares) =>
+    Effect.callback<void>((resume) => {
+      const check = () => {
+        if (shares.guests.peers().length === count) resume(Effect.void);
+      };
+
+      const stop = shares.guests.watch(check);
+      check();
+
+      return Effect.sync(() => {
+        stop();
+      });
+    })
+  ).pipe(Effect.andThen(Effect.yieldNow), within(what));
 
 /** A handshake whose init names nobody, as a Client before ENG-941's two Accounts sends. */
 const NO_PAYLOAD = new Uint8Array();
@@ -165,6 +205,14 @@ const admits = (listed: FakeDevice) =>
   );
 
 /** "accepted", a refusal's reason, or what a NotFound did not find. */
+const endings = new WeakMap<DeviceSession, Promise<void>>();
+
+/** Waits for a session `withSession` served to end. */
+const ends = (session: DeviceSession, what: string) =>
+  Effect.promise(() => endings.get(session) ?? Promise.reject(new Error("not served here"))).pipe(
+    within(what)
+  );
+
 /** A device with a real Noise key, and its session as the relay link would hand it over. */
 const withSession = () => {
   const host = generateStaticKeyPair();
@@ -178,12 +226,17 @@ const withSession = () => {
   );
 
   const serve = (shares: Shares["Service"]) => {
+    const { promise: over, resolve } = Promise.withResolvers<void>();
+
     const served = new DeviceSession(
       Schema.decodeSync(RelayAddress)(listed.relayAddress),
       session,
       {
         send: () => Promise.resolve(),
-        ended: (ended) => shares.guests.ended(ended),
+        ended: (ended) => {
+          shares.guests.ended(ended);
+          resolve();
+        },
       }
     );
 
@@ -191,6 +244,7 @@ const withSession = () => {
 
     if (guestId === null) throw new Error("the device was not admitted");
     shares.guests.serve(served, guestId);
+    endings.set(served, over);
 
     return served;
   };
@@ -222,7 +276,7 @@ test("a live Share lists and admits the device its issuer vouches for, and logs 
       expect(yield* admits(phone)).toBe(false);
 
       server.list(INVITE, [phone]);
-      yield* until(() => shares.guests.peers().length === 1, "the device to be listed");
+      yield* peersReach(1, "the device to be listed");
 
       expect(shares.guests.peers()).toEqual([Schema.decodeSync(RelayAddress)(phone.relayAddress)]);
       expect(yield* admits(phone)).toBe(true);
@@ -329,7 +383,7 @@ test("a handshake that names nobody on a key with two persons is admitted as nei
       yield* shares.create(invite(server), OWNER);
       yield* shares.create(invite(server, { personId: WORK, inviteId: WORK_INVITE }), OWNER);
       server.list(INVITE, [phone]);
-      yield* until(() => shares.guests.peers().length === 1, "the first person to be listed");
+      yield* peersReach(1, "the first person to be listed");
 
       // Under one person the key is that person, as before.
       serve(shares);
@@ -385,7 +439,7 @@ test.each(unvouched)("a device %s is neither listed nor admitted", async (_, lis
       yield* shares.create(invite(server), OWNER);
       // The honest device after it proves the whole list was read.
       server.list(INVITE, [listed, honest]);
-      yield* until(() => shares.guests.peers().length > 0, "the list to be read");
+      yield* peersReach(1, "the list to be read");
 
       expect(yield* admits(honest)).toBe(true);
       expect(yield* admits(listed)).toBe(false);
@@ -405,7 +459,7 @@ test("revoking ends the person's session and stops admitting the device at once,
       const shares = yield* Shares;
       const share = yield* shares.create(invite(server), OWNER);
       server.list(INVITE, [phone]);
-      yield* until(() => shares.guests.peers().length === 1, "the device to be listed");
+      yield* peersReach(1, "the device to be listed");
       const session = serve(shares);
 
       expect(session.isClosed).toBe(false);
@@ -453,7 +507,8 @@ test("a Host whose Shares have all ended asks no issuer anything", async () => {
 });
 
 test("a Share that expires ends its session, stops admitting its device and logs it; renewing admits it again", async () => {
-  const server = await issuer();
+  const clock = frozenClock();
+  const server = await issuer(clock.now);
   const { listed: phone, serve } = withSession();
 
   await onHost(
@@ -461,12 +516,13 @@ test("a Share that expires ends its session, stops admitting its device and logs
     server,
     Effect.gen(function* () {
       const shares = yield* Shares;
-      const soon = new Date(Date.now() + 150).toISOString();
+      const soon = new Date(clock.now() + 150).toISOString();
       const share = yield* shares.create(invite(server, { expiresAt: soon }), OWNER);
       server.list(INVITE, [phone]);
-      yield* until(() => shares.guests.peers().length === 1, "the device to be listed");
+      yield* peersReach(1, "the device to be listed");
       const session = serve(shares);
-      yield* until(() => shares.guests.peers().length === 0, "the Share to expire");
+      clock.advance(150);
+      yield* peersReach(0, "the Share to expire");
 
       expect(session.isClosed).toBe(true);
 
@@ -475,8 +531,8 @@ test("a Share that expires ends its session, stops admitting its device and logs
 
       const renewed: Share = yield* shares.renew(share.id, null, OWNER);
 
-      expect(Date.parse(renewed.expiresAt)).toBeGreaterThan(Date.now() + 60_000);
-      yield* until(() => shares.guests.peers().length === 1, "the device to be listed again");
+      expect(Date.parse(renewed.expiresAt)).toBeGreaterThan(clock.now() + 60_000);
+      yield* peersReach(1, "the device to be listed again");
       expect(yield* admits(phone)).toBe(true);
     })
   );
@@ -533,7 +589,7 @@ test("a device's own newer statement is taken only for that device and person", 
       const shares = yield* Shares;
       yield* shares.create(invite(server), OWNER);
       server.list(INVITE, [phone]);
-      yield* until(() => shares.guests.peers().length === 1, "the device to be listed");
+      yield* peersReach(1, "the device to be listed");
 
       const teammate = {
         issuer: server.issuer,
@@ -560,7 +616,8 @@ test("a device's own newer statement is taken only for that device and person", 
 });
 
 test("a session ends when its device's statement lapses or the issuer no longer lists it", async () => {
-  const server = await issuer();
+  const clock = frozenClock();
+  const server = await issuer(clock.now);
   const lapsing = withSession();
   const leaving = withSession();
 
@@ -571,14 +628,18 @@ test("a session ends when its device's statement lapses or the issuer no longer 
       const shares = yield* Shares;
       yield* shares.create(invite(server), OWNER);
       server.list(INVITE, [{ ...lapsing.listed, statement: { ttlS: 1 } }, leaving.listed]);
-      yield* until(() => shares.guests.peers().length === 2, "both devices to be listed");
+      yield* peersReach(2, "both devices to be listed");
       const lapsed = lapsing.serve(shares);
       const left = leaving.serve(shares);
 
-      // The list as the issuer has it once the second device's session ended there.
-      server.list(INVITE, [{ ...lapsing.listed, statement: { ttlS: -5 } }]);
-      yield* until(() => left.isClosed, "the unlisted device's session to end");
-      yield* until(() => lapsed.isClosed, "the lapsed statement's session to end");
+      // The issuer stops listing the second device 10 ms before the first one's statement lapses.
+      clock.advance(990);
+      server.list(INVITE, [{ ...lapsing.listed, statement: { ttlS: 1 } }]);
+      yield* ends(left, "the unlisted device's session to end");
+
+      expect(lapsed.isClosed).toBe(false);
+      clock.advance(10);
+      yield* ends(lapsed, "the lapsed statement's session to end");
 
       expect(shares.guests.peers()).toEqual([]);
     })
@@ -615,7 +676,7 @@ test("a device one Share stops listing loses that Share and its open session, an
 
       // The first Share's Invite no longer lists the phone; the second still does.
       server.list(INVITE, []);
-      yield* until(() => open.isClosed, "the session that held the first Share to end");
+      yield* ends(open, "the session that held the first Share to end");
 
       expect(mine()).toEqual([second.id]);
       expect(mine()).not.toContain(first.id);
