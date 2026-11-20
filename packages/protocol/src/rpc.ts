@@ -2,6 +2,8 @@
  * Portions adapted from pingdotgg/t3code@de251fc (MIT): resumable sequenced subscriptions.
  */
 import { Effect, Schema } from "effect";
+import { CommandAnnotation, defineCommands } from "./commandAnnotations.ts";
+import * as CommandBindings from "./commandBindings.ts";
 
 import { FileContent, FileEntry, FileError, EditorFileRpcs } from "./files.ts";
 
@@ -140,7 +142,7 @@ export const Dispatch = Rpc.make("dispatch", {
   /** Sequence of the last event the command produced; a retried commandId returns the original. */
   success: Schema.Struct({ sequence: Schema.NullOr(Sequence) }),
   error: Schema.Union([CommandRejected, NotFound]),
-});
+}).annotate(CommandAnnotation, CommandBindings.dispatchCommands);
 
 // ── Streams ─────────────────────────────────────────────────────────────────
 
@@ -176,7 +178,7 @@ export const SubscribeHost = Rpc.make("subscribeHost", {
   payload: { afterSequence: Schema.NullOr(Sequence) },
   success: HostStreamItem,
   stream: true,
-});
+}).annotate(CommandAnnotation, CommandBindings.hostCommands);
 
 export const SessionStreamItem = Schema.TaggedUnion({
   Snapshot: {
@@ -223,7 +225,7 @@ export const SubscribeSession = Rpc.make("subscribeSession", {
   success: SessionStreamItem,
   error: NotFound,
   stream: true,
-});
+}).annotate(CommandAnnotation, CommandBindings.sessionCommands);
 
 /** How to launch a Harness's own terminal UI for a session that is In Terminal. */
 export class TerminalLaunch extends Schema.Class<TerminalLaunch>("TerminalLaunch")({
@@ -746,7 +748,7 @@ export const ClearAttachments = Rpc.make("attachments.clear", {
 /** Every Daemon RPC before the user gate; `DaemonRpcTag` reads its tags. */
 export const DaemonRpcDefinitions = RpcGroup.make(
   InlinePropose,
-  Hello,
+  Hello.annotate(CommandAnnotation, CommandBindings.localHostCommands),
   Dispatch,
   SubscribeHost,
   SubscribeSession,
@@ -801,6 +803,8 @@ export const DaemonRpcDefinitions = RpcGroup.make(
 // A const, not a class: inferring `RpcGroup.Rpcs` from a class over the gated group is
 // too deep for the linter's single-program checker (TS2589), which types every Client as `any`.
 export const DaemonRpcs = gateUserRpcs(DaemonRpcDefinitions);
+
+export const commands = defineCommands(DaemonRpcs);
 
 /**
  * `DaemonRpcs` as the Daemon serves it to Extensions: every RPC can fail with
