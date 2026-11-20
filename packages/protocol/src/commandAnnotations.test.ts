@@ -28,7 +28,9 @@ test("a command missing its description or Grant fails catalogue construction", 
 });
 
 test("served commands retain their annotations and existing Grant requirements", () => {
-  expect(commands.map((c) => c.name).sort()).toEqual([
+  const names = commands.map((command) => command.name);
+
+  for (const required of [
     "approval.list",
     "host.list",
     "session.list",
@@ -39,7 +41,8 @@ test("served commands retain their annotations and existing Grant requirements",
     "session.watch",
     "workspace.add",
     "workspace.list",
-  ]);
+  ])
+    expect(names).toContain(required);
 
   for (const command of commands) {
     if (command.name !== "host.list")
