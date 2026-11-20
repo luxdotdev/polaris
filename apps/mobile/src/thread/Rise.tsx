@@ -23,8 +23,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { Celestial } from "../celestial";
-import { Horizon } from "../horizon";
-import { HORIZON_HEIGHT, RIDGE_TOP } from "../horizon/scene.ts";
+import { Horizon, HORIZON_HEIGHT, RIDGE_TOP } from "../horizon";
 import { useReducedMotion } from "../theme/index.ts";
 
 /** The header slot's celestial, in points. */

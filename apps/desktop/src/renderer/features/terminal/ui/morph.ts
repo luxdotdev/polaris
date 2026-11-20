@@ -2,7 +2,7 @@
  * The terminal morph (DESIGN.md, Motion → Morphs): a card's foot divides into the terminal card
  * (and, in the Editor, the status strip under it), and joins back when the terminal hides.
  */
-import { MORPH_EASE, MORPH_MS, reducedMotion } from "@polaris/ui";
+import { MORPH_EASE, MORPH_MS, reducedMotion, windowArt } from "@polaris/ui";
 
 /** How long the terminal stays mounted after it hides, for the join to play. */
 export const EXIT_MS = 200;
@@ -134,25 +134,16 @@ const moving = ({ well, terminal, strip, fill }: Parts) =>
   strip === null ? [well, terminal, fill] : [well, terminal, strip, fill];
 
 /**
- * Paints the stand-in edge with the card's scene, where it has one: the art reaches the column's
- * foot (`data-scene-frame`), so the same background, offset, continues it under the card.
+ * Paints the stand-in edge with the card's scene, where it has one: the art is pinned to the
+ * window, so the same art, placed for the edge, continues it under the card.
  */
 const paintFill = (fill: HTMLElement, card: HTMLElement) => {
   const scene = card.querySelector<HTMLElement>('[data-slot="scene"]');
+  const art = scene === null ? null : windowArt(scene, fill);
 
-  if (scene === null) {
-    fill.style.backgroundImage = "";
-
-    return;
-  }
-
-  const art = getComputedStyle(scene);
-  const [x = "0px", y = "0px"] = art.backgroundPosition.split(" ");
-  const offset = fill.getBoundingClientRect().top - scene.getBoundingClientRect().top;
-
-  fill.style.backgroundImage = art.backgroundImage;
-  fill.style.backgroundSize = art.backgroundSize;
-  fill.style.backgroundPosition = `${x} calc(${y} - ${offset}px)`;
+  fill.style.backgroundImage = art?.image ?? "";
+  fill.style.backgroundSize = art?.size ?? "";
+  fill.style.backgroundPosition = art?.position ?? "";
 };
 
 const play = (parts: Parts, steps: readonly number[], timing: KeyframeAnimationOptions) => {

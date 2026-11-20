@@ -109,7 +109,7 @@ const Workbench = (slot: RequestsSlotProps) => {
           onNew={onNew}
           onPasteCurl={() => setCurlOpen(true)}
         />
-        <Horizon moon={false} />
+        <Horizon />
       </div>
       <section className="border-hairline bg-panel shadow-panel flex min-w-0 flex-1 flex-col overflow-hidden rounded-[12px] border">
         <PendingOriginApprovals at={at} />

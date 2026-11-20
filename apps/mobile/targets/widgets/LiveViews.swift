@@ -92,7 +92,7 @@ struct LiveElapsed: View {
   }
 }
 
-/// The ridges at the card's foot, as Home's horizon (MX-AZ), in the theme's ridge colours.
+/// The ridges at the card's foot (MX-AZ) in the foot scene's colours, the hills Home's horizon draws.
 struct LiveHorizon: View {
   let palette: ThemePalette
 
@@ -134,9 +134,9 @@ struct LiveHorizon: View {
   var body: some View {
     ZStack(alignment: .topLeading) {
       LinearGradient(
-        colors: [ThemeColour(0x465CBE, alpha: 0x29).color, .clear], startPoint: .bottom, endPoint: .top)
-      Ridge(steps: Self.back, base: 16).fill(palette.ridgeBack.color)
-      Ridge(steps: Self.front, base: 34).fill(palette.ridgeFront.color)
+        colors: [palette.hillSky.color, .clear], startPoint: .bottom, endPoint: .top)
+      Ridge(steps: Self.back, base: 16).fill(palette.hillFar.color)
+      Ridge(steps: Self.front, base: 34).fill(palette.hillNear.color)
       ForEach(Array(Self.stars.enumerated()), id: \.offset) { _, star in
         Rectangle().fill(palette.starlight.color.opacity(star.2)).frame(width: 1.5, height: 1.5)
           .offset(x: star.0, y: star.1)

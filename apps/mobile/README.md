@@ -181,7 +181,15 @@ module `modules/polaris-live-activity` and `src/live/`.
   `-polarisDevStates pair|another|empty|offline|review|thread` (and `-polarisDevTheme moonlit`).
 - **Themes outside the app.** `WidgetSync` writes the theme's name to the App Group under
   `polaris.theme`; `targets/widgets/Theme.swift` reads it (`PolarisTheme.current`) and holds both
-  palettes. `scripts/widgets.theme.test.ts` checks them against `@polaris/ui`'s tokens.
+  palettes. `scripts/widgets.theme.test.ts` checks them against `@polaris/ui`'s tokens and the foot
+  scene's hill colours, so the widgets' ridges read as the horizon's hills.
+- **The horizon.** `src/horizon/` draws the theme's foot scene from `design/assets/scenes`, the
+  same pixel scene the Desktop App draws along its window's foot: `scene-night-foot.png` in
+  Moonlit, `scene-midnight-foot.png` in Midnight (Metro watches that folder,
+  `metro.config.mjs`). It shows one image pixel per device pixel, its foot on the screen's,
+  centred and cropped, and fades in over its top so content scrolling behind fades out.
+  `RIDGE_TOP` and `HORIZON_CLEAR` follow the pixel ratio: a 2x iPhone shows taller hills.
+  `scene.test.ts` reads the PNGs, so a regenerated scene that moves its hills fails there.
 
 ## Visualizations
 

@@ -6,6 +6,12 @@ import expoMetroConfig from "expo/metro-config";
 
 const config = expoMetroConfig.getDefaultConfig(import.meta.dirname);
 
+// The horizon draws the Desktop App's foot scenes straight from design/assets (src/horizon).
+config.watchFolders = [
+  ...config.watchFolders,
+  join(import.meta.dirname, "../../design/assets/scenes"),
+];
+
 const sodium = new URL("src/sodium/universal.ts", import.meta.url).pathname;
 
 // Pierre's index pulls in Shiki and the DOM renderer; the app only parses patches (src/review/patch.ts).

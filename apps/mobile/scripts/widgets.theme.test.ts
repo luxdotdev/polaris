@@ -1,13 +1,13 @@
 /**
- * The extensions' theme: `targets/widgets/Theme.swift` holds @polaris/ui's tokens and the
- * horizon's ridges for both themes, and reads the name the app writes. The Swift run needs swiftc and SwiftUI, so macOS.
+ * The extensions' theme: `targets/widgets/Theme.swift` holds @polaris/ui's tokens and the foot
+ * scene's hills for both themes, and reads the name the app writes. The Swift run needs swiftc and SwiftUI, so macOS.
  */
 import { afterAll, describe, expect, test } from "bun:test";
 import { midnight, moonlit } from "@polaris/ui/tokens";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PALETTES } from "../src/horizon/scene.ts";
+import { HILLS } from "../src/horizon/scene.ts";
 import { THEME_KEY, themePublisher } from "../src/widgets/theme.ts";
 
 const THEME_SWIFT = join(import.meta.dir, "../targets/widgets/Theme.swift");
@@ -35,9 +35,9 @@ describe("Theme.swift", () => {
   test.each([
     ["midnight", midnight],
     ["moonlit", moonlit],
-  ] as const)("%s holds @polaris/ui's tokens and the horizon's ridges", (name, tokens) => {
+  ] as const)("%s holds @polaris/ui's tokens and the foot scene's hills", (name, tokens) => {
     const palette = swiftPalette(name);
-    const { ridgeBack, ridgeFront, ...colours } = palette;
+    const { hillSky, hillFar, hillNear, ...colours } = palette;
 
     expect(Object.keys(colours).length).toBeGreaterThan(10);
 
@@ -46,9 +46,10 @@ describe("Theme.swift", () => {
     for (const [key, value] of Object.entries(colours))
       expect([key, value]).toEqual([key, expected[key]?.toLowerCase() ?? "missing"]);
 
-    expect([ridgeBack, ridgeFront]).toEqual([
-      PALETTES[name].back.toLowerCase(),
-      PALETTES[name].front.toLowerCase(),
+    expect([hillSky, hillFar, hillNear]).toEqual([
+      HILLS[name].sky.toLowerCase(),
+      HILLS[name].far.toLowerCase(),
+      HILLS[name].near.toLowerCase(),
     ]);
   });
 

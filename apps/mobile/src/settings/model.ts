@@ -9,8 +9,8 @@ export const THEME_CARDS: ReadonlyArray<{
   readonly title: string;
   readonly caption: string;
 }> = [
-  { name: "midnight", title: "Midnight", caption: "Stars only, black ground" },
-  { name: "moonlit", title: "Moonlit", caption: "A pixel moon, softer ground" },
+  { name: "midnight", title: "Midnight", caption: "Galaxies, black ground" },
+  { name: "moonlit", title: "Moonlit", caption: "A navy night, softer ground" },
 ];
 
 export interface HostsLine {

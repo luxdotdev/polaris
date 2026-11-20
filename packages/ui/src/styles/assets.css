@@ -1,5 +1,6 @@
 /*
- * Theme-dependent images from design/assets: watercolour washes, pixel scenes and dither halos.
+ * Theme-dependent images from design/assets: watercolour washes, pixel scenes (each with the foot
+ * the horizon draws under text) and dither halos.
  * Images can't be light-dark() pairs, so each theme scope sets the variables.
  */
 :root,
@@ -11,6 +12,7 @@
   --wash-starlight: url("../../../../design/assets/washes/wash-starlight-dark.png");
   --wash-needs-you: url("../../../../design/assets/washes/wash-needs-dark.png");
   --scene: url("../../../../design/assets/scenes/scene-night.png");
+  --scene-foot: url("../../../../design/assets/scenes/scene-night-foot.png");
   --scene-kind: night;
   --scene-clearing: #070912;
   --halo-claude-code: url("../../../../design/assets/halos/halo-claude.png");
@@ -27,6 +29,7 @@
     --wash-starlight: url("../../../../design/assets/washes/wash-starlight-light.png");
     --wash-needs-you: url("../../../../design/assets/washes/wash-needs-light.png");
     --scene: url("../../../../design/assets/scenes/scene-dawn.png");
+    --scene-foot: url("../../../../design/assets/scenes/scene-dawn-foot.png");
     --scene-kind: dawn;
     --scene-clearing: #fbfbfc;
     --halo-claude-code: url("../../../../design/assets/halos/halo-claude-light.png");
@@ -43,10 +46,29 @@
   --wash-starlight: url("../../../../design/assets/washes/wash-starlight-light.png");
   --wash-needs-you: url("../../../../design/assets/washes/wash-needs-light.png");
   --scene: url("../../../../design/assets/scenes/scene-dawn.png");
+  --scene-foot: url("../../../../design/assets/scenes/scene-dawn-foot.png");
   --scene-kind: dawn;
   --scene-clearing: #fbfbfc;
   --halo-claude-code: url("../../../../design/assets/halos/halo-claude-light.png");
   --halo-codex: url("../../../../design/assets/halos/halo-codex-light.png");
   --halo-opencode: url("../../../../design/assets/halos/halo-opencode-light.png");
   --halo-starlight: url("../../../../design/assets/halos/halo-starlight-light.png");
+}
+
+/* Midnight has its own sky (DESIGN.md, Pixel scenes); its washes and halos stay dark's. */
+[data-theme="midnight"],
+[data-theme="dark"][data-theme-dark="midnight"] {
+  --scene: url("../../../../design/assets/scenes/scene-midnight.png");
+  --scene-foot: url("../../../../design/assets/scenes/scene-midnight-foot.png");
+  --scene-kind: midnight;
+  --scene-clearing: #000000;
+}
+
+@media not (prefers-color-scheme: light) {
+  :root:not([data-theme])[data-theme-dark="midnight"] {
+    --scene: url("../../../../design/assets/scenes/scene-midnight.png");
+    --scene-foot: url("../../../../design/assets/scenes/scene-midnight-foot.png");
+    --scene-kind: midnight;
+    --scene-clearing: #000000;
+  }
 }

@@ -19,12 +19,24 @@ const run = (model: SceneMotion, ms: number, each: (t: number) => void) => {
 };
 
 describe("the scene maps", () => {
-  test("carry what motion needs", () => {
-    expect(night.kind).toBe("night");
-    expect(night.stars.length).toBeGreaterThan(100);
-    expect(night.skyline).toHaveLength(night.width);
-    expect(night.cabin.lamp.length).toBeGreaterThan(0);
-    expect(night.meteor).toHaveLength(4);
+  test.each(["night", "midnight"] as const)("%s carries what motion needs", (name) => {
+    const sky = SCENES[name];
+
+    expect(sky.kind).toBe("night");
+    expect(sky.stars.length).toBeGreaterThan(100);
+    expect(sky.skyline).toHaveLength(sky.width);
+    expect(sky.cabin.lamp.length).toBeGreaterThan(0);
+    expect(sky.meteor).toHaveLength(4);
+  });
+
+  test.each(["night", "midnight"] as const)("%s's stars are star-palette colours", (name) => {
+    const sky = SCENES[name];
+    const colours = new Set(sky.stars.map(([, , colour]) => colour));
+
+    expect([...colours].every((colour) => sky.meteor.includes(colour))).toBe(true);
+  });
+
+  test("dawn has birds, not stars", () => {
     expect(dawn.stars).toHaveLength(0);
     expect(dawn.bird).toMatch(/^#[0-9A-F]{6}$/);
   });

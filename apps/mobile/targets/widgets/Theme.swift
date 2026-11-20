@@ -1,5 +1,5 @@
 // The app's two themes for its extensions (widgets, a Live Activity): Midnight, the default, and
-// Moonlit. Values are @polaris/ui's tokens and the horizon's ridges; widgets.theme.test.ts checks.
+// Moonlit. Values are @polaris/ui's tokens and the foot scene's hills; widgets.theme.test.ts checks.
 import Foundation
 import SwiftUI
 
@@ -41,9 +41,10 @@ struct ThemePalette: Equatable {
   let harnessClaudeCode: ThemeColour
   let harnessCodex: ThemeColour
   let harnessOpencode: ThemeColour
-  /// The horizon's far and near ridges (apps/mobile/src/horizon/scene.ts).
-  let ridgeBack: ThemeColour
-  let ridgeFront: ThemeColour
+  /// The foot scene's sky along the hills, then its far and near hills (src/horizon/scene.ts).
+  let hillSky: ThemeColour
+  let hillFar: ThemeColour
+  let hillNear: ThemeColour
 }
 
 enum PolarisTheme: String {
@@ -82,8 +83,9 @@ extension ThemePalette {
     harnessClaudeCode: ThemeColour(0xD97757),
     harnessCodex: ThemeColour(0x6FCBA0),
     harnessOpencode: ThemeColour(0xE59AC1),
-    ridgeBack: ThemeColour(0x151A3A),
-    ridgeFront: ThemeColour(0x0B1026)
+    hillSky: ThemeColour(0x040508),
+    hillFar: ThemeColour(0x0A0B0F),
+    hillNear: ThemeColour(0x040406)
   )
 
   static let moonlit = ThemePalette(
@@ -104,7 +106,8 @@ extension ThemePalette {
     harnessClaudeCode: ThemeColour(0xD97757),
     harnessCodex: ThemeColour(0x6FCBA0),
     harnessOpencode: ThemeColour(0xE59AC1),
-    ridgeBack: ThemeColour(0x262B45),
-    ridgeFront: ThemeColour(0x1E2236)
+    hillSky: ThemeColour(0x1C2542),
+    hillFar: ThemeColour(0x141A2C),
+    hillNear: ThemeColour(0x0B0F1E)
   )
 }

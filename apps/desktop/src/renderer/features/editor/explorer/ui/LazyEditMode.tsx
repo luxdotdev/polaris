@@ -27,7 +27,7 @@ const EditShell = () => {
   return (
     <ModeShell mode="edit">
       {workspaceId === null ? null : (
-        <SidebarFrame label="Explorer" moon>
+        <SidebarFrame label="Explorer">
           <EditorPanel />
         </SidebarFrame>
       )}

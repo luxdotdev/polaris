@@ -116,7 +116,6 @@ class MorphColumn extends Component<MorphProps, NoState> {
         data-host-key={hostKey}
         data-workspace-id={workspaceId}
         data-terminal={placement === "strip" ? "shown" : "hidden"}
-        data-scene-frame
         data-testid="terminal-dock"
       >
         <div
