@@ -4,6 +4,7 @@
  */
 import { copyFileSync, existsSync, mkdirSync, renameSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { withBuildLock } from "./buildLock.ts";
 
 const workspace = join(import.meta.dir, "../..");
 
@@ -48,15 +49,19 @@ const build = (): string => {
   if (cargo === null)
     throw new Error("the relay is built with cargo, which is not on PATH (see CONTRIBUTING.md)");
 
-  const built = Bun.spawnSync([cargo, "build", "--release", "--locked", "-p", "polaris-relay"], {
-    cwd: workspace,
-    stdout: "ignore",
-    stderr: "pipe",
-  });
+  const target = process.env.CARGO_TARGET_DIR ?? join(workspace, "target");
+
+  // One build at a time across processes: the first may install the toolchain (ENG-995).
+  const built = withBuildLock(join(target, "contract", "build.lock"), () =>
+    Bun.spawnSync([cargo, "build", "--release", "--locked", "-p", "polaris-relay"], {
+      cwd: workspace,
+      stdout: "ignore",
+      stderr: "pipe",
+    })
+  );
 
   if (built.exitCode !== 0)
     throw new Error(`cargo could not build the relay (apps/relay):\n${built.stderr.toString()}`);
-  const target = process.env.CARGO_TARGET_DIR ?? join(workspace, "target");
 
   return snapshot(join(target, "release", NAME), join(target, "contract"));
 };
