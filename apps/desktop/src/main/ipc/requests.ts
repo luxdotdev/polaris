@@ -1,3 +1,4 @@
+import type { CommandInstaller } from "../commandInstall.ts";
 /**
  * The handlers behind `window.polaris.request`: one per method, each taking the
  * decoded input and returning a structured-clone-friendly output. Blobs the
@@ -63,6 +64,7 @@ import type { PredictionBridge } from "../prediction/bridge.ts";
 
 /** What the handlers need from the app outside the Client runtime. */
 export interface RequestContext {
+  readonly commandInstaller?: CommandInstaller;
   readonly predictionBridge?: PredictionBridge;
   readonly predictionSettings?: PredictionSettings;
   readonly predictionOutcomes?: PredictionOutcomes;
@@ -156,7 +158,26 @@ const plainVersion = (v: FileVersion): FileVersionView => ({
   hash: v.hash,
 });
 
+const commandInstall = <A>(run: () => A | Promise<A>) =>
+  Effect.tryPromise({
+    try: async () => run(),
+    catch: (error): IpcError => ({
+      code: "CommandInstallFailed",
+      message: error instanceof Error ? error.message : String(error),
+    }),
+  });
+
+const installerOf = (ctx: RequestContext) => {
+  if (ctx.commandInstaller === undefined) throw new Error("Command installation is not available");
+
+  return ctx.commandInstaller;
+};
+
 export const requestHandlers = (ctx: RequestContext): Handlers => ({
+  "commandInstall.get": () => commandInstall(() => installerOf(ctx).get()),
+  "commandInstall.change": ({ action, location }) =>
+    commandInstall(() => installerOf(ctx).change(action, location)),
+  "commandInstall.dismiss": () => commandInstall(() => installerOf(ctx).dismiss()),
   "prediction.metrics": () =>
     Effect.tryPromise({
       try: () => {

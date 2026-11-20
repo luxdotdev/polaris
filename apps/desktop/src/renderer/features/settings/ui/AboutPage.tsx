@@ -1,3 +1,4 @@
+import { CommandInstallCard } from "../../command-install/CommandInstall.tsx";
 /**
  * Settings → About (DESIGN.md, SR-12): the mark with "Polaris {version}" from the running app,
  * quiet app Updates, the precise per-check privacy fields, and each host's daemon version.
@@ -394,6 +395,7 @@ export const AboutPage = () => {
         <WhatPolarisSends view={view} />
         <Daemons version={version} />
       </SettingsGrid>
+      <CommandInstallCard />
       <DeveloperModeCard />
     </div>
   );

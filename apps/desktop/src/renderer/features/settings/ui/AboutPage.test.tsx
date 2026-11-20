@@ -15,10 +15,13 @@ import { DEFAULT_DEVELOPER_MODE, DeveloperMode, WorkspaceId } from "@polaris/pro
 import { DEFAULT_SESSION_PREFS } from "../../../../shared/sessionPrefs.ts";
 import { developerModes } from "../developerModeSync.ts";
 import { settingsStore } from "../store.ts";
+import { commandInstallStore } from "../../command-install/store.ts";
 import { AboutPage } from "./AboutPage.tsx";
 
 afterEach(() => {
   cleanup();
+  standInBridge(null);
+  commandInstallStore.setState({ view: null, problem: null, busy: false });
   updatesStore.setState({ view: null, problem: null, changing: false });
   developerModes.setState({}, true);
   settingsStore.setState({ sessions: DEFAULT_SESSION_PREFS, developmentBuild: false });
@@ -137,6 +140,8 @@ test("a download shows its amount and a bar at its share; a failed one has neith
   expect(bar.getAttribute("aria-valuenow")).toBe("37");
   expect(row.queryByRole("button")).toBeNull();
   cleanup();
+  standInBridge(null);
+  commandInstallStore.setState({ view: null, problem: null, busy: false });
 
   mount(
     view({
@@ -176,6 +181,14 @@ test("the Channel row matches the Channel, and choosing Nightly asks main to swi
 
   standInBridge({
     request: (method, input) => {
+      if (method === "commandInstall.get") {
+        // SAFETY: commandInstall.get returns a CommandInstallView; this fixture has no local install.
+        return Promise.resolve({
+          ok: true,
+          value: { supported: false, available: false, dismissed: true, links: [] },
+        }) as never;
+      }
+
       requests.push({ method, input });
 
       // SAFETY: the test answers only updates.setChannel, whose output is an AppUpdateView.
