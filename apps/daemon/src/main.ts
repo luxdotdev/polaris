@@ -109,9 +109,7 @@ switch (command) {
       process.exit(await runServiceCommand(command, args));
     }
 
-    console.error(
-      `usage: polaris <serve|bridge|install|uninstall|upgrade|version|selftest|lease|constellation|extension|tailscale|voice>`
-    );
-    process.exit(command === undefined ? 0 : 2);
+    const { runCommands } = await import("./cli/index.ts");
+    process.exit(await runCommands(command === undefined ? [] : [command, ...args]));
   }
 }

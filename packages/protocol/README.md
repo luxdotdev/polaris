@@ -4,6 +4,54 @@ The wire contract every Client and the Daemon share: the Effect Schema domain (`
 
 **Compatibility.** Changes are additive. A field added to something already in a Host's log decodes when absent (`addedNullable`, `addedArray`, or `optionalNullable` / `optionalArray` when constructors may leave it out too). A new event, command or RPC comes with a capability: a Client only sends a command or calls an RPC the Daemon announced, and the Daemon only sends an event to a Client that announced its capability (the Daemon's `eventCapability`). Unknown capability names are dropped on decode, so either side may be newer. `contract.test.ts` and `review.test.ts` hold both directions.
 
+## Generated commands (ADR 0118)
+
+`commands` is derived from `CommandAnnotation` on `DaemonRpcs`. An annotation is an array:
+several public commands can use one existing RPC (`dispatch` variants, or Host snapshot
+projections). `defineCommands` rejects a missing or multiline description, missing Grant,
+invalid dotted name, or duplicate name. `commandBindings.ts` annotates the current session,
+workspace, approval and local Host operations; `commands.ts` remains the Engine's persisted
+command contract.
+
+To expose another RPC, including settings, annotate its definition before merging its group
+into `DaemonRpcs`:
+
+```ts
+GetSetting.annotate(CommandAnnotation, [{
+  name: "settings.get",
+  description: "Read a setting.",
+  grant: "read",
+  examples: ["polaris settings get reviewer.model"],
+  positional: ["key"],
+}]);
+```
+
+The payload schema supplies flags (`sessionId` becomes `--session-id`); `positional` names
+fields in the examples' order. `defaults` supplies JSON values, `generated` supplies fresh
+UUIDs, and `stdin` names a field read from stdin when omitted. A dispatch variant supplies
+its existing case's fields as `payloadSchema` and its `dispatchTag`. Snapshot/watch entries
+set `mode`; their underlying RPC remains a stream. An annotation describes the required
+Grant; it does not grant authority or change the Daemon's authorization checks.
+
+`compactCommandTool(name, description, list)` returns one MCP tool definition with a
+`verb` argument and per-verb JSON Schema payloads. Filter `commands` by noun before calling
+it. The caller still owns execution and actor authorization; apply `defaults` and
+`generated` before decoding the chosen entry's `payloadSchema`. Settings can extend the
+catalogue through their RPC annotations without changing CLI dispatch.
+
+The binary accepts `polaris <noun> <verb>`, `--help` and `--json`. Piped output is JSON;
+`session watch` emits newline-delimited JSON. Structured flags take JSON values, positional
+fields and flags accept `--` and `--key=value`, and `session start` accepts a prompt from
+stdin. It currently requires explicit `--workspace-id` and `--harness`; permission mode
+defaults to `supervised`. It connects to the local socket (or owned Windows pipe), using
+`POLARIS_HOST_SOCKET` when set. Saved remote Hosts belong to the Desktop App's Client
+Settings, so `--host` currently returns a clear unsupported usage error. No user key is read
+from Desktop App storage; actor/Grant enforcement remains in the transport and Engine.
+
+Exit codes: **0** success, **1** refused (including `NotGranted` and `UserAccessRequired`),
+**2** usage, **3** not found, **4** unreachable. Existing service, Extension, voice, lease,
+Remote Access and Constellation commands retain their own dispatch and exit behavior.
+
 ## Review
 
 M2's Review (Linear ENG-217; decisions ENG-185, ENG-218–230). A Review judges one **subject** (`ReviewSubject`): an open pull request (`PullRequest`: the base repository, number and base branch), or an Agent Session's Turns (`SessionTurns`: one, a contiguous run, or all).
