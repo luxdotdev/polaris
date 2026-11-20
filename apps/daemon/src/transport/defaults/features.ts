@@ -3,6 +3,7 @@ import {
   ComputerUseRpcs,
   DataRpcs,
   DeveloperModeRpcs,
+  InspectionRpcs,
   LanguageRpcs,
   PredictionError,
   PredictionRpcs,
@@ -119,6 +120,10 @@ export const featureDefaults = Layer.mergeAll(
   dataDefaults,
   traceDefaults,
   developerModeDefaults,
+  InspectionRpcs.toLayer({
+    "inspection.watch": unsupportedFeed("developer-mode.inspection"),
+    "inspection.respond": unsupported("developer-mode.inspection"),
+  }),
   simulatorDefaults,
   computerUseDefaults
 );

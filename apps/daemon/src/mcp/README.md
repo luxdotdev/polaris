@@ -4,7 +4,7 @@ Create one scoped `mcpHttp(commands, port)` listener per Host, with `McpTokens.l
 
 `attachConstellation(binding, origin, commands)` issues a random 256-bit token and delivers its URL only through the Harness's instruction/configuration fields. SQLite stores the SHA-256 hash and the session/Constellation/Attempt binding, never the raw token. The database is private (0600). Existing URLs survive a token-store restart. Rebuilding a Harness attachment issues a new URL; do not revoke on ordinary Harness scope close or a session going Dormant.
 
-`revokeMcpBindings(event)` consumes committed events (and may be replayed): Attempt accept/reject/settle, session archive, Lead handover and a Constellation's archive (for its workers) revoke the matching credentials. A Constellation's Lead is never revoked by its completion or archive: `closeLeads` rebinds its Lead and Plain credentials to `Lead { constellationId, next }`, a fresh id. The same URL then lists the same Lead tools: `plan` with `start` creates the next Constellation under `next`, and the other tools still name the closed one, so they return its `E-COMPLETED`/`E-ARCHIVED` finding while `status` and history still read. Once the start commits, `advanceLeads` (from the `plan` call itself, and again from `ConstellationStarted`) moves the credential onto it. The tool list never changes at runtime, so no `tools/list_changed` is needed; Claude's in-process tools resolve the current binding on every call. Wire this into E's `afterCommit` and session archive integration. Claude's in-process callbacks check the same revocation store before each call. E must reauthorize the current role under its commit lock; a tool catalog's role is only an exposure limit.
+`revokeMcpBindings(event)` consumes committed events (and may be replayed): Attempt accept/reject/settle, session archive, Lead handover and a Constellation's archive (for its workers) revoke the matching credentials. A Constellation's Lead is never revoked by its completion or archive: `closeLeads` rebinds its Lead and Plain credentials to `Lead { constellationId, next }`, a fresh id. The same URL then lists the same Lead tools: `plan` with `start` creates the next Constellation under `next`, and the other tools still name the closed one, so they return its `E-COMPLETED`/`E-ARCHIVED` finding while `status` and history still read. Once the start commits, `advanceLeads` (from the `plan` call itself, and again from `ConstellationStarted`) moves the credential onto it. Catalog reads resolve the current binding and Developer Mode afresh. HTTP remains stateless (no `tools/list_changed` push); a Harness refreshes its catalog on reconnect. Claude's in-process catalog and calls resolve the current binding on every request. Wire this into E's `afterCommit` and session archive integration. Claude's in-process callbacks check the same revocation store before each call. E must reauthorize the current role under its commit lock; a tool catalog's role is only an exposure limit.
 
 `ConstellationCommands` is structurally compatible with E's `Constellations` service: `command({kind:"session",sessionId}, commandId, command)`, `status(binding, constellationId, json, view?)` (`view` narrows by `since`, `task` and `openOnly`), and `resolve(binding, constellationId, kind, name)`. The adapter binds Constellation and Attempt ids itself and rejects caller-supplied role/identity fields. Friendly Host, model, worker-session and Task references resolve through E's catalog interface. The exported `unavailableCommands` fails explicitly until the real service is wired; it never claims a command succeeded.
 
@@ -18,3 +18,21 @@ caller through the Host's existing TraceSessions/TraceRuntime services and reads
 creates no second store or receiver. See `docs/specs/traces-tools-v1.md` for inputs, summary ordering,
 16,000-character text caps, structured results and actionable errors. Database Spans use DataSources
 only to name a unique matching target; inspecting a Span never connects to a database or pins a Trace.
+
+Developer Mode inspection (`inspection/`, ENG-1025): `daemon_logs {lines?, stream?}` reads the
+latest 1–200 lines (default 50, stdout; stderr optional) from this Host's service logs. It seeks
+at most 64 KiB and returns at most 12,000 characters with credential syntax scrubbed.
+`desktop_view {}` asks the last connected Desktop App for a fresh renderer snapshot: window
+ids, titles, focus and bounds, plus visible UI text and control structure. Input values,
+editable drafts and hidden elements are excluded. The response is capped at 16,000 characters.
+Both tools carry `readOnlyHint` and are absent while Developer Mode is off; cached calls check
+again before and after the read. Sessions and other user-state reads remain available.
+Self-Traces use the existing trace tools (`scope: self`), and Daemon Sources the existing Data
+tools, with their existing Developer Mode and Polaris Workspace checks.
+
+The snapshot relay uses user-gated `inspection.watch` / `inspection.respond` RPCs, capability
+`developer-mode.inspection`. A response belongs to the connection offered its request. A read
+expires after five seconds; disconnect and cancellation release pending reads. There are at
+most 32 pending reads and 32 queued requests per connection, with no polling or idle timer.
+Multiple Desktop Apps use last registration order; Mobile Apps do not register. The Desktop
+App executes only the fixed, bounded snapshot function in an isolated renderer world.

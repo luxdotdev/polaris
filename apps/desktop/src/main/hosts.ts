@@ -274,6 +274,7 @@ export interface HostDirectoryInput {
   readonly presence?: Stream.Stream<UserPresence>;
   /** Polaris Dev: hold a Developer Mode lease on every Host (ENG-709). */
   readonly developerModeLease?: boolean;
+  readonly inspection?: (sessions: Stream.Stream<LiveSession | null>) => Effect.Effect<void>;
   /** Serves the Host's Browser streams on each live session (`browserCdp/`, ENG-616). */
   readonly browserHost?: (
     hostKey: string,
@@ -344,6 +345,7 @@ export class HostDirectory extends Context.Service<
     invalidateLanguage,
     presence,
     developerModeLease,
+    inspection,
     browserHost,
     rpc,
     relay,
@@ -438,6 +440,9 @@ export class HostDirectory extends Context.Service<
                 ? Effect.void
                 : browserHost(entry.key, own);
 
+            const inspect =
+              own === undefined || inspection === undefined ? Effect.void : inspection(own);
+
             const track = changes.pipe(
               Stream.runForEach(() =>
                 Effect.gen(function* () {
@@ -457,10 +462,13 @@ export class HostDirectory extends Context.Service<
               )
             );
 
-            const tracker = yield* Effect.all([track, report, lease, developerMode, browsers], {
-              concurrency: "unbounded",
-              discard: true,
-            }).pipe(Effect.forkIn(scope));
+            const tracker = yield* Effect.all(
+              [track, report, lease, developerMode, browsers, inspect],
+              {
+                concurrency: "unbounded",
+                discard: true,
+              }
+            ).pipe(Effect.forkIn(scope));
 
             trackers.set(entry.key, tracker);
           });

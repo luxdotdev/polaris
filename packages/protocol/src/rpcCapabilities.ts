@@ -258,6 +258,8 @@ export const RPC_CAPABILITIES = {
   "developerMode.setWorkspace": developer,
   "developerMode.lease": developer,
   "developerMode.watch": developer,
+  "inspection.watch": "developer-mode.inspection",
+  "inspection.respond": "developer-mode.inspection",
   "simulator.watch": "simulator",
   "simulator.boot": "simulator",
   "simulator.shutdown": "simulator",
