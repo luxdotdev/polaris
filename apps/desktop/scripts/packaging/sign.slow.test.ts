@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import {
   copyFileSync,
   cpSync,
@@ -232,13 +232,33 @@ const compressedImage = (root: string, dmg: string) => {
 const verifies = (...args: string[]) =>
   Bun.spawnSync(["codesign", "--verify", "--strict", ...args]).exitCode === 0;
 
-describe.skipIf(process.platform !== "darwin")("the release signer", () => {
-  test("re-records the signed Daemon in the manifests, its archive and checksums", () => {
-    const source = releaseDist();
-    const bundle = handoff(source, releaseApp(source));
-    const unsigned = readFileSync(join(source, daemonFile("polaris")));
+/** One signing of a well-formed release, which the tests that only read its outputs share. */
+const signedRelease = () => {
+  const source = releaseDist();
+  const bundle = handoff(source, releaseApp(source));
+  const unsigned = readFileSync(join(source, daemonFile("polaris")));
 
-    expect(signApp(bundle)).toEqual({ ok: true, error: "" });
+  return { bundle, unsigned, result: signApp(bundle) };
+};
+
+describe.skipIf(process.platform !== "darwin")("the release signer", () => {
+  let release: ReturnType<typeof signedRelease>;
+  const kept: string[] = [];
+
+  // ~35 codesign runs plus Python's unpack and repack: about 1 s here, 4 s on a macOS runner.
+  beforeAll(() => {
+    release = signedRelease();
+    kept.push(...roots.splice(0));
+  }, 60_000);
+
+  afterAll(() => {
+    for (const root of kept) rmSync(root, { recursive: true, force: true });
+  });
+
+  test("re-records the signed Daemon in the manifests, its archive and checksums", () => {
+    const { bundle, unsigned, result } = release;
+
+    expect(result).toEqual({ ok: true, error: "" });
 
     const { dist, app } = signed(bundle);
     const polaris = readFileSync(join(dist, daemonFile("polaris")));
@@ -287,10 +307,9 @@ describe.skipIf(process.platform !== "darwin")("the release signer", () => {
   });
 
   test("signs the computer use helper app as its own bundle, in the dist and the app", () => {
-    const source = releaseDist();
-    const bundle = handoff(source, releaseApp(source));
+    const { bundle, result } = release;
 
-    expect(signApp(bundle)).toEqual({ ok: true, error: "" });
+    expect(result).toEqual({ ok: true, error: "" });
 
     const { dist, app } = signed(bundle);
     const helper = signature(join(dist, HELPER_APP));
@@ -324,10 +343,9 @@ describe.skipIf(process.platform !== "darwin")("the release signer", () => {
   });
 
   test("signs the app from the inside out, keeping the Daemon's own entitlements", () => {
-    const source = releaseDist();
-    const bundle = handoff(source, releaseApp(source));
+    const { bundle, result } = release;
 
-    expect(signApp(bundle).ok).toBe(true);
+    expect(result.ok).toBe(true);
 
     const { app, assets } = signed(bundle);
     expect(verifies("--deep", app)).toBe(true);
@@ -359,10 +377,9 @@ describe.skipIf(process.platform !== "darwin")("the release signer", () => {
   });
 
   test("hands off the signed outputs with the digests the next jobs check", () => {
-    const source = releaseDist();
-    const bundle = handoff(source, releaseApp(source));
+    const { bundle, result } = release;
 
-    expect(signApp(bundle).ok).toBe(true);
+    expect(result.ok).toBe(true);
 
     const { assets } = signed(bundle);
     const digests = readFileSync(join(bundle.out, "digests"), "utf8").trim().split("\n");
