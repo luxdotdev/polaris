@@ -87,6 +87,9 @@ const constellationDefaults = ConstellationRpcs.toLayer({
   "constellation.worker.message": unavailable,
   "constellation.worker.start": unavailable,
   "constellation.subscribe": () => Stream.fail(rejected()),
+  "constellation.logbook.note": unavailable,
+  "constellation.logbook.read": unavailable,
+  "constellation.logbook.subscribe": () => Stream.fail(rejected()),
 });
 
 const transferDefaults = ConstellationTransferRpcs.toLayer({

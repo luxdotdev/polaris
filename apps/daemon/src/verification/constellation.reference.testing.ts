@@ -216,6 +216,7 @@ export const foldReference = (ref: Reference, events: ReadonlyArray<DomainEvent>
       OperatorMessageSent: () => {},
       OperatorMessageResolved: () => {},
       PeerMessage: () => {},
+      LogbookNoted: () => {},
       LeadHandoverRequested: () => {},
       LeadHandoverCancelled: () => {},
       AttemptInterrupted: () => {},
