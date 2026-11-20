@@ -1,7 +1,6 @@
 /**
- * The terminal morph (DESIGN.md, Motion → Morphs): the Editor card's foot divides into the
- * terminal card and the status strip, and joins back when the terminal hides. A column with no
- * strip (a scene pane) has no stand-in edge: the terminal alone slides up from its foot.
+ * The terminal morph (DESIGN.md, Motion → Morphs): a card's foot divides into the terminal card
+ * (and, in the Editor, the status strip under it), and joins back when the terminal hides.
  */
 import { MORPH_EASE, MORPH_MS, reducedMotion } from "@polaris/ui";
 
@@ -42,7 +41,10 @@ export interface Split {
   readonly bottom: number;
 }
 
-/** Without a strip the terminal rises from the column's foot; the edge and strip go unused. */
+/**
+ * Without a strip the terminal rises from the column's foot, and the stand-in edge is the joined
+ * card's own foot, so it keeps the card's radius throughout.
+ */
 export const splitAt = (height: number, split: number, strip = true): Split => {
   const progress = Math.min(1, Math.max(0, split));
   const below = belowWell(strip);
@@ -50,7 +52,7 @@ export const splitAt = (height: number, split: number, strip = true): Split => {
   return {
     drop: (height + below) * (1 - split),
     lift: (height + GAP + below) * progress,
-    edge: CARD_RADIUS * progress,
+    edge: strip ? CARD_RADIUS * progress : CARD_RADIUS,
     top: STRIP_RADIUS * progress,
     bottom: CARD_RADIUS - (CARD_RADIUS - STRIP_RADIUS) * progress,
   };
@@ -129,7 +131,29 @@ const splitNow = ({ terminal, strip }: Parts) => {
 };
 
 const moving = ({ well, terminal, strip, fill }: Parts) =>
-  strip === null ? [well, terminal] : [well, terminal, strip, fill];
+  strip === null ? [well, terminal, fill] : [well, terminal, strip, fill];
+
+/**
+ * Paints the stand-in edge with the card's scene, where it has one: the art reaches the column's
+ * foot (`data-scene-frame`), so the same background, offset, continues it under the card.
+ */
+const paintFill = (fill: HTMLElement, card: HTMLElement) => {
+  const scene = card.querySelector<HTMLElement>('[data-slot="scene"]');
+
+  if (scene === null) {
+    fill.style.backgroundImage = "";
+
+    return;
+  }
+
+  const art = getComputedStyle(scene);
+  const [x = "0px", y = "0px"] = art.backgroundPosition.split(" ");
+  const offset = fill.getBoundingClientRect().top - scene.getBoundingClientRect().top;
+
+  fill.style.backgroundImage = art.backgroundImage;
+  fill.style.backgroundSize = art.backgroundSize;
+  fill.style.backgroundPosition = `${x} calc(${y} - ${offset}px)`;
+};
 
 const play = (parts: Parts, steps: readonly number[], timing: KeyframeAnimationOptions) => {
   const { card, well, terminal, strip, fill } = parts;
@@ -139,16 +163,15 @@ const play = (parts: Parts, steps: readonly number[], timing: KeyframeAnimationO
 
   for (const element of moving(parts)) stop(element);
 
-  well.animate([{ clipPath: cut(below) }, { clipPath: cut(below) }], timing);
-  terminal.animate(frames.terminal, timing);
-
-  if (strip === null) return;
-
-  // The fill spans from inside the editor card's bottom corners down to the strip's top.
+  // The fill spans from inside the card's bottom corners down to the strip's top (or the foot).
   fill.style.top = `${card.offsetTop + card.offsetHeight - CARD_RADIUS}px`;
   fill.style.height = `${CARD_RADIUS + GAP + below + height}px`;
+  paintFill(fill, card);
+
   fill.animate(frames.fill, timing);
-  strip.animate(frames.strip, timing);
+  well.animate([{ clipPath: cut(below) }, { clipPath: cut(below) }], timing);
+  terminal.animate(frames.terminal, timing);
+  strip?.animate(frames.strip, timing);
 };
 
 const fade = (element: Element) =>

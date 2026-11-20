@@ -116,12 +116,13 @@ class MorphColumn extends Component<MorphProps, NoState> {
         data-host-key={hostKey}
         data-workspace-id={workspaceId}
         data-terminal={placement === "strip" ? "shown" : "hidden"}
+        data-scene-frame
         data-testid="terminal-dock"
       >
         <div
           aria-hidden
           data-morph="fill"
-          className="bg-panel pointer-events-none invisible absolute inset-x-0 -z-10"
+          className="bg-panel pixelated pointer-events-none invisible absolute inset-x-0 -z-10 bg-no-repeat"
         />
         {children}
       </div>
