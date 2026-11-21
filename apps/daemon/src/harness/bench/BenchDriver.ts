@@ -574,7 +574,13 @@ const BENCH_COMMANDS = [
 
 export const makeBenchDriver = (kind: HarnessKind): HarnessDriver => ({
   kind,
-  capabilities: { steer: true, steerAttachments: true, liveCoAttach: true, switchModel: true },
+  capabilities: {
+    steer: true,
+    steerAttachments: true,
+    liveCoAttach: true,
+    switchModel: true,
+    constellations: true,
+  },
   probe: Effect.succeed({ available: true, version: "bench", detail: "scripted bench Harness" }),
   listModels: Effect.succeed(BENCH_MODELS),
   listCommands: () => Effect.succeed(BENCH_COMMANDS),

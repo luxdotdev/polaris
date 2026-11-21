@@ -66,7 +66,14 @@ export const DRIVER_CAPABILITIES = {
   },
   gemini: { steer: false, liveCoAttach: false, switchModel: true, constellations: true },
   copilot: { steer: false, liveCoAttach: false, switchModel: true, constellations: true },
-  bench: { steer: true, steerAttachments: true, liveCoAttach: true, switchModel: true },
+  // It stands in for Codex and Claude only, and serves their Constellation attachments.
+  bench: {
+    steer: true,
+    steerAttachments: true,
+    liveCoAttach: true,
+    switchModel: true,
+    constellations: true,
+  },
 } as const satisfies Record<KnownHarnessKind | "bench", HarnessDriver["capabilities"]>;
 
 /**
