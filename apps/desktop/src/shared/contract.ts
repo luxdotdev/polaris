@@ -330,6 +330,13 @@ export const RequestInputs = {
   "settings.setTheme": Schema.Struct({ theme: ThemeSource }),
   "settings.setDensity": Schema.Struct({ density: Density }),
   "settings.setAppearance": Schema.Struct({ patch: AppearancePatch }),
+  "clientSettings.set": Schema.Struct({ key: Schema.String, value: Schema.Json }),
+  "clientSettings.undo": Schema.Struct({ requestId: Schema.String }),
+  "clientSettings.activity": Schema.Struct({
+    hostKey: Schema.NullOr(Schema.String),
+    sessionId: Schema.NullOr(SessionId),
+    active: Schema.Boolean,
+  }),
   /** Null clears the Harness's defaults. */
   "settings.getSessionDefaults": Schema.Struct({ hostKey: Schema.String }),
   "settings.setSessionDefault": Schema.Struct({

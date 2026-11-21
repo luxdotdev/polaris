@@ -1,5 +1,7 @@
 import { followSessionDefaults } from "./hostSessionDefaults.ts";
 import { createCommandInstaller } from "./commandInstall.ts";
+import { desktopClientSettings, publishClientPrediction } from "./clientSettingsSetup.ts";
+import { type ClientSettingsBridge } from "./clientSettings.ts";
 import { writeSecret } from "./secretClipboard.ts";
 import { createMainPredictionPlacement } from "./prediction/placement.ts";
 import { PredictionSettings } from "./prediction/preferences.ts";
@@ -263,13 +265,23 @@ const start = async () => {
   const file = settingsPath(app.getPath("userData"));
   let settings: Settings = readSettings(file);
 
+  interface SettingsRelay {
+    current?: ClientSettingsBridge;
+  }
+
+  const settingsRelay: SettingsRelay = {};
+
   let proofHostKey: string | null = null;
 
   const appearance = (): Appearance => appearanceOf(settings);
 
   const updateSettings = (change: (current: Settings) => Settings) => {
-    settings = change(settings);
-    writeSettings({ path: file, settings });
+    const next = change(settings);
+    writeSettings({ path: file, settings: next });
+    const before = settings;
+    settings = next;
+    settingsRelay.current?.changed();
+    publishClientPrediction(before, next);
   };
 
   const saveSettings = (patch: Partial<Settings>) =>
@@ -393,6 +405,19 @@ const start = async () => {
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
   };
 
+  const clientSettings = desktopClientSettings(() => settings, {
+    update: updateSettings,
+    sessions: setSessions,
+    appearance: applyAppearance,
+    updates: currentUpdates,
+    prediction: () => ({
+      settings: predictionSettings,
+      placement: predictionPlacement,
+      bridge: predictionBridge,
+    }),
+  });
+
+  settingsRelay.current = clientSettings;
   applyAppearance();
 
   const platformLocal = Effect.runSync(
@@ -502,6 +527,7 @@ const start = async () => {
           publishSessionDefaults(hostKey, defaults)
         ),
       inspection: serveInspection,
+      clientSettings: clientSettings.watch,
       entries: hostEntries({
         local: localDaemon,
         remotes: settings.hosts ?? [],
@@ -645,6 +671,7 @@ const start = async () => {
       prices: openPrices(app.getPath("userData")),
       setAppearance,
       publishSessionDefaults,
+      clientSettings,
       setSessions,
       openExternal: (url) => shell.openExternal(url),
       serveFrame: (document) => frames.serve(document),

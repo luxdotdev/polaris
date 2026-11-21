@@ -157,3 +157,5 @@ export * from "./settings.ts";
 export * from "./commandAnnotations.ts";
 
 export * from "./sessionGrants.ts";
+
+export * from "./clientSettings.ts";
