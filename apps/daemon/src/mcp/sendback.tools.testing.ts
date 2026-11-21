@@ -15,6 +15,7 @@ interface ToolInput {
   revision?: number;
   action?: typeof FriendlyReview.Type;
   json?: boolean;
+  text?: string;
 }
 
 const ToolResponse = Schema.Struct({
@@ -28,7 +29,9 @@ export const callSendbackTool = async (
   binding: McpBinding,
   commands: ConstellationCommands,
   name: string,
-  input: ToolInput
+  input: ToolInput,
+  /** True when the call is expected to be refused. */
+  refused = false
 ) => {
   const tokenRoot = newTempDir("polaris-sendback-mcp-", { short: true });
 
@@ -59,7 +62,7 @@ export const callSendbackTool = async (
 
           const { result } = Schema.decodeUnknownSync(ToolResponse)(json);
 
-          expect(result.isError, JSON.stringify(result.content)).not.toBe(true);
+          expect(result.isError === true, JSON.stringify(result.content)).toBe(refused);
 
           return result.content.map((c) => c.text).join("\n");
         })

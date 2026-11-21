@@ -1,5 +1,5 @@
 import { ConstellationEvent, type ConstellationId } from "@polaris/protocol";
-import { Effect, Match } from "effect";
+import { Effect, Match, Predicate } from "effect";
 import type { Constellations } from "../service.ts";
 import { graphResult } from "../service.ts";
 import type { ConstellationBinding } from "../../engine/constellation.inputs.ts";
@@ -45,10 +45,29 @@ export const withRemoteWorkerCommands = Effect.fnUntraced(function* (
       finding(error.code, error.message, "Reconnect the Desktop App to relay the worker outbox."),
     ]);
 
+  // Reads and notes on a worker Host are not routed to the owning Host yet (ENG-1029).
+  const noLogbook = refusal(undefined, [
+    finding(
+      "E-NOT-HERE",
+      "The Logbook isn't available to workers on another Host yet",
+      "Put the note in your Claim's decisions, or ask the Lead for what you need from the Logbook."
+    ),
+  ]);
+
   return {
     ...local,
+    logbook: {
+      ...local.logbook,
+      read: Effect.fnUntraced(function* (binding, scope) {
+        if ((yield* mirror(binding, scope.constellationId)) !== null) return yield* noLogbook;
+
+        return yield* local.logbook.read(binding, scope);
+      }),
+    },
     command: Effect.fnUntraced(function* (binding, id, command) {
       const assignment = yield* mirror(binding, command.constellationId);
+
+      if (assignment !== null && Predicate.isTagged(command, "Note")) return yield* noLogbook;
 
       return yield* assignment === null
         ? local.command(binding, id, command)

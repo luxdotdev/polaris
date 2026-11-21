@@ -3,6 +3,7 @@ import { Effect, Schema } from "effect";
 import { McpBinding, sessionBinding } from "../binding.ts";
 import { leadTools } from "./lead.ts";
 import { workerTools } from "./worker.ts";
+import { leadLogbookTools, workerLogbookTools } from "./logbook.ts";
 import { resolvers } from "./resolve.ts";
 import { CallCommandId, idempotency, type Idempotency } from "./idempotency.ts";
 import { notifyTool, readWorkerTool, waitForCommandTool } from "./session.ts";
@@ -125,6 +126,24 @@ export const constellationTools = (
     { json: (input) => input.json ?? false }
   );
 
+  /** The Task of the worker's Attempt, as the graph it may read names it. */
+  const ownTask = (bound: Extract<McpBinding, { _tag: "Worker" }>) =>
+    commands.status(caller, binding.constellationId, true).pipe(
+      Effect.flatMap((result) => {
+        const taskId = result.constellation?.attempts.find((a) => a.id === bound.attemptId)?.taskId;
+
+        return taskId === undefined
+          ? Effect.fail(
+              rejection(
+                "E-ATTEMPT-UNKNOWN",
+                `Attempt ${bound.attemptId} is not in this Constellation`,
+                "Read status; a new Attempt brings its own tools."
+              )
+            )
+          : Effect.succeed(taskId);
+      })
+    );
+
   const sessions = sessionsByCommands.get(commands) ?? unavailableSessions;
   const wait = waitForCommandTool(binding.sessionId, sessions);
 
@@ -132,7 +151,15 @@ export const constellationTools = (
     const resolve = resolvers(binding, commands);
 
     return [
-      ...leadTools(binding, define, submit, resolve, status, startTarget(binding, started)),
+      ...leadTools(
+        binding,
+        define,
+        submit,
+        resolve,
+        status,
+        startTarget(binding, started),
+        leadLogbookTools(binding, commands, define, submit)
+      ),
       readWorkerTool(binding, commands, resolve, sessions),
     ];
   };
@@ -160,7 +187,14 @@ export const constellationTools = (
           }),
       })),
     Lead: lead,
-    Worker: (bound) => workerTools(bound, define, submit, status),
+    Worker: (bound) =>
+      workerTools(
+        bound,
+        define,
+        submit,
+        status,
+        workerLogbookTools(binding, commands, define, submit, ownTask(bound))
+      ),
   });
 
   return [

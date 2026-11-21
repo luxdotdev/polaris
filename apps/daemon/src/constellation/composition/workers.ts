@@ -17,6 +17,7 @@ import { workerBrief } from "../../harness/constellation/index.ts";
 import type { ReadModel } from "../../store/model.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { ConstellationSessionEffects } from "../delivery/inputs.ts";
+import { firstTurnDigest } from "../delivery/logbook.ts";
 import { newTurn, startedTurn, waitForDeliveryReady } from "../delivery/turns.ts";
 import { acceptedDependencyClaims, effectiveDeps } from "../parents.ts";
 import { recoverAttempt } from "../recovery.ts";
@@ -168,7 +169,12 @@ const start = Effect.fn("Constellation.startAttempt")(function* (
     acceptedDeps: acceptedDependencyClaims(graph, effectiveDeps(graph.tasks, task.id)),
   });
 
-  const prompt = [mergeFirst(attempt), ...(yield* restartNotes(graph, attempt)), brief]
+  const prompt = [
+    mergeFirst(attempt),
+    ...(yield* restartNotes(graph, attempt)),
+    brief,
+    yield* firstTurnDigest(graph, attempt),
+  ]
     .filter((text) => text !== "")
     .join("\n\n");
 

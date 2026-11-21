@@ -42,6 +42,7 @@ import {
   relayOutboxPacket,
 } from "../../../../packages/client/src/constellation/transfer.ts";
 import { trustedSetup } from "../constellation/setup/trust.testing.ts";
+import { DIGEST_UNAVAILABLE } from "../constellation/delivery/logbook.ts";
 
 interface WorkerBridge {
   hooks?: RemoteWorkerHooks;
@@ -233,6 +234,32 @@ test("remote MCP SendBack feedback survives outbox relay and worker restart befo
           const packet = (yield* worker.storage.packets)[0]!;
           yield* relayOutboxPacket(workerRpc, ownerRpc, packet);
           expect(yield* worker.storage.packets).toEqual([]);
+
+          // The worker's Host can't read or write the owner's Logbook yet (ENG-1029): it says so.
+          for (const [name, input] of [
+            ["logbook_read", { task: "A" }],
+            ["logbook_note", { text: "Remote note." }],
+          ] as const) {
+            const refusal = yield* Effect.promise(() =>
+              callSendbackTool(
+                McpBinding.cases.Worker.make({
+                  sessionId: initial.sessionId,
+                  constellationId: CID,
+                  attemptId: initial.id,
+                }),
+                commands,
+                name,
+                input,
+                true
+              )
+            );
+
+            expect(refusal).toContain(
+              "E-NOT-HERE: The Logbook isn't available to workers on another Host yet"
+            );
+          }
+
+          expect(yield* worker.storage.packets).toEqual([]);
           const previous = (yield* graphOf(owner)).attempts[0]!;
           yield* Effect.promise(() =>
             callSendbackTool(
@@ -287,6 +314,8 @@ test("remote MCP SendBack feedback survives outbox relay and worker restart befo
           const turn = yield* Deferred.await(delivered);
           yield* Deferred.await(resumed);
           expect(turn.prompt).toContain(`Review feedback:\n${reason}`);
+          // The worker's Host holds no Logbook, so the digest says it couldn't be read.
+          expect(turn.prompt).toEndWith(`\n\n${DIGEST_UNAVAILABLE}`);
           expect(turn.prompt).toContain(JSON.stringify(pending!.graph.attempts[0]!.claim));
 
           expect(turn.prompt).toStartWith(

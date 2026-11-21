@@ -22,7 +22,8 @@ export const workerTools = (
   submit: (
     command: ConstellationCommand
   ) => Effect.Effect<ConstellationResult, ConstellationRejected>,
-  status: BoundTool
+  status: BoundTool,
+  logbook: ReadonlyArray<BoundTool>
 ): ReadonlyArray<BoundTool> => [
   define(
     "block",
@@ -162,5 +163,6 @@ export const workerTools = (
       next: "Continue the assignment; the peer receives a Polaris message.",
     }
   ),
+  ...logbook,
   status,
 ];

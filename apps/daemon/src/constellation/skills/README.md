@@ -13,3 +13,5 @@ Plain Codex/Claude Sessions receive a bootstrap binding. `plan` with `start` mak
 Version 6 explains identical still-open questions on re-claim: keep id, recipient, text and blocking value unchanged; answered or changed questions need a new id.
 
 Version 7 (after the M3.1 retrospective) asks the Lead for a producer/consumer map before dispatch, one integration owner Task with the Gate depending on it, one construction owner per shared seam, Lead Turns kept for review and scheduling rather than construction, `parent` families for related Tasks so blockers read in one place, `status { since }` for deltas, and treats capacity and transport failures as redispatch, not send-back.
+
+Version 9 adds the Logbook (ADR 0119): `logbook_read { task?, since? }` and `logbook_note`. Workers read their own Task's Logbook and those of the Tasks theirs depends on, and note only on their own; the Lead reads any (or every) Task's and notes on any. A new Attempt's first Turn carries a capped digest of the Logbook since the previous Attempt started (`../delivery/logbook.ts`).
