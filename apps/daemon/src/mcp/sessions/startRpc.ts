@@ -106,7 +106,11 @@ export const sessionStartRpcHandlers = (defaults: SessionDefaultsFor = hostSessi
               if (refusal !== null) return yield* refusal;
             }
 
-            const command = sessionStartCommand({ workspaceId, harness }, input, defaults);
+            const command = sessionStartCommand(
+              { workspaceId, harness, permissionMode: own?.permissionMode },
+              input,
+              defaults
+            );
 
             const ack = yield* dispatchForClient(engine, client, {
               commandId: CommandId.make(crypto.randomUUID()),

@@ -329,7 +329,7 @@ test.skipIf(process.platform === "win32")(
         expect(session).toMatchObject({
           workspaceId: f.workspace.id,
           harness: "codex",
-          permissionMode: "full-access",
+          permissionMode: "supervised",
           effort: "high",
           model: "host-model",
           starter: Starter.cases.AgentSession.make({ sessionId: caller }),

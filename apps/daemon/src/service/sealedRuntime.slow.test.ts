@@ -64,7 +64,7 @@ describe.skipIf(!onDarwinArm64)("a darwin release Daemon's Bun runtime is sealed
     const ran = await run([binaryOf(release), script], { BUN_BE_BUN: "1", HOME: dir });
 
     expect(existsSync(marker)).toBe(false);
-    expect(ran.stderr).toStartWith("usage: polaris <serve|");
+    expect(ran.stderr).toStartWith(`Unknown command: ${script}`);
     expect(ran.code).toBe(2);
   }, 60_000);
 
@@ -115,8 +115,9 @@ describe.skipIf(!onDarwinArm64)("a darwin release Daemon's Bun runtime is sealed
     expect(hub.code).toBe(0);
     expect(hub.stdout + hub.stderr).toContain("--require-token");
     expect(agentDevice.stdout.trim()).toBe(AGENT_DEVICE_VERSION);
-    expect(asDaemon.code).toBe(2);
-    expect(asDaemon.stderr).toStartWith("usage: polaris <serve|");
+    expect(asDaemon.code).toBe(0);
+    expect(asDaemon.stdout).toStartWith("usage: polaris <noun> <verb>");
+    expect(asDaemon.stdout).not.toContain("--require-token");
   }, 300_000);
 
   test("sealing refuses a runtime where a variable's name is not where it was", () => {
