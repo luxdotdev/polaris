@@ -16,7 +16,7 @@ import { emptyResources } from "../../resources/model.ts";
 import { hasWorkerAdmission } from "../../resources/workerAdmission.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { UsageIndex } from "../../usage/index.ts";
-import { graphEvent } from "../../store/constellation.ts";
+import { graphEvent, type ConstellationRecord } from "../../store/constellation.ts";
 import { ConstellationOwner } from "../runtime.ts";
 import { ConstellationLiveness } from "../liveness.ts";
 import { performHandover } from "../handover/index.ts";
@@ -24,7 +24,8 @@ import { digestWindow, type DigestWindow } from "./format.ts";
 import { nextDigest, type DigestSchedule } from "./schedule.ts";
 import { commitJournal } from "./journal.ts";
 import { deliverDigest, deliverLocalInput, nudgeSilentWorker } from "./local.ts";
-import { settleFailedWorker } from "./failures.ts";
+import { settleExpiredLease, settleFailedWorker } from "./failures.ts";
+import { leases, nextLeaseExpiry } from "./lease.ts";
 import { acceptedBlockInput, unblocksAttempt } from "../blocked.ts";
 import { pendingInputs } from "./messages.ts";
 import { expiredWaits } from "./waits.ts";
@@ -63,7 +64,7 @@ const make = Effect.gen(function* () {
 
   const gate = yield* Semaphore.make(1);
   const timers = new Map<ConstellationId, DigestTimer>();
-  /** One wake per Constellation, when its next held wait runs out (ENG-742). */
+  /** One worker wake per Constellation: its next held wait (ENG-742) or lease (ENG-1015) runs out. */
   const waitTimers = new Map<ConstellationId, Timer>();
   /** Expired waits already handed to the nudge, by `[attemptId, turnId]`. */
   const expired = new Set<string>();
@@ -185,6 +186,21 @@ const make = Effect.gen(function* () {
     }
   });
 
+  const workerWake = (
+    record: ConstellationRecord,
+    model: Effect.Success<typeof store.model>,
+    now: number
+  ) => {
+    const source = { hostId: owner, resources: model.hostResources ?? emptyResources(), now };
+
+    const due = [
+      nextWaitExpiry(record, model.sessions, source),
+      nextLeaseExpiry(record, model.sessions, owner),
+    ].filter((at) => at !== null);
+
+    return due.length === 0 ? null : Math.min(...due);
+  };
+
   const armWait = Effect.fnUntraced(function* (
     id: ConstellationId,
     at: number | null,
@@ -211,6 +227,21 @@ const make = Effect.gen(function* () {
       Effect.catchCause((cause) => Effect.logError("Constellation wait wake failed", cause)),
       Effect.forkIn(scope)
     );
+  });
+
+  /** Expired leases settle lost before the refresh reads the graph, so the digest carries them. */
+  const settleLeases = Effect.fnUntraced(function* (id: ConstellationId, now: number) {
+    const model = yield* store.model;
+    const record = model.constellations.get(id);
+
+    if (record === undefined) return;
+
+    for (const lease of leases(record, model.sessions, owner))
+      if (lease.until <= now)
+        yield* settleExpiredLease(id, lease.attemptId, now).pipe(
+          Effect.provide(dependencies),
+          Effect.catchCause((cause) => Effect.logError("Expired lease remains unsettled", cause))
+        );
   });
 
   const refreshHandover = Effect.fnUntraced(function* (id: ConstellationId) {
@@ -241,6 +272,7 @@ const make = Effect.gen(function* () {
     import("@polaris/protocol").ConstellationRejected | import("../../services.ts").ServiceError,
     never
   > {
+    yield* settleLeases(id, yield* Clock.currentTimeMillis);
     const record = (yield* store.model).constellations.get(id);
 
     if (record === undefined || record.graph.hostId !== owner) return;
@@ -263,7 +295,7 @@ const make = Effect.gen(function* () {
 
     yield* armWait(
       id,
-      record.graph.state === "running" ? nextWaitExpiry(record, model.sessions, source) : null,
+      record.graph.state === "running" ? workerWake(record, model, now) : null,
       now
     );
     const window = digestWindow(record, model.sessions, source);
