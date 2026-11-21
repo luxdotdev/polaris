@@ -83,3 +83,40 @@ test("every published Client Setting has a description, JSON Schema type and val
     expect(s.value).toEqual(s.default);
   }
 });
+
+test("agent keybinding overrides survive persistence and Undo restores the omitted default", () => {
+  const f = fixture();
+
+  try {
+    f.bridge.apply(
+      "keybindings",
+      { "settings.open": "CmdOrCtrl+J", "session.new": null },
+      "keys-1"
+    );
+    expect(readSettings(f.path).keybindings).toEqual({
+      "settings.open": "CmdOrCtrl+J",
+      "session.new": null,
+    });
+    expect(
+      clientSettingsSnapshot({ keybindings: readSettings(f.path).keybindings ?? {} }).find(
+        (entry) => entry.key === "keybindings"
+      )?.value
+    ).toEqual({ "settings.open": "CmdOrCtrl+J", "session.new": null });
+    expect(() =>
+      f.bridge.apply("keybindings", { "settings.open": "Hyper+J" }, "bad-keys")
+    ).toThrow();
+    expect(readSettings(f.path).keybindings).toEqual({
+      "settings.open": "CmdOrCtrl+J",
+      "session.new": null,
+    });
+    f.bridge.undo("keys-1");
+    expect(readSettings(f.path).keybindings).toBeUndefined();
+    expect(
+      clientSettingsSnapshot({ keybindings: readSettings(f.path).keybindings ?? {} }).find(
+        (entry) => entry.key === "keybindings"
+      )?.value
+    ).toEqual({});
+  } finally {
+    f.dispose();
+  }
+});

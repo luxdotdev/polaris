@@ -26,6 +26,7 @@ export type Pane = "session" | "new-session";
 /** The Settings pages (DESIGN.md, Settings); features/machines fills "hosts". */
 export type SettingsSection =
   | "account"
+  | "keyboard"
   | "appearance"
   | "sessions"
   | "editor"
@@ -45,6 +46,7 @@ export type SettingsSection =
 export const SETTINGS_SECTIONS: ReadonlyArray<SettingsSection> = [
   "account",
   "appearance",
+  "keyboard",
   "sessions",
   "editor",
   "traces",

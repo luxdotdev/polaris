@@ -3,8 +3,9 @@
  * plus ⌃1…⌃0 (or ⌥1…⌥0, since macOS may bind ⌃N to Spaces), which pick a
  * Workspace chip or a machine and depend on the data (in Review, ⌃1…⌃9 pick a review).
  */
-import { currentKeyPlatform, type KeyPlatform } from "../../shared/chord.ts";
+import { currentKeyPlatform, matches, parseChord, type KeyPlatform } from "../../shared/chord.ts";
 import { type CommandId, digitModifiersFor } from "../../shared/keymap.ts";
+import { getKeybindingOverrides } from "../../shared/keybindingResolution.ts";
 import type { CommandRegistry, KeyInput } from "./commands.ts";
 import type { ShellActions } from "./navigation.ts";
 import { reviewDigits } from "./review.ts";
@@ -71,14 +72,42 @@ export const handleOverlayEscape = (
 ): boolean => !event.isComposing && event.key === "Escape" && actions.closeOverlay();
 
 export const installKeyboard = (context: KeyContext) => {
+  const recording = () => document.querySelector("[data-keybinding-recorder]") !== null;
+
+  const override = (event: KeyboardEvent) => {
+    if (recording() || event.defaultPrevented || event.repeat || event.isComposing) return;
+
+    const owns = Object.values(getKeybindingOverrides()).some(
+      (key) => key !== null && matches(parseChord(key), event)
+    );
+
+    if (!owns) return;
+
+    if (
+      context.registry.handleKey({
+        code: event.code,
+        metaKey: event.metaKey,
+        ctrlKey: event.ctrlKey,
+        altKey: event.altKey,
+        shiftKey: event.shiftKey,
+        typing: isTyping(event.target),
+      })
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  };
+
   const escape = (event: KeyboardEvent) => {
+    if (recording()) return;
+
     if (!handleOverlayEscape(event, context.actions)) return;
     event.preventDefault();
     event.stopPropagation();
   };
 
   const listener = (event: KeyboardEvent) => {
-    if (event.defaultPrevented || event.repeat || event.isComposing) return;
+    if (recording() || event.defaultPrevented || event.repeat || event.isComposing) return;
 
     const input = {
       code: event.code,
@@ -93,10 +122,12 @@ export const installKeyboard = (context: KeyContext) => {
     if (handleKey(input, context)) event.preventDefault();
   };
 
+  window.addEventListener("keydown", override, { capture: true });
   window.addEventListener("keydown", escape, { capture: true });
   window.addEventListener("keydown", listener);
 
   return () => {
+    window.removeEventListener("keydown", override, { capture: true });
     window.removeEventListener("keydown", escape, { capture: true });
     window.removeEventListener("keydown", listener);
   };

@@ -29,6 +29,13 @@ export interface Chord {
 }
 
 const NAMED = new Map<string, string>([
+  [";", "Semicolon"],
+  ["'", "Quote"],
+  ["=", "Equal"],
+  ["-", "Minus"],
+  ["\\", "Backslash"],
+  ["Home", "Home"],
+  ["End", "End"],
   ["/", "Slash"],
   [".", "Period"],
   [",", "Comma"],
@@ -125,6 +132,10 @@ export const matches = (
 };
 
 const GLYPHS = new Map<string, string>([
+  ["Semicolon", ";"],
+  ["Quote", "'"],
+  ["Equal", "="],
+  ["Backslash", "\\"],
   ["ArrowUp", "↑"],
   ["ArrowDown", "↓"],
   ["ArrowLeft", "←"],

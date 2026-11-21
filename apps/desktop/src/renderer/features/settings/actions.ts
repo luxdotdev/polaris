@@ -15,6 +15,7 @@ export const settingsCommands = (shell: ShellActions): CommandHandlers => ({
     run: () => void restartToUpdate(),
     enabled: () => updatesStore.getState().view?.readyVersion != null,
   },
+  "settings.keyboard": { run: () => shell.openSettings("keyboard") },
   "settings.open": { run: () => shell.openSettings() },
   "settings.appearance": { run: () => shell.openSettings("appearance") },
   "settings.sessions": { run: () => shell.openSettings("sessions") },

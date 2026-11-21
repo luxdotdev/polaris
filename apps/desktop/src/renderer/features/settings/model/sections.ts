@@ -51,6 +51,12 @@ const GROUPS: ReadonlyArray<GroupSource> = [
         ],
       },
       {
+        id: "keyboard",
+        title: "Keyboard",
+        blurb: "Customize shortcuts on this client. Changes apply immediately.",
+        keywords: ["shortcuts", "keybindings", "rebind", "keys"],
+      },
+      {
         id: "sessions",
         title: "Sessions",
         blurb:

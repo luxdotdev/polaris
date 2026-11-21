@@ -24,7 +24,7 @@ export const publishClientPrediction = (before: Settings, after: Settings) => {
   });
 };
 
-type ApplyInput = Parameters<typeof clientPreferenceApplier>[0];
+type ApplyInput = Omit<Parameters<typeof clientPreferenceApplier>[0], "keybindings">;
 
 export const desktopClientSettings = (get: () => Settings, input: ApplyInput) =>
   createClientSettingsBridge({
@@ -36,6 +36,9 @@ export const desktopClientSettings = (get: () => Settings, input: ApplyInput) =>
 
       return { ...rest, prediction };
     },
-    apply: clientPreferenceApplier(input),
+    apply: clientPreferenceApplier({
+      ...input,
+      keybindings: () => publish({ kind: "keybindings", keybindings: get().keybindings ?? {} }),
+    }),
     publish,
   });

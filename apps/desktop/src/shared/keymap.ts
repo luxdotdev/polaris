@@ -5,6 +5,7 @@
  * checks for conflicts. Chords use Electron's accelerator syntax ("CmdOrCtrl+Shift+A").
  * Features add commands of their own at run time (`routes/commands.ts`, `contribute`).
  */
+import { getKeybindingOverrides, resolveKeybindings } from "./keybindingResolution.ts";
 import { Predicate } from "effect";
 import { acceleratorLabel, currentKeyPlatform, type KeyPlatform } from "./chord.ts";
 import { DATA_BINDINGS, type DataCommandId } from "./keymapData.ts";
@@ -651,7 +652,7 @@ export const PC_KEYS: Partial<Record<CommandId, ReadonlyArray<string>>> = {
 };
 
 /** The keymap with a platform's own keys. */
-export const keymapFor = (platform: KeyPlatform): ReadonlyArray<KeyBinding> =>
+export const defaultKeymapFor = (platform: KeyPlatform): ReadonlyArray<KeyBinding> =>
   platform === "mac"
     ? KEYMAP
     : KEYMAP.map((b) => {
@@ -659,6 +660,26 @@ export const keymapFor = (platform: KeyPlatform): ReadonlyArray<KeyBinding> =>
 
         return keys === undefined ? b : { ...b, keys };
       });
+
+const resolvedMaps = new Map<
+  KeyPlatform,
+  { overrides: ReturnType<typeof getKeybindingOverrides>; bindings: ReadonlyArray<KeyBinding> }
+>();
+
+const activeKeymap = (platform: KeyPlatform) => {
+  const overrides = getKeybindingOverrides();
+  const cached = resolvedMaps.get(platform);
+
+  if (cached?.overrides === overrides) return cached.bindings;
+  const bindings = resolveKeybindings(defaultKeymapFor(platform), overrides, platform).bindings;
+  resolvedMaps.set(platform, { overrides, bindings });
+
+  return bindings;
+};
+
+/** The active map, shared by the dispatcher, hints and native menus. */
+export const keymapFor = (platform: KeyPlatform): ReadonlyArray<KeyBinding> =>
+  activeKeymap(platform);
 
 export { FIELD_CHORDS, TERMINAL_TOGGLE } from "./keymapFields.ts";
 

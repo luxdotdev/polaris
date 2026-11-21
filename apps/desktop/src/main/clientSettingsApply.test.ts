@@ -45,6 +45,7 @@ const setup = () => {
       sessions: (patch) =>
         update((current) => ({ ...current, sessions: { ...current.sessions, ...patch } })),
       appearance: () => {},
+      keybindings: () => {},
       updates: updates.updates,
       prediction: () => ({
         settings: preferences,
