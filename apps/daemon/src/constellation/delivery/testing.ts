@@ -11,7 +11,7 @@ import {
   WorkerPlacement,
   Workspace,
 } from "@polaris/protocol";
-import { Effect, Layer, type Scope } from "effect";
+import { Effect, Layer, Predicate, type Scope } from "effect";
 import { TestClock } from "effect/testing";
 import { A, AT, C, CID, HOST, LEAD, WS, draft, task } from "../../engine/constellation.testing.ts";
 import { decideSession, type SessionInput } from "../../engine/session.ts";
@@ -306,3 +306,37 @@ export const world = (
 
   return { run, turns, prompts, steers, retired, runtime };
 };
+
+/** When the Stopped notice was queued, from the fold. */
+const stoppedAt = Effect.gen(function* () {
+  const r = (yield* (yield* EventStore).model).constellations.get(CID)!;
+  const notice = [...r.notifications.values()].find((n) => Predicate.isTagged(n.item, "Stopped"));
+
+  return notice === undefined ? null : Date.parse(notice.queuedAt);
+});
+
+/** The brief ends silently, the nudge Turn ends silently too: the Lead hears Stopped. */
+export const silentTwice = Effect.fnUntraced(function* (
+  w: ReturnType<typeof world>,
+  attemptId: string
+) {
+  yield* TestClock.setTime(Date.now());
+  const record = (yield* (yield* EventStore).model).sessions.get(WORKER)!;
+  yield* signal(WORKER, {
+    type: "turn.send",
+    turn: newTurn(record.session, "Brief", new Date().toISOString(), `${attemptId}:start`),
+  });
+  yield* (yield* ConstellationDelivery).start();
+  yield* finish(WORKER, "completed", new Date().toISOString());
+  yield* wait(() => Effect.succeed(w.turns.length === 1));
+  yield* finish(WORKER, "completed", new Date().toISOString());
+  const store = yield* EventStore;
+  yield* wait(() =>
+    stoppedAt.pipe(
+      Effect.map((at) => at !== null),
+      Effect.provideService(EventStore, store)
+    )
+  );
+
+  return (yield* stoppedAt)!;
+});

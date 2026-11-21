@@ -22,3 +22,14 @@ test("Lead and worker instructions share one version and use the report-derived 
   expect(worker).toContain("polaris lease");
   expect(worker).toContain("identical still-open questions");
 });
+
+test("both roles are told how to read and note on a Logbook, and the worker which Logbooks it may read", () => {
+  const lead = constellationInstructions(leadBinding);
+  const worker = constellationInstructions(workerBinding);
+
+  expect(lead).toContain("logbook_read { task: A1 }, or every Task's without task");
+  expect(lead).toContain("logbook_note { task: A1, text }");
+  expect(worker).toContain("the Logbook of a Task yours depends on, and no other");
+  expect(worker).toContain("logbook_note { text }");
+  expect(worker).toContain("capped digest");
+});

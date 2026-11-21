@@ -26,4 +26,14 @@ export const unavailableCommands: ConstellationCommands = {
         "Connect the Host and Constellation catalogs."
       )
     ),
+  logbook: {
+    read: () =>
+      Effect.fail(
+        rejection(
+          "E-NOT-READY",
+          "The Logbook is not connected",
+          "Connect the owning Daemon's Constellations service."
+        )
+      ),
+  },
 };

@@ -26,6 +26,7 @@ import {
   CommandId,
   CommitGranularity,
   ConstellationId,
+  LogbookQuery,
   GitDiffSpec,
   Grant,
   HarnessKind,
@@ -721,6 +722,8 @@ export const SubscriptionInputs = {
     constellationId: ConstellationId,
     afterSequence: Schema.NullOr(Sequence),
   }),
+  /** A Logbook's feed (`constellation.logbook.subscribe`): a page, then a page per change. */
+  "constellation.logbook": Schema.Struct({ hostKey: HostKey, ...LogbookQuery }),
 } as const;
 
 export type SubscriptionKind = keyof typeof SubscriptionInputs;

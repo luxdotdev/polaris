@@ -36,6 +36,7 @@ test("Constellation command tools take requestId; direct and read tools don't", 
         tool.name,
         ![
           "status",
+          "logbook_read",
           "read_worker",
           "wait_for_command",
           // A retried call asks again; the user sees one card per call.

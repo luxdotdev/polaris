@@ -73,6 +73,12 @@ const settledLine = (
   if (i.state === "review" || i.state === "accepted")
     return `${task}: ${i.state}.${inspectionNote(attempt, i.state)}`;
 
+  if (i.state === "lost" && attempt !== undefined && reason !== "") {
+    const n = record.graph.attempts.filter((a) => a.taskId === attempt.taskId).indexOf(attempt) + 1;
+
+    return `${task}: attempt ${n} lost (${reason}).`;
+  }
+
   return `${task}: ${i.state}.`;
 };
 

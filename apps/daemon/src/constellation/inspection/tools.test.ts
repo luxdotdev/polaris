@@ -29,6 +29,13 @@ const commands = (
     return Effect.die("an Inspector never reads status");
   },
   resolve: () => Effect.die("an Inspector resolves nothing"),
+  logbook: {
+    read: () => {
+      reads.push("logbook");
+
+      return Effect.die("an Inspector reads the Logbook in its brief, not by tool");
+    },
+  },
 });
 
 test("an Inspector's tools are its verdict alone: nothing reads a transcript, a session or the graph", () => {

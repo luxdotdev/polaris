@@ -50,6 +50,11 @@ export const constellationHandlers = {
     ...payload
   }: RequestInput<"constellation.worker.start">) =>
     live(hostKey, (s) => s.client["constellation.worker.start"](payload)),
+  "constellation.logbook.note": ({
+    hostKey,
+    ...payload
+  }: RequestInput<"constellation.logbook.note">) =>
+    live(hostKey, (s) => s.client["constellation.logbook.note"](payload)),
   "constellation.defaults.get": ({ hostKey }: RequestInput<"constellation.defaults.get">) =>
     live(hostKey, (s) => s.client["constellation.defaults.get"]({})),
   "constellation.defaults.set": ({
@@ -79,5 +84,14 @@ export const constellationFeed = ({ hostKey, ...payload }: SubscriptionInput<"co
     HostDirectory.use((dir) => dir.connection(hostKey)).pipe(
       Effect.flatMap((c) => c.session),
       Effect.map((s) => s.client["constellation.subscribe"](payload))
+    )
+  ).pipe(Stream.mapError(constellationError));
+
+/** A Logbook's feed: its first page, then a page of new entries per change. */
+export const logbookFeed = ({ hostKey, ...payload }: SubscriptionInput<"constellation.logbook">) =>
+  Stream.unwrap(
+    HostDirectory.use((dir) => dir.connection(hostKey)).pipe(
+      Effect.flatMap((c) => c.session),
+      Effect.map((s) => s.client["constellation.logbook.subscribe"](payload))
     )
   ).pipe(Stream.mapError(constellationError));

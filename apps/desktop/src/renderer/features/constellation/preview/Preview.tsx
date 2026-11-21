@@ -18,6 +18,7 @@ import { installConstellationClient } from "../client.ts";
 import { type ConstellationRecord, startedRecord, type WorkerFacts } from "../model/index.ts";
 import { type LeadUi, leadKey, patchLeadUi, setSignals } from "../state.ts";
 import { fakeClient } from "./fakeClient.ts";
+import { addLongEntries, resetLogbook, subscribeLogbook } from "./logbook.ts";
 import {
   askedYou,
   c1Record,
@@ -117,6 +118,10 @@ const SCENES = [
   "worst-failed",
   "worst-accepted",
   "worst-cycle",
+  "logbook",
+  "logbook-lost",
+  "logbook-feed",
+  "logbook-long",
 ] as const;
 
 type Scene = (typeof SCENES)[number];
@@ -248,6 +253,10 @@ const UI: Readonly<Record<Scene, Partial<LeadUi>>> = {
   "worst-failed": {},
   "worst-accepted": {},
   "worst-cycle": {},
+  logbook: { tab: "logbook", selected: "task:B1" },
+  "logbook-lost": { tab: "logbook", selected: "task:B5" },
+  "logbook-feed": { tab: "logbook" },
+  "logbook-long": { tab: "logbook", selected: "task:B1", focus: { kind: "task", taskId: "B1" } },
 };
 
 const LEADS = new Map<Scene, () => SessionModel>([
@@ -308,7 +317,11 @@ const bridge: PolarisApi = {
         ? { ok: true, value: statsFixture(37) }
         : { ok: false, error: { code: "Unsupported", message: "preview" } }) as never
     ),
-  subscribe: () => () => undefined,
+  subscribe: (kind, input, listener) =>
+    kind === "constellation.logbook"
+      ? // SAFETY: the Logbook feed's listener takes its own pages.
+        subscribeLogbook(input as { readonly taskId?: string }, listener as never)
+      : () => undefined,
   onAppEvent: () => () => undefined,
 };
 
@@ -369,6 +382,9 @@ export const mountConstellationPreview = (root: HTMLElement, hash: string) => {
   const navigation = createNavigation({ app: store, storage: null });
 
   standInBridge(bridge);
+  resetLogbook();
+
+  if (scene === "logbook-long") addLongEntries();
   installConstellationClient(fakeClient(store, { unmerged: scene === "handed-unmerged" }));
   setPreviewSignals(scene);
   patchLeadUi(leadKey(LOCAL, LEAD), () => UI[scene]);

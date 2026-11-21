@@ -175,6 +175,27 @@ module constellations_test {
     .then(replay([{ host: OWNER, kind: AttemptNudged(0) }]))
     .then(restart).expect(view.nudges == [0] and view.attempts[0].status == "working" and safety)
 
+  // ENG-1015: a silent local Attempt settles lost when its lease runs out; activity or an Offline Host keeps it.
+  action stopped = working.then(replay([{ host: OWNER, kind: AttemptNudged(0) }])).then(silentEnd(0))
+    .expect(view.leases == Set(0) and safety)
+  run leaseRunsOutAfterStoppedNoticeTest = stopped.then(leaseExpire(0))
+    .expect(view.attempts[0].status == "lost" and view.notes.get(10) == "settle" and witnessLeaseLost and safety)
+  run leaseActivityCancelsTest = stopped.then(progress(0, 2)).expect(view.leases == Set())
+    .then(leaseExpire(0)).expect(view.attempts[0].status == "working" and safety)
+  run leaseNeverExpiresOnOfflineHostTest = stopped.then(availability(true, true, Set(1)))
+    .then(leaseExpire(0)).expect(view.attempts[0].status == "working" and safety)
+  run leaseEndsWhenTheLeadUnblocksTest = stopped.then(block(0, Set(), 2)).then(unblock(0, 3, "Lead", true))
+    .expect(view.leases == Set()).then(leaseExpire(0)).expect(view.attempts[0].status == "working" and safety)
+  // The same settle replayed past the fold's bookkeeping: the invariant still rejects it.
+  run leaseInvariantRejectsSettleAfterUnblockTest = stopped.then(block(0, Set(), 2)).then(unblock(0, 3, "Lead", true))
+    .then(replay([{ host: OWNER, kind: AttemptSettled({ attempt: 0, outcome: "lost", stale: false, commanded: false, kind: "lease" }) },
+      { host: OWNER, kind: NotificationQueued({ id: 10, kind: "settle" }) }]))
+    .expect(not(leaseSettlesOnlySilent))
+  run leaseAfterSecondInterruptionOnlyTest = working.then(interrupt(0)).then(leaseExpire(0))
+    .expect(view.attempts[0].status == "working" and safety)
+    .then(recover(0)).then(interrupt(0)).expect(view.leases == Set(0))
+    .then(leaseExpire(0)).expect(view.attempts[0].status == "lost" and safety)
+
   run atomicPlanRejectsEveryOperationOnACycleTest = base
     .then(plan([Edit({ task: 0, deps: Set(1), parent: -1, gate: false, revision: 1 }), Add({ task: 1, deps: Set(), parent: -1, gate: false })]))
     .expect(view.tasks.get(0).deps == Set() and view.tasks.get(0).revision == 1 and safety)
@@ -448,6 +469,11 @@ module constellations_test {
   run settledAttemptRefusesItsInspectorTest = inspected.then(stop(0, 3))
     .expect(view.attempts[0].status == "lost" and not(holding(view, 0)) and safety)
     .then(inspect(0, "send_back", "fix", false)).expect(view.attempts.length() == 1 and safety)
+  // An Attempt waiting on its Inspection is in review: the lease it held while silent cannot settle it.
+  run heldClaimHoldsNoLeaseTest = working.then(nudge(0)).then(silentEnd(0))
+    .expect(view.leases.contains(0) and safety)
+    .then(claimMarked(0, view.attempts[0].revision, 42, false, true, false, true, false)).then(leaseExpire(0))
+    .expect(view.attempts[0].status == "review" and holding(view, 0) and safety)
   run gateClaimIsNeverInspectedTest = claimed.then(accept(0, 2, 42))
     .then(start(1, 2, -1)).then(claim(1, 1, 43, false, true)).then(accept(1, 2, 43))
     .then(start(2, 3, -1)).then(claimMarked(2, 1, 44, false, true, false, true, true))

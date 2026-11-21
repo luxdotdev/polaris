@@ -28,7 +28,7 @@ import { DesktopSharing } from "../sharing/index.ts";
 import { sharingOpeners } from "../sharing/ipc.ts";
 import { gitOpeners } from "./git.ts";
 import { computerUseOpeners } from "./computerUse.ts";
-import { constellationFeed } from "./constellation.ts";
+import { constellationFeed, logbookFeed } from "./constellation.ts";
 import { Machines } from "../machines/service.ts";
 import type { PredictionBridge } from "../prediction/bridge.ts";
 import { browserOpeners } from "../browser/ipc.ts";
@@ -148,6 +148,7 @@ const openers: Openers = {
   "inline.propose": ({ hostKey, ...request }) =>
     onLive(hostKey, (session) => session.client["inline.propose"](request)),
   constellation: constellationFeed,
+  "constellation.logbook": logbookFeed,
 };
 
 export const isSubscriptionKind = (kind: string): kind is SubscriptionKind =>

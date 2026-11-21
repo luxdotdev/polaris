@@ -18,6 +18,7 @@ installConstellationClient({
   answer: refuse,
   message: refuse,
   setState: refuse,
+  note: refuse,
   startWorker: refuse,
 });
 

@@ -61,12 +61,15 @@ module constellations {
     applied: List[int], recoveries: List[Recovery], waiters: List[int],
     holders: Set[int], requests: List[int], grants: List[int], capacity: int, canceled: Set[int],
     inspections: List[Inspection],
+    leases: Set[int],
   }
   type PlanOp = Add({ task: int, deps: Set[int], parent: int, gate: bool })
     | Edit({ task: int, deps: Set[int], parent: int, gate: bool, revision: int })
     | Cancel({ task: int, revision: int })
   type Remote = { attempt: int, sha: int }
 
+  // A Stopped notice for Attempt a is notification STOPPED + a, apart from the settle ids (10 + 2a).
+  pure val STOPPED = 100
   pure val emptyTask = { declared: false, deps: Set(), parent: -1, gate: false, canceled: false, revision: 0 }
   pure val empty: View = {
     tasks: TASKS.mapBy(_ => emptyTask), attempts: [], lead: 0, state: "planning",
@@ -75,7 +78,7 @@ module constellations {
     blocks: Map(),
     proofs: Set(),
     promotions: [], notes: Map(), deliveries: [], steers: 0, audited: Set(), slotAudited: Set(), applied: [], recoveries: [],
-    waiters: [], holders: Set(), requests: [], grants: [], capacity: CAPACITY, canceled: Set(),
+    waiters: [], holders: Set(), requests: [], grants: [], capacity: CAPACITY, canceled: Set(), leases: Set(),
     inspections: [],
   }
 // The event log is durable; projections and pending notification IDs are always re-folded.
@@ -114,15 +117,16 @@ module constellations {
     | AttemptStarted(p) => { ...v, attempts: v.attempts.append({
         task: p.task, session: p.session, ref: p.ref, status: "working", revision: 1, claimRev: -1, sha: -1, rejectionReason: "", mergeBase: p.mergeBase,
       }) }
-    | AttemptProgressed(a) => change(v, a, v.attempts[a].status, v.attempts[a].sha)
+    | AttemptProgressed(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), leases: v.leases.exclude(Set(a)) }
     | AttemptClaimed(p) => { ...claimedAt(change(v, p.attempt, "review", p.sha), p.attempt),
         approvals: v.approvals.select(a => a != p.attempt),
         handups: v.handups.select(a => a != p.attempt), nudges: v.nudges.select(a => a != p.attempt) }
     | ClaimApproved(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), approvals: v.approvals.append(a) }
     | ClaimHandedUp(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), handups: v.handups.append(a) }
-    | AttemptBlocked(p) => { ...change(v, p.attempt, "blocked", v.attempts[p.attempt].sha), blocks: v.blocks.put(p.attempt, p.on) }
-    | AttemptUnblocked(p) => { ...change(v, p.attempt, "working", v.attempts[p.attempt].sha), blocks: v.blocks.keys().exclude(Set(p.attempt)).mapBy(a => v.blocks.get(a)), nudges: v.nudges.select(a => a != p.attempt) }
-    | AttemptNudged(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), nudges: v.nudges.append(a) }
+    | AttemptBlocked(p) => { ...change(v, p.attempt, "blocked", v.attempts[p.attempt].sha), blocks: v.blocks.put(p.attempt, p.on), leases: v.leases.exclude(Set(p.attempt)) }
+    | AttemptUnblocked(p) => { ...change(v, p.attempt, "working", v.attempts[p.attempt].sha), blocks: v.blocks.keys().exclude(Set(p.attempt)).mapBy(a => v.blocks.get(a)), nudges: v.nudges.select(a => a != p.attempt),
+        leases: v.leases.exclude(Set(p.attempt)) }
+    | AttemptNudged(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), nudges: v.nudges.append(a), leases: v.leases.exclude(Set(a)) }
     | AttemptAccepted(p) => change(v, p.attempt, "accepted", p.sha)
     | AttemptRejected(p) => {
         val changed = change(v, p.attempt, "rejected", v.attempts[p.attempt].sha)
@@ -130,26 +134,29 @@ module constellations {
           ...changed.attempts[p.attempt], rejectionReason: p.reason,
         }) }
       }
-    | FirstTurnStarted(a) => { ...v, firstTurns: v.firstTurns.append(a) }
+    | FirstTurnStarted(a) => { ...v, firstTurns: v.firstTurns.append(a), leases: v.leases.exclude(Set(a)) }
     | AttemptSettled(p) => change(v, p.attempt, p.outcome, v.attempts[p.attempt].sha)
     | GatePromoted(t) => { ...v, promotions: v.promotions.append(t), tasks: v.tasks.set(t, { ...v.tasks.get(t), revision: v.tasks.get(t).revision + 1 }) }
     | LeadHandoverRequested(p) => { ...v, handoverRequest: p.id, handoverFrom: p.from }
     | LeadHandoverCancelled(id) => if (v.handoverRequest == id) { ...v, handoverRequest: -1, handoverFrom: -1 } else v
     | LeadChanged(p) => { ...v, lead: p.to, handoverRequest: -1, handoverFrom: -1 }
-    | AttemptInterrupted(p) => { ...v, proofs: if (p.eligible) v.proofs.union(Set({ attempt: p.attempt, interruption: p.interruption })) else v.proofs }
+    | AttemptInterrupted(p) => { ...v, proofs: if (p.eligible) v.proofs.union(Set({ attempt: p.attempt, interruption: p.interruption })) else v.proofs,
+        leases: if (p.interruption >= 2 and v.recoveries.indices().exists(r => v.recoveries[r].attempt == p.attempt)) v.leases.union(Set(p.attempt)) else v.leases }
     | AttemptStale(a) => { ...v, stale: v.stale.union(Set(a)) }
     | AttemptFresh(a) => { ...v, stale: v.stale.exclude(Set(a)) }
     | WorkerInputDelivered(p) => { ...v, inputs: v.inputs.append(p),
+        leases: v.leases.filter(a => v.attempts[a].session != p.session),
         earlyInputs: v.earlyInputs.union(v.attempts.indices().filter(a =>
           v.attempts[a].session == p.session and v.attempts[a].status == "working"
           and not(has(v.firstTurns, a)))) }
     | ConstellationStateChanged(s) => { ...v, state: s }
-    | NotificationQueued(p) => { ...v, notes: v.notes.put(p.id, p.kind) }
+    | NotificationQueued(p) => { ...v, notes: v.notes.put(p.id, p.kind),
+        leases: if (p.kind == "stopped") v.leases.union(Set(p.id - STOPPED)) else v.leases }
     | LeadNotified(p) => { ...v, deliveries: p.ids.fold(v.deliveries, (acc, id) => acc.append({ id: id, lead: p.lead })),
         steers: v.steers + (if (p.steered) 1 else 0), audited: v.audited.union(p.audit),
         slotAudited: v.slotAudited.union(p.slots) }
     | OutboxApplied(id) => { ...v, applied: v.applied.append(id) }
-    | AttemptRecoveryContinued(p) => { ...v, recoveries: v.recoveries.append(p) }
+    | AttemptRecoveryContinued(p) => { ...v, recoveries: v.recoveries.append(p), leases: v.leases.exclude(Set(p.attempt)) }
     | ResourceDeclared(capacity) => { ...v, capacity: capacity }
     | ResourceRemoved => { ...v, capacity: 0 }
     | ResourceLeaseQueued(id) => { ...v, waiters: v.waiters.append(id), requests: v.requests.append(id) }
@@ -447,6 +454,20 @@ module constellations {
     if (view.attempts.indices().contains(a) and active(view.attempts[a]) and not(offline.contains(view.attempts[a].session)))
     finish(view, a, AttemptSettled({ attempt: a, outcome: "failed", stale: false, commanded: false, kind: kind })) else [])
   action harnessFail(a: int): bool = harnessFailAs(a, "harness")
+  // A silent end nudges a working Attempt once.
+  action nudge(a: int): bool = commit(OWNER,
+    if (view.attempts.indices().contains(a) and view.attempts[a].status == "working" and not(has(view.nudges, a)))
+    [AttemptNudged(a)] else [])
+  // The second silent end queues the Stopped notice, which starts the Attempt's lease (ENG-1015).
+  action silentEnd(a: int): bool = commit(OWNER,
+    if (view.attempts.indices().contains(a) and view.attempts[a].status == "working" and has(view.nudges, a)
+      and not(view.notes.keys().contains(STOPPED + a))) [NotificationQueued({ id: STOPPED + a, kind: "stopped" })] else [])
+  // The lease ran out: only a current, silent, local working Attempt settles lost, never a stale one.
+  action leaseExpire(a: int): bool = commit(OWNER,
+    if (view.attempts.indices().contains(a) and view.attempts[a].status == "working" and view.state == "running"
+      and latest(view, view.attempts[a].task) == a and view.leases.contains(a)
+      and not(view.stale.contains(a)) and not(offline.contains(view.attempts[a].session)))
+    finish(view, a, AttemptSettled({ attempt: a, outcome: "lost", stale: false, commanded: false, kind: "lease" })) else [])
   action ask(a: int, id: int): bool = commit(OWNER,
     if (view.attempts.indices().contains(a) and active(view.attempts[a]) and not(view.notes.keys().contains(id)))
     [NotificationQueued({ id: id, kind: "question" })] else [])
@@ -541,7 +562,7 @@ module constellations {
       accept(a, claimRev, 42), approve(a, rev), reject(a, rev), startFirstTurn(a), stop(a, rev), harnessFail(a),
       ask(a, id), deliver, deliverSteered, audit, auditSlot(a), harnessFailAs(a, "capacity"), handover(s), requestHandover(id), cancelHandover, finishHandover(id, s), setState("running"), setState("paused"),
       all { TASKS.forall(task => accepted(view, task)), setState("completed") },
-      setState("archived"), interrupt(a), recoverPending, restart,
+      setState("archived"), interrupt(a), recoverPending, restart, nudge(a), silentEnd(a), leaseExpire(a),
       availability(false, true, Set(s)), availability(true, false, Set()), availability(true, true, Set()),
       enqueue(id, a, 42), relay(id), request(id), grant, release(id), cancelLease(id), commit("worker-host", [LeadChanged({ to: s, request: -1 })]),
       note(t, s), note(t, USER),
@@ -584,6 +605,20 @@ module constellations {
       inspect(i, "approve", "", true), inspect(i, "approve", "", false), inspect(i, "send_back", "fix", false),
       inspect(i, "send_back", "", false), inspectionLost(i),
       accept(a, rev, 42), reject(a, rev), approve(a, rev), stop(a, rev), deliver,
+    }
+  }
+
+  // `quint run --step=leaseStep`: a silent Attempt's lease (ENG-1015), so `witnessLeaseLost` stays covered.
+  action leaseStep = {
+    nondet t = TASKS.oneOf()
+    nondet s = SESSIONS.oneOf()
+    nondet a = view.attempts.indices().union(Set(-1)).oneOf()
+    val rev = if (view.attempts.indices().contains(a)) view.attempts[a].revision else 1
+    any {
+      plan([Add({ task: t, deps: Set(), parent: -1, gate: false })]), setState("running"),
+      start(t, s, latest(view, t)), progress(a, rev), nudge(a), silentEnd(a), leaseExpire(a),
+      interrupt(a), recoverPending, stop(a, rev), availability(true, true, Set(s)), availability(true, true, Set()),
+      block(a, Set(), rev), unblock(a, rev, "Lead", true),
     }
   }
 
@@ -662,9 +697,38 @@ module constellations {
     | AttemptSettled(p) => Set("lost", "failed").contains(p.outcome)
     | _ => true
   })
-  // A failed settle carries one classified kind; a lost (commanded) settle carries none.
+  // A failed settle carries one classified kind; a lost settle is commanded ("") or a run-out lease.
   val failureKindValid = log.indices().forall(i => match log[i].kind {
-    | AttemptSettled(p) => if (p.outcome == "failed") Set("capacity", "transport", "harness", "implementation").contains(p.kind) else p.kind == ""
+    | AttemptSettled(p) => if (p.outcome == "failed") Set("capacity", "transport", "harness", "implementation").contains(p.kind)
+        else p.kind == "" or p.kind == "lease" and not(p.commanded)
+    | _ => true
+  })
+  // A lease settles only the current working Attempt it ran for, silent since, on a Host that is not Offline.
+  // Read from the log, not `leases`: what starts a lease for a, and what from a ends one.
+  pure def leaseStarts(e: EventKind, a: int): bool = match e {
+    | NotificationQueued(p) => p.kind == "stopped" and p.id == STOPPED + a
+    | AttemptInterrupted(p) => p.attempt == a and p.interruption >= 2
+    | _ => false
+  }
+  pure def attemptActive(e: EventKind, a: int, session: int): bool = match e {
+    | AttemptProgressed(x) => x == a
+    | AttemptNudged(x) => x == a
+    | FirstTurnStarted(x) => x == a
+    | AttemptBlocked(p) => p.attempt == a
+    | AttemptUnblocked(p) => p.attempt == a
+    | AttemptRecoveryContinued(p) => p.attempt == a
+    | WorkerInputDelivered(p) => p.session == session
+    | _ => false
+  }
+  /** Some lease start for a precedes index i with no activity from a in between. */
+  pure def silentSinceLease(events: List[Event], i: int, a: int, session: int): bool =
+    events.indices().exists(j => j < i and leaseStarts(events[j].kind, a)
+      and events.indices().forall(k => k <= j or k >= i or not(attemptActive(events[k].kind, a, session))))
+  val leaseSettlesOnlySilent = log.indices().forall(i => match log[i].kind {
+    | AttemptSettled(p) => p.kind != "lease" or { val before = foldEvents(log.slice(0, i));
+        before.attempts[p.attempt].status == "working" and latest(before, before.attempts[p.attempt].task) == p.attempt
+        and silentSinceLease(log, i, p.attempt, before.attempts[p.attempt].session)
+        and not(before.stale.contains(p.attempt)) and not(p.stale) }
     | _ => true
   })
   // A delivery says something: pending items, or an audit naming Gates that were stalled when it committed.
@@ -821,7 +885,7 @@ module constellations {
     oneLead, firstTurnValid, claimsValid, firstTurnAtMostOnce, oneActiveAttemptPerSession, exactlyOnceDelivery, settledAttemptImmutable,
     outboxAppliedExactlyOnce, onlyOwnerCommits, recoveryAtMostOnce, recoveryHasEligibleProof, settlementOutcomesValid, staleNeverSettlesWithoutCommand,
     noOldLeadDelivery, handoverRequestOrdered, inputDeliveredAtMostOnce, blockTransitionsValid, lifecycleValid, reviewMetadataValid, resourceCapacity, resourceRemovalSafe, fifoGrantOrder, acceptanceMatchesClaim,
-    failureKindValid, auditNamesStalledGates, slotAuditOncePerStall,
+    failureKindValid, auditNamesStalledGates, slotAuditOncePerStall, leaseSettlesOnlySilent,
   }
   val witnessClaim = view.attempts.indices().exists(i => view.attempts[i].status == "review")
   val witnessAccepted = view.attempts.indices().exists(i => view.attempts[i].status == "accepted")
@@ -837,6 +901,7 @@ module constellations {
   val witnessInspection = view.inspections.indices().exists(i => view.inspections[i].state == "approved")
   val witnessInspectorAccept = view.inspections.indices().exists(i => view.inspections[i].state == "accepted")
   val witnessInspectorSendBack = view.inspections.indices().exists(i => view.inspections[i].state == "sent_back")
+  val witnessLeaseLost = log.indices().exists(i => match log[i].kind { | AttemptSettled(p) => p.kind == "lease" | _ => false })
   val witnessNote = log.indices().exists(i => match log[i].kind {
     | LogbookNoted(_) => true
     | _ => false
