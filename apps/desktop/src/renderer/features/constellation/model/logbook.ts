@@ -172,12 +172,18 @@ export const claimTail = (entry: Extract<EntryData, { _tag: "Claim" }>): string 
   return [pluralize(claim.commits.length, "commit"), rest].join(" · ");
 };
 
-/** The caption under a row, when its kind has one. */
+/**
+ * The caption under a row, when its kind has one. A question's answer is matched within its
+ * Attempt: the Daemon keys questions by Attempt and id, so ids repeat across Attempts.
+ */
 export const entryCaption = (entry: EntryData, log: LogbookLog): string | null =>
   Match.value(entry).pipe(
     Match.tag("Question", (e) => {
       const answered = log.entries.some(
-        (a) => Predicate.isTagged(a, "Answer") && a.questionId === e.question.id
+        (a) =>
+          Predicate.isTagged(a, "Answer") &&
+          a.questionId === e.question.id &&
+          a.attemptId === e.attemptId
       );
 
       return `to the ${e.question.to === "user" ? "user" : "lead"} · ${answered ? "answered" : "open"}`;

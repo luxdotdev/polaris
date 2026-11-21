@@ -23,12 +23,15 @@ export const Composer = ({ taskId, inputRef, onNote, onMessage }: ComposerProps)
 
   const send = async (how: (text: string) => Promise<boolean>) => {
     if (empty || busy) return;
+    const sent = text;
+
     setBusy(true);
-    const ok = await how(text.trim());
+    const ok = await how(sent.trim());
 
     setBusy(false);
 
-    if (ok) setText("");
+    // What was typed while it was sending stays.
+    if (ok) setText((draft) => (draft === sent ? "" : draft));
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {

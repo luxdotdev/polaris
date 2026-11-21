@@ -3,10 +3,11 @@
  * faint mono kind lane and the text. Inspections and lost Attempts are sunken cards.
  */
 import { cn } from "@polaris/ui";
-import { Match } from "effect";
-import type { ReactNode } from "react";
+import { Match, Predicate } from "effect";
+import { memo, type ReactNode } from "react";
 import { receiptView } from "../../model/claim.ts";
 import { clock, shortSha } from "../../model/copy.ts";
+import { proseParts } from "../../model/prose.ts";
 import type { Facts } from "../../model/facts.ts";
 import {
   authorWord,
@@ -14,10 +15,8 @@ import {
   boundaryLine,
   claimTail,
   type EntryData,
-  entryCaption,
   inspectionRoute,
   kindWord,
-  type LogbookLog,
   verdictWord,
 } from "../../model/logbook.ts";
 
@@ -55,8 +54,6 @@ export const Gutter = ({ dot }: { readonly dot: Dot }) => (
   </div>
 );
 
-const MONO = /(\S+\/\S+|\b[a-z_]+(?:\.[a-z_]+)+\b)/g;
-
 /** Paths and dotted names in a note or message set in mono, the rest as prose. */
 export const Prose = ({
   text,
@@ -71,13 +68,13 @@ export const Prose = ({
       className
     )}
   >
-    {text.split(MONO).map((part, n) =>
-      n % 2 === 1 ? (
+    {proseParts(text).map((part, n) =>
+      part.mono ? (
         <span key={n} className="text-code-inline font-mono">
-          {part}
+          {part.text}
         </span>
       ) : (
-        part
+        part.text
       )
     )}
   </p>
@@ -93,26 +90,28 @@ const Card = ({ children }: { readonly children: ReactNode }) => (
   </div>
 );
 
+/** A Claim's checks as its row shows them, worked out by the caller from the Facts. */
+export interface Check {
+  readonly label: string;
+  readonly failed: boolean;
+}
+
 const ClaimBody = ({
   entry,
-  facts,
+  checks,
 }: {
   readonly entry: Extract<EntryData, { _tag: "Claim" }>;
-  readonly facts: Facts;
+  readonly checks: ReadonlyArray<Check>;
 }) => (
   <div className="text-caption gap-x-row-x flex min-h-[18px] flex-wrap items-center gap-y-0.5">
     <span className="text-code-inline text-text-subtle font-mono">
       {shortSha(entry.claim.head)}
     </span>
-    {entry.claim.receipts.map((receipt, n) => {
-      const view = receiptView(receipt, facts);
-
-      return (
-        <span key={n} className={view.ok === false ? "text-failed-text" : "text-text-subtle"}>
-          {view.ok === false ? "✗" : "✓"} {view.label}
-        </span>
-      );
-    })}
+    {checks.map((check, n) => (
+      <span key={n} className={check.failed ? "text-failed-text" : "text-text-subtle"}>
+        {check.failed ? "✗" : "✓"} {check.label}
+      </span>
+    ))}
     <span className="text-text-faint">{claimTail(entry)}</span>
   </div>
 );
@@ -136,43 +135,44 @@ const Lost = ({ entry }: { readonly entry: Extract<EntryData, { _tag: "Lost" }> 
   </Card>
 );
 
-const Body = ({
-  entry,
-  log,
-  facts,
-}: {
+interface RowProps {
   readonly entry: EntryData;
-  readonly log: LogbookLog;
-  readonly facts: Facts;
-}) =>
+  /** The caption under the text (a question's "answered"), from the whole log. */
+  readonly caption: string | null;
+  readonly checks: ReadonlyArray<Check>;
+  readonly last: boolean;
+}
+
+const Body = ({ entry, caption, checks }: RowProps) =>
   Match.value(entry).pipe(
-    Match.tag("Claim", (e) => <ClaimBody entry={e} facts={facts} />),
+    Match.tag("Claim", (e) => <ClaimBody entry={e} checks={checks} />),
     Match.tag("Inspection", (e) => <Inspection entry={e} />),
     Match.tag("Lost", (e) => <Lost entry={e} />),
-    Match.orElse((e) => {
-      const caption = entryCaption(e, log);
-
-      return (
-        <>
-          <Prose text={e.text} />
-          {caption === null ? null : <Caption>{caption}</Caption>}
-        </>
-      );
-    })
+    Match.orElse((e) => (
+      <>
+        <Prose text={e.text} />
+        {caption === null ? null : <Caption>{caption}</Caption>}
+      </>
+    ))
   );
 
+/** A Claim's checks, as its row shows them. */
+export const checksOf = (entry: EntryData, facts: Facts): ReadonlyArray<Check> =>
+  Predicate.isTagged(entry, "Claim")
+    ? entry.claim.receipts.map((receipt) => {
+        const view = receiptView(receipt, facts);
+
+        return { label: view.label, failed: view.ok === false };
+      })
+    : [];
+
+const sameChecks = (a: ReadonlyArray<Check>, b: ReadonlyArray<Check>) =>
+  a.length === b.length &&
+  a.every((check, n) => check.label === b[n]?.label && check.failed === b[n]?.failed);
+
 /** One entry: oldest first in a Task's Logbook, so its time is the clock time. */
-export const EntryRow = ({
-  entry,
-  log,
-  facts,
-  last,
-}: {
-  readonly entry: EntryData;
-  readonly log: LogbookLog;
-  readonly facts: Facts;
-  readonly last: boolean;
-}) => {
+const EntryRowView = (props: RowProps) => {
+  const { entry, last } = props;
   const author = authorWord(entry);
 
   return (
@@ -198,12 +198,22 @@ export const EntryRow = ({
           {kindWord(entry)}
         </span>
         <div className="flex min-w-0 grow basis-0 flex-col gap-0.5">
-          <Body entry={entry} log={log} facts={facts} />
+          <Body {...props} />
         </div>
       </div>
     </div>
   );
 };
+
+/** Re-renders only when its own entry, caption, checks or place changes. */
+export const EntryRow = memo(
+  EntryRowView,
+  (a, b) =>
+    a.entry === b.entry &&
+    a.caption === b.caption &&
+    a.last === b.last &&
+    sameChecks(a.checks, b.checks)
+);
 
 /** The row that starts an Attempt; it sticks to the top while its entries scroll under it. */
 export const Boundary = ({

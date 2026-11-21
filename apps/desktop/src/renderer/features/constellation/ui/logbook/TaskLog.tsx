@@ -9,6 +9,7 @@ import {
   type AttemptMark,
   type AttemptSection,
   type EntryData,
+  entryCaption,
   foldedByDefault,
   type LogbookLog,
   timelineOf,
@@ -16,7 +17,7 @@ import {
 import type { TaskRow } from "../../model/index.ts";
 import { ConstellationMark, TaskGlyph } from "../glyphs.tsx";
 import { ID_TONE, TONE } from "../rows.tsx";
-import { Boundary, EntryRow } from "./entries.tsx";
+import { Boundary, checksOf, EntryRow } from "./entries.tsx";
 
 const VERDICT = new Set<EntryData["_tag"]>(["Review", "Inspection", "Lost"]);
 
@@ -158,7 +159,13 @@ export const TaskLog = ({
       <div className="grow" />
       <div className="py-1.5">
         {timeline.before.map((entry) => (
-          <EntryRow key={entry.id} entry={entry} log={log} facts={facts} last={false} />
+          <EntryRow
+            key={entry.id}
+            entry={entry}
+            caption={entryCaption(entry, log)}
+            checks={checksOf(entry, facts)}
+            last={false}
+          />
         ))}
         {timeline.sections.map((section) => {
           const id = section.attempt.attemptId;
@@ -177,8 +184,8 @@ export const TaskLog = ({
                 <EntryRow
                   key={entry.id}
                   entry={entry}
-                  log={log}
-                  facts={facts}
+                  caption={entryCaption(entry, log)}
+                  checks={checksOf(entry, facts)}
                   last={n === shown.length - 1}
                 />
               ))}

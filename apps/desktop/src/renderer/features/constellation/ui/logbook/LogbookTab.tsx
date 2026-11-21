@@ -4,7 +4,7 @@
  */
 import { MessageTarget, TaskId } from "@polaris/protocol";
 import { Kbd } from "@polaris/ui";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import { useCommands } from "../../../../shell/hooks.ts";
 import { constellationCommands } from "../../client.ts";
 import { useFacts } from "../../hooks.ts";
@@ -96,9 +96,27 @@ const useKeys = (handler: (event: KeyboardEvent) => void) => {
   return ref;
 };
 
+const isEditable = (el: Element | null) =>
+  el instanceof HTMLInputElement ||
+  el instanceof HTMLTextAreaElement ||
+  (el instanceof HTMLElement && el.isContentEditable);
+
+/**
+ * Puts focus in the tab's body when it opens and whenever it switches Task or back to the
+ * feed, so its keys work at once; never taken from a field the user is typing in elsewhere.
+ */
+export const useFocusOnShow = (ref: RefObject<HTMLElement | null>, shown: string | null) => {
+  useEffect(() => {
+    const el = ref.current;
+    const active = document.activeElement;
+
+    if (el === null || (isEditable(active) && !el.contains(active))) return;
+    el.focus({ preventScroll: true });
+  }, [ref, shown]);
+};
+
 const isTyping = (event: KeyboardEvent) =>
-  event.target instanceof HTMLTextAreaElement ||
-  event.target instanceof HTMLInputElement ||
+  (event.target instanceof Element && isEditable(event.target)) ||
   event.metaKey ||
   event.ctrlKey ||
   event.altKey;
@@ -184,6 +202,8 @@ export const LogbookTab = ({ hostKey, record }: LogbookTabProps) => {
   };
 
   const sectionRef = useKeys(onKeyDown);
+
+  useFocusOnShow(sectionRef, row?.task.id ?? null);
 
   const attempt = row?.attempt ?? null;
   const live = attempt !== null && ["working", "blocked", "review"].includes(attempt.state);

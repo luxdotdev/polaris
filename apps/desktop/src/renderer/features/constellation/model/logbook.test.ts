@@ -73,6 +73,20 @@ describe("timelineOf", () => {
 });
 
 describe("rows", () => {
+  test("an answer on an earlier Attempt doesn't answer a later Attempt's question of the same id", () => {
+    const log = read("B1");
+    const question = log.entries.find((e) => Predicate.isTagged(e, "Question"));
+    const earlier = log.attempts.find((a) => a.number === 1)?.attemptId ?? null;
+
+    const entries = log.entries.map((e) =>
+      Predicate.isTagged(e, "Answer") ? { ...e, attemptId: earlier } : e
+    );
+
+    expect(question === undefined ? null : entryCaption(question, { ...log, entries })).toBe(
+      "to the lead · open"
+    );
+  });
+
   test("the feed runs newest first", () => {
     const feed = feedOf(read(null));
 

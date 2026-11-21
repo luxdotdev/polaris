@@ -4,7 +4,8 @@
  */
 import { cn, Kbd } from "@polaris/ui";
 import { Predicate } from "effect";
-import { useEffect, useRef } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { memo, useCallback, useEffect, useRef } from "react";
 import { span } from "../../model/copy.ts";
 import {
   authorWord,
@@ -85,6 +86,79 @@ const FeedLine = ({ entry }: { readonly entry: EntryData }) => {
   return <>{feedText(entry)}</>;
 };
 
+interface LineProps {
+  readonly entry: EntryData;
+  /** The id's tone class, from its Task's state. */
+  readonly tone: string;
+  /** "2m", "1h 5m": changes only when the minute does. */
+  readonly age: string;
+  readonly on: boolean;
+  readonly onSelect: (id: string) => void;
+  readonly onOpen: (taskId: string) => void;
+}
+
+/** One line; it re-renders only when its own props change, not per page or cursor move. */
+const Line = memo(({ entry, tone, age, on, onSelect, onOpen }: LineProps) => {
+  const author = authorWord(entry);
+
+  return (
+    <div
+      role="option"
+      aria-selected={on}
+      data-entry={entry.id}
+      tabIndex={-1}
+      onClick={() => onSelect(entry.id)}
+      onKeyDown={(e) => (e.key === "Enter" ? onOpen(entry.taskId) : undefined)}
+      onDoubleClick={() => onOpen(entry.taskId)}
+      className={cn(
+        "rounded-control text-caption group/line px-gap flex h-[26px] min-w-0 items-center",
+        on ? "bg-fill-selected/60" : "hover:bg-fill-hover/60"
+      )}
+    >
+      <span className="text-micro text-text-faint w-14 shrink-0 font-mono">{age}</span>
+      <span className={cn("text-micro w-12 shrink-0 truncate font-mono", tone)}>
+        {entry.taskId}
+      </span>
+      <span
+        className={cn(
+          "w-[76px] shrink-0 truncate",
+          author.id ? "text-text-subtle font-mono" : "text-text-subtle",
+          entry.author === "you" && "text-text-default"
+        )}
+      >
+        {author.text}
+      </span>
+      <span className="text-micro text-text-faint w-[84px] shrink-0 truncate font-mono">
+        {kindWord(entry)}
+      </span>
+      <span className="text-body text-text-default min-w-0 grow truncate">
+        <FeedLine entry={entry} />
+      </span>
+      {on ? (
+        <span className="text-text-faint ml-2 flex shrink-0 items-center gap-1">
+          Open {entry.taskId} <Kbd variant="plain">↵</Kbd>
+        </span>
+      ) : null}
+    </div>
+  );
+});
+
+const LINE = 26;
+
+/** Before layout (and in tests) the list assumes a pane this size. */
+const FIRST_RECT = { width: 720, height: 640 };
+
+/** Callbacks that keep their identity, so memoized lines don't re-render when they change. */
+const useStable = <A extends ReadonlyArray<unknown>>(fn: (...args: A) => void) => {
+  const latest = useRef(fn);
+
+  useEffect(() => {
+    latest.current = fn;
+  });
+
+  return useCallback((...args: A) => latest.current(...args), []);
+};
+
 export const Feed = ({
   entries,
   tasks,
@@ -101,13 +175,26 @@ export const Feed = ({
   readonly onOpen: (taskId: string) => void;
 }) => {
   const listRef = useRef<HTMLDivElement>(null);
+  const select = useStable(onSelect);
+  const open = useStable(onOpen);
+
+  // oxlint-disable-next-line react/incompatible-library -- the Desktop's one list virtualizer, as every long list uses
+  const virtualizer = useVirtualizer({
+    count: entries.length,
+    getScrollElement: () => listRef.current,
+    estimateSize: () => LINE,
+    getItemKey: (index) => entries[index]?.id ?? index,
+    initialRect: FIRST_RECT,
+    overscan: 12,
+    paddingStart: 6,
+    paddingEnd: 6,
+  });
+
+  const cursorAt = selected === null ? -1 : entries.findIndex((e) => e.id === selected);
 
   useEffect(() => {
-    if (selected === null) return;
-    listRef.current
-      ?.querySelector(`[data-entry="${CSS.escape(selected)}"]`)
-      ?.scrollIntoView({ block: "nearest" });
-  }, [selected]);
+    if (cursorAt >= 0) virtualizer.scrollToIndex(cursorAt, { align: "auto" });
+  }, [cursorAt, virtualizer]);
 
   if (entries.length === 0)
     return (
@@ -121,63 +208,33 @@ export const Feed = ({
       ref={listRef}
       role="listbox"
       aria-label="Entries across tasks"
-      className="px-gap min-h-0 grow overflow-y-auto overscroll-contain py-1.5"
+      className="px-gap min-h-0 grow overflow-y-auto overscroll-contain"
       data-testid="logbook-feed"
     >
-      {entries.map((entry) => {
-        const row = tasks.get(entry.taskId);
-        const on = entry.id === selected;
-        const author = authorWord(entry);
+      <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+        {virtualizer.getVirtualItems().map((item) => {
+          const entry = entries[item.index];
 
-        return (
-          <div
-            key={entry.id}
-            role="option"
-            aria-selected={on}
-            data-entry={entry.id}
-            tabIndex={-1}
-            onClick={() => onSelect(entry.id)}
-            onKeyDown={(e) => (e.key === "Enter" ? onOpen(entry.taskId) : undefined)}
-            onDoubleClick={() => onOpen(entry.taskId)}
-            className={cn(
-              "rounded-control text-caption group/line flex h-[26px] min-w-0 items-center px-gap",
-              on ? "bg-fill-selected/60" : "hover:bg-fill-hover/60"
-            )}
-          >
-            <span className="text-micro text-text-faint w-14 shrink-0 font-mono">
-              {span(entry.at, now)}
-            </span>
-            <span
-              className={cn(
-                "text-micro w-12 shrink-0 truncate font-mono",
-                ID_TONE[row?.look.idTone ?? "neutral"]
-              )}
+          if (entry === undefined) return null;
+
+          return (
+            <div
+              key={item.key}
+              className="absolute top-0 left-0 w-full"
+              style={{ transform: `translateY(${item.start}px)` }}
             >
-              {entry.taskId}
-            </span>
-            <span
-              className={cn(
-                "w-[76px] shrink-0 truncate",
-                author.id ? "text-text-subtle font-mono" : "text-text-subtle",
-                entry.author === "you" && "text-text-default"
-              )}
-            >
-              {author.text}
-            </span>
-            <span className="text-micro text-text-faint w-[84px] shrink-0 truncate font-mono">
-              {kindWord(entry)}
-            </span>
-            <span className="text-body text-text-default min-w-0 grow truncate">
-              <FeedLine entry={entry} />
-            </span>
-            {on ? (
-              <span className="text-text-faint ml-2 flex shrink-0 items-center gap-1">
-                Open {entry.taskId} <Kbd variant="plain">↵</Kbd>
-              </span>
-            ) : null}
-          </div>
-        );
-      })}
+              <Line
+                entry={entry}
+                tone={ID_TONE[tasks.get(entry.taskId)?.look.idTone ?? "neutral"]}
+                age={span(entry.at, now)}
+                on={entry.id === selected}
+                onSelect={select}
+                onOpen={open}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
