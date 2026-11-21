@@ -144,6 +144,13 @@ export const listen = Effect.fnUntraced(function* (
   const connections = yield* Queue.unbounded<ByteTransport>();
 
   const handlers = socketHandlers((transport, socket) => {
+    // Windows AF_UNIX has no SO_PEERCRED; like its named pipe, a connection is the user's (ENG-1028).
+    if (process.platform === "win32") {
+      Queue.offerUnsafe(connections, transport);
+
+      return;
+    }
+
     try {
       localActors.set(transport, harnessProcesses.actorFor(peerPid(socket)));
     } catch {

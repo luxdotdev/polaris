@@ -165,7 +165,8 @@ export const main = async (pairing: string) => {
     await polaris.sendTurn(polaris.hosts[0]!.hostId, "s", "hi");
   } catch (error) {
     if (error instanceof NotGranted) {
-      const needed: "read" | "approve" | "turn" | "start" | "voice" | "comment" | null = error.needed;
+      const needed: "read" | "approve" | "turn" | "start" | "voice" | "comment" | "settings" | null =
+        error.needed;
       return needed;
     }
   }

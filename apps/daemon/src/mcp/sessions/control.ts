@@ -6,7 +6,7 @@ import {
   type AgentSession,
   type HarnessKind,
   ModelId,
-  type PermissionMode,
+  PermissionMode,
   type ReasoningEffort,
   SessionStartInput,
   SessionId,
@@ -50,8 +50,17 @@ export const safeSessionDefaults: SessionDefaultsFor = () => ({
   permissionMode: "supervised",
 });
 
+const lowerMode = (mode: PermissionMode, ceiling: PermissionMode | undefined) =>
+  ceiling !== undefined &&
+  PermissionMode.literals.indexOf(ceiling) < PermissionMode.literals.indexOf(mode)
+    ? ceiling
+    : mode;
+
+/** An omitted mode takes the default, lowered to the starting session's own mode (ADR 0119). */
 export const sessionStartCommand = (
-  record: Pick<AgentSession, "workspaceId" | "harness">,
+  record: Pick<AgentSession, "workspaceId" | "harness"> & {
+    readonly permissionMode?: PermissionMode | undefined;
+  },
   input: Omit<typeof StartInput.Type, "verb">,
   defaults: SessionDefaultsFor
 ) => {
@@ -64,7 +73,8 @@ export const sessionStartCommand = (
     workspaceId: input.workspaceId ?? record.workspaceId,
     harness,
     placement: input.placement ?? SessionPlacement.cases.InPlace.make({}),
-    permissionMode: input.permissionMode ?? selected.permissionMode,
+    permissionMode:
+      input.permissionMode ?? lowerMode(selected.permissionMode, record.permissionMode),
     model: model === null ? null : ModelId.make(model),
     effort: input.effort === undefined ? selected.effort : input.effort,
     serviceTier: input.serviceTier ?? null,

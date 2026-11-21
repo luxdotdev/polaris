@@ -17,6 +17,9 @@ import {
 } from "@polaris/protocol";
 import { Effect, Redacted, Schema } from "effect";
 
+// The test Daemon listens on a /tmp Unix socket, which Windows runners don't have.
+const windows = process.platform === "win32";
+
 const sessionId = SessionId.make("ses_cli_test");
 
 let daemon: TestDaemon;
@@ -44,6 +47,7 @@ const cli = async (args: ReadonlyArray<string>, stdin = "") => {
 };
 
 beforeAll(async () => {
+  if (windows) return;
   daemon = await launchDaemon();
   workspaceId = await daemon.registerWorkspace();
   await Effect.runPromise(
@@ -81,132 +85,152 @@ afterAll(async () => {
   await daemon?.stop();
 });
 
-test("generated CLI lists sessions, workspaces, approvals and the local host through the Daemon socket", async () => {
-  const sessions = await cli(["session", "list", "--json"]);
-  expect(sessions.code).toBe(0);
-  const listed = Schema.decodeUnknownSync(Schema.Array(SessionSummary))(JSON.parse(sessions.out));
-  expect(listed.map((entry) => entry.session.id)).toContain(sessionId);
-  const shown = await cli(["session", "show", sessionId]);
-  expect(shown.code).toBe(0);
-  expect(JSON.parse(shown.out)).toMatchObject({ session: { id: sessionId } });
-  const workspaces = await cli(["workspace", "list"]);
-  expect(workspaces.code).toBe(0);
-  expect(JSON.parse(workspaces.out)).toContainEqual(expect.objectContaining({ id: workspaceId }));
-  const approvals = await cli(["approval", "list"]);
-  expect(approvals.code).toBe(0);
-  expect(JSON.parse(approvals.out)).toEqual([]);
-  const host = await cli(["host", "list"]);
-  expect(host.code).toBe(0);
-  expect(JSON.parse(host.out)).toContainEqual(expect.objectContaining({ hostId: daemon.hostId }));
-}, 30_000);
+test.skipIf(windows)(
+  "generated CLI lists sessions, workspaces, approvals and the local host through the Daemon socket",
+  async () => {
+    const sessions = await cli(["session", "list", "--json"]);
+    expect(sessions.code).toBe(0);
+    const listed = Schema.decodeUnknownSync(Schema.Array(SessionSummary))(JSON.parse(sessions.out));
+    expect(listed.map((entry) => entry.session.id)).toContain(sessionId);
+    const shown = await cli(["session", "show", sessionId]);
+    expect(shown.code).toBe(0);
+    expect(JSON.parse(shown.out)).toMatchObject({ session: { id: sessionId } });
+    const workspaces = await cli(["workspace", "list"]);
+    expect(workspaces.code).toBe(0);
+    expect(JSON.parse(workspaces.out)).toContainEqual(expect.objectContaining({ id: workspaceId }));
+    const approvals = await cli(["approval", "list"]);
+    expect(approvals.code).toBe(0);
+    expect(JSON.parse(approvals.out)).toEqual([]);
+    const host = await cli(["host", "list"]);
+    expect(host.code).toBe(0);
+    expect(JSON.parse(host.out)).toContainEqual(expect.objectContaining({ hostId: daemon.hostId }));
+  },
+  30_000
+);
 
-test("usage, not found, unreachable and refused produce distinct exits; start accepts stdin", async () => {
-  expect((await cli(["session", "show"])).code).toBe(2);
-  expect((await cli(["session", "show", "ses_missing"])).code).toBe(3);
+test.skipIf(windows)(
+  "usage, not found, unreachable and refused produce distinct exits; start accepts stdin",
+  async () => {
+    expect((await cli(["session", "show"])).code).toBe(2);
+    expect((await cli(["session", "show", "ses_missing"])).code).toBe(3);
 
-  const refused = await cli(
-    ["session", "start", "--workspace-id", workspaceId, "--harness", "claude"],
-    "Review the repository"
-  );
-
-  expect(refused.code).toBe(1);
-  expect(refused.err).toContain("UserAccessRequired");
-  const socket = daemon.socketPath;
-
-  const child = Bun.spawn(["bun", `${import.meta.dir}/../main.ts`, "session", "list"], {
-    env: { ...process.env, POLARIS_HOST_SOCKET: `${socket}.absent` },
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-
-  expect(await child.exited).toBe(4);
-}, 30_000);
-
-test("legacy subcommand dispatch still reaches version and existing usage handlers", async () => {
-  const version = await cli(["version"]);
-  expect(version.code).toBe(0);
-  expect(version.out).toContain("polaris");
-  const lease = await cli(["lease"]);
-  expect(lease.code).toBe(2);
-  expect(lease.err).toContain("usage: polaris lease");
-  const constellation = await cli(["constellation"]);
-  expect(constellation.code).toBe(2);
-  expect(constellation.err).toContain("usage: polaris constellation stats");
-}, 30_000);
-
-test("watch emits the live session feed as newline-delimited JSON", async () => {
-  const child = Bun.spawn(
-    ["bun", `${import.meta.dir}/../main.ts`, "session", "watch", sessionId, "--json"],
-    {
-      env: { ...process.env, POLARIS_HOST_SOCKET: daemon.socketPath },
-      stdout: "pipe",
-      stderr: "pipe",
-    }
-  );
-
-  const timer = setTimeout(() => child.kill(), 10_000);
-  const reader = child.stdout.getReader();
-  let text = "";
-
-  try {
-    while (!text.includes("\n")) {
-      const chunk = await reader.read();
-
-      if (chunk.done) break;
-
-      text += new TextDecoder().decode(chunk.value);
-    }
-
-    const snapshot = Schema.decodeUnknownSync(SessionStreamItem.cases.Snapshot)(
-      JSON.parse(text.split("\n")[0]!)
+    const refused = await cli(
+      ["session", "start", "--workspace-id", workspaceId, "--harness", "claude"],
+      "Review the repository"
     );
 
-    expect(snapshot.session.id).toBe(sessionId);
-  } finally {
-    clearTimeout(timer);
-    child.kill();
-    await reader.cancel();
-    await child.exited;
-  }
-}, 15_000);
+    expect(refused.code).toBe(1);
+    expect(refused.err).toContain("UserAccessRequired");
+    const socket = daemon.socketPath;
 
-test("generated settings commands discover Host values and preserve the user-only set gate", async () => {
-  const listed = await cli(["settings", "list", "--json"]);
-  expect(listed.code).toBe(0);
+    const child = Bun.spawn(["bun", `${import.meta.dir}/../main.ts`, "session", "list"], {
+      env: { ...process.env, POLARIS_HOST_SOCKET: `${socket}.absent` },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
 
-  const entries = Schema.decodeUnknownSync(
-    Schema.Array(Schema.Struct({ key: Schema.String, value: Schema.Json }))
-  )(JSON.parse(listed.out));
+    expect(await child.exited).toBe(4);
+  },
+  30_000
+);
 
-  expect(entries.some((entry) => entry.key === "visuals.level")).toBe(true);
-  const described = await cli(["settings", "describe", "visuals.level"]);
-  expect(described.code).toBe(0);
-  const description = Schema.decodeUnknownSync(Schema.JsonObject)(JSON.parse(described.out));
-  expect(description.default).toBe("rich");
+test.skipIf(windows)(
+  "legacy subcommand dispatch still reaches version and existing usage handlers",
+  async () => {
+    const version = await cli(["version"]);
+    expect(version.code).toBe(0);
+    expect(version.out).toContain("polaris");
+    const lease = await cli(["lease"]);
+    expect(lease.code).toBe(2);
+    expect(lease.err).toContain("usage: polaris lease");
+    const constellation = await cli(["constellation"]);
+    expect(constellation.code).toBe(2);
+    expect(constellation.err).toContain("usage: polaris constellation stats");
+  },
+  30_000
+);
 
-  await Effect.runPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        const transport = yield* socketTransport(daemon.socketPath);
-        const { client } = yield* connectRpc(transport);
-        yield* client.hello({
-          clientName: "test",
-          clientVersion: "0",
-          deviceLabel: "Settings test",
-          capabilities: [],
-          userKey: Redacted.make(TEST_USER_KEY),
-        });
-        yield* client["settings.set"]({ key: "visuals.level", value: "off" });
-      })
-    )
-  );
-  const value = await cli(["settings", "get", "visuals.level"]);
-  expect(value.code).toBe(0);
-  expect(
-    Schema.decodeUnknownSync(Schema.Struct({ value: Schema.Json }))(JSON.parse(value.out)).value
-  ).toBe("off");
-  const refused = await cli(["settings", "set", "visuals.level", '"simple"']);
-  expect(refused.code).toBe(1);
-  expect(refused.err).toContain("UserAccessRequired");
-  expect((await cli(["settings", "get", "unknown.setting"])).code).toBe(3);
-}, 30_000);
+test.skipIf(windows)(
+  "watch emits the live session feed as newline-delimited JSON",
+  async () => {
+    const child = Bun.spawn(
+      ["bun", `${import.meta.dir}/../main.ts`, "session", "watch", sessionId, "--json"],
+      {
+        env: { ...process.env, POLARIS_HOST_SOCKET: daemon.socketPath },
+        stdout: "pipe",
+        stderr: "pipe",
+      }
+    );
+
+    const timer = setTimeout(() => child.kill(), 10_000);
+    const reader = child.stdout.getReader();
+    let text = "";
+
+    try {
+      while (!text.includes("\n")) {
+        const chunk = await reader.read();
+
+        if (chunk.done) break;
+
+        text += new TextDecoder().decode(chunk.value);
+      }
+
+      const snapshot = Schema.decodeUnknownSync(SessionStreamItem.cases.Snapshot)(
+        JSON.parse(text.split("\n")[0]!)
+      );
+
+      expect(snapshot.session.id).toBe(sessionId);
+    } finally {
+      clearTimeout(timer);
+      child.kill();
+      await reader.cancel();
+      await child.exited;
+    }
+  },
+  15_000
+);
+
+test.skipIf(windows)(
+  "generated settings commands discover Host values and preserve the user-only set gate",
+  async () => {
+    const listed = await cli(["settings", "list", "--json"]);
+    expect(listed.code).toBe(0);
+
+    const entries = Schema.decodeUnknownSync(
+      Schema.Array(Schema.Struct({ key: Schema.String, value: Schema.Json }))
+    )(JSON.parse(listed.out));
+
+    expect(entries.some((entry) => entry.key === "visuals.level")).toBe(true);
+    const described = await cli(["settings", "describe", "visuals.level"]);
+    expect(described.code).toBe(0);
+    const description = Schema.decodeUnknownSync(Schema.JsonObject)(JSON.parse(described.out));
+    expect(description.default).toBe("rich");
+
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const transport = yield* socketTransport(daemon.socketPath);
+          const { client } = yield* connectRpc(transport);
+          yield* client.hello({
+            clientName: "test",
+            clientVersion: "0",
+            deviceLabel: "Settings test",
+            capabilities: [],
+            userKey: Redacted.make(TEST_USER_KEY),
+          });
+          yield* client["settings.set"]({ key: "visuals.level", value: "off" });
+        })
+      )
+    );
+    const value = await cli(["settings", "get", "visuals.level"]);
+    expect(value.code).toBe(0);
+    expect(
+      Schema.decodeUnknownSync(Schema.Struct({ value: Schema.Json }))(JSON.parse(value.out)).value
+    ).toBe("off");
+    const refused = await cli(["settings", "set", "visuals.level", '"simple"']);
+    expect(refused.code).toBe(1);
+    expect(refused.err).toContain("UserAccessRequired");
+    expect((await cli(["settings", "get", "unknown.setting"])).code).toBe(3);
+  },
+  30_000
+);
