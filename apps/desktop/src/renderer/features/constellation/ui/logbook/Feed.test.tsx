@@ -51,9 +51,12 @@ const many = (count: number): ReadonlyArray<EntryData> => {
 const Harness = ({
   entries,
   onOpen,
+  inTask = false,
 }: {
   readonly entries: ReadonlyArray<EntryData>;
   readonly onOpen: (taskId: string) => void;
+  /** The tab shows a Task's Logbook instead of the feed, keeping its cursor. */
+  readonly inTask?: boolean;
 }) => {
   const { cursor, move, select } = useFeedCursor(entries);
 
@@ -78,14 +81,16 @@ const Harness = ({
 
   return (
     <section aria-label="logbook" tabIndex={-1} ref={ref}>
-      <Feed
-        entries={entries}
-        tasks={new Map()}
-        cursor={cursor}
-        now={NOW}
-        onSelect={select}
-        onOpen={onOpen}
-      />
+      {inTask ? null : (
+        <Feed
+          entries={entries}
+          tasks={new Map()}
+          cursor={cursor}
+          now={NOW}
+          onSelect={select}
+          onOpen={onOpen}
+        />
+      )}
     </section>
   );
 };
@@ -158,4 +163,31 @@ test("↓ to a line below the view brings it into view, and ↵ opens its Task",
   press("Enter");
 
   expect(opened).toEqual([entries[59]?.taskId ?? "missing"]);
+});
+
+test("back from a Task, the feed shows the line the user clicked where they left it", () => {
+  const entries = many(300);
+  const { rerender } = render(<Harness entries={entries} onOpen={() => {}} />);
+  const scrolled = 6 + 120 * 26;
+
+  act(() => {
+    const list = screen.getByTestId("logbook-feed");
+
+    list.scrollTop = scrolled;
+    fireEvent.scroll(list);
+  });
+  const clicked = entries[125]?.id ?? "missing";
+
+  fireEvent.click(
+    screen.getAllByRole("option").find((o) => o.dataset.entry === clicked) ?? document.body
+  );
+  rerender(<Harness entries={entries} onOpen={() => {}} inTask />);
+  rerender(<Harness entries={entries} onOpen={() => {}} />);
+  const list = screen.getByTestId("logbook-feed");
+
+  fireEvent.scroll(list);
+
+  expect(list.scrollTop).toBeLessThanOrEqual(6 + 125 * 26);
+  expect(list.scrollTop + 640).toBeGreaterThanOrEqual(6 + 126 * 26);
+  expect(screen.getByRole("option", { selected: true }).dataset.entry).toBe(clicked);
 });

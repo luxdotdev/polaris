@@ -161,7 +161,7 @@ const useStable = <A extends ReadonlyArray<unknown>>(fn: (...args: A) => void) =
 
 export interface FeedCursor {
   readonly id: string | null;
-  /** Bumped by ↑↓ only: the list scrolls the cursor into view then, never on a live page. */
+  /** Bumped by ↑↓ only: the list scrolls the cursor into view then and on mount, never on a live page. */
   readonly reveal: number;
 }
 
@@ -241,8 +241,9 @@ export const Feed = ({
     if (at >= 0) virtualizer.scrollToIndex(at, { align: "auto" });
   });
 
+  // On mount (back from a Task) and on each ↑↓; a live page leaves `reveal` as it was.
   useEffect(() => {
-    if (cursor.reveal > 0) reveal();
+    reveal();
   }, [cursor.reveal, reveal]);
 
   if (entries.length === 0)
