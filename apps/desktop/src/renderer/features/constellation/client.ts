@@ -5,6 +5,7 @@
 import {
   type ConstellationAnswer,
   type ConstellationDispatch,
+  type ConstellationLogbookNote,
   type ConstellationMessage,
   type ConstellationReview,
   type ConstellationSetState,
@@ -29,6 +30,8 @@ export type AnswerInput = Without<Rpc.Payload<typeof ConstellationAnswer>>;
 
 export type MessageInput = Without<Rpc.Payload<typeof ConstellationMessage>>;
 
+export type NoteInput = Without<Rpc.Payload<typeof ConstellationLogbookNote>>;
+
 export type SetStateInput = Without<Rpc.Payload<typeof ConstellationSetState>>;
 
 export type Outcome =
@@ -47,6 +50,8 @@ export interface ConstellationClient {
   readonly answer: (hostKey: string, input: AnswerInput & WithId) => Promise<Outcome>;
   readonly message: (hostKey: string, input: MessageInput & WithId) => Promise<Outcome>;
   readonly setState: (hostKey: string, input: SetStateInput & WithId) => Promise<Outcome>;
+  /** A note on a Task's Logbook: record only, delivered to no one. */
+  readonly note: (hostKey: string, input: NoteInput & WithId) => Promise<Outcome>;
   /** Sent to the worker's Host, where its startup runs. */
   readonly startWorker: (hostKey: string, input: StartWorkerInput) => Promise<Outcome>;
 }
@@ -63,6 +68,7 @@ type Method =
   | "constellation.answer"
   | "constellation.message"
   | "constellation.set_state"
+  | "constellation.logbook.note"
   | "constellation.worker.start";
 
 /** A refusal's message already lists each finding as "<message>. <fix>" (the IPC's contract). */
@@ -83,6 +89,7 @@ const IPC: ConstellationClient = {
   answer: viaIpc("constellation.answer"),
   message: viaIpc("constellation.message"),
   setState: viaIpc("constellation.set_state"),
+  note: viaIpc("constellation.logbook.note"),
   startWorker: viaIpc("constellation.worker.start"),
 };
 
@@ -124,6 +131,8 @@ export const constellationCommands = {
     run(title, (commandId) => installed.message(hostKey, { ...input, commandId })),
   setState: (hostKey: string, input: SetStateInput, title: string) =>
     run(title, (commandId) => installed.setState(hostKey, { ...input, commandId })),
+  note: (hostKey: string, input: NoteInput, title: string) =>
+    run(title, (commandId) => installed.note(hostKey, { ...input, commandId })),
   startWorker: (hostKey: string, input: StartWorkerInput, title: string) =>
     run(title, () => installed.startWorker(hostKey, input)),
 };

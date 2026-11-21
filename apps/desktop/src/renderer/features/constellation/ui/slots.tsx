@@ -31,11 +31,12 @@ import {
   steeredDigest,
 } from "../model/index.ts";
 import { showLeadTab } from "../leadTab.ts";
-import { leadKey, patchLeadUi, useLeadUi } from "../state.ts";
+import { type LeadTab, leadKey, patchLeadUi, useLeadUi } from "../state.ts";
 import { DigestCard } from "./cards.tsx";
 import { ConstellationTab } from "./ConstellationTab.tsx";
 import { HandoverFocus, useWorkerChrome, WorkerFocus } from "./focus.tsx";
 import { LeadQuestions } from "./questions.tsx";
+import { LogbookTab } from "./logbook/LogbookTab.tsx";
 
 export interface SessionSlot {
   readonly hostKey: string;
@@ -186,7 +187,8 @@ export const ConstellationOutput = ({ hostKey, sessionId }: SessionSlot) => {
 
   if (record === null) return <SessionOutput hostKey={hostKey} sessionId={sessionId} />;
 
-  const pick = (tab: "constellation" | "changes") => showLeadTab(hostKey, sessionId, tab);
+  const logbookTask = ui.selected?.startsWith("task:") === true ? ui.selected.slice(5) : null;
+  const pick = (tab: LeadTab) => showLeadTab(hostKey, sessionId, tab);
 
   const tabs = (
     <>
@@ -196,6 +198,16 @@ export const ConstellationOutput = ({ hostKey, sessionId }: SessionSlot) => {
         onClick={() => pick("constellation")}
       >
         Constellation
+      </OutputTab>
+      <OutputTab
+        id="logbook"
+        on={!subagent && !browser && ui.tab === "logbook"}
+        onClick={() => pick("logbook")}
+      >
+        Logbook
+        {logbookTask === null ? null : (
+          <span className="text-micro text-text-faint font-mono">{logbookTask}</span>
+        )}
       </OutputTab>
       <OutputTab
         id="changes"
@@ -241,7 +253,11 @@ export const ConstellationOutput = ({ hostKey, sessionId }: SessionSlot) => {
           />
         )}
       </div>
-      <ConstellationTab hostKey={hostKey} record={record} />
+      {ui.tab === "logbook" ? (
+        <LogbookTab hostKey={hostKey} record={record} />
+      ) : (
+        <ConstellationTab hostKey={hostKey} record={record} />
+      )}
     </section>
   );
 };

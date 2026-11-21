@@ -2,14 +2,10 @@
 import { setDataOutputShown } from "../data/output/state.ts";
 import { leaveBrowser } from "../session/output/browser.ts";
 import { showSubagent, uiKey } from "../session/state.ts";
-import { leadKey, patchLeadUi } from "./state.ts";
+import { type LeadTab, leadKey, patchLeadUi } from "./state.ts";
 
 /** Puts a Lead's Output on `tab`, closing a subagent, the browser or Data shown over it. */
-export const showLeadTab = (
-  hostKey: string,
-  sessionId: string,
-  tab: "constellation" | "changes"
-) => {
+export const showLeadTab = (hostKey: string, sessionId: string, tab: LeadTab) => {
   showSubagent(uiKey(hostKey, sessionId), null);
   leaveBrowser(hostKey, sessionId);
   setDataOutputShown(uiKey(hostKey, sessionId), false);
