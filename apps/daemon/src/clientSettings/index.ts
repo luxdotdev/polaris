@@ -71,12 +71,17 @@ const make = Effect.sync(() => {
 
         if (old !== undefined) yield* remove(id, old);
 
-        const changes = yield* Queue.unbounded<ClientSettingChange>();
+        const changes = yield* Queue.dropping<ClientSettingChange>(64);
         const client: Client = { snapshot, activeAt: snapshot.active ? ++activity : 0, changes };
         clients.set(id, client);
         yield* Effect.addFinalizer(() => remove(id, client));
 
-        return Stream.concat(Stream.make(null), Stream.fromQueue(changes));
+        return Stream.concat(
+          Stream.make(null),
+          Stream.fromQueue(changes).pipe(
+            Stream.filter((request) => pending.get(request.requestId)?.client === client)
+          )
+        );
       })
     );
 
@@ -108,7 +113,9 @@ const make = Effect.sync(() => {
     pending.set(requestId, { client, key, result });
 
     return yield* Effect.gen(function* () {
-      yield* Queue.offer(client.changes, { requestId, key, value });
+      const offered = yield* Queue.offer(client.changes, { requestId, key, value });
+
+      if (!offered) return yield* failure("Client Settings change queue is full");
 
       return yield* Deferred.await(result).pipe(
         Effect.timeoutOrElse({

@@ -3,7 +3,15 @@ import { createElement } from "react";
 /** Relay notices reuse the app's Polaris toast and its Undo action (DESIGN.md, Toasts). */
 import { PixelCheckIcon, PixelFailedIcon, showToast } from "@polaris/ui";
 import type { PolarisApi } from "../../../shared/api.ts";
-import type { SessionId } from "@polaris/protocol";
+import type { NavState } from "../../routes/selection.ts";
+
+const changeMessage = (value: import("@polaris/protocol").ClientSettingChange["value"]) => {
+  const text = JSON.stringify(value);
+
+  return text.length <= 80
+    ? `An agent changed this client setting to ${text}.`
+    : "An agent changed this client setting.";
+};
 
 export const connectClientSettingNotices = (api: PolarisApi) =>
   api.onAppEvent((event) => {
@@ -26,7 +34,7 @@ export const connectClientSettingNotices = (api: PolarisApi) =>
       source: "starlight",
       icon: createElement(PixelCheckIcon, { size: 16 }),
       title: `Changed ${event.key}`,
-      message: `An agent changed this client setting to ${JSON.stringify(event.value)}.`,
+      message: changeMessage(event.value),
       action: {
         label: "Undo",
         onAction: () => {
@@ -45,7 +53,7 @@ export const connectClientSettingNotices = (api: PolarisApi) =>
   });
 
 interface Navigation {
-  getState: () => { hostKey: string | null; sessionId: SessionId | null; pane: string };
+  getState: () => Pick<NavState, "hostKey" | "sessionId" | "pane" | "mode" | "settings" | "shared">;
   subscribe: (listener: () => void) => () => void;
 }
 
@@ -55,18 +63,38 @@ export const reportClientSettingsActivity = (api: PolarisApi, navigation: Naviga
     const state = navigation.getState();
     void api.request("clientSettings.activity", {
       hostKey: state.hostKey,
-      sessionId: state.pane === "session" ? state.sessionId : null,
+      sessionId:
+        state.mode === "orchestrate" &&
+        state.pane === "session" &&
+        state.settings === null &&
+        state.shared === null
+          ? state.sessionId
+          : null,
       active: document.hasFocus(),
     });
   };
 
+  let lastInput = 0;
+
+  const interaction = () => {
+    const now = performance.now();
+
+    if (now - lastInput < 1000) return;
+    lastInput = now;
+    report();
+  };
+
   report();
   const stop = navigation.subscribe(report);
+  window.addEventListener("pointerdown", interaction, true);
+  window.addEventListener("keydown", interaction, true);
   window.addEventListener("focus", report);
   window.addEventListener("blur", report);
 
   return () => {
     stop();
+    window.removeEventListener("pointerdown", interaction, true);
+    window.removeEventListener("keydown", interaction, true);
     window.removeEventListener("focus", report);
     window.removeEventListener("blur", report);
   };

@@ -138,3 +138,34 @@ test("disconnect fails a pending set and another connection cannot complete it",
       expect((yield* Fiber.join(setter)).message).toBe("Client disconnected");
     })
   ));
+
+test("a canceled change still waiting for delivery is never applied by the Client", () =>
+  run(
+    Effect.gen(function* () {
+      const relay = yield* ClientSettings;
+      const ready = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      const received: Array<SettingValue["value"]> = [];
+      yield* relay.connect(1, { settings: [theme("system")], sessionId: null, active: true }).pipe(
+        Stream.runForEach((request) =>
+          request === null
+            ? Deferred.succeed(ready, undefined).pipe(Effect.andThen(Deferred.await(release)))
+            : Effect.gen(function* () {
+                received.push(request.value);
+                yield* relay.complete(1, request.requestId, null, [
+                  theme(Schema.decodeUnknownSync(Schema.String)(request.value)),
+                ]);
+              })
+        ),
+        Effect.forkChild
+      );
+      yield* Deferred.await(ready);
+      const canceled = yield* relay.set("theme", "dark").pipe(Effect.forkChild);
+      yield* Effect.yieldNow;
+      yield* Fiber.interrupt(canceled);
+      const live = yield* relay.set("theme", "light").pipe(Effect.forkChild);
+      yield* Deferred.succeed(release, undefined);
+      expect((yield* Fiber.join(live)).value).toBe("light");
+      expect(received).toEqual(["light"]);
+    })
+  ));
