@@ -58,7 +58,8 @@ afterEach(() => workServer.stop());
 
 /**
  * S1 shared with the device's personal Account and S2 with its work Account, at another
- * issuer: the same relay address and Noise key listed under two persons.
+ * issuer: the same relay address and Noise key listed under two persons. The work issuer
+ * lists the device when `listWork` is called.
  */
 const sharedTwice = (host: Host, laptop: TestDevice) =>
   Effect.gen(function* () {
@@ -77,7 +78,8 @@ const sharedTwice = (host: Host, laptop: TestDevice) =>
       hostCapability: Redacted.make("cap"),
     });
 
-    workServer.list("inv_work", [{ personId: WORK, relayAddress: laptop.address, noiseKey }]);
+    const listWork = () =>
+      workServer.list("inv_work", [{ personId: WORK, relayAddress: laptop.address, noiseKey }]);
 
     const statement = (issuer: FakeIssuer, personId: string) =>
       Effect.map(
@@ -88,6 +90,7 @@ const sharedTwice = (host: Host, laptop: TestDevice) =>
     return {
       personal,
       work,
+      listWork,
       personalStatement: yield* statement(server, PERSON),
       workStatement: yield* statement(workServer, WORK),
     };
@@ -99,7 +102,12 @@ test("one device signed in to two Accounts holds a connection as each person, an
       const host = yield* daemon(scope);
       const laptop = yield* Effect.promise(makeDevice);
 
-      const { personal, work, personalStatement, workStatement } = yield* sharedTwice(host, laptop);
+      const { personal, work, listWork, personalStatement, workStatement } = yield* sharedTwice(
+        host,
+        laptop
+      );
+
+      listWork();
 
       const socket = yield* Effect.promise(() => DeviceSocket.connect(relay.url, laptop.identity));
 
@@ -187,13 +195,13 @@ test("one device signed in to two Accounts holds a connection as each person, an
   );
 }, 60_000);
 
-test("the Client's relay device holds a session as each Account to one Host at once", async () => {
+test("the Client's relay device holds a session as each Account to one Host at once, though the Host left one unanswered", async () => {
   await scoped((scope) =>
     Effect.gen(function* () {
       const host = yield* daemon(scope);
       const laptop = yield* Effect.promise(makeDevice);
       const shared = yield* sharedTwice(host, laptop);
-      const device = makeRelayDevice(laptop);
+      const device = makeRelayDevice(laptop, { openTimeoutMs: 1_000 });
       yield* Effect.addFinalizer(() => Effect.sync(device.close));
 
       /** A session as that Account's person, as the Desktop and Mobile Apps open one. */
@@ -206,13 +214,27 @@ test("the Client's relay device holds a session as each Account to one Host at o
             teammate,
           })
           .pipe(
-            Effect.retry({ times: 3 }),
+            Effect.retry({ times: 10 }),
             Effect.flatMap((transport) => connectRpcWith(Probe, transport)),
             Effect.map((connection) => connection.client)
           );
 
+      const asWork = { issuer: workServer.issuer, personId: WORK };
       const mine = yield* sessionAs({ issuer: server.issuer, personId: PERSON });
-      const theirs = yield* sessionAs({ issuer: workServer.issuer, personId: WORK });
+
+      // Before the work issuer lists the device, the Host leaves its handshake unanswered (ENG-968).
+      const unanswered = yield* Effect.flip(
+        device.transport({
+          relayUrl: relay.url,
+          hostAddress: host.status.hostAddress,
+          hostNoiseKey: host.status.hostNoiseKey,
+          teammate: asWork,
+        })
+      );
+
+      expect(unanswered.message).toBe("the Host did not answer the handshake");
+      shared.listWork();
+      const theirs = yield* sessionAs(asWork);
 
       const greeted = yield* Effect.all([
         mine.hello({ ...hello, accountStatement: shared.personalStatement }),

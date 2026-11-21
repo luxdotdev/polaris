@@ -3,7 +3,7 @@
  * proves the device's relay key, tracks which Hosts are online, and hands each Host's
  * records to the sessions listening for them. Reconnects with backoff and full jitter
  * while it is wanted; idle, it sends nothing (the relay pings). The relay's pings never
- * reach JS, so a socket that died without closing is found out by a session (`recycle`).
+ * reach JS, so a socket that died without closing is found out by a session (`suspect`).
  */
 import {
   decodeDataFrame,
@@ -27,6 +27,9 @@ const BACKOFF_MAX_MS = 30_000;
 /** A WebSocket buffers what the network can't take yet; writers wait above this. */
 const MAX_BUFFERED_BYTES = 1024 * 1024;
 
+/** How long a probe waits for the relay's answer before the socket counts as dead. */
+export const PROBE_TIMEOUT_MS = 3_000;
+
 const jittered = (attempt: number) =>
   Math.random() * Math.min(BACKOFF_MAX_MS, BACKOFF_MIN_MS * 2 ** attempt);
 
@@ -44,6 +47,8 @@ export interface RelaySocketOptions {
   readonly reconnect: boolean;
   /** For tests: a fixed backoff instead of the jittered one. */
   readonly backoff?: ((attempt: number) => number) | undefined;
+  /** For tests: a shorter wait for the relay's answer to a probe. */
+  readonly probeTimeoutMs?: number | undefined;
 }
 
 export class RelaySocket {
@@ -53,6 +58,10 @@ export class RelaySocket {
   private attempt = 0;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private pacer: Pacer | null = null;
+  /** This device's own address, as the relay's `ready` named it. */
+  private address: RelayAddress | null = null;
+  private probing = false;
+  private probeTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly online = new Set<string>();
   private readonly listeners = new Map<string, Set<PeerListener>>();
   private readonly waiters = new Set<() => void>();
@@ -81,15 +90,6 @@ export class RelaySocket {
     this.drop("the relay socket was closed");
   }
 
-  /** How many sessions and handshakes listen on this socket, across all peers. */
-  get listening(): number {
-    let count = 0;
-
-    for (const set of this.listeners.values()) count += set.size;
-
-    return count;
-  }
-
   /** A mark of what this socket has heard so far, for `heardSince`. */
   get heardMark(): number {
     return this.heard;
@@ -101,9 +101,48 @@ export class RelaySocket {
   }
 
   /**
-   * Drops the socket and dials again at once: a session found it silent, which a
-   * socket that died without closing (a network change, a suspended app) looks like.
+   * A session found the socket silent, as a socket that died without closing looks (a network
+   * change, a suspended app), or as a Host that refuses a handshake looks. Asks the relay for
+   * an answer it always gives (a forward to this device itself comes back `unreachable`) and
+   * recycles the socket only when that goes unanswered too, so other sessions on it live on
+   * (ADR 0118).
    */
+  suspect(reason: string): void {
+    const ws = this.ws;
+    const address = this.address;
+
+    if (ws === null || this.stopped || this.probing) return;
+
+    if (!this.ready || address === null) {
+      this.recycle(reason);
+
+      return;
+    }
+
+    this.probing = true;
+    const mark = this.heard;
+
+    void this.send(address, [new Uint8Array(0)]).then((sent) => {
+      if (!this.probing || this.ws !== ws) return;
+
+      this.probeTimer = setTimeout(
+        () => {
+          this.endProbe();
+
+          if (this.ws === ws && !this.heardSince(mark)) this.recycle(reason);
+        },
+        sent ? (this.options.probeTimeoutMs ?? PROBE_TIMEOUT_MS) : 0
+      );
+    });
+  }
+
+  private endProbe(): void {
+    if (this.probeTimer !== null) clearTimeout(this.probeTimer);
+    this.probeTimer = null;
+    this.probing = false;
+  }
+
+  /** Drops the socket and dials again at once. */
   recycle(reason: string): void {
     const ws = this.ws;
 
@@ -170,6 +209,7 @@ export class RelaySocket {
 
   private drop(reason: string): void {
     const wasReady = this.ready;
+    this.endProbe();
     this.ready = false;
     this.pacer = null;
     this.online.clear();
@@ -225,6 +265,7 @@ export class RelaySocket {
         break;
       case "ready":
         this.ready = true;
+        this.address = message.address;
         this.attempt = 0;
         this.notify();
         break;

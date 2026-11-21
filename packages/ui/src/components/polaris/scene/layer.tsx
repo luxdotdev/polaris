@@ -2,8 +2,8 @@ import { useEffect, useRef } from "react";
 
 import { reducedMotion } from "../../../lib/motion";
 import type { Pixel } from "./actors";
-import { type Cover, cover, toScene } from "./geometry";
-import { SCENES, type SceneMap } from "./map";
+import { sceneMapOf, windowCover } from "./art";
+import { type Cover, toScene } from "./geometry";
 import { frameKey, SceneMotion } from "./motion";
 
 declare global {
@@ -28,33 +28,19 @@ const INPUT = ["pointermove", "pointerdown", "keydown", "wheel"] as const;
 /** With no input in the window for this long the scene rests (still) until the next input. */
 const REST_AFTER_MS = 180_000;
 
-const sceneKind = (scene: HTMLElement): SceneMap | null => {
-  const kind = getComputedStyle(scene).getPropertyValue("--scene-kind").trim();
-
-  return kind === "night" || kind === "dawn" ? SCENES[kind] : null;
-};
-
 /** The scene's content (headline, setup card) as scene-pixel boxes that visitors keep clear of. */
-const contentBoxes = (scene: HTMLElement, layer: HTMLElement, at: Cover) => {
-  const origin = scene.getBoundingClientRect();
-
-  return [...scene.children].flatMap((child) => {
+const contentBoxes = (scene: HTMLElement, layer: HTMLElement, at: Cover) =>
+  [...scene.children].flatMap((child) => {
     if (child === layer) return [];
     const r = child.getBoundingClientRect();
 
-    return [
-      toScene(
-        { left: r.left - origin.left, top: r.top - origin.top, width: r.width, height: r.height },
-        at
-      ),
-    ];
+    return [toScene({ left: r.left, top: r.top, width: r.width, height: r.height }, at)];
   });
-};
 
 /**
  * Runs one scene's motion; returns a function that stops it. The canvas is the scene's own size
- * (one canvas pixel per scene pixel), scaled and placed as the background is, inside `layer`,
- * which is pinned to the scene's visible box and clips it.
+ * (one canvas pixel per scene pixel), scaled and placed as the background is (covering the
+ * window), inside `layer`, which is pinned to the scene's visible box and clips it.
  */
 const runScene = (layer: HTMLElement, canvas: HTMLCanvasElement, scene: HTMLElement) => {
   // A 360×225 bitmap: a software context uploads it cheaply and keeps no GPU canvas around.
@@ -105,12 +91,14 @@ const runScene = (layer: HTMLElement, canvas: HTMLCanvasElement, scene: HTMLElem
     clear();
 
     if (map === undefined) return;
-    at = cover(width, height, map.width, map.height);
+    // Window coordinates throughout: the art is pinned to the window (bg-fixed).
+    at = windowCover(map);
+    const box = scene.getBoundingClientRect();
     canvas.width = map.width;
     canvas.height = map.height;
     canvas.style.width = `${map.width * at.scale}px`;
     canvas.style.height = `${map.height * at.scale}px`;
-    canvas.style.transform = `translate(${at.x}px, ${at.y}px)`;
+    canvas.style.transform = `translate(${at.x - box.left - scene.clientLeft}px, ${at.y - box.top - scene.clientTop}px)`;
     model?.setKeepOut(contentBoxes(scene, layer, at));
     draw();
   };
@@ -151,7 +139,7 @@ const runScene = (layer: HTMLElement, canvas: HTMLCanvasElement, scene: HTMLElem
   };
 
   const setup = () => {
-    const map = sceneKind(scene);
+    const map = sceneMapOf(scene);
 
     epoch = performance.now();
     model = map === null ? null : new SceneMotion(map, Date.now() % 2 ** 31);
@@ -186,6 +174,7 @@ const runScene = (layer: HTMLElement, canvas: HTMLCanvasElement, scene: HTMLElem
   motion.addEventListener("change", update);
   document.addEventListener("visibilitychange", update);
   scene.addEventListener("scroll", measure, { passive: true });
+  window.addEventListener("resize", measure);
 
   for (const kind of INPUT) window.addEventListener(kind, wake, { passive: true });
   setup();
@@ -204,6 +193,7 @@ const runScene = (layer: HTMLElement, canvas: HTMLCanvasElement, scene: HTMLElem
     motion.removeEventListener("change", update);
     document.removeEventListener("visibilitychange", update);
     scene.removeEventListener("scroll", measure);
+    window.removeEventListener("resize", measure);
 
     for (const kind of INPUT) window.removeEventListener(kind, wake);
   };

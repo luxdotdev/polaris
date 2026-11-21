@@ -140,6 +140,9 @@ Relay sockets drop: networks change, the relay redeploys, phones sleep. Parties 
 - Treat `presence {online: false}` and their own reconnects as the end of every session with
   that peer. The device starts a new handshake when it sees the host online. The host drops
   sessions it holds for a device that went offline or reconnected.
+- Probe a socket that seems dead before dropping it: a forward to the party's own address,
+  even an empty one, is always answered with `unreachable`. A Host that refuses a handshake is
+  silent too, so silence alone doesn't prove the socket dead (ENG-968).
 - Not resend records across sessions. The protocol layer above resumes (`packages/client`'s
   resume) as it does after any dropped connection.
 
@@ -322,9 +325,11 @@ README (`@polaris/relay`).
 
 `bun run --cwd apps/relay test` runs the contract suite. Every test starts the release binary
 as a process, configures it through this README's environment variables, and reads its log
-lines from stdout. cargo builds the binary on first use (`contract/testing/binary.ts`);
-`POLARIS_RELAY_BIN` names one built elsewhere, as CI does. The Daemon's and the Mobile App's
-relay tests start the same binary, so they need cargo as well.
+lines from stdout. cargo builds the binary on first use (`contract/testing/binary.ts`), one
+process at a time behind a lock file, since a first build may install the pinned toolchain;
+`POLARIS_RELAY_BIN` names one built elsewhere, as CI does (turbo's `test` task passes it
+through). The Daemon's and the Mobile App's relay tests start the same binary, so they need
+cargo as well.
 
 - `relay.test.ts`: two parties handshake and exchange protocol frames through a real relay
   socket, with checks that nothing they handed the relay and nothing it logged holds the

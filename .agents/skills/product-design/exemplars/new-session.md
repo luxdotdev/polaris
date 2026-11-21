@@ -40,4 +40,6 @@ text on illustration.
 
 ## Known flaws
 
+- Midnight uses its own sky (ENG-998, Paper "Polaris — Midnight sky" MS-D); this artboard shows Moonlit's.
+
 - No light (dawn) artboard for this page.

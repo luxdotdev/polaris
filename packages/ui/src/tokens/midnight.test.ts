@@ -148,14 +148,29 @@ describe("midnight", () => {
     );
   });
 
-  test("uses dark's washes, scenes and halos", () => {
+  test("uses dark's washes and halos", () => {
     const assets = read("../styles/assets.css");
 
     expect(assets).toMatch(
-      /\[data-theme="dark"\],\s*\[data-theme="midnight"\]\s*\{[^}]*scene-night/
+      /\[data-theme="dark"\],\s*\[data-theme="midnight"\]\s*\{[^}]*wash-starlight-dark[^}]*halo-starlight\.png/
+    );
+  });
+
+  test("has its own sky wherever Midnight is the dark in use", () => {
+    const assets = read("../styles/assets.css");
+
+    const sky =
+      /\{\s*--scene: url\("[^"]*scene-midnight\.png"\);\s*--scene-foot: url\("[^"]*scene-midnight-foot\.png"\);\s*--scene-kind: midnight;\s*--scene-clearing: #000000;/;
+
+    expect(assets).toMatch(
+      new RegExp(
+        `\\[data-theme="midnight"\\],\\s*\\[data-theme="dark"\\]\\[data-theme-dark="midnight"\\]\\s*${sky.source}`
+      )
     );
     expect(assets).toMatch(
-      /@media \(prefers-color-scheme: light\)\s*\{\s*:root:not\(\[data-theme\]\)/
+      new RegExp(
+        `@media not \\(prefers-color-scheme: light\\)\\s*\\{\\s*:root:not\\(\\[data-theme\\]\\)\\[data-theme-dark="midnight"\\]\\s*${sky.source}`
+      )
     );
   });
 });

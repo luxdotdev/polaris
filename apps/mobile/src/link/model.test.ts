@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { footLayout } from "../horizon/scene.ts";
 import {
   fittedSheetHeight,
   HEADING_TOP,
@@ -135,24 +136,15 @@ describe("headingTop", () => {
 });
 
 describe("skyShows", () => {
-  test("keeps the star and moon while the sky has room for them (MX-AH on a 852pt iPhone)", () => {
-    expect(skyShows({ sheetTop: 422, headingBottom: 229, starBottom: 326 })).toEqual({
-      star: true,
-      moon: true,
-    });
+  // A 393pt 3x iPhone's: 304.7pt down to the hills on a sheet 422pt down.
+  const { ridgeTop } = footLayout(393, 3);
+
+  test("keeps the star while it clears the hills (MX-AH on a 852pt iPhone)", () => {
+    expect(skyShows({ sheetTop: 422, ridgeTop, starBottom: 300 })).toEqual({ star: true });
   });
 
-  test("hides the star behind a tall sheet and the moon that would draw over the lead", () => {
-    expect(skyShows({ sheetTop: 152, headingBottom: 340, starBottom: 408 })).toEqual({
-      star: false,
-      moon: false,
-    });
-  });
-
-  test("hides only the moon when the lead reaches down to it", () => {
-    expect(skyShows({ sheetTop: 422, headingBottom: 276, starBottom: 344 })).toEqual({
-      star: true,
-      moon: false,
-    });
+  test("hides the star that would stand in the hills over a tall sheet", () => {
+    expect(skyShows({ sheetTop: 422, ridgeTop, starBottom: 306 })).toEqual({ star: false });
+    expect(skyShows({ sheetTop: 152, ridgeTop, starBottom: 408 })).toEqual({ star: false });
   });
 });

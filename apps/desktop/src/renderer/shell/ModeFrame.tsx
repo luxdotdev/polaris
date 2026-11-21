@@ -18,19 +18,11 @@ export const ModeShell = ({ mode, children }: { mode: string; children?: ReactNo
 );
 
 /** A mode's sidebar (270px, on the ground over the horizon) beside its panels. */
-export const SidebarFrame = ({
-  label,
-  moon = false,
-  children,
-}: {
-  label: string;
-  moon?: boolean;
-  children: ReactNode;
-}) => (
+export const SidebarFrame = ({ label, children }: { label: string; children: ReactNode }) => (
   <div className="flex min-h-0 flex-1 gap-1.5 pr-1.5 pb-1.5">
     <div className="relative isolate flex min-h-0 shrink-0 flex-col">
       <aside aria-label={label} className="flex min-h-0 w-[270px] flex-1 flex-col" />
-      <Horizon moon={moon} />
+      <Horizon />
     </div>
     {children}
   </div>

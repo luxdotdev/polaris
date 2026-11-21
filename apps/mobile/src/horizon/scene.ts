@@ -1,102 +1,93 @@
 /**
- * The horizon's geometry and palettes (Paper "Mobile chrome exploration", MX · Kit and MX-C), from
- * the shared 1440-wide art: a window of the art at 1:1 points, centred where Paper's 393 crop is.
+ * The horizon's geometry and colours: the theme's foot scene (design/assets/scenes, the Desktop
+ * App's window foot) at the screen's foot, one image pixel to a device pixel, centred and cropped.
  */
-import { STARS } from "@polaris/ui/horizon";
 import type { ThemeName } from "../theme/appearance.ts";
 
-/** The horizon's box: 60pt of scroll-edge fade over 140pt of sky, the ridges in its foot. */
+/** The horizon's box: the foot scene's hills, the sky over them and the fade into the ground. */
 export const HORIZON_HEIGHT = 200;
 
-export const SKY_TOP = 60;
+/** Each foot scene is a 360×225 pixel scene drawn at 4×. */
+export const FOOT_WIDTH = 1440;
 
-export const RIDGE_TOP = 128;
+export const FOOT_HEIGHT = 900;
 
-export const RIDGE_HEIGHT = 72;
+/** The highest hill's top in the foot image (row 137 of the 225-row scene's skyline). */
+export const HILLS_TOP_ROW = 4 * 137;
 
-const ART_WIDTH = 1440;
+/** How much sky shows over the highest hill, and how far the scene fades in above that. */
+const SKY_ABOVE = 24;
 
-/** Paper's crop: its 393-wide frame shows the art from x 492. */
-const PAPER_WIDTH = 393;
+const FADE = 20;
 
-const PAPER_LEFT = 492;
-
-const ART_CENTRE = PAPER_LEFT + PAPER_WIDTH / 2;
-
-/** Where the screen's left edge falls in the art: a whole point, so its pixels stay square. */
-export const cropLeft = (width: number): number =>
-  Math.min(Math.max(Math.round(ART_CENTRE - width / 2), 0), Math.max(ART_WIDTH - width, 0));
-
-/** The moon, 72pt square, 6pt in from the right and 58pt down the box (MX-C Moonlit). */
-export const MOON_SIZE = 72;
-
-export const MOON_TOP = 58;
-
-export const moonLeft = (width: number): number => width - 6 - MOON_SIZE;
-
-/** Paper places the Desktop's fixed sidebar stars 40pt in, and the rest by their share of 1440. */
-const FIXED_STARS = 300;
-
-const paperX = (x: number) =>
-  x < FIXED_STARS ? x + 40 : Math.round((x / ART_WIDTH) * PAPER_WIDTH);
-
-export interface Palette {
-  readonly back: string;
-  readonly front: string;
-  /** The glow from the ridge up: its foot, then 45% of the way up; it fades out at the top. */
-  readonly glow: readonly [string, string];
-  readonly star: string;
-  /** Moonlit dims its stars to 70% and keeps only the marked ones. */
-  readonly starOpacity: number;
-  readonly allStars: boolean;
-  readonly moon: boolean;
+export interface FootLayout extends FootFrame {
+  /** The image's top in the horizon's box. */
+  readonly top: number;
+  /** Where the highest hill's top falls in the box. */
+  readonly ridgeTop: number;
+  /** The scene fades in from the ground between these, in the box. */
+  readonly fadeTop: number;
+  readonly fadeBottom: number;
 }
 
-export const PALETTES: Readonly<Record<ThemeName, Palette>> = {
-  midnight: {
-    back: "#151A3A",
-    front: "#0B1026",
-    glow: ["#465CBE29", "#465CBE0D"],
-    star: "#BCD3FF",
-    starOpacity: 1,
-    allStars: true,
-    moon: false,
-  },
-  moonlit: {
-    back: "#262B45",
-    front: "#1E2236",
-    glow: ["#465CBE1F", "#465CBE0A"],
-    star: "#BCD3FF",
-    starOpacity: 0.7,
-    allStars: false,
-    moon: true,
-  },
-};
-
-export interface PlacedStar {
-  readonly x: number;
-  readonly y: number;
-  readonly size: number;
-  readonly opacity: number;
+export interface FootFrame {
+  /** Device pixels to an image pixel: 1, or more on a screen wider than the image. */
+  readonly scale: number;
+  /** The image's left edge, width and height, in points. */
+  readonly left: number;
+  readonly width: number;
+  readonly height: number;
 }
 
-/** The theme's stars on a screen this wide, in the sky's box; ones past either edge are left out. */
-export const starsFor = (theme: ThemeName, width: number): ReadonlyArray<PlacedStar> => {
-  const palette = PALETTES[theme];
-  const shift = PAPER_LEFT - cropLeft(width);
+/** The foot image across a box `width` points wide with `ratio` device pixels to a point. */
+export const footFrame = (width: number, ratio: number): FootFrame => {
+  const pixels = Math.round(width * ratio);
+  const scale = Math.max(1, Math.ceil(pixels / FOOT_WIDTH));
+  const shown = FOOT_WIDTH * scale;
 
-  return STARS.filter((star) => palette.allStars || star.moonlit)
-    .map((star) => ({
-      x: paperX(star.x) + shift,
-      y: star.y,
-      size: star.size,
-      opacity: star.opacity * palette.starOpacity,
-    }))
-    .filter((star) => star.x >= 0 && star.x + star.size <= width);
+  return {
+    scale,
+    // A whole number of device pixels either side, so every image pixel lands on one.
+    left: -Math.round((shown - pixels) / 2) / ratio,
+    width: shown / ratio,
+    height: (FOOT_HEIGHT * scale) / ratio,
+  };
 };
 
-/** "#rrggbbaa" as SVG's colour and opacity. */
-export const splitHex = (hex: string) => ({
-  color: hex.slice(0, 7),
-  opacity: Number.parseInt(hex.slice(7, 9) || "ff", 16) / 255,
-});
+/** The foot image in the horizon's box, its foot on the box's, on a screen `width` points wide. */
+export const footLayout = (width: number, ratio: number): FootLayout => {
+  const frame = footFrame(width, ratio);
+  const ridgeTop = HORIZON_HEIGHT - ((FOOT_HEIGHT - HILLS_TOP_ROW) * frame.scale) / ratio;
+  const fadeTop = Math.max(0, ridgeTop - SKY_ABOVE);
+
+  return {
+    ...frame,
+    top: HORIZON_HEIGHT - frame.height,
+    ridgeTop,
+    fadeTop,
+    fadeBottom: fadeTop + FADE,
+  };
+};
+
+/**
+ * The image's top for a preview `height` tall whose highest hill stands `sky` points down, raised
+ * no further than keeps its foot covered; whole device pixels.
+ */
+export const previewTop = (frame: FootFrame, ratio: number, height: number, sky: number): number =>
+  Math.max(
+    Math.round(sky * ratio) - HILLS_TOP_ROW * frame.scale,
+    Math.round(height * ratio) - FOOT_HEIGHT * frame.scale
+  ) / ratio;
+
+/** The foot scene's colours (scene-*-foot.png): the sky along the hills, then far to near hills. */
+export interface Hills {
+  readonly sky: string;
+  readonly far: string;
+  readonly near: string;
+}
+
+/** Moonlit draws the Desktop App's night scene, Midnight its midnight scene. */
+export const HILLS: Readonly<Record<ThemeName, Hills>> = {
+  midnight: { sky: "#040508", far: "#0A0B0F", near: "#040406" },
+  moonlit: { sky: "#1C2542", far: "#141A2C", near: "#0B0F1E" },
+};

@@ -122,33 +122,38 @@ for (const [signal, contentType, body] of [
     }));
 
 test("collector outage keeps Polaris copy and live off switch cancels queued retries", () =>
-  withTraceFixture(async (f) => {
-    const target = collector();
-    target.setStatus(503);
+  withTraceFixture(
+    async (f) => {
+      const target = collector();
+      target.setStatus(503);
 
-    try {
-      await Effect.runPromise(
-        f.settings.patch(TEST_WORKSPACE, {
-          forwardTo: { url: `${target.endpoint}/v1/traces`, headerNames: [] },
-        })
-      );
-      expect((await postTraces(f.endpoint!)).status).toBe(200);
-      expect((await Effect.runPromise(f.store.get(f.root, TRACE_ID))).spans).toHaveLength(1);
-      await until(() => f.forwarding.stats.failed > 0);
-      await Effect.runPromise(f.settings.patch(TEST_WORKSPACE, { forwarding: false }));
-      const before = target.received.length;
-      expect(
-        (await postTraces(f.endpoint!, traceFixture([spanFixture({ traceId: "b".repeat(32) })])))
-          .status
-      ).toBe(200);
-      await Bun.sleep(100);
-      expect(target.received).toHaveLength(before);
-      expect(f.forwarding.stats.queued).toBe(0);
-      expect((await Effect.runPromise(f.store.list(f.root))).total).toBe(2);
-    } finally {
-      await target.server.stop(true);
-    }
-  }));
+      try {
+        await Effect.runPromise(
+          f.settings.patch(TEST_WORKSPACE, {
+            forwardTo: { url: `${target.endpoint}/v1/traces`, headerNames: [] },
+          })
+        );
+        expect((await postTraces(f.endpoint!)).status).toBe(200);
+        expect((await Effect.runPromise(f.store.get(f.root, TRACE_ID))).spans).toHaveLength(1);
+        await until(() => f.forwarding.stats.failed > 0);
+        await Effect.runPromise(f.settings.patch(TEST_WORKSPACE, { forwarding: false }));
+        // A send already on the wire is aborted, but the collector may still receive it.
+        expect(f.forwarding.stats.queued).toBe(0);
+        await until(() => !f.forwarding.stats.sending);
+        const attempts = f.forwarding.stats.failed;
+        expect(
+          (await postTraces(f.endpoint!, traceFixture([spanFixture({ traceId: "b".repeat(32) })])))
+            .status
+        ).toBe(200);
+        expect(f.forwarding.stats).toMatchObject({ queued: 0, sending: false, failed: attempts });
+        expect(target.received.length).toBeLessThanOrEqual(attempts);
+        expect((await Effect.runPromise(f.store.list(f.root))).total).toBe(2);
+      } finally {
+        await target.server.stop(true);
+      }
+    },
+    { forwardQueue: { retryMs: 30, maxAttempts: Number.MAX_SAFE_INTEGER } }
+  ));
 
 test("local collection can be off while forwarding stays on", () =>
   withTraceFixture(async (f) => {

@@ -65,6 +65,8 @@ interface Invite {
 export interface FakeIssuer {
   /** The issuer URL: `https://accounts.test` in process, the loopback origin over HTTP. */
   readonly issuer: string;
+  /** The clock statements are issued by, `Date.now` unless given; a Host can share it. */
+  readonly now: () => number;
   /** The server as a `fetch`, for a Host that reaches it in process. */
   readonly fetch: Fetch;
   /** Requests for an Invite's devices so far, held ones included. */
@@ -91,8 +93,9 @@ export interface FakeIssuer {
 }
 
 export const startFakeIssuer = async (
-  options: { readonly http?: boolean } = {}
+  options: { readonly http?: boolean; readonly now?: (() => number) | undefined } = {}
 ): Promise<FakeIssuer> => {
+  const clock = options.now ?? Date.now;
   let signer = await makeSigner("k1");
   const outsider = await makeSigner("k1");
   const invites = new Map<string, Invite>();
@@ -102,7 +105,7 @@ export const startFakeIssuer = async (
 
   const statement = async (personId: string, noiseKey: string, given: StatementOptions = {}) => {
     const by = given.forged === true ? outsider : signer;
-    const now = Math.floor(Date.now() / 1000);
+    const now = Math.floor(clock() / 1000);
 
     const notBefore = given.nbfS === undefined ? [] : [["nbf", now + given.nbfS] as const];
 
@@ -215,6 +218,7 @@ export const startFakeIssuer = async (
 
   const api: FakeIssuer = {
     issuer,
+    now: clock,
     fetch: (input, init) => handle(new Request(input, init)),
     polls: () => polls,
     jwksFetches: () => jwksFetches,

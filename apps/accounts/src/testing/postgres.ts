@@ -28,38 +28,51 @@ const containerPort = async () => {
   return out.split("\n")[0]?.split(":").pop();
 };
 
-/** Starts (or reuses) a Postgres container for tests; returns its admin URL. */
-const ensureContainer = async () => {
-  let port = await containerPort();
+/** Creates the container, unless another test process did first; a pull can take a while. */
+const createContainer = async () => {
+  const run = await docker(
+    "run",
+    "-d",
+    "--name",
+    CONTAINER,
+    "-e",
+    `POSTGRES_PASSWORD=${PASSWORD}`,
+    "-p",
+    "127.0.0.1::5432",
+    IMAGE
+  );
 
-  if (port === undefined) {
+  if (run.code !== 0 && !run.err.includes("already in use")) {
+    throw new Error(
+      `The Account Server's slow tests need Docker, or ACCOUNTS_TEST_DATABASE_URL: ${run.err}`
+    );
+  }
+};
+
+/**
+ * The container's published port, starting or creating it as needed. Test files in other
+ * processes race here: one may have created the container and not yet started it, so this polls.
+ */
+const publishedPort = async () => {
+  const deadline = Date.now() + 120_000;
+
+  for (;;) {
+    const port = await containerPort();
+
+    if (port !== undefined) return port;
+
+    if (Date.now() > deadline) throw new Error("the test Postgres container published no port");
+
     const started = await docker("start", CONTAINER);
 
-    if (started.code !== 0) {
-      const run = await docker(
-        "run",
-        "-d",
-        "--name",
-        CONTAINER,
-        "-e",
-        `POSTGRES_PASSWORD=${PASSWORD}`,
-        "-p",
-        "127.0.0.1::5432",
-        IMAGE
-      );
-
-      // Another test file may have created it first.
-      if (run.code !== 0 && !run.err.includes("already in use")) {
-        throw new Error(
-          `The Account Server's slow tests need Docker, or ACCOUNTS_TEST_DATABASE_URL: ${run.err}`
-        );
-      }
-    }
-
-    port = await containerPort();
+    if (started.code !== 0 && /no such container/i.test(started.err)) await createContainer();
+    else if (started.code !== 0) await Bun.sleep(50);
   }
+};
 
-  if (port === undefined) throw new Error("the test Postgres container published no port");
+/** Starts (or reuses) a Postgres container for tests; returns its admin URL. */
+const ensureContainer = async () => {
+  const port = await publishedPort();
   const url = `postgres://postgres:${PASSWORD}@127.0.0.1:${port}/postgres`;
 
   for (let attempt = 0; ; attempt++) {

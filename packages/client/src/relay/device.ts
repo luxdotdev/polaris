@@ -99,6 +99,8 @@ export interface RelayDevice {
 export interface RelayDeviceOptions {
   /** For tests: a fixed reconnect backoff. */
   readonly backoff?: ((attempt: number) => number) | undefined;
+  /** For tests: a shorter wait for the relay, the Host's presence and its handshake reply. */
+  readonly openTimeoutMs?: number | undefined;
 }
 
 export const makeRelayDevice = (
@@ -142,7 +144,8 @@ export const makeRelayDevice = (
             : encodeTeammateInit({
                 issuer: host.teammate.issuer,
                 personId: PersonId.make(host.teammate.personId),
-              })
+              }),
+          options.openTimeoutMs
         );
       }),
     close: () => {
