@@ -124,3 +124,14 @@ test("spend per constellation is on Usage, one click away", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Spend in Usage…" }));
   expect(navigation.store.getState().settings?.section).toBe("usage");
 });
+
+test("the inspector starts on the lead's harness and model until one is chosen", async () => {
+  fake({});
+  await mount();
+  const card = within(screen.getByTestId("constellation-inspector"));
+
+  expect(card.getByRole("combobox", { name: "Harness" }).textContent).toContain("Automatic");
+  // No model or effort to pick while the lead's are used.
+  expect(card.queryByRole("combobox", { name: "Model" })).toBeNull();
+  expect(card.getByText(/Automatic uses the lead's harness and model/)).not.toBeNull();
+});

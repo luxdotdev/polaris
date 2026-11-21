@@ -167,8 +167,15 @@ export const RoleDefault = Schema.Struct({
 
 export type RoleDefault = typeof RoleDefault.Type;
 
-/** Settings → Constellations: the workers' Harness/Model per role, backend and UI/design. */
-export const ConstellationDefaults = Schema.Struct({ backend: RoleDefault, ui: RoleDefault });
+/**
+ * Settings → Constellations: the workers' Harness/Model per role, backend and UI/design, and the
+ * Inspector's (ADR 0119); null or absent, an Inspector starts on its Lead's.
+ */
+export const ConstellationDefaults = Schema.Struct({
+  backend: RoleDefault,
+  ui: RoleDefault,
+  inspector: Schema.optionalKey(Schema.NullOr(RoleDefault)),
+});
 
 export type ConstellationDefaults = typeof ConstellationDefaults.Type;
 

@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { AttemptId, constellationSummaryOf, DomainEvent, TurnId } from "@polaris/protocol";
+import {
+  AttemptId,
+  constellationSummaryOf,
+  DomainEvent,
+  SessionId,
+  TurnId,
+} from "@polaris/protocol";
 import { attempt, constellationOf, LEAD } from "../preview/graph.ts";
 import { applyEnvelopes, startedRecord } from "./fold.ts";
 
@@ -62,5 +68,64 @@ describe("fold: K-ENG fields", () => {
       failureKind: "capacity",
       resetsAt: "2026-10-11T14:00:00Z",
     });
+  });
+});
+
+describe("fold: Inspection", () => {
+  const id = AttemptId.make("att-B1-1");
+  const target = { ...graph, attemptId: id, inspectionId: "i1", at: "2026-10-11T12:00:00Z" };
+
+  const started = (inspectionId = "i1") =>
+    E.InspectionStarted.make({
+      ...target,
+      inspectionId,
+      revision: 41,
+      attemptRevision: 3,
+      sessionId: SessionId.make("inspector"),
+      head: "head",
+      accept: true,
+    });
+
+  const inspection = (events: ReadonlyArray<DomainEvent>) =>
+    applyEnvelopes(
+      loaded(),
+      events.map((event, i) => envelope(2 + i, event))
+    )
+      .byId.get(c.id)
+      ?.constellation.attempts.find((a) => a.id === id)?.inspection;
+
+  test("a held Claim's Inspection is pending, then carries its verdict and why the merge was refused", () => {
+    expect(inspection([started()])).toMatchObject({ state: "pending", accept: true });
+    expect(
+      inspection([
+        started(),
+        E.InspectionRecorded.make({
+          ...target,
+          revision: 42,
+          attemptRevision: 4,
+          verdict: "approve",
+          route: "lead",
+          reason: "Covers the criteria.",
+          mergeRefusal: "The merge conflicts in a.ts",
+        }),
+      ])
+    ).toMatchObject({
+      state: "approved",
+      reason: "Covers the criteria.",
+      mergeRefusal: "The merge conflicts in a.ts",
+    });
+  });
+
+  test("an ending that names an Inspection a newer Claim replaced leaves the current one pending", () => {
+    const ended = E.InspectionEnded.make({
+      ...target,
+      revision: 43,
+      attemptRevision: 5,
+      cause: "lost",
+      reason: "Its turn ended without a verdict",
+    });
+
+    expect(inspection([started("i2"), ended])?.state).toBe("pending");
+    expect(inspection([started(), ended])).toMatchObject({ state: "lost" });
   });
 });

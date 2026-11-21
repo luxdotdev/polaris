@@ -28,6 +28,7 @@ describe("constellation defaults on a Host", () => {
       defaults: null,
       backend: null,
       ui: null,
+      inspector: null,
     };
 
     expect(inSync(host, user)).toBe(false);
@@ -41,6 +42,22 @@ describe("constellation defaults on a Host", () => {
       false
     );
   });
+});
+
+test("the Inspector's choice is written to the Host, and clearing it returns Inspectors to the Lead's", () => {
+  const host = { defaults: null, backend: null, ui: null, inspector: null };
+  const chosen = { ...user, inspector: { harness: "claude" as const, model: "m3", effort: null } };
+  const written = withUserDefaults(host, chosen);
+
+  expect(written.inspector).toEqual({ harness: "claude", model: "m3" });
+  expect(inSync(written, chosen)).toBe(true);
+  // The Host still holds a choice the user cleared, or an older one: it must be written again.
+  expect(inSync(written, user)).toBe(false);
+  expect(inSync(written, { ...chosen, inspector: { ...chosen.inspector, model: "m4" } })).toBe(
+    false
+  );
+  expect(withUserDefaults(written, user).inspector).toBeNull();
+  expect(inSync(withUserDefaults(written, user), user)).toBe(true);
 });
 
 test("where the defaults are", () => {

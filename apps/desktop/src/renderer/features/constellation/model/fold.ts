@@ -100,6 +100,27 @@ const patchAttempt = (
     attempts: c.attempts.map((a) => (a.id === id ? merged(a, { ...patch(a), revision }) : a)),
   }));
 
+type InspectionData = NonNullable<AttemptData["inspection"]>;
+
+/** The Attempt's Inspection with its outcome, when the event names the one it carries. */
+const inspectionEnded = (
+  current: AttemptData["inspection"],
+  inspectionId: string,
+  outcome: Pick<InspectionData, "state" | "reason" | "mergeRefusal" | "endedAt">
+): Partial<AttemptData> =>
+  current == null || current.id !== inspectionId
+    ? {}
+    : {
+        inspection: {
+          id: current.id,
+          sessionId: current.sessionId,
+          head: current.head,
+          accept: current.accept,
+          startedAt: current.startedAt,
+          ...outcome,
+        },
+      };
+
 const withoutProposal =
   (proposalId: string): Step =>
   (r) => ({ ...r, proposals: r.proposals.filter((p) => p.proposalId !== proposalId) });
@@ -337,6 +358,45 @@ const stepFor = (event: Event, at: string): Step =>
         }),
       PeerMessage: () => (r: ConstellationRecord) => r,
       LogbookNoted: () => (r: ConstellationRecord) => r,
+      InspectionStarted: ({ attemptId, attemptRevision, inspectionId, sessionId, head, accept }) =>
+        patchAttempt(attemptId, attemptRevision, () => ({
+          inspection: {
+            id: inspectionId,
+            sessionId,
+            head,
+            accept,
+            state: "pending",
+            reason: null,
+            mergeRefusal: null,
+            startedAt: at,
+            endedAt: null,
+          },
+        })),
+      InspectionRecorded: ({
+        attemptId,
+        attemptRevision,
+        inspectionId,
+        route,
+        reason,
+        mergeRefusal,
+      }) =>
+        patchAttempt(attemptId, attemptRevision, (a) =>
+          inspectionEnded(a.inspection, inspectionId, {
+            state: route === "lead" ? "approved" : route,
+            reason,
+            mergeRefusal,
+            endedAt: at,
+          })
+        ),
+      InspectionEnded: ({ attemptId, attemptRevision, inspectionId, cause, reason }) =>
+        patchAttempt(attemptId, attemptRevision, (a) =>
+          inspectionEnded(a.inspection, inspectionId, {
+            state: cause === "lost" ? "lost" : "superseded",
+            reason,
+            mergeRefusal: a.inspection?.mergeRefusal ?? null,
+            endedAt: at,
+          })
+        ),
       AttemptRecoveryContinued: ({ attemptId, attemptRevision }) =>
         patchAttempt(attemptId, attemptRevision, () => ({})),
     })
