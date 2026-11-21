@@ -67,6 +67,7 @@ type StepVariant =
   /** The fake Harness (or, In Terminal, the followed terminal UI) reports… */
   | { readonly type: "requestApproval" }
   | { readonly type: "requestAttach" }
+  | { readonly type: "requestGrant" }
   /** …an approval request for a Turn that already ended (a stale or misbehaving Harness). */
   | { readonly type: "lateApproval" }
   | { readonly type: "withdrawApproval" }
@@ -221,6 +222,24 @@ export const attachRequest = (id: string, turnId: TurnId) =>
       "node server.mjs · pid 42 · Node · profile for 5 s\nCollects CPU samples without opening a network port.",
   });
 
+export const grantRequest = (id: string, turnId: TurnId) =>
+  new ApprovalRequest({
+    id: RequestId.make(id),
+    sessionId: SESSION,
+    turnId,
+    kind: "grant",
+    title: "Start a session",
+    detail: null,
+    options: [],
+    openedAt: AT,
+    grant: {
+      kind: "start",
+      action: "dispatch:StartSession",
+      targetSessionId: null,
+      rememberable: true,
+    },
+  });
+
 const firstPending = (record: SessionRecord | undefined) => {
   const [first] = record?.pending.keys() ?? [];
 
@@ -310,6 +329,10 @@ const INPUTS = {
       canSwitchModel: c.options.switchModel,
     },
   ],
+  requestGrant: (c) =>
+    c.channel === null || c.working === undefined || (c.record?.pending.size ?? 0) >= 2
+      ? []
+      : [{ type: "grant.approvalRequested", request: grantRequest(`r${c.n}`, c.working.id) }],
   requestAttach: (c) =>
     c.channel === null || c.working === undefined || (c.record?.pending.size ?? 0) >= 2
       ? []
@@ -476,6 +499,7 @@ export const ALL_STEPS: ReadonlyArray<Step> = [
   ...COMMAND_STEPS.map((type) => ({ type })),
   { type: "requestApproval" },
   { type: "requestAttach" },
+  { type: "requestGrant" },
   { type: "lateApproval" },
   { type: "withdrawApproval" },
   { type: "terminalTurn" },

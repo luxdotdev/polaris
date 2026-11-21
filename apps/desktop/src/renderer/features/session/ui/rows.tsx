@@ -1,3 +1,4 @@
+import { GrantApprovalCard } from "./GrantApprovalCard.tsx";
 /**
  * The conversation's row kinds: a folded Turn, the user's prompt, an agent
  * item (the first one carries the Harness avatar), an inline approval or
@@ -407,6 +408,7 @@ const Agent = ({ row, ctx }: { row: Extract<Row, { kind: "item" }>; ctx: RowCont
 );
 
 const KIND_WANTS: Record<Exclude<ApprovalRequest["kind"], "secret" | "computer-use">, string> = {
+  grant: "wants session authority",
   command: "wants to run a command",
   "file-change": "wants to change files",
   tool: "wants to use a tool",
@@ -627,6 +629,9 @@ const CommandApproval = ({
   const theirs = useOnSharedHost(ctx.diff.hostKey);
   const who = ctx.harness === null ? "The agent" : harnessHue(ctx.harness).name;
   const respond = (decision: ApprovalDecision) => ctx.onRespond(request, decision);
+
+  if (request.grant !== undefined)
+    return <GrantApprovalCard request={request} onRespond={respond} theirs={theirs} />;
 
   return (
     <div className="rounded-card border-hairline bg-surface-raised border" data-testid="approval">

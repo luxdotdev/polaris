@@ -341,6 +341,7 @@ const make = Effect.gen(function* () {
             Effect.void
         ),
       // The next Turn carries the Model and effort to the Harness (TurnInput).
+      SetSessionStartLimit: () => Effect.void,
       SetModel: () => Effect.void,
       ArchiveSession: archive,
       OpenInTerminal: (command) => terminal.openInTerminal(command.sessionId),

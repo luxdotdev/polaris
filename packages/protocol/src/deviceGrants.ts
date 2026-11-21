@@ -58,6 +58,11 @@ const isDeviceStateAction = (action: SetConstellationStateAction | null) =>
 
 /** `dispatch` itself is decided per Command (`DEVICE_COMMANDS`). */
 export const DEVICE_RPCS = {
+  "session.start": "device",
+  "settings.list": "device",
+  "settings.describe": "device",
+  "settings.get": "device",
+  "settings.set": "device",
   hello: "device",
   dispatch: "device",
   subscribeHost: "device",
@@ -115,6 +120,13 @@ export const DEVICE_RPCS = {
   "continuity.markRead": "device",
   "continuity.saveDraft": "device",
   // A phone or an Extension must never quiet the pushes (ENG-495).
+  "clientSettings.list": "local",
+  "clientSettings.describe": "local",
+  "clientSettings.get": "local",
+  "clientSettings.set": "local",
+  "clientSettings.connect": "local",
+  "clientSettings.publish": "local",
+  "clientSettings.complete": "local",
   "presence.report": "local",
   "data.sources.watch": "local",
   "traces.watch": "local",
@@ -318,6 +330,8 @@ export const DEVICE_RPCS = {
   "developerMode.setWorkspace": "local",
   "developerMode.lease": "local",
   "developerMode.watch": "device",
+  "inspection.watch": "local",
+  "inspection.respond": "local",
   "traces.ingestSelf": "device",
   "requests.watch": "local",
   "requests.save": "local",
@@ -362,6 +376,7 @@ export const DEVICE_COMMANDS = {
   PinSession: "device",
   SetResumeAtReset: "local",
   SetPermissionMode: "device",
+  SetSessionStartLimit: "local",
   SetModel: "device",
   ForkSession: "local",
   ArchiveSession: isDeviceArchive,

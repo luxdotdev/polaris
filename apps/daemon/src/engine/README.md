@@ -6,6 +6,9 @@ The orchestration engine: `decider.ts` validates Client commands, the `Engine` s
 
 `Engine.ts` is the module's interface (the `Engine` service, `EngineConfig`) and wires the parts, each an internal service built once per `Engine.layer`:
 
+<!-- Engine services, including Host Settings adapters, from autoArchive.ts, idleCompaction.ts and suggestedReplyPreference.ts -->
+
+
 | Module | What |
 |---|---|
 | `runtime.ts` | `EngineRuntime`: the shared state (running Harnesses, terminal followers, live item progress, idle timers, per-session locks) and primitives: `serially`, `recordFor`, `signal` / `signalWith` (one machine input, committed, then its effects), `failSession`, `capture`, `stopHarness`, `findTurn`. |
@@ -13,13 +16,14 @@ The orchestration engine: `decider.ts` validates Client commands, the `Engine` s
 | `steerRefusal.ts` | A Steer the Harness refuses after the Engine accepted it (ENG-797) isn't lost: the Steer reactor records the user's text (`refused:`) and an Error with the Harness's reason (`refusal:`) on the Turn it targeted, as for refused deferred input, unless the driver's `HarnessError.recorded` says it did so itself. |
 | `computerUseRequests.ts` | `ComputerUseRequests` (ENG-846): `request_computer_use` opens an approval of kind `computer-use` on the Turn in flight and waits. It withdraws it (`withdrawnBy: daemon`) once the Host is Ready, then stops the Harness after that Turn so the next one reopens it with polaris_desktop; Not now (Deny) is the only answer the machine takes, and the reactor never forwards it to the Harness. Bound into `DesktopMcp` when the Engine is built. |
 | `secretRequests.ts` | `SecretRequests` (ADR 0089): an agent's `request_secret` opens an approval of kind `secret` on its Turn in flight and waits on the session's commits, withdrawing it (`withdrawnBy: daemon`) when it times out. `secret.provide` writes the value with `../secrets/sessionFiles.ts` and answers `Provided`; the reactor never forwards these answers to the Harness. The Supervisor redacts live secrets from items before they are recorded or streamed. |
+| `sessionGrants.ts`, `sessionGrantPolicy.ts`, `grantAction.ts` | Grant Approvals, remembered session/Workspace authority, concrete request copy and Starter-chain budget decisions (ADR 0119). `sessionActor.ts` connects trusted transport identity. |
 | `appApprovals.ts` | `AppApprovals` (ADR 0107): computer use opens an approval of kind `app` or `headed-input` on the Turn in flight and waits for the decision; null when the Turn ends first, withdrawn when the tool call is abandoned. In every permission mode, and never forwarded to the Harness. `approval.respond` carries the `Actor`, and the machine rejects what `appDecisionRefusal` refuses (always for headed input; always from an Extension). Sent only to Clients that announced `computer-use`. |
 | `shellCommands.ts`, `shellRun.ts`, `shellRun.windows.ts`, `supervisor.shell.ts` | A `RunShellCommand` Turn's command, run in the session's directory in the user's login shell (`Bun.spawn`, no PTY; 10 minutes, 30,000 characters a stream), recorded as the user's `CommandExecution` (`origin: "user"`), then handed to the Harness as `TurnInput.shellCommand`. On Windows the shell is Git Bash, found as Claude Code finds it (`CLAUDE_CODE_GIT_BASH_PATH`, Git for Windows' install, the `bin\bash.exe` beside `git` on PATH), else PowerShell 7 or Windows PowerShell (`-NoProfile -EncodedCommand`), else cmd.exe. The supervisor loads these on a session's first shell command; `EngineRuntime.shellJobs` holds the running one for Interrupt and steers. |
 | `terminal.ts` | `TerminalHandoff`: `OpenInTerminal` / `ReturnFromTerminal`, and following Claude's TUI while In Terminal. |
 | `worktrees.ts` | `Worktrees`: detection on register, creation for `NewWorktree` and Forks, removal on Archive, restore on Unarchive. |
 | `pruning.ts` | `CheckpointPruning`: the policy on Archive, a removed Workspace's checkpoints, and the sweeper's targets. |
-| `autoArchive.ts` | `AutoArchive`: an hourly sweep (and one on start or a settings change) dispatches `ArchiveSession` for Dormant sessions idle past the Host's `afterDays` (7 by default, `auto-archive-settings.json`), keyed by the session's `updatedAt`. Pinned, Reviewer/walkthrough and open-Constellation sessions stay; branches are kept. |
-| `idleCompaction.ts` | `IdleCompaction` (ENG-562): one sleeping fiber per session due a compaction, re-armed from the store feed (and on start, so a restart re-arms it). A session Idle or Dormant 55 minutes after its last Turn ended, with at least `minTokens` of context (200k by default; `idle-compaction-settings.json`, written by the Desktop App to every Host), no pending approval or background task, on a Harness that `compact`s, gets `CompactSession` (keyed by that last Turn): a `/compact` Turn marked `Turn.idleCompaction`. A Dormant session's Harness reopens from its cursor for it. Not past the prompt cache's hour, never twice for the same Turn; Reviewer/walkthrough and open-Constellation sessions stay. Claude Code's own idle compaction never runs under the Agent SDK (it is gated to interactive sessions), so nothing compacts twice. |
+| `autoArchive.ts` | `AutoArchive`: an hourly sweep (and one on start or a settings change) dispatches `ArchiveSession` for Dormant sessions idle past the Host's `afterDays` (7 by default, `sessions.autoArchive.afterDays` in Host Settings; `auto-archive-settings.json` is migrated once), keyed by the session's `updatedAt`. Pinned, Reviewer/walkthrough and open-Constellation sessions stay; branches are kept. |
+| `idleCompaction.ts` | `IdleCompaction` (ENG-562): one sleeping fiber per session due a compaction, re-armed from the store feed (and on start, so a restart re-arms it). A session Idle or Dormant 55 minutes after its last Turn ended, with at least `minTokens` of context (200k by default; `sessions.idleCompaction.*` in Host Settings, migrating `idle-compaction-settings.json` once), no pending approval or background task, on a Harness that `compact`s, gets `CompactSession` (keyed by that last Turn): a `/compact` Turn marked `Turn.idleCompaction`. A Dormant session's Harness reopens from its cursor for it. Not past the prompt cache's hour, never twice for the same Turn; Reviewer/walkthrough and open-Constellation sessions stay. Claude Code's own idle compaction never runs under the Agent SDK (it is gated to interactive sessions), so nothing compacts twice. |
 | `context.ts` | Which `ContextUsed` reports become `SessionContextUsed`: the first, a new window, or a move of a whole percent (a thousand tokens while the window is unknown). |
 | `reactors.ts` | `Reactors`: what runs after each command commits. |
 | `dispatch.ts` | `Dispatcher`: resolves the decider's inputs, commits, acks and forks the reactor. |
@@ -70,7 +74,7 @@ stateDiagram-v2
     state "Idle" as idle
     state "Working" as working
     idle --> working: turn.send, turn.deliver, turn.retry, harness.turnStarted (including background reports)
-    working --> needs_you: harness.approvalRequested, data.approvalRequested, inspector.approvalRequested (Turn in flight)
+    working --> needs_you: harness.approvalRequested, data.approvalRequested, inspector.approvalRequested, grant.approvalRequested (Turn in flight)
     needs_you --> working: approval.respond, harness.approvalWithdrawn (last request, Turn in flight)
     working --> working: turn.send (autonomous Turn: steer user prompt)
     working --> working: turn.deliver (waitForTurn effect; no events)
@@ -237,10 +241,10 @@ Every state but `absent` and `removing` takes `checkout.reportHead` (it records 
 
 | Driver | States (shortest paths) | State-changing transitions (one path each) |
 |---|---|---|
-| Claude (sequential hand-off) | 47 | 285 |
-| Codex (live co-attach) | 55 | 377 |
+| Claude (sequential hand-off) | 47 | 293 |
+| Codex (live co-attach) | 55 | 387 |
 
-`requestAttach` also drives Daemon-owned inspector approvals through the machine.
+`requestAttach` and `requestGrant` also drive Daemon-owned inspector and Grant Approvals through the machine.
 
 Simple paths are too many to replay, so every transition is covered instead. Not replayed: `idle.timeout` (the Engine's timer; covered by `Engine.test.ts`) and `session.fail` (a failing Worktree or Harness open). `session.test.ts` checks the machine on its own: all nine Session States are reachable, the rebuild-from-fold property, the guards, recovery and effects.
 
@@ -262,3 +266,18 @@ fingerprints. Only Allow/Deny decisions apply; the reactor never forwards these 
 a Harness. The existing Turn-end and recovery withdrawals deny pending write cards. Durable
 one-shot execution receipts live in the Data approval projection; no reusable source grant is
 created by a write decision. See `data_writes` in the Quint specification.
+
+<!-- Session Grant authorization and budget behavior from sessionGrants.ts and sessionGrantPolicy.ts -->
+
+Session Grants (ADR 0119) start at `read` + `comment`. `grant.approvalRequested`
+enters Needs You only on the Turn in flight, without consulting the Harness permission mode.
+Only the user answers, with Allow once, always for this session or always for this Workspace;
+`SessionGrantRemembered` commits with the answer. Other sessions outside the Starter chain
+need a fresh Turn/stop Approval each time. These decisions never reach the Harness.
+
+`SessionCreated.starter` is immutable (older events decode as User). Starting or Working
+sessions spend a slot against every Starter ancestor; Idle, Needs You, Limited, In Terminal,
+Dormant, Failed, Archived and Constellation Workers do not. Admission and wake-up checks run
+inside the store commit lock. The default limit is five; `SetSessionStartLimit` sets a session
+override and `HostSessionStartLimitChanged` records the Host default. Only the user raises limits.
+A Harness wake-up that cannot fit fails through `session.fail`; it never overruns the budget.

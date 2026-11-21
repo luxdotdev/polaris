@@ -1629,3 +1629,96 @@ module profile_attach {
   run userCaptureSurvivesTurnEndTest = init.then(userCapture).then(endTurn)
     .expect(a.capturing and safety)
 }
+
+/** Session Grants, user-owned Approvals and Starter-chain spending (ADR 0119, ENG-1022). */
+module session_grants {
+  pure val IDS = 0.to(8)
+  pure val KINDS = Set("start", "turn", "settings")
+  type State = {
+    ancestors: int -> Set[int], present: Set[int], running: Set[int], workers: Set[int],
+    grants: int -> Set[str], workspace: Set[str], limits: int -> int, hostLimit: int,
+    pending: bool, caller: int, target: int, kind: str, rememberable: bool,
+    credit: bool, refused: bool, approvals: int, uses: int
+  }
+  var s: State
+  def chain(a: int, b: int): bool = a == b or s.ancestors.get(a).contains(b) or s.ancestors.get(b).contains(a)
+  def used(a: int): int = s.running.exclude(s.workers).filter(b => s.ancestors.get(b).contains(a)).size()
+  def limitOf(a: int): int = if (s.limits.get(a) < 0) s.hostLimit else s.limits.get(a)
+  def mayWake(a: int): bool = s.running.contains(a) or s.ancestors.get(a).forall(parent => used(parent) < limitOf(parent))
+  def allowed(a: int, kind: str, target: int): bool =
+    KINDS.contains(kind) and (s.grants.get(a).contains(kind) or s.workspace.contains(kind)) and (kind != "turn" or chain(a,target))
+  action init = s' = {
+    ancestors: IDS.mapBy(_ => Set()), present: Set(0), running: Set(0), workers: Set(),
+    grants: IDS.mapBy(_ => Set("read", "comment")), workspace: Set("read", "comment"), limits: IDS.mapBy(_ => -1), hostLimit: 5,
+    pending: false, caller: 0, target: 0, kind: "start", rememberable: true,
+    credit: false, refused: false, approvals: 0, uses: 0
+  }
+  action request(a: int, kind: str, target: int): bool = all {
+    s.present.contains(a), not(s.pending),
+    allowed(a,kind,target) or s.running.contains(a),
+    s' = { ...s, caller: a, target: target, kind: kind,
+      rememberable: kind != "turn" or chain(a,target),
+      running: if (KINDS.contains(kind) and not(allowed(a,kind,target))) s.running.exclude(Set(a)) else s.running,
+      pending: KINDS.contains(kind) and not(allowed(a,kind,target)),
+      credit: allowed(a,kind,target), refused: not(KINDS.contains(kind)) }
+  }
+  action allow(user: bool, scope: str): bool = all {
+    s.pending,
+    s' = if (not(user) or not(mayWake(s.caller)) or (scope != "once" and not(s.rememberable))) s else {
+      ...s, pending: false, credit: true, running: s.running.union(Set(s.caller)), approvals: s.approvals + 1,
+      grants: if (scope == "session") s.grants.set(s.caller, s.grants.get(s.caller).union(Set(s.kind))) else s.grants,
+      workspace: if (scope == "workspace") s.workspace.union(Set(s.kind)) else s.workspace }
+  }
+  action deny = all { s.pending, mayWake(s.caller), s' = { ...s, pending: false, credit: false, running: s.running.union(Set(s.caller)) } }
+  action start(child: int): bool = all {
+    s.credit, s.kind == "start", not(s.present.contains(child)),
+    val parents = s.ancestors.get(s.caller).union(Set(s.caller))
+    val fits = parents.forall(a => used(a) < limitOf(a))
+    s' = if (not(fits)) { ...s, credit: false, refused: true } else {
+      ...s, present: s.present.union(Set(child)), running: s.running.union(Set(child)),
+      ancestors: s.ancestors.set(child, parents), credit: false, refused: false, uses: s.uses + 1 }
+  }
+  action act = all { s.credit, s.kind != "start", s' = { ...s, credit: false, uses: s.uses + 1 } }
+  action stop(child: int): bool = s' = { ...s, running: s.running.exclude(Set(child)) }
+  action worker(child: int): bool = all {
+    not(s.present.contains(child)),
+    s' = { ...s, present: s.present.union(Set(child)), running: s.running.union(Set(child)), workers: s.workers.union(Set(child)) }
+  }
+  action raiseLimit(a: int): bool = s' = { ...s, limits: s.limits.set(a, limitOf(a) + 1) }
+  action raiseHostLimit = s' = { ...s, hostLimit: s.hostLimit + 1 }
+  action endTurn = s' = { ...s, pending: false, credit: false, running: s.running.exclude(Set(s.caller)) }
+  action restart = s' = { ...s, pending: false, credit: false, running: Set() }
+  action step = {
+    nondet a = s.present.oneOf()
+    nondet b = IDS.oneOf()
+    nondet kind = Set("start", "turn", "settings", "approve", "secret").oneOf()
+    any { request(a,kind,b), allow(true,"once"), allow(true,"session"), allow(true,"workspace"), allow(false,"session"),
+      deny, start(b), act, stop(a), worker(b), raiseLimit(a), raiseHostLimit, endTurn, restart }
+  }
+  val budget = s.present.forall(a => used(a) <= limitOf(a))
+  val authority = not(s.credit) or KINDS.contains(s.kind)
+  val safety = budget and authority
+  run rememberedSessionTest = init.then(request(0,"start",0)).then(allow(true,"session")).then(start(1))
+    .then(request(0,"start",0)).expect(s.credit and not(s.pending) and safety)
+  run rememberedWorkspaceTest = init.then(request(0,"start",0)).then(allow(true,"workspace")).then(start(1))
+    .then(request(1,"start",0)).expect(s.credit and not(s.pending) and safety)
+  run outsideChainAsksTest = init.then(worker(1)).then(request(0,"turn",1)).then(allow(true,"session"))
+    .expect(s.pending and not(s.credit) and safety)
+  run sixthRefusedTest = init.then(request(0,"start",0)).then(allow(true,"session")).then(start(1))
+    .then(request(0,"start",0)).then(start(2)).then(request(0,"start",0)).then(start(3))
+    .then(request(0,"start",0)).then(start(4)).then(request(0,"start",0)).then(start(5))
+    .then(request(0,"start",0)).then(start(6)).expect(s.refused and not(s.present.contains(6)) and safety)
+  run nestedBudgetTest = init.then(request(0,"start",0)).then(allow(true,"workspace")).then(start(1))
+    .then(request(1,"start",0)).then(start(2)).then(request(1,"start",0)).then(start(3))
+    .then(request(1,"start",0)).then(start(4)).then(request(1,"start",0)).then(start(5))
+    .then(request(1,"start",0)).then(start(6)).expect(s.refused and used(0) == 5 and safety)
+  run raisedHostDefaultTest = init.then(raiseHostLimit).expect(limitOf(0) == 6 and safety)
+  run pauseFreesSlotTest = init.then(request(0,"start",0)).then(allow(true,"session")).then(start(1))
+    .then(request(1,"settings",0)).expect(used(0) == 0 and s.pending and safety)
+  run workersDoNotCountTest = init.then(worker(1)).then(worker(2)).expect(used(0) == 0 and safety)
+  run onlyUserGrantsTest = init.then(request(0,"start",0)).then(allow(false,"workspace")).expect(s.pending and not(s.credit) and safety)
+  run userOnlyRefusedTest = init.then(request(0,"approve",0)).expect(s.refused and not(s.credit) and not(s.pending) and safety)
+  run restartKeepsGrantTest = init.then(request(0,"start",0)).then(allow(true,"session")).then(restart)
+    .then(request(0,"start",0)).expect(s.credit and not(s.pending) and safety)
+}
+

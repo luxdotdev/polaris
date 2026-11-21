@@ -1,3 +1,8 @@
+import type { SettingsView } from "./settingsView.ts";
+
+export type { SettingsView } from "./settingsView.ts";
+
+import type { CommandInstallView } from "./commandInstall.ts";
 /**
  * The typed bridge between the main process and the renderer: channel names,
  * what every request returns, what every subscription delivers, and the API
@@ -153,6 +158,7 @@ export const CHANNELS = {
   selfSpans: "polaris:selfSpans",
   /** renderer → main, `send(crash, RendererCrash)`: to the crash log (shared/crash.ts). */
   crash: "polaris:crash",
+  keybindingRecording: "polaris:keybinding-recording",
 } as const;
 
 /** A failure crossing IPC: the tagged error's tag and message, nothing that can't be cloned. */
@@ -359,26 +365,6 @@ export interface Appearance {
 /** Each Harness's defaults for new sessions, by kind. */
 export type SessionDefaults = Readonly<Record<string, SessionDefault>>;
 
-export interface SettingsView extends Appearance {
-  readonly sessionDefaults: SessionDefaults;
-  /** Settings → Sessions, defaults filled in. */
-  readonly sessions: SessionPrefs;
-  /** This build's version, for About Polaris. */
-  readonly version: string;
-  /** Polaris Dev: it holds a Developer Mode lease on each Host and never writes the setting. */
-  readonly developmentBuild: boolean;
-  /** False until the user pressed "Get started" on the welcome. */
-  readonly welcomeSeen: boolean;
-  readonly hosts: ReadonlyArray<{
-    readonly alias: string;
-    readonly label: string;
-    readonly colour: string | null;
-    readonly forwardAgent: boolean;
-    /** Absent means ssh; "wsl" adds the distro named by `alias`. */
-    readonly kind?: "ssh" | "wsl";
-  }>;
-}
-
 /** What a bucket's tokens not covered by a reported cost would cost at API prices (ENG-207). */
 export interface BucketEstimate {
   readonly estimatedUsd: number;
@@ -474,6 +460,9 @@ export interface RequestOutputs
     PredictionPlacementOutputs,
     PredictionOutcomeOutputs {
   "constellation.stats": ConstellationStatsView;
+  "commandInstall.get": CommandInstallView;
+  "commandInstall.change": CommandInstallView;
+  "commandInstall.dismiss": CommandInstallView;
   "settings.get": SettingsView;
   "updates.get": AppUpdateView;
   "updates.check": AppUpdateView;
@@ -487,6 +476,10 @@ export interface RequestOutputs
   "settings.setTheme": null;
   "settings.setDensity": null;
   "settings.setAppearance": null;
+  "settings.getSessionDefaults": SessionDefaults;
+  "clientSettings.set": null;
+  "clientSettings.undo": null;
+  "clientSettings.activity": null;
   "settings.setSessionDefault": null;
   "settings.setSessions": null;
   "shell.openExternal": null;
@@ -667,6 +660,23 @@ export type Route = "orchestrate" | "review" | "edit" | "data" | "traces" | "req
 
 export type AppEvent =
   | {
+      readonly kind: "keybindings";
+      readonly keybindings: import("./keybindingOverrides.ts").KeybindingOverrides;
+    }
+  | {
+      readonly kind: "client-settings-changed";
+      readonly requestId: string;
+      readonly key: string;
+      readonly value: import("@polaris/protocol").ClientSettingChange["value"];
+      readonly previousValue: import("@polaris/protocol").ClientSettingChange["value"];
+    }
+  | {
+      readonly kind: "client-prediction";
+      readonly enabled: boolean;
+      readonly configured: boolean;
+      readonly clientEndpoints: import("./predictionPlacement.ts").PredictionClientEndpoints;
+    }
+  | {
       readonly kind: "prediction-settings";
       readonly hostKey: string;
       readonly preferences: import("./predictionPlacement.ts").PredictionPreferences;
@@ -684,7 +694,11 @@ export type AppEvent =
       readonly hostKey: string;
       readonly mode: Plain<DeveloperMode> | null;
     }
-  | { readonly kind: "session-defaults"; readonly sessionDefaults: SessionDefaults }
+  | {
+      readonly kind: "session-defaults";
+      readonly hostKey: string;
+      readonly sessionDefaults: SessionDefaults;
+    }
   | { readonly kind: "sessions"; readonly sessions: SessionPrefs }
   /** Dev only (Develop menu): start the bench-Harness proof session on this Host. */
   | { readonly kind: "proof"; readonly hostKey: string }
@@ -748,6 +762,8 @@ export interface PolarisApi {
   /** The Client's OS from `process.platform`; read it through `clientPlatform()` (shared/platform.ts). */
   readonly platform?: string;
   readonly languages?: LanguageApi;
+  /** Ignore native menu accelerators only while the shortcut recorder is open. */
+  readonly setKeybindingRecording?: (active: boolean) => Promise<boolean>;
   /** Absent in previews and older preloads. */
   readonly spelling?: SpellingApi;
   readonly notify?: <M extends PredictionNotification>(

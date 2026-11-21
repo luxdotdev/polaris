@@ -1,15 +1,14 @@
+import { readGroup, writeGroup } from "../settings/index.ts";
 /**
  * Idle compaction (ENG-562): an Agent Session Idle or Dormant for `IDLE_COMPACTION_AFTER_MS`
  * since its last Turn, holding at least the setting's `minTokens`, is compacted with a
  * `CompactSession` while the prompt cache is warm. One sleeping fiber per such session and
  * nothing otherwise; the schedule is derived from the log, so a restart re-arms it.
  */
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import {
   Command,
   CommandId,
-  DEFAULT_IDLE_COMPACTION,
   type DomainEvent,
   FileError,
   IDLE_COMPACTION_AFTER_MS,
@@ -28,7 +27,6 @@ import {
   Option,
   Predicate,
   Ref,
-  Schema,
   Stream,
 } from "effect";
 import { paths } from "../paths.ts";
@@ -40,35 +38,17 @@ import { EngineConfig, EngineRuntime } from "./runtime.ts";
 /** Who the compaction reads as in the log: Polaris, not a Client device. */
 export const IDLE_COMPACTION_DEVICE = "Polaris (idle compaction)";
 
-const SettingsJson = Schema.fromJsonString(IdleCompactionSettings);
-
-const decode = Schema.decodeUnknownOption(SettingsJson);
-
-const encode = Schema.encodeSync(SettingsJson);
-
 const loadSettings = (path: string) =>
-  Effect.promise(() => readFile(path, "utf8").catch(() => null)).pipe(
-    Effect.map((text) =>
-      text === null
-        ? DEFAULT_IDLE_COMPACTION
-        : Option.getOrElse(decode(text), () => DEFAULT_IDLE_COMPACTION)
-    )
-  );
+  Effect.sync(() => readGroup(path, "sessions.idleCompaction"));
 
-/** Written to a temporary file and renamed, so a crash never leaves half a file. */
 const saveSettings = (path: string, settings: IdleCompactionSettings) =>
-  Effect.tryPromise({
-    try: async () => {
-      await mkdir(dirname(path), { recursive: true });
-      const temporary = `${path}.${process.pid}.tmp`;
-      await writeFile(temporary, encode(settings));
-      await rename(temporary, path);
-    },
+  Effect.try({
+    try: () => writeGroup(path, "sessions.idleCompaction", settings),
     catch: (cause) =>
       new FileError({
         path,
         code: "EIO",
-        message: `Could not save the idle compaction settings: ${String(cause)}`,
+        message: `Could not save host settings: ${String(cause)}`,
       }),
   });
 

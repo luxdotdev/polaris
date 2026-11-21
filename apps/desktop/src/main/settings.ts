@@ -1,27 +1,15 @@
+import { ClientSettingFields, ClientSessionFields } from "../shared/clientSettings.ts";
 /**
  * App settings in `<userData>/settings.json`: appearance, each Harness's
  * defaults for new sessions, and the remote Hosts (by `~/.ssh/config` alias). A missing or unreadable file means
  * the defaults; the file is rewritten whole on every change.
  */
-import { PredictionClientEndpoints, PredictionPreferences } from "../shared/predictionPlacement.ts";
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { LanguageSettingsRecord, LanguagePreviewPolicy } from "@polaris/protocol";
 import { Option, Schema } from "effect";
-import {
-  CodeFont,
-  CodeFontSize,
-  DarkTheme,
-  Density,
-  DiffPalette,
-  MotionSource,
-  SessionDefault,
-  type SessionPrefs,
-  SessionPrefsPatch,
-  TextSize,
-  ThemeSource,
-} from "../shared/contract.ts";
+import { SessionDefault, type SessionPrefs, SessionPrefsPatch } from "../shared/contract.ts";
 import { DEFAULT_SESSION_PREFS } from "../shared/sessionPrefs.ts";
 import { DaemonUpdateResultSchema } from "../shared/daemonUpdates.ts";
 
@@ -42,15 +30,16 @@ export const RemoteHostSetting = Schema.Struct({
 export type RemoteHostSetting = typeof RemoteHostSetting.Type;
 
 export const Settings = Schema.Struct({
-  predictionEnabled: Schema.optionalKey(Schema.Boolean),
+  keybindings: Schema.optionalKey(ClientSettingFields.keybindings),
+  predictionEnabled: Schema.optionalKey(ClientSettingFields.predictionEnabled),
   predictionConfigured: Schema.optionalKey(Schema.Boolean),
   predictionDiscoveryShown: Schema.optionalKey(Schema.Boolean),
-  predictionClientEndpoints: Schema.optionalKey(PredictionClientEndpoints),
-  prediction: Schema.optionalKey(Schema.Record(Schema.String, PredictionPreferences)),
+  predictionClientEndpoints: Schema.optionalKey(ClientSettingFields.predictionClientEndpoints),
+  prediction: Schema.optionalKey(Schema.Record(Schema.String, ClientSettingFields.prediction)),
   sshBinary: Schema.optionalKey(Schema.String.check(Schema.isMinLength(1))),
-  automaticAppUpdates: Schema.optionalKey(Schema.Boolean),
+  automaticAppUpdates: Schema.optionalKey(ClientSettingFields.automaticAppUpdates),
   appUpdateLastCheckedAt: Schema.optionalKey(Schema.Number),
-  appUpdateChannel: Schema.optionalKey(Schema.Literals(["stable", "nightly"])),
+  appUpdateChannel: Schema.optionalKey(ClientSettingFields.appUpdateChannel),
   languageSettings: Schema.optionalKey(
     Schema.Array(LanguageSettingsRecord).check(Schema.isMaxLength(4096))
   ),
@@ -59,19 +48,37 @@ export const Settings = Schema.Struct({
   ),
   keepDaemonsUpToDate: Schema.optionalKey(Schema.Boolean),
   daemonUpdates: Schema.optionalKey(Schema.Record(Schema.String, DaemonUpdateResultSchema)),
-  theme: Schema.optionalKey(ThemeSource),
-  darkTheme: Schema.optionalKey(DarkTheme),
-  density: Schema.optionalKey(Density),
-  textSize: Schema.optionalKey(TextSize),
-  diffPalette: Schema.optionalKey(DiffPalette),
-  motion: Schema.optionalKey(MotionSource),
-  codeFont: Schema.optionalKey(CodeFont),
-  codeFontSize: Schema.optionalKey(CodeFontSize),
-  wordWrap: Schema.optionalKey(Schema.Boolean),
-  /** By Harness kind. */
+  theme: Schema.optionalKey(ClientSettingFields.theme),
+  darkTheme: Schema.optionalKey(ClientSettingFields.darkTheme),
+  density: Schema.optionalKey(ClientSettingFields.density),
+  textSize: Schema.optionalKey(ClientSettingFields.textSize),
+  diffPalette: Schema.optionalKey(ClientSettingFields.diffPalette),
+  motion: Schema.optionalKey(ClientSettingFields.motion),
+  codeFont: Schema.optionalKey(ClientSettingFields.codeFont),
+  codeFontSize: Schema.optionalKey(ClientSettingFields.codeFontSize),
+  wordWrap: Schema.optionalKey(ClientSettingFields.wordWrap),
+  /** Legacy only: imported by each Host on first connect; new choices live on that Host. */
   sessionDefaults: Schema.optionalKey(Schema.Record(Schema.String, SessionDefault)),
   /** Settings → Sessions; each missing field takes its default. */
-  sessions: Schema.optionalKey(SessionPrefsPatch),
+  sessions: Schema.optionalKey(
+    SessionPrefsPatch.mapFields((fields) => ({
+      ...fields,
+      openOutputOnEdit: Schema.optionalKey(ClientSessionFields.openOutputOnEdit),
+      notifyNeedsYou: Schema.optionalKey(ClientSessionFields.notifyNeedsYou),
+      notifyTurnEnded: Schema.optionalKey(ClientSessionFields.notifyTurnEnded),
+      notifyLongTurnsOnly: Schema.optionalKey(ClientSessionFields.notifyLongTurnsOnly),
+      longTurnMinutes: Schema.optionalKey(ClientSessionFields.longTurnMinutes),
+      notifyReviewRequests: Schema.optionalKey(ClientSessionFields.notifyReviewRequests),
+      notifyConstellations: Schema.optionalKey(ClientSessionFields.notifyConstellations),
+      quietPhoneWhilePresent: Schema.optionalKey(ClientSessionFields.quietPhoneWhilePresent),
+      spinnerVerbs: Schema.optionalKey(ClientSessionFields.spinnerVerbs),
+      editorVim: Schema.optionalKey(ClientSessionFields.editorVim),
+      editorAutosave: Schema.optionalKey(ClientSessionFields.editorAutosave),
+      editorInlineDiagnostics: Schema.optionalKey(ClientSessionFields.editorInlineDiagnostics),
+      editorInlineBlame: Schema.optionalKey(ClientSessionFields.editorInlineBlame),
+      advancedView: Schema.optionalKey(ClientSessionFields.advancedView),
+    }))
+  ),
   /** Before Settings → Sessions: read as `sessions.newWorktree`, never written. */
   newWorktree: Schema.optionalKey(Schema.Boolean),
   hosts: Schema.optionalKey(Schema.Array(RemoteHostSetting)),
@@ -86,6 +93,7 @@ export const Settings = Schema.Struct({
   window: Schema.optionalKey(Schema.Unknown),
   /** Set once "Get started" is pressed on the welcome (onboarding O1). */
   welcomeSeen: Schema.optionalKey(Schema.Boolean),
+  commandInstallDismissed: Schema.optionalKey(Schema.Boolean),
 });
 
 export type Settings = typeof Settings.Type;

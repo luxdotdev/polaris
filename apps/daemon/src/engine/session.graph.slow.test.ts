@@ -28,6 +28,7 @@ import { decideSession } from "./session.ts";
 import { Engine } from "./Engine.ts";
 import {
   attachRequest,
+  grantRequest,
   COMMAND_STEPS,
   channelOf,
   initialSnapshot,
@@ -251,8 +252,12 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
             return yield* dispatch(
               Command.cases.SetModel.make({ sessionId: SESSION, model: `m${n}`, effort: null })
             );
+          case "requestGrant":
           case "requestAttach": {
-            const request = attachRequest(`r${n}`, yield* working());
+            const request =
+              step.type === "requestGrant"
+                ? grantRequest(`r${n}`, yield* working())
+                : attachRequest(`r${n}`, yield* working());
 
             return yield* inEngine(
               Effect.flatMap(EventStore, (store) =>
@@ -261,7 +266,10 @@ const replay = (options: ModelOptions, steps: ReadonlyArray<Step>) =>
                   decide: (model) =>
                     Effect.succeed(
                       decideSession(model.sessions.get(SESSION), {
-                        type: "inspector.approvalRequested",
+                        type:
+                          step.type === "requestGrant"
+                            ? "grant.approvalRequested"
+                            : "inspector.approvalRequested",
                         request,
                       }).events
                     ),

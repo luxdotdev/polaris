@@ -6,6 +6,14 @@
  * administrator, ever. Every step is idempotent: running
  * install twice with the same binary changes nothing and restarts nothing.
  */
+import {
+  commandPathHint,
+  commandTarget,
+  inspectCommand,
+  installCommandLink,
+  uninstallCommandLink,
+  userCommandPath,
+} from "../install/command.ts";
 import { createHash } from "node:crypto";
 import {
   chmodSync,
@@ -650,6 +658,8 @@ const moveSelfOutOf = (bin: string) => {
 const UNINSTALLED_PREFIX = "polaris-uninstalled-";
 
 export interface InstallOptions {
+  /** CLI installs expose the command; Desktop manages its local link separately. */
+  readonly command?: boolean;
   /** The compiled `polaris` binary to install (normally this process's own executable). */
   readonly source: string;
   readonly version: string;
@@ -746,6 +756,19 @@ export const install = Effect.fn("install")(function* (
   );
 
   const done = yield* activation;
+  const notes = [...done.notes];
+
+  if (ctx.os !== "win32" && options.command === true) {
+    yield* fsStep("install command", () => {
+      const path = userCommandPath(ctx.userHome);
+      const target = commandTarget(ctx.polarisHome);
+      installCommandLink(path, target);
+      const hint = commandPathHint(inspectCommand(path, target, ctx.path));
+      notes.push(`Command installed at ${path}`);
+
+      if (hint !== null) notes.push(hint);
+    });
+  }
 
   const supervisor: Supervisor = Match.value(ctx.os).pipe(
     Match.when("darwin", (): Supervisor => "launchd"),
@@ -765,7 +788,7 @@ export const install = Effect.fn("install")(function* (
     linger: done.linger,
     supervisor,
     autostart: fallback ? plan.autostart : [],
-    notes: done.notes,
+    notes,
   };
 });
 
@@ -821,6 +844,11 @@ export const uninstall = Effect.fn("uninstall")(function* (
   if (ctx.os === "linux" && serviceFileRemoved) {
     yield* run(["systemctl", "--user", "daemon-reload"]);
   }
+
+  if (ctx.os !== "win32")
+    yield* fsStep("remove command", () =>
+      uninstallCommandLink(userCommandPath(ctx.userHome), commandTarget(ctx.polarisHome))
+    );
 
   const binariesRemoved = yield* fsStep("remove binaries", () => {
     const existed = existsSync(paths.bin);

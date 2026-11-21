@@ -5,6 +5,7 @@
  */
 import {
   decideUserAccess,
+  Command,
   type LinkedDevice,
   UserAccessGate,
   type UserAccessRequired,
@@ -16,13 +17,16 @@ import { pairingOf } from "../extensions/connection.ts";
 import { deviceOf } from "../linkedDevices/connection.ts";
 import { type TeammateDevice, teammateOf } from "../shares/connection.ts";
 import type { UserAccessRegistry } from "../userAccess/index.ts";
+import { sessionActionGrant } from "../engine/sessionGrantPolicy.ts";
+import type { Actor } from "./actor.ts";
 
 /** Of a `dispatch` payload, the gate needs only the Command's tag. */
-const dispatchTag = Schema.decodeUnknownOption(
-  Schema.Struct({ command: Schema.Struct({ _tag: Schema.String }) })
-);
+const dispatchTag = Schema.decodeUnknownOption(Schema.Struct({ command: Command }));
+
+const settingsWrites = new Set(["settings.set", "clientSettings.set"]);
 
 export interface TransportFacts {
+  readonly actorOf?: (client: Rpc.ServerClient) => Actor;
   readonly tokenRequired: (client: Rpc.ServerClient) => boolean;
   /** The Linked Device a connection came in as, from the transport rather than annotations. */
   readonly deviceOf?: (client: Rpc.ServerClient) => LinkedDevice | null;
@@ -66,13 +70,31 @@ export const userAccessGateFor = (transport: TransportFacts, registry: UserAcces
     if (Predicate.isTagged(rpc, "hello") || !tokenlessClient(client, transport)) return effect;
 
     const command = Predicate.isTagged(rpc, "dispatch")
-      ? Option.getOrNull(Option.map(dispatchTag(payload), (p) => p.command._tag))
+      ? Option.getOrNull(Option.map(dispatchTag(payload), (p) => p.command))
       : null;
 
-    const refusal = decideUserAccess(rpc._tag, command, registry.holds(client));
+    // Session start/turn Grants are checked by the Engine; approval and secret RPCs keep this gate.
+    const access = sessionActionGrant(
+      command === null ? { rpc: rpc._tag } : { rpc: rpc._tag, command }
+    );
+
+    if (
+      transport.actorOf?.(client).kind === "agentSession" &&
+      (access === "start" ||
+        access === "turn" ||
+        access === "settings" ||
+        settingsWrites.has(rpc._tag) ||
+        Predicate.isTagged(rpc, "session.start"))
+    )
+      return effect;
+
+    // Start validates omitted CLI defaults before checking the enrolled user key in its handler.
+    if (Predicate.isTagged(rpc, "session.start")) return effect;
+
+    const refusal = decideUserAccess(rpc._tag, command?._tag ?? null, registry.holds(client));
 
     if (refusal !== null) return Effect.fail(refusal);
-    const needed = decideUserAccess(rpc._tag, command, false);
+    const needed = decideUserAccess(rpc._tag, command?._tag ?? null, false);
 
     // Admitted and user-only: it ends, refused, the moment the connection's key is revoked.
     return needed === null ? effect : Effect.raceFirst(effect, lost(registry, client, needed));

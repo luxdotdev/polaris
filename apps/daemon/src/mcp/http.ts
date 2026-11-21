@@ -1,3 +1,8 @@
+import { settingsAccessAt } from "../settings/rpc.ts";
+import { hostSettingsPath } from "../settings/index.ts";
+import { hostSessionDefaultsAt } from "./sessions/defaults.ts";
+import { Engine } from "../engine/Engine.ts";
+import { sessionControl, type SessionDefaultsFor } from "./sessions/control.ts";
 import { Profiles } from "../traces/profiles/service.ts";
 import { sessionProfileTools } from "./sessions/profiles.ts";
 import { Effect, Option, Schema } from "effect";
@@ -10,7 +15,7 @@ import {
   type LeadStarted,
   attachSessionTools,
   attachVisualizations,
-  constellationTools,
+  availableConstellationTools,
 } from "./tools.ts";
 import { DataSources, DataQueries } from "../data/services.ts";
 import { TraceStore } from "../traces/storeService.ts";
@@ -25,6 +30,10 @@ import { RequestSends } from "../requests/sendsService.ts";
 import { OriginApprovals, registerOriginGate } from "../requests/approvals/index.ts";
 import { McpTokens } from "./tokens.ts";
 import { loopbackRequest } from "../transport/loopbackHttp.ts";
+import { attachInspectionTools } from "./inspection/catalog.ts";
+import { DesktopInspection } from "./inspection/relay.ts";
+import { recentDaemonLogs } from "./inspection/logs.ts";
+import { paths } from "../paths.ts";
 import { DeveloperModeState } from "../developerMode/service.ts";
 
 const Message = Schema.Struct({
@@ -90,7 +99,7 @@ const responseFor = async (
       return result({});
     case "tools/list":
       return result({
-        tools: constellationTools(binding, commands, started, options).map(
+        tools: (await availableConstellationTools(binding, commands, started, options)).map(
           ({ name, description, inputSchema, annotations }) => ({
             name,
             description,
@@ -104,7 +113,7 @@ const responseFor = async (
 
       if (Option.isNone(params)) return rpcError(id, -32602, "Invalid tool call parameters");
 
-      const tool = constellationTools(binding, commands, started, options).find(
+      const tool = (await availableConstellationTools(binding, commands, started, options)).find(
         (item) => item.name === params.value.name
       );
 
@@ -162,15 +171,46 @@ const originToolsFromContext = (store: EventStore["Service"]) =>
     })
   );
 
+const attachControl = (
+  sessions: SessionTools,
+  store: EventStore["Service"],
+  defaults?: SessionDefaultsFor
+) =>
+  Effect.gen(function* () {
+    const engine = yield* Effect.serviceOption(Engine);
+
+    if (Option.isSome(engine))
+      Object.assign(sessions, {
+        control: sessionControl(store, engine.value, defaults ?? hostSessionDefaultsAt()),
+      });
+  });
+
+const inspectionToolsFromContext = (commands: ConstellationCommands) =>
+  Effect.gen(function* () {
+    const mode = yield* Effect.serviceOption(DeveloperModeState);
+    const inspection = yield* Effect.serviceOption(DesktopInspection);
+
+    if (Option.isSome(mode) && Option.isSome(inspection)) {
+      const directory = paths().logs;
+      attachInspectionTools(commands, {
+        enabled: Effect.map(mode.value.current, (value) => value.effective),
+        logs: (lines, stream) => recentDaemonLogs(directory, lines, stream),
+        snapshot: inspection.value.snapshot,
+      });
+    }
+  });
+
 /** One listener per Host; JSON responses only, with no SSE connection or per-session process. */
 export const mcpHttp = (
   commands: ConstellationCommands,
   port = 0,
-  requestSecret?: SessionTools["requestSecret"]
+  requestSecret?: SessionTools["requestSecret"],
+  sessionDefaults?: SessionDefaultsFor
 ) =>
   Effect.gen(function* () {
     const tokens = yield* McpTokens;
     const store = yield* Effect.serviceOption(EventStore);
+    yield* inspectionToolsFromContext(commands);
 
     const started: LeadStarted = (sessionId, id) =>
       Effect.ignore(tokens.advanceLeads(sessionId, id));
@@ -186,6 +226,11 @@ export const mcpHttp = (
 
     if (Option.isSome(store) && notifications !== null) {
       const sessions = sessionTools(store.value, notifications, requestSecret);
+      yield* attachControl(sessions, store.value, sessionDefaults);
+
+      Object.assign(sessions, {
+        settings: yield* settingsAccessAt(hostSettingsPath),
+      });
 
       const data =
         Option.isSome(sources) && Option.isSome(queries)

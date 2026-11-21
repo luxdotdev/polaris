@@ -1,3 +1,8 @@
+import { setKeybindingOverrides } from "../shared/keybindingResolution.ts";
+import { followSessionDefaults } from "./hostSessionDefaults.ts";
+import { createCommandInstaller } from "./commandInstall.ts";
+import { desktopClientSettings, publishClientPrediction } from "./clientSettingsSetup.ts";
+import { type ClientSettingsBridge } from "./clientSettings.ts";
 import { writeSecret } from "./secretClipboard.ts";
 import { createMainPredictionPlacement } from "./prediction/placement.ts";
 import { PredictionSettings } from "./prediction/preferences.ts";
@@ -37,7 +42,7 @@ import {
   shell,
 } from "electron";
 import type { UserPresence } from "@polaris/protocol";
-import { type AppEvent, type Appearance, CHANNELS, type SessionDefault } from "../shared/api.ts";
+import { type AppEvent, type Appearance, type SessionDefaults, CHANNELS } from "../shared/api.ts";
 import {
   clientIdentity,
   HostDirectory,
@@ -50,6 +55,7 @@ import {
 } from "./hosts.ts";
 import { Effect, Layer, Option, SubscriptionRef } from "effect";
 import { type PresenceWatch, watchPresence } from "./presence/index.ts";
+import { serveInspection } from "./inspection.ts";
 import { hostDeveloperModes } from "./developerMode/index.ts";
 import { followFocus, followReviewRequests, githubLayer } from "./github/electron.ts";
 import { legacyTokens } from "./github/store.ts";
@@ -260,13 +266,23 @@ const start = async () => {
   const file = settingsPath(app.getPath("userData"));
   let settings: Settings = readSettings(file);
 
+  interface SettingsRelay {
+    current?: ClientSettingsBridge;
+  }
+
+  const settingsRelay: SettingsRelay = {};
+
   let proofHostKey: string | null = null;
 
   const appearance = (): Appearance => appearanceOf(settings);
 
   const updateSettings = (change: (current: Settings) => Settings) => {
-    settings = change(settings);
-    writeSettings({ path: file, settings });
+    const next = change(settings);
+    writeSettings({ path: file, settings: next });
+    const before = settings;
+    settings = next;
+    settingsRelay.current?.changed();
+    publishClientPrediction(before, next);
   };
 
   const saveSettings = (patch: Partial<Settings>) =>
@@ -316,15 +332,8 @@ const start = async () => {
     applyAppearance();
   };
 
-  const setSessionDefault = (harness: string, value: SessionDefault | null) => {
-    const others = Object.entries(settings.sessionDefaults ?? {}).filter(([k]) => k !== harness);
-
-    const sessionDefaults = Object.fromEntries(
-      value === null ? others : [...others, [harness, value]]
-    );
-
-    saveSettings({ sessionDefaults });
-    const event: AppEvent = { kind: "session-defaults", sessionDefaults };
+  const publishSessionDefaults = (hostKey: string, sessionDefaults: SessionDefaults) => {
+    const event: AppEvent = { kind: "session-defaults", hostKey, sessionDefaults };
 
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
   };
@@ -378,6 +387,8 @@ const start = async () => {
   };
 
   const applyAppearance = () => {
+    setKeybindingOverrides(settings.keybindings ?? {});
+
     const current = appearance();
     const event: AppEvent = { kind: "appearance", appearance: current };
 
@@ -397,6 +408,19 @@ const start = async () => {
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
   };
 
+  const clientSettings = desktopClientSettings(() => settings, {
+    update: updateSettings,
+    sessions: setSessions,
+    appearance: applyAppearance,
+    updates: currentUpdates,
+    prediction: () => ({
+      settings: predictionSettings,
+      placement: predictionPlacement,
+      bridge: predictionBridge,
+    }),
+  });
+
+  settingsRelay.current = clientSettings;
   applyAppearance();
 
   const platformLocal = Effect.runSync(
@@ -501,6 +525,12 @@ const start = async () => {
       relay: device.connector,
       presence: SubscriptionRef.changes(presence),
       developerModeLease: dev,
+      sessionDefaultsHost: (hostKey, sessions) =>
+        followSessionDefaults(sessions, settings.sessionDefaults ?? {}, (defaults) =>
+          publishSessionDefaults(hostKey, defaults)
+        ),
+      inspection: serveInspection,
+      clientSettings: clientSettings.watch,
       entries: hostEntries({
         local: localDaemon,
         remotes: settings.hosts ?? [],
@@ -622,6 +652,11 @@ const start = async () => {
     selfTraces,
     crashes: (report) => recordCrash(rendererCrashEntry(report)),
     context: {
+      commandInstaller: createCommandInstaller({
+        path: () => env.PATH ?? "",
+        dismissed: () => settings.commandInstallDismissed === true,
+        dismiss: () => saveSettings({ commandInstallDismissed: true }),
+      }),
       selfTracesEnabled: selfTraces.enabled,
       browser: browsers,
       updates: currentUpdates,
@@ -638,7 +673,8 @@ const start = async () => {
       cache,
       prices: openPrices(app.getPath("userData")),
       setAppearance,
-      setSessionDefault,
+      publishSessionDefaults,
+      clientSettings,
       setSessions,
       openExternal: (url) => shell.openExternal(url),
       serveFrame: (document) => frames.serve(document),

@@ -5,6 +5,7 @@
  * routed to the session they name; anything else the agent asks is refused.
  */
 import { harnessEnv } from "../environment.ts";
+import { harnessProcesses } from "../processIdentity.ts";
 import { appendFileSync } from "node:fs";
 import { Deferred, Effect, Option, Predicate, Schema, type Scope } from "effect";
 import { HarnessError } from "../HarnessDriver.ts";
@@ -159,6 +160,15 @@ export const spawnAgent = (
           stopChild(child);
         })
     );
+
+    if (process.platform !== "win32") {
+      const unregister = harnessProcesses.register(proc.pid, {
+        kind: "agentUnattributed",
+        harnessServer: options.harness,
+      });
+
+      void proc.exited.then(unregister);
+    }
 
     const tail = stderrTail(proc.stderr);
 

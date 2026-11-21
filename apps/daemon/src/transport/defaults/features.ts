@@ -1,8 +1,11 @@
+import { SessionStartRpcs } from "@polaris/protocol";
+import { ClientSettingsRpcs, ClientSettingsError } from "@polaris/protocol";
 import {
   BrowserStackRpcs,
   ComputerUseRpcs,
   DataRpcs,
   DeveloperModeRpcs,
+  InspectionRpcs,
   LanguageRpcs,
   PredictionError,
   PredictionRpcs,
@@ -33,6 +36,10 @@ const predictionDefaults = PredictionRpcs.toLayer({
   "prediction.server": prediction("Model server checks are unavailable"),
   "prediction.managed": prediction("Managed model server is unavailable"),
   "prediction.managed.watch": predictionFeed("Managed model server is unavailable"),
+});
+
+const sessionStartDefaults = SessionStartRpcs.toLayer({
+  "session.start": unsupported("session.start"),
 });
 
 const dataDefaults = DataRpcs.toLayer({
@@ -115,10 +122,31 @@ const computerUseDefaults = ComputerUseRpcs.toLayer({
 export const featureDefaults = Layer.mergeAll(
   LanguageRpcs.toLayer(languageDefaults),
   predictionDefaults,
+  sessionStartDefaults,
+  ClientSettingsRpcs.toLayer({
+    "clientSettings.list": () =>
+      Effect.fail(new ClientSettingsError({ message: "no Client connected" })),
+    "clientSettings.describe": () =>
+      Effect.fail(new ClientSettingsError({ message: "no Client connected" })),
+    "clientSettings.get": () =>
+      Effect.fail(new ClientSettingsError({ message: "no Client connected" })),
+    "clientSettings.set": () =>
+      Effect.fail(new ClientSettingsError({ message: "no Client connected" })),
+    "clientSettings.connect": () =>
+      Stream.fail(new ClientSettingsError({ message: "no Client connected" })),
+    "clientSettings.publish": () =>
+      Effect.fail(new ClientSettingsError({ message: "no Client connected" })),
+    "clientSettings.complete": () =>
+      Effect.fail(new ClientSettingsError({ message: "no Client connected" })),
+  }),
   BrowserStackRpcs.toLayer(browserDefaults),
   dataDefaults,
   traceDefaults,
   developerModeDefaults,
+  InspectionRpcs.toLayer({
+    "inspection.watch": unsupportedFeed("developer-mode.inspection"),
+    "inspection.respond": unsupported("developer-mode.inspection"),
+  }),
   simulatorDefaults,
   computerUseDefaults
 );

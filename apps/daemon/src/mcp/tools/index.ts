@@ -1,3 +1,5 @@
+import { inspectionTools } from "../inspection/catalog.ts";
+import { settingsTool } from "./settings.ts";
 import { CommandId, Revision, TaskId } from "@polaris/protocol";
 import { Effect, Schema } from "effect";
 import { McpBinding, sessionBinding } from "../binding.ts";
@@ -170,6 +172,7 @@ export const constellationTools = (
     requestSecretTool(binding.sessionId, sessions),
     ...historyTools(binding.sessionId, sessions),
     ...dataTools(binding.sessionId, sessions),
+    settingsTool(binding.sessionId, sessions),
     ...traceTools(binding.sessionId, sessions),
     ...requestTools(binding.sessionId, sessions, idsFor(commands)),
     profileTool(binding.sessionId, sessions),
@@ -178,3 +181,11 @@ export const constellationTools = (
       : [visualizeTool(binding.sessionId, visualizationsFor(commands))]),
   ];
 };
+
+/** Catalogs are read afresh so inspection tools exist only while Developer Mode is on. */
+export const availableConstellationTools = async (
+  ...args: Parameters<typeof constellationTools>
+): Promise<ReadonlyArray<BoundTool>> => [
+  ...constellationTools(...args),
+  ...(await inspectionTools(args[1], args[0].sessionId)),
+];

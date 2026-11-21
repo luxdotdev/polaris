@@ -26,6 +26,7 @@ import {
   type RiskSummary,
   type SessionId,
   SessionPlacement,
+  Starter,
   type ShareRole,
   type Turn,
   type TurnId,
@@ -43,6 +44,11 @@ import {
   workingTurn,
 } from "../store/model.ts";
 import { pickCelestial } from "../store/celestial.ts";
+import {
+  startBudgetRefusal,
+  startLimitRefusal,
+  wakingBudgetRefusal,
+} from "./sessionGrantPolicy.ts";
 import { userTurn } from "./session.turns.ts";
 import { reviewDeciders } from "./review.ts";
 import { commentDeciders } from "./comments.ts";
@@ -59,6 +65,8 @@ export interface DecideContext {
   /** Who sent it: stamped on the session starts, Turns and approvals it records. */
   readonly actor: Actor;
   readonly extensionGrant?: Grant | null;
+  readonly agentSessionId?: SessionId | undefined;
+  readonly starter?: Starter | undefined;
   /** A Teammate's Share role on the session; null for the owner's Clients (`mayResolveComment`). */
   readonly shareRole?: ShareRole | null;
   /** For SendTurn: the session is shared, so a Turn sent with one in flight joins its queue. */
@@ -181,6 +189,10 @@ const deciding = (model: ReadModel, ctx: DecideContext): Deciding => {
     lifecycle: (record, input) => {
       const decision = decideSession(record, input);
 
+      const refusal = wakingBudgetRefusal(model, record, decision.events);
+
+      if (refusal !== null) return reject(refusal);
+
       return decision.rejection !== null
         ? reject(decision.rejection)
         : ok(...decision.events.map((event) => withActor(ctx.actor, event)));
@@ -225,6 +237,7 @@ const setWorkspaceHidden = (d: Deciding, command: CommandOf<"SetWorkspaceHidden"
     name: workspace.name,
     isGitRepo: workspace.isGitRepo,
     worktreeRoot: workspace.worktreeRoot,
+    sessionGrant: workspace.sessionGrant,
     hidden: command.hidden,
     worktreeSetup: workspace.worktreeSetup,
     registeredAt: workspace.registeredAt,
@@ -305,6 +318,12 @@ const place = (d: Deciding, workspace: Workspace, placement: SessionPlacement): 
   });
 
 const startSession = (d: Deciding, command: CommandOf<"StartSession">): Decision => {
+  if (d.ctx.agentSessionId !== undefined) {
+    const refusal = startBudgetRefusal(d.model, d.ctx.agentSessionId);
+
+    if (refusal !== null) return d.reject(refusal);
+  }
+
   if (d.model.sessions.has(command.sessionId)) {
     return d.reject(`session ${command.sessionId} already exists`);
   }
@@ -318,6 +337,12 @@ const startSession = (d: Deciding, command: CommandOf<"StartSession">): Decision
   if (Result.isFailure(placed)) return placed.failure;
 
   const session = new AgentSession({
+    starter:
+      d.ctx.agentSessionId !== undefined
+        ? Starter.cases.AgentSession.make({ sessionId: d.ctx.agentSessionId })
+        : Predicate.isTagged(d.ctx.actor, "Extension")
+          ? Starter.cases.Extension.make({ pairingId: d.ctx.actor.pairingId })
+          : (d.ctx.starter ?? Starter.cases.User.make({})),
     id: command.sessionId,
     workspaceId: workspace.id,
     harness: command.harness,
@@ -573,6 +598,7 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
             name: workspace.name,
             isGitRepo: workspace.isGitRepo,
             worktreeRoot: workspace.worktreeRoot,
+            sessionGrant: workspace.sessionGrant,
             hidden: workspace.hidden,
             registeredAt: workspace.registeredAt,
             worktreeSetup: c.setup,
@@ -656,6 +682,19 @@ export const decide = (model: ReadModel, command: Command, ctx: DecideContext): 
     SetResumeAtReset: (c) => setResumeAtReset(d, c),
     SetPermissionMode: (c) =>
       onSession(d, c.sessionId, { type: "permissionMode.set", permissionMode: c.permissionMode }),
+    SetSessionStartLimit: (c) =>
+      d.withSession(c.sessionId, () => {
+        const refusal = startLimitRefusal(model, c.sessionId, c.limit);
+
+        return refusal === null
+          ? d.ok(
+              DomainEvent.cases.SessionStartLimitChanged.make({
+                sessionId: c.sessionId,
+                limit: c.limit,
+              })
+            )
+          : d.reject(refusal);
+      }),
     SetModel: (c) => setModel(d, c),
     ForkSession: (c) => forkSession(d, c),
     ArchiveSession: (c) => onSession(d, c.sessionId, { type: "session.archive", at: ctx.now }),

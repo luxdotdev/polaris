@@ -22,7 +22,7 @@ const call = (
 const S = SessionId.make("s1");
 
 const Properties = Schema.decodeUnknownSync(
-  Schema.Struct({ properties: Schema.Record(Schema.String, Schema.Unknown) })
+  Schema.Struct({ properties: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)) })
 );
 
 test("Constellation command tools take requestId; direct and read tools don't", () => {
@@ -30,7 +30,7 @@ test("Constellation command tools take requestId; direct and read tools don't", 
 
   for (const binding of [leadBinding, workerBinding])
     for (const tool of constellationTools(binding, commands)) {
-      const properties = Object.keys(Properties(tool.inputSchema).properties);
+      const properties = Object.keys(Properties(tool.inputSchema).properties ?? {});
 
       expect([tool.name, properties.includes("requestId")]).toEqual([
         tool.name,
@@ -44,6 +44,7 @@ test("Constellation command tools take requestId; direct and read tools don't", 
           "search_history",
           "read_history",
           "origins",
+          "settings",
           "data_sources",
           "describe",
           "query",

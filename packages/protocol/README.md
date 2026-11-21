@@ -4,6 +4,65 @@ The wire contract every Client and the Daemon share: the Effect Schema domain (`
 
 **Compatibility.** Changes are additive. A field added to something already in a Host's log decodes when absent (`addedNullable`, `addedArray`, or `optionalNullable` / `optionalArray` when constructors may leave it out too). A new event, command or RPC comes with a capability: a Client only sends a command or calls an RPC the Daemon announced, and the Daemon only sends an event to a Client that announced its capability (the Daemon's `eventCapability`). Unknown capability names are dropped on decode, so either side may be newer. `contract.test.ts` and `review.test.ts` hold both directions.
 
+## Host Settings (ADR 0120)
+
+<!-- Host Settings RPCs and Schema metadata from src/settings.ts -->
+
+`settings.list/describe/get/set` use the `settings` capability. Settings carry a description,
+JSON Schema document with allowed values and refinements, default and current value.
+`setting` annotates the source Schema; `describeSetting` rejects a missing description or
+invalid default. `SettingsRpcs` carries the generated command annotations; set is user-only
+until the change-settings Grant integration. The Daemon's registry and migration are documented
+in [`apps/daemon/src/settings`](../../apps/daemon/src/settings/README.md).
+
+## Generated commands (ADR 0118)
+
+`commands` is derived from `CommandAnnotation` on `DaemonRpcs`. An annotation is an array:
+several public commands can use one existing RPC (`dispatch` variants, or Host snapshot
+projections). `defineCommands` rejects a missing or multiline description, missing Grant,
+invalid dotted name, or duplicate name. `commandBindings.ts` annotates the current session,
+workspace, approval and local Host operations; `commands.ts` remains the Engine's persisted
+command contract.
+
+To expose another RPC, including settings, annotate its definition before merging its group
+into `DaemonRpcs`:
+
+```ts
+GetSetting.annotate(CommandAnnotation, [{
+  name: "settings.get",
+  description: "Read a setting.",
+  grant: "read",
+  examples: ["polaris settings get reviewer.model"],
+  positional: ["key"],
+}]);
+```
+
+The payload schema supplies flags (`sessionId` becomes `--session-id`); `positional` names
+fields in the examples' order. `defaults` supplies JSON values, `generated` supplies fresh
+UUIDs, and `stdin` names a field read from stdin when omitted. A dispatch variant supplies
+its existing case's fields as `payloadSchema` and its `dispatchTag`. Snapshot/watch entries
+set `mode`; their underlying RPC remains a stream. An annotation describes the required
+Grant; it does not grant authority or change the Daemon's authorization checks.
+
+`compactCommandTool(name, description, list)` returns one MCP tool definition with a
+`verb` argument and per-verb JSON Schema payloads. Filter `commands` by noun before calling
+it. The caller still owns execution and actor authorization; apply `defaults` and
+`generated` before decoding the chosen entry's `payloadSchema`. Settings can extend the
+catalogue through their RPC annotations without changing CLI dispatch.
+
+The binary accepts `polaris <noun> <verb>`, `--help` and `--json`. Piped output is JSON;
+`session watch` emits newline-delimited JSON. Structured flags take JSON values, positional
+fields and flags accept `--` and `--key=value`, and `session start` accepts a prompt from
+stdin. It currently requires explicit `--workspace-id` and `--harness`; permission mode
+defaults to `supervised`. It connects to the local socket (or owned Windows pipe), using
+`POLARIS_HOST_SOCKET` when set. Saved remote Hosts belong to the Desktop App's Client
+Settings, so `--host` currently returns a clear unsupported usage error. No user key is read
+from Desktop App storage; actor/Grant enforcement remains in the transport and Engine.
+
+Exit codes: **0** success, **1** refused (including `NotGranted` and `UserAccessRequired`),
+**2** usage, **3** not found, **4** unreachable. Existing service, Extension, voice, lease,
+Remote Access and Constellation commands retain their own dispatch and exit behavior.
+
 ## Review
 
 M2's Review (Linear ENG-217; decisions ENG-185, ENG-218–230). A Review judges one **subject** (`ReviewSubject`): an open pull request (`PullRequest`: the base repository, number and base branch), or an Agent Session's Turns (`SessionTurns`: one, a contiguous run, or all).
@@ -49,7 +108,7 @@ Daemon-side events with no command (the Checkout, Rules and Reviewer modules com
 
 ### Extensions (`extensions.ts`, `grants.ts`, `hello.ts`)
 
-Capability `extensions` (ENG-398, ADR 0075 and 0078). `hello` takes an optional `extensionToken` (`pol_ext_` and base64url of 32 bytes); with a valid one the connection acts as that Pairing, within its Grant, and an invalid or revoked one fails `hello` with `ExtensionTokenRejected`. `extensions.pair({ name, grant })` returns the Pairing and its token once; `extensions.list`; `extensions.revoke({ id })` closes the Pairing's live connections. A Grant is a set of `read | comment | approve | turn | start | voice`. `RPC_GRANTS` and `COMMAND_GRANTS` map every RPC and `dispatch` Command to what it needs (exhaustive by type); `decideAccess` is the rule (a `StartSession` that is not `supervised` also needs `approve`), and `NotGranted` the refusal, naming the missing Grant (null for what is not available to Extensions). `ExtensionDaemonRpcs` is `DaemonRpcs` with that refusal in every RPC's error type, for the SDK. `SessionCreated`, `TurnStarted` and `ApprovalResolved` carry an optional `actor` (`Client`, `Extension` with its Pairing id and name, `LinkedDevice`, or `Teammate` with its Share, person and name).
+Capability `extensions` (ENG-398, ADR 0075 and 0078). `hello` takes an optional `extensionToken` (`pol_ext_` and base64url of 32 bytes); with a valid one the connection acts as that Pairing, within its Grant, and an invalid or revoked one fails `hello` with `ExtensionTokenRejected`. `extensions.pair({ name, grant })` returns the Pairing and its token once; `extensions.list`; `extensions.revoke({ id })` closes the Pairing's live connections. A Grant is a set of `read | comment | approve | turn | start | voice | settings`. `RPC_GRANTS` and `COMMAND_GRANTS` map every RPC and `dispatch` Command to what it needs (exhaustive by type); `decideAccess` is the rule (a `StartSession` that is not `supervised` also needs `approve`), and `NotGranted` the refusal, naming the missing Grant (null for what is not available to Extensions). `ExtensionDaemonRpcs` is `DaemonRpcs` with that refusal in every RPC's error type, for the SDK. `SessionCreated`, `TurnStarted` and `ApprovalResolved` carry an optional `actor` (`Client`, `Extension` with its Pairing id and name, `LinkedDevice`, or `Teammate` with its Share, person and name).
 
 ### Shares and Comments (`shares.ts`, `shareGrants.ts`, `comments.ts`)
 
@@ -90,3 +149,39 @@ Capability `requests` (ENG-809, ADR 0098), announced once the Daemon serves it; 
 RPCs (`RequestsRpcs`): `requests.watch` (stream of `RequestsSnapshot`), `requests.save`, `requests.send` (the user's Send, never gated), `requests.variables` (a target's variables in an environment), `requests.sendLog.page` (cursor `before`, `filter`), `requests.sendLog.watch` (latest 100), `requests.send.get` (`SendLookup`: `ById` or `ByTrace`), `requests.curl.parse` and `requests.curl.format` (secrets masked). All are Desktop-only (`client` in `RPC_GRANTS`, `local` in `DEVICE_RPCS`).
 
 An agent's Send to a Remote Origin asks with `ApprovalRequest.origin` (`OriginApproval`: `origin`, `variable`, `environment`, `method`, `path`, `write`, `tokenSource`); the user answers `Allow` with `originScope` (`reads | reads-and-writes`, absent means `reads`).
+
+`compactCommandTool` also returns `sdkInputSchema`, an object projection for SDKs that cannot
+accept a top-level union. Each tool handler still validates its verb-specific payload.
+
+<!-- Session Grants from src/sessionGrants.ts and SessionCreated in src/events.ts -->
+
+### Session Grants and Starter (ADR 0119)
+
+`SessionCreated.starter` and `AgentSession.starter` name User, AgentSession(sessionId),
+Extension(pairingId), or Cli; missing fields decode as User. Clients show Starter only in
+session details. `AgentSession.grant` defaults to read + comment. `ApprovalRequest.grant`
+(`session.grants` capability) asks for start, turn or settings; `Allow.grantScope` selects
+session or workspace when remembered. `SessionGrantRemembered` records that authority.
+User-only actions, including Approvals and budget changes, cannot be granted to a session.
+
+`AgentSession.startLimit` overrides the Host default (five). `SetSessionStartLimit` and
+`HostSessionStartLimitChanged` change those user-owned limits. Starting and Working sessions
+count against every Starter ancestor; Constellation Workers do not count. Other sessions'
+Turn/stop requests outside the Starter chain require approval each time.
+
+
+### Scoped settings and resolved starts (ENG-1023)
+
+`setting` accepts `userOnly`, defaulting to false. Discovery includes it; older descriptors
+without it still decode. `settings.list` includes `scope: host | client`; describe/get/set
+accept an optional scope (Host by default). The MCP settings and sessions tools use
+`compactCommandTool`, including its Claude-compatible object projection.
+
+The `session.start` capability announces the annotated RPC; an older Host is refused with
+Unsupported before the CLI sends it. `session.start` accepts optional workspaceId/harness and a CLI cwd. The
+Daemon takes missing fields from the authenticated Session first. For a user CLI it finds
+the deepest registered Workspace containing cwd and requires an explicit Harness; otherwise
+SessionStartUsage produces CLI exit 2 and lists installed Harnesses when one is missing.
+Model, effort and permission mode use the selected Harness's Host sessions.defaults. Resolution
+then dispatches the existing StartSession command through the same Grants, budgets and
+user/Extension authority checks; it adds no durable lifecycle semantics.

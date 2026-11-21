@@ -9,6 +9,7 @@ export type SettingsCommandId =
   | "settings.about"
   | "updates.check"
   | "updates.restart"
+  | "settings.keyboard"
   | "settings.appearance"
   | "settings.sessions"
   | "settings.editor"
@@ -26,6 +27,12 @@ export type SettingsCommandId =
 const SETTINGS = (keywords: ReadonlyArray<string>): PaletteEntry => ({ group: "app", keywords });
 
 export const SETTINGS_BINDINGS: ReadonlyArray<KeyBinding> = [
+  {
+    id: "settings.keyboard",
+    title: "Settings: Keyboard",
+    keys: [],
+    palette: SETTINGS(["shortcuts", "keybindings", "rebind", "keys"]),
+  },
   // macOS's own Settings… chord, in the app menu (DESIGN.md, Settings).
   {
     id: "settings.open",

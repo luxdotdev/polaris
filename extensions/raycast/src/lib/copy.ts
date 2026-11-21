@@ -63,6 +63,7 @@ export const GRANT_COPY: Readonly<
   turn: { label: "Send turns", can: "send turns" },
   start: { label: "Start agent sessions", can: "start agent sessions" },
   voice: { label: "Voice", can: "use voice" },
+  settings: { label: "Change settings", can: "change settings" },
 };
 
 const PAIR_AGAIN = "In Polaris, open Settings → Extensions, pair Raycast again";

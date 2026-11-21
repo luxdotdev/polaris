@@ -16,19 +16,30 @@
  */
 import {
   type Capability,
+  type Command,
+  type CommandId,
+  decideAccess,
   CommandRejected,
   DaemonRpcs,
   ExtensionDaemonRpcs,
   NotFound,
   SecretRejected,
+  Starter,
 } from "@polaris/protocol";
-import { Context, Effect, Layer, Option, Stream } from "effect";
+import { Context, Effect, Layer, Option, Stream, Predicate } from "effect";
+import type { Rpc } from "effect/rpc";
+import { actorOf as connectionActorOf } from "../transport/actor.ts";
 import { actorOf, pairingOf } from "../extensions/connection.ts";
 import { RequestShare, teammateOf } from "../shares/connection.ts";
 import { Engine } from "./Engine.ts";
 import { hostItemsFor, sessionItemsFor } from "./limitedCompat.ts";
 import { actorHostItemsFor, actorSessionItemsFor, actorTurnPageFor } from "./actorCompat.ts";
 import { planHostItemsFor, planSessionItemsFor } from "./planCompat.ts";
+
+/** Client-declared presentation name; used only for Starter metadata, never authority. */
+export class ClientName extends Context.Service<ClientName, string>()(
+  "polaris/daemon/engine/ClientName"
+) {}
 
 /** Per-connection annotation set by the `hello` handler. */
 export class DeviceLabel extends Context.Service<DeviceLabel, string>()(
@@ -55,32 +66,66 @@ const announced = (annotations: Context.Context<never>, capability: Capability) 
 const composeCompat = <A>(first: ((a: A) => A) | null, second: ((a: A) => A) | null) =>
   first === null ? second : second === null ? first : (a: A) => second(first(a));
 
+export const dispatchForClient = (
+  engine: Engine["Service"],
+  client: Rpc.ServerClient,
+  {
+    commandId,
+    command,
+  }: {
+    commandId: CommandId;
+    command: Command;
+  },
+  authorized = false
+) =>
+  Effect.gen(function* () {
+    // A Teammate acts through the Share its gate chose, as that Share's person and Grant.
+    const share = Option.getOrNull(yield* Effect.serviceOption(RequestShare));
+
+    if (share === null && teammateOf(client) !== null)
+      return yield* new CommandRejected({
+        commandId,
+        reason: "This connection acts through a Share, and none covers the command",
+      });
+
+    const refusal = decideAccess(
+      pairingOf(client),
+      "dispatch",
+      command._tag,
+      Predicate.isTagged(command, "StartSession") ? command.permissionMode : null
+    );
+
+    if (refusal !== null) return yield* refusal;
+    const connectionActor = connectionActorOf(client);
+
+    return yield* engine.dispatch({
+      agentSessionId:
+        connectionActor.kind === "agentSession" ? connectionActor.sessionId : undefined,
+      agentAuthorized: authorized && connectionActor.kind === "agentSession",
+      starter:
+        connectionActor.kind === "user" &&
+        pairingOf(client) === null &&
+        share === null &&
+        Context.getOrUndefined(client.annotations, ClientName) === "polaris-cli"
+          ? Starter.cases.Cli.make({})
+          : Starter.cases.User.make({}),
+      commandId,
+      command,
+      deviceLabel: Context.getOrUndefined(client.annotations, DeviceLabel) ?? UNKNOWN_DEVICE,
+      actor: share?.actor ?? actorOf(client),
+      extensionGrant: share?.grant ?? pairingOf(client)?.grant ?? null,
+      shareRole: share?.role ?? null,
+    });
+  });
+
 const DispatchHandler = ExtensionDaemonRpcs.toLayerHandler(
   "dispatch",
-  Effect.gen(function* () {
-    const engine = yield* Engine;
-
-    return ({ commandId, command }, { client }) =>
-      Effect.gen(function* () {
-        // A Teammate acts through the Share its gate chose, as that Share's person and Grant.
-        const share = Option.getOrNull(yield* Effect.serviceOption(RequestShare));
-
-        if (share === null && teammateOf(client) !== null)
-          return yield* new CommandRejected({
-            commandId,
-            reason: "This connection acts through a Share, and none covers the command",
-          });
-
-        return yield* engine.dispatch({
-          commandId,
-          command,
-          deviceLabel: Context.getOrUndefined(client.annotations, DeviceLabel) ?? UNKNOWN_DEVICE,
-          actor: share?.actor ?? actorOf(client),
-          extensionGrant: share?.grant ?? pairingOf(client)?.grant ?? null,
-          shareRole: share?.role ?? null,
-        });
-      });
-  })
+  Effect.map(
+    Engine,
+    (engine) =>
+      (input, { client }) =>
+        dispatchForClient(engine, client, input, true)
+  )
 );
 
 const ProvideSecretHandler = DaemonRpcs.toLayerHandler(

@@ -1,3 +1,4 @@
+import { hostSettings } from "../settings/index.ts";
 import { newTempDir, removeTempDirSettled } from "../platform/tempDir.testing.ts";
 import { expect, test } from "bun:test";
 import { readFile, rm, writeFile } from "node:fs/promises";
@@ -63,7 +64,7 @@ test("settings patches persist independently and never persist collector headers
         });
       }).pipe(Effect.provide(layer))
     );
-    expect(await readFile(join(root, "settings.json"), "utf8")).not.toContain("private-value");
+    expect(await readFile(join(root, "host-settings.json"), "utf8")).not.toContain("private-value");
     await Effect.runPromise(
       Effect.gen(function* () {
         const settings = yield* TraceSettings;
@@ -185,6 +186,29 @@ test("a workspace cannot forward back into a Polaris token endpoint", () =>
 
         expect(result).toHaveProperty("failure.code", "E-TRACE-SETTINGS-INVALID");
         expect((yield* settings.get(id)).forwardTo).toBeNull();
+      }).pipe(Effect.provide(layer))
+    );
+  }));
+
+test("generic settings changes invalidate active trace policies even when an override is removed", () =>
+  fixture(async (root, layer) => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const settings = yield* TraceSettings;
+        const context = { workspaceId: id, checkout: root, sessionId: null };
+        yield* settings.patch(id, {
+          forwardTo: { url: "https://collector.test/v1/traces", headerNames: [] },
+        });
+        const before = yield* settings.prepare(context, {});
+        expect(before.collector?.traces).toBe("https://collector.test/v1/traces");
+        const changed: WorkspaceId[] = [];
+        const stop = settings.subscribe((id) => changed.push(id));
+
+        hostSettings(join(root, "host-settings.json")).set("traces.workspaces", {});
+        expect(settings.current(id, before.generation)).toBe(false);
+        expect(changed).toContain(id);
+        expect((yield* settings.policy(context)).collector).toBeNull();
+        stop();
       }).pipe(Effect.provide(layer))
     );
   }));

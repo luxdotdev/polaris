@@ -1,10 +1,10 @@
+import { readGroup, writeGroup } from "../settings/index.ts";
 /**
  * Settings → Harnesses → Reviewer (ENG-222), kept on the Host because the
  * Daemon runs Reviews on its own: a default and per-Workspace overrides in
  * `~/.polaris/reviewer-settings.json`, resolved against what is installed.
  */
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import {
   AUTO_REVIEWERS,
   type HostHarnesses,
@@ -13,7 +13,7 @@ import {
   ReviewerSettings,
   type WorkspaceId,
 } from "@polaris/protocol";
-import { Effect, Option, Schema } from "effect";
+import { Effect } from "effect";
 import { polarisHome } from "../paths.ts";
 import { ServiceError } from "../services.ts";
 
@@ -22,37 +22,19 @@ export const RULES_ONLY_NOTE =
 
 export const EMPTY_SETTINGS = ReviewerSettings.make({ default: null, workspaces: {} });
 
-const SettingsJson = Schema.fromJsonString(ReviewerSettings);
-
-const decode = Schema.decodeUnknownOption(SettingsJson);
-
-const encode = Schema.encodeSync(SettingsJson);
-
 export const settingsPath = (): string => join(polarisHome(), "reviewer-settings.json");
 
-const failed = (message: string) => (cause: unknown) =>
-  new ServiceError({ service: "ReviewerSettings", message, cause });
+export const loadSettings = (path: string) => Effect.sync(() => readGroup(path, "reviewer"));
 
-/** The settings file, or empty settings when it is missing or unreadable. */
-export const loadSettings = (path: string) =>
-  Effect.promise(() => readFile(path, "utf8").catch(() => null)).pipe(
-    Effect.map((text) => {
-      if (text === null) return EMPTY_SETTINGS;
-
-      return Option.getOrElse(decode(text), () => EMPTY_SETTINGS);
-    })
-  );
-
-/** Written to a temporary file and renamed, so a crash never leaves half a file. */
 export const saveSettings = (path: string, settings: ReviewerSettings) =>
-  Effect.tryPromise({
-    try: async () => {
-      await mkdir(dirname(path), { recursive: true });
-      const temporary = `${path}.${process.pid}.tmp`;
-      await writeFile(temporary, encode(settings));
-      await rename(temporary, path);
-    },
-    catch: failed("Could not save the Reviewer settings"),
+  Effect.try({
+    try: () => writeGroup(path, "reviewer", settings),
+    catch: (cause) =>
+      new ServiceError({
+        service: "ReviewerSettings",
+        message: "Could not save the reviewer settings",
+        cause,
+      }),
   });
 
 const isReady = (harnesses: HostHarnesses, choice: ReviewerChoice): boolean =>

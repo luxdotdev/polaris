@@ -7,12 +7,15 @@ import {
   type ApprovalRequest,
   type RequestId,
 } from "@polaris/protocol";
+import type { SessionInput } from "./session.inputs.ts";
 import { Predicate } from "effect";
 import type { SessionRecord } from "../store/model.ts";
 import { workingTurn } from "../store/model.ts";
 
 /** Why a text Answer can't close `request`, or null when it can. */
 const answerRefusal = (request: ApprovalRequest | undefined) => {
+  if (request?.grant !== undefined) return "a Grant Approval takes an allow or a deny";
+
   if (request?.profileAttach !== undefined)
     return "an inspector attach takes an allow once or a deny";
 
@@ -48,6 +51,29 @@ export const decisionRefusal = (
   actor: Actor | null = null
 ): string | null => {
   const request = record.pending.get(requestId);
+
+  if (request?.grant !== undefined) {
+    if (
+      actor != null &&
+      !Predicate.isTagged(actor, "Client") &&
+      !Predicate.isTagged(actor, "LinkedDevice")
+    )
+      return "only the user grants session authority";
+
+    if (
+      Predicate.isTagged(decision, "Allow") &&
+      !request.grant.rememberable &&
+      (decision.remember || decision.grantScope !== undefined)
+    )
+      return "an action outside the Starter chain needs approval each time";
+  }
+
+  if (
+    Predicate.isTagged(decision, "Allow") &&
+    decision.grantScope !== undefined &&
+    request?.grant === undefined
+  )
+    return "only a Grant Approval takes a grant scope";
 
   // Only Not now answers it; turning computer use on clears it (the Daemon withdraws it).
   if (request?.kind === "computer-use" && !Predicate.isTagged(decision, "Deny"))
@@ -109,8 +135,9 @@ export const withdrawn = (record: SessionRecord, withdrawal: Withdrawal) =>
 
 /** Requests only the Daemon raises and answers itself: never forwarded to a Harness. */
 export const daemonOwned = (
-  request: Pick<ApprovalRequest, "dataSource" | "dataWrite" | "origin" | "profileAttach">
+  request: Pick<ApprovalRequest, "dataSource" | "dataWrite" | "origin" | "profileAttach" | "grant">
 ) =>
+  request.grant !== undefined ||
   request.dataSource !== undefined ||
   request.dataWrite !== undefined ||
   request.origin !== undefined ||
@@ -125,6 +152,9 @@ export const canRequestDataApproval = (
   record: SessionRecord,
   event: { type: string; request: ApprovalRequest }
 ) => {
+  if (event.type === "grant.approvalRequested") return event.request.grant !== undefined;
+
+  if (event.request.grant !== undefined) return false;
   const target = event.request.dataSource;
 
   const write = event.request.dataWrite;
@@ -183,3 +213,40 @@ export const withdrawDaemonApprovals = (record: SessionRecord) =>
           }),
         ]
   );
+
+/** A remembered Allow is part of the same commit as the user's decision. */
+export const rememberedGrant = (
+  record: SessionRecord,
+  requestId: RequestId,
+  decision: ApprovalDecision
+): ReadonlyArray<DomainEvent> => {
+  const grant = record.pending.get(requestId)?.grant;
+
+  if (
+    grant === undefined ||
+    !grant.rememberable ||
+    !Predicate.isTagged(decision, "Allow") ||
+    !decision.remember
+  )
+    return [];
+
+  return [
+    DomainEvent.cases.SessionGrantRemembered.make({
+      sessionId: record.session.id,
+      workspaceId: record.session.workspaceId,
+      kind: grant.kind,
+      scope: decision.grantScope ?? "session",
+    }),
+  ];
+};
+
+export const resolvedApproval = (
+  record: SessionRecord,
+  event: Extract<SessionInput, { type: "approval.respond" }>
+) =>
+  DomainEvent.cases.ApprovalResolved.make({
+    sessionId: record.session.id,
+    requestId: event.requestId,
+    decision: event.decision,
+    resolvedBy: event.resolvedBy,
+  });

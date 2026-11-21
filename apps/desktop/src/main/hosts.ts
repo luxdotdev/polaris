@@ -274,8 +274,17 @@ export interface HostDirectoryInput {
   readonly presence?: Stream.Stream<UserPresence>;
   /** Polaris Dev: hold a Developer Mode lease on every Host (ENG-709). */
   readonly developerModeLease?: boolean;
+  readonly inspection?: (sessions: Stream.Stream<LiveSession | null>) => Effect.Effect<void>;
   /** Serves the Host's Browser streams on each live session (`browserCdp/`, ENG-616). */
+  readonly clientSettings?: (
+    hostKey: string,
+    sessions: Stream.Stream<LiveSession | null>
+  ) => Effect.Effect<void>;
   readonly browserHost?: (
+    hostKey: string,
+    sessions: Stream.Stream<LiveSession | null>
+  ) => Effect.Effect<void>;
+  readonly sessionDefaultsHost?: (
     hostKey: string,
     sessions: Stream.Stream<LiveSession | null>
   ) => Effect.Effect<void>;
@@ -344,7 +353,10 @@ export class HostDirectory extends Context.Service<
     invalidateLanguage,
     presence,
     developerModeLease,
+    inspection,
     browserHost,
+    sessionDefaultsHost,
+    clientSettings,
     rpc,
     relay,
   }: HostDirectoryInput) =>
@@ -438,6 +450,14 @@ export class HostDirectory extends Context.Service<
                 ? Effect.void
                 : browserHost(entry.key, own);
 
+            const sessionDefaults =
+              sessionDefaultsHost === undefined || own === undefined
+                ? Effect.void
+                : sessionDefaultsHost(entry.key, own);
+
+            const inspect =
+              own === undefined || inspection === undefined ? Effect.void : inspection(own);
+
             const track = changes.pipe(
               Stream.runForEach(() =>
                 Effect.gen(function* () {
@@ -457,10 +477,18 @@ export class HostDirectory extends Context.Service<
               )
             );
 
-            const tracker = yield* Effect.all([track, report, lease, developerMode, browsers], {
-              concurrency: "unbounded",
-              discard: true,
-            }).pipe(Effect.forkIn(scope));
+            const settings =
+              own === undefined || clientSettings === undefined
+                ? Effect.void
+                : clientSettings(entry.key, own);
+
+            const tracker = yield* Effect.all(
+              [track, report, lease, developerMode, browsers, sessionDefaults, inspect, settings],
+              {
+                concurrency: "unbounded",
+                discard: true,
+              }
+            ).pipe(Effect.forkIn(scope));
 
             trackers.set(entry.key, tracker);
           });

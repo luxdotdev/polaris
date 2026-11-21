@@ -1,8 +1,13 @@
+import { useEffect } from "react";
 /**
  * The app settings the renderer reads and changes: appearance, each Harness's
  * defaults for new sessions, and Settings → Sessions. Main owns the file; a change is shown
  * at once here, then saved, and every window hears it back as an `AppEvent`.
  */
+import type { KeybindingOverridesValue } from "../../../shared/keybindingResolution.ts";
+import { setKeybindingOverrides } from "../../../shared/keybindingResolution.ts";
+import { Option, Schema } from "effect";
+import { KeybindingOverrides } from "../../../shared/keybindingOverrides.ts";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 import type {
@@ -17,8 +22,9 @@ import type {
 import { DEFAULT_SESSION_PREFS } from "../../../shared/sessionPrefs.ts";
 
 export interface SettingsState {
+  readonly keybindings: KeybindingOverridesValue;
   readonly appearance: Appearance;
-  readonly sessionDefaults: SessionDefaults;
+  readonly sessionDefaults: Readonly<Record<string, SessionDefaults>>;
   readonly sessions: SessionPrefs;
   /** Empty until main answers. */
   readonly version: string;
@@ -39,6 +45,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
 };
 
 export const settingsStore = createStore<SettingsState>(() => ({
+  keybindings: {},
   appearance: DEFAULT_APPEARANCE,
   sessionDefaults: {},
   sessions: DEFAULT_SESSION_PREFS,
@@ -48,15 +55,26 @@ export const settingsStore = createStore<SettingsState>(() => ({
 
 let bridge: PolarisApi | null = null;
 
+let keybindingsRevision = 0;
+
 /** Loads the settings from main and keeps them current; call once per window. */
 export const connectSettings = (api: PolarisApi) => {
   bridge = api;
+
+  const initialKeybindingsRevision = keybindingsRevision;
 
   void api.request("settings.get", {}).then((result) => {
     if (!result.ok) return;
     const v = result.value;
 
+    const keybindings =
+      initialKeybindingsRevision === keybindingsRevision
+        ? (v.keybindings ?? {})
+        : settingsStore.getState().keybindings;
+
+    setKeybindingOverrides(keybindings);
     settingsStore.setState({
+      keybindings,
       appearance: {
         theme: v.theme,
         darkTheme: v.darkTheme,
@@ -68,7 +86,6 @@ export const connectSettings = (api: PolarisApi) => {
         codeFontSize: v.codeFontSize,
         wordWrap: v.wordWrap,
       },
-      sessionDefaults: v.sessionDefaults,
       sessions: v.sessions,
       version: v.version,
       developmentBuild: v.developmentBuild,
@@ -76,14 +93,46 @@ export const connectSettings = (api: PolarisApi) => {
   });
 
   return api.onAppEvent((event) => {
+    if (event.kind === "keybindings") {
+      keybindingsRevision++;
+      setKeybindingOverrides(event.keybindings);
+      settingsStore.setState({ keybindings: event.keybindings });
+    }
+
     if (event.kind === "appearance") settingsStore.setState({ appearance: event.appearance });
 
     if (event.kind === "session-defaults") {
-      settingsStore.setState({ sessionDefaults: event.sessionDefaults });
+      settingsStore.setState((state) => ({
+        sessionDefaults: { ...state.sessionDefaults, [event.hostKey]: event.sessionDefaults },
+      }));
     }
 
     if (event.kind === "sessions") settingsStore.setState({ sessions: event.sessions });
   });
+};
+
+export const setKeybindings = async (value: KeybindingOverridesValue): Promise<string | null> => {
+  const parsed = Schema.decodeUnknownOption(KeybindingOverrides)(value);
+
+  if (Option.isNone(parsed)) return "Invalid keybindings.";
+
+  if (bridge === null) return "Settings are not connected.";
+
+  try {
+    const revision = keybindingsRevision;
+    const result = await bridge.request("clientSettings.set", { key: "keybindings", value });
+
+    if (!result.ok) return result.error.message;
+
+    if (revision === keybindingsRevision) {
+      setKeybindingOverrides(value);
+      settingsStore.setState({ keybindings: value });
+    }
+
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : "Couldn’t save shortcuts.";
+  }
 };
 
 export const setAppearance = (patch: AppearancePatch) => {
@@ -91,15 +140,43 @@ export const setAppearance = (patch: AppearancePatch) => {
   void bridge?.request("settings.setAppearance", { patch });
 };
 
-export const setSessionDefault = (harness: string, value: SessionDefault | null) => {
+export const setSessionDefault = (
+  hostKey: string,
+  harness: string,
+  value: SessionDefault | null
+) => {
   settingsStore.setState((s) => {
-    const others = Object.entries(s.sessionDefaults).filter(([kind]) => kind !== harness);
+    const others = Object.entries(s.sessionDefaults[hostKey] ?? {}).filter(
+      ([kind]) => kind !== harness
+    );
 
     return {
-      sessionDefaults: Object.fromEntries(value === null ? others : [...others, [harness, value]]),
+      sessionDefaults: {
+        ...s.sessionDefaults,
+        [hostKey]: Object.fromEntries(value === null ? others : [...others, [harness, value]]),
+      },
     };
   });
-  void bridge?.request("settings.setSessionDefault", { harness, value });
+  void bridge?.request("settings.setSessionDefault", { hostKey, harness, value });
+};
+
+const EMPTY_DEFAULTS: SessionDefaults = {};
+
+export const useHostSessionDefaults = (hostKey: string | null): SessionDefaults => {
+  useEffect(() => {
+    if (hostKey === null) return;
+
+    void bridge?.request("settings.getSessionDefaults", { hostKey }).then((result) => {
+      if (result.ok)
+        settingsStore.setState((s) => ({
+          sessionDefaults: { ...s.sessionDefaults, [hostKey]: result.value },
+        }));
+    });
+  }, [hostKey]);
+
+  return useSettings((s) =>
+    hostKey === null ? EMPTY_DEFAULTS : (s.sessionDefaults[hostKey] ?? EMPTY_DEFAULTS)
+  );
 };
 
 export const setSessionPrefs = (patch: SessionPrefsPatch) => {
@@ -114,5 +191,5 @@ export const useSettings = <A>(select: (state: SettingsState) => A): A =>
  * What a new Agent Session of `harness` starts with, as set in Settings → Harnesses;
  * null when the user hasn't chosen (the Harness's own defaults apply).
  */
-export const useSessionDefault = (harness: string): SessionDefault | null =>
-  useSettings((s) => s.sessionDefaults[harness] ?? null);
+export const useSessionDefault = (harness: string, hostKey: string | null): SessionDefault | null =>
+  useHostSessionDefaults(hostKey)[harness] ?? null;

@@ -12,6 +12,8 @@ export * from "./visuals.ts";
 
 export * from "./developerMode.ts";
 
+export * from "./inspection.ts";
+
 export * from "./selfTraces.ts";
 
 export * from "./traceContext.ts";
@@ -149,3 +151,13 @@ export * from "./requests.ts";
 export * from "./origins.ts";
 
 export * from "./schemaDiff.ts";
+
+export * from "./settings.ts";
+
+export * from "./commandAnnotations.ts";
+
+export * from "./sessionGrants.ts";
+
+export * from "./clientSettings.ts";
+
+export * from "./sessionStart.ts";

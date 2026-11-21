@@ -1,3 +1,6 @@
+import { SessionStartRpcHandlers } from "../mcp/sessions/startRpc.ts";
+import { SettingsRpcHandlers } from "../settings/rpc.ts";
+import { ClientSettings, ClientSettingsRpcHandlers } from "../clientSettings/index.ts";
 import { SuggestedReplyPreference } from "../engine/suggestedReplyPreference.ts";
 import { lazySuggestedReplies } from "../suggestedReply/lazy.ts";
 import { lazyData, lazyDataHandlers } from "./lazyData.ts";
@@ -35,8 +38,11 @@ import { ConstellationHarness } from "../constellation/composition/attachments.t
 import { lazyConstellationHandlers, lazyHostResources } from "./lazy.ts";
 import { installDebugHooks, reportStartupModules } from "../debug.ts";
 import { Engine } from "../engine/Engine.ts";
+import { authorizeSessionActor } from "../engine/sessionActor.ts";
 import { EngineRpcHandlers } from "../engine/rpc.ts";
 import { VisualsRpcHandlers } from "../visuals/index.ts";
+import { DesktopInspection } from "../mcp/inspection/relay.ts";
+import { InspectionRpcHandlers } from "../mcp/inspection/rpc.ts";
 import { DeveloperModeLive, DeveloperModeRpcHandlers } from "../developerMode/index.ts";
 import { RestartRpcHandlers } from "../engine/restartRpc.ts";
 import { Continuity, ContinuityRpcsLive } from "../continuity/index.ts";
@@ -211,6 +217,8 @@ export const engineServices = Layer.mergeAll(
   Layer.provideMerge(ReviewerSessions.layer),
   // The live Developer Mode: what `selfTraceExport`, Traces and Data see (ENG-709).
   Layer.provideMerge(DeveloperModeLive),
+  Layer.provideMerge(DesktopInspection.layer),
+  Layer.provideMerge(ClientSettings.layer),
   // The Simulator's hub and MCP server (ENG-829), loaded on first use; one instance with the Harnesses'.
   Layer.provideMerge(lazySimulator),
   // Co-author trailers read Teammates' commit emails from the Shares (ENG-941).
@@ -250,8 +258,12 @@ export const daemonHandlers = Layer.mergeAll(
   PredictionRpcsLive,
   CommitMessageRpcsLive,
   EngineRpcHandlers,
+  SessionStartRpcHandlers,
   VisualsRpcHandlers,
+  SettingsRpcHandlers,
   DeveloperModeRpcHandlers,
+  InspectionRpcHandlers,
+  ClientSettingsRpcHandlers,
   lazyComputerUseHandlers,
   RestartRpcHandlers,
   ContinuityRpcsLive.pipe(Layer.provide(Continuity.layer)),
@@ -278,7 +290,7 @@ export const daemonHandlers = Layer.mergeAll(
   selfTraceExport,
   ShareTargetsLive,
   PairingBookLive
-).pipe(Layer.provide(daemonServices));
+).pipe(Layer.provideMerge(daemonServices));
 
 /** What the lazy language handlers serve: unavailable where no language artifact runs. */
 export const LANGUAGE_CAPABILITIES: ReadonlyArray<Capability> = [
@@ -305,6 +317,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "commit.suggest-message",
   "approval.secret",
   "developer-mode",
+  "developer-mode.inspection",
   "data",
   "data.writes",
   "data.schemaDiff",
@@ -330,6 +343,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "shares",
   "shares.contributor",
   "presence",
+  "client-settings",
   "voice",
   ...HARNESS_CATALOGUE.map((harness) => harness.capability),
   "harness.availability",
@@ -356,6 +370,8 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "session.background-command-failed",
   "session.compaction",
   "session.notify",
+  "session.grants",
+  "session.start",
   "session.pin",
   "session.review-subject",
   "session.background-reports",
@@ -455,6 +471,7 @@ export const serveProgram = Effect.scoped(
 
     const server = yield* startServer({
       handlers: daemonHandlers,
+      authorizeActor: authorizeSessionActor,
       capabilities: daemonCapabilities,
       gateway: { port: yield* configuredGatewayPort(paths().config) },
       // Windows has no execve or SIGUSR2: an upgrade there stops and restarts the Daemon (ADR 0060).

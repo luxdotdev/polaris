@@ -41,6 +41,8 @@ import {
   decisionRefusal,
   withdrawn,
   withdrawDaemonApprovals,
+  rememberedGrant,
+  resolvedApproval,
   canRequestDataApproval,
 } from "./session.approvals.ts";
 import { endTurn, RECOVERY_REASON, withdrawPending } from "./session.events.ts";
@@ -279,7 +281,13 @@ const archive = ({ context, event }: { context: Context; event: { at: string } }
 
 type ApprovalRequestedInput = Extract<
   SessionInput,
-  { type: "harness.approvalRequested" | "data.approvalRequested" | "inspector.approvalRequested" }
+  {
+    type:
+      | "harness.approvalRequested"
+      | "data.approvalRequested"
+      | "inspector.approvalRequested"
+      | "grant.approvalRequested";
+  }
 >;
 
 /**
@@ -391,12 +399,8 @@ export const sessionMachine = createMachine({
       if (refusal !== null) return reject(enq, refusal);
 
       return settle(enq, record, [
-        DomainEvent.cases.ApprovalResolved.make({
-          sessionId: record.session.id,
-          requestId: event.requestId,
-          decision: event.decision,
-          resolvedBy: event.resolvedBy,
-        }),
+        ...rememberedGrant(record, event.requestId, event.decision),
+        resolvedApproval(record, event),
       ]);
     },
     "permissionMode.set": ({ context, event }, enq) => {
@@ -448,6 +452,8 @@ export const sessionMachine = createMachine({
 
       return started === null ? undefined : settle(enq, need(context), [started]);
     },
+    "grant.approvalRequested": ({ context, event }, enq) =>
+      approvalRequested(need(context), event, enq, "needs-you"),
     "inspector.approvalRequested": ({ context, event }, enq) =>
       approvalRequested(need(context), event, enq, "needs-you"),
     "data.approvalRequested": ({ context, event }, enq) =>
@@ -521,11 +527,19 @@ export const sessionMachine = createMachine({
       on: {
         "session.start": ({ event }, enq) =>
           settle(enq, null, [
-            DomainEvent.cases.SessionCreated.make({ session: event.session }),
+            DomainEvent.cases.SessionCreated.make({
+              session: event.session,
+              starter: event.session.starter,
+            }),
             DomainEvent.cases.TurnStarted.make({ turn: event.turn }),
           ]),
         "session.fork": ({ event }, enq) =>
-          settle(enq, null, [DomainEvent.cases.SessionCreated.make({ session: event.session })]),
+          settle(enq, null, [
+            DomainEvent.cases.SessionCreated.make({
+              session: event.session,
+              starter: event.session.starter,
+            }),
+          ]),
       },
     },
     /** Its Harness is being opened (or resumed) for a Turn or a return from the terminal. */
@@ -623,15 +637,15 @@ export const sessionMachine = createMachine({
 
               if (refusal !== null) return reject(enq, refusal);
 
-              const resolved = DomainEvent.cases.ApprovalResolved.make({
-                sessionId: record.session.id,
-                requestId: event.requestId,
-                decision: event.decision,
-                resolvedBy: event.resolvedBy,
-              });
+              const resolved = resolvedApproval(record, event);
 
               // The last answer puts the Harness back to work (if it has a Turn to work on).
-              return settle(enq, record, [resolved], backToWork(record, event.requestId));
+              return settle(
+                enq,
+                record,
+                [...rememberedGrant(record, event.requestId, event.decision), resolved],
+                backToWork(record, event.requestId)
+              );
             },
             "harness.approvalWithdrawn": ({ context, event }, enq) => {
               const record = need(context);
@@ -654,6 +668,8 @@ export const sessionMachine = createMachine({
         "model.set": (_, enq) => reject(enq, "the session is In Terminal; return it first"),
         "turns.accept": (_, enq) => reject(enq, "the session is In Terminal; return it first"),
         // Polaris follows along without changing the state.
+        "grant.approvalRequested": ({ context, event }, enq) =>
+          approvalRequested(need(context), event, enq),
         "inspector.approvalRequested": ({ context, event }, enq) =>
           approvalRequested(need(context), event, enq),
         "data.approvalRequested": ({ context, event }, enq) =>
@@ -734,6 +750,7 @@ export const sessionMachine = createMachine({
           turnEnded(need(context), event, enq, false),
         "harness.turnStarted": ignore,
         "harness.approvalRequested": ignore,
+        "grant.approvalRequested": ignore,
         "data.approvalRequested": ignore,
         "inspector.approvalRequested": ignore,
         "harness.exited": ignore,

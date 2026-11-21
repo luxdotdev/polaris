@@ -66,6 +66,8 @@ export interface BoundTool {
   readonly name: string;
   readonly description: string;
   readonly inputSchema: ReturnType<typeof Schema.toJsonSchemaDocument>["schema"];
+  /** Flat object projection for SDKs that cannot accept a top-level union. The handler validates each verb. */
+  readonly sdkInputSchema?: ReturnType<typeof Schema.toJsonSchemaDocument>["schema"];
   readonly call: (input: typeof Schema.Json.Type, signal?: AbortSignal) => Promise<McpToolResult>;
   /** MCP tool annotations; `readOnlyHint` lets a Harness run the tool unasked, in plan mode too. */
   readonly annotations?: {

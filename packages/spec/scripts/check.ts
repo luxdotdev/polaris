@@ -131,6 +131,18 @@ const run = (label: string, argv: ReadonlyArray<string>, expectFailure = false) 
 
 run("typecheck polaris.qnt", ["typecheck", "polaris.qnt"]);
 
+run("Session Grant and Starter budget scenarios", ["test", "polaris.qnt", "--main=session_grants"]);
+
+run("Session Grant and Starter budget safety", [
+  "run",
+  "polaris.qnt",
+  "--main=session_grants",
+  "--invariant=safety",
+  `--max-samples=${samples}`,
+  "--max-steps=60",
+  `--seed=${seed}`,
+]);
+
 run("Schema Diff attribution scenarios", ["test", "polaris.qnt", "--main=data_snapshots"]);
 
 run("Schema Diff attribution safety", [

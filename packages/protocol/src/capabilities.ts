@@ -11,6 +11,9 @@ export const PROTOCOL_VERSION = 1;
  * older Daemon keeps working until the Desktop App upgrades it.
  */
 export const Capability = Schema.Literals([
+  "session.grants",
+  "session.start",
+  "settings",
   "constellation",
   "constellation.defaults",
   /** `extensions.pair`, `extensions.list`, `extensions.revoke`, and `extensionToken` in `hello`. */
@@ -36,6 +39,7 @@ export const Capability = Schema.Literals([
   "requests",
   /** `developerMode.*`: the Developer Mode setting, leases and watch (ADR 0095); when implemented. */
   "developer-mode",
+  "developer-mode.inspection",
   /** `traces.ingestSelf`: Clients' Self-Trace batches (ADR 0095); advertised only when implemented. */
   "traces.self",
   /** `data.source.saveFile` and `sqlite` Data Sources; advertised only when implemented. */
@@ -246,6 +250,7 @@ export const Capability = Schema.Literals([
   "session.continuity",
   /** `presence.report`: a Desktop App's presence holds this Host's pushes to Linked Devices. */
   "presence",
+  "client-settings",
   "terminal",
   /** `terminal.attachBinary`: terminal output as raw bytes on the blob channel, not base64 JSON. */
   "terminal.binary",

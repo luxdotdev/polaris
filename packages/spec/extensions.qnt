@@ -10,7 +10,7 @@
 module extensions {
   pure val PAIRINGS = Set(0, 1)
   pure val CONNECTIONS = 0.to(5)
-  pure val GRANTS = Set("read", "comment", "approve", "turn", "start", "voice")
+  pure val GRANTS = Set("read", "comment", "approve", "turn", "start", "voice", "settings")
   /** `-1`: a token-less connection (the Desktop App). */
   pure val NONE = -1
   pure val UNBOUND = -2

@@ -1,7 +1,12 @@
+import { CommandRejected } from "./errors.ts";
+import { SessionStartRpcs } from "./sessionStart.ts";
+import { SettingsRpcs } from "./settings.ts";
 /**
  * Portions adapted from pingdotgg/t3code@de251fc (MIT): resumable sequenced subscriptions.
  */
 import { Effect, Schema } from "effect";
+import { CommandAnnotation, defineCommands } from "./commandAnnotations.ts";
+import * as CommandBindings from "./commandBindings.ts";
 
 import { FileContent, FileEntry, FileError, EditorFileRpcs } from "./files.ts";
 
@@ -25,14 +30,19 @@ import {
   AcceptRefused,
   CommitGranularity,
 } from "./accept.ts";
-import { AttachmentSettings, AttachmentUsage, StagedAmount } from "./attachments.ts";
+import { ClearAttachments, GetAttachmentSettings, SetAttachmentSettings } from "./attachments.ts";
+
+export { ClearAttachments, GetAttachmentSettings, SetAttachmentSettings } from "./attachments.ts";
+
 import { AutoArchiveRpcs } from "./autoArchive.ts";
 import { IdleCompactionRpcs } from "./idleCompaction.ts";
 import { SuggestedReplyRpcs } from "./suggestedReply.ts";
 import { VisualsRpcs } from "./visuals.ts";
+import { InspectionRpcs } from "./inspection.ts";
 import { DeveloperModeRpcs } from "./developerMode.ts";
 import { SelfTraceRpcs } from "./selfTraces.ts";
 import { ContinuityRpcs } from "./continuity.ts";
+import { ClientSettingsRpcs } from "./clientSettings.ts";
 import { PresenceRpcs } from "./presence.ts";
 import { DataRpcs } from "./data.ts";
 import { REQUESTS_RPC_TAGS, RequestsRpcs } from "./requests.ts";
@@ -117,10 +127,7 @@ export { ReadTurns, SessionTurnRpcs, SubagentDetail, TurnDetail, TurnPage } from
 
 // ── Errors ──────────────────────────────────────────────────────────────────
 
-export class CommandRejected extends Schema.TaggedError<CommandRejected>()("CommandRejected", {
-  commandId: CommandId,
-  reason: Schema.String,
-}) {}
+export { CommandRejected } from "./errors.ts";
 
 /** The Harness can't answer on this Host: not installed, not signed in, or it failed. */
 export class HarnessUnavailable extends Schema.TaggedError<HarnessUnavailable>()(
@@ -139,7 +146,7 @@ export const Dispatch = Rpc.make("dispatch", {
   /** Sequence of the last event the command produced; a retried commandId returns the original. */
   success: Schema.Struct({ sequence: Schema.NullOr(Sequence) }),
   error: Schema.Union([CommandRejected, NotFound]),
-});
+}).annotate(CommandAnnotation, CommandBindings.dispatchCommands);
 
 // ── Streams ─────────────────────────────────────────────────────────────────
 
@@ -175,7 +182,7 @@ export const SubscribeHost = Rpc.make("subscribeHost", {
   payload: { afterSequence: Schema.NullOr(Sequence) },
   success: HostStreamItem,
   stream: true,
-});
+}).annotate(CommandAnnotation, CommandBindings.hostCommands);
 
 export const SessionStreamItem = Schema.TaggedUnion({
   Snapshot: {
@@ -222,7 +229,7 @@ export const SubscribeSession = Rpc.make("subscribeSession", {
   success: SessionStreamItem,
   error: NotFound,
   stream: true,
-});
+}).annotate(CommandAnnotation, CommandBindings.sessionCommands);
 
 /** How to launch a Harness's own terminal UI for a session that is In Terminal. */
 export class TerminalLaunch extends Schema.Class<TerminalLaunch>("TerminalLaunch")({
@@ -722,30 +729,10 @@ export const ReadAttachment = Rpc.make("attachments.read", {
   error: FileError,
 });
 
-/** The Host's cleanup settings and what it has staged (capability `attachments.settings`). */
-export const GetAttachmentSettings = Rpc.make("attachments.settings", {
-  payload: {},
-  success: Schema.Struct({ settings: AttachmentSettings, usage: AttachmentUsage }),
-  error: Schema.Union([Unsupported, FileError]),
-});
-
-/** Replaces the cleanup settings; they apply from the next sweep or archive. */
-export const SetAttachmentSettings = Rpc.make("attachments.setSettings", {
-  payload: { settings: AttachmentSettings },
-  error: Schema.Union([Unsupported, FileError]),
-});
-
-/** Deletes staged attachments now, all of them or one Workspace's; answers what it removed. */
-export const ClearAttachments = Rpc.make("attachments.clear", {
-  payload: { workspaceId: Schema.NullOr(WorkspaceId) },
-  success: StagedAmount,
-  error: Schema.Union([Unsupported, FileError]),
-});
-
 /** Every Daemon RPC before the user gate; `DaemonRpcTag` reads its tags. */
 export const DaemonRpcDefinitions = RpcGroup.make(
   InlinePropose,
-  Hello,
+  Hello.annotate(CommandAnnotation, CommandBindings.localHostCommands),
   Dispatch,
   SubscribeHost,
   SubscribeSession,
@@ -786,13 +773,13 @@ export const DaemonRpcDefinitions = RpcGroup.make(
   ClearAttachments,
   ReadAttachment
 )
-  .merge(ConstellationHostRpcs, ResourceRpcs, EditorFileRpcs)
+  .merge(ConstellationHostRpcs, ResourceRpcs, EditorFileRpcs, SessionStartRpcs)
   .merge(LanguageRpcs, PredictionRpcs, SessionTurnRpcs)
   .merge(AutoArchiveRpcs, IdleCompactionRpcs, ContinuityRpcs, PresenceRpcs, HostStatsRpcs)
-  .merge(VisualsRpcs, SuggestedReplyRpcs)
+  .merge(VisualsRpcs, SuggestedReplyRpcs, InspectionRpcs, ClientSettingsRpcs)
   .merge(GitWriteRpcs, GitWatchRpcs, GitLogRpcs, CommitMessageRpcs, OriginRpcs)
   .merge(ExtensionRpcs, RemoteAccessRpcs, LinkedDeviceRpcs, VoiceRpcs, RestartRpcs)
-  .merge(SecretRpcs, TerminalRpcs, DataRpcs, TracesRpcs, TracesSettingsRpcs)
+  .merge(SecretRpcs, TerminalRpcs, DataRpcs, TracesRpcs, TracesSettingsRpcs, SettingsRpcs)
   .merge(ProfilesRpcs, TraceCompareRpcs, TracingSkillRpcs)
   .merge(BrowserStackRpcs, DeveloperModeRpcs, SelfTraceRpcs, SimulatorRpcs, RequestsRpcs)
   .merge(ComputerUseRpcs, UserAccessRpcs, ShareRpcs);
@@ -800,6 +787,8 @@ export const DaemonRpcDefinitions = RpcGroup.make(
 // A const, not a class: inferring `RpcGroup.Rpcs` from a class over the gated group is
 // too deep for the linter's single-program checker (TS2589), which types every Client as `any`.
 export const DaemonRpcs = gateUserRpcs(DaemonRpcDefinitions);
+
+export const commands = defineCommands(DaemonRpcs);
 
 /**
  * `DaemonRpcs` as the Daemon serves it to Extensions: every RPC can fail with

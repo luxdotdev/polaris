@@ -34,6 +34,7 @@ import { AttachmentsPage } from "../../attachments/index.ts";
 import { DevicesPage } from "../../devices/index.ts";
 import { ExtensionsPage } from "../../extensions/index.ts";
 import { useUpdates } from "../updates/store.ts";
+import { KeyboardPage } from "../keyboard/KeyboardPage.tsx";
 import { AboutPage } from "./AboutPage.tsx";
 import { AppearancePage } from "./AppearancePage.tsx";
 import { GitHubPage } from "./GitHubPage.tsx";
@@ -60,6 +61,7 @@ const AccountGlyph = () => (
 const ICONS: Readonly<Record<SettingsSection, ReactNode>> = {
   account: <AccountGlyph />,
   appearance: <ContrastIcon />,
+  keyboard: <CommandIcon />,
   sessions: <BranchIcon />,
   editor: <CommandIcon />,
   traces: <WaterfallGlyph />,
@@ -79,7 +81,7 @@ const ICONS: Readonly<Record<SettingsSection, ReactNode>> = {
 /** An open popover, menu, select, dialog or in-place confirm takes esc first. */
 const layerOpen = () =>
   document.querySelector(
-    "[data-radix-popper-content-wrapper], [role='dialog'], [data-slot='settings-confirm-row'][data-asking]"
+    "[data-keybinding-recorder], [data-radix-popper-content-wrapper], [role='dialog'], [data-slot='settings-confirm-row'][data-asking]"
   ) !== null;
 
 const useEscapeCloses = (close: () => void) => {
@@ -194,6 +196,8 @@ const Page = ({ route }: { readonly route: SettingsRoute }) => {
   switch (route.section) {
     case "about":
       return <AboutPage />;
+    case "keyboard":
+      return <KeyboardPage />;
     case "appearance":
       return <AppearancePage />;
     case "account":

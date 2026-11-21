@@ -12,6 +12,7 @@ import type { FollowUp, PaletteCommand } from "../../../routes/commands.ts";
 import { useCommands, useNav, useShellActions } from "../../../shell/hooks.ts";
 import { flatten, type GroupKey, paletteGroups } from "../model/groups.ts";
 import { highlighted, stepGroup, stepRow } from "../model/keyboard.ts";
+import { useSettings } from "../../settings/store.ts";
 import { clearFollowUp, paletteStore, recordRecent } from "../store.ts";
 import { PaletteFooter, RowList, type ShownRow } from "./parts.tsx";
 
@@ -56,11 +57,9 @@ const Commands = ({ onClose }: StepProps) => {
   const [query, setQuery] = useState("");
   const [current, setCurrent] = useState<string | null>(null);
 
-  // The context and the rows are read once on open: the palette shows that moment.
-  const [{ rows, values }] = useState(() => ({
-    rows: commands.palette(),
-    values: commands.context().values,
-  }));
+  useSettings((s) => s.keybindings);
+  const rows = commands.palette();
+  const [values] = useState(() => commands.context().values);
 
   const groups = useMemo(
     () => paletteGroups({ query, commands: rows, recent }),

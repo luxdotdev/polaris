@@ -3,6 +3,7 @@
  * subscriptions per window. Only frames loaded from the app's own origin may
  * call in.
  */
+import { keybindingRecording } from "./keybindingRecording.ts";
 import { ipcMain, type WebContents, type WebFrameMain } from "electron";
 import { Cause, Effect, Exit, flow, Option, Schema } from "effect";
 import { CHANNELS, type IpcError, type Result } from "../../shared/api.ts";
@@ -50,6 +51,10 @@ const senderTrusted = (frame: WebFrameMain | null, trusted: IpcInput["trusted"])
   frame !== null && trusted(frame.url);
 
 export const registerIpc = ({ runtime, context, trusted, selfTraces, crashes }: IpcInput) => {
+  const recording = keybindingRecording(trusted);
+
+  ipcMain.handle(CHANNELS.keybindingRecording, (event, active) => recording(event, active));
+
   const handlers = requestHandlers(context);
   const windows = new Map<number, WindowSubscriptions>();
 

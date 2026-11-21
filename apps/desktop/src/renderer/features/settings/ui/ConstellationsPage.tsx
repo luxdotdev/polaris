@@ -354,7 +354,8 @@ const PERMISSION: Readonly<Record<PermissionMode, string>> = {
 };
 
 const PermissionRow = ({ harness }: { readonly harness: string }) => {
-  const mode = useSessionDefault(harness)?.permissionMode ?? "supervised";
+  const modelHost = useModelHost();
+  const mode = useSessionDefault(harness, modelHost(harness))?.permissionMode ?? "supervised";
 
   return (
     <div className="px-panel flex h-12 items-center gap-2.5">

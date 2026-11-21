@@ -1,3 +1,4 @@
+import type { SettingsTools } from "../tools/settings.ts";
 /**
  * What the session tools read from the owning Daemon: another session's Turns
  * (`read_worker`, the history tools) and a session's background commands (`wait_for_command`).
@@ -71,7 +72,16 @@ export {
   sessionOriginTools,
 } from "./origins.ts";
 
+import type { SessionControlInput } from "./control.ts";
+import type { CommandRejected, NotFound, NotGranted } from "@polaris/protocol";
+
 export interface SessionTools {
+  readonly control?: (
+    caller: SessionId,
+    input: SessionControlInput
+  ) => Effect.Effect<string, CommandRejected | NotFound | NotGranted>;
+
+  readonly settings?: SettingsTools;
   readonly profiles?: ProfileSessionTools;
   readonly traces?: TraceSessionTools;
   readonly data?: DataSessionTools;

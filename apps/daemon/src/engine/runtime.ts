@@ -34,6 +34,7 @@ import {
   type ServiceError,
   WorktreeTracker,
 } from "../services.ts";
+import { wakingBudgetRefusal } from "./sessionGrantPolicy.ts";
 import { type CommitResult, EventStore } from "../store/EventStore.ts";
 import { waitingOnBackgroundWork } from "./session.backgroundTasks.ts";
 import type { ReadModel, SessionRecord } from "../store/model.ts";
@@ -191,9 +192,14 @@ const make = Effect.gen(function* () {
   ): Effect.Effect<SignalResult, ServiceError> =>
     Effect.gen(function* () {
       let effects: ReadonlyArray<SessionEffect> = [];
+      const at = yield* now;
 
-      const result = yield* recordDecision(sessionId, (record) => {
-        const decision = decideSession(record, input(record));
+      const result = yield* recordDecision(sessionId, (record, model) => {
+        let decision = decideSession(record, input(record));
+        const refusal = wakingBudgetRefusal(model, record, decision.events);
+
+        if (refusal !== null)
+          decision = decideSession(record, { type: "session.fail", message: refusal, at });
         effects = decision.effects;
 
         return decision.events;

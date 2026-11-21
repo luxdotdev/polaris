@@ -2,6 +2,7 @@ export {
   attachSessionTools,
   attachVisualizations,
   constellationTools,
+  availableConstellationTools,
   errorResult,
   unavailableCommands,
 } from "./tools/index.ts";

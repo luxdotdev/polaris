@@ -27,7 +27,7 @@ import {
   type SubagentId,
   type Turn,
   type TurnId,
-  type Workspace,
+  Workspace,
   type WorkspaceId,
   type Worktree,
   type WorktreeId,
@@ -74,6 +74,7 @@ export interface ReadModel {
   readonly constellations: ReadonlyMap<ConstellationId, ConstellationRecord>;
   /** Sequence of the last event folded in; 0 for an empty store. */
   readonly sequence: number;
+  readonly sessionStartLimit?: number;
   readonly hostResources?: ResourcesModel;
   readonly workspaces: ReadonlyMap<WorkspaceId, Workspace>;
   readonly worktrees: ReadonlyMap<WorktreeId, Worktree>;
@@ -152,6 +153,9 @@ export const sessionOf: (event: DomainEvent) => SessionId | null =
     WorktreeDetected: hostEvent,
     WorktreeRemoved: hostEvent,
     SessionCreated: (event) => event.session.id,
+    SessionGrantRemembered: bySessionId,
+    SessionStartLimitChanged: bySessionId,
+    HostSessionStartLimitChanged: hostEvent,
     SessionStateChanged: bySessionId,
     SessionRenamed: bySessionId,
     SessionPinned: bySessionId,
@@ -583,7 +587,41 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
   WorktreeRemoved:
     ({ worktreeId }) =>
     ({ model }) => ({ ...model, worktrees: withMap(model.worktrees, worktreeId, undefined) }),
-  SessionCreated: createSession,
+  SessionCreated: (event) =>
+    createSession({ ...event, session: patchSession(event.session, { starter: event.starter }) }),
+  SessionGrantRemembered: (event) => (fold) => {
+    if (event.scope === "session")
+      return updateSession(fold, event.sessionId, (r) => ({
+        session: { grant: [...new Set([...r.session.grant, event.kind])] },
+      }));
+    const workspace = fold.model.workspaces.get(event.workspaceId);
+
+    if (workspace === undefined) return fold.model;
+
+    return {
+      ...fold.model,
+      workspaces: withMap(
+        fold.model.workspaces,
+        workspace.id,
+        new Workspace({
+          id: workspace.id,
+          path: workspace.path,
+          name: workspace.name,
+          isGitRepo: workspace.isGitRepo,
+          worktreeRoot: workspace.worktreeRoot,
+          hidden: workspace.hidden,
+          worktreeSetup: workspace.worktreeSetup,
+          registeredAt: workspace.registeredAt,
+          sessionGrant: [...new Set([...workspace.sessionGrant, event.kind])],
+        })
+      ),
+    };
+  },
+  SessionStartLimitChanged: (event) => (fold) =>
+    updateSession(fold, event.sessionId, () => ({ session: { startLimit: event.limit } })),
+  HostSessionStartLimitChanged:
+    (event) =>
+    ({ model }) => ({ ...model, sessionStartLimit: event.limit }),
   SessionStateChanged: (event) => (fold) =>
     updateSession(fold, event.sessionId, (r) => ({
       session: {

@@ -22,6 +22,7 @@ import {
   type Condition,
   type ContextKey,
   type ContextValue,
+  type KeyBinding,
   fillTitle,
   holds,
   KEYMAP,
@@ -131,8 +132,7 @@ interface Bound {
 }
 
 /** A command that `shares` a chord is tried before the one it shares with, which is the fallback. */
-const boundOn = (platform: KeyPlatform): ReadonlyArray<Bound> => {
-  const keymap = keymapFor(platform);
+const boundOn = (keymap: ReadonlyArray<KeyBinding>): ReadonlyArray<Bound> => {
   const ordered = [...keymap.filter((b) => b.shares), ...keymap.filter((b) => !b.shares)];
 
   return ordered.flatMap((b) =>
@@ -218,8 +218,17 @@ const removeFrom =
 export const createCommandRegistry = ({
   platform = currentKeyPlatform(),
 }: RegistryInput = {}): CommandRegistry => {
-  const keymap = keymapFor(platform);
-  const bound = boundOn(platform);
+  let keymap = keymapFor(platform);
+  let bound = boundOn(keymap);
+
+  const refresh = () => {
+    const next = keymapFor(platform);
+
+    if (next === keymap) return;
+    keymap = next;
+    bound = boundOn(keymap);
+  };
+
   const layers: Array<CommandHandlers> = [];
   const providers: Array<() => ContextPart> = [];
   const contributed: Array<ReadonlyArray<ContributedCommand>> = [];
@@ -302,6 +311,7 @@ export const createCommandRegistry = ({
       return true;
     },
     palette: () => {
+      refresh();
       const { keys, values } = context();
 
       const fromKeymap = keymap.flatMap((b) => {
@@ -331,6 +341,8 @@ export const createCommandRegistry = ({
       return removeFrom(followUps, listener);
     },
     handleKey: (event) => {
+      refresh();
+
       // A shared chord (`KeyBinding.shares`) runs the first of its commands that is enabled.
       return bound.some(
         (b) =>

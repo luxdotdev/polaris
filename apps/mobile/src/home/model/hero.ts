@@ -33,6 +33,7 @@ const waitWord = (row: SessionRow): string =>
   row.approval === null
     ? "waiting"
     : Match.value(row.approval.kind).pipe(
+        Match.when("grant", () => "session authority"),
         Match.when("question", () => "asks"),
         Match.when("command", () => "command"),
         Match.when("file-change", () => "files"),

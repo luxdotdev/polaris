@@ -14,6 +14,7 @@ export const hasUnreviewedTurns = (session: Session) =>
 /** The yellow line above an approval's detail: what the agent wants. */
 export const askLine = (approval: ApprovalRequest): string =>
   Match.value(approval.kind).pipe(
+    Match.when("grant", () => "Wants session authority"),
     Match.when("command", () => "Wants to run a command"),
     Match.when("file-change", () => "Wants to change files"),
     Match.when("tool", () => "Wants to use a tool"),

@@ -106,6 +106,7 @@ import {
   validateClaudePermissionMode,
 } from "./autoMode.ts";
 import { claudeExecutable } from "./executable.ts";
+import { trackClaudeProcess } from "./processIdentity.ts";
 import { claudeNotFound, claudeNotInstalled } from "./notInstalled.ts";
 
 export type QueryFn = (params: {
@@ -422,6 +423,7 @@ const openSession = Effect.fnUntraced(function* (
   if (options.resumeCursor !== null) sdkOptions.resume = options.resumeCursor;
 
   if (driver.onStderr) sdkOptions.stderr = driver.onStderr;
+  trackClaudeProcess(sdkOptions, options.sessionId);
 
   const q = yield* startQuery(
     driver.query,

@@ -50,6 +50,7 @@ function exposePolarisApi() {
   const api: PolarisApi = {
     platform: platformFromArgv(process.argv, process.platform),
     languages: createLanguageApi(),
+    setKeybindingRecording: (active) => ipcRenderer.invoke(CHANNELS.keybindingRecording, active),
     spelling: {
       suggestions: (word) =>
         webFrame.isWordMisspelled(word) ? webFrame.getWordSuggestions(word) : null,

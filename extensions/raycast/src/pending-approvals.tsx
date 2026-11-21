@@ -20,6 +20,7 @@ const KIND_LABEL = {
   app: "App",
   "headed-input": "Headed input",
   "computer-use": "Computer use",
+  grant: "Permission",
 } as const;
 
 const markdownOf = ({ approval, session }: ApprovalRow) =>
