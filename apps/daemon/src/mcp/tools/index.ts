@@ -1,5 +1,5 @@
 import { inspectionTools } from "../inspection/catalog.ts";
-import { clientSettingsTools } from "./clientSettings.ts";
+import { settingsTool } from "./settings.ts";
 import { CommandId, Revision, TaskId } from "@polaris/protocol";
 import { Effect, Schema } from "effect";
 import { McpBinding, sessionBinding } from "../binding.ts";
@@ -172,7 +172,7 @@ export const constellationTools = (
     requestSecretTool(binding.sessionId, sessions),
     ...historyTools(binding.sessionId, sessions),
     ...dataTools(binding.sessionId, sessions),
-    ...clientSettingsTools(binding.sessionId, sessions),
+    settingsTool(binding.sessionId, sessions),
     ...traceTools(binding.sessionId, sessions),
     ...requestTools(binding.sessionId, sessions, idsFor(commands)),
     profileTool(binding.sessionId, sessions),

@@ -12,6 +12,7 @@ export const PROTOCOL_VERSION = 1;
  */
 export const Capability = Schema.Literals([
   "session.grants",
+  "session.start",
   "settings",
   "constellation",
   "constellation.defaults",

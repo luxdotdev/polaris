@@ -168,3 +168,20 @@ User-only actions, including Approvals and budget changes, cannot be granted to 
 `HostSessionStartLimitChanged` change those user-owned limits. Starting and Working sessions
 count against every Starter ancestor; Constellation Workers do not count. Other sessions'
 Turn/stop requests outside the Starter chain require approval each time.
+
+
+### Scoped settings and resolved starts (ENG-1023)
+
+`setting` accepts `userOnly`, defaulting to false. Discovery includes it; older descriptors
+without it still decode. `settings.list` includes `scope: host | client`; describe/get/set
+accept an optional scope (Host by default). The MCP settings and sessions tools use
+`compactCommandTool`, including its Claude-compatible object projection.
+
+The `session.start` capability announces the annotated RPC; an older Host is refused with
+Unsupported before the CLI sends it. `session.start` accepts optional workspaceId/harness and a CLI cwd. The
+Daemon takes missing fields from the authenticated Session first. For a user CLI it finds
+the deepest registered Workspace containing cwd and requires an explicit Harness; otherwise
+SessionStartUsage produces CLI exit 2 and lists installed Harnesses when one is missing.
+Model, effort and permission mode use the selected Harness's Host sessions.defaults. Resolution
+then dispatches the existing StartSession command through the same Grants, budgets and
+user/Extension authority checks; it adds no durable lifecycle semantics.

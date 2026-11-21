@@ -7,7 +7,8 @@ import {
   type HarnessKind,
   ModelId,
   type PermissionMode,
-  ReasoningEffort,
+  type ReasoningEffort,
+  SessionStartInput,
   SessionId,
   SessionPlacement,
 } from "@polaris/protocol";
@@ -15,23 +16,9 @@ import { Effect, Schema, Struct } from "effect";
 import type { Engine } from "../../engine/Engine.ts";
 import type { EventStore } from "../../store/EventStore.ts";
 
-const startFields = Struct.omit(Command.cases.StartSession.fields, [
-  "_tag",
-  "origin",
-  "reviewSubject",
-]);
-
 export const StartInput = Schema.Struct({
-  ...startFields,
+  ...SessionStartInput.fields,
   verb: Schema.Literal("start"),
-  sessionId: Schema.optionalKey(startFields.sessionId),
-  workspaceId: Schema.optionalKey(startFields.workspaceId),
-  harness: Schema.optionalKey(startFields.harness),
-  model: Schema.optionalKey(startFields.model),
-  permissionMode: Schema.optionalKey(startFields.permissionMode),
-  effort: Schema.optionalKey(Schema.NullOr(ReasoningEffort)),
-  placement: Schema.optionalKey(startFields.placement),
-  attachments: Schema.optionalKey(startFields.attachments),
 });
 
 export const SendInput = Schema.Struct({
@@ -63,11 +50,11 @@ export const safeSessionDefaults: SessionDefaultsFor = () => ({
   permissionMode: "supervised",
 });
 
-const startCommand = (
-  record: AgentSession,
-  input: typeof StartInput.Type,
+export const sessionStartCommand = (
+  record: Pick<AgentSession, "workspaceId" | "harness">,
+  input: Omit<typeof StartInput.Type, "verb">,
   defaults: SessionDefaultsFor
-): Command => {
+) => {
   const harness = input.harness ?? record.harness;
   const selected = defaults(harness);
   const model = input.model === undefined ? selected.model : input.model;
@@ -104,7 +91,7 @@ export const sessionControl =
         });
       let command: Command;
 
-      if (input.verb === "start") command = startCommand(record.session, input, defaults);
+      if (input.verb === "start") command = sessionStartCommand(record.session, input, defaults);
       else if (input.verb === "send")
         command = Command.cases.SendTurn.make({
           sessionId: input.sessionId,

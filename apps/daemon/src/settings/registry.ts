@@ -126,6 +126,7 @@ const entries = Object.entries(groups).flatMap(([name, group]) => {
 const traceSchema = setting(Schema.Record(Schema.String, WorkspaceTracesSettingsUpdate), {
   description: "Trace collection, forwarding and instrumentation overrides for each workspace.",
   default: {},
+  userOnly: true,
 });
 
 export const registry: ReadonlyMap<string, Schema.Codec<unknown>> = new Map([
@@ -136,6 +137,7 @@ export const registry: ReadonlyMap<string, Schema.Codec<unknown>> = new Map([
       description:
         "Maximum Starting or Working sessions per Starter, counted up the chain; only the user can change it.",
       default: 5,
+      userOnly: true,
     }),
   ],
   ["traces.workspaces", traceSchema],

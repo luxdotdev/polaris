@@ -1,3 +1,5 @@
+import { CommandRejected } from "./errors.ts";
+import { SessionStartRpcs } from "./sessionStart.ts";
 import { SettingsRpcs } from "./settings.ts";
 /**
  * Portions adapted from pingdotgg/t3code@de251fc (MIT): resumable sequenced subscriptions.
@@ -125,10 +127,7 @@ export { ReadTurns, SessionTurnRpcs, SubagentDetail, TurnDetail, TurnPage } from
 
 // ── Errors ──────────────────────────────────────────────────────────────────
 
-export class CommandRejected extends Schema.TaggedError<CommandRejected>()("CommandRejected", {
-  commandId: CommandId,
-  reason: Schema.String,
-}) {}
+export { CommandRejected } from "./errors.ts";
 
 /** The Harness can't answer on this Host: not installed, not signed in, or it failed. */
 export class HarnessUnavailable extends Schema.TaggedError<HarnessUnavailable>()(
@@ -774,7 +773,7 @@ export const DaemonRpcDefinitions = RpcGroup.make(
   ClearAttachments,
   ReadAttachment
 )
-  .merge(ConstellationHostRpcs, ResourceRpcs, EditorFileRpcs)
+  .merge(ConstellationHostRpcs, ResourceRpcs, EditorFileRpcs, SessionStartRpcs)
   .merge(LanguageRpcs, PredictionRpcs, SessionTurnRpcs)
   .merge(AutoArchiveRpcs, IdleCompactionRpcs, ContinuityRpcs, PresenceRpcs, HostStatsRpcs)
   .merge(VisualsRpcs, SuggestedReplyRpcs, InspectionRpcs, ClientSettingsRpcs)

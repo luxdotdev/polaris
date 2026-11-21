@@ -49,6 +49,7 @@ const computerUse = "computer-use";
 const shares = "shares";
 
 export const RPC_CAPABILITIES = {
+  "session.start": "session.start",
   "settings.list": "settings",
   "settings.describe": "settings",
   "settings.get": "settings",

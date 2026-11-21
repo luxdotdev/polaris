@@ -1,6 +1,7 @@
 /** Device-local settings relayed to a connected Client (ADR 0120). */
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
+import { NotGranted } from "./extensions.ts";
 import { SessionId } from "./ids.ts";
 import { SettingDescription, SettingValue } from "./settings.ts";
 
@@ -46,7 +47,7 @@ export class ClientSettingsRpcs extends RpcGroup.make(
   Rpc.make("clientSettings.set", {
     payload: { ...target, key: Schema.String, value: Schema.Json },
     success: SettingValue,
-    error: ClientSettingsError,
+    error: Schema.Union([ClientSettingsError, NotGranted]),
   }),
   Rpc.make("clientSettings.connect", {
     payload: ClientSettingsSnapshot,

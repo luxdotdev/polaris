@@ -159,3 +159,5 @@ export * from "./commandAnnotations.ts";
 export * from "./sessionGrants.ts";
 
 export * from "./clientSettings.ts";
+
+export * from "./sessionStart.ts";

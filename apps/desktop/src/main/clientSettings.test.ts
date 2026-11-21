@@ -120,3 +120,21 @@ test("agent keybinding overrides survive persistence and Undo restores the omitt
     f.dispose();
   }
 });
+
+test("relayed endpoints are user-only and write neither preferences nor Undo notices", () => {
+  const f = fixture();
+
+  try {
+    expect(() => f.bridge.apply("predictionClientEndpoints", [], "unsafe-endpoint")).toThrow(
+      "NotGranted: Only the user"
+    );
+    expect(readSettings(f.path)).toEqual({});
+    expect(f.events).toEqual([]);
+    expect(() => f.bridge.undo("unsafe-endpoint")).toThrow("changed again");
+    expect(clientSettingsSnapshot({}).find((entry) => entry.key === "keybindings")?.userOnly).toBe(
+      false
+    );
+  } finally {
+    f.dispose();
+  }
+});

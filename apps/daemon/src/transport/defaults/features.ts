@@ -1,3 +1,4 @@
+import { SessionStartRpcs } from "@polaris/protocol";
 import { ClientSettingsRpcs, ClientSettingsError } from "@polaris/protocol";
 import {
   BrowserStackRpcs,
@@ -35,6 +36,10 @@ const predictionDefaults = PredictionRpcs.toLayer({
   "prediction.server": prediction("Model server checks are unavailable"),
   "prediction.managed": prediction("Managed model server is unavailable"),
   "prediction.managed.watch": predictionFeed("Managed model server is unavailable"),
+});
+
+const sessionStartDefaults = SessionStartRpcs.toLayer({
+  "session.start": unsupported("session.start"),
 });
 
 const dataDefaults = DataRpcs.toLayer({
@@ -117,6 +122,7 @@ const computerUseDefaults = ComputerUseRpcs.toLayer({
 export const featureDefaults = Layer.mergeAll(
   LanguageRpcs.toLayer(languageDefaults),
   predictionDefaults,
+  sessionStartDefaults,
   ClientSettingsRpcs.toLayer({
     "clientSettings.list": () =>
       Effect.fail(new ClientSettingsError({ message: "no Client connected" })),

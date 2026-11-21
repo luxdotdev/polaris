@@ -83,9 +83,13 @@ export const userAccessGateFor = (transport: TransportFacts, registry: UserAcces
       (access === "start" ||
         access === "turn" ||
         access === "settings" ||
-        settingsWrites.has(rpc._tag))
+        settingsWrites.has(rpc._tag) ||
+        Predicate.isTagged(rpc, "session.start"))
     )
       return effect;
+
+    // Start validates omitted CLI defaults before checking the enrolled user key in its handler.
+    if (Predicate.isTagged(rpc, "session.start")) return effect;
 
     const refusal = decideUserAccess(rpc._tag, command?._tag ?? null, registry.holds(client));
 

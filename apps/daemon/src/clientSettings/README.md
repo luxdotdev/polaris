@@ -11,8 +11,10 @@ fails pending changes. Nothing is queued without a connected Client.
 
 list, describe, get and set choose the Client showing the caller's session,
 then the most recently active registered Client. Bound MCP tools supply their
-authenticated session id. S3 replaces these temporary tools with generated
-settings commands and the session's change-settings Grant Approval.
+authenticated session id. The generated `settings` tool and CLI commands cover both scopes.
+Agent writes pass through the session's change settings Grant Approval; userOnly entries are
+refused with NotGranted before Approval. The Desktop App also refuses any relayed userOnly
+entry before validation, persistence, side effects or Undo. Keybinding overrides are writable.
 
 The registry is in memory, has no timers while idle, caps in-flight sets at 64,
 and bounds each confirmation wait to ten seconds. Client Settings never enter
@@ -20,10 +22,7 @@ the event store or recovery queue. The Mobile App does not register for this
 relay. Host connection configuration and private Desktop persistence fields
 are not published.
 
-## K integration seam
+## Keybindings
 
-K supplies the keybinding schema and resolver. Register that schema in
-shared/clientSettings.ts and main/settings.ts, add keybindings to SettingsView
-and settings.get, and publish its event after applying or undoing the field.
-Apply the resolver before rebuilding the native menu; the renderer consumes
-the same event. S2 does not copy K's prerequisite files.
+The Desktop registry includes K's keybinding schema and resolver. Apply and Undo rebuild the
+native menu and publish the resolver's event through the existing preference path.

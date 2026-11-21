@@ -1,4 +1,4 @@
-import type { ClientSettingsTools } from "../tools/clientSettings.ts";
+import type { SettingsTools } from "../tools/settings.ts";
 /**
  * What the session tools read from the owning Daemon: another session's Turns
  * (`read_worker`, the history tools) and a session's background commands (`wait_for_command`).
@@ -81,7 +81,7 @@ export interface SessionTools {
     input: SessionControlInput
   ) => Effect.Effect<string, CommandRejected | NotFound | NotGranted>;
 
-  readonly clientSettings?: ClientSettingsTools;
+  readonly settings?: SettingsTools;
   readonly profiles?: ProfileSessionTools;
   readonly traces?: TraceSessionTools;
   readonly data?: DataSessionTools;

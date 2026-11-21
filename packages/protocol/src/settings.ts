@@ -3,16 +3,23 @@ import { Rpc, RpcGroup } from "effect/rpc";
 import { HarnessKind } from "./harnesses.ts";
 import { PermissionMode } from "./domain.ts";
 import { CommandAnnotation } from "./commandAnnotations.ts";
+import { NotGranted } from "./extensions.ts";
 import { NotFound, Unsupported } from "./errors.ts";
 
 /** Annotate a setting at its Schema, the source for validation and discovery. */
 export const setting = <S extends Schema.Top>(
   schema: S,
-  metadata: { readonly description: string; readonly default: S["Type"] }
-): S["Rebuild"] => schema.annotate(metadata);
+  metadata: {
+    readonly description: string;
+    readonly default: S["Type"];
+    readonly userOnly?: boolean;
+  }
+): S["Rebuild"] => schema.annotate({ ...metadata, userOnly: metadata.userOnly ?? false });
 
 export const SettingDescription = Schema.Struct({
   key: Schema.String,
+  scope: Schema.optionalKey(Schema.Literals(["host", "client"])),
+  userOnly: Schema.optionalKey(Schema.Boolean),
   description: Schema.String,
   /** JSON Schema document, including refinements, allowed values and definitions. */
   type: Schema.Json,
@@ -43,6 +50,7 @@ export const describeSetting = (key: string, schema: Schema.Codec<unknown>): Set
 
   const metadata = {
     description,
+    userOnly: annotations?.userOnly === true,
     type: Schema.decodeUnknownSync(Schema.Json)(Schema.toJsonSchemaDocument(schema)),
     default: defaultValue,
   };
@@ -67,57 +75,66 @@ export class SettingsError extends Schema.TaggedError<SettingsError>()("Settings
   message: Schema.String,
 }) {}
 
+const settingScope = Schema.optionalKey(Schema.Literals(["host", "client"]));
+
+export const SettingsListInput = Schema.Struct({ scope: settingScope });
+
+export const SettingsQueryInput = Schema.Struct({ key: Schema.String, scope: settingScope });
+
+export const SettingsChangeInput = Schema.Struct({
+  key: Schema.String,
+  scope: settingScope,
+  value: Schema.Json,
+  ifUnset: Schema.optionalKey(Schema.Boolean),
+});
+
 export const SettingsRpcs = RpcGroup.make(
   Rpc.make("settings.list", {
-    payload: {},
+    payload: SettingsListInput,
     success: Schema.Array(SettingValue),
-    error: Schema.Union([SettingsError, NotFound, Unsupported]),
+    error: Schema.Union([SettingsError, NotFound, Unsupported, NotGranted]),
   }).annotate(CommandAnnotation, [
     {
       name: "settings.list",
-      description: "List the settings on this host.",
+      description: "List the settings across Host and Client scopes.",
       grant: "read",
       examples: ["polaris settings list --json"],
     },
   ]),
   Rpc.make("settings.describe", {
-    payload: { key: Schema.String },
+    payload: SettingsQueryInput,
     success: SettingDescription,
-    error: Schema.Union([SettingsError, NotFound, Unsupported]),
+    error: Schema.Union([SettingsError, NotFound, Unsupported, NotGranted]),
   }).annotate(CommandAnnotation, [
     {
       name: "settings.describe",
-      description: "Describe a setting on this host.",
+      description: "Describe a setting across Host and Client scopes.",
       grant: "read",
       examples: ["polaris settings describe visuals.level"],
       positional: ["key"],
     },
   ]),
   Rpc.make("settings.get", {
-    payload: { key: Schema.String },
+    payload: SettingsQueryInput,
     success: SettingValue,
-    error: Schema.Union([SettingsError, NotFound, Unsupported]),
+    error: Schema.Union([SettingsError, NotFound, Unsupported, NotGranted]),
   }).annotate(CommandAnnotation, [
     {
       name: "settings.get",
-      description: "Read a setting on this host.",
+      description: "Read a setting across Host and Client scopes.",
       grant: "read",
       examples: ["polaris settings get visuals.level"],
       positional: ["key"],
     },
   ]),
   Rpc.make("settings.set", {
-    payload: {
-      key: Schema.String,
-      value: Schema.Json,
-      ifUnset: Schema.optionalKey(Schema.Boolean),
-    },
+    payload: SettingsChangeInput,
     success: SettingValue,
-    error: Schema.Union([SettingsError, NotFound, Unsupported]),
+    error: Schema.Union([SettingsError, NotFound, Unsupported, NotGranted]),
   }).annotate(CommandAnnotation, [
     {
       name: "settings.set",
-      description: "Change a setting on this host.",
+      description: "Change a setting across Host and Client scopes.",
       grant: "client",
       examples: ['polaris settings set visuals.level "off"'],
       positional: ["key", "value"],

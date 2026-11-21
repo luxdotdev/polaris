@@ -2,24 +2,32 @@
 
 The Daemon owns the settings for work on its Host (ADR 0120, ENG-1023). Client appearance
 stays on each device. `registry.ts` is the catalogue; each entry is an Effect Schema annotated
-with `setting(schema, { description, default })`. Validation and discovery use that same Schema.
+with `setting(schema, { description, default, userOnly? })`. Validation and discovery use that same Schema.
 
 <!-- Host Settings RPCs and descriptors from packages/protocol/src/settings.ts -->
 
-- `settings.list {}` returns each key, description, JSON Schema document (`type`), default,
+- `settings.list { scope? }` returns Host and connected Client entries with their `scope`, key, description, JSON Schema document (`type`), default,
   current value and whether the Host has an explicit value (`overridden`). The Schema document
   includes allowed values, refinements and nested field definitions.
-- `settings.describe { key }` returns the description, Schema document and default.
-- `settings.get { key }` returns the descriptor and current value.
-- `settings.set { key, value, ifUnset? }` validates before saving. `ifUnset` imports a legacy
+- `settings.describe { key, scope? }` returns the description, Schema document and default.
+- `settings.get { key, scope? }` returns the descriptor and current value.
+- `settings.set { key, value, scope?, ifUnset? }` validates before saving. `ifUnset` imports a legacy
   Client value atomically without replacing a Host choice. Unknown keys return `NotFound`;
   invalid values and storage failures return `SettingsError`.
 
-The `settings` capability announces these RPCs. Reads use the read Grant. Agent Sessions need
-the settings Grant for non-authority settings; the start limit stays user-only. Extensions remain
-Client-only for writes until the scoped command integration. Each RPC is a generated command, so
-`polaris settings list|describe|get|set` comes from the same RPC definitions. S3 adds the
-combined Host/Client command scope and MCP tool.
+The `settings` capability announces these RPCs. Reads use the read Grant. An omitted read/write
+scope selects Host Settings; list without a scope includes both scopes, or only Host Settings
+when no Client is connected. Explicit Client reads/writes fail immediately without a Client.
+`polaris settings list|describe|get|set` and the compact MCP `settings` tool come from the same
+command annotations. For example: `polaris settings get theme --scope client`.
+
+Agent writes check the descriptor's `userOnly` before asking the Engine for a change settings
+Grant Approval. A remembered settings Grant cannot bypass it. `sessions.startLimit` and
+`traces.workspaces` (which includes forwarding URLs) are user-only Host Settings. Client model
+preferences, prediction endpoints, update Channel and automatic updates are user-only too;
+the Desktop App independently rejects every relay request for these entries. Keybinding
+overrides remain agent-writable. Legacy trace-policy writes are also refused to agents.
+Extensions retain their existing Client-only settings write gate.
 
 <!-- Setting families and migration files from registry.ts -->
 

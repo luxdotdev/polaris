@@ -7,8 +7,24 @@ import { Engine } from "./Engine.ts";
 export const authorizeSessionActor = (
   actor: Extract<Actor, { kind: "agentSession" }>,
   request: ActorRequest
-) =>
-  Effect.flatMap(Engine, (engine) =>
+) => {
+  if (request.rpc === "traces.setSettings")
+    return Effect.fail(
+      new NotGranted({
+        what: request.rpc,
+        needed: null,
+        reason: "Only the user can change trace endpoints and paths.",
+      })
+    );
+
+  if (
+    request.rpc === "settings.set" ||
+    request.rpc === "clientSettings.set" ||
+    request.rpc === "session.start"
+  )
+    return Effect.void;
+
+  return Effect.flatMap(Engine, (engine) =>
     engine.authorizeSessionAction(
       actor.sessionId,
       request.command === null
@@ -26,3 +42,4 @@ export const authorizeSessionActor = (
       )
     )
   );
+};

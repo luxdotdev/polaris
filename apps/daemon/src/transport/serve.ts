@@ -1,3 +1,4 @@
+import { SessionStartRpcHandlers } from "../mcp/sessions/startRpc.ts";
 import { SettingsRpcHandlers } from "../settings/rpc.ts";
 import { ClientSettings, ClientSettingsRpcHandlers } from "../clientSettings/index.ts";
 import { SuggestedReplyPreference } from "../engine/suggestedReplyPreference.ts";
@@ -257,6 +258,7 @@ export const daemonHandlers = Layer.mergeAll(
   PredictionRpcsLive,
   CommitMessageRpcsLive,
   EngineRpcHandlers,
+  SessionStartRpcHandlers,
   VisualsRpcHandlers,
   SettingsRpcHandlers,
   DeveloperModeRpcHandlers,
@@ -369,6 +371,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "session.compaction",
   "session.notify",
   "session.grants",
+  "session.start",
   "session.pin",
   "session.review-subject",
   "session.background-reports",

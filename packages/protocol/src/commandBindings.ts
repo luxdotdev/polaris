@@ -1,5 +1,5 @@
 import { Schema, Struct } from "effect";
-import { Command, SessionPlacement } from "./commands.ts";
+import { Command } from "./commands.ts";
 import { COMMAND_GRANTS } from "./grants.ts";
 import type { CommandDefinition } from "./commandAnnotations.ts";
 
@@ -12,26 +12,6 @@ export const dispatchCommands: ReadonlyArray<CommandDefinition> = [
     payloadSchema: Schema.Struct(Struct.omit(Command.cases.SetSessionStartLimit.fields, ["_tag"])),
     positional: ["sessionId"],
     dispatchTag: "SetSessionStartLimit",
-  },
-  {
-    name: "session.start",
-    description: "Start an agent session.",
-    grant: COMMAND_GRANTS.StartSession,
-    examples: ['polaris session start "Review this change" --workspace-id ws_123 --harness claude'],
-    payloadSchema: Schema.Struct(
-      Struct.omit(Command.cases.StartSession.fields, ["_tag", "origin", "reviewSubject"])
-    ),
-    defaults: {
-      placement: SessionPlacement.cases.InPlace.make({}),
-      permissionMode: "supervised",
-      model: null,
-      effort: null,
-      attachments: [],
-    },
-    generated: ["sessionId"],
-    positional: ["prompt"],
-    stdin: "prompt",
-    dispatchTag: "StartSession",
   },
   {
     name: "session.send",

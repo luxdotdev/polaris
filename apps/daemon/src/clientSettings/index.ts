@@ -1,3 +1,7 @@
+import { authorizeSetting } from "../settings/authority.ts";
+import { Engine } from "../engine/Engine.ts";
+import { actorOf } from "../transport/actor.ts";
+import { ConnectionBlobs } from "../transport/rpcs.ts";
 /** Ephemeral Client registrations: a subscription owns its entry and pending requests. */
 import {
   ClientSettingsError,
@@ -7,7 +11,7 @@ import {
   type SessionId,
   type SettingValue,
 } from "@polaris/protocol";
-import { Context, Deferred, Effect, Layer, Queue, Stream } from "effect";
+import { Context, Deferred, Effect, Option, Layer, Queue, Stream } from "effect";
 
 interface Client {
   snapshot: ClientSettingsSnapshot;
@@ -161,9 +165,10 @@ export class ClientSettings extends Context.Service<ClientSettings, Effect.Succe
   static readonly layer = Layer.effect(ClientSettings, make);
 }
 
-export const ClientSettingsRpcHandlers = ClientSettingsRpcs.toLayer(
+export const ClientSettingsRpcHandlers = ClientSettingsRpcs.middleware(ConnectionBlobs).toLayer(
   Effect.gen(function* () {
     const relay = yield* ClientSettings;
+    const engine = yield* Effect.serviceOption(Engine);
 
     return {
       "clientSettings.connect": (snapshot, { client }) => relay.connect(client.id, snapshot),
@@ -173,7 +178,20 @@ export const ClientSettingsRpcHandlers = ClientSettingsRpcs.toLayer(
       "clientSettings.list": ({ sessionId }) => relay.list(sessionId),
       "clientSettings.describe": ({ key, sessionId }) => relay.get(key, sessionId),
       "clientSettings.get": ({ key, sessionId }) => relay.get(key, sessionId),
-      "clientSettings.set": ({ key, value, sessionId }) => relay.set(key, value, sessionId),
+      "clientSettings.set": ({ key, value, sessionId }, { client }) =>
+        Effect.gen(function* () {
+          const actor = actorOf(client);
+          const caller = actor.kind === "agentSession" ? actor.sessionId : sessionId;
+          const setting = yield* relay.get(key, caller);
+          yield* authorizeSetting(
+            actor,
+            setting,
+            "clientSettings.set",
+            Option.getOrUndefined(engine)
+          );
+
+          return yield* relay.set(key, value, caller);
+        }),
     };
   })
 );

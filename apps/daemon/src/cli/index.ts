@@ -7,6 +7,7 @@ import {
   ExtensionDaemonRpcs,
   HostStreamItem,
   SessionStreamItem,
+  Unsupported,
   type AnnotatedCommand,
 } from "@polaris/protocol";
 import { Effect, Exit, Cause, Result, Predicate, Schema, Stream } from "effect";
@@ -166,6 +167,8 @@ const defaultIO: CommandIO = {
 const failureCode = (error: CommandValue) => {
   if (Predicate.isTagged(error, "NotFound")) return 3;
 
+  if (Predicate.isTagged(error, "SessionStartUsage")) return 2;
+
   if (
     Predicate.isTagged(error, "ConnectFailure") ||
     Predicate.isTagged(error, "RpcClientError") ||
@@ -215,6 +218,8 @@ export const runCommands = async (
 
     if (command.stdin && values[command.stdin] === undefined && !io.stdinTTY)
       values[command.stdin] = await io.readStdin();
+
+    if (command.name === "session.start") values.cwd = process.cwd();
     const payload = decodeCommandPayload(command, values);
 
     const emit = (value: CommandValue) =>
@@ -228,7 +233,10 @@ export const runCommands = async (
           );
 
           const { client } = yield* connectRpcWith(ExtensionDaemonRpcs, transport);
-          yield* client.hello(identity).pipe(Effect.timeout("10 seconds"));
+          const hello = yield* client.hello(identity).pipe(Effect.timeout("10 seconds"));
+
+          if (command.rpcTag === "session.start" && !hello.capabilities.includes("session.start"))
+            return yield* new Unsupported({ capability: "session.start" });
           const request = execute(client, command, payload, emit);
           yield* command.mode === "watch" ? request : request.pipe(Effect.timeout("30 seconds"));
         })

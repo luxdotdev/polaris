@@ -33,19 +33,23 @@ export const ClientSettingFields = {
   automaticAppUpdates: setting(Schema.Boolean, {
     description: "Download Desktop App updates automatically.",
     default: true,
+    userOnly: true,
   }),
   appUpdateChannel: setting(Schema.Literals(["stable", "nightly"]), {
     description: "Desktop App update Channel: stable releases or nightly builds.",
     default: "stable",
+    userOnly: true,
   }),
   prediction: setting(PredictionPreferences, {
     description:
       "Tab completion preferences for this Host: placement, model, display, aggressiveness and languages.",
     default: DEFAULT_PREDICTION_PREFERENCES,
+    userOnly: true,
   }),
   predictionClientEndpoints: setting(PredictionClientEndpoints, {
     description: "Model server endpoints running on this Client for tab completion.",
     default: [],
+    userOnly: true,
   }),
   theme: setting(ThemeSource, {
     description: "Appearance: follow the system theme, or always use dark or light.",
@@ -204,3 +208,6 @@ export const decodeClientSetting = (key: string, value: SettingValue["value"]) =
 
   return Schema.decodeUnknownSync(Schema.Json)(Schema.decodeUnknownSync(entry.schema)(value));
 };
+
+export const clientSettingIsUserOnly = (key: string) =>
+  entries.find((entry) => entry.key === key)?.description.userOnly === true;

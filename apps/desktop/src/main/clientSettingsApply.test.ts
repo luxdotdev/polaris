@@ -63,16 +63,14 @@ const setup = () => {
   return { bridge, get: () => settings, preferences, updates };
 };
 
-test("update Channel and automatic updates reach the live controller and Undo restores defaults", () => {
+test("relayed update Channel and automatic update changes are refused before apply", () => {
   const f = setup();
 
   try {
-    f.bridge.apply("automaticAppUpdates", false, "automatic");
-    f.bridge.apply("appUpdateChannel", "nightly", "channel");
-    expect(f.updates.updates.get()).toMatchObject({ automatic: false, channel: "nightly" });
-    expect(f.get()).toMatchObject({ automaticAppUpdates: false, appUpdateChannel: "nightly" });
-    f.bridge.undo("channel");
-    f.bridge.undo("automatic");
+    expect(() => f.bridge.apply("automaticAppUpdates", false, "automatic")).toThrow(
+      "Only the user"
+    );
+    expect(() => f.bridge.apply("appUpdateChannel", "nightly", "channel")).toThrow("Only the user");
     expect(f.updates.updates.get()).toMatchObject({ automatic: true, channel: "stable" });
     expect(f.get()).toEqual({ hosts: [{ alias: "private-host" }] });
   } finally {
@@ -80,20 +78,26 @@ test("update Channel and automatic updates reach the live controller and Undo re
   }
 });
 
-test("notification/editor preferences and per-Host prediction settings use the same reversible path", () => {
+test("notification/editor changes are reversible while relayed prediction model settings are refused", () => {
   const f = setup();
 
   try {
     f.bridge.apply("sessions.notifyNeedsYou", false, "notify");
     f.bridge.apply("sessions.editorVim", true, "vim");
     const chosen = { ...DEFAULT_PREDICTION_PREFERENCES, placement: "off" };
-    f.bridge.apply("prediction", Schema.decodeUnknownSync(Schema.Json)(chosen), "prediction", "pi");
+    expect(() =>
+      f.bridge.apply(
+        "prediction",
+        Schema.decodeUnknownSync(Schema.Json)(chosen),
+        "prediction",
+        "pi"
+      )
+    ).toThrow("Only the user");
     expect(f.get().sessions).toMatchObject({ notifyNeedsYou: false, editorVim: true });
-    expect(f.preferences.get("pi").placement).toBe("off");
+    expect(f.preferences.get("pi")).toEqual(DEFAULT_PREDICTION_PREFERENCES);
     expect(f.preferences.get("mac")).toEqual(DEFAULT_PREDICTION_PREFERENCES);
     f.bridge.undo("notify");
     f.bridge.undo("vim");
-    f.bridge.undo("prediction");
     expect(f.get().sessions).toEqual({});
     expect(f.preferences.get("pi")).toEqual(DEFAULT_PREDICTION_PREFERENCES);
     expect(f.get().hosts).toEqual([{ alias: "private-host" }]);

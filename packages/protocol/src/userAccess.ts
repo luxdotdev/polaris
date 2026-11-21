@@ -97,6 +97,7 @@ export const USER_COMMANDS = {
  * of `traces.watch`, `harness.models` and `harness.commands` do less without user access.
  */
 export const USER_RPCS = {
+  "session.start": "user",
   "settings.list": "any",
   "settings.describe": "any",
   "settings.get": "any",

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { commands, SessionPlacement } from "@polaris/protocol";
+import { commands } from "@polaris/protocol";
 import { decodeCommandPayload, parseCommandArguments } from "./arguments.ts";
 import { commandHelp, runCommands, type CommandIO } from "./index.ts";
 
@@ -21,10 +21,8 @@ test("arguments preserve string prompts and decode schema types, defaults and po
   );
 
   expect(decodeCommandPayload(start, parsed.values)).toMatchObject({
-    sessionId: "ses_new",
     prompt: "123",
     harness: "claude",
-    placement: SessionPlacement.cases.InPlace.make({}),
     attachments: ["att_a"],
   });
   expect(parsed.json).toBe(true);

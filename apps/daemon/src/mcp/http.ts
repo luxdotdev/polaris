@@ -1,7 +1,8 @@
+import { settingsAccessAt } from "../settings/rpc.ts";
+import { hostSettingsPath } from "../settings/index.ts";
 import { hostSessionDefaultsAt } from "./sessions/defaults.ts";
 import { Engine } from "../engine/Engine.ts";
 import { sessionControl, type SessionDefaultsFor } from "./sessions/control.ts";
-import { ClientSettings } from "../clientSettings/index.ts";
 import { Profiles } from "../traces/profiles/service.ts";
 import { sessionProfileTools } from "./sessions/profiles.ts";
 import { Effect, Option, Schema } from "effect";
@@ -199,14 +200,6 @@ const inspectionToolsFromContext = (commands: ConstellationCommands) =>
     }
   });
 
-const clientSettingsFromContext = Effect.map(
-  Effect.serviceOption(ClientSettings),
-  Option.match({
-    onNone: () => ({}),
-    onSome: (clientSettings) => ({ clientSettings }),
-  })
-);
-
 /** One listener per Host; JSON responses only, with no SSE connection or per-session process. */
 export const mcpHttp = (
   commands: ConstellationCommands,
@@ -235,7 +228,9 @@ export const mcpHttp = (
       const sessions = sessionTools(store.value, notifications, requestSecret);
       yield* attachControl(sessions, store.value, sessionDefaults);
 
-      Object.assign(sessions, yield* clientSettingsFromContext);
+      Object.assign(sessions, {
+        settings: yield* settingsAccessAt(hostSettingsPath),
+      });
 
       const data =
         Option.isSome(sources) && Option.isSome(queries)

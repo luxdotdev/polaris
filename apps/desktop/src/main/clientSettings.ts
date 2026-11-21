@@ -8,6 +8,7 @@ import {
 import { Deferred, Effect, Stream, SubscriptionRef } from "effect";
 import {
   clientSettingsSnapshot,
+  clientSettingIsUserOnly,
   decodeClientSetting,
   readClientSetting,
   type ClientSettingsSource,
@@ -64,6 +65,8 @@ export const createClientSettingsBridge = (input: Input) => {
   };
 
   const apply = (key: string, value: Json, requestId?: string, hostKey?: string) => {
+    if (clientSettingIsUserOnly(key))
+      throw new Error(`NotGranted: Only the user can change ${key}.`);
     const decoded = decodeClientSetting(key, value);
     const previous = readClientSetting(input.get(hostKey), key);
     input.apply(key, decoded, hostKey);
