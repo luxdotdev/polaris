@@ -27,7 +27,6 @@ import { ConstellationDefaultsPath, getDefaults } from "../defaults.ts";
 import { ConstellationSessionEffects } from "../delivery/inputs.ts";
 import { commitJournal } from "../delivery/journal.ts";
 import { newTurn, startedTurn } from "../delivery/turns.ts";
-import { workerMode } from "../permissionCeiling.ts";
 import { ConstellationOwner } from "../runtime.ts";
 import { inspectorBrief } from "./brief.ts";
 import { claimDiff } from "./diff.ts";
@@ -90,7 +89,8 @@ const inspectorSession = Effect.fnUntraced(function* (
     worktreeId: null,
     title: `${attempt.taskId} · inspection`,
     state: "dormant",
-    permissionMode: workerMode(lead?.permissionMode ?? null),
+    // Read-only whatever the Lead may do: it reads a worker's Claim and diff, and edits nothing.
+    permissionMode: "plan",
     celestial: pickCelestial(model.sessions.values(), {
       id: inspection.sessionId,
       workspaceId: graph.workspaceId,

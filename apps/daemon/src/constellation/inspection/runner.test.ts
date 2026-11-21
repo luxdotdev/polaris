@@ -92,6 +92,8 @@ test("a Claim on a marked Task starts an Inspector with the Claim, brief, Area a
       expect(w.turns[0]!.sessionId).toBe(held.sessionId);
       expect(isWorkerSession(session)).toBe(true);
       expect(session.worker).toEqual({ constellationId: CID, role: "inspector" });
+      // It reads a worker's Claim and diff: read-only, though the Lead here may edit.
+      expect(session.permissionMode).toBe("plan");
       expect((yield* graph).attempts.map((a) => a.sessionId)).not.toContain(held.sessionId);
 
       const prompt = w.prompts[0]!;

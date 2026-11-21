@@ -30,7 +30,9 @@ export const claudeConstellationOptions = (
 
     return [
       `${server}__*`,
-      ...attachment.tools.filter((t) => t.name === "visualize").map((t) => `${server}__${t.name}`),
+      ...attachment.tools
+        .filter((t) => t.name === "visualize" || t.name === "verdict")
+        .map((t) => `${server}__${t.name}`),
     ];
   }),
   mcpServers: Object.fromEntries(
