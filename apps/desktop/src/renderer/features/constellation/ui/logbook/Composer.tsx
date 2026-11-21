@@ -4,6 +4,8 @@
  */
 import { Button, Kbd } from "@polaris/ui";
 import { type KeyboardEvent, type RefObject, useState } from "react";
+import { shortcutLabel } from "../../../../../shared/chord.ts";
+import { FIELD_CHORDS } from "../../../../../shared/keymap.ts";
 
 export interface ComposerProps {
   readonly taskId: string;
@@ -74,7 +76,7 @@ export const Composer = ({ taskId, inputRef, onNote, onMessage }: ComposerProps)
           onClick={() => void send(onNote)}
         >
           Note
-          <Kbd variant="plain">⌘↵</Kbd>
+          <Kbd variant="plain">{shortcutLabel(FIELD_CHORDS.submit)}</Kbd>
         </Button>
       </div>
     </div>
