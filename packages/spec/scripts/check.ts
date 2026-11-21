@@ -728,6 +728,14 @@ simulateWitnessed(
   "recoveryStep"
 );
 
+// Leases need a nudge, a Stopped notice and a quiet Host in a row (ENG-1015).
+simulateWitnessed(
+  "current_constellations",
+  ["witnessLeaseLost"],
+  "constellations.qnt",
+  "leaseStep"
+);
+
 simulateWitnessed(
   "constellation_delivery_relay",
   ["witnessReconnectAck", "witnessRetry"],

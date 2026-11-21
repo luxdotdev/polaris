@@ -42,6 +42,12 @@ const settledLine = (
 
   if (i.state === "rejected") return sentBackLine(task, attempt);
 
+  if (i.state === "lost" && attempt !== undefined && reason !== "") {
+    const n = record.graph.attempts.filter((a) => a.taskId === attempt.taskId).indexOf(attempt) + 1;
+
+    return `${task}: attempt ${n} lost (${reason}).`;
+  }
+
   return `${task}: ${i.state}.`;
 };
 
