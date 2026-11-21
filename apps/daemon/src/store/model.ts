@@ -138,6 +138,7 @@ export const sessionOf: (event: DomainEvent) => SessionId | null =
     OperatorMessageSent: hostEvent,
     OperatorMessageResolved: hostEvent,
     PeerMessage: hostEvent,
+    LogbookNoted: hostEvent,
     AttemptRecoveryContinued: hostEvent,
     ResourceDeclared: hostEvent,
     ResourceRemoved: hostEvent,
@@ -249,6 +250,7 @@ export const constellationOnlyEventTypes: ReadonlyArray<DomainEvent["_tag"]> = [
   "OperatorMessageSent",
   "OperatorMessageResolved",
   "PeerMessage",
+  "LogbookNoted",
   "AttemptRecoveryContinued",
 ];
 
@@ -566,6 +568,7 @@ const apply: (event: DomainEvent) => Reducer = DomainEvent.match<Reducer>({
   OperatorMessageSent: () => keep,
   OperatorMessageResolved: () => keep,
   PeerMessage: () => keep,
+  LogbookNoted: () => keep,
   AttemptRecoveryContinued: () => keep,
   ResourceDeclared: resourceProjection,
   ResourceRemoved: resourceProjection,

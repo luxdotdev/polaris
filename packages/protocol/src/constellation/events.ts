@@ -29,6 +29,7 @@ import {
   TaskDefinition,
   TaskId,
 } from "./domain.ts";
+import { LogbookNoteAuthor } from "./logbook.ts";
 
 /** A boolean added after logs were written: absent decodes and constructs as false. */
 const addedFalse = Schema.Boolean.pipe(
@@ -156,10 +157,25 @@ export const constellationEventFields = {
     text: Schema.String,
     questionId: optionalNullable(Schema.String),
     actor: optionalNullable(Actor),
+    /** Who sent it; null on events written before it was recorded. */
+    by: optionalNullable(Schema.Literals(["user", "lead"])),
   },
   WorkerInputDelivered: { ...graph, id: Schema.String, sessionId: SessionId, at: Timestamp },
   OperatorMessageResolved: { ...graph, id: Schema.String },
   PeerMessage: { ...graph, from: AttemptId, to: AttemptId, text: Schema.String },
+  /**
+   * A note on a Task's Logbook (ADR 0119): record only, delivered to no one. `attemptId` is the
+   * Task's latest Attempt when it was written, or null before the first.
+   */
+  LogbookNoted: {
+    ...graph,
+    id: Schema.NonEmptyString,
+    taskId: TaskId,
+    attemptId: Schema.NullOr(AttemptId),
+    author: LogbookNoteAuthor,
+    text: Schema.NonEmptyString,
+    actor: optionalNullable(Actor),
+  },
   /** Journal the single automatic Continue; replay consumes its durable marker. */
   AttemptRecoveryContinued: {
     ...attempt,

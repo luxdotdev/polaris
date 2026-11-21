@@ -535,6 +535,8 @@ export const foldConstellation = (
         inputDeliveries: new Set([...next.inputDeliveries, inputDeliveryKey(e.id, e.sessionId)]),
       };
     },
+    // A note lives only in the Logbook's fold (`constellation/logbook`).
+    LogbookNoted: () => {},
     AttemptRecoveryContinued: (e) => {
       next = {
         ...next,

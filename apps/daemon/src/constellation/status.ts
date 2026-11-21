@@ -318,6 +318,7 @@ const eventLine = (record: ConstellationRecord, e: ConstellationEvent): string |
     WorkerInputDelivered: () => null,
     OperatorMessageResolved: () => null,
     PeerMessage: (x) => `${task(x.from)} → ${task(x.to)}: ${first(x.text)}.`,
+    LogbookNoted: (x) => `${x.taskId}: note by ${x.author} · ${first(x.text)}.`,
     AttemptRecoveryContinued: (x) => `${task(x.attemptId)}: continued after a Daemon restart.`,
   });
 };

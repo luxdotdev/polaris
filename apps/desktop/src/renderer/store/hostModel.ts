@@ -276,6 +276,7 @@ const fold = (event: DomainEvent): Fold =>
       OperatorMessageSent: () => unchanged,
       OperatorMessageResolved: () => unchanged,
       PeerMessage: () => unchanged,
+      LogbookNoted: () => unchanged,
       AttemptRecoveryContinued: () => unchanged,
       ResourceDeclared: onResources,
       ResourceRemoved: onResources,

@@ -13,6 +13,7 @@ import { createMachine, isUnhandled, transition, types } from "xstate";
 import { claim, currentAttempt, dispatch, review } from "../constellation/attempts.ts";
 import { blockAttempt } from "../constellation/blocked.ts";
 import { finding, GraphDecision, refusal } from "../constellation/decision.ts";
+import { note } from "../constellation/logbook/note.ts";
 import { answer, message } from "../constellation/messages.ts";
 import { effectiveDeps } from "../constellation/parents.ts";
 import { plan } from "../constellation/plan.ts";
@@ -394,8 +395,10 @@ export const decideConstellation = (
     Predicate.isTagged(command, "WorkerPropose") ||
     Predicate.isTagged(command, "WorkerMessage");
 
+  // A note names its own writers: the Task's current Attempt, the Lead or the user.
   if (
     !isWorker &&
+    !Predicate.isTagged(command, "Note") &&
     ctx.binding.kind !== "user" &&
     ctx.binding.sessionId !== started.graph.leadSessionId
   )
@@ -433,6 +436,7 @@ export const decideConstellation = (
       WorkerProgress: (c) => worker(d, c),
       WorkerPropose: (c) => worker(d, c),
       WorkerMessage: (c) => worker(d, c),
+      Note: (c) => note(d, c),
     });
 
   if (d.findings.length > 0) return { events: [], rejection: refusal(record, d.findings) };

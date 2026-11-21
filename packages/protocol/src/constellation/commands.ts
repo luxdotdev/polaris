@@ -160,6 +160,11 @@ export const ConstellationCommand = Schema.TaggedUnion({
     to: TaskId,
     text: Schema.NonEmptyString,
   },
+  /**
+   * Write a note on a Task's Logbook. The writer is the binding: the user, the Lead, or the
+   * session holding the Task's current Attempt; any other is refused.
+   */
+  Note: { constellationId: ConstellationId, taskId: TaskId, text: Schema.NonEmptyString },
 });
 
 export type ConstellationCommand = typeof ConstellationCommand.Type;

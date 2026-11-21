@@ -336,6 +336,7 @@ const stepFor = (event: Event, at: string): Step =>
           messages: r.messages.filter((m) => m.id !== id),
         }),
       PeerMessage: () => (r: ConstellationRecord) => r,
+      LogbookNoted: () => (r: ConstellationRecord) => r,
       AttemptRecoveryContinued: ({ attemptId, attemptRevision }) =>
         patchAttempt(attemptId, attemptRevision, () => ({})),
     })

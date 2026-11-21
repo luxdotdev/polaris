@@ -715,6 +715,7 @@ simulateWitnessed(
     "witnessSlotAudit",
     "witnessRelay",
     "witnessLease",
+    "witnessNote",
   ],
   "constellations.qnt"
 );

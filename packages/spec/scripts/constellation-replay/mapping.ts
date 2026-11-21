@@ -285,6 +285,10 @@ export const mapGraphEvent = (
       },
       OperatorMessageResolved: () => [],
       PeerMessage: () => [],
+      LogbookNoted: ({ taskId, attemptId, author }) =>
+        record(
+          `LogbookNoted({ task: ${g.tasks.id(taskId)}, attempt: ${attemptId === null ? -1 : g.attemptId(attemptId)}, author: ${JSON.stringify(author)} })`
+        ),
     })
   );
 };

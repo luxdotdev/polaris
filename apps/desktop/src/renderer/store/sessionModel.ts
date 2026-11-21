@@ -350,6 +350,7 @@ const fold = (event: DomainEvent): Fold =>
       OperatorMessageSent: () => same,
       OperatorMessageResolved: () => same,
       PeerMessage: () => same,
+      LogbookNoted: () => same,
       AttemptRecoveryContinued: () => same,
       ResourceDeclared: () => same,
       ResourceRemoved: () => same,
