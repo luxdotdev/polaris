@@ -8,6 +8,7 @@ import { Predicate } from "effect";
 import type { ConstellationRecord } from "../../store/constellation.ts";
 import type { SessionRecord } from "../../store/model.ts";
 import { latestAttempt } from "../projections.ts";
+import { workerWait } from "../waiting.ts";
 import { pendingInputs } from "./messages.ts";
 
 /** How long a silent local Attempt keeps its lease before it settles lost. */
@@ -110,10 +111,13 @@ export const attemptLease = (
   if (start === null || (record.progress.get(attempt.id)?.revision ?? 0) > start.revision)
     return null;
 
+  // Waiting on Background Work holds the lease too: it runs out no sooner than the wait.
+  const wait = workerWait(record, attempt, session);
+
   return {
     attemptId: attempt.id,
     since: start.at,
-    until: start.at + LEASE_MS,
+    until: Math.max(start.at + LEASE_MS, wait?.until ?? 0),
     reason: `${minutes} · ${stopped === null ? "interrupted twice" : "stopped notice unanswered"}`,
   };
 };

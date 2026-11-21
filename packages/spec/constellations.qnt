@@ -44,6 +44,7 @@ module constellations {
     | ResourceReleased(int)
     | ResourceLeaseCanceled(int)
     | ResourceRemoved
+    | LogbookNoted({ task: int, attempt: int, author: str })
   type Event = { host: str, kind: EventKind }
   type View = {
     tasks: int -> Task, attempts: List[Attempt], lead: int, state: str,
@@ -110,9 +111,10 @@ module constellations {
         handups: v.handups.select(a => a != p.attempt), nudges: v.nudges.select(a => a != p.attempt) }
     | ClaimApproved(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), approvals: v.approvals.append(a) }
     | ClaimHandedUp(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), handups: v.handups.append(a) }
-    | AttemptBlocked(p) => { ...change(v, p.attempt, "blocked", v.attempts[p.attempt].sha), blocks: v.blocks.put(p.attempt, p.on) }
-    | AttemptUnblocked(p) => { ...change(v, p.attempt, "working", v.attempts[p.attempt].sha), blocks: v.blocks.keys().exclude(Set(p.attempt)).mapBy(a => v.blocks.get(a)), nudges: v.nudges.select(a => a != p.attempt) }
-    | AttemptNudged(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), nudges: v.nudges.append(a) }
+    | AttemptBlocked(p) => { ...change(v, p.attempt, "blocked", v.attempts[p.attempt].sha), blocks: v.blocks.put(p.attempt, p.on), leases: v.leases.exclude(Set(p.attempt)) }
+    | AttemptUnblocked(p) => { ...change(v, p.attempt, "working", v.attempts[p.attempt].sha), blocks: v.blocks.keys().exclude(Set(p.attempt)).mapBy(a => v.blocks.get(a)), nudges: v.nudges.select(a => a != p.attempt),
+        leases: v.leases.exclude(Set(p.attempt)) }
+    | AttemptNudged(a) => { ...change(v, a, v.attempts[a].status, v.attempts[a].sha), nudges: v.nudges.append(a), leases: v.leases.exclude(Set(a)) }
     | AttemptAccepted(p) => change(v, p.attempt, "accepted", p.sha)
     | AttemptRejected(p) => {
         val changed = change(v, p.attempt, "rejected", v.attempts[p.attempt].sha)
@@ -120,7 +122,7 @@ module constellations {
           ...changed.attempts[p.attempt], rejectionReason: p.reason,
         }) }
       }
-    | FirstTurnStarted(a) => { ...v, firstTurns: v.firstTurns.append(a) }
+    | FirstTurnStarted(a) => { ...v, firstTurns: v.firstTurns.append(a), leases: v.leases.exclude(Set(a)) }
     | AttemptSettled(p) => change(v, p.attempt, p.outcome, v.attempts[p.attempt].sha)
     | GatePromoted(t) => { ...v, promotions: v.promotions.append(t), tasks: v.tasks.set(t, { ...v.tasks.get(t), revision: v.tasks.get(t).revision + 1 }) }
     | LeadHandoverRequested(p) => { ...v, handoverRequest: p.id, handoverFrom: p.from }
@@ -149,6 +151,7 @@ module constellations {
     | ResourceLeased(id) => { ...v, holders: v.holders.union(Set(id)), waiters: v.waiters.slice(1, v.waiters.length()), grants: v.grants.append(id) }
     | ResourceReleased(id) => { ...v, holders: v.holders.exclude(Set(id)) }
     | ResourceLeaseCanceled(id) => { ...v, waiters: v.waiters.select(waiter => waiter != id), canceled: v.canceled.union(Set(id)) }
+    | LogbookNoted(_) => v
   }
   pure def foldEvents(events: List[Event]): View = events.foldl(empty, (v, e) => apply(v, e.kind))
   // Set folds have no order: the latest Attempt is the greatest index on the Task, not the last visited.
@@ -260,6 +263,50 @@ module constellations {
     val events = [event, NotificationQueued({ id: 10 + 2 * a + (if (v.attempts[a].status == "review") 1 else 0), kind: "settle" })]
     events.concat(promote(updated))
   }
+
+  // --- Logbook (ADR 0119) ---
+  // A Task's Logbook is derived from the log, never part of the View: a note changes no graph state.
+  // A caller is a session, or USER for the user.
+  pure val USER = -1
+  type Entry = { at: int, task: int, attempt: int, kind: str }
+  pure def workerOf(v: View, t: int): int =
+    if (latest(v, t) >= 0 and active(v.attempts[latest(v, t)])) v.attempts[latest(v, t)].session else -2
+  // The role a caller writes a Task's Logbook as; "" when it may not write.
+  pure def logbookWriter(v: View, t: int, caller: int): str =
+    if (caller == USER) "you" else if (caller == v.lead) "lead"
+    else if (workerOf(v, t) == caller) "worker" else ""
+  // Writers read, and so does the worker of each Task that depends on this one.
+  pure def logbookReader(v: View, t: int, caller: int): bool = logbookWriter(v, t, caller) != ""
+    or TASKS.exists(d => v.tasks.get(d).declared and not(v.tasks.get(d).canceled)
+      and workerOf(v, d) == caller and effectiveDeps(v, d).contains(t))
+  pure def noteEvents(v: View, t: int, caller: int): List[EventKind] =
+    if (v.tasks.get(t).declared and Set("planning", "running", "paused").contains(v.state)
+      and logbookWriter(v, t, caller) != "")
+      [LogbookNoted({ task: t, attempt: latest(v, t), author: logbookWriter(v, t, caller) })] else []
+  pure def attemptEntry(v: View, i: int, a: int, kind: str): List[Entry] =
+    if (v.attempts.indices().contains(a)) [{ at: i, task: v.attempts[a].task, attempt: a, kind: kind }] else []
+  // The entries one event adds, read against the View before it. Questions and messages carry
+  // no Attempt in this model, so the runtime fold alone covers them.
+  pure def entriesOf(v: View, e: EventKind, i: int): List[Entry] = match e {
+    | TaskDeclared(p) => [{ at: i, task: p.task, attempt: latest(v, p.task), kind: "brief" }]
+    | AttemptProgressed(a) => attemptEntry(v, i, a, "progress")
+    | AttemptClaimed(p) => attemptEntry(v, i, p.attempt, "claim")
+    | ClaimApproved(a) => attemptEntry(v, i, a, "review")
+    | ClaimHandedUp(a) => attemptEntry(v, i, a, "review")
+    | AttemptAccepted(p) => attemptEntry(v, i, p.attempt, "review")
+    | AttemptRejected(p) => attemptEntry(v, i, p.attempt, "review")
+    | AttemptSettled(p) => attemptEntry(v, i, p.attempt, "lost")
+    | LogbookNoted(p) => [{ at: i, task: p.task, attempt: p.attempt, kind: "note" }]
+    | _ => []
+  }
+  pure def logbook(events: List[Event], t: int): List[Entry] = events.foldl(
+    { view: empty, at: 0, entries: [] }, (acc, e) => {
+      view: apply(acc.view, e.kind), at: acc.at + 1,
+      entries: acc.entries.concat(entriesOf(acc.view, e.kind, acc.at).select(entry => entry.task == t)),
+    }).entries
+  // A read from a cursor: the entries committed after it.
+  pure def logbookSince(events: List[Event], t: int, since: int): List[Entry] =
+    logbook(events, t).select(entry => entry.at > since)
 
   var log: List[Event]
   var offline: Set[int]
@@ -421,6 +468,8 @@ module constellations {
   action grant = commit(OWNER, if (view.waiters.length() > 0 and view.holders.size() < view.capacity) [ResourceLeased(view.waiters[0])] else [])
   action cancelLease(id: int): bool = commit(OWNER, if (has(view.waiters, id)) [ResourceLeaseCanceled(id)] else [])
   action release(id: int): bool = commit(OWNER, if (view.holders.contains(id)) [ResourceReleased(id)] else [])
+  // Logbook (ADR 0119): the decider derives the role from the caller; any other caller is refused.
+  action note(t: int, caller: int): bool = commit(OWNER, noteEvents(view, t, caller))
 
   action step = {
     nondet t = TASKS.oneOf()
@@ -443,6 +492,7 @@ module constellations {
       setState("archived"), interrupt(a), recoverPending, restart, nudge(a), silentEnd(a), leaseExpire(a),
       availability(false, true, Set(s)), availability(true, false, Set()), availability(true, true, Set()),
       enqueue(id, a, 42), relay(id), request(id), grant, release(id), cancelLease(id), commit("worker-host", [LeadChanged({ to: s, request: -1 })]),
+      note(t, s), note(t, USER),
     }
   }
 
@@ -472,6 +522,7 @@ module constellations {
       plan([Add({ task: t, deps: Set(), parent: -1, gate: false })]), setState("running"),
       start(t, s, latest(view, t)), progress(a, rev), nudge(a), silentEnd(a), leaseExpire(a),
       interrupt(a), recoverPending, stop(a, rev), availability(true, true, Set(s)), availability(true, true, Set()),
+      block(a, Set(), rev), unblock(a, rev, "Lead", true),
     }
   }
 
@@ -548,10 +599,31 @@ module constellations {
     | _ => true
   })
   // A lease settles only the current working Attempt it ran for, silent since, on a Host that is not Offline.
+  // Read from the log, not `leases`: what starts a lease for a, and what from a ends one.
+  pure def leaseStarts(e: EventKind, a: int): bool = match e {
+    | NotificationQueued(p) => p.kind == "stopped" and p.id == STOPPED + a
+    | AttemptInterrupted(p) => p.attempt == a and p.interruption >= 2
+    | _ => false
+  }
+  pure def attemptActive(e: EventKind, a: int, session: int): bool = match e {
+    | AttemptProgressed(x) => x == a
+    | AttemptNudged(x) => x == a
+    | FirstTurnStarted(x) => x == a
+    | AttemptBlocked(p) => p.attempt == a
+    | AttemptUnblocked(p) => p.attempt == a
+    | AttemptRecoveryContinued(p) => p.attempt == a
+    | WorkerInputDelivered(p) => p.session == session
+    | _ => false
+  }
+  /** Some lease start for a precedes index i with no activity from a in between. */
+  pure def silentSinceLease(events: List[Event], i: int, a: int, session: int): bool =
+    events.indices().exists(j => j < i and leaseStarts(events[j].kind, a)
+      and events.indices().forall(k => k <= j or k >= i or not(attemptActive(events[k].kind, a, session))))
   val leaseSettlesOnlySilent = log.indices().forall(i => match log[i].kind {
     | AttemptSettled(p) => p.kind != "lease" or { val before = foldEvents(log.slice(0, i));
         before.attempts[p.attempt].status == "working" and latest(before, before.attempts[p.attempt].task) == p.attempt
-        and before.leases.contains(p.attempt) and not(before.stale.contains(p.attempt)) and not(p.stale) }
+        and silentSinceLease(log, i, p.attempt, before.attempts[p.attempt].session)
+        and not(before.stale.contains(p.attempt)) and not(p.stale) }
     | _ => true
   })
   // A delivery says something: pending items, or an audit naming Gates that were stalled when it committed.
@@ -625,7 +697,28 @@ module constellations {
   temporal everyNotificationEventuallyDelivered =
     (always(ownerAvailable and view.state == "running") and deliver.weakFair(log))
     implies (0.to(30).forall(id => view.notes.keys().contains(id) leadsTo delivered.contains(id)))
+  // --- Logbook (ADR 0119) ---
+  // A note names a declared Task and its latest Attempt, and a worker's note comes from an active one.
+  val notesValid = log.indices().forall(i => match log[i].kind {
+    | LogbookNoted(p) => { val before = foldEvents(log.slice(0, i));
+        before.tasks.get(p.task).declared and p.attempt == latest(before, p.task)
+        and Set("planning", "running", "paused").contains(before.state)
+        and Set("worker", "lead", "you").contains(p.author)
+        and (p.author != "worker" or p.attempt >= 0 and active(before.attempts[p.attempt])) }
+    | _ => true
+  })
+  // Attempt boundaries hold: once a Task's next Attempt has an entry, no later entry is filed under an earlier one.
+  val logbookSpansAttemptsInOrder = TASKS.forall(t => {
+    val entries = logbook(log, t)
+    entries.indices().forall(i => all {
+      entries[i].attempt < 0 or view.attempts[entries[i].attempt].task == t,
+      i == 0 or entries[i - 1].attempt <= entries[i].attempt and entries[i - 1].at < entries[i].at,
+    })
+  })
+  val logbookValid = notesValid and logbookSpansAttemptsInOrder
+
   val safety = all {
+    logbookValid,
     graphAcyclic, causesPointBackward, taskFollowsLatestAttempt, gatePromotedOnlyAfterAccepted,
     oneLead, firstTurnValid, claimsValid, firstTurnAtMostOnce, oneActiveAttemptPerSession, exactlyOnceDelivery, settledAttemptImmutable,
     outboxAppliedExactlyOnce, onlyOwnerCommits, recoveryAtMostOnce, recoveryHasEligibleProof, settlementOutcomesValid, staleNeverSettlesWithoutCommand,
@@ -644,6 +737,10 @@ module constellations {
   val witnessRecovery = view.recoveries.length() > 0
   val witnessLease = view.grants.length() > 0
   val witnessLeaseLost = log.indices().exists(i => match log[i].kind { | AttemptSettled(p) => p.kind == "lease" | _ => false })
+  val witnessNote = log.indices().exists(i => match log[i].kind {
+    | LogbookNoted(_) => true
+    | _ => false
+  })
 }
 
 

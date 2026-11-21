@@ -22,6 +22,7 @@ import {
   TaskProjection,
 } from "./domain.ts";
 import { WorkerLiveness } from "./liveness.ts";
+import { LogbookPage, LogbookQuery } from "./logbook.ts";
 import { ConstellationStats } from "./stats.ts";
 
 export class ConstellationResult extends Schema.Class<ConstellationResult>("ConstellationResult")({
@@ -175,6 +176,33 @@ export const SubscribeConstellation = Rpc.make("constellation.subscribe", {
   stream: true,
 });
 
+/** Write a note on a Task's Logbook: its current Attempt, the Lead or the user. */
+export const ConstellationLogbookNote = Rpc.make("constellation.logbook.note", {
+  ...mutation,
+  payload: { commandId: CommandId, ...commandFields(C.Note.fields) },
+});
+
+/**
+ * One read of a Logbook: the entries after `since`, and every Attempt boundary. Readers are
+ * the Task's writers and the workers of Tasks that depend on it.
+ */
+export const ConstellationLogbookRead = Rpc.make("constellation.logbook.read", {
+  payload: LogbookQuery,
+  success: LogbookPage,
+  error: ConstellationRejected,
+});
+
+/**
+ * A Logbook's feed: first the page a read with the same payload returns (sent even when it
+ * has no entries), then a page of the new entries each time the Logbook changes.
+ */
+export const SubscribeConstellationLogbook = Rpc.make("constellation.logbook.subscribe", {
+  payload: LogbookQuery,
+  success: LogbookPage,
+  error: ConstellationRejected,
+  stream: true,
+});
+
 export const ConstellationDefaultsGet = Rpc.make("constellation.defaults.get", {
   payload: {},
   success: Schema.Struct({ settings: ConstellationSettings }),
@@ -219,5 +247,8 @@ export class ConstellationRpcs extends RpcGroup.make(
   ConstellationWorkerPropose,
   ConstellationWorkerMessage,
   ConstellationWorkerStart,
-  SubscribeConstellation
+  SubscribeConstellation,
+  ConstellationLogbookNote,
+  ConstellationLogbookRead,
+  SubscribeConstellationLogbook
 ) {}

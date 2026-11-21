@@ -184,6 +184,13 @@ module constellations_test {
     .then(leaseExpire(0)).expect(view.attempts[0].status == "working" and safety)
   run leaseNeverExpiresOnOfflineHostTest = stopped.then(availability(true, true, Set(1)))
     .then(leaseExpire(0)).expect(view.attempts[0].status == "working" and safety)
+  run leaseEndsWhenTheLeadUnblocksTest = stopped.then(block(0, Set(), 2)).then(unblock(0, 3, "Lead", true))
+    .expect(view.leases == Set()).then(leaseExpire(0)).expect(view.attempts[0].status == "working" and safety)
+  // The same settle replayed past the fold's bookkeeping: the invariant still rejects it.
+  run leaseInvariantRejectsSettleAfterUnblockTest = stopped.then(block(0, Set(), 2)).then(unblock(0, 3, "Lead", true))
+    .then(replay([{ host: OWNER, kind: AttemptSettled({ attempt: 0, outcome: "lost", stale: false, commanded: false, kind: "lease" }) },
+      { host: OWNER, kind: NotificationQueued({ id: 10, kind: "settle" }) }]))
+    .expect(not(leaseSettlesOnlySilent))
   run leaseAfterSecondInterruptionOnlyTest = working.then(interrupt(0)).then(leaseExpire(0))
     .expect(view.attempts[0].status == "working" and safety)
     .then(recover(0)).then(interrupt(0)).expect(view.leases == Set(0))
@@ -367,6 +374,48 @@ module constellations_test {
     .then(start(0, 1, 0)).then(restart).then(startFirstTurn(1))
     .then(replay([{ host: OWNER, kind: WorkerInputDelivered({ id: 77, session: 1 }) }]))
     .expect(view.firstTurns == [1] and firstTurnValid and safety)
+
+  // --- Logbook (ADR 0119) ---
+  pure def notesBy(events: List[Event], author: str): int = events.select(e => match e.kind {
+    | LogbookNoted(p) => p.author == author
+    | _ => false
+  }).length()
+  pure def kinds(entries: List[Entry]): List[str] = entries.foldl([], (acc, e) => acc.append(e.kind))
+  pure def filedUnder(entries: List[Entry]): List[int] = entries.foldl([], (acc, e) => acc.append(e.attempt))
+  run noteWritersAreTheCurrentAttemptTheLeadAndTheUserTest = working
+    .then(note(0, 1)).then(note(0, 0)).then(note(0, USER))
+    .expect(notesBy(log, "worker") == 1 and notesBy(log, "lead") == 1 and notesBy(log, "you") == 1 and safety)
+    // A session outside the Constellation, and Task 0's worker on another Task, are refused.
+    .then(note(0, 3)).then(note(1, 1))
+    .expect(kinds(logbook(log, 0)) == ["brief", "note", "note", "note"] and kinds(logbook(log, 1)) == ["brief"] and safety)
+  run noteChangesNoGraphStateTest = working.then(note(0, 1))
+    .expect(view == foldEvents(log.slice(0, log.length() - 1)) and notesBy(log, "worker") == 1 and safety)
+  run sentBackAttemptStopsWritingAndTheLogbookSpansAttemptsTest = claimed
+    .then(note(0, 1)).then(reject(0, 2)).then(note(0, 1))
+    .expect(notesBy(log, "worker") == 1 and safety)
+    .then(start(0, 2, 0)).then(note(0, 1)).then(note(0, 2))
+    .expect(all {
+      kinds(logbook(log, 0)) == ["brief", "claim", "note", "review", "note"],
+      filedUnder(logbook(log, 0)) == [-1, 0, 0, 0, 1],
+      logbookSpansAttemptsInOrder, safety,
+    })
+  run readersAreWritersAndWorkersOfDependentTasksTest = claimed.then(accept(0, 2, 42)).then(start(1, 2, -1))
+    .expect(all {
+      // Task 1 depends on Task 0, and session 2 works Task 1.
+      logbookReader(view, 0, 2), logbookReader(view, 1, 2), logbookReader(view, 0, 0), logbookReader(view, 0, USER),
+      // Task 0's accepted Attempt is no longer current; Task 2 is not a dependency of Task 1.
+      not(logbookReader(view, 0, 1)), not(logbookReader(view, 1, 3)), not(logbookReader(view, 2, 2)),
+      logbookWriter(view, 0, 2) == "", safety,
+    })
+  run readSinceACursorReturnsOnlyLaterEntriesTest = claimed.then(note(0, 1))
+    .expect(kinds(logbookSince(log, 0, -1)) == ["brief", "claim", "note"])
+    .then(note(0, USER))
+    .expect(kinds(logbookSince(log, 0, logbook(log, 0)[2].at)) == ["note"]
+      and logbookSince(log, 0, log.length()) == [] and safety)
+  run closedConstellationRefusesNotesTest = working.then(setState("completed")).then(note(0, USER)).then(note(0, 0))
+    .expect(notesBy(log, "you") == 0 and notesBy(log, "lead") == 0 and safety)
+  run newLeadWritesAndTheOldOneDoesNotTest = working.then(handover(3)).then(note(0, 0)).then(note(0, 3))
+    .expect(notesBy(log, "lead") == 1 and safety)
 }
 
 module constellations_property_test {
@@ -485,4 +534,17 @@ module constellations_property_test {
     .then(start(0, 1, 0))
     .then(replay([{ host: OWNER, kind: WorkerInputDelivered({ id: 77, session: 1 }) }, { host: OWNER, kind: FirstTurnStarted(1) }]))
     .expect(not(firstTurnValid))
+
+  // --- Logbook (ADR 0119) ---
+  run detectsWorkerNoteFromASettledAttemptTest = claimed.then(accept(0, 2, 42))
+    .then(commit(OWNER, [LogbookNoted({ task: 0, attempt: 0, author: "worker" })]))
+    .expect(not(notesValid) and not(safety))
+  run detectsNoteFiledUnderAnEarlierAttemptTest = claimed.then(reject(0, 2)).then(start(0, 2, 0))
+    .then(commit(OWNER, [LogbookNoted({ task: 0, attempt: 0, author: "lead" })]))
+    .expect(not(notesValid))
+  run detectsEntryFiledBehindALaterAttemptTest = claimed.then(reject(0, 2)).then(start(0, 2, 0)).then(note(0, 2))
+    .then(commit(OWNER, [LogbookNoted({ task: 0, attempt: 0, author: "lead" })]))
+    .expect(not(logbookSpansAttemptsInOrder))
+  run detectsNoteOnAnUndeclaredTaskTest = init
+    .then(commit(OWNER, [LogbookNoted({ task: 0, attempt: -1, author: "you" })])).expect(not(notesValid))
 }

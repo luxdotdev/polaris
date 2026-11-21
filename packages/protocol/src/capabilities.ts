@@ -13,6 +13,8 @@ export const PROTOCOL_VERSION = 1;
 export const Capability = Schema.Literals([
   "constellation",
   "constellation.defaults",
+  /** `constellation.logbook.*` and the `LogbookNoted` event: a Task's Logbook (ADR 0119). */
+  "constellation.logbook",
   /** `extensions.pair`, `extensions.list`, `extensions.revoke`, and `extensionToken` in `hello`. */
   "extensions",
   "host.resources",

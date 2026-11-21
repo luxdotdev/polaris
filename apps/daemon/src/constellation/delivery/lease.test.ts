@@ -1,9 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
 import { join } from "node:path";
-import { AttemptId, CommandId } from "@polaris/protocol";
-import { Effect } from "effect";
+import { AttemptId, BackgroundTask, CommandId } from "@polaris/protocol";
+import { Effect, Predicate } from "effect";
 import { TestClock } from "effect/testing";
-import { C, CID, HOST } from "../../engine/constellation.testing.ts";
+import { A, C, CID, HOST } from "../../engine/constellation.testing.ts";
 import { recoverSession } from "../../engine/recovery.constellation.ts";
 import { newTempDir, removeTempDir } from "../../platform/tempDir.testing.ts";
 import { EventStore } from "../../store/EventStore.ts";
@@ -11,8 +11,11 @@ import { observeWorkerHost, recoverAttempt } from "../recovery.ts";
 import { ConstellationOwner } from "../runtime.ts";
 import { Constellations } from "../service.ts";
 import { ConstellationDelivery } from "./index.ts";
+import { WAIT_GRACE_MS } from "../waiting.ts";
 import { LEASE_MS } from "./lease.ts";
-import { WORKER, send, setup, silentTwice, wait, world } from "./testing.ts";
+import { WORKER, send, setup, signal, silentTwice, wait, world } from "./testing.ts";
+
+const SCRIPT = new BackgroundTask({ id: "bash-1", kind: "command", description: "bench.sh" });
 
 const dirs: Array<string> = [];
 
@@ -63,6 +66,17 @@ test("a worker silent after its Stopped notice settles lost when the 10-minute l
       const lost = yield* attempt;
       expect(lost.settleReason).toBe("10 min silent · stopped notice unanswered");
 
+      // The Logbook ends the Attempt with a polaris-authored lost entry carrying the reason.
+      const page = yield* (yield* Constellations).logbook.read(
+        { kind: "user" },
+        { constellationId: CID, taskId: A }
+      );
+
+      expect(
+        page.entries.filter(Predicate.isTagged("Lost")).map((e) => [e.author, e.text])
+      ).toEqual([["polaris", "10 min silent · stopped notice unanswered"]]);
+      expect(page.attempts.map((a) => a.state)).toEqual(["lost"]);
+
       // The Settled notice arms the digest; the Lead hears it, live or in a new Turn.
       yield* wait(() => Effect.map(delivery.pendingTimers, (n) => n === 1));
       yield* TestClock.adjust(30_000);
@@ -71,6 +85,37 @@ test("a worker silent after its Stopped notice settles lost when the 10-minute l
         "A: attempt 1 lost (10 min silent · stopped notice unanswered)."
       );
       expect(yield* delivery.pendingTimers).toBe(0);
+    })
+  );
+});
+
+test("a lease runs out no sooner than Waiting on Background Work that started after the Stopped notice", async () => {
+  const w = world(undefined, { canSteer: false });
+  await w.run(
+    Effect.gen(function* () {
+      yield* setup(undefined, "claude");
+      const since = yield* silentTwice(w, ATTEMPT);
+      const delivery = yield* ConstellationDelivery;
+
+      const background = (tasks: ReadonlyArray<BackgroundTask>) =>
+        signal(WORKER, { type: "harness.backgroundTasksChanged", tasks });
+
+      // Claude Code reports a background command after the notice; it ends 9 minutes in.
+      yield* TestClock.setTime(since + 60_000);
+      yield* background([SCRIPT]);
+      yield* TestClock.setTime(since + 9 * 60_000);
+      yield* background([]);
+      yield* delivery.flush();
+
+      // The fresh grace holds past the lease's 10 minutes.
+      yield* TestClock.setTime(since + LEASE_MS);
+      yield* delivery.flush();
+      expect((yield* attempt).state).toBe("working");
+      yield* TestClock.setTime(since + 9 * 60_000 + WAIT_GRACE_MS - 1);
+      yield* delivery.flush();
+      expect((yield* attempt).state).toBe("working");
+      yield* TestClock.adjust(1);
+      yield* lostSoon();
     })
   );
 });

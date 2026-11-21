@@ -333,6 +333,7 @@ const projectionOf: (event: DomainEvent) => Projection = DomainEvent.match<Proje
   OperatorMessageSent: () => () => Effect.void,
   OperatorMessageResolved: () => () => Effect.void,
   PeerMessage: () => () => Effect.void,
+  LogbookNoted: () => () => Effect.void,
   AttemptRecoveryContinued: () => () => Effect.void,
   ResourceDeclared: () => () => Effect.void,
   ResourceRemoved: () => () => Effect.void,
