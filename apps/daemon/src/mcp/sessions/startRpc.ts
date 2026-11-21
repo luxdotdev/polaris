@@ -10,6 +10,7 @@ import {
   type SessionStartInput,
 } from "@polaris/protocol";
 import { Effect, Option } from "effect";
+import { realpathSync } from "node:fs";
 import { relative, isAbsolute, resolve } from "node:path";
 import { Engine } from "../../engine/Engine.ts";
 import { dispatchForClient } from "../../engine/rpc.ts";
@@ -20,13 +21,22 @@ import { Availability } from "../../harness/availability/Availability.ts";
 import { sessionStartCommand, type SessionDefaultsFor } from "./control.ts";
 import { hostSessionDefaultsAt } from "./defaults.ts";
 
+/** The real path when it exists: a CLI's cwd is resolved (macOS /tmp is /private/tmp). */
+const canonical = (path: string) => {
+  try {
+    return realpathSync.native(path);
+  } catch {
+    return resolve(path);
+  }
+};
+
 export const deepestWorkspace = <T extends { path: string }>(
   workspaces: ReadonlyArray<T>,
   cwd: string
 ): T | undefined =>
   workspaces
     .filter((workspace) => {
-      const path = relative(resolve(workspace.path), resolve(cwd));
+      const path = relative(canonical(workspace.path), canonical(cwd));
 
       return (
         path === "" ||
