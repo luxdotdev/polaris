@@ -140,6 +140,35 @@ describe("bench mode", () => {
   });
 });
 
+describe("Constellation attachment (ENG-1016)", () => {
+  // The supervisor attaches the Polaris MCP only where the registry's driver declares it.
+  test.each([false, true])("bench %p: Codex and Claude attach, OpenCode doesn't", async (bench) => {
+    const declared = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const registry = yield* HarnessRegistry;
+
+          return yield* Effect.forEach(["codex", "claude", "opencode"] as const, (kind) =>
+            Effect.map(registry.get(kind), (driver) => [kind, driver.capabilities.constellations])
+          );
+        })
+      ).pipe(
+        Effect.provide(
+          harnessRegistryLayer({ bench }).pipe(
+            Layer.provide(Layer.mergeAll(PlanLimitReporter.none, BrowserMcp.none))
+          )
+        )
+      )
+    );
+
+    expect(Object.fromEntries(declared)).toEqual({
+      codex: true,
+      claude: true,
+      opencode: undefined,
+    });
+  });
+});
+
 describe("binaries found at each use (ENG-413)", () => {
   test("a Codex installed on PATH after the registry is built is available without a restart", async () => {
     const dir = newTempDir("polaris-registry-");
