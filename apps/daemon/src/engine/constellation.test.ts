@@ -36,7 +36,7 @@ import {
   WS,
 } from "./constellation.testing.ts";
 import { projectTask } from "../constellation/projections.ts";
-import { digestDelay, digestPrompt } from "../constellation/delivery/format.ts";
+import { digestWindow, digestPrompt } from "../constellation/delivery/format.ts";
 
 const review = (record: ReturnType<typeof claimed>, action: typeof ReviewAction.Type) =>
   C.Review.make({
@@ -53,7 +53,7 @@ test("a user's approval tells the Lead once to merge and accept", () => {
   const attempt = approved.graph.attempts[0]!;
 
   expect(pending.filter((n) => Predicate.isTagged(n.item, "Approved"))).toHaveLength(1);
-  expect(digestDelay(approved)).not.toBeNull();
+  expect(digestWindow(approved)).not.toBeNull();
   expect(digestPrompt(approved)).toContain(
     `${attempt.taskId}: approved by the user. Accept it with mergedHead ${attempt.claim?.head}; Polaris merges ${attempt.branch} into your branch.`
   );

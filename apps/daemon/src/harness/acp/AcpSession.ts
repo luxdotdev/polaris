@@ -25,7 +25,7 @@ import {
 import type { AgentConnection } from "./AgentConnection.ts";
 import type { AcpCommands } from "./commands.ts";
 import { type AcpHarness, MODE_IDS } from "./harnesses.ts";
-import { polarisContextWithoutTools } from "../../constellation/skills/preamble.ts";
+import { acpConstellation } from "./constellation.ts";
 import { choices, configChange, effortOption, modelOption } from "./models.ts";
 import {
   allowOnce,
@@ -111,12 +111,20 @@ const harnessError = (harness: AcpHarness, message: string, cause?: unknown) =>
   );
 
 /** `session/new`; an agent that answers "auth required" isn't signed in (ADR 0001: it signs in itself). */
-export const newSession = (conn: AgentConnection, harness: AcpHarness, cwd: string) => {
+export const newSession = (
+  conn: AgentConnection,
+  harness: AcpHarness,
+  cwd: string,
+  mcpServers: ReadonlyArray<P.McpServer> = []
+) => {
   const entry = harnessEntry(harness.kind);
   const name = entry?.name ?? harness.kind;
 
   return conn
-    .call("session/new", { cwd, mcpServers: [] } satisfies P.ClientParams["session/new"])
+    .call("session/new", {
+      cwd,
+      mcpServers: [...mcpServers],
+    } satisfies P.ClientParams["session/new"])
     .pipe(
       Effect.catchTag("AgentRpcError", (e) =>
         Effect.fail(
@@ -229,11 +237,14 @@ export const openSession = (
       });
 
     // --- Start or resume -------------------------------------------------
-    const start = newSession(conn, harness, options.cwd);
+    // Rebuilt on every open: a resumed session gets its MCP servers and context again.
+    const polaris = yield* acpConstellation(conn, harness, options);
+    const mcpServers = [...polaris.mcpServers];
+    const start = newSession(conn, harness, options.cwd, mcpServers);
 
     const resume = (sessionId: string) =>
       Effect.gen(function* () {
-        const params = { sessionId, cwd: options.cwd, mcpServers: [] };
+        const params = { sessionId, cwd: options.cwd, mcpServers };
 
         yield* route(sessionId);
 
@@ -362,9 +373,7 @@ export const openSession = (
 
     const runPrompt = (input: TurnInput) =>
       Effect.suspend(() => {
-        const context = preamblePending
-          ? [{ type: "text" as const, text: polarisContextWithoutTools() }]
-          : [];
+        const context = preamblePending ? [{ type: "text" as const, text: polaris.context }] : [];
 
         preamblePending = false;
 

@@ -36,7 +36,7 @@ import { decideConstellationJournal } from "./journal.ts";
 import { pendingInputs } from "./delivery/messages.ts";
 import { newTurn } from "./delivery/turns.ts";
 import { session } from "./delivery/testing.ts";
-import { digestPrompt, digestDelay } from "./delivery/format.ts";
+import { digestPrompt, digestWindow } from "./delivery/format.ts";
 import { acceptedBlockInput } from "./blocked.ts";
 import { statusOutline } from "./status.ts";
 import { handoverHeader } from "./handover/header.ts";
@@ -121,7 +121,7 @@ test("block persists metadata, projects blockers and queues a Lead digest", () =
   });
   expect(statusOutline(record)).toContain("blocked by B: Waiting for the feed");
   expect(digestPrompt(record)).toContain("A: blocked by B: Waiting for the feed");
-  expect(digestDelay(record)).toBe(20000);
+  expect(digestWindow(record)).toMatchObject({ debounceMs: 2000, ceilingMs: 20000 });
   expect(pendingInputs(blocked([]))).toEqual([]);
 });
 

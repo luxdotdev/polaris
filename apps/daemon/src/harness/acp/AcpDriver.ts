@@ -107,7 +107,7 @@ export const makeAcpDriver = (
 
     return {
       kind: harness.kind,
-      capabilities: { steer: false, liveCoAttach: false, switchModel: true },
+      capabilities: { steer: false, liveCoAttach: false, switchModel: true, constellations: true },
       probe: probeAcp(harness),
       listModels,
       listCommands: (cwd) => Effect.sync(() => commands.list(cwd)),

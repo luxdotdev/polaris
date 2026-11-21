@@ -18,6 +18,8 @@ export interface ConstellationAttachment {
   readonly tools: ReadonlyArray<BoundTool>;
   /** The Visuals setting as the session opened (`rich` when absent); `off` drops `visualize`. */
   readonly visuals?: VisualsLevel;
+  /** The binding's role; a driver that can't attach MCP may drop only a `Plain` one. */
+  readonly role?: McpBinding["_tag"];
 }
 
 const revoked = () =>
@@ -71,5 +73,6 @@ export const attachConstellation = Effect.fn("attachConstellation")(function* (
     url: `${origin}/mcp/${token}${visuals === "off" ? "?visuals=off" : ""}`,
     tools,
     visuals,
+    role: binding._tag,
   } satisfies ConstellationAttachment;
 });
