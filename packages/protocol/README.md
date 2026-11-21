@@ -4,6 +4,17 @@ The wire contract every Client and the Daemon share: the Effect Schema domain (`
 
 **Compatibility.** Changes are additive. A field added to something already in a Host's log decodes when absent (`addedNullable`, `addedArray`, or `optionalNullable` / `optionalArray` when constructors may leave it out too). A new event, command or RPC comes with a capability: a Client only sends a command or calls an RPC the Daemon announced, and the Daemon only sends an event to a Client that announced its capability (the Daemon's `eventCapability`). Unknown capability names are dropped on decode, so either side may be newer. `contract.test.ts` and `review.test.ts` hold both directions.
 
+## Host Settings (ADR 0120)
+
+<!-- Host Settings RPCs and Schema metadata from src/settings.ts -->
+
+`settings.list/describe/get/set` use the `settings` capability. Settings carry a description,
+JSON Schema document with allowed values and refinements, default and current value.
+`setting` annotates the source Schema; `describeSetting` rejects a missing description or
+invalid default. `SettingsRpcs` carries the generated command annotations; set is user-only
+until the change-settings Grant integration. The Daemon's registry and migration are documented
+in [`apps/daemon/src/settings`](../../apps/daemon/src/settings/README.md).
+
 ## Generated commands (ADR 0118)
 
 `commands` is derived from `CommandAnnotation` on `DaemonRpcs`. An annotation is an array:

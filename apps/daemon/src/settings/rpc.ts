@@ -1,5 +1,6 @@
 import {
   SettingsError,
+  NotFound,
   SettingsRpcs,
   AutoArchiveSettings,
   IdleCompactionSettings,
@@ -10,13 +11,17 @@ import { Engine } from "../engine/Engine.ts";
 import { ConnectionBlobs } from "../transport/rpcs.ts";
 import { hostSettings, hostSettingsPath, readGroup } from "./index.ts";
 import { dirname, join } from "node:path";
-import { groups, type Group } from "./registry.ts";
+import { groups, schemaFor, type Group } from "./registry.ts";
 
-const attempt = <A>(key: string, run: () => A) =>
-  Effect.try({
+const attempt = <A>(key: string, run: () => A) => {
+  if (key !== "*" && schemaFor(key) === undefined)
+    return Effect.fail(new NotFound({ what: "host setting", id: key }));
+
+  return Effect.try({
     try: run,
     catch: (cause) => new SettingsError({ key, message: String(cause) }),
   });
+};
 
 /** The production layer supplies Engine so changes re-arm its existing schedules. */
 export const settingsRpcHandlersAt = (path: () => string) =>

@@ -21,7 +21,7 @@ export const followSessionDefaults = (
 ) =>
   sessions.pipe(
     Stream.runForEach((session) =>
-      session === null
+      session === null || !session.capabilities.includes("settings")
         ? Effect.void
         : Effect.gen(function* () {
             yield* migrateSessionDefaults(session.client, legacy);

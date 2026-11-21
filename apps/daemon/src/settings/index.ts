@@ -43,6 +43,21 @@ const persist = (path: string, saved: Saved) => {
   }
 };
 
+const migrateFields = (name: Group, original: Schema.JsonObject) => {
+  const values: Record<string, Schema.Json> = {};
+
+  for (const field of Object.keys(groups[name].schema.fields)) {
+    const key = `${name}.${field}`;
+    const fieldSchema = schemaFor(key)!;
+    const value = Schema.decodeUnknownOption(fieldSchema)(original[field]);
+
+    if (Option.isSome(value))
+      values[key] = Schema.encodeSync(Schema.toCodecJson(fieldSchema))(value.value);
+  }
+
+  return values;
+};
+
 const migrate = (path: string, override?: { group: Group | "traces"; path: string }): Saved => {
   const values: Record<string, Schema.Json> = {};
   const legacy: Record<string, Schema.Json> = {};
@@ -52,27 +67,25 @@ const migrate = (path: string, override?: { group: Group | "traces"; path: strin
 
     if (!existsSync(source)) continue;
 
-    const original = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.JsonObject))(
-      readFileSync(source, "utf8")
-    );
+    const text = readFileSync(source, "utf8");
+    const original = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.JsonObject))(text);
+    legacy[group.file] = Option.isSome(original) ? original.value : text;
 
-    legacy[group.file] = original;
+    if (Option.isNone(original)) continue;
 
-    for (const field of Object.keys(group.schema.fields)) {
-      if (Object.hasOwn(original, field)) values[`${name}.${field}`] = original[field]!;
-    }
+    // SAFETY: name is a key from Object.entries(groups).
+    Object.assign(values, migrateFields(name as Group, original.value));
   }
 
   const traces =
     override?.group === "traces" ? override.path : join(dirname(path), "trace-settings.json");
 
   if (existsSync(traces)) {
-    const original = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.JsonObject))(
-      readFileSync(traces, "utf8")
-    );
+    const text = readFileSync(traces, "utf8");
+    const original = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.JsonObject))(text);
+    legacy["trace-settings.json"] = Option.isSome(original) ? original.value : text;
 
-    values["traces.workspaces"] = original;
-    legacy["trace-settings.json"] = original;
+    if (Option.isSome(original)) values["traces.workspaces"] = original.value;
   }
 
   const saved = { values, legacy };
@@ -221,8 +234,10 @@ export const writeGroup = (
   group: Group,
   value: (typeof groups)[Group]["schema"]["Type"]
 ) => {
+  const decoded = Schema.decodeUnknownSync(groups[group].schema)(value);
+
   const parsed = Schema.decodeUnknownSync(Schema.JsonObject)(
-    Schema.encodeSync(Schema.toCodecJson(groups[group].schema))(value)
+    Schema.encodeSync(Schema.toCodecJson(groups[group].schema))(decoded)
   );
 
   const storePath = storeForLegacy(path);

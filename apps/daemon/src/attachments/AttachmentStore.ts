@@ -1,4 +1,4 @@
-import { readGroup, writeGroup } from "../settings/index.ts";
+import { readGroup, writeGroup, subscribeSettings, storeForLegacy } from "../settings/index.ts";
 /**
  * Staged attachments: bytes a Client sends with a Turn, written on the Host so
  * the Harness can read them by path.
@@ -264,10 +264,17 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
         (file) => Effect.promise(() => file.close())
       );
 
-    const settings = () => readGroup(settingsPath, "attachments");
+    let settings = readGroup(settingsPath, "attachments");
+
+    const stopSettings = subscribeSettings(storeForLegacy(settingsPath), (keys) => {
+      if (keys.some((key) => key.startsWith("attachments.")))
+        settings = readGroup(settingsPath, "attachments");
+    });
+
+    yield* Effect.addFinalizer(() => Effect.sync(stopSettings));
 
     const policyFor = (workspaceId: string): CleanupPolicy =>
-      settings().workspaces[workspaceId] ?? settings().default;
+      settings.workspaces[workspaceId] ?? settings.default;
 
     /** Directory of every staged attachment (`…/<attachment id>`), by owner directory. */
     const attachmentDirs = async (): Promise<Array<string>> => {
@@ -468,7 +475,7 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
     };
 
     const maintenance = AttachmentMaintenance.of({
-      settings: Effect.sync(settings),
+      settings: Effect.sync(() => settings),
       setSettings: (next) =>
         Effect.try({
           try: () => writeGroup(settingsPath, "attachments", next),
@@ -521,10 +528,10 @@ export const makeAttachmentStore = (options: AttachmentStoreOptions = {}) =>
     ) {
       yield* maintenance.clearNow({ workspaceId });
 
-      if (settings().workspaces[workspaceId] === undefined) return;
-      const { [workspaceId]: _removed, ...workspaces } = settings().workspaces;
+      if (settings.workspaces[workspaceId] === undefined) return;
+      const { [workspaceId]: _removed, ...workspaces } = settings.workspaces;
 
-      yield* maintenance.setSettings({ default: settings().default, workspaces });
+      yield* maintenance.setSettings({ default: settings.default, workspaces });
     });
 
     const sweepMs = options.sweepMs ?? 60 * 60 * 1000;

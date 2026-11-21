@@ -11,6 +11,7 @@ export const PROTOCOL_VERSION = 1;
  * older Daemon keeps working until the Desktop App upgrades it.
  */
 export const Capability = Schema.Literals([
+  "settings",
   "constellation",
   "constellation.defaults",
   /** `extensions.pair`, `extensions.list`, `extensions.revoke`, and `extensionToken` in `hello`. */

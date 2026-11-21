@@ -1,4 +1,4 @@
-import { loadSessionDefaults } from "../hostSessionDefaults.ts";
+import { loadSessionDefaults, migrateSessionDefaults } from "../hostSessionDefaults.ts";
 /**
  * The handlers behind `window.polaris.request`: one per method, each taking the
  * decoded input and returning a structured-clone-friendly output. Blobs the
@@ -24,6 +24,7 @@ import type {
   FileContentView,
   IpcError,
   RequestOutput,
+  SessionDefaults,
 } from "../../shared/api.ts";
 import {
   RequestInputs,
@@ -79,6 +80,7 @@ export interface RequestContext {
   /** The price table for Usage estimates. */
   readonly prices: Prices;
   readonly setAppearance: (patch: Partial<Appearance>) => void;
+  readonly publishSessionDefaults?: (hostKey: string, defaults: SessionDefaults) => void;
   readonly setSessions: (patch: SessionPrefsPatch) => void;
   readonly openExternal: (url: string) => Promise<void>;
   /** Holds a Visualization's frame document; the URL serves it once (`frames.ts`). */
@@ -327,10 +329,15 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
     Effect.sync(() => ctx.setAppearance({ density })).pipe(done),
   "settings.setAppearance": ({ patch }) => Effect.sync(() => ctx.setAppearance(patch)).pipe(done),
   "settings.getSessionDefaults": ({ hostKey }) =>
-    onLive(hostKey, (session) => loadSessionDefaults(session.client)),
+    onLive(hostKey, (session) =>
+      migrateSessionDefaults(session.client, ctx.settings().sessionDefaults ?? {}).pipe(
+        Effect.andThen(loadSessionDefaults(session.client))
+      )
+    ),
   "settings.setSessionDefault": ({ hostKey, harness, value }) =>
     onLive(hostKey, (session) =>
       Effect.gen(function* () {
+        yield* migrateSessionDefaults(session.client, ctx.settings().sessionDefaults ?? {});
         const fields = value ?? { model: null, effort: null, permissionMode: "supervised" };
 
         for (const [field, settingValue] of Object.entries(fields)) {
@@ -339,6 +346,8 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
             value: settingValue,
           });
         }
+
+        ctx.publishSessionDefaults?.(hostKey, yield* loadSessionDefaults(session.client));
       })
     ).pipe(done),
   "settings.setSessions": ({ patch }) => Effect.sync(() => ctx.setSessions(patch)).pipe(done),

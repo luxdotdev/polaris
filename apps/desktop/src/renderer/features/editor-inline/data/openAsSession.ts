@@ -11,7 +11,6 @@ import {
   type SessionId,
 } from "@polaris/protocol";
 import { Commands, newSessionId, Placement } from "../../../commands.ts";
-import { settingsStore } from "../../settings/index.ts";
 import { polaris } from "../../bridge.ts";
 import { send } from "../../session/dispatch.ts";
 import { rangeLabel } from "../model/patch.ts";
@@ -37,18 +36,21 @@ export const openAsSession = async (
   const sessionId = newSessionId();
   const { from, to } = request.selection;
 
-  const staged = await polaris().request("attachments.stage", {
-    hostKey,
-    sessionId: null,
-    workspaceId: request.workspaceId,
-    name: sourceName(request),
-    mimeType: "text/plain",
-    bytes: new TextEncoder().encode(request.content.slice(from, to)),
-  });
+  const [staged, defaults] = await Promise.all([
+    polaris().request("attachments.stage", {
+      hostKey,
+      sessionId: null,
+      workspaceId: request.workspaceId,
+      name: sourceName(request),
+      mimeType: "text/plain",
+      bytes: new TextEncoder().encode(request.content.slice(from, to)),
+    }),
+    polaris().request("settings.getSessionDefaults", { hostKey }),
+  ]);
 
-  const permissionMode: PermissionMode =
-    settingsStore.getState().sessionDefaults[hostKey]?.[request.harness]?.permissionMode ??
-    "supervised";
+  const permissionMode: PermissionMode = defaults.ok
+    ? (defaults.value[request.harness]?.permissionMode ?? "supervised")
+    : "supervised";
 
   const started = await send(
     hostKey,

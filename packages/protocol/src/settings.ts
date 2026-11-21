@@ -1,6 +1,9 @@
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
+import { HarnessKind } from "./harnesses.ts";
 import { PermissionMode } from "./domain.ts";
+import { CommandAnnotation } from "./commandAnnotations.ts";
+import { NotFound, Unsupported } from "./errors.ts";
 
 /** Annotate a setting at its Schema, the source for validation and discovery. */
 export const setting = <S extends Schema.Top>(
@@ -26,18 +29,27 @@ export const SettingValue = Schema.Struct({
 
 export type SettingValue = typeof SettingValue.Type;
 
-/** Fails discovery and the registry check if a setting has no description or default. */
-export const describeSetting = (key: string, schema: Schema.Top): SettingDescription => {
+const descriptions = new WeakMap<Schema.Top, Omit<SettingDescription, "key">>();
+
+/** Fails discovery and the registry check if a setting has no description or valid default. */
+export const describeSetting = (key: string, schema: Schema.Codec<unknown>): SettingDescription => {
+  const cached = descriptions.get(schema);
+
+  if (cached !== undefined) return { key, ...cached };
   const annotations = Schema.resolveAnnotations(schema);
   const description = Schema.decodeUnknownSync(Schema.NonEmptyString)(annotations?.description);
-  const defaultValue = Schema.decodeUnknownSync(Schema.Json)(annotations?.default);
+  const decoded = Schema.decodeUnknownSync(schema)(annotations?.default);
+  const defaultValue = Schema.encodeSync(Schema.toCodecJson(schema))(decoded);
 
-  return {
-    key,
+  const metadata = {
     description,
     type: Schema.decodeUnknownSync(Schema.Json)(Schema.toJsonSchemaDocument(schema)),
     default: defaultValue,
   };
+
+  descriptions.set(schema, metadata);
+
+  return { key, ...metadata };
 };
 
 export const HostSessionDefault = Schema.Struct({
@@ -46,7 +58,7 @@ export const HostSessionDefault = Schema.Struct({
   permissionMode: PermissionMode,
 });
 
-export const HostSessionDefaults = Schema.Record(Schema.String, HostSessionDefault);
+export const HostSessionDefaults = Schema.Record(HarnessKind, HostSessionDefault);
 
 export type HostSessionDefaults = typeof HostSessionDefaults.Type;
 
@@ -55,23 +67,45 @@ export class SettingsError extends Schema.TaggedError<SettingsError>()("Settings
   message: Schema.String,
 }) {}
 
-// TODO(S3): annotate these RPCs as commands once Task A's annotation is integrated.
 export const SettingsRpcs = RpcGroup.make(
   Rpc.make("settings.list", {
     payload: {},
     success: Schema.Array(SettingValue),
-    error: SettingsError,
-  }),
+    error: Schema.Union([SettingsError, NotFound, Unsupported]),
+  }).annotate(CommandAnnotation, [
+    {
+      name: "settings.list",
+      description: "List the settings on this host.",
+      grant: "read",
+      examples: ["polaris settings list --json"],
+    },
+  ]),
   Rpc.make("settings.describe", {
     payload: { key: Schema.String },
     success: SettingDescription,
-    error: SettingsError,
-  }),
+    error: Schema.Union([SettingsError, NotFound, Unsupported]),
+  }).annotate(CommandAnnotation, [
+    {
+      name: "settings.describe",
+      description: "Describe a setting on this host.",
+      grant: "read",
+      examples: ["polaris settings describe visuals.level"],
+      positional: ["key"],
+    },
+  ]),
   Rpc.make("settings.get", {
     payload: { key: Schema.String },
     success: SettingValue,
-    error: SettingsError,
-  }),
+    error: Schema.Union([SettingsError, NotFound, Unsupported]),
+  }).annotate(CommandAnnotation, [
+    {
+      name: "settings.get",
+      description: "Read a setting on this host.",
+      grant: "read",
+      examples: ["polaris settings get visuals.level"],
+      positional: ["key"],
+    },
+  ]),
   Rpc.make("settings.set", {
     payload: {
       key: Schema.String,
@@ -79,6 +113,14 @@ export const SettingsRpcs = RpcGroup.make(
       ifUnset: Schema.optionalKey(Schema.Boolean),
     },
     success: SettingValue,
-    error: SettingsError,
-  })
+    error: Schema.Union([SettingsError, NotFound, Unsupported]),
+  }).annotate(CommandAnnotation, [
+    {
+      name: "settings.set",
+      description: "Change a setting on this host.",
+      grant: "client",
+      examples: ['polaris settings set visuals.level "off"'],
+      positional: ["key", "value"],
+    },
+  ])
 );

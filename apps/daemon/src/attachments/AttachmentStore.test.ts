@@ -1,3 +1,4 @@
+import { hostSettings } from "../settings/index.ts";
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, sep } from "node:path";
@@ -366,3 +367,21 @@ const sweepEffect = () =>
   Effect.gen(function* () {
     return yield* (yield* AttachmentMaintenance).sweep;
   });
+
+test("generic Host Settings changes reach attachment cleanup without reopening the store", async () => {
+  const { home, run } = setup();
+  await run(
+    Effect.gen(function* () {
+      const store = yield* AttachmentStore;
+      const attachment = yield* stage(s1, ws, "keep.txt");
+      hostSettings(join(home, "host-settings.json")).set("attachments.default", { kind: "never" });
+      yield* store.onSessionArchived(s1);
+      expect(existsSync(attachment.hostPath)).toBe(true);
+      hostSettings(join(home, "host-settings.json")).set("attachments.default", {
+        kind: "on-archive",
+      });
+      yield* store.onSessionArchived(s1);
+      expect(existsSync(attachment.hostPath)).toBe(false);
+    })
+  );
+});

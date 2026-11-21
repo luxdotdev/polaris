@@ -156,3 +156,19 @@ test("settings RPCs list, describe, validate and persist through the real handle
     )
   );
 });
+
+test("malformed legacy files and invalid fields keep their original bytes without blocking other settings", () => {
+  const { root, store, path } = fixture();
+  writeFileSync(join(root, "reviewer-settings.json"), "{broken-json");
+  writeFileSync(join(root, "visuals-settings.json"), '{"level":"loud","future":7}');
+  writeFileSync(join(root, "attachment-settings.json"), '{"default":{"kind":"never"}}');
+  expect(store.get("visuals.level").value).toBe("rich");
+  expect(store.get("attachments.default").value).toEqual({ kind: "never" });
+
+  const saved = Schema.decodeUnknownSync(
+    Schema.fromJsonString(Schema.Struct({ legacy: Schema.JsonObject }))
+  )(readFileSync(path, "utf8"));
+
+  expect(saved.legacy["reviewer-settings.json"]).toBe("{broken-json");
+  expect(saved.legacy["visuals-settings.json"]).toEqual({ level: "loud", future: 7 });
+});

@@ -141,15 +141,26 @@ export class TraceSettings extends Context.Service<
         const generations = new Map<WorkspaceId, number>();
         const listeners = new Set<(id: WorkspaceId) => void>();
 
-        const load = () => (filename === null ? memory : decodeSaved(readTraces(filename)));
+        let lastSaved: typeof SavedSettings.Type = {};
+
+        const load = () => {
+          lastSaved = filename === null ? memory : decodeSaved(readTraces(filename));
+
+          return lastSaved;
+        };
 
         if (filename !== null) {
           const stop = subscribeSettings(storeForLegacy(filename), (keys) => {
             if (!keys.includes("traces.workspaces")) return;
 
+            const previous = lastSaved;
+            const next = load();
+
             const ids = new Set([
               ...generations.keys(),
-              ...Object.keys(load()).map((id) => WorkspaceId.make(id)),
+              ...latest.keys(),
+              ...Object.keys(previous).map((id) => WorkspaceId.make(id)),
+              ...Object.keys(next).map((id) => WorkspaceId.make(id)),
             ]);
 
             for (const id of ids) {
@@ -345,11 +356,13 @@ export class TraceSettings extends Context.Service<
                 const next = { ...load(), [id]: { ...load()[id], ...update } };
 
                 if (filename !== null) writeTraces(filename, next);
-                else memory = next;
-                generations.set(id, (generations.get(id) ?? 0) + 1);
+                else {
+                  memory = next;
+                  generations.set(id, (generations.get(id) ?? 0) + 1);
 
-                if (update.forwarding === false || update.forwardTo !== undefined)
-                  for (const listener of listeners) listener(id);
+                  if (update.forwarding === false || update.forwardTo !== undefined)
+                    for (const listener of listeners) listener(id);
+                }
 
                 return view(id, detection);
               },

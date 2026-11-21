@@ -38,7 +38,7 @@ import {
   shell,
 } from "electron";
 import type { UserPresence } from "@polaris/protocol";
-import { type AppEvent, type Appearance, CHANNELS } from "../shared/api.ts";
+import { type AppEvent, type Appearance, type SessionDefaults, CHANNELS } from "../shared/api.ts";
 import {
   clientIdentity,
   HostDirectory,
@@ -317,6 +317,12 @@ const start = async () => {
     applyAppearance();
   };
 
+  const publishSessionDefaults = (hostKey: string, sessionDefaults: SessionDefaults) => {
+    const event: AppEvent = { kind: "session-defaults", hostKey, sessionDefaults };
+
+    for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
+  };
+
   const setSessions = (patch: SessionPrefsPatch) => {
     const { newWorktree: _legacy, ...rest } = settings;
 
@@ -490,12 +496,9 @@ const start = async () => {
       presence: SubscriptionRef.changes(presence),
       developerModeLease: dev,
       sessionDefaultsHost: (hostKey, sessions) =>
-        followSessionDefaults(sessions, settings.sessionDefaults ?? {}, (sessionDefaults) => {
-          const event: AppEvent = { kind: "session-defaults", hostKey, sessionDefaults };
-
-          for (const win of BrowserWindow.getAllWindows())
-            win.webContents.send(CHANNELS.app, event);
-        }),
+        followSessionDefaults(sessions, settings.sessionDefaults ?? {}, (defaults) =>
+          publishSessionDefaults(hostKey, defaults)
+        ),
       entries: hostEntries({
         local: localDaemon,
         remotes: settings.hosts ?? [],
@@ -633,6 +636,7 @@ const start = async () => {
       cache,
       prices: openPrices(app.getPath("userData")),
       setAppearance,
+      publishSessionDefaults,
       setSessions,
       openExternal: (url) => shell.openExternal(url),
       serveFrame: (document) => frames.serve(document),
