@@ -144,8 +144,10 @@ export const registry: ReadonlyMap<string, Schema.Codec<unknown>> = new Map([
   [
     "sessions.defaults",
     setting(HostSessionDefaults, {
-      description: "Defaults for new agent sessions on this host, by harness.",
+      description:
+        "Defaults for new agent sessions on this host, by harness; agents change one field at a time.",
       default: {},
+      userOnly: true,
     }),
   ],
 ]);
@@ -160,8 +162,9 @@ const sessionFields = {
     default: null,
   }),
   permissionMode: setting(HostSessionDefault.fields.permissionMode, {
-    description: "Permission mode new agent sessions start with.",
+    description: "Permission mode new agent sessions start with; only the user can change it.",
     default: "supervised",
+    userOnly: true,
   }),
 };
 

@@ -221,16 +221,71 @@ test("a remembered settings Grant cannot change authority or provide secrets", (
       yield* Fiber.join(first);
       yield* engine.authorizeSessionAction(root, {
         rpc: "settings.set",
-        settingKey: "sessions.defaults",
+        settingKey: "sessions.defaults.codex.model",
       });
 
       for (const action of [
         { rpc: "settings.set", settingKey: "sessions.startLimit" },
+        { rpc: "settings.set", settingKey: "sessions.defaults" },
+        { rpc: "settings.set", settingKey: "sessions.defaults.codex.permissionMode" },
         { rpc: "secret.provide" },
       ]) {
         const result = yield* Effect.result(engine.authorizeSessionAction(root, action));
         expect(Result.isFailure(result) && result.failure.message).toContain("Only the user");
       }
+    })
+  ));
+
+test("no Grant lets a session raise a permission mode or change sessions outside its chain", () =>
+  run(
+    Effect.gen(function* () {
+      const { engine, store, start, allow } = yield* setup;
+      const other = SessionId.make("other");
+      yield* start(other);
+
+      const first = yield* Effect.forkChild(
+        engine.authorizeSessionAction(root, {
+          rpc: "dispatch",
+          command: Command.cases.SetModel.make({ sessionId: root, model: null, effort: null }),
+        })
+      );
+
+      yield* allow(root, true);
+      yield* Fiber.join(first);
+      const workspaceId = (yield* store.model).sessions.get(root)!.session.workspaceId;
+
+      const refused = [
+        Command.cases.SetPermissionMode.make({ sessionId: root, permissionMode: "full-access" }),
+        Command.cases.SetPermissionMode.make({ sessionId: other, permissionMode: "plan" }),
+        Command.cases.SetModel.make({ sessionId: other, model: null, effort: null }),
+        Command.cases.StartSession.make({
+          sessionId: SessionId.make("escalated"),
+          workspaceId,
+          harness: "codex",
+          placement: SessionPlacement.cases.InPlace.make({}),
+          permissionMode: "auto",
+          model: null,
+          effort: null,
+          prompt: "Work",
+          attachments: [],
+        }),
+      ];
+
+      for (const command of refused) {
+        const result = yield* Effect.result(
+          engine.authorizeSessionAction(root, { rpc: "dispatch", command })
+        );
+
+        expect(Result.isFailure(result) && result.failure.message).toMatch(
+          /only the user can give|only itself and the sessions in its Starter chain/
+        );
+      }
+
+      expect((yield* store.model).sessions.get(root)!.pending.size).toBe(0);
+      yield* engine.authorizeSessionAction(root, {
+        rpc: "dispatch",
+        command: Command.cases.SetPermissionMode.make({ sessionId: root, permissionMode: "plan" }),
+      });
     })
   ));
 

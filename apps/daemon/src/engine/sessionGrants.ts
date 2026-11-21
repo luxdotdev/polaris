@@ -17,6 +17,7 @@ import {
   startLimitRefusal,
   sessionActionAllowed,
   sessionActionGrant,
+  sessionActionRefusal,
   type SessionAction,
 } from "./sessionGrantPolicy.ts";
 
@@ -56,6 +57,9 @@ export class SessionGrants extends Context.Service<
         if (sessionActionAllowed(model, sessionId, input)) return;
         const needed = sessionActionGrant(input);
         const what = input.rpc === "dispatch" ? `dispatch:${input.command?._tag ?? ""}` : input.rpc;
+        const refusal = sessionActionRefusal(model, sessionId, input);
+
+        if (refusal !== null) return yield* denied(what, refusal);
 
         if (needed !== "start" && needed !== "turn" && needed !== "settings")
           return yield* denied(

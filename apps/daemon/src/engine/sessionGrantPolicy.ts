@@ -4,6 +4,7 @@ import {
   type Command,
   type DomainEvent,
   type GrantKind,
+  PermissionMode,
   type SessionId,
   type Starter,
   type SessionState,
@@ -25,6 +26,28 @@ const SETTINGS_RPCS = new Set([
   "traces.setSettings",
 ]);
 
+const SETTING_GROUPS = [
+  "reviewer",
+  "constellation",
+  "attachments",
+  "visuals",
+  "sessions.autoArchive",
+  "sessions.idleCompaction",
+  "sessions.suggestedReplies",
+  "sessions.defaults",
+  "traces",
+];
+
+const hostSettingGrant = (settingKey: string | undefined): GrantKind | "client" => {
+  if (settingKey === undefined || settingKey === "sessions.defaults") return "client";
+
+  if (settingKey.endsWith(".permissionMode")) return "client";
+
+  return SETTING_GROUPS.some((key) => settingKey === key || settingKey.startsWith(`${key}.`))
+    ? "settings"
+    : "client";
+};
+
 export interface SessionAction {
   readonly rpc: string;
   readonly command?: Command;
@@ -36,24 +59,7 @@ export const sessionActionGrant = ({
   command,
   settingKey,
 }: SessionAction): GrantKind | "open" | "client" => {
-  if (rpc === "settings.set") {
-    const groups = [
-      "reviewer",
-      "constellation",
-      "attachments",
-      "visuals",
-      "sessions.autoArchive",
-      "sessions.idleCompaction",
-      "sessions.suggestedReplies",
-      "sessions.defaults",
-      "traces",
-    ];
-
-    return settingKey !== undefined &&
-      groups.some((key) => settingKey === key || settingKey.startsWith(`${key}.`))
-      ? "settings"
-      : "client";
-  }
+  if (rpc === "settings.set") return hostSettingGrant(settingKey);
 
   if (rpc === "clientSettings.set") return "settings";
 
@@ -92,7 +98,45 @@ export const starterChain = (model: ReadModel, sessionId: SessionId): ReadonlySe
 export const inStarterChain = (model: ReadModel, caller: SessionId, target: SessionId) =>
   starterChain(model, target).has(caller) || starterChain(model, caller).has(target);
 
+const modeRank = (mode: PermissionMode) => PermissionMode.literals.indexOf(mode);
+
+const targetOf = ({ command }: SessionAction) =>
+  command !== undefined && "sessionId" in command ? command.sessionId : null;
+
+/** Refusals no Grant Approval can lift: a session never raises a permission mode past its own. */
+export const sessionActionRefusal = (
+  model: ReadModel,
+  caller: SessionId,
+  input: SessionAction
+): string | null => {
+  const { command } = input;
+  const own = model.sessions.get(caller)?.session.permissionMode;
+
+  if (input.rpc !== "dispatch" || command === undefined || own === undefined) return null;
+
+  const mode =
+    Predicate.isTagged(command, "StartSession") || Predicate.isTagged(command, "SetPermissionMode")
+      ? command.permissionMode
+      : null;
+
+  if (mode !== null && modeRank(mode) > modeRank(own))
+    return `This session runs in ${own}; only the user can give a session ${mode}.`;
+
+  const target = targetOf(input);
+
+  if (
+    SETTINGS_COMMANDS.has(command._tag) &&
+    target !== null &&
+    target !== caller &&
+    !inStarterChain(model, caller, target)
+  )
+    return "A session can change only itself and the sessions in its Starter chain.";
+
+  return null;
+};
+
 export const sessionActionAllowed = (model: ReadModel, caller: SessionId, input: SessionAction) => {
+  if (sessionActionRefusal(model, caller, input) !== null) return false;
   const needed = sessionActionGrant(input);
 
   if (needed === "open") return true;
@@ -102,10 +146,16 @@ export const sessionActionAllowed = (model: ReadModel, caller: SessionId, input:
 
   if (record === undefined) return false;
 
-  const target =
-    input.command !== undefined && "sessionId" in input.command ? input.command.sessionId : null;
+  const target = targetOf(input);
 
   if (needed === "turn" && (target === null || !inStarterChain(model, caller, target)))
+    return false;
+
+  // A remembered Grant covers starts in the caller's own Workspace; another Workspace asks.
+  if (
+    Predicate.isTagged(input.command, "StartSession") &&
+    input.command.workspaceId !== record.session.workspaceId
+  )
     return false;
   const workspace = model.workspaces.get(record.session.workspaceId);
 
