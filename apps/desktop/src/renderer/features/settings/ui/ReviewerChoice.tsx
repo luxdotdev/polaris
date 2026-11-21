@@ -128,12 +128,25 @@ export const ModelChips = ({
   );
 };
 
+/** The Harness choices: all of them, or `only` those and the one already saved. */
+export const harnessOptions = (
+  allowAuto: boolean,
+  only: ReadonlyArray<string> | undefined,
+  saved: string | null
+): ReadonlyArray<Option> => [
+  ...(allowAuto ? [{ value: AUTO, label: "Automatic" }] : []),
+  ...HARNESS_CATALOGUE.filter(
+    (h) => only === undefined || only.includes(h.kind) || h.kind === saved
+  ).map((h) => ({ value: h.kind, label: h.name })),
+];
+
 export const ReviewerChoice = ({
   value,
   onChange,
   modelHost,
   allowAuto,
   modelOnly = false,
+  only,
 }: {
   /** Null: automatic. */
   readonly value: Choice | null;
@@ -143,11 +156,10 @@ export const ReviewerChoice = ({
   readonly allowAuto: boolean;
   /** Harness and Model only, no Default or Effort (Settings → Editor's commit messages). */
   readonly modelOnly?: boolean;
+  /** The Harnesses offered; absent offers every one. */
+  readonly only?: ReadonlyArray<string>;
 }) => {
-  const harnesses: ReadonlyArray<Option> = [
-    ...(allowAuto ? [{ value: AUTO, label: "Automatic" }] : []),
-    ...HARNESS_CATALOGUE.map((h) => ({ value: h.kind, label: h.name })),
-  ];
+  const harnesses = harnessOptions(allowAuto, only, value?.harness ?? null);
 
   return (
     <div className="flex flex-wrap items-center gap-3">

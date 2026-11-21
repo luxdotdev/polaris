@@ -5,12 +5,13 @@
 import {
   type Attempt,
   AttemptCause,
+  type CheckReceipt,
   ConstellationEvent,
   inspecting,
   NotificationItem,
   SessionId,
 } from "@polaris/protocol";
-import type { GraphCommand } from "../../engine/constellation.inputs.ts";
+import type { GraphCommand, RecordedCheck } from "../../engine/constellation.inputs.ts";
 import { currentAttempt, evidence, startAttempt } from "../attempts.ts";
 import type { GraphDecision } from "../decision.ts";
 
@@ -167,6 +168,31 @@ const sendBack = (d: GraphDecision, attempt: Attempt, command: GraphCommand<"Ins
     d.notify(NotificationItem.cases.Settled.make({ attemptId: attempt.id, state: "rejected" }));
 };
 
+/** A Claim's receipts against what this Host recorded: its evidence tier, or why they fail. */
+const weigh = (
+  recordedChecks: ReadonlyArray<RecordedCheck>,
+  receipts: ReadonlyArray<CheckReceipt>
+) => {
+  const scratch: Array<string> = [];
+
+  const tier = evidence(
+    { ctx: { recordedChecks }, reject: (_code, message) => void scratch.push(message) },
+    receipts
+  );
+
+  return scratch.length > 0 ? ({ refusal: scratch.join("; ") } as const) : ({ tier } as const);
+};
+
+/** Why a Claim's receipts would refuse an Accept, or null; a verdict checks before it merges. */
+export const unevidenced = (
+  recordedChecks: ReadonlyArray<RecordedCheck>,
+  receipts: ReadonlyArray<CheckReceipt>
+) => {
+  const weighed = weigh(recordedChecks, receipts);
+
+  return "refusal" in weighed ? weighed.refusal : null;
+};
+
 /** A granted Accept that merged and whose receipts resolve; anything else goes to the Lead. */
 const grantedAccept = (d: GraphDecision, attempt: Attempt) => {
   const merge = d.ctx.inspectorMerge;
@@ -176,17 +202,7 @@ const grantedAccept = (d: GraphDecision, attempt: Attempt) => {
 
   if (merge.refusal !== null) return { refusal: merge.refusal } as const;
 
-  const scratch: Array<string> = [];
-
-  const tier = evidence(
-    {
-      ctx: d.ctx,
-      reject: (_code, message) => void scratch.push(message),
-    },
-    attempt.claim?.receipts ?? []
-  );
-
-  return scratch.length > 0 ? ({ refusal: scratch.join("; ") } as const) : ({ tier } as const);
+  return weigh(d.ctx.recordedChecks, attempt.claim?.receipts ?? []);
 };
 
 /** An Inspector's verdict: recorded, then routed to the Lead, to Accept or to a SendBack. */

@@ -3,6 +3,7 @@
  * is told. A verdict reuses the review path: a SendBack's worker, or an Accept's merge.
  */
 import {
+  type CheckReceipt,
   type CommandId,
   ConstellationCommand,
   ConstellationRejected,
@@ -13,9 +14,14 @@ import {
   WorkerPlacement,
 } from "@polaris/protocol";
 import { Effect } from "effect";
-import type { ConstellationBinding, GraphCommand } from "../../engine/constellation.inputs.ts";
+import type {
+  ConstellationBinding,
+  GraphCommand,
+  RecordedCheck,
+} from "../../engine/constellation.inputs.ts";
 import type { ReadModel } from "../../store/model.ts";
 import type { ConstellationPreparation, ConstellationRuntimeService } from "../runtime.ts";
+import { unevidenced } from "./decide.ts";
 
 export type VerdictPreparation = ConstellationPreparation & {
   readonly inspectorMerge?: { readonly refusal: string | null };
@@ -28,16 +34,30 @@ const nothing: VerdictPreparation = {
   recordedChecks: [],
 };
 
+/** The items this Host recorded for a Claim's Verified receipts. */
+export type ClaimChecks = (
+  receipts: ReadonlyArray<CheckReceipt>
+) => Effect.Effect<ReadonlyArray<RecordedCheck>, ConstellationRejected>;
+
 /**
  * Prepare as the Lead's own review would: the same worker for a send-back, the same merge for a
  * granted approval. A merge the Daemon refuses is carried to the decider, never raised.
+ * The caller holds the Constellation's fence: `model` is current until its commit.
  */
 export const prepareVerdict = Effect.fnUntraced(function* (
   runtime: ConstellationRuntimeService,
-  binding: ConstellationBinding,
-  input: GraphCommand<"Inspect">,
-  model: ReadModel,
-  commandId: CommandId
+  checks: ClaimChecks,
+  {
+    binding,
+    input,
+    model,
+    commandId,
+  }: {
+    readonly binding: ConstellationBinding;
+    readonly input: GraphCommand<"Inspect">;
+    readonly model: ReadModel;
+    readonly commandId: CommandId;
+  }
 ): Effect.fn.Return<VerdictPreparation, ConstellationRejected> {
   const attempt = model.constellations
     .get(input.constellationId)
@@ -83,6 +103,11 @@ export const prepareVerdict = Effect.fnUntraced(function* (
         );
 
   if (!inspection.accept) return nothing;
+
+  // Evidence first: receipts that don't resolve leave the lead branch as it is.
+  const unproven = unevidenced(yield* checks(claim.receipts), claim.receipts);
+
+  if (unproven !== null) return { ...nothing, inspectorMerge: { refusal: unproven } };
 
   return yield* review(
     ReviewAction.cases.Accept.make({ mergedHead: claim.head, receipts: [] })

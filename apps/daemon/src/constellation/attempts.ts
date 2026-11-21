@@ -218,7 +218,10 @@ export const dispatch = (d: GraphDecision, command: GraphCommand<"Dispatch">) =>
  * reference rejects acceptance. A `ToolCall` never verifies: its output is the tool's own (ENG-344).
  */
 export const evidence = (
-  d: Pick<GraphDecision, "ctx" | "reject">,
+  d: {
+    readonly ctx: Pick<GraphDecision["ctx"], "recordedChecks">;
+    readonly reject: GraphDecision["reject"];
+  },
   receipts: ReadonlyArray<CheckReceipt>
 ) => {
   let verified = false;

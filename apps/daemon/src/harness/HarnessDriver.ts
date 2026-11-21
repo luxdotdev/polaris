@@ -276,6 +276,8 @@ export interface HarnessDriver {
     readonly switchModel: boolean;
     /** The driver attaches the Constellation MCP and instructions (`OpenOptions.constellations`). */
     readonly constellations?: boolean;
+    /** A read-only session keeps an Inspector's verdict server and nothing else (ADR 0119). */
+    readonly inspector?: boolean;
     /** The Harness can stop its background tasks (`StopBackgroundTasks`). */
     readonly stopBackground?: boolean;
     /** The Harness can move a running command into the background (`BackgroundCommand`). */

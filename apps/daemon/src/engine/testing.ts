@@ -87,6 +87,8 @@ export const makeFakeDriver = (
     /** Compacts on a `/compact` Turn (`CompactSession`), like Claude and Codex. */
     readonly compact?: boolean;
     readonly constellations?: boolean;
+    /** Holds an Inspector read-only (default: Codex and Claude, as the real drivers declare). */
+    readonly inspector?: boolean;
     /** Events emitted in reply to each Turn; default is none (the test drives it). */
     readonly onTurn?: (
       input: TurnInput,
@@ -138,6 +140,7 @@ export const makeFakeDriver = (
       compact: options.compact ?? false,
       // As the real drivers declare: Codex and Claude attach Constellations.
       constellations: options.constellations ?? (kind === "codex" || kind === "claude"),
+      inspector: options.inspector ?? (kind === "codex" || kind === "claude"),
     },
     probe: Effect.succeed({ available: true, version: "fake", detail: null }),
     open: (openOptions) =>

@@ -12,7 +12,6 @@ import {
   type Attachment,
   type PermissionMode,
   RequestId,
-  SECRET_REQUEST_MAX_TIMEOUT_MS,
   TurnId,
   TurnItem,
 } from "@polaris/protocol";
@@ -64,8 +63,8 @@ import { CodexSubagents, type RequestScope } from "./subagents.ts";
 import { requestCompat } from "./compat.ts";
 import { collaborationFor, setCollaboration } from "./collaboration.ts";
 import { threadSandboxing } from "./confinement.ts";
-import { polarisInstructions } from "../../constellation/skills/preamble.ts";
-import type { ConstellationAttachment } from "../constellation/attachment.ts";
+import { polarisInstructions, sessionAttachments } from "../../constellation/skills/preamble.ts";
+import { besideUserServers, insideProfile, polarisServers } from "./polarisServers.ts";
 import { type HarnessCall, harnessCallOf } from "./slash.ts";
 import { logStart } from "../startLog.ts";
 import { sessionTraceEnvironment } from "../../traces/environment.ts";
@@ -91,9 +90,6 @@ type PendingRequest = Data.TaggedEnum<{
 
 const PendingRequest = Data.taggedEnum<PendingRequest>();
 
-/** Above Codex's 60 s default, so a Secret Request can wait its full hour (ADR 0089). */
-export const POLARIS_TOOL_TIMEOUT_SECONDS = SECRET_REQUEST_MAX_TIMEOUT_MS / 1000 + 60;
-
 const isRpc = PendingRequest.$is("Rpc");
 
 /** Hoisted: the taggedEnum accessor builds a new constructor on every property read. */
@@ -103,15 +99,6 @@ const decode = <S extends Schema.Decoder<unknown>>(schema: S) => {
   const decodeOption = Schema.decodeUnknownOption(schema);
 
   return (input: P.RpcPayload): S["Type"] | null => Option.getOrNull(decodeOption(input));
-};
-
-/** A Polaris MCP server's config; `visualize` runs unasked under every policy, plan included. */
-const polarisServer = (attachment: ConstellationAttachment) => {
-  const server = { url: attachment.url, tool_timeout_sec: POLARIS_TOOL_TIMEOUT_SECONDS };
-
-  return attachment.tools.some((t) => t.name === "visualize")
-    ? { ...server, tools: { visualize: { approval_mode: "approve" } } }
-    : server;
 };
 
 const decodeInitialize = decode(P.InitializeResponse);
@@ -216,20 +203,15 @@ export const openSession = (
       ...sandboxing.mode,
     };
 
-    const attachments =
-      options.constellations ??
-      (options.constellation === undefined ? [] : [options.constellation]);
+    // Read-only, only an Inspector's verdict server is left in this list.
+    const attachments = sessionAttachments(options);
 
-    if (attachments.length > 0 && options.readOnly !== true) {
-      if (attachments.some((a) => a.sessionId !== options.sessionId))
-        return yield* codexError("Constellation attachment belongs to another session");
-      common.config = Object.fromEntries(
-        attachments.map((a, index) => [
-          `mcp_servers.polaris${index === 0 ? "" : `_${index}`}`,
-          polarisServer(a),
-        ])
-      );
-    }
+    if (attachments.some((a) => a.sessionId !== options.sessionId))
+      return yield* codexError("Constellation attachment belongs to another session");
+
+    const polaris = polarisServers(attachments);
+
+    if (polaris.length > 0 && options.readOnly !== true) common.config = besideUserServers(polaris);
 
     const servers = yield* codexToolServers(config, options);
 
@@ -244,7 +226,8 @@ export const openSession = (
         "shell_environment_policy.set": { ...options.environment, ...traceEnv },
       };
 
-    const extra = { ...servers, ...sandboxing.config };
+    const confined = sandboxing.config === null ? null : insideProfile(sandboxing.config, polaris);
+    const extra = { ...servers, ...confined };
 
     if (Object.keys(extra).length > 0) common.config = { ...common.config, ...extra };
 

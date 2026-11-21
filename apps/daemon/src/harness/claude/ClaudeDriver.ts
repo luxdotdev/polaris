@@ -46,7 +46,7 @@ import {
   Stream,
 } from "effect";
 import { paths } from "../../paths.ts";
-import { polarisInstructions } from "../../constellation/skills/preamble.ts";
+import { polarisInstructions, sessionAttachments } from "../../constellation/skills/preamble.ts";
 import {
   type HarnessDriver,
   HarnessError,
@@ -374,19 +374,20 @@ const openSession = Effect.fnUntraced(function* (
     }),
   };
 
-  const attachments =
-    options.constellations ?? (options.constellation === undefined ? [] : [options.constellation]);
+  // Read-only, only an Inspector's verdict server is left in this list.
+  const attachments = sessionAttachments(options);
 
-  if (attachments.length > 0 && options.readOnly !== true) {
-    if (attachments.some((a) => a.sessionId !== options.sessionId))
-      return yield* harnessError("Constellation attachment belongs to another session");
+  if (attachments.some((a) => a.sessionId !== options.sessionId))
+    return yield* harnessError("Constellation attachment belongs to another session");
 
-    const { claudeConstellationOptions } = yield* Effect.promise(
-      () => import("./constellation.ts")
-    );
+  const polaris =
+    attachments.length === 0
+      ? null
+      : (yield* Effect.promise(() => import("./constellation.ts"))).claudeConstellationOptions(
+          attachments
+        );
 
-    Object.assign(sdkOptions, claudeConstellationOptions(attachments));
-  }
+  if (polaris !== null && options.readOnly !== true) Object.assign(sdkOptions, polaris);
 
   Object.assign(sdkOptions, yield* claudeToolServers(driver, options, sdkOptions));
 
@@ -397,7 +398,7 @@ const openSession = Effect.fnUntraced(function* (
     });
 
     const env = readOnlyEnv(sdkOptions.env ?? {}, confinement);
-    Object.assign(sdkOptions, readOnlyOptions(sandbox(), confinement, env));
+    Object.assign(sdkOptions, readOnlyOptions(sandbox(), confinement, env, polaris ?? undefined));
     // Claude Code runs where the confinement was checked: the checkout's real path, its env.
     sdkOptions.cwd = confinement.root;
     sdkOptions.env = env;

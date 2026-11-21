@@ -35,5 +35,14 @@ Inspector Accept for that Task.
 - Anything that should appear in a Logbook must be a Constellation event first.
 - Inspectors are sessions the Constellation owns, like Workers. They hold no Attempt and never
   see the worker's transcript.
+- An Inspector reads text a worker wrote (the Claim, the diff, the checkout), so its Harness
+  opens under the Reviewer's read-only confinement (ADR 0042, ADR 0055) with one addition: the
+  verdict server. A Harness whose driver can't hold that (`capabilities.inspector`) doesn't
+  start one, and the Claim goes to the Lead with the reason. Its approval requests are denied,
+  never asked: nobody watches a hidden session.
+- A verdict's merge is a side effect outside the event log, so a verdict and whatever could end
+  its Inspection (a review, a newer Claim, a plan or state change, a lost Inspector) run one at
+  a time per Constellation. The verdict checks that it is current, weighs the Claim's receipts
+  and merges inside that step.
 - Board's claim fencing (epoch and token) isn't needed: per-Attempt MCP tokens and the
   decider's current-Attempt check already refuse stale writes.

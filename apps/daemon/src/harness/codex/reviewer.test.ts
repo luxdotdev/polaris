@@ -1,7 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
-import { ApprovalDecision, TurnId } from "@polaris/protocol";
+import { ApprovalDecision, SessionId, TurnId } from "@polaris/protocol";
 import { Effect } from "effect";
+import { polarisInstructions } from "../../constellation/skills/preamble.ts";
 import { makeCodexDriver } from "./CodexDriver.ts";
+import { POLARIS_TOOL_TIMEOUT_SECONDS } from "./polarisServers.ts";
 import { PROFILE_MIN_VERSION, REVIEWER_PROFILE } from "./confinement.ts";
 import type { Handler } from "./testing/FakeAppServer.ts";
 import { cleanup, ofTag, scripted, sessionWith, THREAD, turn } from "./testing/session.ts";
@@ -56,6 +58,58 @@ posixTest(
     });
     expect(params).not.toHaveProperty("sandbox");
     expect(server.requests("config/read")[0]?.params).toMatchObject({ cwd: "/repo" });
+  }
+);
+
+posixTest("the permission profile's Windows form is unverified (ENG-296)")(
+  "a read-only Inspector's thread keeps its verdict server beside the user's servers turned off",
+  async () => {
+    const verdict = {
+      name: "verdict",
+      description: "Record the verdict",
+      inputSchema: { type: "object" as const, properties: {} },
+      call: async () => ({ content: [], isError: false }),
+    };
+
+    const attachment = {
+      sessionId: SessionId.make("s1"),
+      instructions: "You are a Polaris inspector.",
+      url: "http://127.0.0.1:12345/mcp/token",
+      tools: [verdict],
+    };
+
+    const { server } = await withSession(
+      scripted(() => {}),
+      () => Effect.void,
+      {
+        readOnly: true,
+        permissionMode: "plan",
+        // A worker's tools never reach a read-only thread; only the Inspector's do.
+        constellations: [
+          { ...attachment, role: "Worker", url: "http://127.0.0.1:12345/mcp/worker" },
+          { ...attachment, role: "Inspector" },
+        ],
+      }
+    );
+
+    const params = server.requests("thread/start")[0]?.params;
+
+    expect(params).toMatchObject({
+      approvalPolicy: "never",
+      developerInstructions: polarisInstructions({
+        readOnly: true,
+        constellations: [{ ...attachment, role: "Inspector" }],
+      }),
+      config: { default_permissions: REVIEWER_PROFILE, "features.hooks": false },
+    });
+    expect(params).toHaveProperty("config.mcp_servers", {
+      linear: { enabled: false },
+      polaris: {
+        url: "http://127.0.0.1:12345/mcp/token",
+        tool_timeout_sec: POLARIS_TOOL_TIMEOUT_SECONDS,
+        tools: { verdict: { approval_mode: "approve" } },
+      },
+    });
   }
 );
 

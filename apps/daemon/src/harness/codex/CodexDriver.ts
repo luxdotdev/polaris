@@ -109,6 +109,7 @@ export const makeCodexDriver = (
         stopBackground: true,
         compact: true,
         constellations: true,
+        inspector: true,
       },
       probe: Effect.suspend(() => probeCodex(codexPath())),
       listModels: Effect.suspend(() =>

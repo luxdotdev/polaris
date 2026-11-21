@@ -38,3 +38,37 @@ are tested separately and never appear in committed-log replay. The default
 runtime does not provision Worktrees or start vendor processes. W/L must provide
 its preparation/startup callbacks and connect the liveness producer to their
 normalized Harness drain and durable delivery queue.
+
+## Inspection
+
+An Inspection is a step on a Claim's review (ADR 0119): `inspection/decide.ts` holds the decider
+steps, `inspection/runner.ts` the Daemon's side, `inspection/verdict.ts` what a verdict prepares.
+
+**What an Inspector can do.** Its session has worker role `inspector`, and the Supervisor opens
+it read-only whatever its permission mode says (`engine/supervisor.inspector.ts`):
+
+- Claude Code and Codex only. Their drivers declare `capabilities.inspector`; for any other
+  Harness the runner starts no session and releases the Claim to the Lead with the reason.
+- The Reviewer's confinement: no writes, no network, reads kept to the checkout, no user,
+  project or local settings, no hooks, no MCP servers, plugins or web search.
+- One addition: the Polaris MCP server bound to its Inspection, whose only tool is `verdict`.
+- An approval request is denied at once; a hidden session never waits in Needs You.
+
+**What is left.**
+
+- The Inspector still reads worker-written text, and a verdict is what it can write. A misled
+  Inspector can approve; grant it Accept only on Tasks where that is acceptable.
+- Claude Code without its sandbox (no Seatbelt, or no bubblewrap and socat) gets no shell: it
+  reads files but can't run git or the checks.
+- Codex older than 0.159.2 can't hold a thread to a permission profile, so its Inspector doesn't
+  start and the Claim goes to the Lead.
+- A remote worker's Inspector runs in the Lead's checkout, once the claimed head has been
+  fetched there. It waits five minutes for it, then releases the Claim to the Lead.
+
+**One review step at a time.** A verdict's merge changes the lead branch before its commit, so
+`inspection/fence.ts` runs `Inspect`, `Review`, `WorkerClaim`, `Plan`, `SetState` and the
+runner's release one at a time per Constellation, preparation included. A verdict checks that
+its Inspection is current, weighs the Claim's receipts, then merges, all inside its step.
+
+**Replaced Inspectors.** A newer Claim starts a new Inspection with a new session. The runner
+stops and archives every Inspector session that no Attempt names any more.

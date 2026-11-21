@@ -211,6 +211,9 @@ const WorkersStartOn = () => {
   );
 };
 
+/** The Harnesses whose driver holds an Inspector read-only to its checkout (ADR 0119). */
+export const INSPECTOR_HARNESSES = ["claude", "codex"] as const;
+
 /** Who reads a claim before the lead hears of it, on the tasks a lead marks (ADR 0119). */
 const Inspector = () => {
   const defaults = useSettings((s) => s.sessions.constellationDefaults);
@@ -238,6 +241,7 @@ const Inspector = () => {
             }
             modelHost={modelHost}
             allowAuto
+            only={INSPECTOR_HARNESSES}
           />
           <span className="w-11 shrink-0" />
         </div>
