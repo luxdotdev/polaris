@@ -4,7 +4,7 @@
  */
 import { MessageTarget, TaskId } from "@polaris/protocol";
 import { Kbd } from "@polaris/ui";
-import { type ReactNode, type RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useEffect, useMemo, useRef } from "react";
 import { useCommands } from "../../../../shell/hooks.ts";
 import { constellationCommands } from "../../client.ts";
 import { useFacts } from "../../hooks.ts";
@@ -13,7 +13,7 @@ import { buildRail, type ConstellationRecord, type TaskRow } from "../../model/i
 import { emptyLog, feedOf } from "../../model/logbook.ts";
 import { leadKey, patchLeadUi, useLeadUi } from "../../state.ts";
 import { Composer } from "./Composer.tsx";
-import { Feed, FeedHeader } from "./Feed.tsx";
+import { Feed, FeedHeader, useFeedCursor } from "./Feed.tsx";
 import { TaskHeader, TaskLog } from "./TaskLog.tsx";
 
 export interface LogbookTabProps {
@@ -128,7 +128,6 @@ export const LogbookTab = ({ hostKey, record }: LogbookTabProps) => {
   const facts = useFacts(record);
   const commands = useCommands();
   const composerRef = useRef<HTMLTextAreaElement>(null);
-  const [cursor, setCursor] = useState<string | null>(null);
   const rail = useMemo(() => buildRail(record, facts), [record, facts]);
 
   const rows = useMemo(
@@ -141,6 +140,7 @@ export const LogbookTab = ({ hostKey, record }: LogbookTabProps) => {
   const feed = useLogbook(hostKey, c.id, taskId);
   const log = feed.kind === "ready" ? feed.log : emptyLog;
   const entries = useMemo(() => (row === null ? feedOf(log) : []), [row, log]);
+  const feedCursor = useFeedCursor(entries);
 
   const select = (id: string | null) =>
     patchLeadUi(leadUiKey, () => ({ selected: id === null ? null : `task:${id}` }));
@@ -153,13 +153,6 @@ export const LogbookTab = ({ hostKey, record }: LogbookTabProps) => {
     if (next !== undefined) select(next.task.id);
   };
 
-  const moveCursor = (by: number) => {
-    const at = entries.findIndex((e) => e.id === cursor);
-    const next = entries[Math.min(entries.length - 1, Math.max(0, at + by))];
-
-    if (next !== undefined) setCursor(next.id);
-  };
-
   const runTask = (key: string) => {
     if (key === "Escape") select(null);
     else if (key === "n") composerRef.current?.focus();
@@ -170,7 +163,7 @@ export const LogbookTab = ({ hostKey, record }: LogbookTabProps) => {
   };
 
   const openCursor = () => {
-    const entry = entries.find((e) => e.id === cursor);
+    const entry = entries.find((e) => e.id === feedCursor.cursor.id);
 
     if (entry === undefined || !rows.has(entry.taskId)) return false;
     select(entry.taskId);
@@ -182,7 +175,7 @@ export const LogbookTab = ({ hostKey, record }: LogbookTabProps) => {
     if (key === "Enter") return openCursor();
 
     if (key !== "ArrowDown" && key !== "ArrowUp") return false;
-    moveCursor(key === "ArrowDown" ? 1 : -1);
+    feedCursor.move(key === "ArrowDown" ? 1 : -1);
 
     return true;
   };
@@ -214,9 +207,9 @@ export const LogbookTab = ({ hostKey, record }: LogbookTabProps) => {
       <Feed
         entries={entries}
         tasks={rows}
-        selected={cursor}
+        cursor={feedCursor.cursor}
         now={facts.now}
-        onSelect={setCursor}
+        onSelect={feedCursor.select}
         onOpen={(id) => (rows.has(id) ? select(id) : undefined)}
       />
     ) : (

@@ -5,7 +5,7 @@
 import { cn, Kbd } from "@polaris/ui";
 import { Predicate } from "effect";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { memo, useCallback, useEffect, useRef } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { span } from "../../model/copy.ts";
 import {
   authorWord,
@@ -159,17 +159,59 @@ const useStable = <A extends ReadonlyArray<unknown>>(fn: (...args: A) => void) =
   return useCallback((...args: A) => latest.current(...args), []);
 };
 
+export interface FeedCursor {
+  readonly id: string | null;
+  /** Bumped by ↑↓ only: the list scrolls the cursor into view then, never on a live page. */
+  readonly reveal: number;
+}
+
+/** The feed's cursor: ↑↓ move it and bring it into view; a click selects in place. */
+export const useFeedCursor = (entries: ReadonlyArray<EntryData>) => {
+  const [cursor, setCursor] = useState<FeedCursor>({ id: null, reveal: 0 });
+
+  const move = (by: number) => {
+    const at = entries.findIndex((e) => e.id === cursor.id);
+    const next = entries[Math.min(entries.length - 1, Math.max(0, at + by))];
+
+    if (next !== undefined) setCursor((c) => ({ id: next.id, reveal: c.reveal + 1 }));
+  };
+
+  const select = (id: string) => setCursor((c) => ({ id, reveal: c.reveal }));
+
+  return { cursor, move, select };
+};
+
+/** Rows added above keep the reading position, unless the list is at its top. */
+const useKeepPosition = (
+  listRef: { readonly current: HTMLDivElement | null },
+  entries: ReadonlyArray<EntryData>
+) => {
+  const first = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    const was = first.current;
+    const el = listRef.current;
+
+    first.current = entries[0]?.id ?? null;
+
+    if (was === null || el === null || el.scrollTop <= 0) return;
+    const added = entries.findIndex((e) => e.id === was);
+
+    if (added > 0) el.scrollTop += added * LINE;
+  }, [listRef, entries]);
+};
+
 export const Feed = ({
   entries,
   tasks,
-  selected,
+  cursor,
   now,
   onSelect,
   onOpen,
 }: {
   readonly entries: ReadonlyArray<EntryData>;
   readonly tasks: ReadonlyMap<string, TaskRow>;
-  readonly selected: string | null;
+  readonly cursor: FeedCursor;
   readonly now: number;
   readonly onSelect: (id: string) => void;
   readonly onOpen: (taskId: string) => void;
@@ -177,6 +219,7 @@ export const Feed = ({
   const listRef = useRef<HTMLDivElement>(null);
   const select = useStable(onSelect);
   const open = useStable(onOpen);
+  const selected = cursor.id;
 
   // oxlint-disable-next-line react/incompatible-library -- the Desktop's one list virtualizer, as every long list uses
   const virtualizer = useVirtualizer({
@@ -190,11 +233,17 @@ export const Feed = ({
     paddingEnd: 6,
   });
 
-  const cursorAt = selected === null ? -1 : entries.findIndex((e) => e.id === selected);
+  useKeepPosition(listRef, entries);
+
+  const reveal = useStable(() => {
+    const at = selected === null ? -1 : entries.findIndex((e) => e.id === selected);
+
+    if (at >= 0) virtualizer.scrollToIndex(at, { align: "auto" });
+  });
 
   useEffect(() => {
-    if (cursorAt >= 0) virtualizer.scrollToIndex(cursorAt, { align: "auto" });
-  }, [cursorAt, virtualizer]);
+    if (cursor.reveal > 0) reveal();
+  }, [cursor.reveal, reveal]);
 
   if (entries.length === 0)
     return (
