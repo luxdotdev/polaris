@@ -91,7 +91,8 @@ Desktop App authorization is checked by the Daemon, not asserted in a payload.
   `constellation.logbook.subscribe` sends that page, then one page per event that adds
   entries or changes a boundary. The Logbook is folded from the events on each read,
   never stored. All three need the `constellation.logbook` capability; Clients without
-  it are not sent `LogbookNoted`.
+  it are not sent `LogbookNoted`. A refusal of a Logbook read carries no `graph`. On
+  `constellation.subscribe` a worker is sent `LogbookNoted` only for Tasks it may read.
 - `constellation.stats`: `{ constellationId }` returns `ConstellationStats`,
   derived on view from graph, Session, resource and existing Usage histories.
   Unknown durations are nullable with coverage reasons; Clients price its Usage

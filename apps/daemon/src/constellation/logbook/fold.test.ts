@@ -179,6 +179,37 @@ describe("a Task's Logbook", () => {
     ]);
   });
 
+  test("an edit that splits one criterion into two adds the new brief", () => {
+    const s = story();
+    const task = s.record.graph.tasks.find((t) => t.id === A)!;
+    let { fold } = foldLogbook(s.envelopes);
+
+    const edit = (criteria: ReadonlyArray<string>, sequence: number) => {
+      const step = stepLogbook(fold, {
+        sequence: Sequence.make(sequence),
+        occurredAt: "2026-10-02T00:00:00.000Z",
+        event: ConstellationEvent.cases.TaskEdited.make({
+          constellationId: CID,
+          revision: s.record.graph.revision + 1,
+          task: new Task({
+            ...taskData(task),
+            criteria: [...criteria],
+            canceled: false,
+            revision: task.revision + 1,
+          }),
+        }),
+      });
+
+      fold = step.fold;
+
+      return step.entries.map((e) => (Predicate.isTagged(e, "Brief") ? e.criteria : null));
+    };
+
+    edit(["Tests pass\nLint is clean"], 900);
+
+    expect(edit(["Tests pass", "Lint is clean"], 901)).toEqual([["Tests pass", "Lint is clean"]]);
+  });
+
   test("an operator message from before its sender was recorded reads as the Lead's", () => {
     const s = story();
     const { fold } = foldLogbook(s.envelopes);

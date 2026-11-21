@@ -3,16 +3,18 @@ import {
   AgentSession,
   CommandId,
   type ConstellationCommand,
+  type ConstellationStreamItem,
   ConstellationSettings,
   DomainEvent,
   PlanOperation,
   ReviewAction,
   Sequence,
   SessionId,
+  TaskId,
   WorkerPlacement,
   Workspace,
 } from "@polaris/protocol";
-import { Effect, Fiber, Layer, Predicate, Stream } from "effect";
+import { Effect, Fiber, Layer, Predicate, Result, Stream } from "effect";
 import type { ConstellationBinding } from "../../engine/constellation.inputs.ts";
 import {
   A,
@@ -146,6 +148,14 @@ const working = Effect.gen(function* () {
 
 const note = (text: string, taskId = A) => C.Note.make({ constellationId: CID, taskId, text });
 
+const LOGBOOK = ["constellation", "constellation.logbook"] as const;
+
+/** A stream item's note text, for the items that are notes. */
+const noteText = (item: ConstellationStreamItem) =>
+  Predicate.isTagged(item, "Event") && Predicate.isTagged(item.envelope.event, "LogbookNoted")
+    ? Result.succeed(item.envelope.event.text)
+    : Result.failVoid;
+
 const run = <X, E>(effect: Effect.Effect<X, E, EventStore | Constellations>) =>
   Effect.runPromise(effect.pipe(Effect.provide(layer)));
 
@@ -201,6 +211,26 @@ describe("reading a Logbook from the store", () => {
             Effect.as("allowed"),
             Effect.catch((error) => Effect.succeed(error.findings[0]?.code))
           );
+
+        // What a refused reader is told: the finding, and nothing of the graph it may not read.
+        const told = (binding: ConstellationBinding, taskId?: typeof A) =>
+          graphs.logbook
+            .read(
+              binding,
+              taskId === undefined ? { constellationId: CID } : { constellationId: CID, taskId }
+            )
+            .pipe(
+              Effect.as(null),
+              Effect.catchTag("ConstellationRejected", (e) =>
+                Effect.succeed({ code: e.findings[0]?.code, graph: e.graph, revision: e.revision })
+              )
+            );
+
+        const refused = { code: "E-AUTHORITY", graph: null, revision: 0 };
+
+        expect(yield* told(stranger, A)).toEqual(refused);
+        expect(yield* told(worker, B)).toEqual(refused);
+        expect(yield* told(worker)).toEqual(refused);
 
         expect(
           yield* code(graphs.logbook.read(stranger, { constellationId: CID, taskId: A }))
@@ -274,6 +304,32 @@ describe("a Logbook's feed", () => {
       })
     ));
 
+  test("from a cursor ahead of the log it skips what is committed up to that cursor", () =>
+    run(
+      Effect.gen(function* () {
+        const { graphs, store, send } = yield* working;
+        const read = yield* graphs.logbook.read(user, { constellationId: CID, taskId: A });
+        const before = yield* store.subscriberCount;
+
+        const fiber = yield* graphs.logbook
+          .subscribe(user, {
+            constellationId: CID,
+            taskId: A,
+            since: Sequence.make(read.cursor + 1),
+          })
+          .pipe(Stream.take(2), Stream.runCollect, Effect.forkChild);
+
+        while ((yield* store.subscriberCount) === before) yield* Effect.sleep(1);
+
+        yield* send(worker, note("At the cursor."));
+        yield* send(worker, note("After the cursor."));
+
+        const pages = [...(yield* Fiber.join(fiber))];
+
+        expect(pages.map((p) => p.entries.map((e) => e.text))).toEqual([[], ["After the cursor."]]);
+      })
+    ));
+
   test("a boundary change with no entry still sends a page", () =>
     run(
       Effect.gen(function* () {
@@ -312,8 +368,10 @@ describe("a Logbook's feed", () => {
           .subscribe(worker, { constellationId: CID, taskId: A })
           .pipe(
             Stream.runCollect,
-            Effect.as("ended"),
-            Effect.catchTag("ConstellationRejected", (e) => Effect.succeed(e.findings[0]?.code)),
+            Effect.as(null),
+            Effect.catchTag("ConstellationRejected", (e) =>
+              Effect.succeed({ code: e.findings[0]?.code, graph: e.graph })
+            ),
             Effect.forkChild
           );
 
@@ -329,7 +387,8 @@ describe("a Logbook's feed", () => {
           })
         );
 
-        expect(yield* Fiber.join(fiber)).toBe("E-AUTHORITY");
+        // Revoked with the finding alone: the graph it could read a moment ago is not sent.
+        expect(yield* Fiber.join(fiber)).toEqual({ code: "E-AUTHORITY", graph: null });
       })
     ));
 });
@@ -376,6 +435,80 @@ describe("the Constellation stream", () => {
 
         expect(yield* tags(["constellation"])).toEqual(["AttemptProgressed"]);
         expect(yield* tags(["constellation", "constellation.logbook"])).toEqual(["LogbookNoted"]);
+      })
+    ));
+
+  test("sends a worker the notes on its own Task and not those on a Task it may not read, live and on replay", () =>
+    run(
+      Effect.gen(function* () {
+        const { graphs, store, send } = yield* working;
+        const before = yield* store.subscriberCount;
+        const cut = Sequence.make((yield* store.model).sequence);
+
+        const fiber = yield* graphs
+          .subscribe(worker, CID, cut, LOGBOOK)
+          .pipe(Stream.filterMap(noteText), Stream.take(1), Stream.runCollect, Effect.forkChild);
+
+        while ((yield* store.subscriberCount) === before) yield* Effect.sleep(1);
+
+        yield* send(user, note("B waits on the contract.", B));
+        yield* send(user, note("A is on the contract."));
+
+        expect([...(yield* Fiber.join(fiber))]).toEqual(["A is on the contract."]);
+
+        const replayed = yield* graphs.subscribe(worker, CID, cut, LOGBOOK).pipe(
+          Stream.takeUntil((item) => Predicate.isTagged(item, "Synchronized")),
+          Stream.filterMap(noteText),
+          Stream.runCollect
+        );
+
+        expect([...replayed]).toEqual(["A is on the contract."]);
+      })
+    ));
+
+  test("stops sending a worker its Task's notes once its Attempt is no longer active", () =>
+    run(
+      Effect.gen(function* () {
+        const { graphs, store, send } = yield* working;
+        const before = yield* store.subscriberCount;
+        const cut = Sequence.make((yield* store.model).sequence);
+
+        const fiber = yield* graphs.subscribe(worker, CID, cut, LOGBOOK).pipe(
+          Stream.filterMap((item) =>
+            Predicate.isTagged(item, "Event")
+              ? Result.succeed(item.envelope.event._tag)
+              : Result.failVoid
+          ),
+          Stream.takeUntil((tag) => tag === "TaskDeclared"),
+          Stream.runCollect,
+          Effect.forkChild
+        );
+
+        while ((yield* store.subscriberCount) === before) yield* Effect.sleep(1);
+
+        yield* send(
+          user,
+          C.Review.make({
+            constellationId: CID,
+            attemptId: draft().id,
+            revision: 1,
+            action: ReviewAction.cases.Stop.make({ reason: "Stopped." }),
+          })
+        );
+        yield* send(user, note("Stopped for the rebase."));
+        yield* send(
+          user,
+          C.Plan.make({
+            constellationId: CID,
+            operations: [PlanOperation.cases.Add.make({ task: task(TaskId.make("X")) })],
+          })
+        );
+
+        const tags = [...(yield* Fiber.join(fiber))];
+
+        // The feed is still open and carries the settle, but not the note.
+        expect(tags).toContain("AttemptSettled");
+        expect(tags).not.toContain("LogbookNoted");
       })
     ));
 });

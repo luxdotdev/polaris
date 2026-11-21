@@ -1,5 +1,5 @@
 /** Reading a Logbook from the store: one page, or a feed of pages as it grows. */
-import type { LogbookPage } from "@polaris/protocol";
+import type { ConstellationFinding, LogbookPage } from "@polaris/protocol";
 import { Effect, Predicate, Stream } from "effect";
 import type { ConstellationBinding } from "../../engine/constellation.inputs.ts";
 import { type ConstellationRecord, graphEvent } from "../../store/constellation.ts";
@@ -9,6 +9,9 @@ import { foldLogbook, type LogbookEvent, type LogbookFold, stepLogbook } from ".
 import { logbookPage, logbookRefusal, type LogbookScope } from "./page.ts";
 
 type Store = EventStore["Service"];
+
+/** A refused reader gets the finding alone: the graph in a refusal would show what it may not read. */
+const denied = (refused: ConstellationFinding) => refusal(undefined, [refused]);
 
 const admit = (
   binding: ConstellationBinding,
@@ -24,7 +27,7 @@ const admit = (
 
   const refused = logbookRefusal(binding, record, scope);
 
-  return refused === null ? Effect.succeed(record) : Effect.fail(refusal(record, [refused]));
+  return refused === null ? Effect.succeed(record) : Effect.fail(denied(refused));
 };
 
 /** The whole log folded at the store's current sequence, after the read is admitted. */
@@ -105,18 +108,12 @@ export const subscribeLogbook = (
         const record = fold.record;
         const refused = record === undefined ? null : logbookRefusal(binding, record, scope);
 
-        if (record !== undefined && refused !== null) return yield* refusal(record, [refused]);
+        if (refused !== null) return yield* denied(refused);
 
         const model = yield* store.model;
 
-        // Only what this event added: `since` was spent on the first page.
-        const page = logbookPage(
-          fold,
-          step.entries,
-          { constellationId: scope.constellationId, taskId: scope.taskId },
-          envelope.sequence,
-          model.sessions
-        );
+        // Only what this event added, and still nothing at or before a `since` ahead of the log.
+        const page = logbookPage(fold, step.entries, scope, envelope.sequence, model.sessions);
 
         const key = boundaryKey(page);
 

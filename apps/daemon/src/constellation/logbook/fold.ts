@@ -110,7 +110,8 @@ const edited = (step: Step, task: Task): ReadonlyArray<LogbookEntry> => {
   return old !== undefined &&
     old.brief === task.brief &&
     old.title === task.title &&
-    old.criteria.join("\n") === task.criteria.join("\n")
+    old.criteria.length === task.criteria.length &&
+    old.criteria.every((criterion, index) => criterion === task.criteria[index])
     ? none
     : [brief(step, task)];
 };
