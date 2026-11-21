@@ -26,3 +26,5 @@ EventStore boundary; delivery pins it through commit and execution. A blocked wa
 retains its MCP binding and background reporting reservation while releasing idle
 capacity. Local and remote paths reacquire before the existing atomic Turn decision,
 then revalidate the current assignment inside commit. Stop cancels a queued resume.
+
+A new Attempt that follows another (send-back, redispatch, recovery) gets a Logbook digest after its brief in the first Turn (`logbook.ts`, ENG-1012): the questions and answers, operator messages, notes, send-back and hand-up reasons, losses and Inspections on its Task since the previous Attempt started, read as the new worker through L1's `readLogbook`. It keeps the newest entries within 20 lines and 4,000 characters (each line cut at 600), shown oldest first, and ends with how many were left out and the `logbook_read { task, since }` that reads them. A refused read leaves the brief without a digest.

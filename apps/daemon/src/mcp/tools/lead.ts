@@ -28,7 +28,8 @@ export const leadTools = (
   ) => Effect.Effect<ConstellationResult, ConstellationRejected>,
   resolve: ReturnType<typeof resolvers>,
   status: BoundTool,
-  start: StartTarget
+  start: StartTarget,
+  logbook: ReadonlyArray<BoundTool>
 ): ReadonlyArray<BoundTool> => [
   define(
     "plan",
@@ -156,6 +157,7 @@ export const leadTools = (
     }),
     { summary: "Message queued.", mutates: true }
   ),
+  ...logbook,
   status,
   define(
     "set_state",

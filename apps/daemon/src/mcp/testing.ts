@@ -7,7 +7,7 @@ import {
 } from "@polaris/protocol";
 import { Effect } from "effect";
 import { McpBinding, type SessionBinding } from "./binding.ts";
-import type { ConstellationCommands } from "./tools.ts";
+import { unavailableCommands, type ConstellationCommands } from "./tools.ts";
 
 export const workerBinding = McpBinding.cases.Worker.make({
   sessionId: SessionId.make("worker-1"),
@@ -29,6 +29,8 @@ export const WORKER_TOOL_NAMES = [
   "claim",
   "propose",
   "message",
+  "logbook_read",
+  "logbook_note",
   "status",
   "wait_for_command",
   "notify",
@@ -60,6 +62,8 @@ export const LEAD_TOOL_NAMES = [
   "review",
   "answer",
   "message",
+  "logbook_read",
+  "logbook_note",
   "status",
   "set_state",
   "read_worker",
@@ -112,6 +116,7 @@ export const fakeCommands = () => {
 
         return `${kind}-${name}`;
       }),
+    logbook: unavailableCommands.logbook,
   };
 
   return { commands, calls, references };
