@@ -10,6 +10,7 @@ is folded on the Lead's Host; these schemas do not implement its decider.
 | `commands.ts` | Atomic plan operations, worker placement, review/answer/state actions and the internal tagged command union |
 | `events.ts` | Constellation and Host resource event field sets, codecs and the remote worker outbox entry |
 | `rpc.ts` | `ConstellationRpcs`, typed results/refusals and resumable Constellation stream |
+| `logbook.ts` | A Task's Logbook (ADR 0119): entry kinds, Attempt boundaries, pages and the read query |
 | `liveness.ts` | Observed per-Attempt Worker liveness and current activity |
 | `stats.ts` | On-demand local metrics, attributed Usage buckets, sequence cut and coverage reasons |
 
@@ -80,6 +81,17 @@ Desktop App authorization is checked by the Daemon, not asserted in a payload.
 - `constellation.status`: the shared read-only outline; `since` (a graph revision)
   returns one line per graph event after it plus where things stand; `json` requests the
   folded Constellation and its Task projections in addition to the text.
+- `constellation.logbook.note`: `{ taskId, text }` adds a note to a Task's Logbook
+  (`LogbookNoted`). The Task's current Attempt, the Lead and the user may write;
+  anyone else is refused `E-AUTHORITY`. A note is a record, never delivered as a message.
+- `constellation.logbook.read`: `{ taskId?, since? }` returns a `LogbookPage`: every
+  Attempt boundary in scope, the entries after `since` oldest first, and the `cursor`
+  to pass as the next `since`. Writers read, and so do the workers of Tasks that
+  depend on the Task; without `taskId` it reads every Task, for the Lead and the user.
+  `constellation.logbook.subscribe` sends that page, then one page per event that adds
+  entries or changes a boundary. The Logbook is folded from the events on each read,
+  never stored. All three need the `constellation.logbook` capability; Clients without
+  it are not sent `LogbookNoted`.
 - `constellation.stats`: `{ constellationId }` returns `ConstellationStats`,
   derived on view from graph, Session, resource and existing Usage histories.
   Unknown durations are nullable with coverage reasons; Clients price its Usage
