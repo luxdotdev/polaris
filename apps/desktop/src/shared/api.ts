@@ -1,3 +1,4 @@
+import type { CommandInstallView } from "./commandInstall.ts";
 /**
  * The typed bridge between the main process and the renderer: channel names,
  * what every request returns, what every subscription delivers, and the API
@@ -474,6 +475,9 @@ export interface RequestOutputs
     PredictionPlacementOutputs,
     PredictionOutcomeOutputs {
   "constellation.stats": ConstellationStatsView;
+  "commandInstall.get": CommandInstallView;
+  "commandInstall.change": CommandInstallView;
+  "commandInstall.dismiss": CommandInstallView;
   "settings.get": SettingsView;
   "updates.get": AppUpdateView;
   "updates.check": AppUpdateView;
@@ -487,6 +491,7 @@ export interface RequestOutputs
   "settings.setTheme": null;
   "settings.setDensity": null;
   "settings.setAppearance": null;
+  "settings.getSessionDefaults": SessionDefaults;
   "settings.setSessionDefault": null;
   "settings.setSessions": null;
   "shell.openExternal": null;
@@ -684,7 +689,11 @@ export type AppEvent =
       readonly hostKey: string;
       readonly mode: Plain<DeveloperMode> | null;
     }
-  | { readonly kind: "session-defaults"; readonly sessionDefaults: SessionDefaults }
+  | {
+      readonly kind: "session-defaults";
+      readonly hostKey: string;
+      readonly sessionDefaults: SessionDefaults;
+    }
   | { readonly kind: "sessions"; readonly sessions: SessionPrefs }
   /** Dev only (Develop menu): start the bench-Harness proof session on this Host. */
   | { readonly kind: "proof"; readonly hostKey: string }

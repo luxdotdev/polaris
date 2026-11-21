@@ -1,3 +1,5 @@
+import { followSessionDefaults } from "./hostSessionDefaults.ts";
+import { createCommandInstaller } from "./commandInstall.ts";
 import { writeSecret } from "./secretClipboard.ts";
 import { createMainPredictionPlacement } from "./prediction/placement.ts";
 import { PredictionSettings } from "./prediction/preferences.ts";
@@ -37,7 +39,7 @@ import {
   shell,
 } from "electron";
 import type { UserPresence } from "@polaris/protocol";
-import { type AppEvent, type Appearance, CHANNELS, type SessionDefault } from "../shared/api.ts";
+import { type AppEvent, type Appearance, type SessionDefaults, CHANNELS } from "../shared/api.ts";
 import {
   clientIdentity,
   HostDirectory,
@@ -50,6 +52,7 @@ import {
 } from "./hosts.ts";
 import { Effect, Layer, Option, SubscriptionRef } from "effect";
 import { type PresenceWatch, watchPresence } from "./presence/index.ts";
+import { serveInspection } from "./inspection.ts";
 import { hostDeveloperModes } from "./developerMode/index.ts";
 import { followFocus, followReviewRequests, githubLayer } from "./github/electron.ts";
 import { legacyTokens } from "./github/store.ts";
@@ -316,15 +319,8 @@ const start = async () => {
     applyAppearance();
   };
 
-  const setSessionDefault = (harness: string, value: SessionDefault | null) => {
-    const others = Object.entries(settings.sessionDefaults ?? {}).filter(([k]) => k !== harness);
-
-    const sessionDefaults = Object.fromEntries(
-      value === null ? others : [...others, [harness, value]]
-    );
-
-    saveSettings({ sessionDefaults });
-    const event: AppEvent = { kind: "session-defaults", sessionDefaults };
+  const publishSessionDefaults = (hostKey: string, sessionDefaults: SessionDefaults) => {
+    const event: AppEvent = { kind: "session-defaults", hostKey, sessionDefaults };
 
     for (const win of BrowserWindow.getAllWindows()) win.webContents.send(CHANNELS.app, event);
   };
@@ -501,6 +497,11 @@ const start = async () => {
       relay: device.connector,
       presence: SubscriptionRef.changes(presence),
       developerModeLease: dev,
+      sessionDefaultsHost: (hostKey, sessions) =>
+        followSessionDefaults(sessions, settings.sessionDefaults ?? {}, (defaults) =>
+          publishSessionDefaults(hostKey, defaults)
+        ),
+      inspection: serveInspection,
       entries: hostEntries({
         local: localDaemon,
         remotes: settings.hosts ?? [],
@@ -622,6 +623,11 @@ const start = async () => {
     selfTraces,
     crashes: (report) => recordCrash(rendererCrashEntry(report)),
     context: {
+      commandInstaller: createCommandInstaller({
+        path: () => env.PATH ?? "",
+        dismissed: () => settings.commandInstallDismissed === true,
+        dismiss: () => saveSettings({ commandInstallDismissed: true }),
+      }),
       selfTracesEnabled: selfTraces.enabled,
       browser: browsers,
       updates: currentUpdates,
@@ -638,7 +644,7 @@ const start = async () => {
       cache,
       prices: openPrices(app.getPath("userData")),
       setAppearance,
-      setSessionDefault,
+      publishSessionDefaults,
       setSessions,
       openExternal: (url) => shell.openExternal(url),
       serveFrame: (document) => frames.serve(document),

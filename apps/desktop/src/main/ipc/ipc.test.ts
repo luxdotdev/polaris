@@ -157,7 +157,6 @@ const context: RequestContext = {
   cache: { get: () => [], put: () => undefined, rendererFlushed: () => undefined },
   prices: { table: () => Promise.reject(new Error("no prices in tests")) },
   setAppearance: () => undefined,
-  setSessionDefault: () => undefined,
   setSessions: () => undefined,
   openExternal: () => Promise.resolve(),
   serveFrame: () => "app://polaris/frame/test",

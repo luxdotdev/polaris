@@ -47,6 +47,7 @@ const installCommand = Effect.fn("installCommand")(function* (args: ReadonlyArra
 
   const report = yield* install(defaultInstallContext(paths().root), {
     source,
+    command: process.env.POLARIS_INSTALL_COMMAND !== "0",
     version: info.version,
     sha256: option(args, "--sha256"),
     replaceTask: flag(args, "--replace-task"),

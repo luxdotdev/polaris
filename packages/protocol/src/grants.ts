@@ -67,6 +67,10 @@ export const COMMAND_GRANTS = {
 /** `dispatch` itself is decided per Command (`COMMAND_GRANTS`). */
 export const RPC_GRANTS = {
   hello: "open",
+  "settings.list": "read",
+  "settings.describe": "read",
+  "settings.get": "read",
+  "settings.set": "client",
   dispatch: "open",
   subscribeHost: "read",
   subscribeSession: "read",
@@ -325,6 +329,8 @@ export const RPC_GRANTS = {
   "developerMode.setWorkspace": "client",
   "developerMode.lease": "client",
   "developerMode.watch": "client",
+  "inspection.watch": "client",
+  "inspection.respond": "client",
   "traces.ingestSelf": "client",
   "requests.watch": "client",
   "requests.save": "client",

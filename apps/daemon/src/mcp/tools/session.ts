@@ -48,7 +48,7 @@ export const sessionTool = <S extends Schema.Decoder<unknown>>(
         Effect.flatMap(run),
         Effect.catchTag("ConstellationRejected", (error) => Effect.succeed(errorResult(error)))
       ),
-      { signal }
+      signal === undefined ? undefined : { signal }
     ),
 });
 

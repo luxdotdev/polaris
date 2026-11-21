@@ -169,3 +169,44 @@ test("watch emits the live session feed as newline-delimited JSON", async () => 
     await child.exited;
   }
 }, 15_000);
+
+test("generated settings commands discover Host values and preserve the user-only set gate", async () => {
+  const listed = await cli(["settings", "list", "--json"]);
+  expect(listed.code).toBe(0);
+
+  const entries = Schema.decodeUnknownSync(
+    Schema.Array(Schema.Struct({ key: Schema.String, value: Schema.Json }))
+  )(JSON.parse(listed.out));
+
+  expect(entries.some((entry) => entry.key === "visuals.level")).toBe(true);
+  const described = await cli(["settings", "describe", "visuals.level"]);
+  expect(described.code).toBe(0);
+  const description = Schema.decodeUnknownSync(Schema.JsonObject)(JSON.parse(described.out));
+  expect(description.default).toBe("rich");
+
+  await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const transport = yield* socketTransport(daemon.socketPath);
+        const { client } = yield* connectRpc(transport);
+        yield* client.hello({
+          clientName: "test",
+          clientVersion: "0",
+          deviceLabel: "Settings test",
+          capabilities: [],
+          userKey: Redacted.make(TEST_USER_KEY),
+        });
+        yield* client["settings.set"]({ key: "visuals.level", value: "off" });
+      })
+    )
+  );
+  const value = await cli(["settings", "get", "visuals.level"]);
+  expect(value.code).toBe(0);
+  expect(
+    Schema.decodeUnknownSync(Schema.Struct({ value: Schema.Json }))(JSON.parse(value.out)).value
+  ).toBe("off");
+  const refused = await cli(["settings", "set", "visuals.level", '"simple"']);
+  expect(refused.code).toBe(1);
+  expect(refused.err).toContain("UserAccessRequired");
+  expect((await cli(["settings", "get", "unknown.setting"])).code).toBe(3);
+}, 30_000);

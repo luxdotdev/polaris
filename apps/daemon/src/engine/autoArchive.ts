@@ -1,10 +1,10 @@
+import { readGroup, writeGroup } from "../settings/index.ts";
 /**
  * Auto-archive (ENG-384): an hourly sweep archives Dormant sessions that have gone the Host's
  * `afterDays` without activity, through the same `ArchiveSession` dispatch as the user's.
  * Pinned sessions, Reviewer and walkthrough sessions, and sessions in an open Constellation stay.
  */
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import {
   AutoArchiveSettings,
   Command,
@@ -14,18 +14,7 @@ import {
   FileError,
   type SessionId,
 } from "@polaris/protocol";
-import {
-  Clock,
-  Context,
-  Duration,
-  Effect,
-  Layer,
-  Option,
-  Ref,
-  Schedule,
-  Schema,
-  Semaphore,
-} from "effect";
+import { Clock, Context, Duration, Effect, Layer, Ref, Schedule, Semaphore } from "effect";
 import { paths } from "../paths.ts";
 import type { ReadModel, SessionRecord } from "../store/model.ts";
 import { Dispatcher } from "./dispatch.ts";
@@ -38,33 +27,16 @@ export const DEFAULT_SETTINGS = AutoArchiveSettings.make({ afterDays: DEFAULT_AU
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const SettingsJson = Schema.fromJsonString(AutoArchiveSettings);
+const loadSettings = (path: string) => Effect.sync(() => readGroup(path, "sessions.autoArchive"));
 
-const decode = Schema.decodeUnknownOption(SettingsJson);
-
-const encode = Schema.encodeSync(SettingsJson);
-
-const loadSettings = (path: string) =>
-  Effect.promise(() => readFile(path, "utf8").catch(() => null)).pipe(
-    Effect.map((text) =>
-      text === null ? DEFAULT_SETTINGS : Option.getOrElse(decode(text), () => DEFAULT_SETTINGS)
-    )
-  );
-
-/** Written to a temporary file and renamed, so a crash never leaves half a file. */
 const saveSettings = (path: string, settings: AutoArchiveSettings) =>
-  Effect.tryPromise({
-    try: async () => {
-      await mkdir(dirname(path), { recursive: true });
-      const temporary = `${path}.${process.pid}.tmp`;
-      await writeFile(temporary, encode(settings));
-      await rename(temporary, path);
-    },
+  Effect.try({
+    try: () => writeGroup(path, "sessions.autoArchive", settings),
     catch: (cause) =>
       new FileError({
         path,
         code: "EIO",
-        message: `Could not save the auto-archive settings: ${String(cause)}`,
+        message: `Could not save host settings: ${String(cause)}`,
       }),
   });
 

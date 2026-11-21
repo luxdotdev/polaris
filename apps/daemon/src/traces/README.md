@@ -264,9 +264,11 @@ expiry/partial-data handling and selector authorization.
 
 ## Forwarding and Workspace settings (ENG-674, ENG-675)
 
+<!-- Trace settings persistence and policy from settings.ts -->
+
 `TraceSettings` owns registered-Workspace settings and private launch-time target resolution.
 `traces.settings` and `traces.setSettings` share this service. Patches persist atomically in
-`trace-settings.json` (0600); detection, exporter header values and inferred collector URLs
+`host-settings.json` under `traces.workspaces` (0600, migrating `trace-settings.json` once); detection, exporter header values and inferred collector URLs
 are never persisted. Launch-environment OTLP collectors take precedence over the saved
 Workspace target, then launch-environment vendor collectors. Destination and credentials are
 resolved from the launch environment and checkout `.env*` files separately; they never mix.

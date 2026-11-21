@@ -89,7 +89,7 @@ describe("which Reviewer runs", () => {
     expect(resolveReviewer(settings, null, ready).source).toBe("settings");
   });
 
-  test("settings persist across loads; a missing or broken file is empty", async () => {
+  test("settings persist across loads and later changes to the legacy file are ignored", async () => {
     const dir = tempDir();
     cleanup.push(dir);
     const path = join(dir, "reviewer-settings.json");
@@ -99,6 +99,6 @@ describe("which Reviewer runs", () => {
     await Effect.runPromise(saveSettings(path, settings));
     expect(await Effect.runPromise(loadSettings(path))).toEqual(settings);
     await Bun.write(path, "{nope");
-    expect(await Effect.runPromise(loadSettings(path))).toEqual(EMPTY_SETTINGS);
+    expect(await Effect.runPromise(loadSettings(path))).toEqual(settings);
   });
 });

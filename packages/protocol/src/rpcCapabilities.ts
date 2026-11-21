@@ -49,6 +49,10 @@ const computerUse = "computer-use";
 const shares = "shares";
 
 export const RPC_CAPABILITIES = {
+  "settings.list": "settings",
+  "settings.describe": "settings",
+  "settings.get": "settings",
+  "settings.set": "settings",
   hello: null,
   dispatch: null,
   subscribeHost: null,
@@ -258,6 +262,8 @@ export const RPC_CAPABILITIES = {
   "developerMode.setWorkspace": developer,
   "developerMode.lease": developer,
   "developerMode.watch": developer,
+  "inspection.watch": "developer-mode.inspection",
+  "inspection.respond": "developer-mode.inspection",
   "simulator.watch": "simulator",
   "simulator.boot": "simulator",
   "simulator.shutdown": "simulator",

@@ -58,6 +58,10 @@ const isDeviceStateAction = (action: SetConstellationStateAction | null) =>
 
 /** `dispatch` itself is decided per Command (`DEVICE_COMMANDS`). */
 export const DEVICE_RPCS = {
+  "settings.list": "device",
+  "settings.describe": "device",
+  "settings.get": "device",
+  "settings.set": "device",
   hello: "device",
   dispatch: "device",
   subscribeHost: "device",
@@ -318,6 +322,8 @@ export const DEVICE_RPCS = {
   "developerMode.setWorkspace": "local",
   "developerMode.lease": "local",
   "developerMode.watch": "device",
+  "inspection.watch": "local",
+  "inspection.respond": "local",
   "traces.ingestSelf": "device",
   "requests.watch": "local",
   "requests.save": "local",

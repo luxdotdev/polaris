@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 /**
  * The app settings the renderer reads and changes: appearance, each Harness's
  * defaults for new sessions, and Settings → Sessions. Main owns the file; a change is shown
@@ -18,7 +19,7 @@ import { DEFAULT_SESSION_PREFS } from "../../../shared/sessionPrefs.ts";
 
 export interface SettingsState {
   readonly appearance: Appearance;
-  readonly sessionDefaults: SessionDefaults;
+  readonly sessionDefaults: Readonly<Record<string, SessionDefaults>>;
   readonly sessions: SessionPrefs;
   /** Empty until main answers. */
   readonly version: string;
@@ -68,7 +69,6 @@ export const connectSettings = (api: PolarisApi) => {
         codeFontSize: v.codeFontSize,
         wordWrap: v.wordWrap,
       },
-      sessionDefaults: v.sessionDefaults,
       sessions: v.sessions,
       version: v.version,
       developmentBuild: v.developmentBuild,
@@ -79,7 +79,9 @@ export const connectSettings = (api: PolarisApi) => {
     if (event.kind === "appearance") settingsStore.setState({ appearance: event.appearance });
 
     if (event.kind === "session-defaults") {
-      settingsStore.setState({ sessionDefaults: event.sessionDefaults });
+      settingsStore.setState((state) => ({
+        sessionDefaults: { ...state.sessionDefaults, [event.hostKey]: event.sessionDefaults },
+      }));
     }
 
     if (event.kind === "sessions") settingsStore.setState({ sessions: event.sessions });
@@ -91,15 +93,43 @@ export const setAppearance = (patch: AppearancePatch) => {
   void bridge?.request("settings.setAppearance", { patch });
 };
 
-export const setSessionDefault = (harness: string, value: SessionDefault | null) => {
+export const setSessionDefault = (
+  hostKey: string,
+  harness: string,
+  value: SessionDefault | null
+) => {
   settingsStore.setState((s) => {
-    const others = Object.entries(s.sessionDefaults).filter(([kind]) => kind !== harness);
+    const others = Object.entries(s.sessionDefaults[hostKey] ?? {}).filter(
+      ([kind]) => kind !== harness
+    );
 
     return {
-      sessionDefaults: Object.fromEntries(value === null ? others : [...others, [harness, value]]),
+      sessionDefaults: {
+        ...s.sessionDefaults,
+        [hostKey]: Object.fromEntries(value === null ? others : [...others, [harness, value]]),
+      },
     };
   });
-  void bridge?.request("settings.setSessionDefault", { harness, value });
+  void bridge?.request("settings.setSessionDefault", { hostKey, harness, value });
+};
+
+const EMPTY_DEFAULTS: SessionDefaults = {};
+
+export const useHostSessionDefaults = (hostKey: string | null): SessionDefaults => {
+  useEffect(() => {
+    if (hostKey === null) return;
+
+    void bridge?.request("settings.getSessionDefaults", { hostKey }).then((result) => {
+      if (result.ok)
+        settingsStore.setState((s) => ({
+          sessionDefaults: { ...s.sessionDefaults, [hostKey]: result.value },
+        }));
+    });
+  }, [hostKey]);
+
+  return useSettings((s) =>
+    hostKey === null ? EMPTY_DEFAULTS : (s.sessionDefaults[hostKey] ?? EMPTY_DEFAULTS)
+  );
 };
 
 export const setSessionPrefs = (patch: SessionPrefsPatch) => {
@@ -114,5 +144,5 @@ export const useSettings = <A>(select: (state: SettingsState) => A): A =>
  * What a new Agent Session of `harness` starts with, as set in Settings → Harnesses;
  * null when the user hasn't chosen (the Harness's own defaults apply).
  */
-export const useSessionDefault = (harness: string): SessionDefault | null =>
-  useSettings((s) => s.sessionDefaults[harness] ?? null);
+export const useSessionDefault = (harness: string, hostKey: string | null): SessionDefault | null =>
+  useHostSessionDefaults(hostKey)[harness] ?? null;

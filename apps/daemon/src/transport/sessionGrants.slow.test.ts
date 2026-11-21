@@ -1,3 +1,7 @@
+import { connectRpcWith, socketTransport } from "@polaris/client";
+import { ExtensionDaemonRpcs } from "@polaris/protocol";
+import { settingsRpcHandlersAt } from "../settings/rpc.ts";
+import { TEST_USER_KEY } from "./userAccess.testing.ts";
 import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { ApprovalDecision, Command, SessionId, SessionPlacement, Starter } from "@polaris/protocol";
@@ -125,3 +129,76 @@ test.skipIf(process.platform === "win32")(
     ),
   30_000
 );
+
+test("the Host start limit is discoverable, user-only and updates the Engine", () =>
+  Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const engine = yield* Engine;
+        const root = tempDir();
+
+        const server = yield* startServer({
+          root,
+          socketPath: join(root, "d.sock"),
+          lockPath: join(root, "d.lock"),
+          handlers: settingsRpcHandlersAt(() => join(root, "host-settings.json")).pipe(
+            Layer.provide(Layer.succeed(Engine, engine))
+          ),
+        });
+
+        const connect = () =>
+          Effect.gen(function* () {
+            return yield* connectRpcWith(
+              ExtensionDaemonRpcs,
+              yield* socketTransport(server.socketPath)
+            );
+          });
+
+        const unauthenticated = (yield* connect()).client;
+
+        const hello = {
+          clientName: "budget-test",
+          clientVersion: "0",
+          deviceLabel: "Desktop",
+          capabilities: [],
+        };
+
+        yield* unauthenticated.hello(hello);
+
+        const refused = yield* Effect.result(
+          unauthenticated["settings.set"]({ key: "sessions.startLimit", value: 8 })
+        );
+
+        expect(refused).toHaveProperty("failure._tag", "UserAccessRequired");
+        const user = (yield* connect()).client;
+        yield* user.hello({ ...hello, ...TEST_USER_KEY });
+        const entries = yield* user["settings.list"]({});
+        expect(entries.find((entry) => entry.key === "sessions.startLimit")).toMatchObject({
+          value: 5,
+          default: 5,
+          overridden: false,
+        });
+        expect(
+          (yield* user["settings.describe"]({ key: "sessions.startLimit" })).description
+        ).toContain("only the user");
+        yield* user["settings.set"]({ key: "sessions.startLimit", value: 5 });
+        expect((yield* user["settings.get"]({ key: "sessions.startLimit" })).overridden).toBe(true);
+        yield* user["settings.set"]({ key: "sessions.startLimit", value: 8, ifUnset: true });
+        expect(yield* engine.sessionStartLimit).toBe(5);
+        yield* user["settings.set"]({ key: "sessions.startLimit", value: 8 });
+        expect(yield* engine.sessionStartLimit).toBe(8);
+        expect((yield* user["settings.get"]({ key: "sessions.startLimit" })).value).toBe(8);
+
+        const invalid = yield* Effect.result(
+          user["settings.set"]({ key: "sessions.startLimit", value: -1 })
+        );
+
+        expect(invalid).toHaveProperty("failure._tag", "SettingsError");
+        expect(yield* engine.sessionStartLimit).toBe(8);
+      })
+    ).pipe(
+      Effect.provide(
+        engineLayer({ filename: join(tempDir(), "state.sqlite"), fakes: makeFakes(), drivers: [] })
+      )
+    )
+  ));

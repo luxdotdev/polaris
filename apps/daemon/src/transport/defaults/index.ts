@@ -1,3 +1,4 @@
+import { SettingsRpcHandlers } from "../../settings/rpc.ts";
 /**
  * Handlers the transport owns (`hello`) and placeholders for every other RPC,
  * so a Daemon is runnable end to end before the store, files, git and terminal
@@ -18,6 +19,7 @@ import { workspaceDefaults } from "./workspace.ts";
 export const defaultHandlers = (options: DefaultOptions) =>
   Layer.mergeAll(
     coreDefaults(options),
+    SettingsRpcHandlers,
     hostDefaults(options),
     userAccessDefaults(options),
     workspaceDefaults,

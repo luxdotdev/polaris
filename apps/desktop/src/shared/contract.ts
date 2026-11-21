@@ -1,3 +1,4 @@
+import { HostSessionDefault } from "@polaris/protocol";
 /**
  * The IPC contract's inputs as Effect Schemas: the main process decodes every
  * request and subscription from a renderer with these before acting on it.
@@ -29,7 +30,6 @@ import {
   GitDiffSpec,
   Grant,
   HarnessKind,
-  PermissionMode,
   ReviewCheckoutId,
   ReviewContext,
   ReviewerSettings,
@@ -139,11 +139,7 @@ export const AppearancePatch = Schema.Struct({
 export type AppearancePatch = typeof AppearancePatch.Type;
 
 /** What a new Agent Session of one Harness starts with; null fields take the Harness's default. */
-export const SessionDefault = Schema.Struct({
-  model: Schema.NullOr(Schema.String),
-  effort: Schema.NullOr(Schema.String),
-  permissionMode: PermissionMode,
-});
+export const SessionDefault = HostSessionDefault;
 
 export type SessionDefault = typeof SessionDefault.Type;
 
@@ -314,6 +310,12 @@ export const RequestInputs = {
   ...PredictionUiInputs,
   ...PredictionPlacementInputs,
   ...PredictionOutcomeInputs,
+  "commandInstall.get": Schema.Struct({}),
+  "commandInstall.change": Schema.Struct({
+    action: Schema.Literals(["install", "uninstall"]),
+    location: Schema.Literals(["user", "system"]),
+  }),
+  "commandInstall.dismiss": Schema.Struct({}),
   "settings.get": Schema.Struct({}),
   "updates.get": Schema.Struct({}),
   "updates.check": Schema.Struct({}),
@@ -329,7 +331,9 @@ export const RequestInputs = {
   "settings.setDensity": Schema.Struct({ density: Density }),
   "settings.setAppearance": Schema.Struct({ patch: AppearancePatch }),
   /** Null clears the Harness's defaults. */
+  "settings.getSessionDefaults": Schema.Struct({ hostKey: Schema.String }),
   "settings.setSessionDefault": Schema.Struct({
+    hostKey: Schema.String,
     harness: HarnessKind,
     value: Schema.NullOr(SessionDefault),
   }),

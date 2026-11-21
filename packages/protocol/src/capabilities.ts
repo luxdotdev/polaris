@@ -12,6 +12,7 @@ export const PROTOCOL_VERSION = 1;
  */
 export const Capability = Schema.Literals([
   "session.grants",
+  "settings",
   "constellation",
   "constellation.defaults",
   /** `extensions.pair`, `extensions.list`, `extensions.revoke`, and `extensionToken` in `hello`. */
@@ -37,6 +38,7 @@ export const Capability = Schema.Literals([
   "requests",
   /** `developerMode.*`: the Developer Mode setting, leases and watch (ADR 0095); when implemented. */
   "developer-mode",
+  "developer-mode.inspection",
   /** `traces.ingestSelf`: Clients' Self-Trace batches (ADR 0095); advertised only when implemented. */
   "traces.self",
   /** `data.source.saveFile` and `sqlite` Data Sources; advertised only when implemented. */

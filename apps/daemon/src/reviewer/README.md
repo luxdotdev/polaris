@@ -35,7 +35,9 @@ The Agent layer of a Risk Summary (CONTEXT.md: Reviewer, Risk Summary, Risk Find
 
 ## Settings (`settings.ts`)
 
-`~/.polaris/reviewer-settings.json`: `{ default, workspaces, onPullRequests, onSessions, askAboveLines }` (the last three default to true, true, 2,000 and are host-wide), written atomically. Resolution: the Workspace's override, else the default, else the first ready of Claude Code `claude-opus-5-5` `high` and Codex `gpt-6.1-sol` (from `Availability`), else none: the agent layer is skipped and the summary's note says "Rules only…".
+<!-- Reviewer settings persistence from settings.ts and ../settings/registry.ts -->
+
+`reviewer.*` in `~/.polaris/host-settings.json` (the old `reviewer-settings.json` is migrated once): `{ default, workspaces, onPullRequests, onSessions, askAboveLines }` (the last three default to true, true, 2,000 and are host-wide), written atomically. Resolution: the Workspace's override, else the default, else the first ready of Claude Code `claude-opus-5-5` `high` and Codex `gpt-6.1-sol` (from `Availability`), else none: the agent layer is skipped and the summary's note says "Rules only…".
 
 ## Cost and Plan Limits (`cost.ts`)
 

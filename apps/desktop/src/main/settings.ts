@@ -68,7 +68,7 @@ export const Settings = Schema.Struct({
   codeFont: Schema.optionalKey(CodeFont),
   codeFontSize: Schema.optionalKey(CodeFontSize),
   wordWrap: Schema.optionalKey(Schema.Boolean),
-  /** By Harness kind. */
+  /** Legacy only: imported by each Host on first connect; new choices live on that Host. */
   sessionDefaults: Schema.optionalKey(Schema.Record(Schema.String, SessionDefault)),
   /** Settings → Sessions; each missing field takes its default. */
   sessions: Schema.optionalKey(SessionPrefsPatch),
@@ -86,6 +86,7 @@ export const Settings = Schema.Struct({
   window: Schema.optionalKey(Schema.Unknown),
   /** Set once "Get started" is pressed on the welcome (onboarding O1). */
   welcomeSeen: Schema.optionalKey(Schema.Boolean),
+  commandInstallDismissed: Schema.optionalKey(Schema.Boolean),
 });
 
 export type Settings = typeof Settings.Type;

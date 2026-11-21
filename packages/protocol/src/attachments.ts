@@ -4,6 +4,10 @@
  * it with `attachments.settings`, `attachments.setSettings` and `attachments.clear`.
  */
 import { Schema } from "effect";
+import { Rpc } from "effect/rpc";
+import { Unsupported } from "./errors.ts";
+import { FileError } from "./files.ts";
+import { WorkspaceId } from "./ids.ts";
 
 /**
  * `on-archive` deletes a session's attachments when it is archived (the
@@ -38,3 +42,23 @@ export class AttachmentUsage extends Schema.Class<AttachmentUsage>("AttachmentUs
   /** By Workspace id; Workspaces with nothing staged are left out. */
   workspaces: Schema.Record(Schema.String, StagedAmount),
 }) {}
+
+/** The Host's cleanup settings and what it has staged (capability `attachments.settings`). */
+export const GetAttachmentSettings = Rpc.make("attachments.settings", {
+  payload: {},
+  success: Schema.Struct({ settings: AttachmentSettings, usage: AttachmentUsage }),
+  error: Schema.Union([Unsupported, FileError]),
+});
+
+/** Replaces the cleanup settings; they apply from the next sweep or archive. */
+export const SetAttachmentSettings = Rpc.make("attachments.setSettings", {
+  payload: { settings: AttachmentSettings },
+  error: Schema.Union([Unsupported, FileError]),
+});
+
+/** Deletes staged attachments now, all of them or one Workspace's; answers what it removed. */
+export const ClearAttachments = Rpc.make("attachments.clear", {
+  payload: { workspaceId: Schema.NullOr(WorkspaceId) },
+  success: StagedAmount,
+  error: Schema.Union([Unsupported, FileError]),
+});

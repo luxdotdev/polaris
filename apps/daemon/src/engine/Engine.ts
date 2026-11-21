@@ -94,6 +94,7 @@ export class Engine extends Context.Service<
     /** Computer use asks the user for an app, or headed input in it, on the Turn in flight (ADR 0107). */
     readonly authorizeSessionAction: SessionGrants["Service"]["authorize"];
     readonly sessionStartLimit: SessionGrants["Service"]["startLimit"];
+    readonly sessionStartLimitSetting: SessionGrants["Service"]["startLimitSetting"];
     readonly setSessionStartLimit: SessionGrants["Service"]["setStartLimit"];
     readonly requestAppApproval: AppApprovals["Service"]["request"];
     /** `request_computer_use` while computer use is off, until it's on or the user says Not now. */
@@ -261,6 +262,7 @@ const make = Effect.gen(function* () {
     requestAppApproval: apps.request,
     authorizeSessionAction: grants.authorize,
     sessionStartLimit: grants.startLimit,
+    sessionStartLimitSetting: grants.startLimitSetting,
     setSessionStartLimit: grants.setStartLimit,
     requestComputerUse: computerUse.request,
     subscribeHost: streams.subscribeHost,

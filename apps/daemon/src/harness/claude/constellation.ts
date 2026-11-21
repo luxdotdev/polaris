@@ -1,4 +1,5 @@
 import { createSdkMcpServer, tool, type Options } from "@anthropic-ai/claude-agent-sdk";
+import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { Schema } from "effect";
 import type { BoundTool } from "../../mcp/tools.ts";
 import { z } from "zod";
@@ -37,33 +38,61 @@ export const claudeConstellationOptions = (
     attachments.map((attachment, index) => {
       const name = `polaris${index === 0 ? "" : `_${index}`}`;
 
-      return [
+      const server = createSdkMcpServer({
         name,
-        createSdkMcpServer({
-          name,
-          version: "1",
-          tools: attachment.tools.map((bound) => {
-            const schema = z.fromJSONSchema(bound.sdkInputSchema ?? bound.inputSchema);
+        version: "1",
+        tools: attachment.tools.map((bound) => {
+          const schema = z.fromJSONSchema(bound.sdkInputSchema ?? bound.inputSchema);
 
-            if (!(schema instanceof z.ZodObject))
-              throw new Error("Polaris tool input must be an object");
+          if (!(schema instanceof z.ZodObject))
+            throw new Error("Polaris tool input must be an object");
 
-            return tool(
-              bound.name,
-              bound.description,
-              schema.shape,
-              async (input, extra) => ({
-                ...(await callClaudeTool(
-                  bound,
-                  Schema.decodeUnknownSync(Schema.Json)(input),
-                  Schema.decodeUnknownSync(HandlerContext)(extra)
-                )),
-              }),
-              bound.annotations === undefined ? undefined : { annotations: bound.annotations }
-            );
-          }),
+          return tool(
+            bound.name,
+            bound.description,
+            schema.shape,
+            async (input, extra) => ({
+              ...(await callClaudeTool(
+                bound,
+                Schema.decodeUnknownSync(Schema.Json)(input),
+                Schema.decodeUnknownSync(HandlerContext)(extra)
+              )),
+            }),
+            bound.annotations === undefined ? undefined : { annotations: bound.annotations }
+          );
         }),
-      ];
+      });
+
+      if (attachment.listTools !== undefined) {
+        const listTools = attachment.listTools;
+        server.instance.server.setRequestHandler(ListToolsRequestSchema, async () => ({
+          tools: (await listTools()).map(({ name, description, inputSchema, annotations }) => ({
+            name,
+            description,
+            inputSchema,
+            annotations,
+          })),
+        }));
+        server.instance.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+          const bound = (await listTools()).find((entry) => entry.name === request.params.name);
+
+          if (bound === undefined)
+            return {
+              isError: true,
+              content: [{ type: "text", text: "This binding has no such tool" }],
+            };
+
+          return {
+            ...(await callClaudeTool(
+              bound,
+              Schema.decodeUnknownSync(Schema.Json)(request.params.arguments ?? {}),
+              Schema.decodeUnknownSync(HandlerContext)(extra)
+            )),
+          };
+        });
+      }
+
+      return [name, server];
     })
   ),
 });

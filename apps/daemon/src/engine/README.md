@@ -6,6 +6,9 @@ The orchestration engine: `decider.ts` validates Client commands, the `Engine` s
 
 `Engine.ts` is the module's interface (the `Engine` service, `EngineConfig`) and wires the parts, each an internal service built once per `Engine.layer`:
 
+<!-- Engine services, including Host Settings adapters, from autoArchive.ts, idleCompaction.ts and suggestedReplyPreference.ts -->
+
+
 | Module | What |
 |---|---|
 | `runtime.ts` | `EngineRuntime`: the shared state (running Harnesses, terminal followers, live item progress, idle timers, per-session locks) and primitives: `serially`, `recordFor`, `signal` / `signalWith` (one machine input, committed, then its effects), `failSession`, `capture`, `stopHarness`, `findTurn`. |
@@ -19,8 +22,8 @@ The orchestration engine: `decider.ts` validates Client commands, the `Engine` s
 | `terminal.ts` | `TerminalHandoff`: `OpenInTerminal` / `ReturnFromTerminal`, and following Claude's TUI while In Terminal. |
 | `worktrees.ts` | `Worktrees`: detection on register, creation for `NewWorktree` and Forks, removal on Archive, restore on Unarchive. |
 | `pruning.ts` | `CheckpointPruning`: the policy on Archive, a removed Workspace's checkpoints, and the sweeper's targets. |
-| `autoArchive.ts` | `AutoArchive`: an hourly sweep (and one on start or a settings change) dispatches `ArchiveSession` for Dormant sessions idle past the Host's `afterDays` (7 by default, `auto-archive-settings.json`), keyed by the session's `updatedAt`. Pinned, Reviewer/walkthrough and open-Constellation sessions stay; branches are kept. |
-| `idleCompaction.ts` | `IdleCompaction` (ENG-562): one sleeping fiber per session due a compaction, re-armed from the store feed (and on start, so a restart re-arms it). A session Idle or Dormant 55 minutes after its last Turn ended, with at least `minTokens` of context (200k by default; `idle-compaction-settings.json`, written by the Desktop App to every Host), no pending approval or background task, on a Harness that `compact`s, gets `CompactSession` (keyed by that last Turn): a `/compact` Turn marked `Turn.idleCompaction`. A Dormant session's Harness reopens from its cursor for it. Not past the prompt cache's hour, never twice for the same Turn; Reviewer/walkthrough and open-Constellation sessions stay. Claude Code's own idle compaction never runs under the Agent SDK (it is gated to interactive sessions), so nothing compacts twice. |
+| `autoArchive.ts` | `AutoArchive`: an hourly sweep (and one on start or a settings change) dispatches `ArchiveSession` for Dormant sessions idle past the Host's `afterDays` (7 by default, `sessions.autoArchive.afterDays` in Host Settings; `auto-archive-settings.json` is migrated once), keyed by the session's `updatedAt`. Pinned, Reviewer/walkthrough and open-Constellation sessions stay; branches are kept. |
+| `idleCompaction.ts` | `IdleCompaction` (ENG-562): one sleeping fiber per session due a compaction, re-armed from the store feed (and on start, so a restart re-arms it). A session Idle or Dormant 55 minutes after its last Turn ended, with at least `minTokens` of context (200k by default; `sessions.idleCompaction.*` in Host Settings, migrating `idle-compaction-settings.json` once), no pending approval or background task, on a Harness that `compact`s, gets `CompactSession` (keyed by that last Turn): a `/compact` Turn marked `Turn.idleCompaction`. A Dormant session's Harness reopens from its cursor for it. Not past the prompt cache's hour, never twice for the same Turn; Reviewer/walkthrough and open-Constellation sessions stay. Claude Code's own idle compaction never runs under the Agent SDK (it is gated to interactive sessions), so nothing compacts twice. |
 | `context.ts` | Which `ContextUsed` reports become `SessionContextUsed`: the first, a new window, or a move of a whole percent (a thousand tokens while the window is unknown). |
 | `reactors.ts` | `Reactors`: what runs after each command commits. |
 | `dispatch.ts` | `Dispatcher`: resolves the decider's inputs, commits, acks and forks the reactor. |

@@ -100,7 +100,11 @@ import {
 } from "./languageConnectionLifetime.ts";
 
 /** Capabilities the transport itself provides. Handler modules add theirs via `capabilities`. */
-export const TRANSPORT_CAPABILITIES: ReadonlyArray<Capability> = ["blobs", "user-access.enrolment"];
+export const TRANSPORT_CAPABILITIES: ReadonlyArray<Capability> = [
+  "blobs",
+  "user-access.enrolment",
+  "settings",
+];
 
 export interface ServeOptions<ROut, E, RIn> {
   /** The Engine's live session Grant/Approval check; shared servers always stay read-only. */

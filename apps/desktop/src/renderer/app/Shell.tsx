@@ -1,3 +1,4 @@
+import { CommandInstallSetup } from "../features/command-install/CommandInstall.tsx";
 /** Layout F: title bar, the adaptive top bar, then Input → Intent → Output (ENG-177). */
 import { cn, Horizon } from "@polaris/ui";
 import { useEffect, useState } from "react";
@@ -146,6 +147,7 @@ export const Shell = () => {
       )}
     >
       <TitleBar />
+      <CommandInstallSetup />
       <Body />
       <slots.JumpMenu open={jumpOpen} onOpenChange={setJumpOpen} />
       <CommandPalette />

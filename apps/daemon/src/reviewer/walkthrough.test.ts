@@ -230,6 +230,7 @@ describe("walkthrough persistence and controls", () => {
       recoveredTurns: [],
       authorizeSessionAction: () => Effect.void,
       sessionStartLimit: Effect.succeed(5),
+      sessionStartLimitSetting: Effect.succeed({ value: 5, overridden: false }),
       setSessionStartLimit: () => Effect.void,
       requestAppApproval: () => Effect.succeed(null),
       requestComputerUse: () => Effect.die("unused"),

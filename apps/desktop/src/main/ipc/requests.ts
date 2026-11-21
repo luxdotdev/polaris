@@ -1,3 +1,5 @@
+import { loadSessionDefaults, migrateSessionDefaults } from "../hostSessionDefaults.ts";
+import type { CommandInstaller } from "../commandInstall.ts";
 /**
  * The handlers behind `window.polaris.request`: one per method, each taking the
  * decoded input and returning a structured-clone-friendly output. Blobs the
@@ -21,9 +23,9 @@ import type {
   FileWriteView,
   Appearance,
   FileContentView,
-  SessionDefault,
   IpcError,
   RequestOutput,
+  SessionDefaults,
 } from "../../shared/api.ts";
 import {
   RequestInputs,
@@ -63,6 +65,7 @@ import type { PredictionBridge } from "../prediction/bridge.ts";
 
 /** What the handlers need from the app outside the Client runtime. */
 export interface RequestContext {
+  readonly commandInstaller?: CommandInstaller;
   readonly predictionBridge?: PredictionBridge;
   readonly predictionSettings?: PredictionSettings;
   readonly predictionOutcomes?: PredictionOutcomes;
@@ -79,7 +82,7 @@ export interface RequestContext {
   /** The price table for Usage estimates. */
   readonly prices: Prices;
   readonly setAppearance: (patch: Partial<Appearance>) => void;
-  readonly setSessionDefault: (harness: string, value: SessionDefault | null) => void;
+  readonly publishSessionDefaults?: (hostKey: string, defaults: SessionDefaults) => void;
   readonly setSessions: (patch: SessionPrefsPatch) => void;
   readonly openExternal: (url: string) => Promise<void>;
   /** Holds a Visualization's frame document; the URL serves it once (`frames.ts`). */
@@ -156,7 +159,26 @@ const plainVersion = (v: FileVersion): FileVersionView => ({
   hash: v.hash,
 });
 
+const commandInstall = <A>(run: () => A | Promise<A>) =>
+  Effect.tryPromise({
+    try: async () => run(),
+    catch: (error): IpcError => ({
+      code: "CommandInstallFailed",
+      message: error instanceof Error ? error.message : String(error),
+    }),
+  });
+
+const installerOf = (ctx: RequestContext) => {
+  if (ctx.commandInstaller === undefined) throw new Error("Command installation is not available");
+
+  return ctx.commandInstaller;
+};
+
 export const requestHandlers = (ctx: RequestContext): Handlers => ({
+  "commandInstall.get": () => commandInstall(() => installerOf(ctx).get()),
+  "commandInstall.change": ({ action, location }) =>
+    commandInstall(() => installerOf(ctx).change(action, location)),
+  "commandInstall.dismiss": () => commandInstall(() => installerOf(ctx).dismiss()),
   "prediction.metrics": () =>
     Effect.tryPromise({
       try: () => {
@@ -307,7 +329,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
 
       return {
         ...appearanceOf(settings),
-        sessionDefaults: settings.sessionDefaults ?? {},
+        sessionDefaults: {},
         sessions: sessionPrefsOf(settings),
         version: ctx.appVersion,
         developmentBuild: ctx.developmentBuild,
@@ -327,8 +349,28 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
   "settings.setDensity": ({ density }) =>
     Effect.sync(() => ctx.setAppearance({ density })).pipe(done),
   "settings.setAppearance": ({ patch }) => Effect.sync(() => ctx.setAppearance(patch)).pipe(done),
-  "settings.setSessionDefault": ({ harness, value }) =>
-    Effect.sync(() => ctx.setSessionDefault(harness, value)).pipe(done),
+  "settings.getSessionDefaults": ({ hostKey }) =>
+    onLive(hostKey, (session) =>
+      migrateSessionDefaults(session.client, ctx.settings().sessionDefaults ?? {}).pipe(
+        Effect.andThen(loadSessionDefaults(session.client))
+      )
+    ),
+  "settings.setSessionDefault": ({ hostKey, harness, value }) =>
+    onLive(hostKey, (session) =>
+      Effect.gen(function* () {
+        yield* migrateSessionDefaults(session.client, ctx.settings().sessionDefaults ?? {});
+        const fields = value ?? { model: null, effort: null, permissionMode: "supervised" };
+
+        for (const [field, settingValue] of Object.entries(fields)) {
+          yield* session.client["settings.set"]({
+            key: `sessions.defaults.${harness}.${field}`,
+            value: settingValue,
+          });
+        }
+
+        ctx.publishSessionDefaults?.(hostKey, yield* loadSessionDefaults(session.client));
+      })
+    ).pipe(done),
   "settings.setSessions": ({ patch }) => Effect.sync(() => ctx.setSessions(patch)).pipe(done),
   "shell.openExternal": ({ url }) => {
     // Checked again here, so no path into this handler reaches the OS with another scheme.

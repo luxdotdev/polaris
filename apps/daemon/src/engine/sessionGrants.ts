@@ -28,9 +28,14 @@ export class SessionGrants extends Context.Service<
       input: SessionAction
     ) => Effect.Effect<void, NotGranted | NotFound>;
     readonly startLimit: Effect.Effect<number>;
+    readonly startLimitSetting: Effect.Effect<{
+      readonly value: number;
+      readonly overridden: boolean;
+    }>;
     readonly setStartLimit: (
       sessionId: SessionId | null,
-      limit: number
+      limit: number,
+      ifUnset?: boolean
     ) => Effect.Effect<void, ServiceError | NotFound | NotGranted>;
   }
 >()("polaris/daemon/engine/SessionGrants") {
@@ -155,7 +160,11 @@ export class SessionGrants extends Context.Service<
       return SessionGrants.of({
         authorize,
         startLimit: Effect.map(rt.store.model, (model) => model.sessionStartLimit ?? 5),
-        setStartLimit: Effect.fnUntraced(function* (sessionId, limit) {
+        startLimitSetting: Effect.map(rt.store.model, (model) => ({
+          value: model.sessionStartLimit ?? 5,
+          overridden: model.sessionStartLimit !== undefined,
+        })),
+        setStartLimit: Effect.fnUntraced(function* (sessionId, limit, ifUnset) {
           if (!Number.isSafeInteger(limit) || limit < 0)
             return yield* new ServiceError({
               service: "sessionGrants",
@@ -166,6 +175,9 @@ export class SessionGrants extends Context.Service<
             decide: (model): Effect.Effect<ReadonlyArray<DomainEvent>, NotFound | NotGranted> => {
               if (sessionId !== null && !model.sessions.has(sessionId))
                 return Effect.fail(new NotFound({ what: "session", id: sessionId }));
+
+              if (sessionId === null && ifUnset === true && model.sessionStartLimit !== undefined)
+                return Effect.succeed([]);
 
               const refusal = startLimitRefusal(model, sessionId, limit);
 

@@ -597,9 +597,6 @@ export const loadModel = (sql: SqlClient.SqlClient) =>
     let model: ReadModel = {
       ...emptyModel,
       sequence: max?.sequence ?? 0,
-      sessionStartLimit: Predicate.isTagged(limitEvent, "HostSessionStartLimitChanged")
-        ? limitEvent.limit
-        : 5,
       hostResources: foldResources(
         emptyResources(),
         resourceRows.map((row) => decodeEventRow(row))
@@ -609,6 +606,9 @@ export const loadModel = (sql: SqlClient.SqlClient) =>
       sessions: new Map(records.map((record) => [record.session.id, record])),
       reviewCheckouts: byId(checkouts.map((row) => ReviewCheckoutJson.decode(row.data))),
     };
+
+    if (Predicate.isTagged(limitEvent, "HostSessionStartLimitChanged"))
+      model = { ...model, sessionStartLimit: limitEvent.limit };
 
     // Constellations fold from the log; a later WorkspaceRemoved drops them again.
     const graphEvents = yield* graphEventRows(sql);

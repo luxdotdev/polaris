@@ -1,3 +1,5 @@
+import { hostSettings } from "../settings/index.ts";
+import { hostSessionDefaultsAt } from "../mcp/sessions/defaults.ts";
 import { sessionsTool } from "../mcp/tools/history.ts";
 import { sessionTools } from "../mcp/sessions/index.ts";
 import { sessionControl } from "../mcp/sessions/control.ts";
@@ -287,13 +289,18 @@ test("the generated sessions tool starts on the caller's Host with Host session 
     Effect.gen(function* () {
       const { store, engine, allow } = yield* setup;
 
+      const settingsPath = join(tempDir(), "host-settings.json");
+      hostSettings(settingsPath).set("sessions.defaults", {
+        codex: { model: "host-model", effort: "high", permissionMode: "plan" },
+      });
+
       const tool = sessionsTool(root, {
         ...sessionTools(store),
-        control: sessionControl(store, engine, () => ({
-          model: "host-model",
-          effort: "high",
-          permissionMode: "plan",
-        })),
+        control: sessionControl(
+          store,
+          engine,
+          hostSessionDefaultsAt(() => settingsPath)
+        ),
       });
 
       const refused = yield* Effect.promise(() =>
