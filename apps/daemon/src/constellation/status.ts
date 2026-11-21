@@ -1,4 +1,5 @@
 import {
+  inspecting,
   ConstellationEvent,
   type Task,
   type Attempt,
@@ -151,6 +152,8 @@ const taskLines = (
     for (const finding of attempt.acceptFindings)
       lines.push(`  Finding ${finding.code}: ${finding.message}: ${finding.fix}`);
 
+    lines.push(...inspectionLines(attempt));
+
     if (attempt.claim !== null && attempt.state === "review")
       lines.push(
         `  Claim ${attempt.claim.head} · ${attempt.claim.receipts.length} receipts · ${attempt.claim.notDone.length} not done${projection.branchFetched ? "" : " · branch not yet fetched"}: ${attempt.claim.summary}`
@@ -160,6 +163,24 @@ const taskLines = (
   lines.push(...rejectionLines(record, task));
 
   return lines;
+};
+
+/** Where the Claim's Inspection stands, while the Claim is in review. */
+const inspectionLines = (attempt: Attempt): ReadonlyArray<string> => {
+  const inspection = attempt.inspection;
+
+  if (inspection == null || attempt.state !== "review") return [];
+
+  return Match.value(inspection.state).pipe(
+    Match.when("pending", () => [
+      "  Inspection pending: an inspector is reading this Claim; it reaches you with the verdict.",
+    ]),
+    Match.when("approved", () => [
+      `  Inspector approved: ${inspection.reason ?? ""}${inspection.mergeRefusal == null ? "" : ` · not merged: ${inspection.mergeRefusal}`}`,
+    ]),
+    Match.when("lost", () => [`  Inspection ended without a verdict: ${inspection.reason ?? ""}`]),
+    Match.orElse(() => [])
+  );
 };
 
 const treeLines = (
@@ -268,6 +289,13 @@ export const statusOutline = (
 
 const first = (text: string) => text.split("\n")[0]?.trim() ?? "";
 
+const sentBackBy = (by: "user" | "lead" | "inspector" | null) =>
+  Match.value(by).pipe(
+    Match.when("user", () => " by the user"),
+    Match.when("inspector", () => " by the inspector"),
+    Match.orElse(() => "")
+  );
+
 /** One line per graph event, in the Lead's words; internal bookkeeping stays out. */
 const eventLine = (record: ConstellationRecord, e: ConstellationEvent): string | null => {
   const task = (id: string) => record.graph.attempts.find((a) => a.id === id)?.taskId ?? id;
@@ -301,7 +329,11 @@ const eventLine = (record: ConstellationRecord, e: ConstellationEvent): string |
     AttemptAccepted: (x) =>
       `${task(x.attemptId)}: accepted at ${x.mergedHead} (${x.evidence}).${(x.findings ?? []).map((f) => ` ${f.message}: ${f.fix}.`).join("")}`,
     AttemptRejected: (x) =>
-      `${task(x.attemptId)}: sent back${x.by === "user" ? " by the user" : ""} · ${first(x.reason)}.`,
+      `${task(x.attemptId)}: sent back${sentBackBy(x.by)} · ${first(x.reason)}.`,
+    InspectionStarted: (x) => `${task(x.attemptId)}: inspection started on ${x.head}.`,
+    InspectionRecorded: (x) =>
+      `${task(x.attemptId)}: inspector ${x.verdict === "approve" ? "approved" : "sent it back"} · ${first(x.reason)}.`,
+    InspectionEnded: (x) => `${task(x.attemptId)}: inspection ended (${x.cause}) · ${x.reason}.`,
     AttemptSettled: (x) =>
       `${task(x.attemptId)}: ${x.outcome}${x.failureKind === null ? "" : ` · ${failureKindLabel(x.failureKind)}`} · ${first(x.reason)}.`,
     GatePromoted: (x) => `Gate ${x.taskId} is ready: every dependency accepted.`,
@@ -370,7 +402,7 @@ export const statusSince = (
     `In review: ${
       graph.attempts
         .filter((a) => a.state === "review" && about(a.taskId))
-        .map((a) => a.taskId)
+        .map((a) => (inspecting(a) ? `${a.taskId} (inspecting)` : a.taskId))
         .join(", ") || "none"
     }`,
     `Ready: ${ready.length > 0 ? ready.join(", ") : "none"}`,

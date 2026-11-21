@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 import { HostId, SessionId, Timestamp, WorkspaceId } from "../ids.ts";
 import { optionalArray, optionalNullable } from "../models.ts";
+import { InspectionVerdict } from "./logbook.ts";
 import {
   AttemptId,
   CheckReceipt,
@@ -165,6 +166,17 @@ export const ConstellationCommand = Schema.TaggedUnion({
    * session holding the Task's current Attempt; any other is refused.
    */
   Note: { constellationId: ConstellationId, taskId: TaskId, text: Schema.NonEmptyString },
+  /**
+   * An Inspector's verdict on the Claim it was started for. The writer is the binding: the
+   * Inspection's own session. A verdict naming a superseded Inspection is refused.
+   */
+  Inspect: {
+    constellationId: ConstellationId,
+    attemptId: AttemptId,
+    inspectionId: Schema.NonEmptyString,
+    verdict: InspectionVerdict,
+    reason: Schema.String,
+  },
 });
 
 export type ConstellationCommand = typeof ConstellationCommand.Type;

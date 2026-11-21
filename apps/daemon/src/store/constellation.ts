@@ -3,6 +3,7 @@ import {
   type AttemptId,
   Constellation,
   ConstellationEvent,
+  Inspection,
   type ConstellationId,
   ConstellationDigest,
   ConstellationHandover,
@@ -161,6 +162,35 @@ const patchAttempt = (
         record.graph.attempts,
         new Attempt({ ...attemptData(current), ...patch, revision: event.attemptRevision })
       );
+};
+
+const INSPECTION_ROUTES = {
+  lead: "approved",
+  accepted: "accepted",
+  sent_back: "sent_back",
+} as const;
+
+/** The Attempt's Inspection with its outcome, when the event names the one it carries. */
+const inspectionPatch = (
+  record: ConstellationRecord,
+  event: { readonly attemptId: AttemptId; readonly inspectionId: string },
+  outcome: Pick<Inspection, "state" | "reason" | "endedAt"> & { mergeRefusal?: string | null }
+): Partial<typeof Attempt.Type> => {
+  const current = record.graph.attempts.find((a) => a.id === event.attemptId)?.inspection;
+
+  return current == null || current.id !== event.inspectionId
+    ? {}
+    : {
+        inspection: new Inspection({
+          id: current.id,
+          sessionId: current.sessionId,
+          head: current.head,
+          accept: current.accept,
+          startedAt: current.startedAt,
+          mergeRefusal: current.mergeRefusal,
+          ...outcome,
+        }),
+      };
 };
 
 /** The head an in-review Claim had when this Claim amends it. */
@@ -388,6 +418,52 @@ export const foldConstellation = (
           reviewedBy: e.actor ?? null,
           endedAt: at,
         }),
+      });
+    },
+    InspectionStarted: (e) => {
+      graph = new Constellation({
+        ...graphData(graph),
+        attempts: patchAttempt(next, e, {
+          inspection: new Inspection({
+            id: e.inspectionId,
+            sessionId: e.sessionId,
+            head: e.head,
+            accept: e.accept,
+            state: "pending",
+            reason: null,
+            startedAt: e.at,
+            endedAt: null,
+          }),
+        }),
+      });
+    },
+    InspectionRecorded: (e) => {
+      graph = new Constellation({
+        ...graphData(graph),
+        attempts: patchAttempt(
+          next,
+          e,
+          inspectionPatch(next, e, {
+            state: INSPECTION_ROUTES[e.route],
+            reason: e.reason,
+            mergeRefusal: e.mergeRefusal,
+            endedAt: e.at,
+          })
+        ),
+      });
+    },
+    InspectionEnded: (e) => {
+      graph = new Constellation({
+        ...graphData(graph),
+        attempts: patchAttempt(
+          next,
+          e,
+          inspectionPatch(next, e, {
+            state: e.cause === "lost" ? "lost" : "superseded",
+            reason: e.reason,
+            endedAt: e.at,
+          })
+        ),
       });
     },
     AttemptSettled: (e) => {

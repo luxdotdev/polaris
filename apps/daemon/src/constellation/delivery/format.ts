@@ -18,12 +18,40 @@ const REASON_LIMIT = 240;
 
 /** Who sent it back and why; the next Attempt's brief carries the reason in full. */
 const sentBackLine = (task: string, attempt: Attempt | undefined) => {
-  const by = attempt?.rejectedBy === "user" ? ` by ${userName(attempt.reviewedBy)}` : "";
+  const by = Match.value(attempt?.rejectedBy).pipe(
+    Match.when("user", () => ` by ${userName(attempt?.reviewedBy)}`),
+    Match.when("inspector", () => " by its inspector; the next Attempt has started"),
+    Match.orElse(() => "")
+  );
+
   const reason = line(attempt?.rejectionReason ?? "");
 
   if (reason === "") return `${task}: sent back${by}.`;
 
   return `${task}: sent back${by}: ${reason.length > REASON_LIMIT ? `${reason.slice(0, REASON_LIMIT)}…` : reason}`;
+};
+
+/** What the Claim's Inspection found, said with the Claim it held back (ADR 0119). */
+const inspectionNote = (attempt: Attempt | undefined, state: "review" | "accepted") => {
+  const inspection = attempt?.inspection;
+  const reason = line(inspection?.reason ?? "");
+  const said = reason.length > REASON_LIMIT ? `${reason.slice(0, REASON_LIMIT)}…` : reason;
+
+  if (inspection == null) return "";
+
+  if (state === "accepted")
+    return inspection.state === "accepted"
+      ? ` Its inspector approved and Polaris merged it, as you granted: ${said}`
+      : "";
+
+  if (inspection.state === "lost")
+    return ` Its inspector ended without a verdict (${said}); review the Claim yourself.`;
+
+  if (inspection.state !== "approved") return "";
+
+  return inspection.mergeRefusal == null
+    ? ` Its inspector approved: ${said} You still accept it.`
+    : ` Its inspector approved: ${said} Polaris could not merge it for you (${line(inspection.mergeRefusal)}); accept it or send it back.`;
 };
 
 const settledLine = (
@@ -41,6 +69,9 @@ const settledLine = (
     return `${task}: failed (${failureKindLabel(i.failureKind)}): ${reason}`.trim();
 
   if (i.state === "rejected") return sentBackLine(task, attempt);
+
+  if (i.state === "review" || i.state === "accepted")
+    return `${task}: ${i.state}.${inspectionNote(attempt, i.state)}`;
 
   return `${task}: ${i.state}.`;
 };

@@ -7,6 +7,7 @@ import {
   type StallAudit,
   type TurnId,
   NotificationItem,
+  inspecting,
 } from "@polaris/protocol";
 import { Predicate } from "effect";
 import type { ConstellationContext } from "../engine/constellation.inputs.ts";
@@ -14,6 +15,7 @@ import type { ConstellationDecision } from "../engine/constellation.ts";
 import type { ConstellationRecord } from "../store/constellation.ts";
 import { connectionObserved, inputDelivered, handoverCompleted } from "./journal.delivery.ts";
 import { currentAttempt } from "./attempts.ts";
+import { endInspection } from "./inspection/decide.ts";
 import { GraphDecision, refusal } from "./decision.ts";
 import { auditIsNew } from "./stall.ts";
 
@@ -57,6 +59,13 @@ export type ConstellationJournalInput =
       readonly turnEvents: ReadonlyArray<DomainEvent>;
     }
   | { readonly type: "messageResolved"; readonly id: string }
+  /** An Inspector ended, failed or never started with its Inspection still pending. */
+  | {
+      readonly type: "inspectionLost";
+      readonly attemptId: AttemptId;
+      readonly inspectionId: string;
+      readonly reason: string;
+    }
   | {
       readonly type: "recoveryContinued";
       readonly attemptId: AttemptId;
@@ -272,6 +281,24 @@ const nudged = (
   return [];
 };
 
+/** A lost Inspector releases the Claim it held: the Lead hears of it and reviews it itself. */
+const inspectionLost = (
+  d: GraphDecision,
+  input: Extract<ConstellationJournalInput, { type: "inspectionLost" }>
+) => {
+  const attempt = d.record.graph.attempts.find((a) => a.id === input.attemptId);
+
+  if (
+    attempt === undefined ||
+    !inspecting(attempt) ||
+    attempt.inspection?.id !== input.inspectionId
+  )
+    return;
+
+  endInspection(d, attempt, "lost", input.reason);
+  d.notify(NotificationItem.cases.Settled.make({ attemptId: attempt.id, state: "review" }));
+};
+
 /** Delivery/recovery markers commit in the same batch as their session-machine Turn events. */
 export const decideConstellationJournal = (
   record: ConstellationRecord,
@@ -324,6 +351,9 @@ export const decideConstellationJournal = (
       break;
     case "recoveryContinued":
       companion = recoveryContinued(d, input, ctx);
+      break;
+    case "inspectionLost":
+      inspectionLost(d, input);
       break;
   }
 

@@ -39,6 +39,11 @@ export interface ConstellationContext {
   readonly recordedChecks: ReadonlyArray<RecordedCheck>;
   /** What Accept's merge found, recorded on the accepted Attempt (ENG-276). */
   readonly mergeFindings?: ReadonlyArray<import("@polaris/protocol").ConstellationFinding>;
+  /**
+   * What merging an approved Claim under the Inspector's Accept grant did: `refusal` is the
+   * merge's own, as a Lead Accept would hear it. Null or absent when nothing was merged.
+   */
+  readonly inspectorMerge?: { readonly refusal: string | null } | null;
   readonly offlineSessionIds: ReadonlySet<SessionId>;
   readonly commanded: boolean;
   readonly defaults: import("@polaris/protocol").ConstellationSettings;

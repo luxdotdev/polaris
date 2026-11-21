@@ -29,7 +29,7 @@ import {
   TaskDefinition,
   TaskId,
 } from "./domain.ts";
-import { LogbookNoteAuthor } from "./logbook.ts";
+import { InspectionRoute, InspectionVerdict, LogbookNoteAuthor } from "./logbook.ts";
 
 /** A boolean added after logs were written: absent decodes and constructs as false. */
 const addedFalse = Schema.Boolean.pipe(
@@ -125,8 +125,44 @@ export const constellationEventFields = {
   AttemptRejected: {
     ...attempt,
     reason: Schema.String,
-    by: optionalNullable(Schema.Literals(["user", "lead"])),
+    by: optionalNullable(Schema.Literals(["user", "lead", "inspector"])),
     actor: optionalNullable(Actor),
+  },
+  /**
+   * A Claim arrived on a Task marked for Inspection (ADR 0119): the Daemon starts `sessionId`
+   * as its Inspector and holds the Claim from the Lead. `accept` is the Task's grant then.
+   */
+  InspectionStarted: {
+    ...attempt,
+    inspectionId: Schema.NonEmptyString,
+    sessionId: SessionId,
+    head: Schema.NonEmptyString,
+    accept: Schema.Boolean,
+    at: Timestamp,
+  },
+  /**
+   * The Inspector's verdict and where it went. `mergeRefusal` is set when a granted Accept
+   * could not merge, so the approval went to the Lead instead.
+   */
+  InspectionRecorded: {
+    ...attempt,
+    inspectionId: Schema.NonEmptyString,
+    verdict: InspectionVerdict,
+    route: InspectionRoute,
+    reason: Schema.String,
+    mergeRefusal: optionalNullable(Schema.String),
+    at: Timestamp,
+  },
+  /**
+   * An Inspection ended with no verdict: a new Claim or a review by the Lead or user superseded
+   * it, or its Inspector was lost. A lost one releases the Claim to the Lead.
+   */
+  InspectionEnded: {
+    ...attempt,
+    inspectionId: Schema.NonEmptyString,
+    cause: Schema.Literals(["claim", "review", "lost"]),
+    reason: Schema.String,
+    at: Timestamp,
   },
   AttemptSettled: {
     ...attempt,

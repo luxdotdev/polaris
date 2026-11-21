@@ -9,6 +9,7 @@ import {
   type Sequence,
   type ToolCallReference,
   type TaskProjection,
+  inspecting,
 } from "@polaris/protocol";
 import { Context, Effect, Layer, Predicate } from "effect";
 import { decideConstellation } from "../engine/constellation.ts";
@@ -39,7 +40,8 @@ export const canRead = (binding: ConstellationBinding, record: ConstellationReco
   record.graph.attempts.some((a) => a.sessionId === binding.sessionId && activeAttempt(a));
 
 const nextAction = (record: ConstellationRecord) => {
-  if (record.graph.attempts.some((a) => a.state === "review")) return "Review the pending claims.";
+  if (record.graph.attempts.some((a) => a.state === "review" && !inspecting(a)))
+    return "Review the pending claims.";
 
   if (record.graph.openQuestions.length > 0) return "Answer the open questions.";
 

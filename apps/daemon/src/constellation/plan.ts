@@ -52,6 +52,13 @@ export const validateGraph = (d: GraphDecision, tasks: ReadonlyArray<Task>) => {
   const byId = new Map(tasks.map((task) => [task.id, task]));
 
   for (const task of tasks.filter((t) => !t.canceled)) {
+    if (task.kind === "gate" && task.inspect !== null)
+      d.reject(
+        "E-INSPECT-GATE",
+        `Gate ${task.id} cannot be marked for Inspection`,
+        `Remove inspect from ${task.id}; the Lead carries a Gate itself.`
+      );
+
     for (const dep of effectiveDeps(tasks, task.id)) {
       const dependency = byId.get(dep);
 
