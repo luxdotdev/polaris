@@ -1,3 +1,5 @@
+import { Engine } from "../engine/Engine.ts";
+import { sessionControl, type SessionDefaultsFor } from "./sessions/control.ts";
 import { Profiles } from "../traces/profiles/service.ts";
 import { sessionProfileTools } from "./sessions/profiles.ts";
 import { Effect, Option, Schema } from "effect";
@@ -162,11 +164,24 @@ const originToolsFromContext = (store: EventStore["Service"]) =>
     })
   );
 
+const attachControl = (
+  sessions: SessionTools,
+  store: EventStore["Service"],
+  defaults?: SessionDefaultsFor
+) =>
+  Effect.gen(function* () {
+    const engine = yield* Effect.serviceOption(Engine);
+
+    if (Option.isSome(engine))
+      Object.assign(sessions, { control: sessionControl(store, engine.value, defaults) });
+  });
+
 /** One listener per Host; JSON responses only, with no SSE connection or per-session process. */
 export const mcpHttp = (
   commands: ConstellationCommands,
   port = 0,
-  requestSecret?: SessionTools["requestSecret"]
+  requestSecret?: SessionTools["requestSecret"],
+  sessionDefaults?: SessionDefaultsFor
 ) =>
   Effect.gen(function* () {
     const tokens = yield* McpTokens;
@@ -186,6 +201,7 @@ export const mcpHttp = (
 
     if (Option.isSome(store) && notifications !== null) {
       const sessions = sessionTools(store.value, notifications, requestSecret);
+      yield* attachControl(sessions, store.value, sessionDefaults);
 
       const data =
         Option.isSome(sources) && Option.isSome(queries)

@@ -96,6 +96,7 @@ export const moreLine = (more: number): string => `${grouped(more)} more on Home
 /** The verb before a permission's command in its well ("Wants to run cargo build"). */
 export const wantsLine = (kind: Exclude<ApprovalRequest["kind"], "question" | "secret">): string =>
   Match.value(kind).pipe(
+    Match.when("grant", () => "Wants session authority for"),
     Match.when("command", () => "Wants to run"),
     Match.when("file-change", () => "Wants to change"),
     Match.when("tool", () => "Wants to use"),

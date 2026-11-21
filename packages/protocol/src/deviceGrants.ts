@@ -362,6 +362,7 @@ export const DEVICE_COMMANDS = {
   PinSession: "device",
   SetResumeAtReset: "local",
   SetPermissionMode: "device",
+  SetSessionStartLimit: "local",
   SetModel: "device",
   ForkSession: "local",
   ArchiveSession: isDeviceArchive,

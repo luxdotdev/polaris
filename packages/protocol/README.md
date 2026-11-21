@@ -97,7 +97,7 @@ Daemon-side events with no command (the Checkout, Rules and Reviewer modules com
 
 ### Extensions (`extensions.ts`, `grants.ts`, `hello.ts`)
 
-Capability `extensions` (ENG-398, ADR 0075 and 0078). `hello` takes an optional `extensionToken` (`pol_ext_` and base64url of 32 bytes); with a valid one the connection acts as that Pairing, within its Grant, and an invalid or revoked one fails `hello` with `ExtensionTokenRejected`. `extensions.pair({ name, grant })` returns the Pairing and its token once; `extensions.list`; `extensions.revoke({ id })` closes the Pairing's live connections. A Grant is a set of `read | comment | approve | turn | start | voice`. `RPC_GRANTS` and `COMMAND_GRANTS` map every RPC and `dispatch` Command to what it needs (exhaustive by type); `decideAccess` is the rule (a `StartSession` that is not `supervised` also needs `approve`), and `NotGranted` the refusal, naming the missing Grant (null for what is not available to Extensions). `ExtensionDaemonRpcs` is `DaemonRpcs` with that refusal in every RPC's error type, for the SDK. `SessionCreated`, `TurnStarted` and `ApprovalResolved` carry an optional `actor` (`Client`, `Extension` with its Pairing id and name, `LinkedDevice`, or `Teammate` with its Share, person and name).
+Capability `extensions` (ENG-398, ADR 0075 and 0078). `hello` takes an optional `extensionToken` (`pol_ext_` and base64url of 32 bytes); with a valid one the connection acts as that Pairing, within its Grant, and an invalid or revoked one fails `hello` with `ExtensionTokenRejected`. `extensions.pair({ name, grant })` returns the Pairing and its token once; `extensions.list`; `extensions.revoke({ id })` closes the Pairing's live connections. A Grant is a set of `read | comment | approve | turn | start | voice | settings`. `RPC_GRANTS` and `COMMAND_GRANTS` map every RPC and `dispatch` Command to what it needs (exhaustive by type); `decideAccess` is the rule (a `StartSession` that is not `supervised` also needs `approve`), and `NotGranted` the refusal, naming the missing Grant (null for what is not available to Extensions). `ExtensionDaemonRpcs` is `DaemonRpcs` with that refusal in every RPC's error type, for the SDK. `SessionCreated`, `TurnStarted` and `ApprovalResolved` carry an optional `actor` (`Client`, `Extension` with its Pairing id and name, `LinkedDevice`, or `Teammate` with its Share, person and name).
 
 ### Shares and Comments (`shares.ts`, `shareGrants.ts`, `comments.ts`)
 
@@ -138,3 +138,19 @@ Capability `requests` (ENG-809, ADR 0098), announced once the Daemon serves it; 
 RPCs (`RequestsRpcs`): `requests.watch` (stream of `RequestsSnapshot`), `requests.save`, `requests.send` (the user's Send, never gated), `requests.variables` (a target's variables in an environment), `requests.sendLog.page` (cursor `before`, `filter`), `requests.sendLog.watch` (latest 100), `requests.send.get` (`SendLookup`: `ById` or `ByTrace`), `requests.curl.parse` and `requests.curl.format` (secrets masked). All are Desktop-only (`client` in `RPC_GRANTS`, `local` in `DEVICE_RPCS`).
 
 An agent's Send to a Remote Origin asks with `ApprovalRequest.origin` (`OriginApproval`: `origin`, `variable`, `environment`, `method`, `path`, `write`, `tokenSource`); the user answers `Allow` with `originScope` (`reads | reads-and-writes`, absent means `reads`).
+
+<!-- Session Grants from src/sessionGrants.ts and SessionCreated in src/events.ts -->
+
+### Session Grants and Starter (ADR 0119)
+
+`SessionCreated.starter` and `AgentSession.starter` name User, AgentSession(sessionId),
+Extension(pairingId), or Cli; missing fields decode as User. Clients show Starter only in
+session details. `AgentSession.grant` defaults to read + comment. `ApprovalRequest.grant`
+(`session.grants` capability) asks for start, turn or settings; `Allow.grantScope` selects
+session or workspace when remembered. `SessionGrantRemembered` records that authority.
+User-only actions, including Approvals and budget changes, cannot be granted to a session.
+
+`AgentSession.startLimit` overrides the Host default (five). `SetSessionStartLimit` and
+`HostSessionStartLimitChanged` change those user-owned limits. Starting and Working sessions
+count against every Starter ancestor; Constellation Workers do not count. Other sessions'
+Turn/stop requests outside the Starter chain require approval each time.

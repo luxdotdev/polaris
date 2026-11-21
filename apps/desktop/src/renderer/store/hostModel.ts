@@ -309,6 +309,15 @@ const fold = (event: DomainEvent): Fold =>
           ...m,
           worktrees: withEntry(m.worktrees, worktreeId, undefined),
         }),
+      HostSessionStartLimitChanged: () => unchanged,
+      SessionGrantRemembered: ({ sessionId, kind, scope }) =>
+        scope === "session"
+          ? onSession(sessionId, (entry) =>
+              patch({ grant: [...new Set([...entry.session.grant, kind])] })(entry)
+            )
+          : unchanged,
+      SessionStartLimitChanged: ({ sessionId, limit }) =>
+        onSession(sessionId, patch({ startLimit: limit })),
       SessionCreated:
         ({ session }): Fold =>
         (m) => ({

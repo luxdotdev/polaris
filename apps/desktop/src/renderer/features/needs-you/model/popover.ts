@@ -21,6 +21,7 @@ export interface RowCopy {
 
 /** What a waiting session wants, after its title ("Spike review wants to run"). */
 export const KIND_WANTS: Record<ApprovalRequest["kind"], string> = {
+  grant: "wants session authority",
   command: "wants to run a command",
   "file-change": "wants to change files",
   tool: "wants to use a tool",

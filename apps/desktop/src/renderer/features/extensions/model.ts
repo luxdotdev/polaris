@@ -13,6 +13,7 @@ export interface GrantChoice {
 }
 
 const COPY: Readonly<Record<GrantKind, { readonly label: string; readonly help: string }>> = {
+  settings: { label: "Change settings", help: "Change settings on this host" },
   read: { label: "Read", help: "See agent sessions, turns, approvals and diffs" },
   comment: { label: "Comment", help: "Add comments to agent sessions, and edit or resolve them" },
   approve: {
@@ -28,7 +29,9 @@ const COPY: Readonly<Record<GrantKind, { readonly label: string; readonly help: 
 };
 
 // TODO(ENG-941): `comment` is hidden until the Daemon serves Comments; F3 decides if Pairings get it.
-const PAIRABLE: ReadonlyArray<GrantKind> = GRANT_KINDS.filter((kind) => kind !== "comment");
+const PAIRABLE: ReadonlyArray<GrantKind> = GRANT_KINDS.filter(
+  (kind) => kind !== "comment" && kind !== "settings"
+);
 
 export const GRANT_CHOICES: ReadonlyArray<GrantChoice> = PAIRABLE.map((kind) => ({
   kind,

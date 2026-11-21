@@ -228,6 +228,9 @@ describe("walkthrough persistence and controls", () => {
 
     const engine = Engine.of({
       recoveredTurns: [],
+      authorizeSessionAction: () => Effect.void,
+      sessionStartLimit: Effect.succeed(5),
+      setSessionStartLimit: () => Effect.void,
       requestAppApproval: () => Effect.succeed(null),
       requestComputerUse: () => Effect.die("unused"),
       runCommittedTurn: () => Effect.void,

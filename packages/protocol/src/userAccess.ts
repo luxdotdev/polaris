@@ -67,6 +67,7 @@ export const USER_COMMANDS = {
   PinSession: "user",
   SetResumeAtReset: "user",
   SetPermissionMode: "user",
+  SetSessionStartLimit: "user",
   SetModel: "user",
   ForkSession: "user",
   ArchiveSession: "user",

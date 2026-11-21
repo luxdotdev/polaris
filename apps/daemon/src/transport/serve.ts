@@ -35,6 +35,7 @@ import { ConstellationHarness } from "../constellation/composition/attachments.t
 import { lazyConstellationHandlers, lazyHostResources } from "./lazy.ts";
 import { installDebugHooks, reportStartupModules } from "../debug.ts";
 import { Engine } from "../engine/Engine.ts";
+import { authorizeSessionActor } from "../engine/sessionActor.ts";
 import { EngineRpcHandlers } from "../engine/rpc.ts";
 import { VisualsRpcHandlers } from "../visuals/index.ts";
 import { DeveloperModeLive, DeveloperModeRpcHandlers } from "../developerMode/index.ts";
@@ -278,7 +279,7 @@ export const daemonHandlers = Layer.mergeAll(
   selfTraceExport,
   ShareTargetsLive,
   PairingBookLive
-).pipe(Layer.provide(daemonServices));
+).pipe(Layer.provideMerge(daemonServices));
 
 /** What the lazy language handlers serve: unavailable where no language artifact runs. */
 export const LANGUAGE_CAPABILITIES: ReadonlyArray<Capability> = [
@@ -356,6 +357,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   "session.background-command-failed",
   "session.compaction",
   "session.notify",
+  "session.grants",
   "session.pin",
   "session.review-subject",
   "session.background-reports",
@@ -455,6 +457,7 @@ export const serveProgram = Effect.scoped(
 
     const server = yield* startServer({
       handlers: daemonHandlers,
+      authorizeActor: authorizeSessionActor,
       capabilities: daemonCapabilities,
       gateway: { port: yield* configuredGatewayPort(paths().config) },
       // Windows has no execve or SIGUSR2: an upgrade there stops and restarts the Daemon (ADR 0060).

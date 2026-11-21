@@ -36,6 +36,12 @@ import {
   WorkspaceId,
   WorktreeId,
 } from "./ids.ts";
+import {
+  defaultStarter,
+  SessionGrantKind,
+  GrantScope,
+  SessionStartLimit,
+} from "./sessionGrants.ts";
 import { Actor } from "./extensions.ts";
 import { WorktreeSetupRun } from "./worktreeSetup.ts";
 import { SuggestedReply } from "./suggestedReply.ts";
@@ -73,7 +79,19 @@ export const DomainEvent = Schema.TaggedUnion({
   WorktreeRemoved: { workspaceId: WorkspaceId, worktreeId: WorktreeId },
 
   /** `actor`: who sent the command, when the log records it (null before ENG-398). */
-  SessionCreated: { session: AgentSession, actor: optionalNullable(Actor) },
+  SessionCreated: {
+    session: AgentSession,
+    actor: optionalNullable(Actor),
+    starter: defaultStarter,
+  },
+  SessionGrantRemembered: {
+    sessionId: SessionId,
+    workspaceId: WorkspaceId,
+    kind: SessionGrantKind,
+    scope: GrantScope,
+  },
+  SessionStartLimitChanged: { sessionId: SessionId, limit: Schema.NullOr(SessionStartLimit) },
+  HostSessionStartLimitChanged: { limit: SessionStartLimit },
   SessionStateChanged: {
     sessionId: SessionId,
     state: SessionState,

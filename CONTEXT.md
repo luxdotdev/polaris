@@ -130,7 +130,7 @@ One durable conversation with one Harness in one Workspace, as supervised by Pol
 _Avoid_: Thread, chat, run
 
 **Starter**:
-Who started an Agent Session: the user, another Agent Session, an Extension, or the CLI; recorded when it starts and never changed. An Agent Session started by another counts against its Starter's limit on running sessions.
+Who started an Agent Session: the user, another Agent Session, an Extension, or the CLI; recorded when it starts and never changed. An Agent Session started by another counts against its Starter's limit on running sessions: those Starting or Working; Constellation Workers have their own budget.
 _Avoid_: Origin (that is the session that wrote code), parent (that is a Subagent's or a Task's), creator, requester
 
 **Worktree**:

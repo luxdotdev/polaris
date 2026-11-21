@@ -50,7 +50,7 @@ import {
 } from "@polaris/protocol";
 import { Effect, Stream } from "effect";
 import { RpcGroup } from "effect/rpc";
-import { ClientCapabilities, DeviceLabel } from "../../engine/rpc.ts";
+import { ClientCapabilities, DeviceLabel, ClientName } from "../../engine/rpc.ts";
 import { admissionOf, rejectConnection } from "../../extensions/admission.ts";
 import { pairingOf, scopeConnection } from "../../extensions/connection.ts";
 import { deviceOf } from "../../linkedDevices/connection.ts";
@@ -117,6 +117,7 @@ export const coreDefaults = (options: DefaultOptions) =>
     // understands (e.g. whether to send it ItemProgress), and the Pairing it acts as.
     hello: (
       {
+        clientName,
         deviceLabel,
         capabilities,
         languageProof,
@@ -163,6 +164,7 @@ export const coreDefaults = (options: DefaultOptions) =>
 
         const label = pairing?.name ?? deviceOf(client)?.name ?? deviceLabel;
 
+        client.annotate(ClientName, clientName);
         client.annotate(DeviceLabel, standing?.shares[0]?.person.name ?? label);
         client.annotate(ClientCapabilities, capabilities);
         admissionOf(client).protocolReady = true;

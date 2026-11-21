@@ -8,6 +8,7 @@ import { Match, Predicate } from "effect";
 /** The capability a Client needs to decode an approval of `kind`, or null for the kinds all decode. */
 export const approvalCapability = (kind: ApprovalKind): Capability | null =>
   Match.value(kind).pipe(
+    Match.when("grant", (): Capability => "session.grants"),
     Match.when("secret", (): Capability => "approval.secret"),
     Match.whenOr("app", "headed-input", "computer-use", (): Capability => "computer-use"),
     Match.orElse(() => null)
@@ -15,6 +16,7 @@ export const approvalCapability = (kind: ApprovalKind): Capability | null =>
 
 /** Every capability `eventCapability` can ask for. */
 export const gatingCapabilities: ReadonlyArray<Capability> = [
+  "session.grants",
   "workspace.setup",
   "session.accept",
   "review.checkouts",
@@ -87,6 +89,9 @@ export const eventCapability = (event: DomainEvent): Capability | null =>
       SessionCompacted: needs("session.compaction"),
       SessionReplySuggested: needs("sessions.suggested-replies"),
       SessionNotified: needs("session.notify"),
+      SessionGrantRemembered: needs("session.grants"),
+      SessionStartLimitChanged: needs("session.grants"),
+      HostSessionStartLimitChanged: needs("session.grants"),
       SessionPinned: needs("session.pin"),
       SessionResumeAtResetChanged: needs("session.limited"),
       SessionSetupChanged: needs("workspace.setup"),

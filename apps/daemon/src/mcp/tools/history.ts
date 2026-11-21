@@ -1,5 +1,6 @@
+import { SessionControlInput } from "../sessions/control.ts";
+import { compactCommandTool, defineCommands, DaemonRpcs, type SessionId } from "@polaris/protocol";
 /** Every binding's history tools: `sessions`, `search_history`, `read_history` and `origins`. */
-import type { SessionId } from "@polaris/protocol";
 import { Effect, Schema } from "effect";
 import { HistoryOutcome, sessionLine } from "../sessions/history.ts";
 import type { SessionTools } from "../sessions/index.ts";
@@ -41,29 +42,65 @@ const answer = (caller: SessionId, next: string) => (outcome: HistoryOutcome) =>
       ),
   });
 
-export const sessionsTool = (caller: SessionId, sessions: SessionTools): BoundTool =>
-  sessionTool(
-    "sessions",
-    "List Agent Sessions on this Host, most recently updated first: id, title, Harness, state, Turn count. scope is workspace (default, your Workspace) or host; query keeps titles containing every word. Use an id with search_history or read_history.",
-    Schema.Struct({
-      scope: Schema.optionalKey(Schema.Literals(["workspace", "host"])),
-      query: Schema.optionalKey(Schema.String),
-      limit: Schema.optionalKey(Limit(50)),
-    }),
-    (input) =>
-      sessions
-        .listSessions(caller, {
-          scope: input.scope ?? "workspace",
-          query: input.query ?? null,
-          limit: input.limit ?? 20,
-        })
-        .pipe(
-          Effect.mapError(() => readFailed),
-          Effect.flatMap(
-            answer(caller, "Search one with search_history, or read it with read_history.")
+const ListInput = Schema.Struct({
+  verb: Schema.optionalKey(Schema.Literal("list")),
+  scope: Schema.optionalKey(Schema.Literals(["workspace", "host"])),
+  query: Schema.optionalKey(Schema.String),
+  limit: Schema.optionalKey(Limit(50)),
+});
+
+const SessionInput = Schema.Union([ListInput, SessionControlInput]);
+
+const DESCRIBE_SESSIONS =
+  "List/start/send/stop agent sessions on this Host. Use a Subagent for help inside this Turn and a Constellation for planned multi-part work. Start a session only when the user asks, the work needs another Workspace or Harness, or the user will carry it on. Starts use your Workspace and Host session defaults unless overridden. Grant Approvals and the Starter budget apply.";
+
+const sessionCommands = defineCommands(DaemonRpcs)
+  .filter((command) =>
+    ["session.list", "session.start", "session.send", "session.stop"].includes(command.name)
+  )
+  .map((command) => {
+    if (command.name === "session.list") return { ...command, payloadSchema: ListInput };
+
+    return command.name === "session.start"
+      ? { ...command, generated: [...(command.generated ?? []), "workspaceId", "harness"] }
+      : command;
+  });
+
+export const sessionsTool = (caller: SessionId, sessions: SessionTools): BoundTool => ({
+  ...compactCommandTool("sessions", DESCRIBE_SESSIONS, sessionCommands),
+  call: sessionTool("sessions", DESCRIBE_SESSIONS, SessionInput, (input) => {
+    if (Schema.is(SessionControlInput)(input)) {
+      if (sessions.control === undefined)
+        return Effect.fail(
+          rejection("E-UNAVAILABLE", "Session actions are unavailable", "Use the Desktop App.")
+        );
+
+      return sessions.control(caller, input).pipe(
+        Effect.map((body) => text([body])),
+        Effect.mapError((error) =>
+          rejection(
+            "E-SESSION-ACTION",
+            "reason" in error ? (error.reason ?? error.message) : error.message,
+            "Check the session and its Grant, then try again."
           )
         )
-  );
+      );
+    }
+
+    return sessions
+      .listSessions(caller, {
+        scope: input.scope ?? "workspace",
+        query: input.query ?? null,
+        limit: input.limit ?? 20,
+      })
+      .pipe(
+        Effect.mapError(() => readFailed),
+        Effect.flatMap(
+          answer(caller, "Search one with search_history, or read it with read_history.")
+        )
+      );
+  }).call,
+});
 
 export const searchHistoryTool = (caller: SessionId, sessions: SessionTools): BoundTool =>
   sessionTool(

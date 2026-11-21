@@ -21,14 +21,21 @@ import {
   ExtensionDaemonRpcs,
   NotFound,
   SecretRejected,
+  Starter,
 } from "@polaris/protocol";
 import { Context, Effect, Layer, Option, Stream } from "effect";
+import { actorOf as connectionActorOf } from "../transport/actor.ts";
 import { actorOf, pairingOf } from "../extensions/connection.ts";
 import { RequestShare, teammateOf } from "../shares/connection.ts";
 import { Engine } from "./Engine.ts";
 import { hostItemsFor, sessionItemsFor } from "./limitedCompat.ts";
 import { actorHostItemsFor, actorSessionItemsFor, actorTurnPageFor } from "./actorCompat.ts";
 import { planHostItemsFor, planSessionItemsFor } from "./planCompat.ts";
+
+/** Client-declared presentation name; used only for Starter metadata, never authority. */
+export class ClientName extends Context.Service<ClientName, string>()(
+  "polaris/daemon/engine/ClientName"
+) {}
 
 /** Per-connection annotation set by the `hello` handler. */
 export class DeviceLabel extends Context.Service<DeviceLabel, string>()(
@@ -71,7 +78,19 @@ const DispatchHandler = ExtensionDaemonRpcs.toLayerHandler(
             reason: "This connection acts through a Share, and none covers the command",
           });
 
+        const connectionActor = connectionActorOf(client);
+
         return yield* engine.dispatch({
+          agentSessionId:
+            connectionActor.kind === "agentSession" ? connectionActor.sessionId : undefined,
+          agentAuthorized: connectionActor.kind === "agentSession",
+          starter:
+            connectionActor.kind === "user" &&
+            pairingOf(client) === null &&
+            share === null &&
+            Context.getOrUndefined(client.annotations, ClientName) === "polaris-cli"
+              ? Starter.cases.Cli.make({})
+              : Starter.cases.User.make({}),
           commandId,
           command,
           deviceLabel: Context.getOrUndefined(client.annotations, DeviceLabel) ?? UNKNOWN_DEVICE,

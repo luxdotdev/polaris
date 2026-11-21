@@ -8,6 +8,7 @@ import {
   type Constellation,
   DomainEvent,
   SessionId,
+  Starter,
   Workspace,
   type HostId,
   type PermissionMode,
@@ -103,6 +104,7 @@ export const prepareSession = Effect.fn("Constellation.prepareSession")(function
   const session =
     existing ??
     new AgentSession({
+      starter: Starter.cases.AgentSession.make({ sessionId: input.graph.leadSessionId }),
       id: sessionId,
       workspaceId: input.graph.workspaceId,
       ...selection,

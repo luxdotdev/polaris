@@ -6,6 +6,13 @@ import { ScrubbedDataValue, ScrubbedText } from "./dataValues.ts";
 import { DataWritePreviewFacts } from "./data.ts";
 import { HttpMethod } from "./requests.ts";
 import { CelestialBody } from "./celestial.ts";
+import {
+  defaultStarter,
+  defaultSessionGrant,
+  GrantApproval,
+  GrantScope,
+  SessionStartLimit,
+} from "./sessionGrants.ts";
 import { Actor } from "./extensions.ts";
 import { ComputerUseCall, ComputerUseRequest, DesktopApp } from "./computerUse.ts";
 import { HarnessKind } from "./harnesses.ts";
@@ -131,6 +138,7 @@ export class Workspace extends Schema.Class<Workspace>("Workspace")({
   worktreeRoot: Schema.String,
   hidden: Schema.Boolean,
   worktreeSetup: optionalNullable(WorktreeSetup),
+  sessionGrant: defaultSessionGrant,
   registeredAt: Timestamp,
 }) {}
 
@@ -297,6 +305,9 @@ export const isWorkerSession = (session: { readonly worker?: SessionWorker | nul
   session.worker != null;
 
 export class AgentSession extends Schema.Class<AgentSession>("AgentSession")({
+  starter: defaultStarter,
+  grant: defaultSessionGrant,
+  startLimit: optionalNullable(SessionStartLimit),
   id: SessionId,
   workspaceId: WorkspaceId,
   harness: HarnessKind,
@@ -659,6 +670,7 @@ export const ApprovalKind = Schema.Literals([
   "secret",
   "app",
   "headed-input",
+  "grant",
   /** A session asks for computer use while it's off (`ApprovalRequest.computerUse`). */
   "computer-use",
 ]);
@@ -727,6 +739,7 @@ export class ApprovalRequest extends Schema.Class<ApprovalRequest>("ApprovalRequ
       seconds: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 30 })),
     })
   ),
+  grant: Schema.optionalKey(GrantApproval),
   dataSource: Schema.optionalKey(DataSourceApproval),
   origin: Schema.optionalKey(OriginApproval),
   /** For `app` and `headed-input`: the app the session asks to use; always set for them. */
@@ -778,6 +791,7 @@ export const ApprovalDecision = Schema.TaggedUnion({
   Allow: {
     /** For an `app` approval: always allow it on this Host. Refused for `headed-input`. */
     remember: Schema.Boolean,
+    grantScope: Schema.optionalKey(GrantScope),
     dataScope: Schema.optionalKey(Schema.Literals(["target", "server"])),
     /** For an Origin Approval: absent means `reads`. */
     originScope: Schema.optionalKey(OriginScope),

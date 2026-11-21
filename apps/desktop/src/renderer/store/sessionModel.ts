@@ -395,6 +395,17 @@ const fold = (event: DomainEvent): Fold =>
       TurnQueued: () => same,
       QueuedTurnEdited: () => same,
       QueuedTurnCancelled: () => same,
+      HostSessionStartLimitChanged: () => same,
+      SessionGrantRemembered:
+        ({ kind, scope }): Fold =>
+        (m) =>
+          scope === "session"
+            ? patchSession(m, { grant: [...new Set([...(m.session?.grant ?? []), kind])] })
+            : m,
+      SessionStartLimitChanged:
+        ({ limit }): Fold =>
+        (m) =>
+          patchSession(m, { startLimit: limit }),
       SessionCreated:
         ({ session }): Fold =>
         (m) => ({ ...m, session }),

@@ -43,6 +43,7 @@ export const COMMAND_GRANTS = {
   PinSession: "client",
   SetResumeAtReset: "client",
   SetPermissionMode: "client",
+  SetSessionStartLimit: "client",
   SetModel: "client",
   ForkSession: "client",
   ArchiveSession: "client",

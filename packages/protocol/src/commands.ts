@@ -141,6 +141,10 @@ export const Command = Schema.TaggedUnion({
    * Only between Turns, and only where the Harness can switch Model mid-session;
    * otherwise fork with the new Model.
    */
+  SetSessionStartLimit: {
+    sessionId: SessionId,
+    limit: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+  },
   SetModel: {
     sessionId: SessionId,
     model: Schema.NullOr(ModelId),

@@ -35,7 +35,7 @@ export const sessionTool = <S extends Schema.Decoder<unknown>>(
   name,
   description,
   inputSchema: jsonSchema(schema),
-  call: (input) =>
+  call: (input, signal) =>
     Effect.runPromise(
       Schema.decodeUnknownEffect(schema)(input, { onExcessProperty: "error" }).pipe(
         Effect.mapError(() =>
@@ -47,7 +47,8 @@ export const sessionTool = <S extends Schema.Decoder<unknown>>(
         ),
         Effect.flatMap(run),
         Effect.catchTag("ConstellationRejected", (error) => Effect.succeed(errorResult(error)))
-      )
+      ),
+      { signal }
     ),
 });
 

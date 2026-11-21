@@ -49,7 +49,7 @@ export const constellationInstructions = (binding: McpBinding): string =>
     Match.tag(
       "Plain",
       (plain) =>
-        `Use plan with start { name, workspaceId: ${plain.workspaceId} } to start a constellation in this workspace. Other Lead tools become usable after it starts. Repository rules remain in AGENTS.md.`
+        `Use a Subagent for help inside this Turn, a Constellation for planned multi-part work, and sessions to start only when the user asks, the work needs another Workspace or Harness, or the user will carry it on. Use plan with start { name, workspaceId: ${plain.workspaceId} } to start a constellation in this workspace. Other Lead tools become usable after it starts. Repository rules remain in AGENTS.md.`
     ),
     Match.tag("Lead", () => roleInstructions(lead)),
     Match.tag("Worker", () => roleInstructions(worker)),

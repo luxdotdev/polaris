@@ -85,6 +85,7 @@ export const stripLayout = (all: ReadonlyArray<Notice>): StripLayout => {
 };
 
 const WANTS: Readonly<Record<ApprovalRequest["kind"], string>> = {
+  grant: "wants session authority",
   command: "wants to run",
   "file-change": "wants to change files",
   tool: "wants to use a tool",

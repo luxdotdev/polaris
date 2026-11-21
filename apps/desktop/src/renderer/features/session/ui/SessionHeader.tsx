@@ -1,3 +1,4 @@
+import { Starter } from "@polaris/protocol";
 /**
  * The conversation's header (Paper X-D): the session's Celestial, its title (click to rename),
  * and "Claude Code · Working · turn 24 · ⑂ main"; a menu for Fork, Open in terminal and
@@ -9,6 +10,7 @@ import {
   ChevronDownIcon,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuLabel,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -42,6 +44,14 @@ export interface SessionHeaderProps {
   /** The branch or worktree the session runs on, in full. */
   readonly branch?: string | undefined;
 }
+
+export const startedBy = (starter: SessionData["starter"]) =>
+  Starter.match(starter, {
+    User: () => "Started by you",
+    Cli: () => "Started by the CLI",
+    AgentSession: (s) => `Started by session ${s.sessionId}`,
+    Extension: (s) => `Started by extension ${s.pairingId}`,
+  });
 
 const capitalized = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
@@ -116,6 +126,13 @@ const SessionMenu = ({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-52" onCloseAutoFocus={keepTerminalFocus}>
+        <DropdownMenuLabel
+          className="text-caption text-text-subtle max-w-80 break-words whitespace-normal"
+          aria-label="Session details"
+        >
+          {startedBy(session.starter)}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
         <DropdownMenuItem needsInput disabled={!canFork} onSelect={onFork}>
           Fork…
         </DropdownMenuItem>

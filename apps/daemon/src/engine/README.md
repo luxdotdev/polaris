@@ -70,7 +70,7 @@ stateDiagram-v2
     state "Idle" as idle
     state "Working" as working
     idle --> working: turn.send, turn.deliver, turn.retry, harness.turnStarted (including background reports)
-    working --> needs_you: harness.approvalRequested, data.approvalRequested, inspector.approvalRequested (Turn in flight)
+    working --> needs_you: harness.approvalRequested, data.approvalRequested, inspector.approvalRequested, grant.approvalRequested (Turn in flight)
     needs_you --> working: approval.respond, harness.approvalWithdrawn (last request, Turn in flight)
     working --> working: turn.send (autonomous Turn: steer user prompt)
     working --> working: turn.deliver (waitForTurn effect; no events)
@@ -237,10 +237,10 @@ Every state but `absent` and `removing` takes `checkout.reportHead` (it records 
 
 | Driver | States (shortest paths) | State-changing transitions (one path each) |
 |---|---|---|
-| Claude (sequential hand-off) | 47 | 285 |
-| Codex (live co-attach) | 55 | 377 |
+| Claude (sequential hand-off) | 47 | 293 |
+| Codex (live co-attach) | 55 | 387 |
 
-`requestAttach` also drives Daemon-owned inspector approvals through the machine.
+`requestAttach` and `requestGrant` also drive Daemon-owned inspector and Grant Approvals through the machine.
 
 Simple paths are too many to replay, so every transition is covered instead. Not replayed: `idle.timeout` (the Engine's timer; covered by `Engine.test.ts`) and `session.fail` (a failing Worktree or Harness open). `session.test.ts` checks the machine on its own: all nine Session States are reachable, the rebuild-from-fold property, the guards, recovery and effects.
 
@@ -262,3 +262,18 @@ fingerprints. Only Allow/Deny decisions apply; the reactor never forwards these 
 a Harness. The existing Turn-end and recovery withdrawals deny pending write cards. Durable
 one-shot execution receipts live in the Data approval projection; no reusable source grant is
 created by a write decision. See `data_writes` in the Quint specification.
+
+<!-- Session Grant authorization and budget behavior from sessionGrants.ts and sessionGrantPolicy.ts -->
+
+Session Grants (ADR 0119) start at `read` + `comment`. `grant.approvalRequested`
+enters Needs You only on the Turn in flight, without consulting the Harness permission mode.
+Only the user answers, with Allow once, always for this session or always for this Workspace;
+`SessionGrantRemembered` commits with the answer. Other sessions outside the Starter chain
+need a fresh Turn/stop Approval each time. These decisions never reach the Harness.
+
+`SessionCreated.starter` is immutable (older events decode as User). Starting or Working
+sessions spend a slot against every Starter ancestor; Idle, Needs You, Limited, In Terminal,
+Dormant, Failed, Archived and Constellation Workers do not. Admission and wake-up checks run
+inside the store commit lock. The default limit is five; `SetSessionStartLimit` sets a session
+override and `HostSessionStartLimitChanged` records the Host default. Only the user raises limits.
+A Harness wake-up that cannot fit fails through `session.fail`; it never overruns the budget.

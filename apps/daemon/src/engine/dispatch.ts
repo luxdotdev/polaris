@@ -13,6 +13,8 @@ import {
   type NotFound,
   type NotGranted,
   type Grant,
+  type SessionId,
+  type Starter,
   type ShareRole,
   RiskSummaryRef,
   type Sequence,
@@ -27,6 +29,7 @@ import { PairingBook, queueAccess, teammateApproves } from "./queueAccess.ts";
 import { CommitResult } from "../store/EventStore.ts";
 import type { ReadModel } from "../store/model.ts";
 import { decide } from "./decider.ts";
+import { SessionGrants } from "./sessionGrants.ts";
 import { Reactors } from "./reactors.ts";
 import { EngineRuntime } from "./runtime.ts";
 import { withSessionInput } from "./sessionBoundary.ts";
@@ -40,6 +43,10 @@ export interface DispatchInput {
   /** Who sent it (ENG-398); a token-less Client when left out. */
   readonly actor?: Actor;
   readonly extensionGrant?: Grant | null;
+  readonly agentSessionId?: SessionId | undefined;
+  readonly starter?: Starter;
+  /** Set only by the transport handler after its authenticated Actor passed the Grant gate. */
+  readonly agentAuthorized?: boolean;
   /** A Teammate's Share role on the session (`DecideContext.shareRole`). */
   readonly shareRole?: ShareRole | null;
 }
@@ -78,6 +85,7 @@ const sessionOfCommand = (command: Command) => ("sessionId" in command ? command
 
 const make = Effect.gen(function* () {
   const rt = yield* EngineRuntime;
+  const grants = yield* SessionGrants;
   const { react } = yield* Reactors;
   const { store } = rt;
   const book = yield* Effect.serviceOption(ShareBook);
@@ -223,6 +231,8 @@ const make = Effect.gen(function* () {
 
     const ctx = {
       commandId,
+      agentSessionId: input.agentSessionId,
+      starter: input.starter,
       now: yield* rt.now,
       deviceLabel: input.deviceLabel,
       actor: input.actor ?? Actor.cases.Client.make({}),
@@ -286,7 +296,7 @@ const make = Effect.gen(function* () {
     return { sequence: result.sequence };
   });
 
-  const dispatch: Dispatch = (input) => {
+  const dispatchAuthorized: Dispatch = (input) => {
     const command = input.command;
 
     const committed = Command.isAnyOf(TURN_COMMANDS)(command)
@@ -321,6 +331,13 @@ const make = Effect.gen(function* () {
       )
     );
   };
+
+  const dispatch: Dispatch = (input) =>
+    input.agentSessionId === undefined || input.agentAuthorized === true
+      ? dispatchAuthorized(input)
+      : grants
+          .authorize(input.agentSessionId, { rpc: "dispatch", command: input.command })
+          .pipe(Effect.flatMap(() => dispatchAuthorized(input)));
 
   return Dispatcher.of({ dispatch });
 });

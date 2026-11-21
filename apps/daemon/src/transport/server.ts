@@ -107,7 +107,7 @@ export interface ServeOptions<ROut, E, RIn> {
   readonly authorizeActor?: (
     actor: Extract<Actor, { kind: "agentSession" }>,
     request: ActorRequest
-  ) => Effect.Effect<void, NotGranted>;
+  ) => Effect.Effect<void, NotGranted, ROut>;
   /** Real handlers; any RPC they don't cover falls back to the placeholders. */
   readonly handlers?: Layer.Layer<ROut, E, RIn>;
   /** Extra capabilities announced in `hello`, on top of TRANSPORT_CAPABILITIES. */
@@ -160,6 +160,8 @@ const blobError = (error: BlobError) =>
   });
 
 const tokenHello = Schema.is(Schema.Struct({ extensionToken: Schema.String }));
+
+const actorSettingKey = Schema.decodeUnknownOption(Schema.Struct({ key: Schema.String }));
 
 const actorCommand = Schema.decodeUnknownOption(Schema.Struct({ command: Command }));
 
@@ -446,13 +448,17 @@ export const startServer = <ROut = never, E = never, RIn = never>(
 
       const authorization =
         actor.kind === "agentSession" && options.authorizeActor !== undefined
-          ? options.authorizeActor(actor, { rpc: rpc._tag, command })
+          ? options.authorizeActor(actor, {
+              rpc: rpc._tag,
+              command,
+              settingKey: Option.getOrUndefined(actorSettingKey(payload))?.key,
+            })
           : authorize(actor, ["read", "comment"], {
               rpc: rpc._tag,
               command: command?._tag ?? null,
             });
 
-      const authorized = Effect.andThen(authorization, effect);
+      const authorized = Effect.andThen(Effect.provideContext(authorization, handlers), effect);
 
       // Handlers with a check of their own read the user gate's answer, live (ADR 0114).
       if (Context.getOrUndefined(client.annotations, ConnectionUserAccess) === undefined)

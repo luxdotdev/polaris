@@ -7,6 +7,7 @@ import { approvalDetail } from "../home/model/lines.ts";
 import type { SecretOutcome } from "../thread/fold.ts";
 
 const WANTS: Readonly<Record<ApprovalRequest["kind"], string>> = {
+  grant: "wants session authority",
   command: "wants to run",
   "file-change": "wants to change files",
   tool: "wants to use a tool",

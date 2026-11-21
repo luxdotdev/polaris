@@ -71,7 +71,15 @@ export {
   sessionOriginTools,
 } from "./origins.ts";
 
+import type { SessionControlInput } from "./control.ts";
+import type { CommandRejected, NotFound, NotGranted } from "@polaris/protocol";
+
 export interface SessionTools {
+  readonly control?: (
+    caller: SessionId,
+    input: SessionControlInput
+  ) => Effect.Effect<string, CommandRejected | NotFound | NotGranted>;
+
   readonly profiles?: ProfileSessionTools;
   readonly traces?: TraceSessionTools;
   readonly data?: DataSessionTools;

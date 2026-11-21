@@ -6,6 +6,9 @@ export type SessionPatch = Partial<typeof AgentSession.Type>;
 /** A copy of `session` with `patch` applied. */
 export const patchSession = (session: AgentSession, patch: SessionPatch): AgentSession =>
   new AgentSession({
+    starter: session.starter,
+    grant: session.grant,
+    startLimit: session.startLimit,
     id: session.id,
     workspaceId: session.workspaceId,
     harness: session.harness,

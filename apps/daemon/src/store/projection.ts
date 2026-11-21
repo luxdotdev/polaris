@@ -360,6 +360,16 @@ const projectionOf: (event: DomainEvent) => Projection = DomainEvent.match<Proje
     ({ sql }) =>
       sql`DELETE FROM worktrees WHERE id = ${worktreeId}`,
   SessionCreated: (event) => sessionRow(event.session.id),
+  SessionGrantRemembered: (event) =>
+    event.scope === "session"
+      ? sessionRow(event.sessionId)
+      : (target) => {
+          const workspace = target.after.workspaces.get(event.workspaceId);
+
+          return workspace === undefined ? Effect.void : setWorkspace(target, workspace);
+        },
+  SessionStartLimitChanged: (event) => sessionRow(event.sessionId),
+  HostSessionStartLimitChanged: () => () => Effect.void,
   SessionStateChanged: (event) => sessionRow(event.sessionId),
   SessionRenamed: (event) => sessionRow(event.sessionId),
   SessionPinned: (event) => sessionRow(event.sessionId),
@@ -575,11 +585,21 @@ export const loadModel = (sql: SqlClient.SqlClient) =>
       };
     });
 
+    const limitRows = yield* sql<{
+      payload: string;
+    }>`SELECT payload FROM events WHERE event_type = 'HostSessionStartLimitChanged' ORDER BY sequence DESC LIMIT 1`;
+
+    const limitEvent =
+      limitRows[0] === undefined ? undefined : EventJson.decode(limitRows[0].payload);
+
     const resourceRows = yield* resourceEventRows(sql);
 
     let model: ReadModel = {
       ...emptyModel,
       sequence: max?.sequence ?? 0,
+      sessionStartLimit: Predicate.isTagged(limitEvent, "HostSessionStartLimitChanged")
+        ? limitEvent.limit
+        : 5,
       hostResources: foldResources(
         emptyResources(),
         resourceRows.map((row) => decodeEventRow(row))

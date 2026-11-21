@@ -14,7 +14,15 @@ import { LinkedDeviceId, PairingId, PersonId, ShareId, Timestamp } from "./ids.t
  * One thing a Pairing or a Share allows: the Grant literal names are a contract with
  * Extensions. `comment` adds, edits and resolves Comments (ADR 0113).
  */
-export const GrantKind = Schema.Literals(["read", "comment", "approve", "turn", "start", "voice"]);
+export const GrantKind = Schema.Literals([
+  "read",
+  "comment",
+  "approve",
+  "turn",
+  "start",
+  "voice",
+  "settings",
+]);
 
 export type GrantKind = typeof GrantKind.Type;
 

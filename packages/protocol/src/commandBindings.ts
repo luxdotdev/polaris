@@ -5,6 +5,15 @@ import type { CommandDefinition } from "./commandAnnotations.ts";
 
 export const dispatchCommands: ReadonlyArray<CommandDefinition> = [
   {
+    name: "session.setStartLimit",
+    description: "Set a session's start budget (user only).",
+    grant: "client",
+    examples: ["polaris session setStartLimit ses_123 --limit 10"],
+    payloadSchema: Schema.Struct(Struct.omit(Command.cases.SetSessionStartLimit.fields, ["_tag"])),
+    positional: ["sessionId"],
+    dispatchTag: "SetSessionStartLimit",
+  },
+  {
     name: "session.start",
     description: "Start an agent session.",
     grant: COMMAND_GRANTS.StartSession,

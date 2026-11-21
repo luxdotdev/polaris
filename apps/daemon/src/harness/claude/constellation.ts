@@ -43,7 +43,7 @@ export const claudeConstellationOptions = (
           name,
           version: "1",
           tools: attachment.tools.map((bound) => {
-            const schema = z.fromJSONSchema(bound.inputSchema);
+            const schema = z.fromJSONSchema(bound.sdkInputSchema ?? bound.inputSchema);
 
             if (!(schema instanceof z.ZodObject))
               throw new Error("Polaris tool input must be an object");

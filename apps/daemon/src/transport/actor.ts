@@ -12,6 +12,7 @@ export const userActor: Actor = { kind: "user" };
 export interface ActorRequest {
   readonly rpc: string;
   readonly command: Command | null;
+  readonly settingKey?: string | undefined;
 }
 
 /** Set only from kernel peer credentials, never from hello, flags or environment variables. */
