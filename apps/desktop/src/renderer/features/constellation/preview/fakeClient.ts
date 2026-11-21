@@ -17,6 +17,7 @@ import { asPlain } from "../../../store/plain.ts";
 import type { AppStore } from "../../../store/store.ts";
 import type { ConstellationClient, Outcome } from "../client.ts";
 import { merged } from "../model/fold.ts";
+import { fakeNote } from "./logbook.ts";
 import { applyEnvelopes, emptyConstellations, type Proposal } from "../model/index.ts";
 
 type Event = DomainEvent;
@@ -226,6 +227,7 @@ export const fakeClient = (
     },
     message: async () => ok("Sent; the lead sees it in its next digest"),
     setState: async () => ok("State changed"),
+    note: async (_hostKey, input) => fakeNote(input),
     startWorker: async () => ok("Starting"),
   };
 };

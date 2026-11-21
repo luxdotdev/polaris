@@ -7,6 +7,7 @@ import {
   ConstellationDefaultsGet,
   ConstellationDefaultsSet,
   ConstellationDispatch,
+  ConstellationLogbookNote,
   ConstellationMessage,
   ConstellationPlan,
   ConstellationReview,
@@ -32,6 +33,8 @@ export const ConstellationRequestInputs = {
   "constellation.status": onHost(ConstellationStatus.payloadSchema.fields),
   /** Sent to the worker's Host, not the Lead's: that is where its startup runs. */
   "constellation.worker.start": onHost(ConstellationWorkerStart.payloadSchema.fields),
+  /** A note on a Task's Logbook (capability `constellation.logbook`). */
+  "constellation.logbook.note": onHost(ConstellationLogbookNote.payloadSchema.fields),
 } as const;
 
 export type ConstellationMethod = keyof typeof ConstellationRequestInputs;

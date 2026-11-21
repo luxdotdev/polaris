@@ -32,13 +32,16 @@ export const draftAbout = (
   text: `About ${taskId} (${title}): `,
 });
 
+/** The Lead's Output tabs: the Logbook only exists in a Constellation. */
+export type LeadTab = "constellation" | "logbook" | "changes";
+
 export interface LeadUi {
   readonly focus: Focus | null;
   readonly selected: string | null;
   readonly folds: ReadonlyMap<string, boolean>;
   readonly filter: Filter;
   readonly query: string;
-  readonly tab: "constellation" | "changes";
+  readonly tab: LeadTab;
   /** The Stats popover is open. */
   readonly stats: boolean;
   /** The row whose ⋯ menu is open (the a / s keys and previews open it too). */
