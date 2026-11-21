@@ -3,12 +3,13 @@ import {
   AttemptProgress,
   ConstellationProposal,
   type WorkerLiveness,
+  type ConstellationEvent,
   type ConstellationId,
   ConstellationStreamItem,
   type Sequence,
   Sequence as Seq,
 } from "@polaris/protocol";
-import { Effect, Predicate, Result, Stream } from "effect";
+import { Effect, Predicate, Stream } from "effect";
 import type { ConstellationBinding } from "../engine/constellation.inputs.ts";
 import {
   type ConstellationRecord,
@@ -20,6 +21,7 @@ import type { EventStore } from "../store/EventStore.ts";
 import { finding, refusal } from "./decision.ts";
 import type { BranchStatusService } from "./transfers/branches.ts";
 import type { ConstellationLivenessService } from "./liveness.ts";
+import { canReadLogbook } from "./logbook/access.ts";
 import { enrichProjections } from "./projections.ts";
 import { canRead } from "./service.ts";
 
@@ -49,6 +51,15 @@ const journalOf = (record: ConstellationRecord) => ({
   handovers: record.handovers,
 });
 
+/** A note reaches only a binding the Logbook's read rule lets read its Task, as the graph stands. */
+const mayReceive = (
+  binding: ConstellationBinding,
+  record: ConstellationRecord | undefined,
+  event: ConstellationEvent
+) =>
+  !Predicate.isTagged(event, "LogbookNoted") ||
+  (record !== undefined && canReadLogbook(binding, record, event.taskId));
+
 /** Subscribe before the cut, replay at the cut, then send only committed events beyond it. */
 export const subscribeConstellation = (
   store: EventStore["Service"],
@@ -56,7 +67,9 @@ export const subscribeConstellation = (
   id: ConstellationId,
   after: Sequence | null,
   liveness?: ConstellationLivenessService,
-  branches?: BranchStatusService
+  branches?: BranchStatusService,
+  /** Whether the Client decodes an event (`eventCapability`); one it can't is left out. */
+  decodes: (event: ConstellationEvent) => boolean = () => true
 ) =>
   Stream.unwrap(
     Effect.gen(function* () {
@@ -123,7 +136,7 @@ export const subscribeConstellation = (
         for (const envelope of replay) {
           const event = graphEvent(envelope.event);
 
-          if (event !== null)
+          if (event !== null && decodes(event) && mayReceive(binding, record, event))
             head.push(
               ConstellationStreamItem.cases.Event.make({
                 envelope: {
@@ -151,24 +164,34 @@ export const subscribeConstellation = (
         );
 
       const live = subscription.pipe(
-        Stream.filterMap((item) => {
-          if (!Predicate.isTagged(item, "Event") || item.envelope.sequence <= cut)
-            return Result.failVoid;
-          const event = graphEvent(item.envelope.event);
+        Stream.mapEffect(
+          Effect.fn("Constellation.live")(function* (item) {
+            if (!Predicate.isTagged(item, "Event") || item.envelope.sequence <= cut) return [];
 
-          return event === null
-            ? Result.failVoid
-            : Result.succeed(
-                ConstellationStreamItem.cases.Event.make({
-                  envelope: {
-                    sequence: item.envelope.sequence,
-                    occurredAt: item.envelope.occurredAt,
-                    commandId: item.envelope.commandId,
-                    event,
-                  },
-                })
-              );
-        })
+            const event = graphEvent(item.envelope.event);
+
+            if (event === null || !decodes(event)) return [];
+
+            // Only a note needs the graph as it stands now: who works which Task changes.
+            if (Predicate.isTagged(event, "LogbookNoted")) {
+              const current = (yield* store.model).constellations.get(id);
+
+              if (!mayReceive(binding, current, event)) return [];
+            }
+
+            return [
+              ConstellationStreamItem.cases.Event.make({
+                envelope: {
+                  sequence: item.envelope.sequence,
+                  occurredAt: item.envelope.occurredAt,
+                  commandId: item.envelope.commandId,
+                  event,
+                },
+              }),
+            ];
+          })
+        ),
+        Stream.flatMap((items) => Stream.fromIterable(items))
       );
 
       return Stream.concat(

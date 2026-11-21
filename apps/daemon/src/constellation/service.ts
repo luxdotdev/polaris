@@ -1,4 +1,5 @@
 import {
+  type Capability,
   type CommandId,
   ConstellationCommand,
   type ConstellationId,
@@ -20,7 +21,7 @@ import type {
 } from "../engine/constellation.inputs.ts";
 import { type ConstellationRecord, stampKey } from "../store/constellation.ts";
 import { EventStore } from "../store/EventStore.ts";
-import type { ReadModel } from "../store/model.ts";
+import { eventCapability, type ReadModel } from "../store/model.ts";
 import { getDefaults } from "./defaults.ts";
 import { finding, refusal } from "./decision.ts";
 import { ConstellationBranchStatus } from "./transfers/branches.ts";
@@ -32,6 +33,7 @@ import { type HostSlots } from "./slots.ts";
 import { statusOutline, statusSince } from "./status.ts";
 import { ignoredTierNotes } from "./serviceTier.ts";
 import { scopedResult, statusScope, type StatusView } from "./statusView.ts";
+import { type LogbookScope, readLogbook, subscribeLogbook } from "./logbook/index.ts";
 import { subscribeConstellation } from "./streams.ts";
 
 export const canRead = (binding: ConstellationBinding, record: ConstellationRecord) =>
@@ -410,8 +412,38 @@ const make = Effect.gen(function* () {
     command,
     status,
     resolve,
-    subscribe: (binding: ConstellationBinding, id: ConstellationId, after: Sequence | null) =>
-      subscribeConstellation(store, binding, id, after, liveness, branches),
+    /** `capabilities`: what the Client announced; absent sends every event. */
+    subscribe: (
+      binding: ConstellationBinding,
+      id: ConstellationId,
+      after: Sequence | null,
+      capabilities?: ReadonlyArray<Capability>
+    ) =>
+      subscribeConstellation(
+        store,
+        binding,
+        id,
+        after,
+        liveness,
+        branches,
+        capabilities === undefined
+          ? undefined
+          : (event) => {
+              const needed = eventCapability(event);
+
+              return needed === null || capabilities.includes(needed);
+            }
+      ),
+    /**
+     * A Task's Logbook, with its access check. A note goes through `command` as a `Note`: the
+     * decider applies the write rule.
+     */
+    logbook: {
+      read: (binding: ConstellationBinding, scope: LogbookScope) =>
+        readLogbook(store, binding, scope),
+      subscribe: (binding: ConstellationBinding, scope: LogbookScope) =>
+        subscribeLogbook(store, binding, scope),
+    },
   };
 });
 

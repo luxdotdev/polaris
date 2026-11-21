@@ -1,6 +1,7 @@
 import { ConstellationCommand, ConstellationRpcs } from "@polaris/protocol";
-import { Context, Effect, Option, Stream } from "effect";
+import { Context, Effect, Option } from "effect";
 import type { ConstellationBinding } from "../engine/constellation.inputs.ts";
+import { ClientCapabilities } from "../engine/rpc.ts";
 import { getDefaults, setDefaults } from "./defaults.ts";
 import { finding, refusal } from "./decision.ts";
 import { Constellations } from "./service.ts";
@@ -41,11 +42,6 @@ export const isUserCaller = (annotations: Context.Context<never>): boolean => {
 
   return binding === undefined ? holdsUserAccess(annotations) : binding.kind === "user";
 };
-
-const logbookPending = () =>
-  refusal(undefined, [
-    finding("E-UNAVAILABLE", "Logbook reads are not served yet", "Retry on a newer Daemon."),
-  ]);
 
 export const ConstellationRpcHandlers = ConstellationRpcs.toLayer(
   Effect.gen(function* () {
@@ -139,13 +135,20 @@ export const ConstellationRpcHandlers = ConstellationRpcs.toLayer(
       "constellation.stats": ({ constellationId }, { client }) =>
         stats.get(caller(client.annotations), constellationId),
       "constellation.subscribe": ({ constellationId, afterSequence }, { client }) =>
-        graphs.subscribe(caller(client.annotations), constellationId, afterSequence),
+        graphs.subscribe(
+          caller(client.annotations),
+          constellationId,
+          afterSequence,
+          Context.getOrUndefined(client.annotations, ClientCapabilities) ?? []
+        ),
       "constellation.logbook.note": ({ commandId, ...payload }, { client }) =>
         Effect.flatMap(actingCaller(client.annotations), (binding) =>
           graphs.command(binding, commandId, C.Note.make(payload))
         ),
-      "constellation.logbook.read": () => Effect.fail(logbookPending()),
-      "constellation.logbook.subscribe": () => Stream.fail(logbookPending()),
+      "constellation.logbook.read": (scope, { client }) =>
+        graphs.logbook.read(caller(client.annotations), scope),
+      "constellation.logbook.subscribe": (scope, { client }) =>
+        graphs.logbook.subscribe(caller(client.annotations), scope),
     };
   })
 );
