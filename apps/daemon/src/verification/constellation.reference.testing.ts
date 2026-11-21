@@ -35,6 +35,16 @@ export interface RefAttempt {
   blockedOn: ReadonlyArray<string>;
   blockedReason: string | null;
   blockedAt: string | null;
+  /** The Inspection of the current Claim (ADR 0119), with how it ended. */
+  inspection: RefInspection | null;
+}
+
+export interface RefInspection {
+  id: string;
+  sessionId: string;
+  head: string;
+  accept: boolean;
+  state: "pending" | "approved" | "accepted" | "sent_back" | "superseded" | "lost";
 }
 
 export interface Reference {
@@ -88,6 +98,16 @@ const refAttempt = (attempt: import("@polaris/protocol").Attempt): RefAttempt =>
   blockedOn: attempt.blockedOn,
   blockedReason: attempt.blockedReason,
   blockedAt: attempt.blockedAt,
+  inspection:
+    attempt.inspection == null
+      ? null
+      : {
+          id: attempt.inspection.id,
+          sessionId: attempt.inspection.sessionId,
+          head: attempt.inspection.head,
+          accept: attempt.inspection.accept,
+          state: attempt.inspection.state,
+        },
 });
 
 const patch = (
@@ -99,6 +119,23 @@ const patch = (
 
   if (old === undefined) throw new Error("reference: unknown attempt");
   ref.attempts.set(e.attemptId, { ...old, ...change, revision: e.attemptRevision });
+};
+
+/** An Inspection event names the Inspection its Attempt carries; any other is a fold error. */
+const inspected = (
+  ref: Reference,
+  e: {
+    readonly attemptId: string;
+    readonly attemptRevision: number;
+    readonly inspectionId: string;
+  },
+  state: RefInspection["state"]
+) => {
+  const inspection = ref.attempts.get(e.attemptId)?.inspection;
+
+  if (inspection == null || inspection.id !== e.inspectionId || inspection.state !== "pending")
+    throw new Error("reference: an Inspection ended that was not pending");
+  patch(ref, e, { inspection: { ...inspection, state } });
 };
 
 /** Independent abstract fold: it retains only the state checked by the model properties. */
@@ -217,9 +254,18 @@ export const foldReference = (ref: Reference, events: ReadonlyArray<DomainEvent>
       OperatorMessageResolved: () => {},
       PeerMessage: () => {},
       LogbookNoted: () => {},
-      InspectionStarted: () => {},
-      InspectionRecorded: () => {},
-      InspectionEnded: () => {},
+      InspectionStarted: (e) =>
+        patch(ref, e, {
+          inspection: {
+            id: e.inspectionId,
+            sessionId: e.sessionId,
+            head: e.head,
+            accept: e.accept,
+            state: "pending",
+          },
+        }),
+      InspectionRecorded: (e) => inspected(ref, e, e.route === "lead" ? "approved" : e.route),
+      InspectionEnded: (e) => inspected(ref, e, e.cause === "lost" ? "lost" : "superseded"),
       LeadHandoverRequested: () => {},
       LeadHandoverCancelled: () => {},
       AttemptInterrupted: () => {},

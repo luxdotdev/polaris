@@ -41,6 +41,7 @@ export class ReplayGroup {
   readonly inputs = new ReplayIds();
   readonly outboxes = new ReplayIds();
   readonly attempts = new Map<string, number>();
+  readonly inspections = new Map<string, number>();
   readonly workers = new Map<string, string>();
   readonly workerHosts = new Map<string, string>();
   readonly remoteTurns = new Set<string>();
@@ -61,6 +62,14 @@ export class ReplayGroup {
     const index = this.attempts.get(id);
 
     if (index === undefined) throw new Error(`Attempt ${id} has no earlier AttemptStarted`);
+
+    return index;
+  }
+
+  inspectionId(id: string): number {
+    const index = this.inspections.get(id);
+
+    if (index === undefined) throw new Error(`Inspection ${id} has no earlier InspectionStarted`);
 
     return index;
   }
@@ -285,6 +294,23 @@ export const mapGraphEvent = (
       },
       OperatorMessageResolved: () => [],
       PeerMessage: () => [],
+      InspectionStarted: ({ attemptId, inspectionId, head, accept }) => {
+        if (g.inspections.has(inspectionId))
+          throw new Error(`InspectionStarted repeated ${inspectionId}`);
+        g.inspections.set(inspectionId, g.inspections.size);
+
+        return record(
+          `InspectionStarted({ attempt: ${g.attemptId(attemptId)}, sha: ${g.heads.id(head)}, accept: ${accept} })`
+        );
+      },
+      InspectionRecorded: ({ inspectionId, route }) =>
+        record(
+          `InspectionRecorded({ inspection: ${g.inspectionId(inspectionId)}, route: ${JSON.stringify(route)} })`
+        ),
+      InspectionEnded: ({ inspectionId, cause }) =>
+        record(
+          `InspectionEnded({ inspection: ${g.inspectionId(inspectionId)}, cause: ${JSON.stringify(cause)} })`
+        ),
       LogbookNoted: ({ taskId, attemptId, author }) =>
         record(
           `LogbookNoted({ task: ${g.tasks.id(taskId)}, attempt: ${attemptId === null ? -1 : g.attemptId(attemptId)}, author: ${JSON.stringify(author)} })`

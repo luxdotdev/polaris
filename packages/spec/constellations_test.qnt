@@ -395,6 +395,63 @@ module constellations_test {
     .expect(notesBy(log, "you") == 0 and notesBy(log, "lead") == 0 and safety)
   run newLeadWritesAndTheOldOneDoesNotTest = working.then(handover(3)).then(note(0, 0)).then(note(0, 3))
     .expect(notesBy(log, "lead") == 1 and safety)
+
+  // --- Inspection (ADR 0119) ---
+  action inspected = working.then(claimMarked(0, 1, 42, false, true, false, true, false)).expect(safety)
+  action inspectedWithGrant = working.then(claimMarked(0, 1, 42, false, true, false, true, true)).expect(safety)
+  run markedClaimStartsAnInspectionAndTheLeadHearsNothingTest = inspected
+    .expect(view.attempts[0].status == "review" and holding(view, 0) and pending == Set() and safety)
+    .then(deliver).expect(view.deliveries == [] and safety)
+  run unmarkedClaimIsAnnouncedAtOnceTest = claimed
+    .expect(view.inspections == [] and pending == Set(10) and safety)
+  run approvalReachesTheLeadWhoStillAcceptsTest = inspected.then(inspect(0, "approve", "", true))
+    .expect(all {
+      view.inspections[0].state == "approved", view.attempts[0].status == "review", pending == Set(200000),
+      kinds(logbook(log, 0)) == ["brief", "claim", "inspection"], safety,
+    })
+    .then(accept(0, 4, 42)).expect(view.attempts[0].status == "accepted" and safety)
+  run grantedApprovalAcceptsTheMergedClaimWithoutTheLeadTest = inspectedWithGrant.then(inspect(0, "approve", "", true))
+    .expect(all {
+      view.inspections[0].state == "accepted", view.attempts[0].status == "accepted", view.attempts[0].sha == 42,
+      taskState(view, 1) == "ready", pending == Set(200001),
+      kinds(logbook(log, 0)) == ["brief", "claim", "inspection", "review"], safety,
+    })
+  run grantedApprovalWhoseMergeWasRefusedGoesToTheLeadTest = inspectedWithGrant.then(inspect(0, "approve", "", false))
+    .expect(view.inspections[0].state == "approved" and view.attempts[0].status == "review" and pending == Set(200000) and safety)
+  run approvalWithoutTheGrantNeverAcceptsTest = inspected.then(inspect(0, "approve", "", true))
+    .expect(view.attempts[0].status == "review" and safety)
+  run inspectorSendBackRejectsAndStartsTheNextAttemptTest = inspected.then(inspect(0, "send_back", "fix", false))
+    .expect(all {
+      view.inspections[0].state == "sent_back", view.attempts[0].status == "rejected", view.attempts.length() == 2,
+      view.attempts[1].status == "working", view.attempts[1].session == 1, retryBrief(view, 1).reason == "fix",
+      pending == Set(200002), kinds(logbook(log, 0)) == ["brief", "claim", "inspection"], safety,
+    })
+  run sendBackWithoutAReasonIsRefusedTest = inspected.then(inspect(0, "send_back", "", false))
+    .expect(holding(view, 0) and view.attempts.length() == 1 and safety)
+  run newerClaimSupersedesAndTheOldInspectorIsRefusedTest = inspected
+    .then(claimMarked(0, 3, 43, false, true, false, true, false))
+    .expect(view.inspections[0].state == "superseded" and holding(view, 1) and pending == Set() and safety)
+    .then(inspect(0, "approve", "", true)).expect(holding(view, 1) and pending == Set() and safety)
+    .then(inspect(1, "approve", "", true)).expect(view.inspections[1].state == "approved" and pending == Set(200010) and safety)
+  run leadReviewSupersedesTheInspectionTest = inspected.then(reject(0, 3))
+    .expect(all {
+      view.inspections[0].state == "superseded", view.attempts[0].status == "rejected",
+      kinds(logbook(log, 0)) == ["brief", "claim", "review"], safety,
+    })
+    .then(inspect(0, "approve", "", true)).expect(view.inspections[0].state == "superseded" and pending == Set() and safety)
+  run secondVerdictIsRefusedTest = inspected.then(inspect(0, "approve", "", true)).then(inspect(0, "send_back", "fix", false))
+    .expect(view.attempts[0].status == "review" and view.attempts.length() == 1 and safety)
+  run lostInspectorReleasesTheClaimOnceTest = inspected.then(inspectionLost(0))
+    .expect(view.inspections[0].state == "lost" and view.attempts[0].status == "review" and pending == Set(200003) and safety)
+    .then(inspectionLost(0)).then(inspect(0, "approve", "", true))
+    .expect(view.inspections[0].state == "lost" and pending == Set(200003) and safety)
+  run settledAttemptRefusesItsInspectorTest = inspected.then(stop(0, 3))
+    .expect(view.attempts[0].status == "lost" and not(holding(view, 0)) and safety)
+    .then(inspect(0, "send_back", "fix", false)).expect(view.attempts.length() == 1 and safety)
+  run gateClaimIsNeverInspectedTest = claimed.then(accept(0, 2, 42))
+    .then(start(1, 2, -1)).then(claim(1, 1, 43, false, true)).then(accept(1, 2, 43))
+    .then(start(2, 3, -1)).then(claimMarked(2, 1, 44, false, true, false, true, true))
+    .expect(view.attempts[2].status == "review" and view.inspections == [] and view.notes.keys().contains(14) and safety)
 }
 
 module constellations_property_test {
@@ -526,4 +583,25 @@ module constellations_property_test {
     .expect(not(logbookSpansAttemptsInOrder))
   run detectsNoteOnAnUndeclaredTaskTest = init
     .then(commit(OWNER, [LogbookNoted({ task: 0, attempt: -1, author: "you" })])).expect(not(notesValid))
+
+  // --- Inspection (ADR 0119) ---
+  action inspected = working.then(claimMarked(0, 1, 42, false, true, false, true, false)).expect(safety)
+  run detectsVerdictFromASupersededInspectionTest = inspected.then(reject(0, 3))
+    .then(commit(OWNER, [InspectionRecorded({ inspection: 0, route: "lead" }), NotificationQueued({ id: 900, kind: "settle" })]))
+    .expect(not(verdictsAreCurrent) and not(safety))
+  run detectsAcceptWithoutTheGrantTest = inspected
+    .then(commit(OWNER, [InspectionRecorded({ inspection: 0, route: "accepted" }), AttemptAccepted({ attempt: 0, sha: 42 })]))
+    .expect(not(verdictRoutes))
+  run detectsSendBackWithNoNextAttemptTest = inspected
+    .then(commit(OWNER, [InspectionRecorded({ inspection: 0, route: "sent_back" }), AttemptRejected({ attempt: 0, reason: "fix" })]))
+    .expect(not(verdictRoutes))
+  run detectsHeldClaimAnnouncedToTheLeadTest = working
+    .then(commit(OWNER, [AttemptClaimed({ attempt: 0, sha: 42, disposed: false }),
+      InspectionStarted({ attempt: 0, sha: 42, accept: false }), NotificationQueued({ id: 10, kind: "settle" })]))
+    .expect(not(heldClaimIsSilent))
+  run detectsInspectionOfAnotherHeadTest = working
+    .then(commit(OWNER, [AttemptClaimed({ attempt: 0, sha: 42, disposed: false }), InspectionStarted({ attempt: 0, sha: 43, accept: false })]))
+    .expect(not(inspectionStartsWithItsClaim))
+  run detectsLostInspectionThatNeverReachesTheLeadTest = inspected
+    .then(commit(OWNER, [InspectionEnded({ inspection: 0, cause: "lost" })])).expect(not(verdictRoutes))
 }
