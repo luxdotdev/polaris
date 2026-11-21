@@ -216,6 +216,8 @@ export const InitializeResponse = Schema.Struct({ userAgent: Schema.String });
 
 export const ThreadResponse = Schema.Struct({
   thread: Schema.Struct({ id: Schema.String }),
+  /** The legacy sandbox policy Codex reports for the thread; an Inspector's is checked. */
+  sandbox: Schema.optionalKey(Schema.Struct({ type: Schema.String })),
   /** The Model the thread runs on; a collaboration mode needs it. */
   model: Schema.optionalKey(Schema.String),
   /** On resume: the thread's collaboration mode, `plan` when it was planning. */

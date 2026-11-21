@@ -44,6 +44,8 @@ export const DRIVER_CAPABILITIES = {
     switchModel: true,
     stopBackground: true,
     compact: true,
+    constellations: true,
+    inspector: true,
   },
   claude: {
     steer: true,
@@ -54,6 +56,8 @@ export const DRIVER_CAPABILITIES = {
     backgroundCommand: true,
     shellCommand: true,
     compact: true,
+    constellations: true,
+    inspector: true,
   },
   opencode: {
     steer: true,
@@ -62,10 +66,25 @@ export const DRIVER_CAPABILITIES = {
     switchModel: true,
     compact: true,
   },
-  gemini: { steer: false, liveCoAttach: false, switchModel: true },
-  copilot: { steer: false, liveCoAttach: false, switchModel: true },
-  bench: { steer: true, steerAttachments: true, liveCoAttach: true, switchModel: true },
+  gemini: { steer: false, liveCoAttach: false, switchModel: true, constellations: true },
+  copilot: { steer: false, liveCoAttach: false, switchModel: true, constellations: true },
+  // It stands in for Codex and Claude only, and serves their Constellation attachments.
+  bench: {
+    steer: true,
+    steerAttachments: true,
+    liveCoAttach: true,
+    switchModel: true,
+    constellations: true,
+  },
 } as const satisfies Record<KnownHarnessKind | "bench", HarnessDriver["capabilities"]>;
+
+/** What a Harness's driver declares, without loading it; a kind this Daemon doesn't run has none. */
+export const driverCapabilities = (kind: HarnessKind): HarnessDriver["capabilities"] =>
+  Object.entries(DRIVER_CAPABILITIES).find(([known]) => known === kind)?.[1] ?? {
+    steer: false,
+    liveCoAttach: false,
+    switchModel: false,
+  };
 
 /**
  * A driver that loads the real one the first time it is probed or opened.

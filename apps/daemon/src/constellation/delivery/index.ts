@@ -16,14 +16,19 @@ import { emptyResources } from "../../resources/model.ts";
 import { hasWorkerAdmission } from "../../resources/workerAdmission.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { UsageIndex } from "../../usage/index.ts";
-import { graphEvent } from "../../store/constellation.ts";
+import { graphEvent, type ConstellationRecord } from "../../store/constellation.ts";
 import { ConstellationOwner } from "../runtime.ts";
 import { ConstellationLiveness } from "../liveness.ts";
 import { performHandover } from "../handover/index.ts";
-import { digestDelay } from "./format.ts";
+import { InspectionRunner } from "../inspection/runner.ts";
+import { nextRemoteHeadDeadline } from "../inspection/wake.ts";
+import { ConstellationBranchStatus } from "../transfers/branches.ts";
+import { digestWindow, type DigestWindow } from "./format.ts";
+import { nextDigest, type DigestSchedule } from "./schedule.ts";
 import { commitJournal } from "./journal.ts";
 import { deliverDigest, deliverLocalInput, nudgeSilentWorker } from "./local.ts";
-import { settleFailedWorker } from "./failures.ts";
+import { settleExpiredLease, settleFailedWorker } from "./failures.ts";
+import { leases, nextLeaseExpiry } from "./lease.ts";
 import { acceptedBlockInput, unblocksAttempt } from "../blocked.ts";
 import { pendingInputs } from "./messages.ts";
 import { expiredWaits } from "./waits.ts";
@@ -40,6 +45,8 @@ interface Timer {
   fiber?: Fiber.Fiber<void> | undefined;
 }
 
+interface DigestTimer extends Timer, DigestSchedule {}
+
 interface Job {
   readonly key: string;
   readonly fiber: Fiber.Fiber<void>;
@@ -50,6 +57,8 @@ const make = Effect.gen(function* () {
   const owner = yield* ConstellationOwner;
   const remote = yield* ConstellationRemoteDelivery;
   const liveness = yield* ConstellationLiveness;
+  const inspections = yield* InspectionRunner;
+  const branches = yield* ConstellationBranchStatus;
   const usage = yield* Effect.serviceOption(UsageIndex);
   const queued = new Map<SessionId, number>();
   const scope = yield* Scope.Scope;
@@ -59,8 +68,8 @@ const make = Effect.gen(function* () {
   >();
 
   const gate = yield* Semaphore.make(1);
-  const timers = new Map<ConstellationId, Timer>();
-  /** One wake per Constellation, when its next held wait runs out (ENG-742). */
+  const timers = new Map<ConstellationId, DigestTimer>();
+  /** One worker wake per Constellation: its next held wait (ENG-742) or lease (ENG-1015) runs out. */
   const waitTimers = new Map<ConstellationId, Timer>();
   /** Expired waits already handed to the nudge, by `[attemptId, turnId]`. */
   const expired = new Set<string>();
@@ -182,6 +191,22 @@ const make = Effect.gen(function* () {
     }
   });
 
+  const workerWake = (
+    record: ConstellationRecord,
+    model: Effect.Success<typeof store.model>,
+    now: number
+  ) => {
+    const source = { hostId: owner, resources: model.hostResources ?? emptyResources(), now };
+
+    const due = [
+      nextWaitExpiry(record, model.sessions, source),
+      nextLeaseExpiry(record, model.sessions, owner),
+      nextRemoteHeadDeadline(record, model.sessions, owner, now),
+    ].filter((at) => at !== null);
+
+    return due.length === 0 ? null : Math.min(...due);
+  };
+
   const armWait = Effect.fnUntraced(function* (
     id: ConstellationId,
     at: number | null,
@@ -208,6 +233,21 @@ const make = Effect.gen(function* () {
       Effect.catchCause((cause) => Effect.logError("Constellation wait wake failed", cause)),
       Effect.forkIn(scope)
     );
+  });
+
+  /** Expired leases settle lost before the refresh reads the graph, so the digest carries them. */
+  const settleLeases = Effect.fnUntraced(function* (id: ConstellationId, now: number) {
+    const model = yield* store.model;
+    const record = model.constellations.get(id);
+
+    if (record === undefined) return;
+
+    for (const lease of leases(record, model.sessions, owner))
+      if (lease.until <= now)
+        yield* settleExpiredLease(id, lease.attemptId, now).pipe(
+          Effect.provide(dependencies),
+          Effect.catchCause((cause) => Effect.logError("Expired lease remains unsettled", cause))
+        );
   });
 
   const refreshHandover = Effect.fnUntraced(function* (id: ConstellationId) {
@@ -238,6 +278,7 @@ const make = Effect.gen(function* () {
     import("@polaris/protocol").ConstellationRejected | import("../../services.ts").ServiceError,
     never
   > {
+    yield* settleLeases(id, yield* Clock.currentTimeMillis);
     const record = (yield* store.model).constellations.get(id);
 
     if (record === undefined || record.graph.hostId !== owner) return;
@@ -251,6 +292,7 @@ const make = Effect.gen(function* () {
       yield* liveness.queued(sessionId, count);
     }
 
+    yield* inspections.refresh(id);
     yield* refreshHandover(id).pipe(Effect.provide(dependencies));
     yield* sendInputs(id).pipe(Effect.provide(dependencies));
     const model = yield* store.model;
@@ -260,45 +302,71 @@ const make = Effect.gen(function* () {
 
     yield* armWait(
       id,
-      record.graph.state === "running" ? nextWaitExpiry(record, model.sessions, source) : null,
+      record.graph.state === "running" ? workerWake(record, model, now) : null,
       now
     );
-    const delay = digestDelay(record, model.sessions, source);
+    const window = digestWindow(record, model.sessions, source);
 
-    if (delay === null || record.graph.state !== "running" || record.handoverRequest !== null) {
+    if (window === null || record.graph.state !== "running" || record.handoverRequest !== null) {
       yield* cancelTimer(id);
 
       return;
     }
 
+    yield* armDigest(id, window, now);
+  });
+
+  /** The one digest wake per Constellation; a delivered window ends it. */
+  const armDigest = Effect.fnUntraced(function* (
+    id: ConstellationId,
+    window: DigestWindow,
+    now: number
+  ) {
     const existing = timers.get(id);
 
-    // A delivered window ends; what arrives next coalesces afresh instead of riding the old timer.
-    if (existing?.due) {
-      if (yield* deliverDigest(id).pipe(Effect.provide(dependencies))) timers.delete(id);
+    // A due window delivers now, or stays due for the busy Lead's boundary (TurnEnded refreshes).
+    if (existing?.due !== true) {
+      const next = nextDigest(existing, window, now);
 
-      return;
+      if (next === null) return;
+      yield* cancelTimer(id);
+      const timer: DigestTimer = { ...next, due: next.at <= now };
+      timers.set(id, timer);
+
+      if (!timer.due) {
+        timer.fiber = yield* Effect.sleep(next.at - now).pipe(
+          Effect.andThen(
+            Effect.gen(function* () {
+              if (timers.get(id) !== timer) return;
+              timer.due = true;
+              timer.fiber = undefined;
+              yield* gate.withPermits(1)(refresh(id));
+            })
+          ),
+          Effect.catchCause((cause) => Effect.logError("Lead digest remains queued", cause)),
+          Effect.forkIn(scope)
+        );
+
+        return;
+      }
     }
 
-    const at = now + delay;
-
-    if (existing !== undefined && existing.at <= at) return;
-    yield* cancelTimer(id);
-    const timer: Timer = { at, due: false };
-    timers.set(id, timer);
-    timer.fiber = yield* Effect.sleep(delay).pipe(
-      Effect.andThen(
-        Effect.gen(function* () {
-          if (timers.get(id) !== timer) return;
-          timer.due = true;
-          timer.fiber = undefined;
-          yield* gate.withPermits(1)(refresh(id));
-        })
-      ),
-      Effect.catchCause((cause) => Effect.logError("Lead digest remains queued", cause)),
-      Effect.forkIn(scope)
-    );
+    // A delivered window ends; what arrives next coalesces afresh instead of riding the old timer.
+    if (yield* deliverDigest(id).pipe(Effect.provide(dependencies))) timers.delete(id);
   });
+
+  // A remote worker's branch arrived: the Inspector waiting on it starts on this refresh.
+  yield* branches.onChanged((id) =>
+    gate
+      .withPermits(1)(refresh(id))
+      .pipe(
+        Effect.catchCause((cause) =>
+          Effect.logError("Refresh after a fetched branch failed", cause)
+        ),
+        Effect.forkIn(scope),
+        Effect.asVoid
+      )
+  );
 
   const flush = Effect.fn("ConstellationDelivery.flush")(function* () {
     for (const record of (yield* store.model).constellations.values())
@@ -417,4 +485,4 @@ export {
 
 export { applyWorkerDelivery } from "./turns.ts";
 
-export { digestPrompt, digestDelay } from "./format.ts";
+export { digestPrompt, digestWindow } from "./format.ts";

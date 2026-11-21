@@ -22,9 +22,20 @@ export const selectionOf = (role: RoleDefault): Selection => {
 const same = (a: Selection | null | undefined, b: Selection) =>
   a != null && a.harness === b.harness && a.model === b.model && a.effort === b.effort;
 
-/** The Host already holds the user's defaults for both roles. */
-export const inSync = (host: HostDefaults, user: ConstellationDefaults) =>
-  same(host.backend, selectionOf(user.backend)) && same(host.ui, selectionOf(user.ui));
+/** The Inspector's choice as the Host stores it; null leaves an Inspector on its Lead's. */
+const inspectorOf = (user: ConstellationDefaults): Selection | null =>
+  user.inspector == null ? null : selectionOf(user.inspector);
+
+/** The Host already holds the user's defaults for both roles and the Inspector. */
+export const inSync = (host: HostDefaults, user: ConstellationDefaults) => {
+  const inspector = inspectorOf(user);
+
+  return (
+    same(host.backend, selectionOf(user.backend)) &&
+    same(host.ui, selectionOf(user.ui)) &&
+    (inspector === null ? host.inspector == null : same(host.inspector, inspector))
+  );
+};
 
 /** The Host's settings with the user's roles written in; its branch prefix, transfer and timings kept. */
 export const withUserDefaults = (
@@ -34,6 +45,7 @@ export const withUserDefaults = (
   ...host,
   backend: selectionOf(user.backend),
   ui: selectionOf(user.ui),
+  inspector: inspectorOf(user),
 });
 
 /** What Settings says about one Host's copy. */

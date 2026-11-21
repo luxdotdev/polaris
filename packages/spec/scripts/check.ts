@@ -715,8 +715,17 @@ simulateWitnessed(
     "witnessSlotAudit",
     "witnessRelay",
     "witnessLease",
+    "witnessNote",
   ],
   "constellations.qnt"
+);
+
+// Inspection has its own step too: `step` did not reach a verdict in 3000 traces (ENG-1014).
+simulateWitnessed(
+  "current_constellations",
+  ["witnessInspection", "witnessInspectorAccept", "witnessInspectorSendBack"],
+  "constellations.qnt",
+  "inspectionStep"
 );
 
 // `step` reached recovery in 1 of 3000 traces; its own step keeps it covered (ENG-352).
@@ -725,6 +734,14 @@ simulateWitnessed(
   ["witnessRecovery"],
   "constellations.qnt",
   "recoveryStep"
+);
+
+// Leases need a nudge, a Stopped notice and a quiet Host in a row (ENG-1015).
+simulateWitnessed(
+  "current_constellations",
+  ["witnessLeaseLost"],
+  "constellations.qnt",
+  "leaseStep"
 );
 
 simulateWitnessed(

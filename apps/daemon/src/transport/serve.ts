@@ -321,6 +321,7 @@ export const daemonCapabilities: ReadonlyArray<Capability> = [
   ...(livePreview() ? [PREVIEW_CAPABILITY] : []),
   "constellation",
   "constellation.defaults",
+  "constellation.logbook",
   "extensions",
   "remote-access",
   "host.restart",

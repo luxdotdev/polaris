@@ -1,7 +1,7 @@
 import type { OpenOptions } from "../../harness/HarnessDriver.ts";
 import { visualizeGuidance } from "@polaris/visualization";
 
-export const POLARIS_PREAMBLE_VERSION = 4;
+export const POLARIS_PREAMBLE_VERSION = 5;
 
 type InstructionOptions = Pick<OpenOptions, "readOnly" | "constellation" | "constellations">;
 
@@ -16,11 +16,13 @@ const context = [
   "What the user sees: images you open with view_image or Read show in the conversation, and Markdown images and links in your replies that name absolute paths on this host open in the app (images in a viewer, other files in its editor); links to localhost or a loopback address open that page from this host in the session's browser. Images a tool returns only to you, such as image() inside exec, never reach the user, and HTML files on the host don't open in its browser: show an image by viewing it or linking its path.",
 ];
 
-export const sessionAttachments = (options: InstructionOptions) =>
-  options.readOnly === true
-    ? []
-    : (options.constellations ??
-      (options.constellation === undefined ? [] : [options.constellation]));
+/** A read-only session keeps one kind of attachment: an Inspector's verdict server (ADR 0119). */
+export const sessionAttachments = (options: InstructionOptions) => {
+  const all =
+    options.constellations ?? (options.constellation === undefined ? [] : [options.constellation]);
+
+  return options.readOnly === true ? all.filter((a) => a.role === "Inspector") : all;
+};
 
 /** Short capability-aware context; role skills follow it in the same instruction field. */
 export const polarisPreamble = (options: InstructionOptions): string => {
@@ -64,4 +66,4 @@ export const polarisInstructions = (options: InstructionOptions): string =>
     .join("\n\n");
 
 export const polarisContextWithoutTools = () =>
-  `${polarisPreamble({})}\nConstellations need Codex or Claude Code.`;
+  `${polarisPreamble({})}\nConstellations need Codex, Claude Code or an ACP Harness that takes HTTP MCP servers.`;

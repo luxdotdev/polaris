@@ -507,6 +507,7 @@ export const c1Record = (
           brief: "",
           criteria: [],
           suggested: null,
+          inspect: null,
           group: B,
           parent: null,
         },

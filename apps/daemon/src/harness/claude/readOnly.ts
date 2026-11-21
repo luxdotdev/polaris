@@ -146,11 +146,12 @@ const allowed = async (
 
 /** Polaris's own check before Claude Code's, on every call: default-deny, by tool and by field. */
 export const reviewerHook =
-  (root: string, tools: ReadonlyArray<string>): HookCallback =>
+  (root: string, tools: ReadonlyArray<string>, bound: ReadonlyArray<string> = []): HookCallback =>
   async (input) => {
     if (input.hook_event_name !== "PreToolUse") return {};
 
-    if (await allowed(root, tools, input)) return {};
+    // `bound` names Polaris's own in-process tools (an Inspector's verdict), by exact name.
+    if (bound.includes(input.tool_name) || (await allowed(root, tools, input))) return {};
 
     return {
       hookSpecificOutput: {
@@ -167,18 +168,27 @@ const FILE_TOOLS = ["Read", "Glob", "Grep", "Agent"];
 /** The sandboxed Reviewer's: Bash, since the sandbox doesn't cover the file tools. */
 const SANDBOXED_TOOLS = ["Bash", "Agent"];
 
+/** The one MCP server a read-only session may keep: an Inspector's verdict server (ADR 0119). */
+export type BoundServers = Pick<Options, "mcpServers" | "allowedTools">;
+
+/** The bound servers' tools by exact name; a wildcard rule never reaches a read-only session. */
+const boundTools = (bound: BoundServers | undefined) =>
+  (bound?.allowedTools ?? []).filter((name) => !name.includes("*"));
+
 /** Claude Code's own path rules: reads by path inside the checkout, never a hidden path in it. */
-const base = (confinement: ReadConfinement, tools: ReadonlyArray<string>) =>
+const base = (confinement: ReadConfinement, tools: ReadonlyArray<string>, bound?: BoundServers) =>
   ({
     permissionMode: "dontAsk",
     settingSources: [],
     settings: { disableAllHooks: true, permissions: { blockReadsOutsideWorkingDirectories: true } },
-    mcpServers: {},
+    mcpServers: { ...bound?.mcpServers },
     strictMcpConfig: true,
     additionalDirectories: [],
     tools: [...tools],
-    allowedTools: [`Read(/${confinement.root}/**)`, "Agent"],
-    hooks: { PreToolUse: [{ hooks: [reviewerHook(confinement.root, tools)] }] },
+    allowedTools: [`Read(/${confinement.root}/**)`, "Agent", ...boundTools(bound)],
+    hooks: {
+      PreToolUse: [{ hooks: [reviewerHook(confinement.root, tools, boundTools(bound))] }],
+    },
   }) satisfies Partial<Options>;
 
 const hiddenReads = (confinement: ReadConfinement) =>
@@ -195,12 +205,13 @@ const shellKeys = (env: Readonly<Record<string, string>>, confinement: ReadConfi
  */
 export const sandboxedReadOnly = (
   confinement: ReadConfinement,
-  env: Readonly<Record<string, string>>
+  env: Readonly<Record<string, string>>,
+  bound?: BoundServers
 ) => {
   const keep = shellKeys(env, confinement);
 
   return {
-    ...base(confinement, SANDBOXED_TOOLS),
+    ...base(confinement, SANDBOXED_TOOLS, bound),
     sandbox: {
       enabled: true,
       failIfUnavailable: true,
@@ -235,20 +246,30 @@ export const sandboxedReadOnly = (
 };
 
 /** Without the sandbox there is no shell at all: only tools that read, kept in by Claude Code. */
-export const unsandboxedReadOnly = (confinement: ReadConfinement) =>
+export const unsandboxedReadOnly = (confinement: ReadConfinement, bound?: BoundServers) =>
   ({
-    ...base(confinement, FILE_TOOLS),
+    ...base(confinement, FILE_TOOLS, bound),
     sandbox: { enabled: false },
     disallowedTools: [...NEVER, "Bash", ...hiddenReads(confinement)],
   }) satisfies Partial<Options>;
+
+/**
+ * Whether the session gets the sandboxed shell. `bound` marks an Inspector, which reads a
+ * checkout its worker wrote: no shell where the sandbox leaves that checkout writable (Linux).
+ */
+export const shellAllowed = (sandbox: ClaudeSandbox, bound?: BoundServers) =>
+  sandbox.available && (bound === undefined || sandbox.checkoutReadOnly === true);
 
 /** `env` is the session's own (`readOnlyEnv`): whatever the shell doesn't need is unset in it. */
 export const readOnlyOptions = (
   sandbox: ClaudeSandbox,
   confinement: ReadConfinement,
-  env: Readonly<Record<string, string>>
+  env: Readonly<Record<string, string>>,
+  bound?: BoundServers
 ): Partial<Options> =>
-  sandbox.available ? sandboxedReadOnly(confinement, env) : unsandboxedReadOnly(confinement);
+  shellAllowed(sandbox, bound)
+    ? sandboxedReadOnly(confinement, env, bound)
+    : unsandboxedReadOnly(confinement, bound);
 
 /** What Claude Code reads to start and reach its provider; the rest of the Daemon's stays out. */
 const CLAUDE_CODE_KEY =

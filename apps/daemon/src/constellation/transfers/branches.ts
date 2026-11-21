@@ -15,6 +15,10 @@ type Update = Extract<ConstellationStreamItem, { _tag: "BranchFetched" }>;
 export interface BranchStatusService {
   readonly read: (graph: Constellation) => Effect.Effect<ReadonlySet<AttemptId>>;
   readonly changed: (id: ConstellationId, attemptId: AttemptId) => Effect.Effect<void>;
+  /** Run `listener` whenever a branch arrives: delivery refreshes, so a waiting Inspector starts. */
+  readonly onChanged: (
+    listener: (id: ConstellationId) => Effect.Effect<void>
+  ) => Effect.Effect<void>;
   readonly subscribe: (
     id: ConstellationId
   ) => Effect.Effect<Stream.Stream<Update>, never, Scope.Scope>;
@@ -26,6 +30,7 @@ export class ConstellationBranchStatus extends Context.Reference<BranchStatusSer
     defaultValue: () => ({
       read: () => Effect.succeed(new Set<AttemptId>()),
       changed: () => Effect.void,
+      onChanged: () => Effect.void,
       subscribe: () => Effect.succeed(Stream.empty),
     }),
   }
@@ -35,6 +40,7 @@ export class ConstellationBranchStatus extends Context.Reference<BranchStatusSer
     Effect.gen(function* () {
       const store = yield* EventStore;
       const subscribers = new Map<ConstellationId, Set<Queue.Queue<Update, Cause.Done>>>();
+      const listeners: Array<(id: ConstellationId) => Effect.Effect<void>> = [];
 
       return {
         read: Effect.fnUntraced(function* (graph) {
@@ -68,7 +74,10 @@ export class ConstellationBranchStatus extends Context.Reference<BranchStatusSer
             });
 
             for (const queue of subscribers.get(id) ?? []) Queue.offerUnsafe(queue, item);
-          }),
+          }).pipe(
+            Effect.andThen(Effect.forEach(listeners, (listen) => listen(id), { discard: true }))
+          ),
+        onChanged: (listener) => Effect.sync(() => void listeners.push(listener)),
         subscribe: Effect.fnUntraced(function* (id) {
           const queue = yield* Queue.sliding<Update, Cause.Done>(256);
           const bucket = subscribers.get(id) ?? new Set();

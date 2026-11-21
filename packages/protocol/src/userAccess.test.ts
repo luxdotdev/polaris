@@ -30,6 +30,8 @@ const READ_ONLY = [
   "computerUse.watch",
   "constellation.assignment.list",
   "constellation.defaults.get",
+  "constellation.logbook.read",
+  "constellation.logbook.subscribe",
   "constellation.stats",
   "constellation.status",
   "constellation.subscribe",

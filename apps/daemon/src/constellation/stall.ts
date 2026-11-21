@@ -1,4 +1,5 @@
 import {
+  inspecting,
   STALL_AFTER_MS,
   StallAudit,
   type Attempt,
@@ -106,7 +107,9 @@ const silentLead = (record: ConstellationRecord, sessions: Sessions, gates: numb
   )
     return false;
 
-  if (graph.attempts.some((a) => activeAttempt(a) && a.state !== "review")) return false;
+  // A Claim an Inspector still reads waits on the Inspector, not on the Lead.
+  if (graph.attempts.some((a) => activeAttempt(a) && (a.state !== "review" || inspecting(a))))
+    return false;
 
   const ready = graph.tasks.some(
     (task) => !isParent(graph, task.id) && projectTask(record, task).state === "ready"

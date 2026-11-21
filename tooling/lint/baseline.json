@@ -121,9 +121,6 @@
     "apps/daemon/src/traces/attach/startup.ts": {
       "polaris/child-env": 1
     },
-    "apps/daemon/src/traces/forwarding.test.ts": {
-      "polaris/no-fixed-sleep": 1
-    },
     "apps/daemon/src/traces/forwardQueue.test.ts": {
       "polaris/no-fixed-sleep": 1
     },

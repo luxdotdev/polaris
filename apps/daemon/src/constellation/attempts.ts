@@ -15,6 +15,7 @@ import { attemptData } from "./data.ts";
 import { finding, GraphDecision } from "./decision.ts";
 import { effectiveDeps, isParent } from "./parents.ts";
 import { accepted, activeAttempt, latestAttempt, projectTask } from "./projections.ts";
+import { claimed, endInspection } from "./inspection/decide.ts";
 
 /** What the Attempt checks need: the folded record and somewhere to put findings. */
 type Checks = Pick<GraphDecision, "record" | "reject">;
@@ -216,7 +217,13 @@ export const dispatch = (d: GraphDecision, command: GraphCommand<"Dispatch">) =>
  * Resolve every verified receipt against a command execution the Harness recorded; a forged
  * reference rejects acceptance. A `ToolCall` never verifies: its output is the tool's own (ENG-344).
  */
-export const evidence = (d: GraphDecision, receipts: ReadonlyArray<CheckReceipt>) => {
+export const evidence = (
+  d: {
+    readonly ctx: Pick<GraphDecision["ctx"], "recordedChecks">;
+    readonly reject: GraphDecision["reject"];
+  },
+  receipts: ReadonlyArray<CheckReceipt>
+) => {
   let verified = false;
 
   for (const receipt of receipts)
@@ -380,9 +387,12 @@ const acceptable = (d: Checks, attempt: Attempt, mergedHead: string) => {
 };
 
 export const review = (d: GraphDecision, command: GraphCommand<"Review">) => {
-  const attempt = reviewedAttempt(d, command);
+  const reviewed = reviewedAttempt(d, command);
 
-  if (attempt === undefined) return;
+  if (reviewed === undefined) return;
+
+  // A review by the Lead or the user supersedes the Inspection still reading this Claim.
+  const attempt = endInspection(d, reviewed, "review", "The Lead or the user reviewed the Claim");
 
   const fields = () => ({
     ...d.fields(),
@@ -590,7 +600,7 @@ export const claim = (d: GraphDecision, command: GraphCommand<"WorkerClaim">, at
       claim: command.claim,
     })
   );
-  d.notify(NotificationItem.cases.Settled.make({ attemptId: attempt.id, state: "review" }));
+  claimed(d, attempt);
 
   for (const question of freshQuestions)
     d.notify(NotificationItem.cases.Question.make({ attemptId: attempt.id, question }));

@@ -9,7 +9,8 @@ import { AppProvider } from "../../../shell/hooks.ts";
 import { type AppState, initialState } from "../../../store/store.ts";
 import type { HostResourcesSnapshot, WorkerCap } from "../model/resources.ts";
 import { type ResourcesClient, setResourcesClient } from "../resources.ts";
-import { ConstellationsPage } from "./ConstellationsPage.tsx";
+import { ConstellationsPage, INSPECTOR_HARNESSES } from "./ConstellationsPage.tsx";
+import { harnessOptions } from "./ReviewerChoice.tsx";
 
 afterEach(cleanup);
 
@@ -123,4 +124,23 @@ test("spend per constellation is on Usage, one click away", async () => {
 
   fireEvent.click(screen.getByRole("button", { name: "Spend in Usage…" }));
   expect(navigation.store.getState().settings?.section).toBe("usage");
+});
+
+test("the inspector starts on the lead's harness and model until one is chosen", async () => {
+  fake({});
+  await mount();
+  const card = within(screen.getByTestId("constellation-inspector"));
+
+  expect(card.getByRole("combobox", { name: "Harness" }).textContent).toContain("Automatic");
+  // No model or effort to pick while the lead's are used.
+  expect(card.queryByRole("combobox", { name: "Model" })).toBeNull();
+  expect(card.getByText(/Automatic uses the lead's harness and model/)).not.toBeNull();
+});
+
+test("the inspector's harness choices are the ones that hold it read-only, and one saved before", () => {
+  const labels = (saved: string | null) =>
+    harnessOptions(true, INSPECTOR_HARNESSES, saved).map((o) => o.label);
+
+  expect(labels(null)).toEqual(["Automatic", "Claude Code", "Codex"]);
+  expect(labels("gemini")).toContain("Gemini CLI");
 });

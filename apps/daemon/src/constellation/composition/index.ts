@@ -47,6 +47,7 @@ import {
   workerFailed,
 } from "./workers.ts";
 import { ConstellationHarness } from "./attachments.ts";
+import { InspectorLogbookReader, inspectionRunnerLayer } from "../inspection/runner.ts";
 import { attachmentProvider } from "./provider.ts";
 import { ConstellationRpcHandlers } from "../rpc.ts";
 import { ConstellationTransferHandlers, ConstellationTransferRoot } from "../transfers/rpc.ts";
@@ -249,7 +250,26 @@ const remoteDelivery = Layer.effect(
   })
 );
 
+/** The Inspector reads its Task's Logbook as the Daemon, through the service's own read. */
+const inspections = inspectionRunnerLayer.pipe(
+  Layer.provide(
+    Layer.effect(
+      InspectorLogbookReader,
+      Effect.gen(function* () {
+        const constellations = yield* Constellations;
+
+        return (constellationId, taskId) =>
+          constellations.logbook.read({ kind: "user" }, { constellationId, taskId }).pipe(
+            Effect.map((page) => page.entries),
+            Effect.catchTag("ConstellationRejected", () => Effect.succeed([]))
+          );
+      })
+    )
+  )
+);
+
 const delivery = ConstellationDelivery.layer.pipe(
+  Layer.provideMerge(inspections),
   Layer.provideMerge(remoteDelivery),
   Layer.provideMerge(relay)
 );

@@ -1,4 +1,5 @@
 import {
+  type Capability,
   type CommandId,
   ConstellationCommand,
   type ConstellationId,
@@ -7,8 +8,8 @@ import {
   ConstellationSettings,
   type CheckReceipt,
   type Sequence,
-  type ToolCallReference,
   type TaskProjection,
+  inspecting,
 } from "@polaris/protocol";
 import { Context, Effect, Layer, Predicate } from "effect";
 import { decideConstellation } from "../engine/constellation.ts";
@@ -19,7 +20,7 @@ import type {
 } from "../engine/constellation.inputs.ts";
 import { type ConstellationRecord, stampKey } from "../store/constellation.ts";
 import { EventStore } from "../store/EventStore.ts";
-import type { ReadModel } from "../store/model.ts";
+import { eventCapability, type ReadModel } from "../store/model.ts";
 import { getDefaults } from "./defaults.ts";
 import { finding, refusal } from "./decision.ts";
 import { ConstellationBranchStatus } from "./transfers/branches.ts";
@@ -31,7 +32,16 @@ import { type HostSlots } from "./slots.ts";
 import { statusOutline, statusSince } from "./status.ts";
 import { ignoredTierNotes } from "./serviceTier.ts";
 import { scopedResult, statusScope, type StatusView } from "./statusView.ts";
+import { type LogbookScope, readLogbook, subscribeLogbook } from "./logbook/index.ts";
 import { subscribeConstellation } from "./streams.ts";
+import {
+  graphFree,
+  prepareVerdict,
+  verdictResult,
+  type VerdictPreparation,
+} from "./inspection/verdict.ts";
+import { fenced, reviewStep } from "./inspection/fence.ts";
+import { recordedChecks } from "./recordedChecks.ts";
 
 export const canRead = (binding: ConstellationBinding, record: ConstellationRecord) =>
   binding.kind === "user" ||
@@ -39,7 +49,8 @@ export const canRead = (binding: ConstellationBinding, record: ConstellationReco
   record.graph.attempts.some((a) => a.sessionId === binding.sessionId && activeAttempt(a));
 
 const nextAction = (record: ConstellationRecord) => {
-  if (record.graph.attempts.some((a) => a.state === "review")) return "Review the pending claims.";
+  if (record.graph.attempts.some((a) => a.state === "review" && !inspecting(a)))
+    return "Review the pending claims.";
 
   if (record.graph.openQuestions.length > 0) return "Answer the open questions.";
 
@@ -90,15 +101,11 @@ const graphFullResult = (
       : [],
   });
 
-const references = (command: ConstellationCommand): ReadonlyArray<ToolCallReference> => {
-  let receipts: ReadonlyArray<CheckReceipt> = [];
-
+const references = (command: ConstellationCommand): ReadonlyArray<CheckReceipt> => {
   if (Predicate.isTagged(command, "Review") && Predicate.isTagged(command.action, "Accept"))
-    receipts = command.action.receipts;
+    return command.action.receipts;
 
-  if (Predicate.isTagged(command, "WorkerClaim")) receipts = command.claim.receipts;
-
-  return receipts.flatMap((r) => (Predicate.isTagged(r, "Verified") ? [r.item] : []));
+  return Predicate.isTagged(command, "WorkerClaim") ? command.claim.receipts : [];
 };
 
 const occupied = (model: ReadModel, id: ConstellationId) =>
@@ -243,16 +250,44 @@ const make = Effect.gen(function* () {
     return matches[0]!;
   });
 
-  const command = Effect.fn("Constellations.command")(function* (
+  /** A reference this Host can't read is left out; the decider refuses the receipt. */
+  const checksOf = (model: ReadModel, receipts: ReadonlyArray<CheckReceipt>) =>
+    recordedChecks(
+      store,
+      hostId,
+      model,
+      receipts.flatMap((r) => (Predicate.isTagged(r, "Verified") ? [r.item] : []))
+    );
+
+  /** Prepare against the model as it stands, then commit; a review step runs this fenced. */
+  const committed = Effect.fnUntraced(function* (
     binding: ConstellationBinding,
     commandId: CommandId,
     input: ConstellationCommand
   ) {
     const before = yield* store.model;
 
-    if (before.constellations.has(input.constellationId))
+    const storeRefused = (error: { readonly message: string }) =>
+      refusal(before.constellations.get(input.constellationId), [
+        finding("E-STORE", error.message, "Retry the command with the same id."),
+      ]);
+
+    // A verdict names its own writer; the decider checks the Inspector's binding itself.
+    if (before.constellations.has(input.constellationId) && !Predicate.isTagged(input, "Inspect"))
       yield* authorize(before, input.constellationId, binding);
-    const prepared = yield* runtime.prepare(binding, input, before, commandId);
+
+    const prepared: VerdictPreparation = Predicate.isTagged(input, "Inspect")
+      ? yield* prepareVerdict(
+          runtime,
+          (attempt) =>
+            Effect.zipWith(
+              Effect.mapError(checksOf(before, attempt.claim?.receipts ?? []), storeRefused),
+              runtime.relayedChecks?.(attempt) ?? Effect.succeed([]),
+              (local, relayed) => [...local, ...relayed]
+            ),
+          { binding, input, model: before, commandId }
+        )
+      : yield* runtime.prepare(binding, input, before, commandId);
 
     const defaults =
       Predicate.isTagged(input, "Plan") &&
@@ -286,38 +321,17 @@ const make = Effect.gen(function* () {
                 ]);
             }
 
-            const recordedChecks: Array<RecordedCheck> = [...prepared.recordedChecks];
+            // A verdict's Accept stands on the Claim's own receipts, as a Lead's Accept does.
+            const claimReceipts =
+              Predicate.isTagged(input, "Review") || Predicate.isTagged(input, "Inspect")
+                ? (record?.graph.attempts.find((a) => a.id === input.attemptId)?.claim?.receipts ??
+                  [])
+                : [];
 
-            const claimReceipts = Predicate.isTagged(input, "Review")
-              ? (record?.graph.attempts.find((a) => a.id === input.attemptId)?.claim?.receipts ??
-                [])
-              : [];
-
-            const refs = [
-              ...references(input),
-              ...claimReceipts.flatMap((r) => (Predicate.isTagged(r, "Verified") ? [r.item] : [])),
+            const recorded: ReadonlyArray<RecordedCheck> = [
+              ...prepared.recordedChecks,
+              ...(yield* checksOf(model, [...references(input), ...claimReceipts])),
             ];
-
-            for (const ref of refs) {
-              if (ref.hostId !== hostId || !model.sessions.has(ref.sessionId)) continue;
-
-              const turn = (yield* store.readTurns({
-                sessionId: ref.sessionId,
-                beforeIndex: null,
-                limit: null,
-              })).find((t) => t.id === ref.turnId);
-
-              if (turn === undefined) continue;
-
-              const items = yield* store.readTurnItems({
-                turnIds: [ref.turnId],
-                upTo: model.sequence,
-              });
-
-              const item = items.get(ref.turnId)?.find((i) => i.id === ref.itemId);
-
-              if (item !== undefined) recordedChecks.push({ reference: ref, item });
-            }
 
             const resourceHolders = [...(model.hostResources?.resources.values() ?? [])].map(
               (resource) => ({
@@ -334,7 +348,7 @@ const make = Effect.gen(function* () {
               binding,
               hostId,
               now: new Date().toISOString(),
-              recordedChecks,
+              recordedChecks: recorded,
               resourceHolders,
               defaults,
               occupiedSessions: occupied(model, input.constellationId),
@@ -357,15 +371,23 @@ const make = Effect.gen(function* () {
           )
         ),
       })
-      .pipe(
-        Effect.catchTag("ServiceError", (error) =>
-          Effect.fail(
-            refusal(before.constellations.get(input.constellationId), [
-              finding("E-STORE", error.message, "Retry the command with the same id."),
-            ])
-          )
-        )
-      );
+      .pipe(Effect.catchTag("ServiceError", (error) => Effect.fail(storeRefused(error))));
+
+    return { commit, prepared };
+  });
+
+  const decided = Effect.fn("Constellations.command")(function* (
+    binding: ConstellationBinding,
+    commandId: CommandId,
+    input: ConstellationCommand
+  ) {
+    const verdict = Predicate.isTagged(input, "Inspect");
+    const step = committed(binding, commandId, input);
+
+    // Preparing a verdict merges: nothing that could end its Inspection runs beside it.
+    const { commit, prepared } = yield* reviewStep(input)
+      ? fenced(store, input.constellationId, step)
+      : step;
 
     if (Predicate.isTagged(commit, "Committed"))
       yield* runtime.afterCommit(binding, input, commit.envelopes);
@@ -376,6 +398,8 @@ const make = Effect.gen(function* () {
       return yield* refusal(undefined, [
         finding("E-NOT-FOUND", "The constellation does not exist", "Start it with plan."),
       ]);
+
+    if (verdict) return verdictResult(record.graph.revision, commit.sequence);
 
     const result = graphResult(
       record,
@@ -404,12 +428,51 @@ const make = Effect.gen(function* () {
         });
   });
 
+  const command = (
+    binding: ConstellationBinding,
+    commandId: CommandId,
+    input: ConstellationCommand
+  ) =>
+    Predicate.isTagged(input, "Inspect")
+      ? decided(binding, commandId, input).pipe(Effect.mapError(graphFree))
+      : decided(binding, commandId, input);
+
   return {
     command,
     status,
     resolve,
-    subscribe: (binding: ConstellationBinding, id: ConstellationId, after: Sequence | null) =>
-      subscribeConstellation(store, binding, id, after, liveness, branches),
+    /** `capabilities`: what the Client announced; absent sends every event. */
+    subscribe: (
+      binding: ConstellationBinding,
+      id: ConstellationId,
+      after: Sequence | null,
+      capabilities?: ReadonlyArray<Capability>
+    ) =>
+      subscribeConstellation(
+        store,
+        binding,
+        id,
+        after,
+        liveness,
+        branches,
+        capabilities === undefined
+          ? undefined
+          : (event) => {
+              const needed = eventCapability(event);
+
+              return needed === null || capabilities.includes(needed);
+            }
+      ),
+    /**
+     * A Task's Logbook, with its access check. A note goes through `command` as a `Note`: the
+     * decider applies the write rule.
+     */
+    logbook: {
+      read: (binding: ConstellationBinding, scope: LogbookScope) =>
+        readLogbook(store, binding, scope),
+      subscribe: (binding: ConstellationBinding, scope: LogbookScope) =>
+        subscribeLogbook(store, binding, scope),
+    },
   };
 });
 

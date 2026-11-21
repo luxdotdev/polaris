@@ -6,6 +6,9 @@ import { taskData } from "./data.ts";
 import { GraphDecision } from "./decision.ts";
 import { validateGraph, validateTaskId } from "./plan.ts";
 
+/** Who an operator message is from: the binding is the user's or the Lead's. */
+const sender = (d: GraphDecision) => (d.ctx.binding.kind === "user" ? "user" : "lead");
+
 export const message = (d: GraphDecision, command: GraphCommand<"Message">) => {
   if (
     command.authority !== undefined &&
@@ -45,6 +48,7 @@ export const message = (d: GraphDecision, command: GraphCommand<"Message">) => {
       text: command.text,
       questionId: null,
       actor: d.actor(),
+      by: sender(d),
     })
   );
 
@@ -159,6 +163,7 @@ export const answer = (d: GraphDecision, command: GraphCommand<"Answer">) => {
       text,
       questionId,
       actor: d.actor(),
+      by: sender(d),
     })
   );
   d.notify(

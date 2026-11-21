@@ -11,6 +11,7 @@ export const taskData = (task: TaskDefinition) => ({
   suggested: task.suggested,
   group: task.group,
   parent: task.parent,
+  inspect: task.inspect,
 });
 
 /** An Edit's patch over the current Task: omitted keeps, null or [] clears (ENG-412). */
@@ -28,6 +29,7 @@ export const patchedTaskData = (task: TaskDefinition, patch: TaskPatch) => {
     suggested: patch.suggested === undefined ? current.suggested : patch.suggested,
     group: patch.group === undefined ? current.group : patch.group,
     parent: patch.parent === undefined ? current.parent : patch.parent,
+    inspect: patch.inspect === undefined ? current.inspect : patch.inspect,
   };
 };
 
@@ -56,6 +58,7 @@ export const attemptData = (attempt: Attempt) => ({
   handedUpReason: attempt.handedUpReason,
   rejectionReason: attempt.rejectionReason,
   rejectedBy: attempt.rejectedBy,
+  inspection: attempt.inspection,
   reviewedBy: attempt.reviewedBy,
   nudgedAt: attempt.nudgedAt,
   settleReason: attempt.settleReason,

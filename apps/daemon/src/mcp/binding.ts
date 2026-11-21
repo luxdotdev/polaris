@@ -10,6 +10,13 @@ export const McpBinding = Schema.TaggedUnion({
     next: Schema.optionalKey(ConstellationId),
   },
   Worker: { sessionId: SessionId, constellationId: ConstellationId, attemptId: AttemptId },
+  /** An Inspector (ADR 0119): bound to one Inspection of one Attempt's Claim, and to nothing else. */
+  Inspector: {
+    sessionId: SessionId,
+    constellationId: ConstellationId,
+    attemptId: AttemptId,
+    inspectionId: Schema.NonEmptyString,
+  },
 });
 
 export type McpBinding = typeof McpBinding.Type;

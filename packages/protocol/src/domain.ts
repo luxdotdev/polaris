@@ -288,7 +288,11 @@ export type SessionOrigin = typeof SessionOrigin.Type;
  * Marks a Constellation worker's session: it is reached through its Constellation, so session
  * lists leave it out unless it needs you, and it pushes only Needs You (ENG-586).
  */
-export const SessionWorker = Schema.Struct({ constellationId: ConstellationId });
+export const SessionWorker = Schema.Struct({
+  constellationId: ConstellationId,
+  /** `inspector` on an Inspector's session (ADR 0119), which holds no Attempt; absent on a worker's. */
+  role: Schema.optionalKey(Schema.Literals(["worker", "inspector"])),
+});
 
 export type SessionWorker = typeof SessionWorker.Type;
 

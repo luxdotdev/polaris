@@ -1,5 +1,5 @@
 import { Effect, Layer } from "effect";
-import { ConstellationId } from "@polaris/protocol";
+import { ConstellationId, inspecting } from "@polaris/protocol";
 import { attachConstellation } from "../../harness/constellation/index.ts";
 import { McpBinding } from "../../mcp/binding.ts";
 import { McpTokens } from "../../mcp/tokens.ts";
@@ -42,6 +42,24 @@ const plainBinding = (model: ReadModel, sessionId: SessionId): ReadonlyArray<Mcp
       ];
 };
 
+/** An Inspector is bound to the one Inspection still holding its Claim. */
+const inspectorBindings = (
+  graph: import("@polaris/protocol").Constellation,
+  sessionId: SessionId
+): ReadonlyArray<McpBinding> =>
+  graph.attempts.flatMap((attempt) =>
+    attempt.inspection?.sessionId === sessionId && inspecting(attempt)
+      ? [
+          McpBinding.cases.Inspector.make({
+            sessionId,
+            constellationId: graph.id,
+            attemptId: attempt.id,
+            inspectionId: attempt.inspection.id,
+          }),
+        ]
+      : []
+  );
+
 export const attachmentProvider = Layer.effectDiscard(
   Effect.gen(function* () {
     const store = yield* EventStore;
@@ -77,6 +95,8 @@ export const attachmentProvider = Layer.effectDiscard(
               a.sessionId === sessionId &&
               (a.state === "working" || a.state === "blocked" || a.state === "review")
           );
+
+          bindings.push(...inspectorBindings(graph, sessionId));
 
           if (attempt !== undefined) {
             worker = attempt;

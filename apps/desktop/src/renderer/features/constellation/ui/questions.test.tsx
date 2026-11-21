@@ -23,6 +23,7 @@ const daemon = (outcome: Outcome) => {
     dispatch: refuse,
     message: refuse,
     setState: refuse,
+    note: refuse,
     startWorker: refuse,
   });
 };

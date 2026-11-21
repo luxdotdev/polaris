@@ -12,6 +12,7 @@ Catalogue Harnesses on this driver: **Gemini CLI** (`gemini --acp`) and **GitHub
 | `AcpDriver.ts` | `makeAcpDriver`: the shared agent process (an `RcRef`), `probe`, `listModels`, `open`. Loaded by `../registry.ts` on first use (ENG-196). |
 | `AgentConnection.ts` | Spawns the agent, speaks newline-delimited JSON-RPC 2.0, sends `initialize`, and routes `session/update` and `session/request_permission` to the session they name. |
 | `AcpSession.ts` | One Agent Session = one ACP session: start/resume, Turns, approvals, interrupt, settings. |
+| `constellation.ts` | The Constellation tools: each attachment's loopback MCP as an `http` entry in `mcpServers`, and the instructions for the first Turn's context block. |
 | `translate.ts` | `session/update` → `HarnessEvent`s. |
 | `permissions.ts` | Which requests Polaris answers itself by permission mode, how a request reads as an approval, which option a decision picks. |
 | `models.ts` | Models and effort from session config options. |
@@ -26,8 +27,9 @@ One agent process per Harness per Host serves all of its Agent Sessions (ACP mul
 
 ## Sessions
 
-- **Start**: `session/new { cwd, mcpServers: [] }`. An agent that answers `-32000` (auth required) isn't signed in: `open` fails with "\<Harness\> isn't signed in on this host." plus the catalogue's sign-in line. The session id is the cursor (`CursorAssigned`).
+- **Start**: `session/new { cwd, mcpServers }`. An agent that answers `-32000` (auth required) isn't signed in: `open` fails with "\<Harness\> isn't signed in on this host." plus the catalogue's sign-in line. The session id is the cursor (`CursorAssigned`).
 - **Resume**: `session/resume` when the agent declares `sessionCapabilities.resume`, else `session/load` (declared by `loadSession`), whose history replay is dropped: the engine already has it. An agent that declares neither starts a new session, with a new cursor.
+- **Polaris tools**: a session with Constellation attachments (a worker, a Lead, any Constellation-owned session, or a plain session's bootstrap) passes each one's per-Host loopback MCP URL, with its per-session token, as `{ type: "http", name: "polaris" | "polaris_<n>", url, headers: [] }` in the `mcpServers` of start and resume, and its instructions in the first Turn's context block. That needs `agentCapabilities.mcpCapabilities.http`: without it a plain session opens without tools and any other refuses to open.
 - **Close**: `session/close` when declared; the process stops with the last session.
 
 ## Turns
@@ -97,7 +99,7 @@ Side effects, measured with Gemini CLI 0.61.0 and Copilot CLI 1.0.89 in an empty
 
 ## Tests
 
-- `AcpDriver.slow.test.ts`: the driver against `testing/fakeAgent.ts` run as a real process. A full Turn (text, thoughts, a tool call, a plan, a title); approvals (Allow with remember, Deny marks declined, auto-allowed by mode); interrupt; one Turn at a time and no steer; not signed in; resume by `session/load` (replay dropped) and by `session/resume`; Model and effort via config options and `listModels`; permission mode → session mode; one shared process, a crash, and a new process after it; terminal handoff; close.
+- `AcpDriver.slow.test.ts`: the driver against `testing/fakeAgent.ts` run as a real process. A full Turn (text, thoughts, a tool call, a plan, a title); approvals (Allow with remember, Deny marks declined, auto-allowed by mode); interrupt; one Turn at a time and no steer; not signed in; resume by `session/load` (replay dropped) and by `session/resume`; Model and effort via config options and `listModels`; permission mode → session mode; a worker's MCP server in `session/new` and `session/resume`, the fake agent listing its tools and calling `progress` through the real loopback endpoint, and the refusal without HTTP MCP; one shared process, a crash, and a new process after it; terminal handoff; close.
 - `e2e.test.ts`: one real tiny Turn against an installed Harness (its own sign-in and quota):
 
   ```sh

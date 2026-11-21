@@ -237,6 +237,18 @@ _Avoid_: Blocked (that waits on Tasks or the Lead), idle
 A worker's typed statement that its Attempt is done, carrying its report (branch, head, checks run, what isn't done, questions); it puts the Attempt in review until the Lead or the user accepts it or sends it back.
 _Avoid_: Report ready, done (a claim isn't done until it's accepted)
 
+**Logbook**:
+A Task's running record across all its Attempts: its brief, progress, questions and answers, messages, Claims and review outcomes, plus notes. Its Task's Attempts, the Lead and the user write to it; the workers of Tasks that depend on it can read it.
+_Avoid_: Thread (that is an Agent Session's), channel, task log, history
+
+**Inspection**:
+A second worker's read of a Claim, on a Task the Lead marked for it, before the Lead hears of the Claim. The Inspector sees the Claim, the diff, the brief, the Area and the Logbook, never the worker's transcript. Its verdict, approve or send back, goes into the Logbook. An approval goes to the Lead, which still accepts unless it granted the Inspector Accept for that Task; a send-back starts the next Attempt.
+_Avoid_: Review (that is the user's), Reviewer (that writes Risk Findings), check (that is a receipt's), audit
+
+**Inspector**:
+The Agent Session carrying an Inspection; like a Worker, it belongs to its Constellation and is left out of session lists.
+_Avoid_: Reviewer, checker, verifier
+
 **Area**:
 The paths a Task expects to change, declared so that overlapping work in the same Constellation is visible before it conflicts.
 _Avoid_: Ownership, scope

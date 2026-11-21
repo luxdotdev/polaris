@@ -29,6 +29,8 @@ The owner commits through `Constellations.command(binding, commandId, command)`.
 
 Graph subscriptions subscribe before their cut, replay indexed graph events, then emit synchronized live events beyond the cut. New Claim metadata event tags require `constellation.claim-review`; optional Attempt fields still decode when absent. Defaults RPCs require `constellation.defaults`. The pure Task projection leaves liveness unknown. `ConstellationLiveness.layer` enriches status and snapshots, restores recorded output/context on first read, and seeds `LivenessChanged` on resume for Clients announcing `constellation.liveness`. Composition calls `observe(sessionId, HarnessEvent, epochMs, queuedInput?)` after normalized Harness observations and `queued(sessionId, count)` after delivery queue changes. Updates are bounded and ephemeral, have no sequence, and do not advance graph revisions. A reused session supplies facts only to its latest assignment. No timing is invented for unfinished tools after restart.
 
+A Task's Logbook (ADR 0119) is `logbook/`: `fold.ts` folds the graph's events into entries and numbers each Task's Attempts, `access.ts` holds the write and read rules, `note.ts` decides the `Note` command, and `read.ts` serves `Constellations.logbook.read` and `.subscribe` (a page, then one per event that adds entries or changes a boundary) to the RPCs and to other Daemon code. Nothing is stored. The Constellation feed sends a worker a `LogbookNoted` only for a Task the read rule lets it read as the graph stands, on replay and live, so a note never reaches a worker `logbook.read` would refuse. A refused read, and a feed that ends because its reader lost access, carry the finding alone, without the graph. `OperatorMessageSent.by` records whether the Lead or the user sent a message; older events are read from their actor and the question they answer.
+
 Verification covers lifecycle paths, full-batch validation, roles/revisions/refusals, evidence, restart folds, concurrent edits, subscription cuts, FIFO scope release and an independent randomized reference fold. `POLARIS_TRACE_DIR=/tmp/constellation-traces bun test apps/daemon/src/verification/constellation*.test.ts` emits complete committed traces. Replay with `bun packages/spec/scripts/replay-constellation.ts /tmp/constellation-traces`.
 
 The reference fold and decider traces abstract live reads: observational updates
@@ -36,3 +38,46 @@ are tested separately and never appear in committed-log replay. The default
 runtime does not provision Worktrees or start vendor processes. W/L must provide
 its preparation/startup callbacks and connect the liveness producer to their
 normalized Harness drain and durable delivery queue.
+
+## Inspection
+
+An Inspection is a step on a Claim's review (ADR 0119): `inspection/decide.ts` holds the decider
+steps, `inspection/runner.ts` the Daemon's side, `inspection/verdict.ts` what a verdict prepares.
+
+**What an Inspector can do.** Its session has worker role `inspector`, and the Supervisor opens
+it read-only whatever its permission mode says (`engine/supervisor.inspector.ts`):
+
+- Claude Code and Codex only. Their drivers declare `capabilities.inspector`; for any other
+  Harness the runner starts no session and releases the Claim to the Lead with the reason.
+- The Reviewer's confinement: no writes, no network, reads kept to the checkout, no user,
+  project or local settings, no hooks, no MCP servers, plugins or web search.
+- One addition: the Polaris MCP server bound to its Inspection, whose only tool is `verdict`.
+- An approval request is denied at once; a hidden session never waits in Needs You.
+
+**What is left.**
+
+- The Inspector still reads worker-written text, and a verdict is what it can write. A misled
+  Inspector can approve; grant it Accept only on Tasks where that is acceptable.
+- Claude Code without its sandbox (no Seatbelt, or no bubblewrap and socat) gets no shell: it
+  reads files but can't run git or the checks. On Linux an Inspector never gets one: bubblewrap
+  leaves the checkout writable (ADR 0055), and nobody answers its approval requests.
+- Codex older than 0.159.2 can't hold a thread to a permission profile, so its Inspector doesn't
+  start and the Claim goes to the Lead.
+- Codex merges a checkout's and the user's config into a thread. An Inspector's permission
+  profile and verdict server take names made for that thread, which no config already holds,
+  the server is forced on, and a thread Codex reports as writable is closed. The Reviewer's
+  profile keeps its fixed name.
+- A remote worker's Inspector runs in the Lead's checkout, once the claimed head has been
+  fetched there. The fetch wakes the runner; five minutes after `InspectionStarted` the
+  Constellation's own wake releases the Claim to the Lead (`inspection/wake.ts`), restarts
+  included.
+
+**One review step at a time.** A verdict's merge changes the lead branch before its commit, so
+`inspection/fence.ts` runs `Inspect`, `Review`, `WorkerClaim`, `Plan`, `SetState` and the
+runner's release one at a time per Constellation, preparation included. A verdict checks that
+the Constellation still takes changes and its Inspection is current, weighs the Claim's
+receipts (a remote worker's against the checks its Host relayed, as the Lead's Accept does),
+then merges, all inside its step.
+
+**Replaced Inspectors.** A newer Claim starts a new Inspection with a new session. The runner
+stops and archives every Inspector session that no Attempt names any more.

@@ -21,9 +21,12 @@ const Toggle = Schema.Struct({ enabled: Schema.optionalKey(Schema.NullOr(Schema.
 
 const Named = Schema.optionalKey(Schema.NullOr(Schema.Record(Schema.String, Toggle)));
 
+/** A permission profile by name; what it grants is never read, only that the name is taken. */
+const Profiles = Schema.optionalKey(Schema.NullOr(Schema.Record(Schema.String, Schema.Unknown)));
+
 /** The part of `config/read`'s answer that names what runs outside the sandbox. */
 const EffectiveConfig = Schema.Struct({
-  config: Schema.Struct({ mcp_servers: Named, plugins: Named }),
+  config: Schema.Struct({ mcp_servers: Named, plugins: Named, permissions: Profiles }),
 });
 
 const decodeEffective = Schema.decodeUnknownOption(EffectiveConfig);
@@ -59,16 +62,39 @@ const readableExecutable = (confinement: ReadConfinement, executable: string | n
     ? []
     : [executable];
 
+/**
+ * A name no layer of the user's or the checkout's Codex config has, so nothing in them merges
+ * into what Polaris sends under it: a table of that name would add entries to ours (ADR 0119).
+ */
+export const freshName = (prefix: string, taken: ReadonlyArray<string>): string => {
+  const name = `${prefix}_${crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`;
+
+  return taken.includes(name) ? freshName(prefix, taken) : name;
+};
+
+/** Sandbox policies Codex reports for a thread that can write; an Inspector's must be neither. */
+const WRITABLE: ReadonlyArray<string> = ["workspaceWrite", "dangerFullAccess"];
+
+/** Why a started thread is not the read-only one Polaris asked for, or null. */
+export const writableThread = (
+  inspector: boolean,
+  sandbox: { readonly type: string } | undefined
+) =>
+  inspector && sandbox !== undefined && WRITABLE.includes(sandbox.type)
+    ? `Codex started the inspector's thread with a ${sandbox.type} sandbox, so it was closed. Check the Codex config of this checkout and of this user for permission overrides.`
+    : null;
+
 /** `thread/start`'s `config` for a read-only thread: the profile, chosen by default. */
 export const reviewerConfig = (
   confinement: ReadConfinement,
   effective: Effective,
-  executable: string | null = null
+  executable: string | null = null,
+  profile: string = REVIEWER_PROFILE
 ) => ({
   ...outsideTools(effective),
-  default_permissions: REVIEWER_PROFILE,
+  default_permissions: profile,
   permissions: {
-    [REVIEWER_PROFILE]: {
+    [profile]: {
       filesystem: {
         ":minimal": "read",
         // `:minimal` alone lets a command read and write every /tmp.
@@ -105,6 +131,8 @@ export const confinesReads = (userAgent: string): boolean => {
 export interface ThreadSandboxing {
   readonly mode: { readonly sandbox?: Gen.SandboxMode };
   readonly config: ReturnType<typeof reviewerConfig> | null;
+  /** The MCP server names the user's and the checkout's config already use. */
+  readonly servers: ReadonlyArray<string>;
 }
 
 /**
@@ -113,6 +141,8 @@ export interface ThreadSandboxing {
  */
 export const threadSandboxing = (options: {
   readonly readOnly: boolean | undefined;
+  /** An Inspector's thread: its profile gets a name the effective config doesn't have. */
+  readonly inspector?: boolean;
   readonly sandbox: Gen.SandboxMode;
   readonly userAgent: string;
   readonly cwd: string;
@@ -123,7 +153,11 @@ export const threadSandboxing = (options: {
 }) =>
   Effect.gen(function* () {
     if (options.readOnly !== true)
-      return { mode: { sandbox: options.sandbox }, config: null } satisfies ThreadSandboxing;
+      return {
+        mode: { sandbox: options.sandbox },
+        config: null,
+        servers: [],
+      } satisfies ThreadSandboxing;
 
     if (!confinesReads(options.userAgent))
       return yield* codexError(
@@ -141,12 +175,18 @@ export const threadSandboxing = (options: {
       catch: (cause) => codexError("Could not keep the reviewer to its checkout", cause),
     });
 
+    const { permissions, mcp_servers: servers } = effective.value.config;
+
     return {
       mode: {},
+      servers: Object.keys(servers ?? {}),
       config: reviewerConfig(
         confinement,
         effective.value,
-        options.appServerState === undefined ? null : appServerExecutable(options.appServerState)
+        options.appServerState === undefined ? null : appServerExecutable(options.appServerState),
+        options.inspector === true
+          ? freshName("polaris_inspector", Object.keys(permissions ?? {}))
+          : REVIEWER_PROFILE
       ),
     } satisfies ThreadSandboxing;
   });

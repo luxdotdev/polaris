@@ -11,7 +11,7 @@ import {
   WorkerPlacement,
   Workspace,
 } from "@polaris/protocol";
-import { Effect, Layer, type Scope } from "effect";
+import { Effect, Layer, Predicate, type Scope } from "effect";
 import { TestClock } from "effect/testing";
 import { A, AT, C, CID, HOST, LEAD, WS, draft, task } from "../../engine/constellation.testing.ts";
 import { decideSession, type SessionInput } from "../../engine/session.ts";
@@ -29,6 +29,10 @@ import {
 } from "./index.ts";
 import { WorktreeSetupService } from "../setup/index.ts";
 import { newTurn } from "./turns.ts";
+import { ConstellationDefaultsPath } from "../defaults.ts";
+import { InspectorLogbookReader, inspectionRunnerLayer } from "../inspection/runner.ts";
+import { type BranchStatusService, ConstellationBranchStatus } from "../transfers/branches.ts";
+import { readLogbook } from "../logbook/index.ts";
 import { trustedSetup } from "../setup/trust.testing.ts";
 
 export const WORKER = SessionId.make("worker");
@@ -171,6 +175,25 @@ export const fakeWorkerAdmission = Effect.fnUntraced(function* (
   );
 });
 
+/** The runner as the Daemon composes it, reading the Logbook from the same store. */
+const inspectionRunner = inspectionRunnerLayer.pipe(
+  Layer.provide(
+    Layer.effect(
+      InspectorLogbookReader,
+      Effect.gen(function* () {
+        const store = yield* EventStore;
+
+        return (constellationId, taskId) =>
+          readLogbook(store, { kind: "user" }, { constellationId, taskId }).pipe(
+            Effect.map((page) => page.entries),
+            Effect.orDie
+          );
+      })
+    )
+  ),
+  Layer.provide(Layer.succeed(ConstellationDefaultsPath)("/nonexistent/polaris-test.json"))
+);
+
 export const world = (
   file = ":memory:",
   options: {
@@ -178,6 +201,10 @@ export const world = (
     readonly onRun?: (turn: Turn) => Effect.Effect<void, never, EventStore>;
     readonly attempt?: ReturnType<typeof draft>;
     readonly remoteSend?: (packet: DeliveryPacket) => Effect.Effect<void>;
+    /** Run the real Inspection runner, so a held Claim starts its Inspector. */
+    readonly inspections?: boolean;
+    /** Which remote workers' claimed heads have reached the Lead's repository (default: none). */
+    readonly branches?: BranchStatusService;
     readonly runtime?: Layer.Layer<
       never,
       never,
@@ -240,7 +267,12 @@ export const world = (
     Layer.provideMerge(effects)
   );
 
-  const layer = Layer.mergeAll(Constellations.layer, ConstellationDelivery.layer).pipe(
+  const delivery =
+    options.inspections === true
+      ? ConstellationDelivery.layer.pipe(Layer.provideMerge(inspectionRunner))
+      : ConstellationDelivery.layer;
+
+  const layer = Layer.mergeAll(Constellations.layer, delivery).pipe(
     Layer.provideMerge(
       (options.runtime ?? Layer.succeed(ConstellationRuntime)(runtime)).pipe(
         Layer.provide(configured)
@@ -248,6 +280,11 @@ export const world = (
     ),
     Layer.provideMerge(configured),
     Layer.provide(Layer.succeed(ConstellationOwner)(HOST)),
+    Layer.provide(
+      options.branches === undefined
+        ? Layer.empty
+        : Layer.succeed(ConstellationBranchStatus)(options.branches)
+    ),
     Layer.provide(
       Layer.succeed(ConstellationRemoteDelivery)({
         send: options.remoteSend ?? (() => Effect.never),
@@ -277,3 +314,37 @@ export const world = (
 
   return { run, turns, prompts, steers, retired, runtime };
 };
+
+/** When the Stopped notice was queued, from the fold. */
+const stoppedAt = Effect.gen(function* () {
+  const r = (yield* (yield* EventStore).model).constellations.get(CID)!;
+  const notice = [...r.notifications.values()].find((n) => Predicate.isTagged(n.item, "Stopped"));
+
+  return notice === undefined ? null : Date.parse(notice.queuedAt);
+});
+
+/** The brief ends silently, the nudge Turn ends silently too: the Lead hears Stopped. */
+export const silentTwice = Effect.fnUntraced(function* (
+  w: ReturnType<typeof world>,
+  attemptId: string
+) {
+  yield* TestClock.setTime(Date.now());
+  const record = (yield* (yield* EventStore).model).sessions.get(WORKER)!;
+  yield* signal(WORKER, {
+    type: "turn.send",
+    turn: newTurn(record.session, "Brief", new Date().toISOString(), `${attemptId}:start`),
+  });
+  yield* (yield* ConstellationDelivery).start();
+  yield* finish(WORKER, "completed", new Date().toISOString());
+  yield* wait(() => Effect.succeed(w.turns.length === 1));
+  yield* finish(WORKER, "completed", new Date().toISOString());
+  const store = yield* EventStore;
+  yield* wait(() =>
+    stoppedAt.pipe(
+      Effect.map((at) => at !== null),
+      Effect.provideService(EventStore, store)
+    )
+  );
+
+  return (yield* stoppedAt)!;
+});

@@ -51,6 +51,7 @@ import { HarnessTurnAliases } from "./supervisor.aliases.ts";
 import type { ShellTurn } from "./supervisor.shell.ts";
 import { DEFAULT_HARNESS_START_TIMEOUT, timedStart } from "./supervisor.start.ts";
 import { TurnPatchBudgets } from "./patchBudget.ts";
+import { inspectorDenial, inspectorRefusal, isInspector } from "./supervisor.inspector.ts";
 import { shortHostName } from "../service/hostName.ts";
 
 type HarnessEventOf<Tag extends HarnessEvent["_tag"]> = Extract<HarnessEvent, { _tag: Tag }>;
@@ -91,18 +92,23 @@ const make = (
     Effect.gen(function* () {
       const harness = live.get(sessionId);
 
-      if (Option.isNone(policy) || harness === undefined || harness !== entry) return false;
+      if (harness === undefined || harness !== entry) return false;
       const record = (yield* store.model).sessions.get(sessionId);
 
       if (record === undefined) return false;
 
-      const decision = yield* policy.value.decide({
-        sessionId,
-        harness: record.session.harness,
-        kind: e.kind,
-        title: e.title,
-        detail: e.detail,
-      });
+      // An Inspector is denied whatever the policy says; other sessions ask the policy, if any.
+      const decision = isInspector(record.session)
+        ? inspectorDenial
+        : Option.isNone(policy)
+          ? null
+          : yield* policy.value.decide({
+              sessionId,
+              harness: record.session.harness,
+              kind: e.kind,
+              title: e.title,
+              detail: e.detail,
+            });
 
       if (decision === null) return false;
       yield* harness.session
@@ -129,12 +135,20 @@ const make = (
       }
 
       const driver = yield* rt.registry.get(record.session.harness);
-      const readOnly = Option.isSome(policy) && policy.value.readOnly(sessionId);
+      const inspector = isInspector(record.session);
+      const refusal = inspector ? inspectorRefusal(driver.capabilities, driver.kind) : null;
 
-      const supportsConstellations =
-        record.session.harness === "codex" || record.session.harness === "claude";
+      if (refusal !== null) return yield* refusal;
 
-      const attachment = yield* attachments.open(sessionId, readOnly || !supportsConstellations);
+      const readOnly = inspector || (Option.isSome(policy) && policy.value.readOnly(sessionId));
+      const supportsConstellations = driver.capabilities.constellations === true;
+
+      // Read-only drops the Polaris tools, but for an Inspector: its verdict server stays.
+      const attachment = yield* attachments.open(
+        sessionId,
+        (readOnly && !inspector) || !supportsConstellations
+      );
+
       const scope = yield* Scope.make();
 
       const session = yield* driver

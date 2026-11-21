@@ -114,6 +114,14 @@ export class HarnessSelection extends Schema.Class<HarnessSelection>("HarnessSel
   serviceTier: Schema.optionalKey(Schema.NullOr(ServiceTier)),
 }) {}
 
+/**
+ * Marks a Task for Inspection (ADR 0119): each Claim on it is read by an Inspector before the
+ * Lead hears of it. `accept` grants the Inspector Accept for this Task.
+ */
+export const TaskInspection = Schema.Struct({ accept: Schema.optionalKey(Schema.Boolean) });
+
+export type TaskInspection = typeof TaskInspection.Type;
+
 export class TaskDefinition extends Schema.Class<TaskDefinition>("TaskDefinition")({
   id: TaskId,
   title: Schema.NonEmptyString,
@@ -125,6 +133,7 @@ export class TaskDefinition extends Schema.Class<TaskDefinition>("TaskDefinition
   suggested: optionalNullable(HarnessSelection),
   group: optionalNullable(Schema.String),
   parent: optionalNullable(TaskId),
+  inspect: optionalNullable(TaskInspection),
 }) {}
 
 /**
@@ -142,6 +151,7 @@ export const TaskPatch = Schema.Struct({
   suggested: Schema.optionalKey(Schema.NullOr(HarnessSelection)),
   group: Schema.optionalKey(Schema.NullOr(Schema.String)),
   parent: Schema.optionalKey(Schema.NullOr(TaskId)),
+  inspect: Schema.optionalKey(Schema.NullOr(TaskInspection)),
 });
 
 export type TaskPatch = typeof TaskPatch.Type;
@@ -218,6 +228,29 @@ export class Claim extends Schema.Class<Claim>("ConstellationClaim")({
   summary: Schema.String,
 }) {}
 
+/**
+ * An Inspection (ADR 0119): a step on a Claim's review, never a Task. `pending` holds the Claim
+ * from the Lead; `approved` sent the verdict to the Lead, `accepted` merged under the Lead's
+ * grant, `sent_back` started the next Attempt; `superseded` and `lost` ended with no verdict.
+ */
+export class Inspection extends Schema.Class<Inspection>("ConstellationInspection")({
+  /** The token a verdict must name; a new Claim starts a new Inspection with a new id. */
+  id: Schema.NonEmptyString,
+  /** The Inspector's session: the Constellation's own, holding no Attempt. */
+  sessionId: SessionId,
+  /** The claimed head it reads. */
+  head: Schema.NonEmptyString,
+  /** Whether the Lead had granted the Inspector Accept on this Task when the Claim arrived. */
+  accept: Schema.Boolean,
+  state: Schema.Literals(["pending", "approved", "accepted", "sent_back", "superseded", "lost"]),
+  /** The verdict's reason, or why it ended without one; null while pending. */
+  reason: Schema.NullOr(Schema.String),
+  /** Why a granted Accept went to the Lead instead: the merge's refusal. */
+  mergeRefusal: optionalNullable(Schema.String),
+  startedAt: Timestamp,
+  endedAt: Schema.NullOr(Timestamp),
+}) {}
+
 export class Attempt extends Schema.Class<Attempt>("ConstellationAttempt")({
   id: AttemptId,
   taskId: TaskId,
@@ -260,7 +293,9 @@ export class Attempt extends Schema.Class<Attempt>("ConstellationAttempt")({
   /** The verbatim SendBack feedback (the Lead's or the user's), retained beside the rejected Claim. */
   rejectionReason: optionalNullable(Schema.String),
   /** Who sent the Claim back; null before this was recorded. */
-  rejectedBy: optionalNullable(Schema.Literals(["user", "lead"])),
+  rejectedBy: optionalNullable(Schema.Literals(["user", "lead", "inspector"])),
+  /** The Inspection of the current Claim, or the last one this Attempt had; null with none. */
+  inspection: optionalNullable(Inspection),
   /** The Teammate who approved or sent back the Claim through a Share; null for the owner. */
   reviewedBy: optionalNullable(Actor),
   /** The one automatic nudge after a silent end (AttemptNudged). */
@@ -286,6 +321,8 @@ export class ConstellationSettings extends Schema.Class<ConstellationSettings>(
   defaults: optionalNullable(HarnessSelection),
   backend: optionalNullable(HarnessSelection),
   ui: optionalNullable(HarnessSelection),
+  /** The Inspector's Harness and Model; null uses the Lead's. */
+  inspector: optionalNullable(HarnessSelection),
   claimCoalescingMs: Schema.optionalKey(Revision),
   questionCoalescingMs: Schema.optionalKey(Revision),
 }) {}
@@ -354,6 +391,12 @@ export class Constellation extends Schema.Class<Constellation>("Constellation")(
   createdAt: Timestamp,
   updatedAt: Timestamp,
 }) {}
+
+/** Whether an Inspector still holds this Attempt's Claim from the Lead. */
+export const inspecting = (attempt: {
+  readonly state: string;
+  readonly inspection?: { readonly state: string } | null;
+}) => attempt.state === "review" && attempt.inspection?.state === "pending";
 
 const LIVE_ATTEMPT: ReadonlySet<string> = new Set(["working", "blocked", "review"]);
 

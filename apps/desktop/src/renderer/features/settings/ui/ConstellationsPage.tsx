@@ -1,7 +1,7 @@
 /**
  * Settings → Constellations (DESIGN.md, SR-04): what a new Constellation's workers start on, per
- * role (spec §4, precedence 3), drawn as a star chart over the role rows; then how many workers
- * each host runs at once, shown here and edited in Hosts; then the permissions workers inherit.
+ * role (spec §4, precedence 3), drawn as a star chart over the role rows; then the Inspector's
+ * Harness and Model; then how many workers each host runs at once; then the permissions they inherit.
  */
 import type { PermissionMode } from "@polaris/protocol";
 import {
@@ -28,7 +28,7 @@ import { setSessionPrefs, useSessionDefault, useSettings } from "../store.ts";
 import { ReviewerChoice } from "./ReviewerChoice.tsx";
 import { useModelHost } from "./ReviewerPage.tsx";
 
-type Role = keyof typeof DEFAULT_SESSION_PREFS.constellationDefaults;
+type Role = "backend" | "ui";
 
 const ROLES: ReadonlyArray<{
   readonly role: Role;
@@ -206,6 +206,45 @@ const WorkersStartOn = () => {
             }
           />
         ))}
+      </SettingsWell>
+    </SettingsCard>
+  );
+};
+
+/** The Harnesses whose driver holds an Inspector read-only to its checkout (ADR 0119). */
+export const INSPECTOR_HARNESSES = ["claude", "codex"] as const;
+
+/** Who reads a claim before the lead hears of it, on the tasks a lead marks (ADR 0119). */
+const Inspector = () => {
+  const defaults = useSettings((s) => s.sessions.constellationDefaults);
+  const modelHost = useModelHost();
+
+  return (
+    <SettingsCard
+      title="Inspector"
+      aside="Reads a claim before the lead hears of it"
+      data-testid="constellation-inspector"
+      className="@container/workers"
+    >
+      <SettingsWell className={ROLE_WELL}>
+        <div className={ROLE_ROW}>
+          <div className="flex min-w-[220px] flex-1 flex-col gap-0.5">
+            <span className="text-body text-text-default truncate">Inspectors start on</span>
+            <span className="text-caption text-text-subtle">
+              For tasks a lead marks for inspection; Automatic uses the lead's harness and model
+            </span>
+          </div>
+          <ReviewerChoice
+            value={defaults.inspector ?? null}
+            onChange={(inspector) =>
+              setSessionPrefs({ constellationDefaults: { ...defaults, inspector } })
+            }
+            modelHost={modelHost}
+            allowAuto
+            only={INSPECTOR_HARNESSES}
+          />
+          <span className="w-11 shrink-0" />
+        </div>
       </SettingsWell>
     </SettingsCard>
   );
@@ -409,6 +448,7 @@ export const ConstellationsPage = () => (
     scopeIcon={<ScreenGlyph />}
   >
     <WorkersStartOn />
+    <Inspector />
     <SettingsGrid>
       <WorkersAtOnce />
       <Permissions />

@@ -56,6 +56,7 @@ import type {
   HostResourcesSnapshot,
   RemoteAccessStatus,
   ConstellationStreamItem,
+  LogbookPage,
   PlanLimit,
   InlineStreamItem,
   RiskSummary,
@@ -643,6 +644,7 @@ export interface SubscriptionItems
   "review.watchRiskSummary": RiskSummary;
   "inline.propose": InlineStreamItem;
   constellation: ConstellationStreamItem;
+  "constellation.logbook": Plain<LogbookPage>;
 }
 
 export type SubscriptionItem<K extends SubscriptionKind> = SubscriptionItems[K];
