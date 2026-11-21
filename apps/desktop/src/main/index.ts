@@ -1,3 +1,4 @@
+import { setKeybindingOverrides } from "../shared/keybindingResolution.ts";
 import { followSessionDefaults } from "./hostSessionDefaults.ts";
 import { createCommandInstaller } from "./commandInstall.ts";
 import { desktopClientSettings, publishClientPrediction } from "./clientSettingsSetup.ts";
@@ -386,6 +387,8 @@ const start = async () => {
   };
 
   const applyAppearance = () => {
+    setKeybindingOverrides(settings.keybindings ?? {});
+
     const current = appearance();
     const event: AppEvent = { kind: "appearance", appearance: current };
 

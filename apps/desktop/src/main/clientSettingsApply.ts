@@ -14,6 +14,7 @@ interface Input {
   update: (change: (settings: Settings) => Settings) => void;
   sessions: (patch: SessionPrefsPatch) => void;
   appearance: () => void;
+  keybindings: () => void;
   updates: Pick<AppUpdates, "setAutomatic" | "setChannel">;
   prediction: () => {
     settings: PredictionSettings;
@@ -93,4 +94,6 @@ export const clientPreferenceApplier =
       return next;
     });
     input.appearance();
+
+    if (key === "keybindings") input.keybindings();
   };

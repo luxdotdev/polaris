@@ -1,3 +1,4 @@
+import { KeybindingOverrides } from "./keybindingOverrides.ts";
 /** Client Settings published by the Desktop App; schemas own discovery and validation. */
 import { describeSetting, setting, type SettingValue } from "@polaris/protocol";
 import { Schema } from "effect";
@@ -20,6 +21,11 @@ import {
 } from "./predictionPlacement.ts";
 
 export const ClientSettingFields = {
+  keybindings: setting(KeybindingOverrides, {
+    description:
+      "Keyboard shortcuts by action id, e.g. CmdOrCtrl+Shift+P (CmdOrCtrl/Ctrl/Alt/Shift). null unbinds; omit an action to restore its default; {} resets all. Reserved keys are rejected. Duplicate overrides: last entry wins. See conflicts in Settings → Keyboard.",
+    default: {},
+  }),
   predictionEnabled: setting(Schema.Boolean, {
     description: "Enable tab completion in the Editor.",
     default: false,

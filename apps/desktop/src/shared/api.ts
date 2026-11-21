@@ -1,3 +1,7 @@
+import type { SettingsView } from "./settingsView.ts";
+
+export type { SettingsView } from "./settingsView.ts";
+
 import type { CommandInstallView } from "./commandInstall.ts";
 /**
  * The typed bridge between the main process and the renderer: channel names,
@@ -361,26 +365,6 @@ export interface Appearance {
 /** Each Harness's defaults for new sessions, by kind. */
 export type SessionDefaults = Readonly<Record<string, SessionDefault>>;
 
-export interface SettingsView extends Appearance {
-  readonly sessionDefaults: SessionDefaults;
-  /** Settings → Sessions, defaults filled in. */
-  readonly sessions: SessionPrefs;
-  /** This build's version, for About Polaris. */
-  readonly version: string;
-  /** Polaris Dev: it holds a Developer Mode lease on each Host and never writes the setting. */
-  readonly developmentBuild: boolean;
-  /** False until the user pressed "Get started" on the welcome. */
-  readonly welcomeSeen: boolean;
-  readonly hosts: ReadonlyArray<{
-    readonly alias: string;
-    readonly label: string;
-    readonly colour: string | null;
-    readonly forwardAgent: boolean;
-    /** Absent means ssh; "wsl" adds the distro named by `alias`. */
-    readonly kind?: "ssh" | "wsl";
-  }>;
-}
-
 /** What a bucket's tokens not covered by a reported cost would cost at API prices (ENG-207). */
 export interface BucketEstimate {
   readonly estimatedUsd: number;
@@ -675,6 +659,10 @@ export interface SubscriptionListener<A> {
 export type Route = "orchestrate" | "review" | "edit" | "data" | "traces" | "requests";
 
 export type AppEvent =
+  | {
+      readonly kind: "keybindings";
+      readonly keybindings: import("./keybindingOverrides.ts").KeybindingOverrides;
+    }
   | {
       readonly kind: "client-settings-changed";
       readonly requestId: string;

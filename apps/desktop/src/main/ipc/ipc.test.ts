@@ -264,6 +264,7 @@ describe("requests", () => {
         codeFont: "sf-mono",
         codeFontSize: 13,
         wordWrap: false,
+        keybindings: {},
         sessionDefaults: {},
         sessions: DEFAULT_SESSION_PREFS,
         version: "0.1.0",

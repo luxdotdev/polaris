@@ -79,8 +79,10 @@ export const Recorder = ({
   const commit = async () => {
     if (key === null) return;
     setSaving(true);
-    const failure = await save(replaceOverride(overrides, action.id, key));
-    setSaving(false);
+
+    const failure = await save(replaceOverride(overrides, action.id, key)).finally(() =>
+      setSaving(false)
+    );
 
     if (failure === null) close();
     else setError(failure);

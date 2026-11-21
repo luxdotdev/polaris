@@ -30,6 +30,7 @@ export const RemoteHostSetting = Schema.Struct({
 export type RemoteHostSetting = typeof RemoteHostSetting.Type;
 
 export const Settings = Schema.Struct({
+  keybindings: Schema.optionalKey(ClientSettingFields.keybindings),
   predictionEnabled: Schema.optionalKey(ClientSettingFields.predictionEnabled),
   predictionConfigured: Schema.optionalKey(Schema.Boolean),
   predictionDiscoveryShown: Schema.optionalKey(Schema.Boolean),

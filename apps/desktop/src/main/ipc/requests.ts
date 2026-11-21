@@ -331,6 +331,7 @@ export const requestHandlers = (ctx: RequestContext): Handlers => ({
 
       return {
         ...appearanceOf(settings),
+        keybindings: settings.keybindings ?? {},
         sessionDefaults: {},
         sessions: sessionPrefsOf(settings),
         version: ctx.appVersion,

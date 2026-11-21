@@ -35,8 +35,8 @@ export const KeyboardPage = () => {
 
   const save = async (next: KeybindingOverridesValue) => {
     setSaving(true);
-    const failure = await setKeybindings(next);
-    setSaving(false);
+
+    const failure = await setKeybindings(next).finally(() => setSaving(false));
     setError(failure);
 
     return failure;
