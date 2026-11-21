@@ -218,6 +218,24 @@ const review = (
     })
   );
 
+/** The verdict and where it went; a send-back names the Attempt its SendBack starts next. */
+const inspection = (step: Step, e: Event<"InspectionRecorded">) =>
+  onAttempt(step, e.attemptId, (taskId) =>
+    E.Inspection.make({
+      ...base(step, taskId, e.attemptId, "inspector", e.reason),
+      verdict: e.verdict,
+      route: e.route,
+      nextAttempt:
+        e.route === "sent_back" ? (step.ordinals.get(e.attemptId)?.number ?? 0) + 1 : null,
+    })
+  );
+
+/** An Accept under the Inspector's grant is the Inspector's; any other is the Lead's. */
+const acceptedBy = (step: Step, attemptId: AttemptId): LogbookAuthor =>
+  step.before.graph.attempts.find((a) => a.id === attemptId)?.inspection?.state === "accepted"
+    ? "inspector"
+    : "lead";
+
 const entriesOf = (step: Step): ReadonlyArray<LogbookEntry> =>
   ConstellationEvent.match(step.envelope.event, {
     ConstellationStarted: (e) => e.constellation.tasks.map((task) => brief(step, task)),
@@ -245,18 +263,25 @@ const entriesOf = (step: Step): ReadonlyArray<LogbookEntry> =>
         step,
         e.attemptId,
         "accepted",
-        { author: "lead" },
+        { author: acceptedBy(step, e.attemptId) },
         (e.findings ?? []).map((f) => `${f.message}: ${f.fix}`).join("\n"),
         e.mergedHead
       ),
+    // An Inspector's send-back is its Inspection entry; it adds no review of its own.
     AttemptRejected: (e) =>
-      review(
-        step,
-        e.attemptId,
-        "sent_back",
-        { author: e.by === "user" || e.actor !== null ? "you" : "lead", actor: e.actor },
-        e.reason
-      ),
+      e.by === "inspector"
+        ? none
+        : review(
+            step,
+            e.attemptId,
+            "sent_back",
+            { author: e.by === "user" || e.actor !== null ? "you" : "lead", actor: e.actor },
+            e.reason
+          ),
+    InspectionRecorded: (e) => inspection(step, e),
+    // An Inspection is one entry, its verdict; starting or ending without one adds none.
+    InspectionStarted: () => none,
+    InspectionEnded: () => none,
     AttemptSettled: (e) =>
       onAttempt(step, e.attemptId, (taskId) =>
         E.Lost.make({

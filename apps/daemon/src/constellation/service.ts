@@ -35,6 +35,12 @@ import { ignoredTierNotes } from "./serviceTier.ts";
 import { scopedResult, statusScope, type StatusView } from "./statusView.ts";
 import { type LogbookScope, readLogbook, subscribeLogbook } from "./logbook/index.ts";
 import { subscribeConstellation } from "./streams.ts";
+import {
+  graphFree,
+  prepareVerdict,
+  verdictResult,
+  type VerdictPreparation,
+} from "./inspection/verdict.ts";
 
 export const canRead = (binding: ConstellationBinding, record: ConstellationRecord) =>
   binding.kind === "user" ||
@@ -247,16 +253,21 @@ const make = Effect.gen(function* () {
     return matches[0]!;
   });
 
-  const command = Effect.fn("Constellations.command")(function* (
+  const decided = Effect.fn("Constellations.command")(function* (
     binding: ConstellationBinding,
     commandId: CommandId,
     input: ConstellationCommand
   ) {
     const before = yield* store.model;
+    const verdict = Predicate.isTagged(input, "Inspect");
 
-    if (before.constellations.has(input.constellationId))
+    // A verdict names its own writer; the decider checks the Inspector's binding itself.
+    if (before.constellations.has(input.constellationId) && !verdict)
       yield* authorize(before, input.constellationId, binding);
-    const prepared = yield* runtime.prepare(binding, input, before, commandId);
+
+    const prepared: VerdictPreparation = Predicate.isTagged(input, "Inspect")
+      ? yield* prepareVerdict(runtime, binding, input, before, commandId)
+      : yield* runtime.prepare(binding, input, before, commandId);
 
     const defaults =
       Predicate.isTagged(input, "Plan") &&
@@ -381,6 +392,8 @@ const make = Effect.gen(function* () {
         finding("E-NOT-FOUND", "The constellation does not exist", "Start it with plan."),
       ]);
 
+    if (verdict) return verdictResult(record.graph.revision, commit.sequence);
+
     const result = graphResult(
       record,
       commit.sequence,
@@ -407,6 +420,15 @@ const make = Effect.gen(function* () {
           proposals: result.proposals,
         });
   });
+
+  const command = (
+    binding: ConstellationBinding,
+    commandId: CommandId,
+    input: ConstellationCommand
+  ) =>
+    Predicate.isTagged(input, "Inspect")
+      ? decided(binding, commandId, input).pipe(Effect.mapError(graphFree))
+      : decided(binding, commandId, input);
 
   return {
     command,

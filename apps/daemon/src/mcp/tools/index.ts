@@ -3,6 +3,7 @@ import { Effect, Schema } from "effect";
 import { McpBinding, sessionBinding } from "../binding.ts";
 import { leadTools } from "./lead.ts";
 import { workerTools } from "./worker.ts";
+import { inspectorTools } from "./inspector.ts";
 import { resolvers } from "./resolve.ts";
 import { CallCommandId, idempotency, type Idempotency } from "./idempotency.ts";
 import { notifyTool, readWorkerTool, waitForCommandTool } from "./session.ts";
@@ -97,6 +98,9 @@ export const constellationTools = (
 ): ReadonlyArray<BoundTool> => {
   const caller = sessionBinding(binding);
 
+  // An Inspector gets its verdict tool and nothing that reads a session, a graph or a transcript.
+  if (McpBinding.isAnyOf(["Inspector"])(binding)) return inspectorTools(binding, commands);
+
   const define = toolFactory(() => commands.status(caller, binding.constellationId, true), {
     sessionId: binding.sessionId,
     ids: idsFor(commands),
@@ -161,6 +165,7 @@ export const constellationTools = (
       })),
     Lead: lead,
     Worker: (bound) => workerTools(bound, define, submit, status),
+    Inspector: (bound) => inspectorTools(bound, commands),
   });
 
   return [

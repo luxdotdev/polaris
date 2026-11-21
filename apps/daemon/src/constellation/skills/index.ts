@@ -38,6 +38,10 @@ const worker = [
   ...m2Examples.worker,
 ];
 
+/** An Inspector reads one Claim and has one tool; the Constellation skill is not its to use. */
+const inspector =
+  "You are a Polaris inspector: read the claim you are given against its brief and diff, then call verdict once with approve or send_back and a reason, and end your turn. Change no files. Repository rules remain in AGENTS.md.";
+
 /** One versioned source, delivered through Harness instruction fields, never repository files. */
 const roleInstructions = (role: ReadonlyArray<string>): string =>
   [`Polaris Constellation skill · v${CONSTELLATION_SKILL_VERSION}`, ...shared, ...role].join(
@@ -53,5 +57,6 @@ export const constellationInstructions = (binding: McpBinding): string =>
     ),
     Match.tag("Lead", () => roleInstructions(lead)),
     Match.tag("Worker", () => roleInstructions(worker)),
+    Match.tag("Inspector", () => inspector),
     Match.exhaustive
   );

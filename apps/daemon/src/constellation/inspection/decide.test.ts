@@ -15,6 +15,7 @@ import {
   B,
   C,
   CID,
+  G,
   LEAD,
   apply,
   claimed,
@@ -336,12 +337,12 @@ test("a lost Inspector releases the held Claim to the Lead, once", () => {
 
 test("a Gate cannot be marked for Inspection", () => {
   const decision = decideConstellation(
-    planned(),
+    planned([task(A)]),
     C.Plan.make({
       constellationId: CID,
       operations: [
         PlanOperation.cases.Add.make({
-          task: new TaskDefinition({ id: "G2", title: "G2", brief: "", kind: "gate", inspect: {} }),
+          task: new TaskDefinition({ id: G, title: G, brief: "", kind: "gate", inspect: {} }),
         }),
       ],
     }),

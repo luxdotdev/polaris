@@ -20,6 +20,7 @@ import { graphEvent } from "../../store/constellation.ts";
 import { ConstellationOwner } from "../runtime.ts";
 import { ConstellationLiveness } from "../liveness.ts";
 import { performHandover } from "../handover/index.ts";
+import { InspectionRunner } from "../inspection/runner.ts";
 import { digestWindow, type DigestWindow } from "./format.ts";
 import { nextDigest, type DigestSchedule } from "./schedule.ts";
 import { commitJournal } from "./journal.ts";
@@ -53,6 +54,7 @@ const make = Effect.gen(function* () {
   const owner = yield* ConstellationOwner;
   const remote = yield* ConstellationRemoteDelivery;
   const liveness = yield* ConstellationLiveness;
+  const inspections = yield* InspectionRunner;
   const usage = yield* Effect.serviceOption(UsageIndex);
   const queued = new Map<SessionId, number>();
   const scope = yield* Scope.Scope;
@@ -254,6 +256,7 @@ const make = Effect.gen(function* () {
       yield* liveness.queued(sessionId, count);
     }
 
+    yield* inspections.refresh(id);
     yield* refreshHandover(id).pipe(Effect.provide(dependencies));
     yield* sendInputs(id).pipe(Effect.provide(dependencies));
     const model = yield* store.model;

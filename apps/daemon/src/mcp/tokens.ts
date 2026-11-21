@@ -101,7 +101,11 @@ export class McpTokens extends Context.Service<
           issue: (binding) =>
             run(() => {
               const token = randomBytes(32).toString("hex");
-              const attemptId = McpBinding.isAnyOf(["Worker"])(binding) ? binding.attemptId : null;
+
+              const attemptId = McpBinding.isAnyOf(["Worker", "Inspector"])(binding)
+                ? binding.attemptId
+                : null;
+
               db.query(
                 "INSERT INTO mcp_bindings (hash, session_id, constellation_id, attempt_id, binding) VALUES (?, ?, ?, ?, ?)"
               ).run(

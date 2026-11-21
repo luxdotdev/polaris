@@ -29,6 +29,9 @@ import {
 } from "./index.ts";
 import { WorktreeSetupService } from "../setup/index.ts";
 import { newTurn } from "./turns.ts";
+import { ConstellationDefaultsPath } from "../defaults.ts";
+import { InspectorLogbookReader, inspectionRunnerLayer } from "../inspection/runner.ts";
+import { readLogbook } from "../logbook/index.ts";
 import { trustedSetup } from "../setup/trust.testing.ts";
 
 export const WORKER = SessionId.make("worker");
@@ -171,6 +174,25 @@ export const fakeWorkerAdmission = Effect.fnUntraced(function* (
   );
 });
 
+/** The runner as the Daemon composes it, reading the Logbook from the same store. */
+const inspectionRunner = inspectionRunnerLayer.pipe(
+  Layer.provide(
+    Layer.effect(
+      InspectorLogbookReader,
+      Effect.gen(function* () {
+        const store = yield* EventStore;
+
+        return (constellationId, taskId) =>
+          readLogbook(store, { kind: "user" }, { constellationId, taskId }).pipe(
+            Effect.map((page) => page.entries),
+            Effect.orDie
+          );
+      })
+    )
+  ),
+  Layer.provide(Layer.succeed(ConstellationDefaultsPath)("/nonexistent/polaris-test.json"))
+);
+
 export const world = (
   file = ":memory:",
   options: {
@@ -178,6 +200,8 @@ export const world = (
     readonly onRun?: (turn: Turn) => Effect.Effect<void, never, EventStore>;
     readonly attempt?: ReturnType<typeof draft>;
     readonly remoteSend?: (packet: DeliveryPacket) => Effect.Effect<void>;
+    /** Run the real Inspection runner, so a held Claim starts its Inspector. */
+    readonly inspections?: boolean;
     readonly runtime?: Layer.Layer<
       never,
       never,
@@ -240,7 +264,12 @@ export const world = (
     Layer.provideMerge(effects)
   );
 
-  const layer = Layer.mergeAll(Constellations.layer, ConstellationDelivery.layer).pipe(
+  const delivery =
+    options.inspections === true
+      ? ConstellationDelivery.layer.pipe(Layer.provideMerge(inspectionRunner))
+      : ConstellationDelivery.layer;
+
+  const layer = Layer.mergeAll(Constellations.layer, delivery).pipe(
     Layer.provideMerge(
       (options.runtime ?? Layer.succeed(ConstellationRuntime)(runtime)).pipe(
         Layer.provide(configured)
