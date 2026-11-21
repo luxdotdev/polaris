@@ -34,7 +34,7 @@ export const clientSettingsTools = (sessionId: SessionId, sessions: SessionTools
     sessionTool(
       "clientSettings.list",
       "List the connected Client's device-local settings, descriptions, types, defaults and current values. Targets the Client showing this agent session, else the most recently active Client. Fails with no Client connected.",
-      Schema.Struct({}),
+      Schema.Record(Schema.String, Schema.Never),
       () => run((s) => s.list(sessionId))
     ),
     sessionTool(
