@@ -139,6 +139,9 @@ RPCs (`RequestsRpcs`): `requests.watch` (stream of `RequestsSnapshot`), `request
 
 An agent's Send to a Remote Origin asks with `ApprovalRequest.origin` (`OriginApproval`: `origin`, `variable`, `environment`, `method`, `path`, `write`, `tokenSource`); the user answers `Allow` with `originScope` (`reads | reads-and-writes`, absent means `reads`).
 
+`compactCommandTool` also returns `sdkInputSchema`, an object projection for SDKs that cannot
+accept a top-level union. Each tool handler still validates its verb-specific payload.
+
 <!-- Session Grants from src/sessionGrants.ts and SessionCreated in src/events.ts -->
 
 ### Session Grants and Starter (ADR 0119)
