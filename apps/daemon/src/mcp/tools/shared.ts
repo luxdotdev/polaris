@@ -146,6 +146,10 @@ const resultText = (
   ],
 });
 
+/** The findings alone: for a tool whose refusal must not show the caller the graph. */
+export const withoutGraph = (error: ConstellationRejected) =>
+  new ConstellationRejected({ findings: error.findings, graph: null, revision: 0 });
+
 export const errorResult = (error: ConstellationRejected): McpToolResult => ({
   isError: true,
   structuredContent: { findings: error.findings, graph: error.graph, revision: error.revision },
@@ -248,6 +252,8 @@ export const toolFactory = (
       readonly next?: string;
       /** It commits a command: it takes a `requestId` and a retry never acts twice. */
       readonly mutates?: boolean;
+      /** A refusal carries its findings only, never a graph slice from the command or status. */
+      readonly graphFree?: boolean;
     } = {}
   ): BoundTool => {
     const run = (input: typeof Schema.Json.Type) =>
@@ -270,7 +276,11 @@ export const toolFactory = (
       call: (input) =>
         Effect.runPromise(
           (options.mutates === true ? keyed(name, input, run) : run(input)).pipe(
-            Effect.catchTag("ConstellationRejected", contextualize)
+            Effect.catchTag("ConstellationRejected", (error) =>
+              options.graphFree === true
+                ? Effect.succeed(errorResult(withoutGraph(error)))
+                : contextualize(error)
+            )
           )
         ),
     };

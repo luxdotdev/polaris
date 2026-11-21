@@ -18,6 +18,7 @@ import {
   jsonSchema,
   type McpToolResult,
   type toolFactory,
+  withoutGraph,
 } from "./shared.ts";
 
 const C = ConstellationCommand.cases;
@@ -39,7 +40,7 @@ const pageText = (page: LogbookPage) =>
     `Next: pass since: ${page.cursor} to read only what follows.`,
   ].join("\n");
 
-/** A read is not a command: its refusal goes back as is, never filled in with the graph. */
+/** A read is not a command, and its refusal carries no graph: that would show what it may not read. */
 const readTool = (
   binding: McpBinding,
   commands: ConstellationCommands,
@@ -69,7 +70,9 @@ const readTool = (
           Effect.map((page): McpToolResult => ({
             content: [{ type: "text", text: pageText(page) }],
           })),
-          Effect.catchTag("ConstellationRejected", (error) => Effect.succeed(errorResult(error)))
+          Effect.catchTag("ConstellationRejected", (error) =>
+            Effect.succeed(errorResult(withoutGraph(error)))
+          )
         )
       ),
   };
@@ -81,6 +84,7 @@ type Submit = (
 
 const NOTED = {
   mutates: true,
+  graphFree: true,
   summary: "Note recorded on the Logbook.",
   next: "A note is a record only and reaches no worker; use message to steer one.",
 } as const;

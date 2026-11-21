@@ -279,3 +279,42 @@ test("a read from the cursor it returned shows only what came after", () =>
       expect(next).not.toContain("brief ·");
     })
   ));
+
+test("a refused note carries its finding and no graph, whether the command, the tool or the input refused it", () =>
+  run(
+    Effect.gen(function* () {
+      const { graphs, send } = yield* world;
+
+      yield* send(
+        { kind: "session", sessionId: LEAD },
+        C.Review.make({
+          constellationId: CID,
+          attemptId: AttemptId.make("b1"),
+          revision: (yield* graphs.status(
+            { kind: "user" },
+            CID,
+            true
+          )).constellation!.attempts.find((x) => x.id === "b1")!.revision,
+          action: ReviewAction.cases.Stop.make({ reason: "Not needed." }),
+        })
+      );
+
+      const refusals = [
+        // B's Attempt was stopped, so its worker no longer writes B's Logbook.
+        [yield* call(graphs, worker(PEER, "b1"), "logbook_note", { text: "Late." }), "E-AUTHORITY"],
+        [
+          yield* call(graphs, lead, "logbook_note", { task: "Z", text: "No such Task." }),
+          "E-TASK-UNKNOWN",
+        ],
+        [yield* call(graphs, lead, "logbook_note", { task: "A", text: "" }), "E-INPUT"],
+        [yield* call(graphs, lead, "logbook_read", { task: "Z" }), "E-TASK-UNKNOWN"],
+      ] as const;
+
+      for (const [result, code] of refusals) {
+        expect(result.isError).toBe(true);
+        expect(result.structuredContent?.findings?.map((f) => f.code)).toEqual([code]);
+        expect(result.structuredContent?.graph).toBeNull();
+        expect(result.structuredContent?.revision).toBe(0);
+      }
+    })
+  ));
