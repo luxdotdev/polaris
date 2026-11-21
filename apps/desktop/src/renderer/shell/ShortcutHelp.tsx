@@ -18,6 +18,7 @@ import {
   type MenuName,
   paletteEntry,
 } from "../../shared/keymap.ts";
+import { useSettings } from "../features/settings/store.ts";
 import { useNav, useShellActions } from "./hooks.ts";
 
 interface Row {
@@ -80,6 +81,7 @@ export const shortcutSections = (platform: KeyPlatform): ReadonlyArray<Section> 
 ];
 
 export const ShortcutHelp = () => {
+  useSettings((s) => s.keybindings);
   const open = useNav((s) => s.helpOpen);
   const { setHelpOpen } = useShellActions();
 
