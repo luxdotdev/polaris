@@ -10,6 +10,8 @@ import {
   PlanOperation,
   ReviewAction,
   type SessionId,
+  SetConstellationStateAction,
+  HostId,
   ToolCallReference,
   Turn,
   TurnId,
@@ -19,6 +21,7 @@ import {
 import { Deferred, Effect, Fiber, Layer, Predicate } from "effect";
 import { A, AT, C, CID, HOST, LEAD, draft, report } from "../../engine/constellation.testing.ts";
 import { EventStore } from "../../store/EventStore.ts";
+import type { RecordedCheck } from "../../engine/constellation.inputs.ts";
 import { finding, refusal } from "../decision.ts";
 import { setup, world, WORKER } from "../delivery/testing.ts";
 import { ConstellationRuntime, type ConstellationRuntimeService } from "../runtime.ts";
@@ -35,15 +38,20 @@ const RETRY = draft(A, "a2", WORKER, AttemptCause.cases.SentBack.make({ ref: ATT
  * preparation put on the lead branch; it refuses the merge on demand. `beforeSendBack` runs
  * inside a Lead SendBack's preparation, to hold it there.
  */
-const recording = (conflict: boolean, beforeSendBack: Effect.Effect<void> = Effect.void) => {
+const recording = (
+  conflict: boolean,
+  beforeSendBack: Effect.Effect<void> = Effect.void,
+  relayed?: ReadonlyArray<RecordedCheck>
+) => {
   const prepared: Array<ConstellationCommand> = [];
   const merged: Array<string> = [];
 
-  const answer = (sendBack: boolean) => ({
+  // An Accept's preparation answers with the worker Host's relayed checks, as the real one does.
+  const answer = (sendBack: boolean, recordedChecks: ReadonlyArray<RecordedCheck> = []) => ({
     attempts: [sendBack ? RETRY : draft()],
     newLeadSessionId: null,
     claimProbe: { dirtyPaths: [], branch: "polaris/A", head: "head" },
-    recordedChecks: [],
+    recordedChecks,
   });
 
   const runtime: ConstellationRuntimeService = {
@@ -69,8 +77,9 @@ const recording = (conflict: boolean, beforeSendBack: Effect.Effect<void> = Effe
 
       merged.push(command.action.mergedHead);
 
-      return Effect.succeed(answer(false));
+      return Effect.succeed(answer(false, relayed));
     },
+    relayedChecks: () => Effect.succeed(relayed ?? []),
     resumeWorking: () => Effect.void,
     afterCommit: () => Effect.void,
   };
@@ -337,4 +346,77 @@ test("a Lead SendBack still preparing when a granted approval arrives is decided
 
   expect(runtime.merged).toEqual([]);
   expect(first).toMatchObject({ state: "rejected", rejectedBy: "lead" });
+});
+
+test("a granted approval after the Constellation completed merges nothing", async () => {
+  const runtime = recording(false);
+  const w = world(":memory:", { runtime: runtime.layer });
+
+  const refused = await w.run(
+    Effect.gen(function* () {
+      const inspection = yield* held(true);
+      // Complete leaves the Inspection pending: only the lifecycle says the verdict is too late.
+      yield* (yield* Constellations).command(
+        { kind: "session", sessionId: LEAD },
+        commandId(),
+        C.SetState.make({
+          constellationId: CID,
+          action: SetConstellationStateAction.cases.Complete.make({}),
+        })
+      );
+
+      expect((yield* attempts)[0]).toMatchObject({ inspection: { state: "pending" } });
+
+      return yield* Effect.flip(approve(inspection));
+    })
+  );
+
+  expect(runtime.merged).toEqual([]);
+  expect(refused.findings).not.toEqual([]);
+});
+
+test("a granted approval of a remote worker's Claim weighs the receipts its Host relayed, then merges", async () => {
+  const remote = new ToolCallReference({
+    hostId: HostId.make("remote"),
+    sessionId: WORKER,
+    turnId: TurnId.make("remote-check"),
+    itemId: "remote-check",
+  });
+
+  const item = TurnItem.cases.CommandExecution.make({
+    id: remote.itemId,
+    command: "bun test",
+    cwd: "/work",
+    output: "pass",
+    exitCode: 0,
+    status: "completed",
+  });
+
+  const claim = new Claim({
+    branch: "polaris/A",
+    head: "head",
+    commits: ["head"],
+    receipts: [CheckReceipt.cases.Verified.make({ label: "tests", item: remote })],
+    notDone: [],
+    followups: [],
+    questions: [],
+    outsideArea: [],
+    decisions: [],
+    summary: "Implemented the task.",
+  });
+
+  // The item is in no Turn of this Host: only the worker Host's outbox vouches for it.
+  const runtime = recording(false, Effect.void, [{ reference: remote, item }]);
+  const w = world(":memory:", { runtime: runtime.layer });
+
+  const [attempt] = await w.run(
+    Effect.gen(function* () {
+      yield* approve(yield* held(true, claim));
+
+      return yield* attempts;
+    })
+  );
+
+  expect(runtime.merged).toEqual(["head"]);
+  expect(attempt).toMatchObject({ state: "accepted", evidence: "verified" });
 });

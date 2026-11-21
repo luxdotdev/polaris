@@ -21,6 +21,8 @@ import { ConstellationOwner } from "../runtime.ts";
 import { ConstellationLiveness } from "../liveness.ts";
 import { performHandover } from "../handover/index.ts";
 import { InspectionRunner } from "../inspection/runner.ts";
+import { nextRemoteHeadDeadline } from "../inspection/wake.ts";
+import { ConstellationBranchStatus } from "../transfers/branches.ts";
 import { digestWindow, type DigestWindow } from "./format.ts";
 import { nextDigest, type DigestSchedule } from "./schedule.ts";
 import { commitJournal } from "./journal.ts";
@@ -56,6 +58,7 @@ const make = Effect.gen(function* () {
   const remote = yield* ConstellationRemoteDelivery;
   const liveness = yield* ConstellationLiveness;
   const inspections = yield* InspectionRunner;
+  const branches = yield* ConstellationBranchStatus;
   const usage = yield* Effect.serviceOption(UsageIndex);
   const queued = new Map<SessionId, number>();
   const scope = yield* Scope.Scope;
@@ -198,6 +201,7 @@ const make = Effect.gen(function* () {
     const due = [
       nextWaitExpiry(record, model.sessions, source),
       nextLeaseExpiry(record, model.sessions, owner),
+      nextRemoteHeadDeadline(record, model.sessions, owner, now),
     ].filter((at) => at !== null);
 
     return due.length === 0 ? null : Math.min(...due);
@@ -350,6 +354,19 @@ const make = Effect.gen(function* () {
     // A delivered window ends; what arrives next coalesces afresh instead of riding the old timer.
     if (yield* deliverDigest(id).pipe(Effect.provide(dependencies))) timers.delete(id);
   });
+
+  // A remote worker's branch arrived: the Inspector waiting on it starts on this refresh.
+  yield* branches.onChanged((id) =>
+    gate
+      .withPermits(1)(refresh(id))
+      .pipe(
+        Effect.catchCause((cause) =>
+          Effect.logError("Refresh after a fetched branch failed", cause)
+        ),
+        Effect.forkIn(scope),
+        Effect.asVoid
+      )
+  );
 
   const flush = Effect.fn("ConstellationDelivery.flush")(function* () {
     for (const record of (yield* store.model).constellations.values())

@@ -279,7 +279,12 @@ const make = Effect.gen(function* () {
     const prepared: VerdictPreparation = Predicate.isTagged(input, "Inspect")
       ? yield* prepareVerdict(
           runtime,
-          (receipts) => Effect.mapError(checksOf(before, receipts), storeRefused),
+          (attempt) =>
+            Effect.zipWith(
+              Effect.mapError(checksOf(before, attempt.claim?.receipts ?? []), storeRefused),
+              runtime.relayedChecks?.(attempt) ?? Effect.succeed([]),
+              (local, relayed) => [...local, ...relayed]
+            ),
           { binding, input, model: before, commandId }
         )
       : yield* runtime.prepare(binding, input, before, commandId);

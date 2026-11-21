@@ -17,7 +17,8 @@ const LINUX_TOOLS: ReadonlyArray<SandboxTool> = [
 
 /** `missing` is empty where Claude Code has no sandbox at all (native Windows). */
 export type ClaudeSandbox =
-  | { readonly available: true }
+  /** `checkoutReadOnly`: the sandbox also denies writes inside the checkout (Seatbelt; ADR 0055). */
+  | { readonly available: true; readonly checkoutReadOnly?: boolean }
   | { readonly available: false; readonly missing: ReadonlyArray<SandboxTool> };
 
 export interface SandboxHost {
@@ -28,7 +29,7 @@ export interface SandboxHost {
 const realHost = (): SandboxHost => ({ platform: process.platform, find: which });
 
 export const probeClaudeSandbox = (host: SandboxHost = realHost()): ClaudeSandbox => {
-  if (host.platform === "darwin") return { available: true };
+  if (host.platform === "darwin") return { available: true, checkoutReadOnly: true };
 
   if (host.platform !== "linux") return { available: false, missing: [] };
   const missing = LINUX_TOOLS.filter((tool) => host.find(tool.binary) === null);

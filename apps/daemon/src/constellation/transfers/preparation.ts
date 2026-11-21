@@ -27,6 +27,12 @@ export const withWorktreePreparation = Effect.fnUntraced(function* (
 
   return {
     ...runtime,
+    relayedChecks: (attempt) =>
+      relayedChecks(storage, attempt).pipe(
+        Effect.mapError((e) =>
+          refusal(undefined, [finding(e.code, e.message, e.fix ?? "Retry the verdict.")])
+        )
+      ),
     afterCommit: (binding, command, envelopes) =>
       runtime.afterCommit(binding, command, envelopes).pipe(
         Effect.andThen(
@@ -157,6 +163,15 @@ const acceptedChecks = Effect.fnUntraced(function* (
   );
 
   const merged = yield* worktrees.mergeClaim(record.graph, attempt, leadPath, head, trailers);
+
+  return { checks: yield* relayedChecks(storage, attempt), findings: merged.findings };
+});
+
+/** What the Attempt's worker Host recorded and relayed, from the outbox receipts stored here. */
+const relayedChecks = Effect.fnUntraced(function* (
+  storage: TransferStorage["Service"],
+  attempt: import("@polaris/protocol").Attempt
+) {
   const checks: Array<import("../../engine/constellation.inputs.ts").RecordedCheck> = [];
 
   for (const stored of yield* storage.receipts) {
@@ -170,5 +185,5 @@ const acceptedChecks = Effect.fnUntraced(function* (
       checks.push(...packet.recordedChecks);
   }
 
-  return { checks, findings: merged.findings };
+  return checks;
 });

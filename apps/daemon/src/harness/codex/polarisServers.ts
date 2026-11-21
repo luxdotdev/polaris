@@ -24,6 +24,32 @@ type Servers = ReadonlyArray<readonly [name: string, server: ReturnType<typeof p
 export const polarisServers = (attachments: ReadonlyArray<ConstellationAttachment>): Servers =>
   attachments.map((a, index) => [`polaris${index === 0 ? "" : `_${index}`}`, polarisServer(a)]);
 
+/**
+ * An Inspector's servers under names no config layer has, so no inherited `enabled = false` or
+ * tool filter of the same name reaches them (ADR 0119); `taken` is what the config already names.
+ */
+export const isolatedServers = (
+  attachments: ReadonlyArray<ConstellationAttachment>,
+  taken: ReadonlyArray<string>,
+  fresh: (prefix: string, taken: ReadonlyArray<string>) => string
+): Servers =>
+  attachments.map((a) => [fresh("polaris", taken), { ...polarisServer(a), enabled: true }]);
+
+/** A read-only session with a server left is an Inspector with its verdict server. */
+export const holdsVerdict = (
+  readOnly: boolean | undefined,
+  attachments: ReadonlyArray<ConstellationAttachment>
+) => readOnly === true && attachments.length > 0;
+
+/** The session's servers: an Inspector's isolated, anyone else's by their usual names. */
+export const sessionServers = (
+  inspector: boolean,
+  attachments: ReadonlyArray<ConstellationAttachment>,
+  taken: ReadonlyArray<string>,
+  fresh: (prefix: string, taken: ReadonlyArray<string>) => string
+): Servers =>
+  inspector ? isolatedServers(attachments, taken, fresh) : polarisServers(attachments);
+
 /** An ordinary thread's servers, beside whatever the user configured. */
 export const besideUserServers = (servers: Servers) =>
   Object.fromEntries(servers.map(([name, server]) => [`mcp_servers.${name}`, server]));

@@ -15,11 +15,9 @@ import {
   type LogbookEntry,
   type SessionId,
 } from "@polaris/protocol";
-import { Context, Duration, Effect, Layer, Predicate, Scope } from "effect";
+import { Clock, Context, Effect, Layer, Predicate, Scope } from "effect";
 import { decideSession } from "../../engine/session.ts";
 import { inspectorRefusal } from "../../engine/supervisor.inspector.ts";
-import { constellationRef } from "../../git/constellationBundles.ts";
-import { resolveCommit } from "../../git/git.ts";
 import { driverCapabilities } from "../../harness/registry.ts";
 import { selectWorker } from "../../harness/constellation/index.ts";
 import { pickCelestial } from "../../store/celestial.ts";
@@ -32,10 +30,11 @@ import { ConstellationSessionEffects } from "../delivery/inputs.ts";
 import { commitJournal } from "../delivery/journal.ts";
 import { newTurn, startedTurn } from "../delivery/turns.ts";
 import { ConstellationOwner } from "../runtime.ts";
-import { gitOperation } from "../worktrees.ts";
+import { ConstellationBranchStatus } from "../transfers/branches.ts";
 import { inspectorBrief } from "./brief.ts";
 import { claimDiff } from "./diff.ts";
 import { fenced } from "./fence.ts";
+import { remoteHeadDeadline } from "./wake.ts";
 
 /** The Task's Logbook as the Inspector is given it; the Daemon reads it, never the Inspector. */
 export type InspectorLogbook = (
@@ -48,29 +47,6 @@ export class InspectorLogbookReader extends Context.Reference<InspectorLogbook>(
   "polaris/daemon/constellation/InspectorLogbook",
   { defaultValue: () => () => Effect.succeed([]) }
 ) {}
-
-/** Whether a remote worker's claimed head has reached `repo`, where the Inspector reads it. */
-export type FetchedHead = (
-  repo: string,
-  graph: Constellation,
-  attempt: Attempt,
-  head: string
-) => Effect.Effect<boolean>;
-
-/** The bundle's ref in the Lead's repository, as the Client's transfer leaves it. */
-export class InspectorFetchedHead extends Context.Reference<FetchedHead>(
-  "polaris/daemon/constellation/InspectorFetchedHead",
-  {
-    defaultValue: () => (repo, graph, attempt, head) =>
-      gitOperation(() => resolveCommit(repo, constellationRef(graph.id, attempt.id))).pipe(
-        Effect.map((fetched) => fetched === head),
-        Effect.catch(() => Effect.succeed(false))
-      ),
-  }
-) {}
-
-/** How long a held Claim waits for its remote head, and how often the runner looks. */
-export const REMOTE_HEAD_WAIT = { every: Duration.seconds(2), looks: 150 } as const;
 
 export interface InspectionRunnerService {
   /** Bring one Constellation's Inspectors in line with its folded Inspections. */
@@ -138,7 +114,7 @@ const inspectorSession = Effect.fnUntraced(function* (
 
 const make = Effect.gen(function* () {
   const logbook = yield* InspectorLogbookReader;
-  const fetchedHead = yield* InspectorFetchedHead;
+  const branches = yield* ConstellationBranchStatus;
   const store = yield* EventStore;
   const owner = yield* ConstellationOwner;
   const effects = yield* ConstellationSessionEffects;
@@ -167,23 +143,6 @@ const make = Effect.gen(function* () {
       Effect.catchCause((cause) => Effect.logError("Inspection could not be released", cause))
     );
 
-  /** True once the claimed head is in `repo`; null when the Inspection ended; else why not. */
-  const remoteHead = Effect.fnUntraced(function* (
-    graph: Constellation,
-    attempt: Attempt,
-    inspection: Inspection,
-    repo: string
-  ) {
-    for (let look = 0; look < REMOTE_HEAD_WAIT.looks; look++) {
-      if (!held(yield* store.model, graph.id, attempt.id, inspection.id)) return null;
-
-      if (yield* fetchedHead(repo, graph, attempt, inspection.head)) return true as const;
-      yield* Effect.sleep(REMOTE_HEAD_WAIT.every);
-    }
-
-    return `its commit ${inspection.head} never reached this host`;
-  });
-
   /** Create the session, then commit its first Turn while the Inspection still holds the Claim. */
   const start = Effect.fnUntraced(function* (
     graph: Constellation,
@@ -209,13 +168,6 @@ const make = Effect.gen(function* () {
     if (refusal !== null) return refusal.message;
 
     if (!(yield* harness.probe())) return "the Polaris MCP endpoint did not answer";
-
-    // A remote worker's commits arrive after its Claim: nothing is judged before they do.
-    if (attempt.hostId !== graph.hostId) {
-      const arrived = yield* remoteHead(graph, attempt, inspection, session.cwd);
-
-      if (arrived !== true) return arrived;
-    }
 
     yield* store.commit({
       commandId: CommandId.make(`${inspection.id}:session`),
@@ -352,7 +304,16 @@ const make = Effect.gen(function* () {
     if (graph.state === "paused" || starting.has(inspection.id)) return;
 
     if (!(yield* store.hasCommandReceipt(startId(inspection)))) {
-      yield* ensureStarted(graph, attempt, inspection);
+      // A remote worker's commits arrive after its Claim: nothing is judged before they do.
+      if (attempt.hostId === graph.hostId || (yield* branches.read(graph)).has(attempt.id))
+        yield* ensureStarted(graph, attempt, inspection);
+      else if ((yield* Clock.currentTimeMillis) >= remoteHeadDeadline(inspection))
+        yield* lost(
+          graph.id,
+          attempt,
+          inspection,
+          `its commit ${inspection.head} never reached this host`
+        );
 
       return;
     }

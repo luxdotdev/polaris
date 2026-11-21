@@ -1,4 +1,5 @@
 import type {
+  Attempt,
   AttemptId,
   CommandId,
   ConstellationCommand,
@@ -7,7 +8,11 @@ import type {
   HostId,
 } from "@polaris/protocol";
 import { Context, Effect } from "effect";
-import type { ConstellationBinding, ConstellationContext } from "../engine/constellation.inputs.ts";
+import type {
+  ConstellationBinding,
+  ConstellationContext,
+  RecordedCheck,
+} from "../engine/constellation.inputs.ts";
 import type { ReadModel } from "../store/model.ts";
 
 export type ConstellationPreparation = Pick<
@@ -29,6 +34,13 @@ export interface ConstellationRuntimeService {
     model: ReadModel,
     commandId: CommandId
   ) => Effect.Effect<ConstellationPreparation, ConstellationRejected>;
+  /**
+   * The command items a remote worker's Host recorded for this Attempt, from its validated
+   * outbox: what an Accept's preparation adds, readable before anything is merged.
+   */
+  readonly relayedChecks?: (
+    attempt: Attempt
+  ) => Effect.Effect<ReadonlyArray<RecordedCheck>, ConstellationRejected>;
   /** Reacquire folded working assignments after Session recovery, without sending a first Turn. */
   readonly resumeWorking: () => Effect.Effect<void>;
   /**

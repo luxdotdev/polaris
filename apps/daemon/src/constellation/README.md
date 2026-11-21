@@ -59,16 +59,25 @@ it read-only whatever its permission mode says (`engine/supervisor.inspector.ts`
 - The Inspector still reads worker-written text, and a verdict is what it can write. A misled
   Inspector can approve; grant it Accept only on Tasks where that is acceptable.
 - Claude Code without its sandbox (no Seatbelt, or no bubblewrap and socat) gets no shell: it
-  reads files but can't run git or the checks.
+  reads files but can't run git or the checks. On Linux an Inspector never gets one: bubblewrap
+  leaves the checkout writable (ADR 0055), and nobody answers its approval requests.
 - Codex older than 0.159.2 can't hold a thread to a permission profile, so its Inspector doesn't
   start and the Claim goes to the Lead.
+- Codex merges a checkout's and the user's config into a thread. An Inspector's permission
+  profile and verdict server take names made for that thread, which no config already holds,
+  the server is forced on, and a thread Codex reports as writable is closed. The Reviewer's
+  profile keeps its fixed name.
 - A remote worker's Inspector runs in the Lead's checkout, once the claimed head has been
-  fetched there. It waits five minutes for it, then releases the Claim to the Lead.
+  fetched there. The fetch wakes the runner; five minutes after `InspectionStarted` the
+  Constellation's own wake releases the Claim to the Lead (`inspection/wake.ts`), restarts
+  included.
 
 **One review step at a time.** A verdict's merge changes the lead branch before its commit, so
 `inspection/fence.ts` runs `Inspect`, `Review`, `WorkerClaim`, `Plan`, `SetState` and the
 runner's release one at a time per Constellation, preparation included. A verdict checks that
-its Inspection is current, weighs the Claim's receipts, then merges, all inside its step.
+the Constellation still takes changes and its Inspection is current, weighs the Claim's
+receipts (a remote worker's against the checks its Host relayed, as the Lead's Accept does),
+then merges, all inside its step.
 
 **Replaced Inspectors.** A newer Claim starts a new Inspection with a new session. The runner
 stops and archives every Inspector session that no Attempt names any more.

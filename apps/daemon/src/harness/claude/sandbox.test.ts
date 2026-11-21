@@ -37,6 +37,7 @@ describe("Claude Code's sandbox on a Host", () => {
   test("macOS always has Seatbelt; Linux needs bubblewrap and socat", () => {
     expect(probeClaudeSandbox({ platform: "darwin", find: () => null })).toEqual({
       available: true,
+      checkoutReadOnly: true,
     });
     expect(linux("bwrap", "socat")).toEqual({ available: true });
     expect(linux("bwrap")).toEqual({
@@ -72,6 +73,27 @@ describe("Claude Code's sandbox on a Host", () => {
     expect(options.tools).toEqual(["Bash", "Agent"]);
 
     for (const tool of ["Read", "Glob", "Grep"]) expect(options.disallowedTools).toContain(tool);
+  });
+
+  test("an Inspector gets no shell where the sandbox leaves its checkout writable: file reads only", () => {
+    const verdict = { mcpServers: {}, allowedTools: ["mcp__polaris__verdict"] };
+    const onLinux = readOnlyOptions(linux("bwrap", "socat"), CONFINEMENT, ENV, verdict);
+
+    // bubblewrap ignores `denyWrite` for the checkout, and sandboxed Bash runs unasked.
+    expect(onLinux.sandbox).toEqual({ enabled: false });
+    expect(onLinux.tools).toEqual(["Read", "Glob", "Grep", "Agent"]);
+    expect(onLinux.disallowedTools).toContain("Bash");
+    expect(onLinux.allowedTools).toContain("mcp__polaris__verdict");
+
+    const onMac = readOnlyOptions(
+      probeClaudeSandbox({ platform: "darwin", find: () => null }),
+      CONFINEMENT,
+      ENV,
+      verdict
+    );
+
+    expect(onMac.tools).toEqual(["Bash", "Agent"]);
+    expect(onMac.sandbox).toMatchObject({ enabled: true });
   });
 
   test("without the sandbox a read-only session has no shell and nothing that writes", () => {

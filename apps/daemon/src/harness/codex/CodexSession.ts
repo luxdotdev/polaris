@@ -62,9 +62,14 @@ import { type CodexReply, CodexReplyTimer, withStats } from "./replyStats.ts";
 import { CodexSubagents, type RequestScope } from "./subagents.ts";
 import { requestCompat } from "./compat.ts";
 import { collaborationFor, setCollaboration } from "./collaboration.ts";
-import { threadSandboxing } from "./confinement.ts";
+import { freshName, threadSandboxing, writableThread } from "./confinement.ts";
 import { polarisInstructions, sessionAttachments } from "../../constellation/skills/preamble.ts";
-import { besideUserServers, insideProfile, polarisServers } from "./polarisServers.ts";
+import {
+  besideUserServers,
+  insideProfile,
+  holdsVerdict,
+  sessionServers,
+} from "./polarisServers.ts";
 import { type HarnessCall, harnessCallOf } from "./slash.ts";
 import { logStart } from "../startLog.ts";
 import { sessionTraceEnvironment } from "../../traces/environment.ts";
@@ -177,8 +182,13 @@ export const openSession = (
     const env = { ...process.env, ...options.environment };
     const traceEnv = yield* sessionTraceEnvironment(options.sessionId, env);
 
+    // Read-only, only an Inspector's verdict server is left in this list.
+    const attachments = sessionAttachments(options);
+    const inspector = holdsVerdict(options.readOnly, attachments);
+
     const sandboxing = yield* threadSandboxing({
       readOnly: options.readOnly,
+      inspector,
       sandbox: policy.sandbox,
       userAgent: decodeInitialize(initialized)?.userAgent ?? "",
       cwd: options.cwd,
@@ -203,13 +213,10 @@ export const openSession = (
       ...sandboxing.mode,
     };
 
-    // Read-only, only an Inspector's verdict server is left in this list.
-    const attachments = sessionAttachments(options);
-
     if (attachments.some((a) => a.sessionId !== options.sessionId))
       return yield* codexError("Constellation attachment belongs to another session");
 
-    const polaris = polarisServers(attachments);
+    const polaris = sessionServers(inspector, attachments, sandboxing.servers, freshName);
 
     if (polaris.length > 0 && options.readOnly !== true) common.config = besideUserServers(polaris);
 
@@ -263,6 +270,9 @@ export const openSession = (
     const thread = decodeThread(threadResult);
 
     if (thread === null) return yield* codexError("Unexpected thread/start response from Codex");
+    const writable = writableThread(inspector, thread.sandbox);
+
+    if (writable !== null) return yield* codexError(writable);
     const threadId = thread.thread.id;
     const threadModel = thread.model ?? null;
     /** The collaboration mode the thread was last left in. */

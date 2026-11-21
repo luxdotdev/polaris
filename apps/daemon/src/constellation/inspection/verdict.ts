@@ -3,7 +3,7 @@
  * is told. A verdict reuses the review path: a SendBack's worker, or an Accept's merge.
  */
 import {
-  type CheckReceipt,
+  type Attempt,
   type CommandId,
   ConstellationCommand,
   ConstellationRejected,
@@ -19,6 +19,7 @@ import type {
   GraphCommand,
   RecordedCheck,
 } from "../../engine/constellation.inputs.ts";
+import { constellationTransition } from "../../engine/constellation.ts";
 import type { ReadModel } from "../../store/model.ts";
 import type { ConstellationPreparation, ConstellationRuntimeService } from "../runtime.ts";
 import { unevidenced } from "./decide.ts";
@@ -34,9 +35,9 @@ const nothing: VerdictPreparation = {
   recordedChecks: [],
 };
 
-/** The items this Host recorded for a Claim's Verified receipts. */
+/** The command items recorded for an Attempt's Claim: this Host's, and its remote worker's. */
 export type ClaimChecks = (
-  receipts: ReadonlyArray<CheckReceipt>
+  attempt: Attempt
 ) => Effect.Effect<ReadonlyArray<RecordedCheck>, ConstellationRejected>;
 
 /**
@@ -59,16 +60,18 @@ export const prepareVerdict = Effect.fnUntraced(function* (
     readonly commandId: CommandId;
   }
 ): Effect.fn.Return<VerdictPreparation, ConstellationRejected> {
-  const attempt = model.constellations
-    .get(input.constellationId)
-    ?.graph.attempts.find((a) => a.id === input.attemptId);
+  const graph = model.constellations.get(input.constellationId)?.graph;
+  const attempt = graph?.attempts.find((a) => a.id === input.attemptId);
 
   const inspection = attempt?.inspection;
   const claim = attempt?.claim;
 
   // Only the pending Inspection's own Inspector prepares anything; the decider refuses the rest.
   if (
+    graph === undefined ||
     attempt === undefined ||
+    // A completed or archived Constellation takes no verdict: nothing is merged for one.
+    constellationTransition(graph.state, { type: "Mutate" }) === null ||
     inspection == null ||
     claim == null ||
     !inspecting(attempt) ||
@@ -105,7 +108,7 @@ export const prepareVerdict = Effect.fnUntraced(function* (
   if (!inspection.accept) return nothing;
 
   // Evidence first: receipts that don't resolve leave the lead branch as it is.
-  const unproven = unevidenced(yield* checks(claim.receipts), claim.receipts);
+  const unproven = unevidenced(yield* checks(attempt), claim.receipts);
 
   if (unproven !== null) return { ...nothing, inspectorMerge: { refusal: unproven } };
 

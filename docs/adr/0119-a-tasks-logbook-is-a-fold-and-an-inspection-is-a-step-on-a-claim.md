@@ -42,7 +42,12 @@ Inspector Accept for that Task.
   never asked: nobody watches a hidden session.
 - A verdict's merge is a side effect outside the event log, so a verdict and whatever could end
   its Inspection (a review, a newer Claim, a plan or state change, a lost Inspector) run one at
-  a time per Constellation. The verdict checks that it is current, weighs the Claim's receipts
-  and merges inside that step.
+  a time per Constellation. The verdict checks that the Constellation still takes changes and
+  that it is current, weighs the Claim's receipts and merges inside that step.
+- An Inspector's confinement may not depend on names a checkout can write: its Codex profile and
+  verdict server are named per thread, and where a sandbox leaves the checkout writable (Claude
+  Code on Linux) it gets file reads only.
+- Waiting for a remote worker's head adds no timer: the deadline is the Inspection's start plus
+  five minutes, on the Constellation's existing wake.
 - Board's claim fencing (epoch and token) isn't needed: per-Attempt MCP tokens and the
   decider's current-Attempt check already refuse stale writes.

@@ -11,11 +11,15 @@ import {
   ReviewAction,
   type SessionId,
 } from "@polaris/protocol";
-import { Effect, Layer, Predicate, Schema } from "effect";
+import { Effect, Layer, Predicate, Schema, Stream } from "effect";
 import { TestClock } from "effect/testing";
 import { A, C, CID, LEAD, draft, report } from "../../engine/constellation.testing.ts";
 import { ConstellationRuntime } from "../runtime.ts";
-import { REMOTE_HEAD_WAIT } from "./runner.ts";
+import { type BranchStatusService } from "../transfers/branches.ts";
+import { REMOTE_HEAD_WAIT_MS } from "./wake.ts";
+import { join } from "node:path";
+import { tempDir } from "../../engine/testing.ts";
+import { removeTempDir } from "../../git/testing.ts";
 import { EventStore } from "../../store/EventStore.ts";
 import { ConstellationDelivery } from "../delivery/index.ts";
 import { finish, send, setup, wait, world, WORKER } from "../delivery/testing.ts";
@@ -316,34 +320,55 @@ const remoteAttempt = Schema.decodeUnknownSync(Attempt)({
   hostId: REMOTE,
 });
 
-test("a remote worker's Claim is inspected only once its claimed head has reached this Host", async () => {
+/** The Lead's repository as the transfers see it: which remote Claims' heads have arrived. */
+const leadRepository = () => {
   let fetched = false;
-  const asked: Array<string> = [];
+  const listeners: Array<(id: typeof CID) => Effect.Effect<void>> = [];
+
+  const service: BranchStatusService = {
+    read: (graph) =>
+      Effect.sync(
+        () =>
+          new Set(fetched ? graph.attempts.filter((a) => a.hostId === REMOTE).map((a) => a.id) : [])
+      ),
+    changed: (id) => Effect.forEach(listeners, (listen) => listen(id), { discard: true }),
+    onChanged: (listener) => Effect.sync(() => void listeners.push(listener)),
+    subscribe: () => Effect.succeed(Stream.empty),
+  };
+
+  /** The bundle is imported, as `constellation.bundle.import` reports it. */
+  const arrive = Effect.suspend(() => {
+    fetched = true;
+
+    return service.changed(CID, ATTEMPT);
+  });
+
+  return { service, arrive };
+};
+
+test("a remote worker's Claim is inspected once its head arrives, with no timer of its own", async () => {
+  const repository = leadRepository();
 
   const w = world(":memory:", {
     inspections: true,
     attempt: remoteAttempt,
-    fetchedHead: (repo, _graph, attempt, head) =>
-      Effect.sync(() => {
-        asked.push(`${repo} ${attempt.id} ${head}`);
-
-        return fetched;
-      }),
+    branches: repository.service,
   });
 
   await w.run(
     Effect.gen(function* () {
       yield* claimMarked();
-      yield* wait(() => Effect.succeed(asked.length > 0));
-      yield* TestClock.adjust(REMOTE_HEAD_WAIT.every);
-      yield* wait(() => Effect.succeed(asked.length > 1));
+      const delivery = yield* ConstellationDelivery;
+      const since = Date.parse((yield* inspection).startedAt);
 
       // The bundle is still on its way: no Inspector judges a commit it can't read.
+      yield* TestClock.setTime(since + REMOTE_HEAD_WAIT_MS - 1);
+      yield* delivery.flush();
       expect(w.turns).toEqual([]);
-      expect(asked[0]).toBe("/tmp a1 head");
+      expect((yield* inspection).state).toBe("pending");
 
-      fetched = true;
-      yield* TestClock.adjust(REMOTE_HEAD_WAIT.every);
+      // The arrival itself starts it: the clock does not move.
+      yield* repository.arrive;
       yield* wait(() => Effect.succeed(w.turns.length === 1));
 
       expect(w.turns[0]!.sessionId).toBe((yield* inspection).sessionId);
@@ -351,29 +376,39 @@ test("a remote worker's Claim is inspected only once its claimed head has reache
   );
 });
 
-test("a remote head that never arrives releases the Claim to the Lead", async () => {
-  let looks = 0;
+test("the wait for a remote head counts from the Claim across a restart, then releases the Claim to the Lead", async () => {
+  const dir = tempDir();
+  const options = { inspections: true, attempt: remoteAttempt, branches: leadRepository().service };
 
-  const w = world(":memory:", {
-    inspections: true,
-    attempt: remoteAttempt,
-    fetchedHead: () => Effect.sync(() => (looks++, false)),
-  });
+  try {
+    const since = await world(join(dir, "state.sqlite"), options).run(
+      Effect.gen(function* () {
+        yield* claimMarked();
 
-  await w.run(
-    Effect.gen(function* () {
-      yield* claimMarked();
+        return Date.parse((yield* inspection).startedAt);
+      })
+    );
 
-      for (let look = 1; look <= REMOTE_HEAD_WAIT.looks; look++) {
-        yield* wait(() => Effect.succeed(looks === look));
-        yield* TestClock.adjust(REMOTE_HEAD_WAIT.every);
-      }
+    // A new Daemon on the same store, most of the wait already gone.
+    const restarted = world(join(dir, "state.sqlite"), options);
 
-      const store = yield* EventStore;
-      yield* wait(() => lostIn(store));
+    await restarted.run(
+      Effect.gen(function* () {
+        const store = yield* EventStore;
+        yield* TestClock.setTime(since + REMOTE_HEAD_WAIT_MS - 1000);
+        yield* (yield* ConstellationDelivery).start();
+        yield* (yield* ConstellationDelivery).flush();
+        expect((yield* inspection).state).toBe("pending");
 
-      expect((yield* inspection).reason).toBe("its commit head never reached this host");
-      expect(w.turns).toEqual([]);
-    })
-  );
+        // The one wake of the Constellation fires at the deadline the Claim set, not a new one.
+        yield* TestClock.adjust(1000);
+        yield* wait(() => lostIn(store));
+
+        expect((yield* inspection).reason).toBe("its commit head never reached this host");
+        expect(restarted.turns).toEqual([]);
+      })
+    );
+  } finally {
+    removeTempDir(dir);
+  }
 });

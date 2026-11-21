@@ -253,6 +253,13 @@ export const unsandboxedReadOnly = (confinement: ReadConfinement, bound?: BoundS
     disallowedTools: [...NEVER, "Bash", ...hiddenReads(confinement)],
   }) satisfies Partial<Options>;
 
+/**
+ * Whether the session gets the sandboxed shell. `bound` marks an Inspector, which reads a
+ * checkout its worker wrote: no shell where the sandbox leaves that checkout writable (Linux).
+ */
+export const shellAllowed = (sandbox: ClaudeSandbox, bound?: BoundServers) =>
+  sandbox.available && (bound === undefined || sandbox.checkoutReadOnly === true);
+
 /** `env` is the session's own (`readOnlyEnv`): whatever the shell doesn't need is unset in it. */
 export const readOnlyOptions = (
   sandbox: ClaudeSandbox,
@@ -260,7 +267,7 @@ export const readOnlyOptions = (
   env: Readonly<Record<string, string>>,
   bound?: BoundServers
 ): Partial<Options> =>
-  sandbox.available
+  shellAllowed(sandbox, bound)
     ? sandboxedReadOnly(confinement, env, bound)
     : unsandboxedReadOnly(confinement, bound);
 
