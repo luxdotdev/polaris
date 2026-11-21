@@ -5,6 +5,7 @@
  */
 import {
   decideUserAccess,
+  accessFor,
   type LinkedDevice,
   UserAccessGate,
   type UserAccessRequired,
@@ -16,13 +17,17 @@ import { pairingOf } from "../extensions/connection.ts";
 import { deviceOf } from "../linkedDevices/connection.ts";
 import { type TeammateDevice, teammateOf } from "../shares/connection.ts";
 import type { UserAccessRegistry } from "../userAccess/index.ts";
+import type { Actor } from "./actor.ts";
 
 /** Of a `dispatch` payload, the gate needs only the Command's tag. */
 const dispatchTag = Schema.decodeUnknownOption(
   Schema.Struct({ command: Schema.Struct({ _tag: Schema.String }) })
 );
 
+const settingsWrites = new Set(["settings.set", "clientSettings.set"]);
+
 export interface TransportFacts {
+  readonly actorOf?: (client: Rpc.ServerClient) => Actor;
   readonly tokenRequired: (client: Rpc.ServerClient) => boolean;
   /** The Linked Device a connection came in as, from the transport rather than annotations. */
   readonly deviceOf?: (client: Rpc.ServerClient) => LinkedDevice | null;
@@ -68,6 +73,15 @@ export const userAccessGateFor = (transport: TransportFacts, registry: UserAcces
     const command = Predicate.isTagged(rpc, "dispatch")
       ? Option.getOrNull(Option.map(dispatchTag(payload), (p) => p.command._tag))
       : null;
+
+    // Session start/turn Grants are checked by the Engine; approval and secret RPCs keep this gate.
+    const access = accessFor(rpc._tag, command).access;
+
+    if (
+      transport.actorOf?.(client).kind === "agentSession" &&
+      (access === "start" || access === "turn" || settingsWrites.has(rpc._tag))
+    )
+      return effect;
 
     const refusal = decideUserAccess(rpc._tag, command, registry.holds(client));
 

@@ -8,6 +8,7 @@
  * running stops it on the next start instead of leaking it.
  */
 import { harnessEnv } from "../environment.ts";
+import { harnessProcesses } from "../processIdentity.ts";
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Duration, Effect, Option, Schema, type Scope, Semaphore } from "effect";
@@ -171,6 +172,15 @@ export const acquireServer = (
         stdout: "pipe",
         stderr: Bun.file(logFile),
       });
+
+      if (process.platform !== "win32") {
+        const unregister = harnessProcesses.register(proc.pid, {
+          kind: "agentUnattributed",
+          harnessServer: "OpenCode",
+        });
+
+        void proc.exited.then(unregister);
+      }
 
       const url = yield* Effect.tryPromise({
         try: () => readUrl(proc.stdout),

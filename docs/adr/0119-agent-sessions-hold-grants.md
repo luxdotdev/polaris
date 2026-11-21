@@ -30,6 +30,7 @@ trusted: an agent can strip them. Only a process outside every session acts as t
 
 ## Consequences
 
+- Shared Codex/OpenCode servers remain read-only unattributed agents until ENG-1027 separates their process trees.
 - The same rule covers agents in any Harness, and any tool they run.
 - A process that escapes the tree (double-fork into launchd, `ssh localhost`) is not caught;
   ADR 0100's user-key gate still protects the user-only actions.

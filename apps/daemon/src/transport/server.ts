@@ -14,6 +14,8 @@ import {
   type BlobError,
   type ByteTransport,
   type Capability,
+  Command,
+  type NotGranted,
   GrantGate,
   ShareGate,
   UserAccessGate,
@@ -29,6 +31,7 @@ import {
   Effect,
   Latch,
   Layer,
+  Option,
   Predicate,
   Queue,
   Schema,
@@ -82,7 +85,9 @@ import { acquireLock, type DaemonAlreadyRunning, LockError } from "./lock.ts";
 import { ConnectionBlobs, ServerRpcs } from "./rpcs.ts";
 import { tokenlessClient, userAccessGateFor } from "./userAccess.ts";
 import { ConnectionUserAccess, userAccessFile, userAccessRegistry } from "../userAccess/index.ts";
-import { listen, prepareSocketPath } from "./socket.ts";
+import { listen, localActorOf, prepareSocketPath } from "./socket.ts";
+import { type Actor, type ActorRequest, authorize, ConnectionActor, userActor } from "./actor.ts";
+import { recoverHarnessProcesses } from "../harness/recoverProcesses.ts";
 import { languageIdentityFor, revokeLanguageIdentity } from "./languageIdentity.ts";
 import {
   HostLanguageEnvironment,
@@ -102,6 +107,11 @@ export const TRANSPORT_CAPABILITIES: ReadonlyArray<Capability> = [
 ];
 
 export interface ServeOptions<ROut, E, RIn> {
+  /** The Engine's live session Grant/Approval check; shared servers always stay read-only. */
+  readonly authorizeActor?: (
+    actor: Extract<Actor, { kind: "agentSession" }>,
+    request: ActorRequest
+  ) => Effect.Effect<void, NotGranted>;
   /** Real handlers; any RPC they don't cover falls back to the placeholders. */
   readonly handlers?: Layer.Layer<ROut, E, RIn>;
   /** Extra capabilities announced in `hello`, on top of TRANSPORT_CAPABILITIES. */
@@ -155,6 +165,8 @@ const blobError = (error: BlobError) =>
 
 const tokenHello = Schema.is(Schema.Struct({ extensionToken: Schema.String }));
 
+const actorCommand = Schema.decodeUnknownOption(Schema.Struct({ command: Command }));
+
 const requestId = Schema.is(Schema.Union([Schema.String, Schema.Number]));
 
 /** The tags of `ServerRpcs` that stream: their handler Spans link to the Client's (ENG-732). */
@@ -203,6 +215,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       | CurrentLanguageConnection
       | HostLanguageEnvironment
       | LanguageConnectionLifetime
+      | ConnectionActor
       | RelayRoute
       | LinkedDevices
       | HostSecrets
@@ -255,6 +268,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       number,
       {
         readonly wire: Wire;
+        readonly actor: Actor;
         readonly blobs: BlobChannel["Service"];
         readonly clients: Set<Rpc.ServerClient>;
         readonly lifetimes: Map<Rpc.ServerClient, ConnectionLanguageLifetime>;
@@ -410,9 +424,13 @@ export const startServer = <ROut = never, E = never, RIn = never>(
         connections.get(client.id)?.tokenRequired ?? options.extensionTokenRequired ?? false,
       deviceOf: (client: Rpc.ServerClient) => connections.get(client.id)?.device ?? null,
       teammateOf: (client: Rpc.ServerClient) => connections.get(client.id)?.teammate ?? null,
+      actorOf: (client: Rpc.ServerClient): Actor =>
+        tokenlessClient(client, transportFacts)
+          ? (connections.get(client.id)?.actor ?? userActor)
+          : userActor,
     };
 
-    const connectionMiddleware = ConnectionBlobs.of((effect, { client, rpc }) => {
+    const connectionMiddleware = ConnectionBlobs.of((effect, { client, rpc, payload }) => {
       const connection = connections.get(client.id);
 
       if (connection === undefined || connection.closing) {
@@ -422,6 +440,23 @@ export const startServer = <ROut = never, E = never, RIn = never>(
       }
 
       connection.clients.add(client);
+      const actor = transportFacts.actorOf(client);
+      client.annotate(ConnectionActor, actor);
+
+      const command =
+        actor.kind === "user"
+          ? null
+          : Option.getOrNull(Option.map(actorCommand(payload), (value) => value.command));
+
+      const authorization =
+        actor.kind === "agentSession" && options.authorizeActor !== undefined
+          ? options.authorizeActor(actor, { rpc: rpc._tag, command })
+          : authorize(actor, ["read", "comment"], {
+              rpc: rpc._tag,
+              command: command?._tag ?? null,
+            });
+
+      const authorized = Effect.andThen(authorization, effect);
 
       // Handlers with a check of their own read the user gate's answer, live (ADR 0114).
       if (Context.getOrUndefined(client.annotations, ConnectionUserAccess) === undefined)
@@ -450,13 +485,14 @@ export const startServer = <ROut = never, E = never, RIn = never>(
         connection.lifetimes.set(client, lifetime);
       }
 
-      return effect.pipe(
+      return authorized.pipe(
         Effect.tap(() =>
           Effect.sync(() => {
             if (Predicate.isTagged(rpc, "hello")) connection.authenticated();
           })
         ),
         Effect.provideService(BlobChannel, connection.blobs),
+        Effect.provideService(ConnectionActor, actor),
         Effect.provideService(LanguageConnectionLifetime, { attach: lifetime.attach }),
         Effect.provideService(CurrentLanguageConnection, {
           current,
@@ -518,6 +554,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
                   platform: currentLanguagePlatform(),
                 }),
                 LanguageConnectionLifetime.unavailableLayer,
+                Layer.succeed(ConnectionActor)(userActor),
                 Layer.succeed(CurrentLanguageConnection)({ current: () => null })
               )
             )
@@ -617,6 +654,7 @@ export const startServer = <ROut = never, E = never, RIn = never>(
 
           const connection = {
             wire,
+            actor: localActorOf(transport),
             blobs: blobChannelFor(wire),
             clients,
             lifetimes,
@@ -687,6 +725,10 @@ export const startServer = <ROut = never, E = never, RIn = never>(
         )
       );
     yield* phase(`listening on ${socketPath}`);
+    yield* Effect.acquireRelease(
+      Effect.promise(() => recoverHarnessProcesses(root)),
+      (unregister) => Effect.sync(unregister)
+    );
     const listener = yield* listen(socketPath);
     yield* listener.connections.pipe(
       Stream.runForEach((transport) => Effect.forkIn(serveConnection(transport, false), scope)),

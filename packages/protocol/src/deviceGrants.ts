@@ -322,6 +322,8 @@ export const DEVICE_RPCS = {
   "developerMode.setWorkspace": "local",
   "developerMode.lease": "local",
   "developerMode.watch": "device",
+  "inspection.watch": "local",
+  "inspection.respond": "local",
   "traces.ingestSelf": "device",
   "requests.watch": "local",
   "requests.save": "local",

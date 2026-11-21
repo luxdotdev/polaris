@@ -1,3 +1,4 @@
+import type { CommandInstallView } from "./commandInstall.ts";
 /**
  * The typed bridge between the main process and the renderer: channel names,
  * what every request returns, what every subscription delivers, and the API
@@ -474,6 +475,9 @@ export interface RequestOutputs
     PredictionPlacementOutputs,
     PredictionOutcomeOutputs {
   "constellation.stats": ConstellationStatsView;
+  "commandInstall.get": CommandInstallView;
+  "commandInstall.change": CommandInstallView;
+  "commandInstall.dismiss": CommandInstallView;
   "settings.get": SettingsView;
   "updates.get": AppUpdateView;
   "updates.check": AppUpdateView;

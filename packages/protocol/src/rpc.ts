@@ -28,11 +28,15 @@ import {
   AcceptRefused,
   CommitGranularity,
 } from "./accept.ts";
-import { AttachmentSettings, AttachmentUsage, StagedAmount } from "./attachments.ts";
+import { ClearAttachments, GetAttachmentSettings, SetAttachmentSettings } from "./attachments.ts";
+
+export { ClearAttachments, GetAttachmentSettings, SetAttachmentSettings } from "./attachments.ts";
+
 import { AutoArchiveRpcs } from "./autoArchive.ts";
 import { IdleCompactionRpcs } from "./idleCompaction.ts";
 import { SuggestedReplyRpcs } from "./suggestedReply.ts";
 import { VisualsRpcs } from "./visuals.ts";
+import { InspectionRpcs } from "./inspection.ts";
 import { DeveloperModeRpcs } from "./developerMode.ts";
 import { SelfTraceRpcs } from "./selfTraces.ts";
 import { ContinuityRpcs } from "./continuity.ts";
@@ -725,26 +729,6 @@ export const ReadAttachment = Rpc.make("attachments.read", {
   error: FileError,
 });
 
-/** The Host's cleanup settings and what it has staged (capability `attachments.settings`). */
-export const GetAttachmentSettings = Rpc.make("attachments.settings", {
-  payload: {},
-  success: Schema.Struct({ settings: AttachmentSettings, usage: AttachmentUsage }),
-  error: Schema.Union([Unsupported, FileError]),
-});
-
-/** Replaces the cleanup settings; they apply from the next sweep or archive. */
-export const SetAttachmentSettings = Rpc.make("attachments.setSettings", {
-  payload: { settings: AttachmentSettings },
-  error: Schema.Union([Unsupported, FileError]),
-});
-
-/** Deletes staged attachments now, all of them or one Workspace's; answers what it removed. */
-export const ClearAttachments = Rpc.make("attachments.clear", {
-  payload: { workspaceId: Schema.NullOr(WorkspaceId) },
-  success: StagedAmount,
-  error: Schema.Union([Unsupported, FileError]),
-});
-
 /** Every Daemon RPC before the user gate; `DaemonRpcTag` reads its tags. */
 export const DaemonRpcDefinitions = RpcGroup.make(
   InlinePropose,
@@ -792,7 +776,7 @@ export const DaemonRpcDefinitions = RpcGroup.make(
   .merge(ConstellationHostRpcs, ResourceRpcs, EditorFileRpcs)
   .merge(LanguageRpcs, PredictionRpcs, SessionTurnRpcs)
   .merge(AutoArchiveRpcs, IdleCompactionRpcs, ContinuityRpcs, PresenceRpcs, HostStatsRpcs)
-  .merge(VisualsRpcs, SuggestedReplyRpcs)
+  .merge(VisualsRpcs, SuggestedReplyRpcs, InspectionRpcs)
   .merge(GitWriteRpcs, GitWatchRpcs, GitLogRpcs, CommitMessageRpcs, OriginRpcs)
   .merge(ExtensionRpcs, RemoteAccessRpcs, LinkedDeviceRpcs, VoiceRpcs, RestartRpcs)
   .merge(SecretRpcs, TerminalRpcs, DataRpcs, TracesRpcs, TracesSettingsRpcs, SettingsRpcs)

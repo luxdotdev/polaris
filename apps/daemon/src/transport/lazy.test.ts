@@ -7,6 +7,7 @@ import { Rpc, RpcGroup } from "effect/rpc";
 import { RequestId } from "effect/rpc/RpcMessage";
 import { BlobChannel } from "../services.ts";
 import { ConnectionBlobs } from "./rpcs.ts";
+import { ConnectionActor } from "./actor.ts";
 import { cacheDaemonBuild, lazyRpcLayer } from "./lazy.ts";
 import { newTempDir, removeTempDir } from "../platform/tempDir.testing.ts";
 
@@ -77,7 +78,9 @@ test("lazy RPCs share one Daemon build while streams retain request Scope and Bl
             })
           );
 
-          return yield* (yield* BlobChannel).offer(new Uint8Array());
+          const actor = yield* ConnectionActor;
+
+          return `${actor.kind}:${yield* (yield* BlobChannel).offer(new Uint8Array())}`;
         });
 
         const load = yield* Effect.cached(
@@ -89,7 +92,10 @@ test("lazy RPCs share one Daemon build while streams retain request Scope and Bl
               "test.read": () => read,
               "test.watch": () => Stream.fromEffect(read),
             })
-          ).pipe(Effect.provideService(BlobChannel, blobs("daemon")))
+          ).pipe(
+            Effect.provideService(BlobChannel, blobs("daemon")),
+            Effect.provideService(ConnectionActor, { kind: "user" })
+          )
         );
 
         const handlers = yield* Layer.buildWithMemoMap(lazyRpcLayer(rpcs, load), memo, daemon);
@@ -111,13 +117,22 @@ test("lazy RPCs share one Daemon build while streams retain request Scope and Bl
 
         const results = yield* Effect.all(
           [
-            request.pipe(Effect.provideService(BlobChannel, blobs("one"))),
-            request.pipe(Effect.provideService(BlobChannel, blobs("two"))),
+            request.pipe(
+              Effect.provideService(BlobChannel, blobs("one")),
+              Effect.provideService(ConnectionActor, {
+                kind: "agentUnattributed",
+                harnessServer: "Codex",
+              })
+            ),
+            request.pipe(
+              Effect.provideService(BlobChannel, blobs("two")),
+              Effect.provideService(ConnectionActor, { kind: "user" })
+            ),
           ],
           { concurrency: "unbounded" }
         ).pipe(Effect.provide(handlers));
 
-        expect(results).toEqual(["one", "two"]);
+        expect(results).toEqual(["agentUnattributed:one", "user:two"]);
         expect(builds).toBe(1);
         expect(closed).toBe(2);
 
@@ -130,9 +145,13 @@ test("lazy RPCs share one Daemon build while streams retain request Scope and Bl
               Stream.runCollect
             );
           })
-        ).pipe(Effect.provide(handlers), Effect.provideService(BlobChannel, blobs("stream")));
+        ).pipe(
+          Effect.provide(handlers),
+          Effect.provideService(BlobChannel, blobs("stream")),
+          Effect.provideService(ConnectionActor, { kind: "user" })
+        );
 
-        expect(values).toEqual(["stream"]);
+        expect(values).toEqual(["user:stream"]);
         expect(closed).toBe(3);
         expect(builds).toBe(1);
       })

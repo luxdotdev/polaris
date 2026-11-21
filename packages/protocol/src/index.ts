@@ -12,6 +12,8 @@ export * from "./visuals.ts";
 
 export * from "./developerMode.ts";
 
+export * from "./inspection.ts";
+
 export * from "./selfTraces.ts";
 
 export * from "./traceContext.ts";

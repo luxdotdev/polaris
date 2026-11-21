@@ -14,6 +14,8 @@ import {
 import { makeFakeCodex } from "./testing/fakeCodex.ts";
 import { posixTest } from "../../platform/testing.ts";
 import { newTempDir, removeTempDir } from "../../platform/tempDir.testing.ts";
+import { harnessProcesses } from "../processIdentity.ts";
+import { startServer } from "../../transport/server.ts";
 
 const dirs: Array<string> = [];
 
@@ -61,6 +63,30 @@ const recordedPid = (stateFile: string) => {
 
   return state.pid;
 };
+
+test.skipIf(process.platform === "win32")(
+  "a surviving shared Codex server is unattributed before its lazy driver loads",
+  async () => {
+    const { dir, stateFile, options } = setup();
+    await connectOnce(options);
+    const pid = recordedPid(stateFile);
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          yield* startServer({
+            root: dir,
+            socketPath: join(dir, "d.sock"),
+            lockPath: join(dir, "d.lock"),
+          });
+          expect(harnessProcesses.actorFor(pid)).toEqual({
+            kind: "agentUnattributed",
+            harnessServer: "Codex",
+          });
+        })
+      )
+    );
+  }
+);
 
 const parentOf = (pid: number) =>
   Number(

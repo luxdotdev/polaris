@@ -310,6 +310,12 @@ export const RequestInputs = {
   ...PredictionUiInputs,
   ...PredictionPlacementInputs,
   ...PredictionOutcomeInputs,
+  "commandInstall.get": Schema.Struct({}),
+  "commandInstall.change": Schema.Struct({
+    action: Schema.Literals(["install", "uninstall"]),
+    location: Schema.Literals(["user", "system"]),
+  }),
+  "commandInstall.dismiss": Schema.Struct({}),
   "settings.get": Schema.Struct({}),
   "updates.get": Schema.Struct({}),
   "updates.check": Schema.Struct({}),

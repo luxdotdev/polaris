@@ -86,6 +86,7 @@ export const Settings = Schema.Struct({
   window: Schema.optionalKey(Schema.Unknown),
   /** Set once "Get started" is pressed on the welcome (onboarding O1). */
   welcomeSeen: Schema.optionalKey(Schema.Boolean),
+  commandInstallDismissed: Schema.optionalKey(Schema.Boolean),
 });
 
 export type Settings = typeof Settings.Type;

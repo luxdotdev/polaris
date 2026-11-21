@@ -6,6 +6,7 @@ import { BlobChannel } from "../services.ts";
 import { EventStore } from "../store/EventStore.ts";
 import { CurrentLanguageConnection } from "./currentLanguageConnection.ts";
 import { LanguageConnectionLifetime } from "./languageConnectionLifetime.ts";
+import { ConnectionActor } from "./actor.ts";
 import { paths } from "../paths.ts";
 import { needsConstellationStartup } from "../constellation/composition/startup.ts";
 import type { constellationHandlers } from "../constellation/composition/index.ts";
@@ -56,6 +57,7 @@ export const lazyRpcLayer = <
             BlobChannel,
             CurrentLanguageConnection,
             LanguageConnectionLifetime,
+            ConnectionActor,
             Tracer.ParentSpan,
             References.CurrentStackFrame
           )(handler.context);

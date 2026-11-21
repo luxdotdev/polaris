@@ -1,4 +1,5 @@
 import { followSessionDefaults } from "./hostSessionDefaults.ts";
+import { createCommandInstaller } from "./commandInstall.ts";
 import { writeSecret } from "./secretClipboard.ts";
 import { createMainPredictionPlacement } from "./prediction/placement.ts";
 import { PredictionSettings } from "./prediction/preferences.ts";
@@ -51,6 +52,7 @@ import {
 } from "./hosts.ts";
 import { Effect, Layer, Option, SubscriptionRef } from "effect";
 import { type PresenceWatch, watchPresence } from "./presence/index.ts";
+import { serveInspection } from "./inspection.ts";
 import { hostDeveloperModes } from "./developerMode/index.ts";
 import { followFocus, followReviewRequests, githubLayer } from "./github/electron.ts";
 import { legacyTokens } from "./github/store.ts";
@@ -499,6 +501,7 @@ const start = async () => {
         followSessionDefaults(sessions, settings.sessionDefaults ?? {}, (defaults) =>
           publishSessionDefaults(hostKey, defaults)
         ),
+      inspection: serveInspection,
       entries: hostEntries({
         local: localDaemon,
         remotes: settings.hosts ?? [],
@@ -620,6 +623,11 @@ const start = async () => {
     selfTraces,
     crashes: (report) => recordCrash(rendererCrashEntry(report)),
     context: {
+      commandInstaller: createCommandInstaller({
+        path: () => env.PATH ?? "",
+        dismissed: () => settings.commandInstallDismissed === true,
+        dismiss: () => saveSettings({ commandInstallDismissed: true }),
+      }),
       selfTracesEnabled: selfTraces.enabled,
       browser: browsers,
       updates: currentUpdates,
