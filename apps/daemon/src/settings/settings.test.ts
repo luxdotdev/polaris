@@ -172,3 +172,21 @@ test("malformed legacy files and invalid fields keep their original bytes withou
   expect(saved.legacy["reviewer-settings.json"]).toBe("{broken-json");
   expect(saved.legacy["visuals-settings.json"]).toEqual({ level: "loud", future: 7 });
 });
+
+test("discovery exposes only described trace fields while preserving unknown legacy data privately", () => {
+  const { root, path, store } = fixture();
+
+  const legacy = {
+    ws: { forwarding: false, privateHeaders: { authorization: "legacy-only-secret" } },
+  };
+
+  writeFileSync(join(root, "trace-settings.json"), JSON.stringify(legacy));
+  expect(store.get("traces.workspaces").value).toEqual({ ws: { forwarding: false } });
+  expect(JSON.stringify(store.list())).not.toContain("legacy-only-secret");
+
+  const saved = Schema.decodeUnknownSync(
+    Schema.fromJsonString(Schema.Struct({ legacy: Schema.JsonObject }))
+  )(readFileSync(path, "utf8"));
+
+  expect(saved.legacy["trace-settings.json"]).toEqual(legacy);
+});

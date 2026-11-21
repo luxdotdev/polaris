@@ -85,7 +85,13 @@ const migrate = (path: string, override?: { group: Group | "traces"; path: strin
     const original = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.JsonObject))(text);
     legacy["trace-settings.json"] = Option.isSome(original) ? original.value : text;
 
-    if (Option.isSome(original)) values["traces.workspaces"] = original.value;
+    const traceSchema = schemaFor("traces.workspaces")!;
+    const parsed = Option.flatMap(original, Schema.decodeUnknownOption(traceSchema));
+
+    if (Option.isSome(parsed))
+      values["traces.workspaces"] = Schema.encodeSync(Schema.toCodecJson(traceSchema))(
+        parsed.value
+      );
   }
 
   const saved = { values, legacy };
@@ -135,7 +141,9 @@ const view = (saved: Saved, key: string): SettingValue => {
 
   return {
     ...description,
-    value: overridden ? saved.values[key]! : description.default,
+    value: Schema.encodeSync(Schema.toCodecJson(schema(key)))(
+      Schema.decodeUnknownSync(schema(key))(overridden ? saved.values[key]! : description.default)
+    ),
     overridden,
   };
 };
