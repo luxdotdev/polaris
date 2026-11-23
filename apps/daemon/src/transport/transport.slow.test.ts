@@ -838,7 +838,9 @@ describe("transport", () => {
 
         expect(host.daemonVersion.length).toBeGreaterThan(0);
         expect(Number((await Bun.file(join(home, "daemon.pid")).text()).trim())).toBe(daemon.pid!);
-        expect(Number((await Bun.file(join(home, "daemon.lock")).text()).trim())).toBe(daemon.pid!);
+        expect(Number((await Bun.file(join(home, "daemon.lock")).text()).split("\n")[0])).toBe(
+          daemon.pid!
+        );
       } finally {
         daemon.kill("SIGTERM");
         await new Promise((resolve) => daemon.once("exit", resolve));
